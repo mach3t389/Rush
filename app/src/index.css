@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* ── Google Fonts ─────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Montserrat:wght@200;300;400;500;600;700;900&display=swap');
+
+/* ── Design System Tokens (Tailwind v4 @theme) ────────────────────── */
+@theme {
+  --color-bg:        #0c0c0b;
+  --color-surface:   #141413;
+  --color-surface-2: #1b1b19;
+  --color-surface-3: #232320;
+
+  --color-accent:     #f9ff00;
+  --color-accent-dim: #c9cf18;
+  --color-on-accent:  #14140a;
+
+  --color-text:   #f3f3ee;
+  --color-text-2: #aeaea6;
+  --color-text-3: #74746c;
+
+  --color-ok:     oklch(0.78 0.15 150);
+  --color-warn:   oklch(0.80 0.15 75);
+  --color-info:   oklch(0.74 0.13 240);
+  --color-danger: oklch(0.68 0.18 25);
+  --color-review: oklch(0.72 0.15 310);
+
+  --font-display: 'Montserrat', system-ui, sans-serif;
+  --font-body:    'Montserrat', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-card: 14px;
+  --radius-btn:   9px;
+  --radius-lg:   20px;
+  --radius-pill: 999px;
+}
+
+/* ── CSS Variables (pour inline styles & composants) ─────────────── */
+:root {
+  --bg:        #0c0c0b;
+  --surface:   #141413;
+  --surface-2: #1b1b19;
+  --surface-3: #232320;
+
+  --border:    rgba(255,255,255,0.09);
+  --border-2:  rgba(255,255,255,0.16);
+
+  --text:      #f3f3ee;
+  --text-2:    #aeaea6;
+  --text-3:    #74746c;
+
+  --accent:     #f9ff00;
+  --accent-dim: #c9cf18;
+  --on-accent:  #14140a;
+
+  --ok:     oklch(0.78 0.15 150);
+  --warn:   oklch(0.80 0.15 75);
+  --info:   oklch(0.74 0.13 240);
+  --danger: oklch(0.68 0.18 25);
+  --review: oklch(0.72 0.15 310);
+
+  --radius:    14px;
+  --radius-sm:  9px;
+  --radius-lg: 20px;
+
+  --shadow: 0 1px 0 rgba(255,255,255,0.04) inset,
+            0 18px 40px -24px rgba(0,0,0,0.8);
+
+  --ff-display: 'Montserrat', system-ui, sans-serif;
+  --ff-text:    'Montserrat', system-ui, sans-serif;
+  --ff-mono:    'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* ── Reset ────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--ff-text);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ── Selection ────────────────────────────────────────────────────── */
+::selection { background: var(--accent); color: var(--on-accent); }
+
+/* ── Base interactive ─────────────────────────────────────────────── */
+button { cursor: pointer; font-family: inherit; border: none; background: none; }
+input, select, textarea { font-family: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }

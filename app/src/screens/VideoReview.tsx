@@ -1,0 +1,1024 @@
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
+import { getResources } from '../data/resourceStore';
+import { markResourceRead } from '../data/notificationStore';
+import { addDeliverable } from '../data/taskStore';
+import type { Resource, Status } from '../types';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type DrawTool = 'point' | 'circle' | 'arrow';
+
+type ReviewStatus = 'open' | 'review' | 'approved' | 'closed';
+
+interface Annotation {
+  tool: DrawTool;
+  x1: number; y1: number;
+  x2: number; y2: number;
+  color: string;
+}
+
+interface Reply {
+  id: string;
+  author: typeof USERS.lea;
+  text: string;
+}
+
+interface LocalComment {
+  id: string;
+  author: typeof USERS.lea;
+  text: string;
+  timeLabel: string | null;
+  timeSeconds: number | null;
+  status: 'open' | 'resolved';
+  annotation?: Annotation;
+  replies: Reply[];
+}
+
+interface VideoTask {
+  id: string;
+  title: string;
+  timeLabel?: string;
+  done: boolean;
+  priority: 'high' | 'normal' | 'low';
+}
+
+interface UpcomingItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+interface LocalVersion {
+  v: string;
+  status: Status;
+  label: string;
+  date: string;
+  author: typeof USERS.lea;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function secsToLabel(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+const TOTAL = 208;
+
+// Plausible upload dates for the seeded versions
+const VERSION_SEED_DATES: Record<string, string> = {
+  V1: '2 juin', V2: '5 juin', V3: '8 juin', V4: '10 juin',
+};
+
+const TODAY_LABEL = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+
+const REVIEW_STATUSES: { key: ReviewStatus; label: string; status: 'review' | 'ok' | 'warn' | 'neutral' }[] = [
+  { key: 'open',     label: 'Ouvert',      status: 'neutral' },
+  { key: 'review',   label: 'En révision', status: 'review'  },
+  { key: 'approved', label: 'Approuvé',    status: 'ok'      },
+  { key: 'closed',   label: 'Fermé',       status: 'warn'    },
+];
+
+const TEAM = Object.values(USERS);
+
+// ── Annotation SVG overlay ────────────────────────────────────────────────────
+
+function AnnotationLayer({
+  annotations, activeId, pending, drawing, drawTool,
+  onMouseDown, onMouseMove, onMouseUp,
+}: {
+  annotations: { id: string; annotation: Annotation }[];
+  activeId: string | null;
+  pending: Annotation | null;
+  drawing: Annotation | null;
+  drawTool: DrawTool | null;
+  onMouseDown: (e: React.MouseEvent<SVGSVGElement>) => void;
+  onMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
+  onMouseUp: (e: React.MouseEvent<SVGSVGElement>) => void;
+}) {
+  const renderAnnotation = (ann: Annotation, key: string, opacity = 1, dashed = false) => {
+    const strokeProps = { stroke: ann.color, strokeWidth: 2.5, fill: 'none', strokeDasharray: dashed ? '6 3' : undefined, opacity };
+    const x1 = `${ann.x1 * 100}%`; const y1 = `${ann.y1 * 100}%`;
+    const x2 = `${ann.x2 * 100}%`; const y2 = `${ann.y2 * 100}%`;
+    if (ann.tool === 'point') {
+      return (
+        <g key={key} opacity={opacity}>
+          <circle cx={x1} cy={y1} r="14" fill={ann.color} fillOpacity={0.2} stroke={ann.color} strokeWidth={2.5} strokeDasharray={dashed ? '6 3' : undefined} />
+          <circle cx={x1} cy={y1} r="4" fill={ann.color} />
+          <line x1={`${ann.x1 * 100 - 2}%`} y1={y1} x2={`${ann.x1 * 100 + 2}%`} y2={y1} stroke={ann.color} strokeWidth={2} opacity={0.7} />
+          <line x1={x1} y1={`${ann.y1 * 100 - 2}%`} x2={x1} y2={`${ann.y1 * 100 + 2}%`} stroke={ann.color} strokeWidth={2} opacity={0.7} />
+        </g>
+      );
+    }
+    if (ann.tool === 'circle') {
+      const cx = (ann.x1 + ann.x2) / 2 * 100; const cy = (ann.y1 + ann.y2) / 2 * 100;
+      const rx = Math.abs(ann.x2 - ann.x1) / 2 * 100; const ry = Math.abs(ann.y2 - ann.y1) / 2 * 100;
+      return <ellipse key={key} cx={`${cx}%`} cy={`${cy}%`} rx={`${rx}%`} ry={`${ry}%`} fill={ann.color} fillOpacity={0.1} {...strokeProps} />;
+    }
+    if (ann.tool === 'arrow') {
+      const markerId = `arrow-${key.replace(/[^a-z0-9]/gi, '')}`;
+      return (
+        <g key={key}>
+          <defs>
+            <marker id={markerId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill={ann.color} opacity={opacity} />
+            </marker>
+          </defs>
+          <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={ann.color} strokeWidth={2.5} strokeDasharray={dashed ? '6 3' : undefined} markerEnd={`url(#${markerId})`} opacity={opacity} />
+        </g>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <svg
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawTool ? 'crosshair' : 'default', userSelect: 'none', pointerEvents: drawTool ? 'auto' : 'none', zIndex: 2 }}
+      onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
+    >
+      {annotations.map(({ id, annotation }) => renderAnnotation(annotation, id, activeId === id ? 1 : activeId ? 0.25 : 0.6))}
+      {pending && renderAnnotation(pending, 'pending', 1)}
+      {drawing && renderAnnotation(drawing, 'drawing', 0.8, true)}
+    </svg>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+export function VideoReviewBody({ resource, projectId }: { resource: Resource; projectId?: string }) {
+
+  const [tab, setTab]             = useState<'comments' | 'tasks'>('comments');
+  const [taskCreatedFlash, setTaskCreatedFlash] = useState(false);
+  const [playing, setPlaying]     = useState(false);
+  const [currentTime, setCurrentTime] = useState(63);
+
+  // Versions (local, so they can be added / removed)
+  const [versions, setVersions] = useState<LocalVersion[]>(() =>
+    VIDEO_VERSIONS.map(v => ({
+      v: v.v, status: v.status, label: v.label,
+      date: VERSION_SEED_DATES[v.v] ?? '', author: USERS.lea,
+    }))
+  );
+  const initialActive = VIDEO_VERSIONS.find(v => v.active)?.v ?? VIDEO_VERSIONS[VIDEO_VERSIONS.length - 1]?.v ?? 'V1';
+  const [activeVersion, setVersion] = useState(initialActive);
+  const [addVersionOpen, setAddVersionOpen] = useState(false);
+  const [newVersionNote, setNewVersionNote] = useState('');
+  const [versionToDelete, setVersionToDelete] = useState<LocalVersion | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [withTimestamp, setWithTimestamp] = useState(true);
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>('review');
+  const [statusDropOpen, setStatusDropOpen] = useState(false);
+  const [statusDropRect, setStatusDropRect] = useState<DOMRect | null>(null);
+  const statusDropRef = useRef<HTMLButtonElement>(null);
+
+  // Upcoming items
+  const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>([
+    { id: 'ui1', text: 'Ajouter le générique de fin', done: false },
+    { id: 'ui2', text: 'Remplacer la musique de fond', done: false },
+    { id: 'ui3', text: 'Color grading final', done: false },
+  ]);
+  const [newUpcomingText, setNewUpcomingText] = useState('');
+  const [upcomingCollapsed, setUpcomingCollapsed] = useState(false);
+
+  // Drawing
+  const [drawTool, setDrawTool]   = useState<DrawTool | null>(null);
+  const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
+  const [liveAnnotation, setLiveAnnotation]       = useState<Annotation | null>(null);
+  const drawStart = useRef<{ x: number; y: number } | null>(null);
+  const videoFrameRef = useRef<HTMLDivElement>(null);
+
+  const TOOL_COLORS: Record<DrawTool, string> = {
+    point:  '#f9ff00',
+    circle: '#00c2ff',
+    arrow:  '#ff6b35',
+  };
+
+  const [comments, setComments] = useState<LocalComment[]>(
+    VIDEO_COMMENTS.map(c => ({
+      id: c.id,
+      author: c.author as typeof USERS.lea,
+      text: c.text,
+      timeLabel: c.timeLabel,
+      timeSeconds: c.timeSeconds,
+      status: c.resolved ? 'resolved' : 'open',
+      replies: [],
+    }))
+  );
+
+  // Reply state per comment
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+
+  // @mention support
+  const [commentMentionQuery, setCommentMentionQuery] = useState<string | null>(null);
+  const [commentMentionRect, setCommentMentionRect] = useState<DOMRect | null>(null);
+  const [replyMentionQuery, setReplyMentionQuery] = useState<string | null>(null);
+  const [replyMentionRect, setReplyMentionRect] = useState<DOMRect | null>(null);
+
+  const [tasks, setTasks] = useState<VideoTask[]>([
+    { id: 'vt1', title: "Couper l'intro de 3 secondes", timeLabel: '0:08', done: false, priority: 'high' },
+    { id: 'vt2', title: 'Mixer le volume de la musique', timeLabel: '1:14', done: false, priority: 'normal' },
+  ]);
+
+  // ── Playback engine (simulated — advances currentTime in real wall-clock time) ──
+  // Uses setInterval with a timestamp delta so playback stays accurate even when the
+  // tab is backgrounded (rAF would freeze; intervals keep ticking).
+  useEffect(() => {
+    if (!playing) return;
+    let last = performance.now();
+    const id = window.setInterval(() => {
+      const now = performance.now();
+      const dt = (now - last) / 1000;
+      last = now;
+      setCurrentTime(t => {
+        const next = t + dt;
+        if (next >= TOTAL) { setPlaying(false); return TOTAL; }
+        return next;
+      });
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [playing]);
+
+  // Spacebar toggles play/pause (unless typing in a field)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+      if (e.code === 'Space' && !typing) {
+        e.preventDefault();
+        setCurrentTime(t => (t >= TOTAL ? 0 : t));
+        setPlaying(p => !p);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const togglePlay = () => {
+    setCurrentTime(t => (t >= TOTAL ? 0 : t));
+    setPlaying(p => !p);
+  };
+
+  const seekBy = (delta: number) =>
+    setCurrentTime(t => Math.max(0, Math.min(TOTAL, t + delta)));
+
+  // ── Version management ──
+  const nextVersionName = () => {
+    const nums = versions.map(v => parseInt(v.v.replace(/\D/g, ''), 10)).filter(n => !Number.isNaN(n));
+    return `V${(nums.length ? Math.max(...nums) : 0) + 1}`;
+  };
+
+  const addVersion = () => {
+    const name = nextVersionName();
+    const newV: LocalVersion = {
+      v: name, status: 'review', label: newVersionNote.trim() || 'En révision',
+      date: TODAY_LABEL, author: USERS.lea,
+    };
+    setVersions(p => [...p, newV]);
+    setVersion(name);
+    setNewVersionNote('');
+    setAddVersionOpen(false);
+  };
+
+  const confirmDeleteVersion = () => {
+    if (!versionToDelete) return;
+    const target = versionToDelete;
+    setVersions(prev => {
+      const next = prev.filter(v => v.v !== target.v);
+      if (activeVersion === target.v && next.length) setVersion(next[next.length - 1].v);
+      return next;
+    });
+    setVersionToDelete(null);
+  };
+
+  const getNormPos = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = e.currentTarget as SVGSVGElement;
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+    };
+  }, []);
+
+  const handleSvgMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!drawTool) return;
+    const { x, y } = getNormPos(e);
+    drawStart.current = { x, y };
+    setLiveAnnotation({ tool: drawTool, x1: x, y1: y, x2: x, y2: y, color: TOOL_COLORS[drawTool] });
+  }, [drawTool, getNormPos]);
+
+  const handleSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!drawTool || !drawStart.current) return;
+    const { x, y } = getNormPos(e);
+    setLiveAnnotation({ tool: drawTool, x1: drawStart.current.x, y1: drawStart.current.y, x2: x, y2: y, color: TOOL_COLORS[drawTool] });
+  }, [drawTool, getNormPos]);
+
+  const handleSvgMouseUp = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!drawTool || !drawStart.current) return;
+    const { x, y } = getNormPos(e);
+    setPendingAnnotation({ tool: drawTool, x1: drawStart.current.x, y1: drawStart.current.y, x2: x, y2: y, color: TOOL_COLORS[drawTool] });
+    setLiveAnnotation(null);
+    drawStart.current = null;
+    setDrawTool(null);
+    setTimeout(() => document.getElementById('vr-comment-input')?.focus(), 50);
+  }, [drawTool, getNormPos]);
+
+  const addComment = () => {
+    if (!commentText.trim()) return;
+    const ts = withTimestamp ? Math.round(currentTime) : null;
+    const newC: LocalComment = {
+      id: `c${Date.now()}`,
+      author: USERS.lea,
+      text: commentText.trim(),
+      timeLabel: ts !== null ? secsToLabel(ts) : null,
+      timeSeconds: ts,
+      status: 'open',
+      annotation: pendingAnnotation ?? undefined,
+      replies: [],
+    };
+    setComments(p => [newC, ...p]);
+    setCommentText('');
+    setPendingAnnotation(null);
+    setActiveCommentId(newC.id);
+  };
+
+  const cycleCommentStatus = (id: string) =>
+    setComments(p => p.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
+
+  const convertToTask = (c: LocalComment) => {
+    const newTask: VideoTask = { id: `vt${Date.now()}`, title: c.text.slice(0, 80), timeLabel: c.timeLabel ?? undefined, done: false, priority: 'normal' };
+    setTasks(p => [...p, newTask]);
+    if (projectId) {
+      const project = PROJECTS.find(p => p.id === projectId);
+      addDeliverable(projectId, {
+        id: newTask.id,
+        title: newTask.title,
+        projectId: projectId,
+        projectName: project?.name ?? '',
+        projectColor: project?.clientColor ?? '#888',
+        assignee: USERS.lea,
+        status: '' as any,
+        statusLabel: '',
+        priority: 'normal',
+        priorityLabel: 'Normal',
+        dueDate: '',
+        checked: false,
+      });
+    }
+    setTaskCreatedFlash(true);
+    setTimeout(() => setTaskCreatedFlash(false), 2000);
+  };
+
+  const addReply = (commentId: string) => {
+    if (!replyText.trim()) return;
+    const reply: Reply = { id: `r${Date.now()}`, author: USERS.lea, text: replyText.trim() };
+    setComments(p => p.map(c => c.id === commentId ? { ...c, replies: [...c.replies, reply] } : c));
+    setReplyText('');
+    setReplyingTo(null);
+  };
+
+  const jumpToComment = (c: LocalComment) => {
+    if (c.timeSeconds !== null) setCurrentTime(c.timeSeconds);
+    setActiveCommentId(c.id);
+    setTab('comments');
+  };
+
+  const openStatusDrop = () => {
+    if (statusDropRef.current) {
+      setStatusDropRect(statusDropRef.current.getBoundingClientRect());
+      setStatusDropOpen(true);
+    }
+  };
+
+  const addUpcomingItem = () => {
+    if (!newUpcomingText.trim()) return;
+    setUpcomingItems(p => [...p, { id: `ui${Date.now()}`, text: newUpcomingText.trim(), done: false }]);
+    setNewUpcomingText('');
+  };
+
+  const handleCommentChange = (val: string, el: HTMLInputElement | null) => {
+    setCommentText(val);
+    const m = val.match(/@(\w*)$/);
+    if (m) { setCommentMentionQuery(m[1]); if (el) setCommentMentionRect(el.getBoundingClientRect()); }
+    else setCommentMentionQuery(null);
+  };
+
+  const pickCommentMention = (name: string) => {
+    setCommentText(prev => prev.replace(/@\w*$/, `@${name} `));
+    setCommentMentionQuery(null);
+  };
+
+  const handleReplyChange = (val: string, el: HTMLInputElement | null) => {
+    setReplyText(val);
+    const m = val.match(/@(\w*)$/);
+    if (m) { setReplyMentionQuery(m[1]); if (el) setReplyMentionRect(el.getBoundingClientRect()); }
+    else setReplyMentionQuery(null);
+  };
+
+  const pickReplyMention = (name: string) => {
+    setReplyText(prev => prev.replace(/@\w*$/, `@${name} `));
+    setReplyMentionQuery(null);
+  };
+
+  const renderMentions = (text: string) => text.split(/(@\S+)/g).map((part, i) =>
+    part.startsWith('@')
+      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
+      : part
+  );
+
+  const annotatedComments = comments.filter(c => c.annotation).map(c => ({ id: c.id, annotation: c.annotation! }));
+  const unresolvedCount   = comments.filter(c => c.status !== 'resolved').length;
+  const openTaskCount     = tasks.filter(t => !t.done).length;
+
+  const currentStatusMeta = REVIEW_STATUSES.find(s => s.key === reviewStatus)!;
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* ── Versions + Annotation bar at top ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
+        {/* Versions */}
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+          {versions.map(v => {
+            const isActive = activeVersion === v.v;
+            return (
+              <div key={v.v} style={{ position: 'relative' }}
+                onMouseEnter={e => { const x = e.currentTarget.querySelector('.vr-del') as HTMLElement | null; if (x) x.style.opacity = '1'; }}
+                onMouseLeave={e => { const x = e.currentTarget.querySelector('.vr-del') as HTMLElement | null; if (x) x.style.opacity = '0'; }}>
+                <button onClick={() => setVersion(v.v)}
+                  title={`${v.v} · ${v.label}${v.date ? ` · ${v.date}` : ''}`}
+                  style={{ padding: '3px 10px', borderRadius: 8, border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border-2)'}`, background: isActive ? 'rgba(249,255,0,0.1)' : 'transparent', color: isActive ? 'var(--accent)' : 'var(--text-2)', fontFamily: 'var(--ff-mono)', fontSize: 10, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <span>{v.v}</span>
+                  <span style={{ fontSize: 8, color: isActive ? 'rgba(249,255,0,0.6)' : 'var(--text-3)' }}>{v.label}</span>
+                </button>
+                {versions.length > 1 && (
+                  <button className="vr-del"
+                    onClick={e => { e.stopPropagation(); setVersionToDelete(v); }}
+                    title={`Supprimer ${v.v}`}
+                    style={{ position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%', background: 'var(--danger)', border: '2px solid var(--surface)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0, transition: 'opacity 0.12s', padding: 0, zIndex: 2 }}>
+                    <SFIcon name="x" size={8} color="white" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          <button onClick={() => setAddVersionOpen(true)}
+            title="Téléverser une nouvelle version"
+            style={{ padding: '3px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 10, fontFamily: 'var(--ff-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
+            <SFIcon name="upload" size={10} color="inherit" />Version
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
+
+        {/* Annotation tools */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 2 }}>Annoter</span>
+          {([
+            { tool: 'point' as DrawTool,  icon: 'mouse-pointer-2', label: 'Pointer',  color: TOOL_COLORS.point  },
+            { tool: 'circle' as DrawTool, icon: 'circle',          label: 'Entourer', color: TOOL_COLORS.circle },
+            { tool: 'arrow' as DrawTool,  icon: 'arrow-up-right',  label: 'Flèche',   color: TOOL_COLORS.arrow  },
+          ] as const).map(({ tool, icon, label, color }) => (
+            <button key={tool} onClick={() => setDrawTool(t => t === tool ? null : tool)}
+              title={label}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: `1px solid ${drawTool === tool ? color : 'var(--border)'}`, background: drawTool === tool ? `${color}18` : 'var(--surface-2)', color: drawTool === tool ? color : 'var(--text-2)', fontSize: 11, cursor: 'pointer', transition: 'all 0.12s' }}>
+              <SFIcon name={icon} size={12} color="inherit" />
+              {label}
+            </button>
+          ))}
+          {pendingAnnotation && (
+            <button onClick={() => setPendingAnnotation(null)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer' }}>
+              <SFIcon name="trash-2" size={11} />Effacer
+            </button>
+          )}
+        </div>
+
+        <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{secsToLabel(currentTime)} / 03:28</span>
+      </div>
+
+      {/* ── Body row ── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+        {/* ── Left: player ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 0' }}>
+
+          {/* Video frame */}
+          <div ref={videoFrameRef}
+            onClick={() => { if (!drawTool) togglePlay(); }}
+            style={{ borderRadius: 12, background: '#0a0a0a', aspectRatio: '16/9', position: 'relative', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, cursor: drawTool ? 'crosshair' : 'pointer' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 11px)' }} />
+
+            {/* Burned-in timecode */}
+            <div style={{ position: 'absolute', top: 10, left: 12, fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'rgba(255,255,255,0.55)', background: 'rgba(0,0,0,0.45)', padding: '2px 7px', borderRadius: 5, letterSpacing: '0.08em', pointerEvents: 'none', zIndex: 4 }}>
+              {activeVersion} · {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
+            </div>
+
+            {/* Playback scan line (motion cue) */}
+            {playing && (
+              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(currentTime / TOTAL) * 100}%`, width: 2, background: 'rgba(249,255,0,0.45)', boxShadow: '0 0 8px rgba(249,255,0,0.5)', pointerEvents: 'none', zIndex: 3 }} />
+            )}
+
+            {/* Center overlay — only when paused & not drawing */}
+            {!drawTool && !playing && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, pointerEvents: 'none', zIndex: 1 }}>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(249,255,0,0.14)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SFIcon name="play" size={24} color="var(--accent)" />
+                </div>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: 6, letterSpacing: '0.06em' }}>
+                  {activeVersion} — {resource?.title ?? 'ROUGH CUT'}
+                </span>
+              </div>
+            )}
+            {drawTool && (
+              <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', border: `1px solid ${TOOL_COLORS[drawTool]}`, borderRadius: 8, padding: '5px 14px', pointerEvents: 'none', zIndex: 5 }}>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: TOOL_COLORS[drawTool] }}>
+                  {drawTool === 'point' ? 'Cliquez pour marquer un point' : drawTool === 'circle' ? 'Glissez pour entourer une zone' : 'Glissez pour tracer une flèche'}
+                </span>
+              </div>
+            )}
+            {pendingAnnotation && !drawTool && (
+              <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', border: '1px solid var(--accent)', borderRadius: 8, padding: '5px 14px', pointerEvents: 'none', zIndex: 5 }}>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)' }}>Annotation prête · Rédigez votre commentaire →</span>
+              </div>
+            )}
+            <AnnotationLayer
+              annotations={annotatedComments} activeId={activeCommentId}
+              pending={pendingAnnotation} drawing={liveAnnotation} drawTool={drawTool}
+              onMouseDown={handleSvgMouseDown} onMouseMove={handleSvgMouseMove} onMouseUp={handleSvgMouseUp}
+            />
+          </div>
+
+          {/* Timeline */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 6px', flexShrink: 0 }}>
+            <button onClick={() => seekBy(-5)} title="Reculer de 5s"
+              style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
+              <SFIcon name="rewind" size={12} color="inherit" />
+            </button>
+            <button onClick={togglePlay} title={playing ? 'Pause (Espace)' : 'Lecture (Espace)'}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <SFIcon name={playing ? 'pause' : currentTime >= TOTAL ? 'rotate-ccw' : 'play'} size={14} color="var(--on-accent)" />
+            </button>
+            <button onClick={() => seekBy(5)} title="Avancer de 5s"
+              style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
+              <SFIcon name="fast-forward" size={12} color="inherit" />
+            </button>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'center' }}>{secsToLabel(currentTime)} / {secsToLabel(TOTAL)}</span>
+            <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}
+              onClick={e => {
+                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                setCurrentTime(Math.max(0, Math.min(TOTAL, (e.clientX - rect.left) / rect.width * TOTAL)));
+                setActiveCommentId(null);
+              }}>
+              <div style={{ width: `${(currentTime / TOTAL) * 100}%`, height: '100%', borderRadius: 999, background: 'var(--accent)', position: 'absolute', top: 0, left: 0 }} />
+              {comments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (
+                <div key={c.id}
+                  title={`${c.timeLabel} — ${c.author.name}: ${c.text.slice(0, 40)}`}
+                  onClick={e => { e.stopPropagation(); jumpToComment(c); }}
+                  style={{ position: 'absolute', top: '50%', left: `${(c.timeSeconds! / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: activeCommentId === c.id ? 14 : 10, height: activeCommentId === c.id ? 14 : 10, borderRadius: '50%', background: c.annotation ? c.annotation.color : 'var(--accent)', border: `2px solid ${activeCommentId === c.id ? 'white' : 'var(--bg)'}`, zIndex: activeCommentId === c.id ? 3 : 1, transition: 'all 0.15s', cursor: 'pointer' }}
+                />
+              ))}
+              {tasks.filter(t => t.timeLabel && !t.done).map(t => {
+                const [m, s] = (t.timeLabel ?? '0:0').split(':').map(Number);
+                const secs = m * 60 + s;
+                return <div key={t.id} title={t.title} style={{ position: 'absolute', top: '50%', left: `${(secs / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', border: '2px solid var(--bg)', zIndex: 1 }} />;
+              })}
+              <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', zIndex: 2 }} />
+            </div>
+          </div>
+
+          {/* ── Upcoming items panel ── */}
+          <div style={{ flexShrink: 0, border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12, marginTop: 6 }}>
+            <button
+              onClick={() => setUpcomingCollapsed(v => !v)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+              <SFIcon name={upcomingCollapsed ? 'chevron-right' : 'chevron-down'} size={12} color="var(--text-3)" />
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Éléments à venir · prochaine version
+              </span>
+              <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
+                {upcomingItems.filter(i => !i.done).length} en attente
+              </span>
+            </button>
+            {!upcomingCollapsed && (
+              <div style={{ background: 'var(--surface)', padding: '8px 12px' }}>
+                {upcomingItems.map(item => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+                    <button
+                      onClick={() => setUpcomingItems(p => p.map(i => i.id === item.id ? { ...i, done: !i.done } : i))}
+                      style={{ width: 15, height: 15, borderRadius: '50%', flexShrink: 0, border: item.done ? 'none' : '1.5px solid var(--border-2)', background: item.done ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      {item.done && <SFIcon name="check" size={8} color="white" />}
+                    </button>
+                    <span style={{ flex: 1, fontSize: 11, color: item.done ? 'var(--text-3)' : 'var(--text-2)', textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</span>
+                    <button onClick={() => setUpcomingItems(p => p.filter(i => i.id !== item.id))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2 }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
+                      <SFIcon name="x" size={11} />
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 6, paddingTop: 8 }}>
+                  <input
+                    value={newUpcomingText}
+                    onChange={e => setNewUpcomingText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addUpcomingItem(); }}
+                    placeholder="Ajouter un élément à venir…"
+                    style={{ flex: 1, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+                  />
+                  <button onClick={addUpcomingItem}
+                    style={{ padding: '5px 10px', borderRadius: 7, border: 'none', background: newUpcomingText.trim() ? 'var(--accent)' : 'var(--surface-3)', color: newUpcomingText.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 11, cursor: newUpcomingText.trim() ? 'pointer' : 'default' }}>
+                    Ajouter
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right: comments panel ── */}
+        <div style={{ width: 380, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+
+          {/* Resource summary */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>VIDÉO · {activeVersion}</p>
+                <p style={{ fontWeight: 600, fontSize: 13, marginTop: 2 }}>{resource?.title ?? 'Rough Cut'}</p>
+              </div>
+              {/* Status dropdown */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={statusDropRef}
+                  onClick={openStatusDrop}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <SFPill status={currentStatusMeta.status} small>{currentStatusMeta.label}</SFPill>
+                  <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[
+                { label: 'Commentaires', value: comments.length },
+                { label: 'Ouverts', value: unresolvedCount, color: 'var(--warn)' },
+                { label: 'Tâches', value: openTaskCount, color: 'var(--info)' },
+              ].map(s => (
+                <div key={s.label} style={{ flex: 1, textAlign: 'center', padding: '6px 0', borderRadius: 8, background: 'var(--surface-2)' }}>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: s.color ?? 'var(--text)' }}>{s.value}</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            {([
+              ['comments', `Commentaires (${unresolvedCount})`],
+              ['tasks',    `Tâches (${openTaskCount})`],
+            ] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)}
+                style={{ flex: 1, padding: '10px 4px', fontSize: 11, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Comment list */}
+          <div style={{ flex: 1, overflow: 'auto' }}>
+
+            {tab === 'comments' && (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {comments.length === 0 && (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Aucun commentaire pour le moment.</div>
+                )}
+                {comments.map(c => {
+                  const isActive = activeCommentId === c.id;
+                  return (
+                    <div key={c.id}>
+                      <div
+                        onClick={() => jumpToComment(c)}
+                        style={{ display: 'flex', gap: 10, padding: '12px 16px', borderBottom: c.replies.length > 0 || replyingTo === c.id ? 'none' : '1px solid var(--border)', opacity: c.status === 'resolved' ? 0.5 : 1, background: isActive ? 'rgba(249,255,0,0.04)' : 'transparent', borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = isActive ? 'rgba(249,255,0,0.04)' : 'transparent'; }}
+                      >
+                        <SFAvatar initials={c.author.initials} bg={c.author.avatarColor} size={26} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: 12 }}>{c.author.name.split(' ')[0]}</span>
+                            {c.timeLabel !== null ? (
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', background: 'rgba(249,255,0,0.1)', padding: '1px 6px', borderRadius: 5 }}>{c.timeLabel}</span>
+                            ) : (
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 5, border: '1px solid var(--border)' }}>Général</span>
+                            )}
+                            {c.annotation && (
+                              <span title={`Annotation : ${c.annotation.tool}`} style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'var(--ff-mono)', fontSize: 9, color: c.annotation.color, background: `${c.annotation.color}18`, padding: '1px 6px', borderRadius: 5, border: `1px solid ${c.annotation.color}44` }}>
+                                <SFIcon name={c.annotation.tool === 'circle' ? 'circle' : c.annotation.tool === 'arrow' ? 'arrow-up-right' : 'mouse-pointer-2'} size={9} color={c.annotation.color} />
+                                {c.annotation.tool === 'circle' ? 'Cercle' : c.annotation.tool === 'arrow' ? 'Flèche' : 'Point'}
+                              </span>
+                            )}
+                            {/* Status pill — click to cycle */}
+                            <button
+                              onClick={e => { e.stopPropagation(); cycleCommentStatus(c.id); }}
+                              title={c.status === 'resolved' ? 'Marquer comme ouvert' : 'Marquer comme résolu'}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 5, border: `1px solid ${c.status === 'resolved' ? 'var(--ok)' : 'var(--border-2)'}`, background: c.status === 'resolved' ? 'rgba(72,199,142,0.12)' : 'var(--surface-3)', color: c.status === 'resolved' ? 'var(--ok)' : 'var(--text-3)', fontSize: 9, fontFamily: 'var(--ff-mono)', cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                              {c.status === 'resolved' ? <SFIcon name="check-circle" size={9} color="var(--ok)" /> : <SFIcon name="circle-dot" size={9} color="var(--text-3)" />}
+                              {c.status === 'resolved' ? 'Résolu' : 'Ouvert'}
+                            </button>
+                          </div>
+                          <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 6 }}>{renderMentions(c.text)}</p>
+                          <div style={{ display: 'flex', gap: 5 }} onClick={e => e.stopPropagation()}>
+                            <button onClick={() => { setReplyingTo(r => r === c.id ? null : c.id); setReplyText(''); setReplyMentionQuery(null); }}
+                              style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
+                              Répondre
+                            </button>
+                            {taskCreatedFlash ? (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--ok)', background: 'rgba(72,199,142,0.10)', border: '1px solid rgba(72,199,142,0.3)', borderRadius: 6, padding: '2px 8px' }}>
+                                <SFIcon name="check" size={10} color="var(--ok)" />Tâche créée
+                              </span>
+                            ) : (
+                              <button onClick={() => convertToTask(c)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--info)', background: 'rgba(100,160,255,0.07)', border: '1px solid rgba(100,160,255,0.25)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
+                                <SFIcon name="plus" size={10} color="var(--info)" /><SFIcon name="check-square" size={10} color="var(--info)" />Tâche
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Replies */}
+                      {(c.replies.length > 0 || replyingTo === c.id) && (
+                        <div style={{ borderLeft: '3px solid transparent', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+                          {c.replies.map(r => (
+                            <div key={r.id} style={{ display: 'flex', gap: 8, padding: '6px 16px 0 42px' }}>
+                              <SFAvatar initials={r.author.initials} bg={r.author.avatarColor} size={20} />
+                              <div>
+                                <span style={{ fontWeight: 600, fontSize: 11 }}>{r.author.name.split(/\s/)[0]}</span>
+                                <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.5, marginTop: 1 }}>{r.text}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {replyingTo === c.id && (
+                            <div style={{ display: 'flex', gap: 6, padding: '6px 16px 0 42px', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                              {replyMentionQuery !== null && (
+                                <div style={{ position: 'fixed', bottom: replyMentionRect ? window.innerHeight - replyMentionRect.top + 4 : 60, left: replyMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                                  {TEAM.filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
+                                    <button key={u.id} onMouseDown={e => { e.preventDefault(); pickReplyMention(u.name); }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
+                                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: u.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'white', fontWeight: 700, flexShrink: 0 }}>{u.initials}</span>
+                                      {u.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <input
+                                autoFocus
+                                value={replyText}
+                                onChange={e => handleReplyChange(e.target.value, e.target)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addReply(c.id); } if (e.key === 'Escape') { setReplyingTo(null); setReplyMentionQuery(null); } }}
+                                placeholder="Répondre… (@ pour mentionner)"
+                                style={{ flex: 1, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+                              />
+                              <button onClick={() => addReply(c.id)}
+                                style={{ width: 28, height: 28, borderRadius: 7, background: replyText.trim() ? 'var(--accent)' : 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: replyText.trim() ? 'pointer' : 'default', flexShrink: 0 }}>
+                                <SFIcon name="send" size={11} color={replyText.trim() ? 'var(--on-accent)' : 'var(--text-3)'} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {tab === 'tasks' && (
+              <div style={{ padding: '8px 0' }}>
+                {tasks.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)', opacity: t.done ? 0.5 : 1 }}>
+                    <button onClick={() => setTasks(p => p.map(x => x.id === t.id ? { ...x, done: !x.done } : x))}
+                      style={{ width: 17, height: 17, borderRadius: '50%', flexShrink: 0, border: t.done ? 'none' : '1.5px solid var(--border-2)', background: t.done ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginTop: 2 }}>
+                      {t.done && <SFIcon name="check" size={9} color="white" />}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 500, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)', marginBottom: 3 }}>{t.title}</p>
+                      {t.timeLabel && (
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', background: 'rgba(249,255,0,0.07)', padding: '1px 6px', borderRadius: 5, cursor: 'pointer' }}
+                          onClick={() => { const [m, s] = (t.timeLabel ?? '0:0').split(':').map(Number); setCurrentTime(m * 60 + s); }}>
+                          {t.timeLabel}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => setTasks(p => p.filter(x => x.id !== t.id))}
+                      style={{ display: 'flex', padding: 3, borderRadius: 5, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
+                      <SFIcon name="trash-2" size={12} />
+                    </button>
+                  </div>
+                ))}
+                {tasks.length === 0 && (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>Convertissez des commentaires en tâches.</div>
+                )}
+              </div>
+            )}
+
+          </div>
+
+          {/* Comment compose */}
+          {tab === 'comments' && (
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
+              {pendingAnnotation && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '5px 10px', borderRadius: 8, border: `1px solid ${pendingAnnotation.color}55`, background: `${pendingAnnotation.color}0d` }}>
+                  <SFIcon name={pendingAnnotation.tool === 'circle' ? 'circle' : pendingAnnotation.tool === 'arrow' ? 'arrow-up-right' : 'mouse-pointer-2'} size={13} color={pendingAnnotation.color} />
+                  <span style={{ flex: 1, fontFamily: 'var(--ff-mono)', fontSize: 10, color: pendingAnnotation.color }}>Annotation jointe au prochain commentaire</span>
+                  <button onClick={() => setPendingAnnotation(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}>
+                    <SFIcon name="x" size={11} />
+                  </button>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <button onClick={() => setWithTimestamp(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, border: `1px solid ${withTimestamp ? 'var(--accent)' : 'var(--border)'}`, background: withTimestamp ? 'rgba(249,255,0,0.07)' : 'transparent', color: withTimestamp ? 'var(--accent)' : 'var(--text-3)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
+                  <SFIcon name="clock" size={10} color="inherit" />
+                  {withTimestamp ? secsToLabel(currentTime) : 'Général'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+                {commentMentionQuery !== null && (
+                  <div style={{ position: 'fixed', bottom: commentMentionRect ? window.innerHeight - commentMentionRect.top + 4 : 80, left: commentMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                    {TEAM.filter(u => u.name.toLowerCase().includes(commentMentionQuery.toLowerCase())).map(u => (
+                      <button key={u.id} onMouseDown={e => { e.preventDefault(); pickCommentMention(u.name); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: u.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'white', fontWeight: 700, flexShrink: 0 }}>{u.initials}</span>
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  id="vr-comment-input"
+                  value={commentText}
+                  onChange={e => handleCommentChange(e.target.value, e.target)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } if (e.key === 'Escape') setCommentMentionQuery(null); }}
+                  placeholder={withTimestamp ? `Commenter à ${secsToLabel(currentTime)}… (@ pour mentionner)` : 'Commentaire général… (@ pour mentionner)'}
+                  style={{ flex: 1, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+                />
+                <button onClick={addComment}
+                  style={{ width: 34, height: 34, borderRadius: 9, background: commentText.trim() ? 'var(--accent)' : 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: commentText.trim() ? 'pointer' : 'default', flexShrink: 0 }}>
+                  <SFIcon name="send" size={13} color={commentText.trim() ? 'var(--on-accent)' : 'var(--text-3)'} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status dropdown portal */}
+      {statusDropOpen && statusDropRect && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setStatusDropOpen(false)} />
+          <div style={{ position: 'fixed', top: statusDropRect.bottom + 4, right: window.innerWidth - statusDropRect.right, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.35)', overflow: 'hidden', minWidth: 160 }}>
+            {REVIEW_STATUSES.map(s => (
+              <button key={s.key} onClick={() => { setReviewStatus(s.key); setStatusDropOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px', background: s.key === reviewStatus ? 'var(--surface-3)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                <SFPill status={s.status} small>{s.label}</SFPill>
+                {s.key === reviewStatus && <SFIcon name="check" size={11} color="var(--accent)" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Add-version modal */}
+      {addVersionOpen && (
+        <>
+          <div onClick={() => setAddVersionOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1200 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 420, zIndex: 1201, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,0.7)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginBottom: 2 }}>{resource?.title ?? 'Rough Cut'}</p>
+                <h2 style={{ fontSize: 15, fontWeight: 700 }}>Téléverser une version</h2>
+              </div>
+              <button onClick={() => setAddVersionOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+            </div>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Drop zone (mock) */}
+              <div style={{ border: '1.5px dashed var(--border-2)', borderRadius: 12, padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, background: 'var(--surface-2)' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SFIcon name="upload-cloud" size={20} color="var(--accent)" />
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', textAlign: 'center' }}>Glissez un fichier vidéo ici</p>
+                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Sera enregistré comme <span style={{ color: 'var(--accent)' }}>{nextVersionName()}</span></p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Note de version (optionnelle)</label>
+                <input
+                  autoFocus
+                  value={newVersionNote}
+                  onChange={e => setNewVersionNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addVersion(); if (e.key === 'Escape') setAddVersionOpen(false); }}
+                  placeholder="ex. Corrections son + color grading"
+                  style={{ width: '100%', padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <SFButton variant="ghost" size="sm" onClick={() => setAddVersionOpen(false)}>Annuler</SFButton>
+              <SFButton variant="primary" size="sm" icon="plus" onClick={addVersion}>Créer {nextVersionName()}</SFButton>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Delete-version confirmation */}
+      {versionToDelete && (
+        <>
+          <div onClick={() => setVersionToDelete(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1200 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 380, zIndex: 1201, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,0.7)', padding: '22px', textAlign: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(229,72,77,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <SFIcon name="trash-2" size={20} color="var(--danger)" />
+            </div>
+            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Supprimer {versionToDelete.v} ?</h2>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
+              La version « {versionToDelete.label} » sera retirée de l'historique. Cette action est définitive.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <SFButton variant="ghost" size="sm" onClick={() => setVersionToDelete(null)}>Annuler</SFButton>
+              <SFButton variant="primary" size="sm" icon="trash-2" onClick={confirmDeleteVersion} style={{ background: 'var(--danger)', color: 'white' }}>Supprimer</SFButton>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Page wrapper with topbar + routing ────────────────────────────────────────
+
+export function VideoReview() {
+  const { projectId, resourceId } = useParams();
+  const navigate = useNavigate();
+
+  const resources = getResources();
+  const project  = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
+  const resource = resources.find(r => r.id === resourceId) ?? resources.find(r => r.type === 'video_review')!;
+
+  useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
+
+  const [shared, setShared] = useState(false);
+  const [approvalRequested, setApprovalRequested] = useState(false);
+
+  const handleShare = () => {
+    const url = window.location.href;
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).catch(() => {});
+    setShared(true);
+    setTimeout(() => setShared(false), 2000);
+  };
+
+  const handleRequestApproval = () => {
+    setApprovalRequested(true);
+    setTimeout(() => setApprovalRequested(false), 2500);
+  };
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>
+          <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clients</button>
+          <span>/</span>
+          <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{project.clientName}</button>
+          <span>/</span>
+          <button onClick={() => navigate(`/projets/${project.id}/ressources`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{project.name}</button>
+          <span>/</span>
+          <span style={{ color: 'var(--text-2)' }}>{resource?.title ?? 'Vidéo Review'}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <SFButton variant="secondary" icon={shared ? 'check' : 'share-2'} onClick={handleShare}>
+            {shared ? 'Lien copié' : 'Partager'}
+          </SFButton>
+          <SFButton variant="primary" icon={approvalRequested ? 'check' : 'send'} onClick={handleRequestApproval}
+            style={approvalRequested ? { background: 'var(--ok)', color: 'white' } : undefined}>
+            {approvalRequested ? 'Demande envoyée' : 'Demander approbation'}
+          </SFButton>
+        </div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <VideoReviewBody resource={resource} projectId={projectId} />
+      </div>
+    </div>
+  );
+}

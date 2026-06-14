@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rush — Gestion de production vidéo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Montserrat:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0c0c0b;
+      --surface:   #141413;
+      --surface-2: #1b1b19;
+      --surface-3: #232320;
+      --border:    rgba(255,255,255,0.09);
+      --border-2:  rgba(255,255,255,0.16);
+      --text:      #f3f3ee;
+      --text-2:    #aeaea6;
+      --text-3:    #74746c;
+      --accent:    #f9ff00;
+      --accent-dim:#c9cf18;
+      --on-accent: #14140a;
+      --ok:     oklch(0.78 0.15 150);
+      --warn:   oklch(0.80 0.15 75);
+      --info:   oklch(0.74 0.13 240);
+      --danger: oklch(0.68 0.18 25);
+      --review: oklch(0.72 0.15 310);
+      --radius:    14px;
+      --radius-sm:  9px;
+      --radius-lg: 20px;
+      --ff-display: 'Montserrat', system-ui, sans-serif;
+      --ff-text:    'Montserrat', system-ui, sans-serif;
+      --ff-mono:    'IBM Plex Mono', ui-monospace, monospace;
+      --shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 40px -24px rgba(0,0,0,0.8);
+    }
+    html, body, #root { height: 100%; overflow: hidden; }
+    body {
+      font-family: var(--ff-text);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    button { cursor: pointer; font-family: inherit; }
+    input, select, textarea { font-family: inherit; color: inherit; }
+    *::-webkit-scrollbar { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+    *::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+    ::selection { background: var(--accent); color: var(--on-accent); }
+    [data-lucide] { display: inline-flex; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="components/Shared.jsx"></script>
+  <script type="text/babel" src="components/ScreenTravail.jsx"></script>
+  <script type="text/babel" src="components/ScreenRessources.jsx"></script>
+  <script type="text/babel" src="components/ScreenTaches.jsx"></script>
+  <script type="text/babel" src="components/ScreenOnboarding.jsx"></script>
+  <script type="text/babel" src="components/ScreenVideoReview.jsx"></script>
+  <script type="text/babel" src="components/ScreenPortail.jsx"></script>
+  <script type="text/babel" src="components/ScreenActivite.jsx"></script>
+  <script type="text/babel" src="components/ScreenDashboard.jsx"></script>
+  <script type="text/babel" src="components/ScreenClients.jsx"></script>
+  <script type="text/babel" src="components/ScreenFicheClient.jsx"></script>
+  <script type="text/babel" src="components/ScreenProjets.jsx"></script>
+  <script type="text/babel" src="components/ScreenNotifications.jsx"></script>
+  <script type="text/babel" src="components/ScreenParametres.jsx"></script>
+  <script type="text/babel" src="App.jsx"></script>
+</body>
+</html>
