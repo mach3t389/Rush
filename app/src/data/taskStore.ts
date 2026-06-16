@@ -1,17 +1,31 @@
 import { PROJECT_TASKS } from './mock';
 import type { Task, SectionData } from '../types';
+import { loadPersisted, savePersisted } from './persist';
 
 type ProjectStore = Record<string, SectionData[]>;
 
-let _store: ProjectStore = Object.fromEntries(
-  Object.entries(PROJECT_TASKS).map(([k, sections]) => [
-    k,
-    sections.map(s => ({ ...s, tasks: s.tasks.map(t => ({ ...t })) })),
-  ])
-);
+const STORAGE_KEY = 'sf_project_tasks';
+
+function seedStore(): ProjectStore {
+  return Object.fromEntries(
+    Object.entries(PROJECT_TASKS).map(([k, sections]) => [
+      k,
+      sections.map(s => ({ ...s, tasks: s.tasks.map(t => ({ ...t })) })),
+    ])
+  );
+}
+
+// Seed from mock, then overlay any persisted edits. Projects newly added to the
+// seed (not yet in localStorage) still appear; projects the user edited win.
+let _store: ProjectStore = (() => {
+  const seeded = seedStore();
+  const persisted = loadPersisted<ProjectStore | null>(STORAGE_KEY, null);
+  return persisted ? { ...seeded, ...persisted } : seeded;
+})();
 
 const _listeners: Set<() => void> = new Set();
 function notify() { _listeners.forEach(fn => fn()); }
+function persist() { savePersisted(STORAGE_KEY, _store); }
 
 export function getSections(projectId: string): SectionData[] {
   return _store[projectId] ?? [];
@@ -19,6 +33,7 @@ export function getSections(projectId: string): SectionData[] {
 
 export function setSections(projectId: string, sections: SectionData[]): void {
   _store = { ..._store, [projectId]: sections };
+  persist();
   notify();
 }
 

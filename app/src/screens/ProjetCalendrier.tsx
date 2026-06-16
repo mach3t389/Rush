@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
+import { useParams } from 'react-router-dom';
+import { SFIcon, SFAvatar, SFButton } from '../components/ui';
+import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 
-// ── Constants & helpers ───────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const TODAY        = new Date(2026, 5, 10);
 const DAYS_FR      = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -65,7 +66,7 @@ interface CalEvent {
   id: string;
   title: string;
   eventTypeId: string;
-  projectId?: string;
+  projectId: string;
   projectName: string;
   projectColor: string;
   eventTypeColor: string;
@@ -76,45 +77,36 @@ interface CalEvent {
   description?: string;
   location?: string;
   participantIds?: string[];
-  sectionId?: string;
-  sectionLabel?: string;
 }
 
-function resolveEvents(eventTypes: EventType[]): CalEvent[] {
+function resolveProjectEvents(projectId: string, eventTypes: EventType[]): CalEvent[] {
   const typeMap = Object.fromEntries(eventTypes.map(t => [t.id, t]));
-  return getEvents().map(e => {
-    const p = e.projectId ? PROJECTS.find(x => x.id === e.projectId) : undefined;
-    const et = typeMap[e.eventTypeId] ?? { color: '#888', label: 'Autre', icon: 'circle' };
-    const parseDate = (s: string) => s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
-    return {
-      id: e.id,
-      title: e.title,
-      eventTypeId: e.eventTypeId,
-      projectId: e.projectId || '',
-      projectName: p?.clientName ?? '',
-      projectColor: p?.clientColor ?? '#555',
-      eventTypeColor: et.color,
-      eventTypeLabel: et.label,
-      startDate: parseDate(e.start),
-      endDate: parseDate(e.end),
-      allDay: e.allDay,
-      description: e.description,
-      location: e.location,
-      participantIds: e.memberIds,
-    };
-  });
+  return getEvents()
+    .filter(e => e.projectId === projectId)
+    .map(e => {
+      const p = PROJECTS.find(x => x.id === e.projectId);
+      const et = typeMap[e.eventTypeId] ?? { color: '#888', label: 'Autre', icon: 'circle' };
+      const parseDate = (s: string) => s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+      return {
+        id: e.id,
+        title: e.title,
+        eventTypeId: e.eventTypeId,
+        projectId: e.projectId,
+        projectName: p?.clientName ?? '',
+        projectColor: p?.clientColor ?? '#888',
+        eventTypeColor: et.color,
+        eventTypeLabel: et.label,
+        startDate: parseDate(e.start),
+        endDate: parseDate(e.end),
+        allDay: e.allDay,
+        description: e.description,
+        location: e.location,
+        participantIds: e.memberIds,
+      };
+    });
 }
 
-const PROJECT_SECTIONS: Record<string, { id: string; label: string }[]> = {
-  pj1: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj2: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj3: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj4: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj5: [{ id:'conception', label:'Conception' }, { id:'production', label:'Production' }, { id:'revisions', label:'Révisions' }, { id:'livraison', label:'Livraison' }],
-  pj6: [{ id:'production', label:'Production' }, { id:'livraison', label:'Livraison' }],
-};
-
-// ── Layout helper for overlapping events ──────────────────────────────────────
+// ── Layout helper ─────────────────────────────────────────────────────────────
 
 function layoutEvents(events: CalEvent[]) {
   const sorted=[...events].sort((a,b)=>a.startDate.getTime()-b.startDate.getTime());
@@ -127,15 +119,245 @@ function layoutEvents(events: CalEvent[]) {
     }
     if(!placed) cols.push([ev]);
   }
-  return sorted.map(ev=>{
-    const col=cols.findIndex(c=>c.includes(ev));
-    return {...ev,col,numCols:cols.length};
-  });
+  return sorted.map(ev=>({ ...ev, col:cols.findIndex(c=>c.includes(ev)), numCols:cols.length }));
+}
+
+// ── Event block ───────────────────────────────────────────────────────────────
+
+function EventBlock({ ev, col, numCols, onClick }: { ev: CalEvent; col: number; numCols: number; onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  const top = timeToY(ev.startDate);
+  const h   = Math.max(20, durationH(ev.startDate, ev.endDate));
+  const w   = `calc((100% - 8px) / ${numCols})`;
+  const left= `calc(4px + ${col} * (100% - 8px) / ${numCols})`;
+
+  return (
+    <div onClick={e=>{e.stopPropagation();onClick();}} onMouseDown={e=>e.stopPropagation()} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ position:'absolute', top, height:h, width:w, left, borderRadius:6, padding:'4px 7px', overflow:'hidden', cursor:'pointer', zIndex:5,
+        background:`${ev.eventTypeColor}cc`, border:`1px solid ${ev.eventTypeColor}`, borderLeft:`3px solid ${ev.projectColor}`, boxShadow:hov?`0 2px 12px ${ev.eventTypeColor}66`:undefined, transition:'box-shadow 0.15s',
+      }}
+    >
+      <p style={{ fontSize:11,fontWeight:700,color:'white',lineHeight:1.2,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
+      {h>30 && <p style={{ fontSize:10,color:'rgba(255,255,255,0.8)',fontFamily:'var(--ff-mono)' }}>{fmtTime(ev.startDate)} – {fmtTime(ev.endDate)}</p>}
+      {h>50 && ev.location && <p style={{ fontSize:9,color:'rgba(255,255,255,0.7)',marginTop:2 }}>📍 {ev.location}</p>}
+    </div>
+  );
+}
+
+// ── Month view ────────────────────────────────────────────────────────────────
+
+function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }: {
+  cur: Date;
+  events: CalEvent[];
+  tasks: { date: Date; title: string; color: string }[];
+  onDayClick: (d: Date) => void;
+  onEventClick: (ev: CalEvent) => void;
+  onCellClick: (d: Date) => void;
+}) {
+  const days = getMonthGrid(cur);
+  return (
+    <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
+      <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',borderBottom:'1px solid var(--border)',flexShrink:0 }}>
+        {DAYS_FR.map(d=>(
+          <div key={d} style={{ padding:'8px 0',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ flex:1,display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:`repeat(${days.length/7},1fr)`,overflow:'auto' }}>
+        {days.map((day,i)=>{
+          const isToday=isSameDay(day,TODAY);
+          const isCurMonth=day.getMonth()===cur.getMonth();
+          const dayEvents=events.filter(ev=>isSameDay(ev.startDate,day));
+          const dayTasks=tasks.filter(t=>isSameDay(t.date,day));
+          const visible=dayEvents.slice(0,2);
+          return (
+            <div key={i} onClick={()=>onCellClick(day)}
+              style={{ borderRight:i%7!==6?'1px solid var(--border)':undefined,borderBottom:'1px solid var(--border)',padding:'4px 6px 6px',minHeight:90,cursor:'pointer',background:isToday?'rgba(249,255,0,0.03)':undefined,position:'relative',overflow:'hidden' }}>
+              <button onClick={e=>{e.stopPropagation();onDayClick(day);}}
+                style={{ width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--ff-mono)',fontSize:12,cursor:'pointer',border:'none',background:isToday?'var(--accent)':'transparent',color:isToday?'var(--on-accent)':isCurMonth?'var(--text)':'var(--text-3)',fontWeight:isToday?700:400,marginBottom:4,flexShrink:0 }}
+              >{day.getDate()}</button>
+              {visible.map(ev=>(
+                <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
+                  style={{ display:'flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:5,background:`${ev.eventTypeColor}bb`,borderLeft:`3px solid ${ev.projectColor}`,marginBottom:2,cursor:'pointer' }}
+                >
+                  <span style={{ fontSize:10,fontWeight:600,color:'white',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{ev.title}</span>
+                  {!ev.allDay && <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'rgba(255,255,255,0.8)',flexShrink:0 }}>{fmtTime(ev.startDate)}</span>}
+                </div>
+              ))}
+              {dayEvents.length>2 && (
+                <div style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',padding:'1px 6px' }}>+{dayEvents.length-2} autres</div>
+              )}
+              {dayTasks.map((t,ti)=>(
+                <div key={ti} title={t.title}
+                  style={{ display:'flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:5,background:`${t.color}44`,borderLeft:`3px solid ${t.color}`,marginBottom:2,overflow:'hidden' }}
+                >
+                  <span style={{ fontSize:10,fontWeight:600,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{t.title}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Time grid view ────────────────────────────────────────────────────────────
+
+function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick }: {
+  days: Date[];
+  events: CalEvent[];
+  tasks: { date: Date; title: string; color: string }[];
+  onSlotClick: (d: Date, h: number) => void;
+  onRangeSelect: (d: Date, startH: number, startM: number, endH: number, endM: number) => void;
+  onEventClick: (ev: CalEvent) => void;
+  onAllDayClick?: (d: Date) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
+  const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
+
+  const yToTimeParts = (y: number): { h: number; m: number } => {
+    const totalMins = Math.round(((y / HOUR_H) * 60 + START_HOUR * 60) / 15) * 15;
+    const clamped = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, totalMins));
+    return { h: Math.floor(clamped / 60), m: clamped % 60 };
+  };
+
+  return (
+    <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
+      <div style={{ flexShrink:0,borderBottom:'1px solid var(--border)' }}>
+        <div style={{ display:'flex' }}>
+          <div style={{ width:52,flexShrink:0 }} />
+          {days.map((d,i)=>{
+            const isToday=isSameDay(d,TODAY);
+            return (
+              <div key={i} style={{ flex:1,borderLeft:i>0?'1px solid var(--border)':undefined,padding:'8px 6px 6px',minWidth:0 }}>
+                <div style={{ display:'flex',alignItems:'center',gap:6 }}>
+                  <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase' }}>{DAYS_FR[new Date(d).getDay()===0?6:new Date(d).getDay()-1]}</span>
+                  <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
+                    <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* All-day events row — always visible so clicking opens new all-day event */}
+        <div style={{ display:'flex', borderTop:'1px solid var(--border)' }}>
+          <div style={{ width:52,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8 }}>
+            <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>Journée</span>
+          </div>
+          {days.map((d,i)=>{
+            const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
+            return (
+              <div key={i}
+                onClick={()=>onAllDayClick?.(d)}
+                style={{ flex:1,borderLeft:i>0?'1px solid var(--border)':undefined,padding:'3px 4px',minWidth:0,display:'flex',flexDirection:'column',gap:2,minHeight:24,cursor:'pointer' }}
+              >
+                {dayAllDay.map(ev=>(
+                  <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
+                    style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:'pointer',overflow:'hidden' }}
+                  >
+                    <span style={{ fontSize:11,fontWeight:600,color:'white',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',display:'block' }}>{ev.title}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div ref={scrollRef} style={{ flex:1,overflow:'auto' }}
+        onMouseMove={e=>{
+          if(!dragRef.current) return;
+          const scrollTop=scrollRef.current?.scrollTop??0;
+          const rect=scrollRef.current!.getBoundingClientRect();
+          const y=e.clientY-rect.top+scrollTop;
+          const startY=dragRef.current.startY;
+          const moved=Math.abs(y-startY)>10;
+          dragRef.current.moved=moved;
+          if(moved) setDragSel({ colIdx:dragRef.current.colIdx, top:Math.min(startY,y), height:Math.abs(y-startY) });
+        }}
+        onMouseUp={e=>{
+          if(!dragRef.current) return;
+          const scrollTop=scrollRef.current?.scrollTop??0;
+          const rect=scrollRef.current!.getBoundingClientRect();
+          const y=e.clientY-rect.top+scrollTop;
+          const startY=dragRef.current.startY;
+          const day=dragRef.current.day;
+          if(dragRef.current.moved){
+            const topY=Math.min(startY,y), botY=Math.max(startY,y);
+            const start=yToTimeParts(topY);
+            let end=yToTimeParts(botY);
+            if(end.h*60+end.m<=start.h*60+start.m) end=yToTimeParts(botY+HOUR_H/4);
+            onRangeSelect(day, start.h, start.m, Math.min(end.h,END_HOUR), end.h>=END_HOUR?0:end.m);
+          }
+          dragRef.current=null; setDragSel(null);
+        }}
+        onMouseLeave={()=>{ dragRef.current=null; setDragSel(null); }}
+      >
+        <div style={{ display:'flex',minHeight:`${HOURS.length*HOUR_H}px`,position:'relative' }}>
+          <div style={{ width:52,flexShrink:0 }}>
+            {HOURS.map(h=>(
+              <div key={h} style={{ height:HOUR_H,display:'flex',alignItems:'flex-start',paddingTop:4,paddingRight:8,justifyContent:'flex-end' }}>
+                <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)' }}>{fmt2(h)}:00</span>
+              </div>
+            ))}
+          </div>
+          {days.map((d,di)=>{
+            const dayEvs=events.filter(ev=>isSameDay(ev.startDate,d)&&!ev.allDay);
+            const laid=layoutEvents(dayEvs);
+            const isDragging=dragSel?.colIdx===di;
+            return (
+              <div key={di}
+                onMouseDown={e=>{
+                  if((e.target as HTMLElement).closest('[data-event]')) return;
+                  const scrollTop=scrollRef.current?.scrollTop??0;
+                  const rect=scrollRef.current!.getBoundingClientRect();
+                  const y=e.clientY-rect.top+scrollTop;
+                  dragRef.current={ colIdx:di, day:d, startY:y, moved:false };
+                  e.preventDefault();
+                }}
+                onClick={e=>{
+                  if(dragRef.current?.moved) return;
+                  const rect=(e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                  const y=e.clientY-rect.top;
+                  const h=Math.floor(y/HOUR_H)+START_HOUR;
+                  onSlotClick(d,Math.min(h,END_HOUR-1));
+                }}
+                style={{ flex:1,borderLeft:'1px solid var(--border)',position:'relative',cursor:'cell',userSelect:'none' }}
+              >
+                {HOURS.map(h=>(
+                  <div key={h} style={{ position:'absolute',top:((h-START_HOUR)*HOUR_H),left:0,right:0,borderTop:'1px solid var(--border)',pointerEvents:'none' }} />
+                ))}
+                {isDragging && dragSel && (() => {
+                  const s=yToTimeParts(dragSel.top);
+                  const ee=yToTimeParts(dragSel.top+dragSel.height);
+                  return (
+                    <div style={{ position:'absolute',top:dragSel.top,height:Math.max(4,dragSel.height),left:4,right:4,background:'rgba(249,255,0,0.12)',border:'1px solid var(--accent)',borderRadius:6,pointerEvents:'none',zIndex:4 }}>
+                      <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--accent)',padding:'2px 6px',display:'block' }}>{fmt2(s.h)}:{fmt2(s.m)} — {fmt2(ee.h)}:{fmt2(ee.m)}</span>
+                    </div>
+                  );
+                })()}
+                {isSameDay(d,TODAY) && (
+                  <div style={{ position:'absolute',top:timeToY(TODAY),left:0,right:0,height:2,background:'var(--danger)',zIndex:6,pointerEvents:'none' }}>
+                    <div style={{ position:'absolute',left:-4,top:-4,width:10,height:10,borderRadius:'50%',background:'var(--danger)' }} />
+                  </div>
+                )}
+                {laid.map(ev=>(
+                  <EventBlock key={ev.id} ev={ev} col={ev.col} numCols={ev.numCols} onClick={()=>onEventClick(ev)} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Create event modal ────────────────────────────────────────────────────────
 
-function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defaultAllDay, onClose }: {
+function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultStartTime, defaultEndTime, defaultAllDay, onClose }: {
+  projectId: string;
   defaultDate: Date;
   defaultStartTime?: string;
   defaultEndTime?: string;
@@ -149,10 +371,8 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   const [dateStr, setDateStr]     = useState(`${defaultDate.getFullYear()}-${fmt2(defaultDate.getMonth()+1)}-${fmt2(defaultDate.getDate())}`);
   const [startT, setStartT]       = useState(defaultStartTime ?? `${fmt2(defaultDate.getHours()||9)}:00`);
   const [endT, setEndT]           = useState(defaultEndTime ?? `${fmt2((defaultDate.getHours()||9)+1)}:00`);
-  const [projectId, setProjectId] = useState('');
   const [location, setLocation]   = useState('');
   const [participants, setParticipants] = useState<string[]>(['lea']);
-  const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
   const [showNewType, setShowNewType] = useState(false);
   const [newTypeLabel, setNewTypeLabel] = useState('');
@@ -161,7 +381,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   const [editLabel, setEditLabel] = useState('');
   const [editColor, setEditColor] = useState('#3b82f6');
 
-  const PARTICIPANT_THRESHOLD = 4;
+  useEffect(() => subscribeEventTypes(() => setLocalEventTypes(getEventTypes())), []);
 
   const startEdit = (t: EventType) => {
     setEditingTypeId(t.id); setEditLabel(t.label); setEditColor(t.color);
@@ -179,6 +399,16 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
     setEditingTypeId(null);
   };
 
+  const addNewType = () => {
+    if (!newTypeLabel.trim()) return;
+    const newType = addEventType({ label: newTypeLabel.trim(), color: newTypeColor, icon: 'circle' });
+    setEventTypeId(newType.id);
+    setNewTypeLabel('');
+    setShowNewType(false);
+  };
+
+  const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
+
   const save = () => {
     if(!title.trim()) return;
     const [y,mo,d]=dateStr.split('-').map(Number);
@@ -190,7 +420,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
       title: title.trim(),
       description: description.trim() || undefined,
       eventTypeId,
-      projectId,
+      projectId: defaultProjectId,
       start: allDay ? dateStr : start.toISOString(),
       end: allDay ? dateStr : end.toISOString(),
       allDay,
@@ -202,27 +432,14 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
 
   const togglePart=(id:string)=>setParticipants(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
 
-  useEffect(() => subscribeEventTypes(() => setLocalEventTypes(getEventTypes())), []);
-
-  const addNewType = () => {
-    if (!newTypeLabel.trim()) return;
-    const newType = addEventType({ label: newTypeLabel.trim(), color: newTypeColor, icon: 'circle' });
-    setEventTypeId(newType.id);
-    setNewTypeLabel('');
-    setShowNewType(false);
-  };
-
-  const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
-
   return (
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200 }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:16,padding:28,width:460,border:'1px solid var(--border)',boxShadow:'0 20px 60px rgba(0,0,0,0.5)',maxHeight:'90vh',overflow:'auto' }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:16,padding:28,width:440,border:'1px solid var(--border)',boxShadow:'0 20px 60px rgba(0,0,0,0.5)',maxHeight:'90vh',overflow:'auto' }}>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20 }}>
           <h3 style={{ fontSize:16,fontWeight:700 }}>Nouvel événement</h3>
           <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',display:'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
-        {/* Event type selector */}
         <div style={{ marginBottom:16 }}>
           <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Type d'événement</p>
           <div style={{ display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
@@ -232,7 +449,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
                 onMouseLeave={e=>(e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity='0')}
               >
                 <button onClick={()=>{ setEventTypeId(t.id); setEditingTypeId(null); }}
-                  style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',paddingRight:editingTypeId===t.id?'10px':'24px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
+                  style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',paddingRight:'24px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
                 >
                   <div style={{ width:8,height:8,borderRadius:'50%',background:t.color,flexShrink:0 }} />
                   {t.label}
@@ -278,30 +495,18 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
           )}
         </div>
 
-        {/* Project */}
-        <select value={projectId} onChange={e=>setProjectId(e.target.value)}
-          style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,boxSizing:'border-box' }}
-        >
-          <option value=''>— Sans projet —</option>
-          {PROJECTS.map(p=><option key={p.id} value={p.id}>{p.name} — {p.clientName}</option>)}
-        </select>
-
-        {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder="Titre…"
           style={{ width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${selectedType?.color ?? 'var(--border)'}`,background:'var(--surface-2)',color:'var(--text)',fontSize:14,fontWeight:600,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8 }}
         />
 
-        {/* Location */}
         <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
 
-        {/* Description */}
         <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
           style={{ width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,resize:'vertical',lineHeight:1.5 }}
         />
 
-        {/* All day */}
         <label style={{ display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer' }}>
           <div onClick={()=>setAllDay(s=>!s)} style={{ width:32,height:18,borderRadius:9,background:allDay?'var(--accent)':'var(--surface-3)',border:`1px solid ${allDay?'var(--accent)':'var(--border)'}`,position:'relative',transition:'background 0.15s',cursor:'pointer' }}>
             <div style={{ position:'absolute',top:2,left:allDay?14:2,width:12,height:12,borderRadius:'50%',background:allDay?'var(--on-accent)':'var(--text-3)',transition:'left 0.15s' }} />
@@ -309,7 +514,6 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
           <span style={{ fontSize:12,color:'var(--text-2)' }}>Toute la journée</span>
         </label>
 
-        {/* Date + times */}
         <div style={{ display:'flex',gap:8,marginBottom:12 }}>
           <input type="date" value={dateStr} onChange={e=>setDateStr(e.target.value)}
             style={{ flex:2,padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark' }}
@@ -325,23 +529,13 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
           </>}
         </div>
 
-        {/* Participants */}
         {(() => {
           const team = Object.values(USERS).filter(u=>u.role!=='Cliente');
-          const visible = participantsExpanded ? team : team.slice(0, PARTICIPANT_THRESHOLD);
-          const hidden = team.length - PARTICIPANT_THRESHOLD;
           return (
             <div style={{ marginBottom:20 }}>
-              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Participants</p>
-                {team.length > PARTICIPANT_THRESHOLD && (
-                  <button onClick={()=>setParticipantsExpanded(v=>!v)} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:10,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0 }}>
-                    {participantsExpanded ? 'Réduire' : `+${hidden} autres`}
-                  </button>
-                )}
-              </div>
+              <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Participants</p>
               <div style={{ display:'flex',gap:6,flexWrap:'wrap' }}>
-                {visible.map(u=>(
+                {team.map(u=>(
                   <button key={u.id} onClick={()=>togglePart(u.id)}
                     style={{ display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:8,border:`1px solid ${participants.includes(u.id)?'var(--accent)':'var(--border)'}`,background:participants.includes(u.id)?'rgba(249,255,0,0.06)':'transparent',cursor:'pointer',color:participants.includes(u.id)?'var(--accent)':'var(--text-2)' }}
                   >
@@ -363,307 +557,9 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   );
 }
 
-// ── Mini calendar (sidebar) ───────────────────────────────────────────────────
-
-function MiniCalendar({ cur, onSelect }: { cur: Date; onSelect: (d: Date) => void }) {
-  const [mini, setMini] = useState(new Date(TODAY));
-  const days = getMonthGrid(mini);
-  const prevM = () => setMini(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
-  const nextM = () => setMini(d=>new Date(d.getFullYear(),d.getMonth()+1,1));
-
-  return (
-    <div>
-      <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-        <button onClick={prevM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-left" size={13} /></button>
-        <span style={{ fontFamily:'var(--ff-mono)',fontSize:11,color:'var(--text-2)',fontWeight:600 }}>{MONTHS_FR[mini.getMonth()].slice(0,3)} {mini.getFullYear()}</span>
-        <button onClick={nextM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-right" size={13} /></button>
-      </div>
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1,marginBottom:4 }}>
-        {['L','M','M','J','V','S','D'].map((d,i)=>(
-          <div key={i} style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textAlign:'center',padding:'2px 0' }}>{d}</div>
-        ))}
-      </div>
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1 }}>
-        {days.map((d,i)=>{
-          const isToday=isSameDay(d,TODAY);
-          const isCur=isSameDay(d,cur);
-          const isThisMonth=d.getMonth()===mini.getMonth();
-          return (
-            <button key={i} onClick={()=>onSelect(d)}
-              style={{ width:'100%',aspectRatio:'1',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--ff-mono)',fontSize:10,borderRadius:'50%',border:'none',cursor:'pointer',
-                background:isCur?'var(--accent)':isToday?'rgba(249,255,0,0.15)':'transparent',
-                color:isCur?'var(--on-accent)':isToday?'var(--accent)':isThisMonth?'var(--text-2)':'var(--text-3)',
-                fontWeight:isToday||isCur?700:400,
-              }}
-            >{d.getDate()}</button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Event block (used in week/day view) ───────────────────────────────────────
-
-function EventBlock({ ev, col, numCols, onClick }: { ev: CalEvent; col: number; numCols: number; onClick: () => void }) {
-  const [hov, setHov] = useState(false);
-  const top = timeToY(ev.startDate);
-  const h   = Math.max(20, durationH(ev.startDate, ev.endDate));
-  const w   = `calc((100% - 8px) / ${numCols})`;
-  const left= `calc(4px + ${col} * (100% - 8px) / ${numCols})`;
-
-  return (
-    <div onClick={e=>{e.stopPropagation();onClick();}} onMouseDown={e=>e.stopPropagation()} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ position:'absolute', top, height:h, width:w, left, borderRadius:6, padding:'4px 7px', overflow:'hidden', cursor:'pointer', zIndex:5,
-        background:`${ev.eventTypeColor}cc`, border:`1px solid ${ev.eventTypeColor}`, borderLeft:`3px solid ${ev.projectColor}`, boxShadow:hov?`0 2px 12px ${ev.eventTypeColor}66`:undefined, transition:'box-shadow 0.15s',
-      }}
-    >
-      <p style={{ fontSize:11,fontWeight:700,color:'white',lineHeight:1.2,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
-      {h>30 && <p style={{ fontSize:10,color:'rgba(255,255,255,0.8)',fontFamily:'var(--ff-mono)' }}>{fmtTime(ev.startDate)} – {fmtTime(ev.endDate)}</p>}
-      {h>50 && ev.location && <p style={{ fontSize:9,color:'rgba(255,255,255,0.7)',marginTop:2 }}>📍 {ev.location}</p>}
-    </div>
-  );
-}
-
-// ── Month view ────────────────────────────────────────────────────────────────
-
-function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }: {
-  cur: Date;
-  events: CalEvent[];
-  tasks: { date: Date; title: string; color: string }[];
-  onDayClick: (d: Date) => void;
-  onEventClick: (ev: CalEvent) => void;
-  onCellClick: (d: Date) => void;
-}) {
-  const days = getMonthGrid(cur);
-
-  return (
-    <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
-      {/* Day headers */}
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',borderBottom:'1px solid var(--border)',flexShrink:0 }}>
-        {DAYS_FR.map(d=>(
-          <div key={d} style={{ padding:'8px 0',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
-        ))}
-      </div>
-
-      {/* Grid */}
-      <div style={{ flex:1,display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:`repeat(${days.length/7},1fr)`,overflow:'auto' }}>
-        {days.map((day,i)=>{
-          const isToday=isSameDay(day,TODAY);
-          const isCurMonth=day.getMonth()===cur.getMonth();
-          const dayEvents=events.filter(ev=>isSameDay(ev.startDate,day));
-          const dayTasks=tasks.filter(t=>isSameDay(t.date,day));
-          const showMore=dayEvents.length>2;
-          const visible=dayEvents.slice(0,2);
-
-          return (
-            <div key={i} onClick={()=>onCellClick(day)}
-              style={{ borderRight:i%7!==6?'1px solid var(--border)':undefined,borderBottom:'1px solid var(--border)',padding:'4px 6px 6px',minHeight:90,cursor:'pointer',background:isToday?'rgba(249,255,0,0.03)':undefined,position:'relative',overflow:'hidden' }}>
-              {/* Date number */}
-              <button onClick={e=>{e.stopPropagation();onDayClick(day);}}
-                style={{ width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--ff-mono)',fontSize:12,cursor:'pointer',border:'none',background:isToday?'var(--accent)':'transparent',color:isToday?'var(--on-accent)':isCurMonth?'var(--text)':'var(--text-3)',fontWeight:isToday?700:400,marginBottom:4,flexShrink:0 }}
-              >{day.getDate()}</button>
-
-              {/* Events */}
-              {visible.map(ev=>(
-                <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
-                  style={{ display:'flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:5,background:`${ev.eventTypeColor}bb`,borderLeft:`3px solid ${ev.projectColor}`,marginBottom:2,cursor:'pointer' }}
-                >
-                  <span style={{ fontSize:10,fontWeight:600,color:'white',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{ev.title}</span>
-                  {!ev.allDay && <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'rgba(255,255,255,0.8)',flexShrink:0 }}>{fmtTime(ev.startDate)}</span>}
-                </div>
-              ))}
-
-              {showMore && (
-                <div style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',padding:'1px 6px' }}>+{dayEvents.length-2} autres</div>
-              )}
-
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Week / Day view ───────────────────────────────────────────────────────────
-
-function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick }: {
-  days: Date[];
-  events: CalEvent[];
-  tasks: { date: Date; title: string; color: string }[];
-  onSlotClick: (d: Date, h: number) => void;
-  onRangeSelect: (d: Date, startH: number, startM: number, endH: number, endM: number) => void;
-  onEventClick: (ev: CalEvent) => void;
-  onAllDayClick?: (d: Date) => void;
-}) {
-  const isDay=days.length===1;
-  const scrollRef=useRef<HTMLDivElement>(null);
-
-  // Drag-select state
-  const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
-  const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
-
-  // Snap Y position to nearest 15-min increment
-  const yToTimeParts = (y: number): { h: number; m: number } => {
-    const totalMins = Math.round(((y / HOUR_H) * 60 + START_HOUR * 60) / 15) * 15;
-    const clamped = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, totalMins));
-    return { h: Math.floor(clamped / 60), m: clamped % 60 };
-  };
-  const yToHour = (y: number) => yToTimeParts(y).h;
-
-  return (
-    <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
-      {/* Day column headers */}
-      <div style={{ flexShrink:0,borderBottom:'1px solid var(--border)' }}>
-        <div style={{ display:'flex' }}>
-          <div style={{ width:52,flexShrink:0 }} />
-          {days.map((d,i)=>{
-            const isToday=isSameDay(d,TODAY);
-            return (
-              <div key={i} style={{ flex:1,borderLeft:i>0?'1px solid var(--border)':undefined,padding:'8px 6px 6px',minWidth:0 }}>
-                <div style={{ display:'flex',alignItems:'center',gap:6 }}>
-                  <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase' }}>{DAYS_FR[i===0&&!isDay?0:new Date(d).getDay()===0?6:new Date(d).getDay()-1]}</span>
-                  <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
-                    <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {/* All-day events row — always visible so clicking opens new all-day event */}
-        <div style={{ display:'flex', borderTop:'1px solid var(--border)' }}>
-          <div style={{ width:52,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8 }}>
-            <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>Journée</span>
-          </div>
-          {days.map((d,i)=>{
-            const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
-            return (
-              <div key={i}
-                onClick={()=>onAllDayClick?.(d)}
-                style={{ flex:1,borderLeft:i>0?'1px solid var(--border)':undefined,padding:'3px 4px',minWidth:0,display:'flex',flexDirection:'column',gap:2,minHeight:24,cursor:'pointer' }}
-              >
-                {dayAllDay.map(ev=>(
-                  <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
-                    style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:'pointer',overflow:'hidden' }}
-                  >
-                    <span style={{ fontSize:11,fontWeight:600,color:'white',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',display:'block' }}>{ev.title}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Scrollable time grid */}
-      <div ref={scrollRef} style={{ flex:1,overflow:'auto' }}
-        onMouseMove={e=>{
-          if(!dragRef.current) return;
-          const scrollTop=scrollRef.current?.scrollTop??0;
-          const containerRect=scrollRef.current!.getBoundingClientRect();
-          const y=e.clientY-containerRect.top+scrollTop;
-          const startY=dragRef.current.startY;
-          const moved=Math.abs(y-startY)>10;
-          dragRef.current.moved=moved;
-          if(moved){
-            setDragSel({ colIdx:dragRef.current.colIdx, top:Math.min(startY,y), height:Math.abs(y-startY) });
-          }
-        }}
-        onMouseUp={e=>{
-          if(!dragRef.current) return;
-          const scrollTop=scrollRef.current?.scrollTop??0;
-          const containerRect=scrollRef.current!.getBoundingClientRect();
-          const y=e.clientY-containerRect.top+scrollTop;
-          const startY=dragRef.current.startY;
-          const day=dragRef.current.day;
-          if(dragRef.current.moved){
-            const topY=Math.min(startY,y), botY=Math.max(startY,y);
-            const start=yToTimeParts(topY);
-            let end=yToTimeParts(botY);
-            // ensure at least 15 min duration
-            if(end.h*60+end.m <= start.h*60+start.m) { end=yToTimeParts(botY+HOUR_H/4); }
-            onRangeSelect(day, start.h, start.m, Math.min(end.h,END_HOUR), end.h>=END_HOUR?0:end.m);
-          }
-          dragRef.current=null;
-          setDragSel(null);
-        }}
-        onMouseLeave={()=>{ dragRef.current=null; setDragSel(null); }}
-      >
-        <div style={{ display:'flex',minHeight:`${HOURS.length*HOUR_H}px`,position:'relative' }}>
-          {/* Time labels */}
-          <div style={{ width:52,flexShrink:0 }}>
-            {HOURS.map(h=>(
-              <div key={h} style={{ height:HOUR_H,display:'flex',alignItems:'flex-start',paddingTop:4,paddingRight:8,justifyContent:'flex-end' }}>
-                <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)' }}>{fmt2(h)}:00</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Day columns */}
-          {days.map((d,di)=>{
-            const dayEvs=events.filter(ev=>isSameDay(ev.startDate,d)&&!ev.allDay);
-            const laid=layoutEvents(dayEvs);
-            const isDragging=dragSel?.colIdx===di;
-            return (
-              <div key={di}
-                onMouseDown={e=>{
-                  if((e.target as HTMLElement).closest('[data-event]')) return;
-                  const scrollTop=scrollRef.current?.scrollTop??0;
-                  const containerRect=scrollRef.current!.getBoundingClientRect();
-                  const y=e.clientY-containerRect.top+scrollTop;
-                  dragRef.current={ colIdx:di, day:d, startY:y, moved:false };
-                  e.preventDefault();
-                }}
-                onClick={e=>{
-                  if(dragRef.current?.moved) return;
-                  const rect=(e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                  const y=e.clientY-rect.top;
-                  const h=Math.floor(y/HOUR_H)+START_HOUR;
-                  onSlotClick(d,Math.min(h,END_HOUR-1));
-                }}
-                style={{ flex:1,borderLeft:'1px solid var(--border)',position:'relative',cursor:'cell',userSelect:'none' }}
-              >
-                {/* Hour lines */}
-                {HOURS.map(h=>(
-                  <div key={h} style={{ position:'absolute',top:((h-START_HOUR)*HOUR_H),left:0,right:0,borderTop:'1px solid var(--border)',pointerEvents:'none' }} />
-                ))}
-                {/* Drag selection highlight */}
-                {isDragging && dragSel && (() => {
-                  const s=yToTimeParts(dragSel.top);
-                  const e=yToTimeParts(dragSel.top+dragSel.height);
-                  return (
-                    <div style={{ position:'absolute', top:dragSel.top, height:Math.max(4,dragSel.height), left:4, right:4, background:'rgba(249,255,0,0.12)', border:'1px solid var(--accent)', borderRadius:6, pointerEvents:'none', zIndex:4 }}>
-                      <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--accent)',padding:'2px 6px',display:'block' }}>
-                        {fmt2(s.h)}:{fmt2(s.m)} — {fmt2(e.h)}:{fmt2(e.m)}
-                      </span>
-                    </div>
-                  );
-                })()}
-                {/* Current time indicator */}
-                {isSameDay(d,TODAY) && (
-                  <div style={{ position:'absolute',top:timeToY(TODAY),left:0,right:0,height:2,background:'var(--danger)',zIndex:6,pointerEvents:'none' }}>
-                    <div style={{ position:'absolute',left:-4,top:-4,width:10,height:10,borderRadius:'50%',background:'var(--danger)' }} />
-                  </div>
-                )}
-                {/* Events */}
-                {laid.map(ev=>(
-                  <EventBlock key={ev.id} ev={ev} col={ev.col} numCols={ev.numCols} onClick={()=>onEventClick(ev)} />
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Event detail popover ──────────────────────────────────────────────────────
+// ── Event detail ──────────────────────────────────────────────────────────────
 
 function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => void; onDelete: () => void }) {
-  const navigate = useNavigate();
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
   const toDateStr = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth()+1)}-${fmt2(d.getDate())}`;
   const toTimeStr = (d: Date) => `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
@@ -674,7 +570,6 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   const [dateStr, setDateStr]     = useState(toDateStr(ev.startDate));
   const [startT, setStartT]       = useState(ev.allDay ? '09:00' : toTimeStr(ev.startDate));
   const [endT, setEndT]           = useState(ev.allDay ? '10:00' : toTimeStr(ev.endDate));
-  const [projectId, setProjectId] = useState(ev.projectId ?? '');
   const [location, setLocation]   = useState(ev.location ?? '');
   const [participants, setParticipants] = useState<string[]>(ev.participantIds ?? []);
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
@@ -694,7 +589,6 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
       title: title.trim(),
       description: description.trim() || undefined,
       eventTypeId,
-      projectId: projectId || undefined,
       start: allDay ? dateStr : start.toISOString(),
       end:   allDay ? dateStr : end.toISOString(),
       allDay: allDay || undefined,
@@ -712,10 +606,10 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
           <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',display:'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
-        {/* Event type selector */}
+        {/* Event type */}
         <div style={{ marginBottom:16 }}>
           <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Type d'événement</p>
-          <div style={{ display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
+          <div style={{ display:'flex',gap:6,flexWrap:'wrap' }}>
             {localEventTypes.map(t=>(
               <button key={t.id} onClick={()=>setEventTypeId(t.id)}
                 style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
@@ -726,14 +620,6 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
             ))}
           </div>
         </div>
-
-        {/* Project */}
-        <select value={projectId} onChange={e=>setProjectId(e.target.value)}
-          style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,boxSizing:'border-box' }}
-        >
-          <option value=''>— Sans projet —</option>
-          {PROJECTS.map(p=><option key={p.id} value={p.id}>{p.name} — {p.clientName}</option>)}
-        </select>
 
         {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Titre…"
@@ -811,11 +697,6 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
           <button onClick={save} disabled={!title.trim()}
             style={{ flex:1,padding:'9px',borderRadius:9,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',opacity:title.trim()?1:0.5 }}
           >Enregistrer</button>
-          {projectId && (
-            <button onClick={()=>{navigate(`/projets/${projectId}/calendrier`);onClose();}}
-              style={{ padding:'9px 14px',borderRadius:9,border:'1px solid var(--border)',background:'transparent',color:'var(--text-2)',cursor:'pointer',fontSize:12,fontFamily:'var(--ff-text)',whiteSpace:'nowrap' }}
-            >Voir le calendrier</button>
-          )}
           <button onClick={onDelete}
             style={{ padding:'9px 12px',borderRadius:9,border:'1px solid var(--border)',background:'transparent',color:'var(--danger)',cursor:'pointer',display:'flex',alignItems:'center' }}
           ><SFIcon name="trash-2" size={14} /></button>
@@ -827,79 +708,28 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function CalendrierGlobal() {
+export function ProjetCalendrier() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const project = PROJECTS.find(p => p.id === projectId);
+
   const [view, setView]             = useState<CalView>('week');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
-  const [events, setEvents]         = useState<CalEvent[]>(() => resolveEvents(getEventTypes()));
+  const [events, setEvents]         = useState<CalEvent[]>(() => resolveProjectEvents(projectId ?? '', getEventTypes()));
   const [showCreate, setShowCreate] = useState(false);
   const [createDate, setCreateDate] = useState(new Date(TODAY));
   const [createStartTime, setCreateStartTime] = useState('09:00');
-  const [createEndTime, setCreateEndTime] = useState('10:00');
-  const [createAllDay, setCreateAllDay] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<CalEvent|null>(null);
-  const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
+  const [createEndTime, setCreateEndTime]     = useState('10:00');
+  const [createAllDay, setCreateAllDay]       = useState(false);
+  const [selectedEvent, setSelectedEvent]     = useState<CalEvent|null>(null);
   const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const unsub1 = subscribeEvents(() => setEvents(resolveEvents(getEventTypes())));
-    const unsub2 = subscribeEventTypes(() => { const et = getEventTypes(); setEventTypes(et); setEvents(resolveEvents(et)); });
+    const refresh = () => setEvents(resolveProjectEvents(projectId ?? '', getEventTypes()));
+    const unsub1 = subscribeEvents(refresh);
+    const unsub2 = subscribeEventTypes(() => { setEventTypes(getEventTypes()); refresh(); });
     return () => { unsub1(); unsub2(); };
-  }, []);
-
-  // Build task chips from MY_TASKS
-  const taskChips = MY_TASKS.flatMap(t=>{
-    const d=parseFrDate(t.dueDate);
-    return d&&!t.checked?[{date:d,title:t.title,color:t.projectColor}]:[];
-  });
-
-  // Filter events by selected projects + event types
-  const visibleEvents = events.filter(ev => !hiddenProjects.has(ev.projectId ?? '') && (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId)));
-
-  const toggleEventType = (id: string) => setSelectedEventTypes(s => {
-    const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
-  });
-
-  // Navigation
-  const prev = () => {
-    if(view==='month') setCur(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
-    else if(view==='week') setCur(d=>addDays(d,-7));
-    else setCur(d=>addDays(d,-1));
-  };
-  const next = () => {
-    if(view==='month') setCur(d=>new Date(d.getFullYear(),d.getMonth()+1,1));
-    else if(view==='week') setCur(d=>addDays(d,7));
-    else setCur(d=>addDays(d,1));
-  };
-
-  const toggleProject = (id: string) => setHiddenProjects(s=>{
-    const n=new Set(s);
-    if(n.has(id)) n.delete(id); else n.add(id);
-    return n;
-  });
-
-  const handleSlotClick = (d: Date, h: number) => {
-    setCreateDate(new Date(d));
-    setCreateStartTime(`${fmt2(h)}:00`);
-    setCreateEndTime(`${fmt2(Math.min(h+1,END_HOUR))}:00`);
-    setCreateAllDay(false);
-    setShowCreate(true);
-  };
-
-  const handleRangeSelect = (d: Date, startH: number, startM: number, endH: number, endM: number) => {
-    setCreateDate(new Date(d));
-    setCreateStartTime(`${fmt2(startH)}:${fmt2(startM)}`);
-    setCreateEndTime(`${fmt2(endH)}:${fmt2(endM)}`);
-    setCreateAllDay(false);
-    setShowCreate(true);
-  };
-
-  const handleAllDayClick = (d: Date) => {
-    setCreateDate(new Date(d));
-    setCreateAllDay(true);
-    setShowCreate(true);
-  };
-  const handleCellClick = (d: Date) => { setCur(d); setView('day'); };
+  }, [projectId]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -913,77 +743,67 @@ export function CalendrierGlobal() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Title
+  const taskChips = MY_TASKS
+    .filter(t => t.projectId === projectId)
+    .flatMap(t => {
+      const d = parseFrDate(t.dueDate);
+      return d && !t.checked ? [{ date: d, title: t.title, color: t.projectColor }] : [];
+    });
+
+  const visibleEvents = events.filter(ev => selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId));
+
+  const toggleEventType = (id: string) => setSelectedEventTypes(s => {
+    const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  });
+
+  const handleDeleteEvent = (id: string) => { deleteEvent(id); setSelectedEvent(null); };
+
+  const prev = () => {
+    if(view==='month') setCur(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
+    else if(view==='week') setCur(d=>addDays(d,-7));
+    else setCur(d=>addDays(d,-1));
+  };
+  const next = () => {
+    if(view==='month') setCur(d=>new Date(d.getFullYear(),d.getMonth()+1,1));
+    else if(view==='week') setCur(d=>addDays(d,7));
+    else setCur(d=>addDays(d,1));
+  };
+
+  const handleSlotClick = (d: Date, h: number) => {
+    setCreateDate(new Date(d));
+    setCreateStartTime(`${fmt2(h)}:00`);
+    setCreateEndTime(`${fmt2(Math.min(h+1,END_HOUR))}:00`);
+    setCreateAllDay(false);
+    setShowCreate(true);
+  };
+  const handleRangeSelect = (d: Date, startH: number, startM: number, endH: number, endM: number) => {
+    setCreateDate(new Date(d));
+    setCreateStartTime(`${fmt2(startH)}:${fmt2(startM)}`);
+    setCreateEndTime(`${fmt2(endH)}:${fmt2(endM)}`);
+    setCreateAllDay(false);
+    setShowCreate(true);
+  };
+  const handleAllDayClick = (d: Date) => {
+    setCreateDate(new Date(d));
+    setCreateAllDay(true);
+    setShowCreate(true);
+  };
+  const handleCellClick = (d: Date) => { setCur(d); setView('day'); };
+
   const title = view==='month'
     ? `${MONTHS_FR[cur.getMonth()]} ${cur.getFullYear()}`
     : view==='week'
     ? `${MONTHS_FR[startOfWeek(cur).getMonth()]} ${startOfWeek(cur).getFullYear()}`
     : `${DAYS_FR[(cur.getDay()+6)%7]} ${cur.getDate()} ${MONTHS_FR[cur.getMonth()]}`;
 
-  const handleDeleteEvent = (id: string) => { deleteEvent(id); setSelectedEvent(null); };
-
-  // Upcoming events
-  const upcoming = [...visibleEvents]
-    .filter(ev=>ev.startDate>=TODAY)
-    .sort((a,b)=>a.startDate.getTime()-b.startDate.getTime())
-    .slice(0,6);
-
   return (
-    <div style={{ height:'100%',display:'flex',overflow:'hidden' }}>
-      {/* Sidebar */}
-      <div style={{ width:240,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
+    <div style={{ height:'100%',display:'flex',flexDirection:'column',overflow:'hidden' }}>
+      <ProjectHeaderBar projectId={projectId ?? ''}>
         <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
-
-        <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
-
-        {/* Project filters */}
-        {(() => {
-          const allProjects = [{ id: '', name: 'Sans projet', color: 'var(--text-3)' }, ...PROJECTS.filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
-          const allIds = allProjects.map(p => p.id);
-          const allHidden = allIds.every(id => hiddenProjects.has(id));
-          const soloId = allIds.filter(id => !hiddenProjects.has(id));
-          const isSolo = soloId.length === 1;
-
-          const toggleAll = () => {
-            if (allHidden) setHiddenProjects(new Set());
-            else setHiddenProjects(new Set(allIds));
-          };
-          const solo = (id: string) => {
-            if (isSolo && soloId[0] === id) setHiddenProjects(new Set());
-            else setHiddenProjects(new Set(allIds.filter(x => x !== id)));
-          };
-
-          return (
-            <div>
-              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Mes projets</p>
-                <button onClick={toggleAll} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                  {allHidden ? 'Tout afficher' : 'Tout masquer'}
-                </button>
-              </div>
-              <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                {allProjects.map(p=>{
-                  const hidden = hiddenProjects.has(p.id);
-                  const isThisSolo = isSolo && soloId[0] === p.id;
-                  return (
-                    <div key={p.id} style={{ display:'flex',alignItems:'center',gap:4 }}>
-                      <button onClick={()=>toggleProject(p.id)}
-                        style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',opacity:hidden?0.35:1,transition:'opacity 0.15s',flex:1,minWidth:0 }}
-                      >
-                        <div style={{ width:10,height:10,borderRadius:'50%',background:p.color,flexShrink:0 }} />
-                        <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontStyle:p.id===''?'italic':undefined }}>{p.name}</span>
-                        {hidden && <SFIcon name="eye-off" size={11} color="var(--text-3)" />}
-                      </button>
-                      <button onClick={()=>solo(p.id)} title="Voir uniquement ce projet"
-                        style={{ padding:'3px 6px',borderRadius:6,border:`1px solid ${isThisSolo?'var(--accent)':'var(--border)'}`,background:isThisSolo?'rgba(249,255,0,0.07)':'transparent',color:isThisSolo?'var(--accent)':'var(--text-3)',cursor:'pointer',fontSize:9,fontFamily:'var(--ff-mono)',flexShrink:0,transition:'all 0.12s' }}
-                      >Solo</button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+      </ProjectHeaderBar>
+      <div style={{ flex:1,display:'flex',overflow:'hidden' }}>
+      {/* Sidebar */}
+      <div style={{ width:220,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
 
         {/* Event type filters */}
         {(()=>{
@@ -1016,11 +836,15 @@ export function CalendrierGlobal() {
           );
         })()}
 
-        {/* Upcoming */}
+        {/* Upcoming events for this project */}
         <div>
           <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Prochains événements</p>
           <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
-            {upcoming.map(ev=>(
+            {[...visibleEvents]
+              .filter(ev=>ev.startDate>=TODAY)
+              .sort((a,b)=>a.startDate.getTime()-b.startDate.getTime())
+              .slice(0,5)
+              .map(ev=>(
               <div key={ev.id} onClick={()=>setSelectedEvent(ev)} style={{ display:'flex',gap:8,cursor:'pointer',padding:'6px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)' }}
                 onMouseEnter={e=>(e.currentTarget.style.borderColor='var(--border-2)')}
                 onMouseLeave={e=>(e.currentTarget.style.borderColor='var(--border)')}
@@ -1035,15 +859,32 @@ export function CalendrierGlobal() {
                 </div>
               </div>
             ))}
+            {visibleEvents.filter(ev=>ev.startDate>=TODAY).length===0 && (
+              <p style={{ fontSize:12,color:'var(--text-3)',fontStyle:'italic' }}>Aucun événement à venir</p>
+            )}
           </div>
         </div>
+
+        {/* Task deadlines */}
+        {taskChips.length > 0 && (
+          <div>
+            <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Échéances de tâches</p>
+            <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
+              {taskChips.slice(0,5).map((t,i)=>(
+                <div key={i} style={{ display:'flex',alignItems:'center',gap:6,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)' }}>
+                  <div style={{ width:6,height:6,borderRadius:'50%',background:t.color,flexShrink:0 }} />
+                  <span style={{ fontSize:11,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{t.title}</span>
+                  <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>{t.date.getDate()} {MONTHS_FR[t.date.getMonth()].slice(0,3).toLowerCase()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main */}
       <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0 }}>
-        {/* Topbar */}
         <div style={{ padding:'10px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12,flexShrink:0 }}>
-          {/* Navigation */}
           <div style={{ display:'flex',alignItems:'center',gap:6 }}>
             <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
               Aujourd'hui
@@ -1058,7 +899,6 @@ export function CalendrierGlobal() {
 
           <h2 style={{ fontSize:16,fontWeight:700,flex:1 }}>{title}</h2>
 
-          {/* View switcher */}
           <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
             {([['month','Mois','M'],['week','Semaine','W'],['day','Jour','J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
               <button key={v} onClick={()=>setView(v)}
@@ -1071,7 +911,6 @@ export function CalendrierGlobal() {
           </div>
         </div>
 
-        {/* Calendar body */}
         {view==='month' && (
           <MonthView
             cur={cur} events={visibleEvents} tasks={taskChips}
@@ -1093,10 +932,11 @@ export function CalendrierGlobal() {
           />
         )}
       </div>
+      </div>
 
-      {/* Modals */}
-      {showCreate && (
+      {showCreate && projectId && (
         <CreateEventModal
+          projectId={projectId}
           defaultDate={new Date(createDate.getFullYear(),createDate.getMonth(),createDate.getDate())}
           defaultStartTime={createStartTime}
           defaultEndTime={createEndTime}

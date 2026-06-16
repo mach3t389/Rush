@@ -1,5 +1,11 @@
+import { loadPersisted, savePersisted } from './persist';
+
+const PINNED_PROJECTS_KEY = 'sf_pinned_projects';
+const PINNED_CLIENTS_KEY  = 'sf_pinned_clients';
+const PROJECT_COLORS_KEY  = 'sf_project_colors';
+
 // --- Pinned projects ---
-let _pinnedIds: string[] = ['pj1', 'pj4', 'pj2'];
+let _pinnedIds: string[] = loadPersisted(PINNED_PROJECTS_KEY, ['pj1', 'pj4', 'pj2']);
 const _listeners = new Set<() => void>();
 const notify = () => _listeners.forEach(fn => fn());
 
@@ -10,6 +16,7 @@ export function togglePin(id: string): void {
   _pinnedIds = _pinnedIds.includes(id)
     ? _pinnedIds.filter(x => x !== id)
     : [..._pinnedIds, id];
+  savePersisted(PINNED_PROJECTS_KEY, _pinnedIds);
   notify();
 }
 
@@ -19,6 +26,7 @@ export function movePinned(fromIdx: number, toIdx: number): void {
   const [moved] = next.splice(fromIdx, 1);
   next.splice(toIdx, 0, moved);
   _pinnedIds = next;
+  savePersisted(PINNED_PROJECTS_KEY, _pinnedIds);
   notify();
 }
 
@@ -28,18 +36,19 @@ export function subscribePinned(fn: () => void): () => void {
 }
 
 // --- Project color overrides (per-project color shown in sidebar) ---
-const _projectColors: Record<string, string> = {};
+const _projectColors: Record<string, string> = loadPersisted(PROJECT_COLORS_KEY, {});
 
 export const getProjectColor = (id: string, fallback: string): string =>
   _projectColors[id] ?? fallback;
 
 export function setProjectColor(id: string, color: string): void {
   _projectColors[id] = color;
+  savePersisted(PROJECT_COLORS_KEY, _projectColors);
   notify();
 }
 
 // --- Pinned clients ---
-let _pinnedClientIds: string[] = [];
+let _pinnedClientIds: string[] = loadPersisted(PINNED_CLIENTS_KEY, []);
 const _clientListeners = new Set<() => void>();
 const notifyClients = () => _clientListeners.forEach(fn => fn());
 
@@ -50,6 +59,7 @@ export function togglePinClient(id: string): void {
   _pinnedClientIds = _pinnedClientIds.includes(id)
     ? _pinnedClientIds.filter(x => x !== id)
     : [..._pinnedClientIds, id];
+  savePersisted(PINNED_CLIENTS_KEY, _pinnedClientIds);
   notifyClients();
 }
 
@@ -59,6 +69,7 @@ export function movePinnedClient(fromIdx: number, toIdx: number): void {
   const [moved] = next.splice(fromIdx, 1);
   next.splice(toIdx, 0, moved);
   _pinnedClientIds = next;
+  savePersisted(PINNED_CLIENTS_KEY, _pinnedClientIds);
   notifyClients();
 }
 

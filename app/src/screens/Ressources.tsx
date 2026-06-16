@@ -27,6 +27,7 @@ const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; desc: s
   { type: 'inspirations', label: 'Inspirations',     icon: 'image',          desc: 'Galerie d\'images de référence' },
   { type: 'file',         label: 'Fichier',           icon: 'hard-drive',     desc: 'Importer un fichier ou dossier de fichiers' },
   { type: 'form',         label: 'Formulaire',        icon: 'clipboard-list', desc: 'Questionnaire, formulaire client, sondage' },
+  { type: 'web_review',   label: 'Site web',          icon: 'globe',          desc: 'Révision d\'un site web avec annotations positionnées' },
 ];
 
 const MEDIA_SUBTYPES: { value: 'video' | 'photo' | 'file'; label: string; icon: string; desc: string }[] = [
@@ -37,15 +38,16 @@ const MEDIA_SUBTYPES: { value: 'video' | 'photo' | 'file'; label: string; icon: 
 
 function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState<'type' | 'media' | 'name'>('type');
+  const [step, setStep] = useState<'type' | 'media' | 'url' | 'name'>('type');
   const [selected, setSelected] = useState<ResourceType | null>(null);
   const [mediaSubtype, setMediaSubtype] = useState<'video' | 'photo' | 'file' | null>(null);
+  const [webUrl, setWebUrl] = useState('');
   const [title, setTitle] = useState('');
 
   const TYPE_EYEBROW: Record<ResourceType, string> = {
     screenplay: 'SCÉNARISATION', video_review: 'RÉVISION', moodboard: 'MOODBOARD',
     document: 'DOCUMENT', checklist: 'CHECKLIST', inspirations: 'INSPIRATIONS', file: 'FICHIER',
-    form: 'FORMULAIRE',
+    form: 'FORMULAIRE', web_review: 'SITE WEB',
   };
 
   const handleCreate = () => {
@@ -61,6 +63,7 @@ function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: 
       meta: 'Créé à l\'instant',
       version: 'V1',
       ...(selected === 'video_review' && mediaSubtype ? { mediaSubtype } : {}),
+      ...(selected === 'web_review' && webUrl.trim() ? { webUrl: webUrl.trim() } : {}),
     };
     addResource(newRes);
     onClose();
@@ -69,6 +72,7 @@ function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: 
 
   const stepLabel = step === 'type' ? 'Choisissez un type de ressource'
     : step === 'media' ? 'Quel type de média souhaitez-vous réviser ?'
+    : step === 'url' ? 'Entrez l\'URL du site à réviser'
     : 'Donnez un nom à cette ressource';
 
   return (
@@ -96,6 +100,7 @@ function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: 
                   onClick={() => {
                     setSelected(r.type);
                     if (r.type === 'video_review') setStep('media');
+                    else if (r.type === 'web_review') setStep('url');
                     else setStep('name');
                   }}
                   style={{
@@ -154,15 +159,44 @@ function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: 
           </div>
         )}
 
+        {step === 'url' && (
+          <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>URL du site</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                  <SFIcon name="globe" size={14} color="var(--text-3)" />
+                </span>
+                <input
+                  autoFocus
+                  value={webUrl}
+                  onChange={e => setWebUrl(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && webUrl.trim()) setStep('name'); if (e.key === 'Escape') onClose(); }}
+                  placeholder="https://monsite.com"
+                  style={{ padding: '10px 14px 10px 36px', borderRadius: 10, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-mono)', transition: 'border-color 0.12s', width: '100%', boxSizing: 'border-box' }}
+                  onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
+                />
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4 }}>Le site sera affiché dans la vue de révision. Vous pourrez y placer des annotations directement sur la capture.</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <SFButton variant="ghost" size="sm" onClick={() => setStep('type')}>Retour</SFButton>
+              <SFButton variant="primary" size="sm" onClick={() => { if (webUrl.trim()) setStep('name'); }}>Continuer</SFButton>
+            </div>
+          </div>
+        )}
+
         {step === 'name' && (
           <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Selected type chip */}
             {selected && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => setStep(selected === 'video_review' ? 'media' : 'type')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)' }}>
+                <button onClick={() => setStep(selected === 'video_review' ? 'media' : selected === 'web_review' ? 'url' : 'type')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)' }}>
                   <SFIcon name={RESOURCE_TYPES.find(r => r.type === selected)!.icon} size={12} />
                   {RESOURCE_TYPES.find(r => r.type === selected)!.label}
                   {mediaSubtype && <span style={{ color: 'var(--text-3)' }}>· {MEDIA_SUBTYPES.find(m => m.value === mediaSubtype)!.label}</span>}
+                  {selected === 'web_review' && webUrl && <span style={{ color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 11 }}>· {webUrl.replace(/^https?:\/\//, '').split('/')[0]}</span>}
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
               </div>
@@ -174,14 +208,14 @@ function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: 
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onClose(); }}
-                placeholder="ex. Rough Cut V1, Photo de couverture..."
+                placeholder="ex. Page d'accueil, Landing page V2..."
                 style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-text)', transition: 'border-color 0.12s' }}
                 onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
               />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-              <SFButton variant="ghost" size="sm" onClick={() => setStep(selected === 'video_review' ? 'media' : 'type')}>Retour</SFButton>
+              <SFButton variant="ghost" size="sm" onClick={() => setStep(selected === 'video_review' ? 'media' : selected === 'web_review' ? 'url' : 'type')}>Retour</SFButton>
               <SFButton variant="primary" size="sm" icon="plus" onClick={handleCreate}>Créer la ressource</SFButton>
             </div>
           </div>
@@ -200,6 +234,7 @@ const TYPE_ICON: Record<ResourceType, string> = {
   inspirations: 'image',
   file:         'hard-drive',
   form:         'clipboard-list',
+  web_review:   'globe',
 };
 
 const SUBTYPE_ICON: Record<string, string> = {
@@ -223,6 +258,7 @@ const FILTERS: { key: 'all' | ResourceType; label: string }[] = [
   { key: 'checklist',    label: 'Checklist' },
   { key: 'file',         label: 'Fichiers' },
   { key: 'form',         label: 'Formulaire' },
+  { key: 'web_review',   label: 'Site web' },
 ];
 
 // â”€â”€ Resource thumbnail preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -441,10 +477,44 @@ function ResourceThumb({ r }: { r: Resource }) {
     );
   }
 
+  /* ── Web review ── */
+  if (type === 'web_review') {
+    const host = r.webUrl ? r.webUrl.replace(/^https?:\/\//, '').split('/')[0] : 'site web';
+    return (
+      <div style={{ width: '100%', height: '100%', background: '#0b0f1a', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 7, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '54%', background: '#fff', borderRadius: '3px 3px 0 0', boxShadow: '0 -3px 14px rgba(0,0,0,0.5)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#f0f0f0', padding: '3px 5px', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {['#ff5f57','#febc2e','#28c840'].map(c => <div key={c} style={{ width: 4, height: 4, borderRadius: '50%', background: c }} />)}
+            </div>
+            <div style={{ flex: 1, background: '#e0e0e0', borderRadius: 2, height: 7, display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 4.5, color: '#666' }}>{host}</span>
+            </div>
+          </div>
+          <div style={{ flex: 1, padding: 5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ height: 8, background: '#1a1a2e', borderRadius: 2, width: '100%' }} />
+            <div style={{ display: 'flex', gap: 2, marginTop: 1 }}>
+              {['60%','25%'].map((w,i) => <div key={i} style={{ height: 5, background: '#e8e8e8', borderRadius: 1, width: w }} />)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, marginTop: 2 }}>
+              {['#c8d8f0','#d0e8c8','#f0d8c0'].map((c,i) => <div key={i} style={{ height: 20, background: c, borderRadius: 2 }} />)}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {[80,65,70].map((w,i) => <div key={i} style={{ height: 3, background: '#ebebeb', borderRadius: 1, width: `${w}%` }} />)}
+            </div>
+          </div>
+        </div>
+        <div style={{ position: 'absolute', top: 28, right: '18%', width: 14, height: 14, borderRadius: '50%', background: 'rgba(249,200,0,0.25)', border: '1.5px solid rgba(249,200,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(249,200,0,0.95)', fontWeight: 700 }}>2</span>
+        </div>
+      </div>
+    );
+  }
+
   /* â”€â”€ Fallback â”€â”€ */
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)' }}>
-      <SFIcon name={TYPE_ICON[type] ?? 'file'} size={28} color="var(--text-3)" />
+      <SFIcon name={TYPE_ICON[type] ?? 'file'} size={28} color={'var(--text-3)'} />
     </div>
   );
 }

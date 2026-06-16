@@ -4,6 +4,7 @@ import { USERS } from '../data/mock';
 import type { ProjectTemplate, TemplateSection, TemplateTask, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, ChecklistItem, DocumentSection, SceneBlock, ReviewRound, FolderNode, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES, loadAllFormTemplates, loadCustomFormTemplates, saveCustomFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, BUILT_IN_RESOURCE_TEMPLATES } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
+import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
 import type { Priority, ResourceType, Resource, Task, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
@@ -1226,8 +1227,8 @@ function GripHandle({ visible }: { visible: boolean }) {
   );
 }
 
-function TemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: {
-  tpl: ProjectTemplate; selected: boolean; onClick: () => void;
+function TemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, favorite, onToggleFavorite }: {
+  tpl: ProjectTemplate; selected: boolean; onClick: () => void; favorite?: boolean; onToggleFavorite?: () => void;
 } & DragItemProps) {
   const totalTasks = tpl.sections.reduce((s, sec) => s + sec.tasks.length, 0);
   const [hovered, setHovered] = useState(false);
@@ -1240,9 +1241,9 @@ function TemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragO
       onDragEnd={onDragEnd}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ opacity: isDragging ? 0.4 : 1, borderTop: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', transition: 'opacity 0.12s', borderRadius: 10 }}
+      style={{ opacity: isDragging ? 0.4 : 1, borderTop: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', transition: 'opacity 0.12s', borderRadius: 10, display: 'flex', alignItems: 'center' }}
     >
-      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', paddingLeft: canDrag ? 6 : 10, borderRadius: 10, border: 'none', cursor: 'pointer', textAlign: 'left', background: selected ? 'var(--surface-2)' : hovered ? 'var(--surface-2)' : 'transparent', borderLeft: selected ? `3px solid ${tpl.color}` : '3px solid transparent', transition: 'background 0.1s' }}>
+      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, padding: '9px 10px', paddingLeft: canDrag ? 6 : 10, borderRadius: 10, border: 'none', cursor: 'pointer', textAlign: 'left', background: selected ? 'var(--surface-2)' : hovered ? 'var(--surface-2)' : 'transparent', borderLeft: selected ? `3px solid ${tpl.color}` : '3px solid transparent', transition: 'background 0.1s' }}>
         {canDrag && <GripHandle visible={hovered} />}
         <div style={{ width: 32, height: 32, borderRadius: 9, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <SFIcon name={tpl.icon} size={15} color="rgba(255,255,255,0.85)" />
@@ -1254,12 +1255,17 @@ function TemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragO
           </p>
         </div>
       </button>
+      <button onClick={e => { e.stopPropagation(); onToggleFavorite?.(); }} title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0, opacity: hovered || favorite ? 1 : 0, transition: 'opacity 0.15s' }}
+      >
+        <SFIcon name="star" size={13} color={favorite ? '#f5c542' : 'var(--text-3)'} />
+      </button>
     </div>
   );
 }
 
-function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: {
-  tpl: FormTemplate; selected: boolean; onClick: () => void;
+function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, favorite, onToggleFavorite }: {
+  tpl: FormTemplate; selected: boolean; onClick: () => void; favorite?: boolean; onToggleFavorite?: () => void;
 } & DragItemProps) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -1271,9 +1277,9 @@ function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isD
       onDragEnd={onDragEnd}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ opacity: isDragging ? 0.4 : 1, borderTop: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', transition: 'opacity 0.12s', borderRadius: 10 }}
+      style={{ opacity: isDragging ? 0.4 : 1, borderTop: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', transition: 'opacity 0.12s', borderRadius: 10, display: 'flex', alignItems: 'center' }}
     >
-      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', paddingLeft: canDrag ? 6 : 10, borderRadius: 10, border: 'none', cursor: 'pointer', textAlign: 'left', background: selected ? 'var(--surface-2)' : hovered ? 'var(--surface-2)' : 'transparent', borderLeft: selected ? `3px solid ${tpl.color}` : '3px solid transparent', transition: 'background 0.1s' }}>
+      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, padding: '9px 10px', paddingLeft: canDrag ? 6 : 10, borderRadius: 10, border: 'none', cursor: 'pointer', textAlign: 'left', background: selected ? 'var(--surface-2)' : hovered ? 'var(--surface-2)' : 'transparent', borderLeft: selected ? `3px solid ${tpl.color}` : '3px solid transparent', transition: 'background 0.1s' }}>
         {canDrag && <GripHandle visible={hovered} />}
         <div style={{ width: 32, height: 32, borderRadius: 9, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <SFIcon name={tpl.icon} size={15} color="rgba(255,255,255,0.85)" />
@@ -1284,6 +1290,11 @@ function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isD
             {tpl.fields.length} champs · {tpl.fields.filter(f => f.required).length} obligatoires
           </p>
         </div>
+      </button>
+      <button onClick={e => { e.stopPropagation(); onToggleFavorite?.(); }} title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0, opacity: hovered || favorite ? 1 : 0, transition: 'opacity 0.15s' }}
+      >
+        <SFIcon name="star" size={13} color={favorite ? '#f5c542' : 'var(--text-3)'} />
       </button>
     </div>
   );
@@ -1975,8 +1986,8 @@ const RES_TYPE_ICONS: Record<ResourceTemplateType, string> = {
 
 // ── ResourceTemplateListItem ───────────────────────────────────────────────────
 
-function ResourceTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: {
-  tpl: ResourceTemplate; selected: boolean; onClick: () => void;
+function ResourceTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, favorite, onToggleFavorite }: {
+  tpl: ResourceTemplate; selected: boolean; onClick: () => void; favorite?: boolean; onToggleFavorite?: () => void;
 } & DragItemProps) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -1988,9 +1999,9 @@ function ResourceTemplateListItem({ tpl, selected, onClick, canDrag, isDragging,
       onDragEnd={onDragEnd}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ opacity: isDragging ? 0.4 : 1, borderTop: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', transition: 'opacity 0.12s', borderRadius: 9 }}
+      style={{ opacity: isDragging ? 0.4 : 1, borderTop: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', transition: 'opacity 0.12s', borderRadius: 9, display: 'flex', alignItems: 'center' }}
     >
-      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', paddingLeft: canDrag ? 6 : 10, borderRadius: 9, border: 'none', cursor: 'pointer', background: selected ? 'var(--surface-3)' : hovered ? 'var(--surface-2)' : 'transparent', textAlign: 'left', borderLeft: selected ? `3px solid ${tpl.color}` : '3px solid transparent' }}>
+      <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, padding: '9px 10px', paddingLeft: canDrag ? 6 : 10, borderRadius: 9, border: 'none', cursor: 'pointer', background: selected ? 'var(--surface-3)' : hovered ? 'var(--surface-2)' : 'transparent', textAlign: 'left', borderLeft: selected ? `3px solid ${tpl.color}` : '3px solid transparent' }}>
         {canDrag && <GripHandle visible={hovered} />}
         <div style={{ width: 30, height: 30, borderRadius: 8, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <SFIcon name={tpl.icon} size={14} color="rgba(255,255,255,0.9)" />
@@ -1999,6 +2010,11 @@ function ResourceTemplateListItem({ tpl, selected, onClick, canDrag, isDragging,
           <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</p>
           <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{RES_TYPE_LABELS[tpl.type]}</p>
         </div>
+      </button>
+      <button onClick={e => { e.stopPropagation(); onToggleFavorite?.(); }} title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0, opacity: hovered || favorite ? 1 : 0, transition: 'opacity 0.15s' }}
+      >
+        <SFIcon name="star" size={13} color={favorite ? '#f5c542' : 'var(--text-3)'} />
       </button>
     </div>
   );
@@ -2337,6 +2353,11 @@ export function Modeles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [resNavExpanded, setResNavExpanded] = useState(true);
 
+  // ── Favorites
+  const [favorites, setFavorites] = useState<Set<string>>(getFavoriteTemplateIds);
+  useEffect(() => subscribeTemplateFavorites(() => setFavorites(getFavoriteTemplateIds())), []);
+  const toggleFav = (id: string) => { toggleTemplateFavorite(id); setFavorites(getFavoriteTemplateIds()); };
+
   // ── Project templates state
   const [templates, setTemplates] = useState(loadAllTemplates);
   const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => { const all = loadAllTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
@@ -2673,13 +2694,14 @@ export function Modeles() {
                 {filteredTpl.filter(t => !t.builtIn).length > 0 ? (
                   <>
                     <p style={sectionLabelStyle}>Mes modèles</p>
-                    {filteredTpl.filter(t => !t.builtIn).map(tpl => (
+                    {[...filteredTpl.filter(t => !t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
                       <TemplateListItem key={tpl.id} tpl={tpl} selected={selectedTpl?.id === tpl.id} onClick={() => setSelectedTpl(tpl)}
                         canDrag isDragging={dragTplId === tpl.id} isDragOver={dragOverTplId === tpl.id}
                         onDragStart={() => setDragTplId(tpl.id)}
                         onDragOver={() => setDragOverTplId(tpl.id)}
                         onDrop={() => { if (dragTplId) reorderTpl(dragTplId, tpl.id); setDragOverTplId(null); }}
                         onDragEnd={() => { setDragTplId(null); setDragOverTplId(null); }}
+                        favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)}
                       />
                     ))}
                   </>
@@ -2694,8 +2716,9 @@ export function Modeles() {
                     Intégrés ({filteredTpl.filter(t => t.builtIn).length})
                   </span>
                 </button>
-                {!builtInsCollapsed && filteredTpl.filter(t => t.builtIn).map(tpl => (
-                  <TemplateListItem key={tpl.id} tpl={tpl} selected={selectedTpl?.id === tpl.id} onClick={() => setSelectedTpl(tpl)} />
+                {!builtInsCollapsed && [...filteredTpl.filter(t => t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
+                  <TemplateListItem key={tpl.id} tpl={tpl} selected={selectedTpl?.id === tpl.id} onClick={() => setSelectedTpl(tpl)}
+                    favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)} />
                 ))}
               </>
             )}
@@ -2706,13 +2729,14 @@ export function Modeles() {
                 {filteredForms.filter(t => !t.builtIn).length > 0 ? (
                   <>
                     <p style={sectionLabelStyle}>Mes formulaires</p>
-                    {filteredForms.filter(t => !t.builtIn).map(tpl => (
+                    {[...filteredForms.filter(t => !t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
                       <FormTemplateListItem key={tpl.id} tpl={tpl} selected={selectedForm?.id === tpl.id} onClick={() => { setSelectedForm(tpl); setFormDetailTab('apercu'); }}
                         canDrag isDragging={dragFormId === tpl.id} isDragOver={dragOverFormId === tpl.id}
                         onDragStart={() => setDragFormId(tpl.id)}
                         onDragOver={() => setDragOverFormId(tpl.id)}
                         onDrop={() => { if (dragFormId) reorderForm(dragFormId, tpl.id); setDragOverFormId(null); }}
                         onDragEnd={() => { setDragFormId(null); setDragOverFormId(null); }}
+                        favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)}
                       />
                     ))}
                   </>
@@ -2727,8 +2751,9 @@ export function Modeles() {
                     Intégrés ({filteredForms.filter(t => t.builtIn).length})
                   </span>
                 </button>
-                {!formBuiltInsCollapsed && filteredForms.filter(t => t.builtIn).map(tpl => (
-                  <FormTemplateListItem key={tpl.id} tpl={tpl} selected={selectedForm?.id === tpl.id} onClick={() => { setSelectedForm(tpl); setFormDetailTab('apercu'); }} />
+                {!formBuiltInsCollapsed && [...filteredForms.filter(t => t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
+                  <FormTemplateListItem key={tpl.id} tpl={tpl} selected={selectedForm?.id === tpl.id} onClick={() => { setSelectedForm(tpl); setFormDetailTab('apercu'); }}
+                    favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)} />
                 ))}
               </>
             )}
@@ -2739,13 +2764,14 @@ export function Modeles() {
                 {filteredRes.filter(t => !t.builtIn).length > 0 ? (
                   <>
                     <p style={sectionLabelStyle}>Mes modèles</p>
-                    {filteredRes.filter(t => !t.builtIn).map(tpl => (
+                    {[...filteredRes.filter(t => !t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
                       <ResourceTemplateListItem key={tpl.id} tpl={tpl} selected={selectedRes?.id === tpl.id} onClick={() => setSelectedRes(tpl)}
                         canDrag isDragging={dragResId === tpl.id} isDragOver={dragOverResId === tpl.id}
                         onDragStart={() => setDragResId(tpl.id)}
                         onDragOver={() => setDragOverResId(tpl.id)}
                         onDrop={() => { if (dragResId) reorderRes(dragResId, tpl.id); setDragOverResId(null); }}
                         onDragEnd={() => { setDragResId(null); setDragOverResId(null); }}
+                        favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)}
                       />
                     ))}
                   </>
@@ -2760,8 +2786,9 @@ export function Modeles() {
                     Intégrés ({filteredRes.filter(t => t.builtIn).length})
                   </span>
                 </button>
-                {!resBuiltInsCollapsed && filteredRes.filter(t => t.builtIn).map(tpl => (
-                  <ResourceTemplateListItem key={tpl.id} tpl={tpl} selected={selectedRes?.id === tpl.id} onClick={() => setSelectedRes(tpl)} />
+                {!resBuiltInsCollapsed && [...filteredRes.filter(t => t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
+                  <ResourceTemplateListItem key={tpl.id} tpl={tpl} selected={selectedRes?.id === tpl.id} onClick={() => setSelectedRes(tpl)}
+                    favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)} />
                 ))}
               </>
             )}

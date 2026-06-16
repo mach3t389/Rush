@@ -1,7 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { SFPill, SFAvatar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay } from '../components/ui';
+import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, toYMD, parseYMD, fmtTaskDate, formatDisplay } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
+import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, subscribeMyTasks } from '../data/myTaskStore';
 import { getSections } from '../data/taskStore';
 import type { Task, Priority, ResourceType } from '../types';
@@ -92,7 +94,7 @@ function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir
       {plain('Assigné')}
       {sortable('Priorité', 'priority')}
       {sortable('Statut', 'status')}
-      {sortable('Échéance', 'dueDate')}
+      {sortable('Date', 'dueDate')}
       <span />
     </div>
   );
@@ -111,14 +113,6 @@ const STATUS_OPTIONS = [
   { value: 'review', label: 'En révision'  },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  '':     'var(--border-2)',
-  warn:   'var(--warn)',
-  info:   'var(--info)',
-  ok:     'var(--ok)',
-  danger: 'var(--danger)',
-  review: 'var(--review)',
-};
 
 // Ref-based dropdown for task rows (escapes overflow)
 function InlineDropdown({ anchorRef, onClose, children, minWidth = 160 }: { anchorRef: React.RefObject<HTMLElement | null>; onClose: () => void; children: React.ReactNode; minWidth?: number }) {
@@ -135,13 +129,14 @@ function InlineDropdown({ anchorRef, onClose, children, minWidth = 160 }: { anch
     const left = Math.max(8, Math.min(r.left, vw - w - 8));
     setPos({ top, left, visibility: 'visible' });
   }, []);
-  return (
+  return createPortal(
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 990 }} />
       <div ref={dropRef} style={{ position: 'fixed', ...pos, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
         {children}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -180,6 +175,9 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
   const [status, setStatus] = useState(task.status as string);
   const [statusLabel, setStatusLabel] = useState(task.statusLabel);
   const [dueDate, setDueDate] = useState(task.dueDate);
+  const [endDate, setEndDate] = useState(task.endDate ?? '');
+  const [startTime, setStartTime] = useState(task.startTime ?? '');
+  const [endTime, setEndTime] = useState(task.endTime ?? '');
   const [assignee, setAssignee] = useState<typeof TEAM[0] | null>(task.assignee ?? null);
   const [sectionLabel, setSectionLabel] = useState(task.sectionLabel ?? '');
   const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | 'assignee' | 'projsec' | null>(null);
@@ -505,8 +503,8 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
         )}
       </div>
 
-      {/* Échéance — inline date picker */}
-      <div>
+      {/* Date — inline date + time picker */}
+      <div style={{ position: 'relative' }}>
         <button
           ref={dueDateBtnRef}
           onClick={() => setOpen(open === 'dueDate' ? null : 'dueDate')}
@@ -514,29 +512,26 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
             background: 'none', border: 'none', cursor: 'pointer', padding: 0,
             display: 'flex', alignItems: 'center', gap: 4,
             fontFamily: 'var(--ff-mono)', fontSize: 11,
-            color: task.dueDateRed ? 'var(--danger)' : 'var(--text-3)',
+            color: task.dueDateRed ? 'var(--danger)' : (dueDate && dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)',
             whiteSpace: 'nowrap',
           }}
         >
-          {dueDate}
-          <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+          <SFIcon name="calendar" size={10} color={task.dueDateRed ? 'var(--danger)' : 'var(--text-3)'} />
+          {(dueDate && dueDate !== '—') ? fmtTaskDate(dueDate, startTime, endTime, endDate) : '—'}
         </button>
         {open === 'dueDate' && (
-          <InlineDropdown anchorRef={dueDateBtnRef} onClose={() => setOpen(null)}>
-            <div style={{ padding: '6px 8px' }}>
-              <input
-                type="date"
-                autoFocus
-                onChange={e => { setDueDate(e.target.value || task.dueDate); setOpen(null); }}
-                style={{
-                  padding: '5px 8px', borderRadius: 7,
-                  border: '1px solid var(--border)', background: 'var(--surface-2)',
-                  color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)',
-                  outline: 'none', colorScheme: 'dark',
-                }}
-              />
-            </div>
-          </InlineDropdown>
+          <TaskDatePopover
+            date={parseYMD(dueDate) ? dueDate : ''}
+            endDate={endDate}
+            startTime={startTime}
+            endTime={endTime}
+            onChange={(d, s, e, ed) => {
+              setDueDate(d); setEndDate(ed ?? ''); setStartTime(s ?? ''); setEndTime(e ?? '');
+              updateMyTask(task.id, { dueDate: d, endDate: ed ?? '', startTime: s ?? '', endTime: e ?? '' });
+            }}
+            onClose={() => setOpen(null)}
+            anchorRect={dueDateBtnRef.current?.getBoundingClientRect() ?? null}
+          />
         )}
       </div>
 
@@ -957,10 +952,10 @@ export function Taches() {
   );
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* Sticky header + filter bar */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+      {/* Header + filter bar */}
+      <div style={{ flexShrink: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         {/* Topbar */}
         <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
           <div>
@@ -989,7 +984,8 @@ export function Taches() {
       </div>
 
       {/* Body */}
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {visible.length === 0 && (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -1044,6 +1040,7 @@ export function Taches() {
             );
           })
         )}
+      </div>
       </div>
 
       {/* Task panel overlay */}

@@ -468,10 +468,10 @@ export function TravailOverview() {
   const totalPaid     = MOCK_INVOICES.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* Sticky topbar */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)' }}>
+      {/* Topbar */}
+      <div style={{ flexShrink: 0 }}>
         <ProjectHeaderBar projectId={project.id}>
           {(() => {
             const approver = getClientApprover(project.clientId);
@@ -499,7 +499,7 @@ export function TravailOverview() {
       </div>
 
       {/* Body */}
-      <div style={{ padding: '24px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
         {/* Left column */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>

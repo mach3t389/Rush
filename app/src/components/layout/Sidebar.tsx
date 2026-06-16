@@ -1,13 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
-import { USERS, PROJECTS, CLIENTS } from '../../data/mock';
+import { USERS } from '../../data/mock';
+import { getProjects, subscribeProjects } from '../../data/projectStore';
+import { getClients, subscribeClients } from '../../data/clientStore';
+import { useProjectTotalNotifCount, useClientTotalNotifCount } from '../../hooks/useNotifs';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../profile/ProfileEditPanel';
 import {
   getPinnedIds, subscribePinned, movePinned, togglePin,
   getPinnedClientIds, subscribePinnedClients, movePinnedClient, togglePinClient,
   getProjectColor, setProjectColor,
 } from '../../data/pinnedStore';
+import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
+
+function PinnedBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)',
+      background: 'var(--accent)', color: 'var(--on-accent)',
+      borderRadius: 999, padding: '1px 5px', lineHeight: 1.5,
+      minWidth: 14, textAlign: 'center', flexShrink: 0,
+    }}>
+      {count}
+    </span>
+  );
+}
+
+function ProjectPinnedBadge({ projectId }: { projectId: string }) {
+  const count = useProjectTotalNotifCount(projectId);
+  return <PinnedBadge count={count} />;
+}
+
+function ClientPinnedBadge({ clientId }: { clientId: string }) {
+  const count = useClientTotalNotifCount(clientId);
+  return <PinnedBadge count={count} />;
+}
 
 const PROJECT_COLOR_PRESETS = [
   '#5B8AF5', '#34C98A', '#C45BE8', '#F5975B', '#E85B7A', '#5BC4E8',
@@ -20,9 +48,10 @@ const NAV_MAIN = [
 ];
 
 const NAV_BOTTOM_MAIN = [
-  { to: '/clients',    icon: 'users',        label: 'Clients',    exact: true },
+  { to: '/clients',    icon: 'users',        label: 'Clients',    exact: true  },
   { to: '/projets',    icon: 'folder',       label: 'Projets',    exact: true  },
   { to: '/calendrier', icon: 'calendar',     label: 'Calendrier', exact: false },
+  { to: '/activite',   icon: 'activity',     label: 'Activité',   exact: false },
 ];
 
 const me = USERS.lea;
@@ -57,7 +86,7 @@ function NavItem({ to, icon, label, exact, collapsed }: { to: string; icon: stri
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ onSearch }: { onSearch?: () => void }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
@@ -75,6 +104,8 @@ export function Sidebar() {
 
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
   useEffect(() => subscribePinnedClients(() => setPinnedClientIds(getPinnedClientIds())), []);
+  useEffect(() => subscribeProjects(() => setPinnedIds(prev => [...prev])), []);
+  useEffect(() => subscribeClients(() => setPinnedClientIds(prev => [...prev])), []);
 
   // Close color picker on outside click
   useEffect(() => {
@@ -84,18 +115,26 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handler);
   }, [colorPickerId]);
 
+  const [logoFull, setLogoFullState] = useState(getLogoFull);
+  const [logoSquare, setLogoSquareState] = useState(getLogoSquare);
+
+  useEffect(() => subscribeStudioLogos(() => {
+    setLogoFullState(getLogoFull());
+    setLogoSquareState(getLogoSquare());
+  }), []);
+
   const profileOverrides = loadProfile(me.id);
   const photoUrl = loadPhoto(me.id);
   const displayName = profileOverrides.name ?? me.name;
   const displayRole = profileOverrides.role ?? me.role;
 
   const pinnedProjects = pinnedIds
-    .map(id => PROJECTS.find(p => p.id === id))
-    .filter(Boolean) as typeof PROJECTS;
+    .map(id => getProjects().find(p => p.id === id))
+    .filter(Boolean) as ReturnType<typeof getProjects>;
 
   const pinnedClients = pinnedClientIds
-    .map(id => CLIENTS.find(c => c.id === id))
-    .filter(Boolean) as typeof CLIENTS;
+    .map(id => getClients().find(c => c.id === id))
+    .filter(Boolean) as ReturnType<typeof getClients>;
 
   // Project drag handlers
   const handleDragStart = (e: React.DragEvent, idx: number) => {
@@ -160,15 +199,21 @@ export function Sidebar() {
       {/* Logo + collapse toggle */}
       <div style={{ padding: collapsed ? '16px 0 12px' : '16px 16px 12px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'space-between', position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: 7,
-            background: 'var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--on-accent)', fontFamily: 'var(--ff-display)', lineHeight: 1 }}>R</span>
-          </div>
-          {!collapsed && (
-            <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Rush</span>
+          {collapsed ? (
+            logoSquare
+              ? <img src={logoSquare} alt="Logo" style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+              : <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--on-accent)', fontFamily: 'var(--ff-display)', lineHeight: 1 }}>R</span>
+                </div>
+          ) : (
+            logoFull
+              ? <img src={logoFull} alt="Logo" style={{ maxHeight: 32, maxWidth: 160, objectFit: 'contain', flexShrink: 0 }} />
+              : <>
+                  <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--on-accent)', fontFamily: 'var(--ff-display)', lineHeight: 1 }}>R</span>
+                  </div>
+                  <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Rush</span>
+                </>
           )}
         </div>
         {!collapsed && (
@@ -219,6 +264,31 @@ export function Sidebar() {
           {/* Separator */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
           <NavItem to="/modeles" icon="library" label="Modèles" exact={false} collapsed={collapsed} />
+          {/* Search */}
+          <button
+            onClick={onSearch}
+            title={collapsed ? 'Rechercher (Ctrl+K)' : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
+              padding: collapsed ? '8px 0' : '8px 12px',
+              justifyContent: collapsed ? 'center' : 'space-between',
+              borderRadius: 9, border: 'none', background: 'transparent',
+              color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              width: '100%', textAlign: 'left', marginTop: 1,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10 }}>
+              <SFIcon name="search" size={16} />
+              {!collapsed && 'Rechercher'}
+            </span>
+            {!collapsed && (
+              <kbd style={{ fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-2)', borderRadius: 5, padding: '2px 5px', fontFamily: 'var(--ff-mono)', lineHeight: 1.4 }}>
+                Ctrl K
+              </kbd>
+            )}
+          </button>
         </nav>
 
         {/* Projets épinglés */}
@@ -274,9 +344,10 @@ export function Sidebar() {
                         style={{ width: 7, height: 7, borderRadius: 999, background: dotColor, flexShrink: 0, display: 'block', cursor: 'pointer', outline: colorPickerId === p.id ? `2px solid ${dotColor}` : 'none', outlineOffset: 2 }}
                       />
 
-                      <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>
                         {p.name}
                       </span>
+                      <ProjectPinnedBadge projectId={p.id} />
                     </NavLink>
 
                     {/* Color picker popover */}
@@ -379,9 +450,10 @@ export function Sidebar() {
                     }}>
                       {c.initials}
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>
                       {c.name}
                     </span>
+                    <ClientPinnedBadge clientId={c.id} />
                   </NavLink>
                   {/* Unpin button */}
                   {hoveredClientId === c.id && (

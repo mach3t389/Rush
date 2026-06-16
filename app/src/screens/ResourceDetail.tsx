@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -258,6 +257,75 @@ interface ScriptViewProps extends EditableProps {
   setActiveVersionId: (id: string) => void;
 }
 
+// ── Script comment sidebar ────────────────────────────────────────────────────
+
+interface ScriptComment { id: string; author: string; text: string; ts: number; resolved: boolean; }
+
+function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
+  const [comments, setComments] = useState<ScriptComment[]>([]);
+  const [draft, setDraft] = useState('');
+
+  const addComment = () => {
+    if (!draft.trim()) return;
+    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: 'Moi', text: draft.trim(), ts: Date.now(), resolved: false }]);
+    setDraft('');
+  };
+
+  const openComments = comments.filter(c => !c.resolved);
+  const resolvedComments = comments.filter(c => c.resolved);
+
+  return (
+    <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
+      <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', flexShrink:0, display:'flex', alignItems:'center', gap:6 }}>
+        <SFIcon name="message-circle" size={12} color="var(--text-3)" />
+        <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Commentaires</p>
+        {openComments.length > 0 && <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', fontWeight:700 }}>{openComments.length}</span>}
+      </div>
+      <div style={{ flex:1, overflow:'auto', padding:'10px', display:'flex', flexDirection:'column', gap:6 }}>
+        {comments.length === 0 && (
+          <p style={{ fontSize:11, color:'var(--text-3)', padding:'4px 2px' }}>Aucun commentaire.</p>
+        )}
+        {openComments.map(c => (
+          <div key={c.id} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
+              <SFAvatar user={{ name: c.author } as any} size={18} />
+              <span style={{ fontSize:11, fontWeight:600, color:'var(--text-2)', flex:1 }}>{c.author}</span>
+              <button
+                onClick={() => setComments(prev => prev.map(cc => cc.id === c.id ? { ...cc, resolved: true } : cc))}
+                title="Résoudre"
+                style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', padding:2, borderRadius:4, display:'flex', alignItems:'center' }}
+              >
+                <SFIcon name="check" size={11} />
+              </button>
+            </div>
+            <p style={{ fontSize:12, color:'var(--text)', lineHeight:1.5 }}>{c.text}</p>
+          </div>
+        ))}
+        {resolvedComments.length > 0 && (
+          <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginTop:4 }}>Résolus ({resolvedComments.length})</p>
+        )}
+      </div>
+      <div style={{ padding:'10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } }}
+          placeholder="Ajouter un commentaire…"
+          rows={2}
+          style={{ width:'100%', resize:'none', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, padding:'7px 9px', fontSize:12, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box', colorScheme:'dark' }}
+        />
+        <button
+          onClick={addComment}
+          disabled={!draft.trim()}
+          style={{ marginTop:6, width:'100%', padding:'6px 0', borderRadius:7, border:'none', background: draft.trim() ? 'var(--accent)' : 'var(--surface-3)', color: draft.trim() ? '#000' : 'var(--text-3)', fontSize:12, fontWeight:600, cursor: draft.trim() ? 'pointer' : 'default', fontFamily:'var(--ff-text)', transition:'background 0.15s' }}
+        >
+          Envoyer
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId }: ScriptViewProps) {
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
   const [editingVersionLabel, setEditingVersionLabel] = useState('');
@@ -398,7 +466,55 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   });
 
   return (
-    <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+      {/* Top — Versions bar */}
+      <div style={{ flexShrink:0, borderBottom:'1px solid var(--border)', padding:'8px 14px', display:'flex', alignItems:'center', gap:8, background:'var(--surface)', overflowX:'auto' }}>
+        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', flexShrink:0 }}>Version :</span>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          {versions.map((v, i) => {
+            const isActive = v.id === activeVersionId;
+            const isEditing = editingVersionId === v.id;
+            return (
+              <div key={v.id} style={{ display:'flex', alignItems:'center', gap:3 }}>
+                {isEditing ? (
+                  <input
+                    autoFocus
+                    value={editingVersionLabel}
+                    onChange={e => setEditingVersionLabel(e.target.value)}
+                    onBlur={() => {
+                      setVersions(prev => prev.map(vv => vv.id === v.id ? { ...vv, label: editingVersionLabel || vv.label } : vv));
+                      setEditingVersionId(null);
+                      onEdit?.();
+                    }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
+                    onClick={e => e.stopPropagation()}
+                    style={{ width:100, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)' }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => !isActive && switchVersion(v.id)}
+                    onDoubleClick={() => isActive && (setEditingVersionId(v.id), setEditingVersionLabel(v.label))}
+                    title={isActive ? 'Double-cliquer pour renommer' : 'Activer cette version'}
+                    style={{ padding:'3px 10px', borderRadius:6, border:`1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`, background: isActive ? 'rgba(249,255,0,0.07)' : 'transparent', color: isActive ? 'var(--accent)' : 'var(--text-3)', fontFamily:'var(--ff-mono)', fontSize:10, cursor: isActive ? 'default' : 'pointer', fontWeight: isActive ? 700 : 400 }}
+                  >
+                    V{i + 1} · {v.label}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button
+          onClick={createVersion}
+          style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:6, border:'1px dashed var(--border-2)', background:'transparent', color:'var(--text-3)', fontSize:11, cursor:'pointer', fontFamily:'var(--ff-text)', flexShrink:0 }}
+        >
+          <SFIcon name="plus" size={11} />Nouvelle version
+        </button>
+      </div>
+
+      {/* Content row */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
       {/* Left — Structure panel */}
       <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)', overflow:'hidden' }}>
@@ -663,65 +779,10 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
         </div>
       </div>
 
-      {/* Right — Versions sidebar */}
-      <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
-        <div style={{ padding:'12px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-          <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Versions</p>
-        </div>
-        <div style={{ flex:1, overflow:'auto', padding:'10px 10px', display:'flex', flexDirection:'column', gap:5 }}>
-          {versions.map((v, i) => {
-            const isActive = v.id === activeVersionId;
-            const isEditing = editingVersionId === v.id;
-            return (
-              <div
-                key={v.id}
-                onClick={() => !isActive && switchVersion(v.id)}
-                style={{ padding:'9px 11px', borderRadius:10, border:`1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`, background: isActive ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)', cursor: isActive ? 'default' : 'pointer', transition:'border-color 0.15s' }}
-              >
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
-                  <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, fontWeight:700, color: isActive ? 'var(--accent)' : 'var(--text-3)' }}>V{i + 1}</span>
-                  {isActive && <SFPill status="review" small>Active</SFPill>}
-                  <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{v.date}</span>
-                </div>
-                {isEditing ? (
-                  <input
-                    autoFocus
-                    value={editingVersionLabel}
-                    onChange={e => setEditingVersionLabel(e.target.value)}
-                    onBlur={() => {
-                      setVersions(prev => prev.map(vv => vv.id === v.id ? { ...vv, label: editingVersionLabel || vv.label } : vv));
-                      setEditingVersionId(null);
-                      onEdit?.();
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
-                    onClick={e => e.stopPropagation()}
-                    style={{ width:'100%', background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:6, padding:'3px 7px', fontSize:12, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
-                  />
-                ) : (
-                  <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                    <p style={{ fontSize:12, fontWeight:500, color:'var(--text-2)', flex:1 }}>{v.label}</p>
-                    {isActive && (
-                      <button
-                        onClick={e => { e.stopPropagation(); setEditingVersionId(v.id); setEditingVersionLabel(v.label); }}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', padding:2, borderRadius:4, display:'flex', alignItems:'center' }}
-                        title="Renommer"
-                      >
-                        <SFIcon name="pencil" size={10} />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <button
-            onClick={createVersion}
-            style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 10px', borderRadius:10, border:'1px dashed var(--border-2)', background:'transparent', color:'var(--text-3)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)', marginTop:2 }}
-          >
-            <SFIcon name="plus" size={12} />Nouvelle version
-          </button>
-        </div>
-      </div>
+      {/* Right — Comments sidebar */}
+      <ScriptCommentSidebar resourceId={resource.id} />
+
+      </div>{/* end content row */}
     </div>
   );
 }
@@ -2493,8 +2554,11 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(resource.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descVal, setDescVal] = useState(resource.description ?? '');
 
   useEffect(() => { setTitleVal(resource.title); }, [resource.title]);
+  useEffect(() => { setDescVal(resource.description ?? ''); }, [resource.description]);
   useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
 
   const commitTitle = () => {
@@ -2502,6 +2566,12 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
     if (trimmed && trimmed !== resource.title) updateResource(resource.id, { title: trimmed });
     else setTitleVal(resource.title);
     setEditingTitle(false);
+  };
+
+  const commitDesc = () => {
+    const trimmed = descVal.trim();
+    updateResource(resource.id, { description: trimmed || undefined });
+    setEditingDesc(false);
   };
 
   useEffect(() => {
@@ -2523,8 +2593,8 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
   }, [expOpen]);
 
   return (
-    <div style={{ position:'sticky', top:0, zIndex:10, background:'var(--surface)', flexShrink:0 }}>
-      <ProjectHeaderBar projectId={project?.id ?? ''}>
+    <div style={{ background:'var(--surface)', flexShrink:0 }}>
+      <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:8 }}>
         <div style={{ display:'flex', gap:8, alignItems:'center', position:'relative' }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', background:'var(--surface-2)', borderRadius:8, border:'1px solid var(--border)' }}>
             <SFIcon name={TYPE_ICON[resource.type]} size={13} color="var(--text-3)" />
@@ -2594,7 +2664,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
           )}
           <SFButton variant="ghost" size="sm" icon="share-2">Partager</SFButton>
         </div>
-      </ProjectHeaderBar>
+      </div>
       <div style={{ padding:'10px 24px', display:'flex', alignItems:'center', gap:10, borderBottom:'1px solid var(--border)' }}>
         <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
           <SFIcon name={TYPE_ICON[resource.type]} size={15} color="var(--accent)" />
@@ -2620,6 +2690,25 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             </h2>
           )}
           <p style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-mono)', marginTop:1 }}>{resource.meta}</p>
+          {editingDesc ? (
+            <textarea
+              autoFocus
+              value={descVal}
+              onChange={e => setDescVal(e.target.value)}
+              onBlur={commitDesc}
+              onKeyDown={e => { if (e.key === 'Escape') { setDescVal(resource.description ?? ''); setEditingDesc(false); } }}
+              style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:400, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
+              rows={2}
+            />
+          ) : (
+            <p
+              onClick={() => setEditingDesc(true)}
+              title="Cliquer pour modifier la description"
+              style={{ fontSize:11, color: descVal ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:3, fontStyle: descVal ? 'normal' : 'italic' }}
+            >
+              {descVal || 'Ajouter une description...'}
+            </p>
+          )}
         </div>
         {resource.version && (
           <span style={{ marginLeft:4, fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', background:'var(--surface-2)', borderRadius:6, padding:'3px 9px', border:'1px solid var(--border)' }}>{resource.version}</span>
@@ -4387,9 +4476,17 @@ export function ResourceDetail() {
   useEffect(() => subscribeResources(() => setResources(getResources())), []);
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
 
-  const resource = resources.find(r => r.id === resourceId) ?? resources[0];
+  const resource = resources.find(r => r.id === resourceId);
 
   const { state: saveState, online, touch } = useAutosave();
+
+  if (!resource) return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)' }}>
+      <SFIcon name="file-x" size={36} color="var(--text-3)" />
+      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>Ressource introuvable</p>
+      <p style={{ fontSize: 12 }}>L'identifiant <code style={{ background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--ff-mono)' }}>{resourceId}</code> ne correspond à aucune ressource.</p>
+    </div>
+  );
   const exporterRef = useRef<(() => ExportPayload) | null>(null);
   const registerExport = useCallback<RegisterExport>((fn) => { exporterRef.current = fn; }, []);
 

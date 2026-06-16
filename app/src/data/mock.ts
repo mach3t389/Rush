@@ -33,23 +33,23 @@ export const PROJECTS: Project[] = [
 // ── My Tasks ──────────────────────────────────────────────────────────────────
 export const MY_TASKS: Task[] = [
   { id: 'u1', title: 'Révision finale scénario V3 — Dialogues principaux', projectId:'pj1', projectName:'Nova Films',     projectColor:'#3b4f8f', assignee:USERS.lea, status:'danger', statusLabel:'En retard', priority:'high',   priorityLabel:'Élevée',  dueDate:'Hier',          dueDateRed:true,  checked:false },
-  { id: 'u2', title: 'Validation maquettes graphiques motion design',        projectId:'pj5', projectName:'Studio Intern',  projectColor:'#5c3d8f', assignee:USERS.lea, status:'info',   statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:"Aujourd'hui",   dueDateRed:false, checked:false },
+  { id: 'u2', title: 'Validation maquettes graphiques motion design',        projectId:'pj5', projectName:'Agence Vertigo',  projectColor:'#3d3d30', assignee:USERS.lea, status:'info',   statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:"Aujourd'hui",   dueDateRed:false, checked:false },
   { id: 'h1', title: 'Préparation liste équipement tournage jour 1',         projectId:'pj1', projectName:'Nova Films',     projectColor:'#3b4f8f', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'high',   priorityLabel:'Élevée',  dueDate:'Demain',        dueDateRed:false, checked:false },
-  { id: 'h2', title: 'Brief créatif documentaire "Les Bâtisseurs"',           projectId:'pj2', projectName:'Studio Lumière', projectColor:'#5c3d8f', assignee:USERS.lea, status:'info',   statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:'12 juin',       dueDateRed:false, checked:false },
-  { id: 'h3', title: 'Appel de confirmation client avant tournage',           projectId:'pj4', projectName:'Maison Leroux',  projectColor:'#1a6b4a', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'high',   priorityLabel:'Élevée',  dueDate:'13 juin',       dueDateRed:false, checked:false },
-  { id: 'h4', title: 'Envoi devis production clip musical',                   projectId:'pj5', projectName:'Collectif Ondes',projectColor:'#7d4e57', assignee:USERS.lea, status:'info',   statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:'14 juin',       dueDateRed:false, checked:false },
+  { id: 'h2', title: 'Brief créatif documentaire "Les Bâtisseurs"',           projectId:'pj2', projectName:'Studio Bleu',    projectColor:'#1a6b4a', assignee:USERS.lea, status:'info',   statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:'12 juin',       dueDateRed:false, checked:false },
+  { id: 'h3', title: 'Appel de confirmation client avant tournage',           projectId:'pj4', projectName:'Collectif Ondes',projectColor:'#7d4e57', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'high',   priorityLabel:'Élevée',  dueDate:'13 juin',       dueDateRed:false, checked:false },
+  { id: 'h4', title: 'Envoi devis production clip musical',                   projectId:'pj5', projectName:'Agence Vertigo', projectColor:'#3d3d30', assignee:USERS.lea, status:'info',   statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:'14 juin',       dueDateRed:false, checked:false },
   { id: 'n1', title: 'Archiver les projets terminés Q1 2025',                 projectId:'int', projectName:'Studio interne', projectColor:'#404040', assignee:USERS.lea, status:'ok',     statusLabel:'Complété',  priority:'normal', priorityLabel:'Normale', dueDate:'8 juin',        dueDateRed:false, checked:true  },
   { id: 'n2', title: 'Mettre à jour la grille tarifaire 2025',                projectId:'int', projectName:'Studio interne', projectColor:'#404040', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'normal', priorityLabel:'Normale', dueDate:'20 juin',       dueDateRed:false, checked:false },
   { id: 'n3', title: 'Vérifier licences musicales clip Collectif Ondes',      projectId:'pj4', projectName:'Collectif Ondes',projectColor:'#7d4e57', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'normal', priorityLabel:'Normale', dueDate:'18 juin',       dueDateRed:false, checked:false },
   { id: 'n4', title: 'Commander batteries Li-Ion pour le tournage J2',        projectId:'pj1', projectName:'Nova Films',     projectColor:'#3b4f8f', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'normal', priorityLabel:'Normale', dueDate:'16 juin',       dueDateRed:false, checked:false },
-  { id: 'n5', title: 'Planifier la réunion de post-production',               projectId:'pj2', projectName:'Studio Lumière', projectColor:'#5c3d8f', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'normal', priorityLabel:'Normale', dueDate:'22 juin',       dueDateRed:false, checked:false },
+  { id: 'n5', title: 'Planifier la réunion de post-production',               projectId:'pj2', projectName:'Studio Bleu',    projectColor:'#1a6b4a', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'normal', priorityLabel:'Normale', dueDate:'22 juin',       dueDateRed:false, checked:false },
   { id: 'n6', title: 'Rédiger le rapport de fin de projet Maison Leroux',     projectId:'pj3', projectName:'Maison Leroux',  projectColor:'#1a6b4a', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'normal', priorityLabel:'Normale', dueDate:'25 juin',       dueDateRed:false, checked:false },
   { id: 'l1', title: 'Organiser les archives des fichiers source Q1 2025',    projectId:'int', projectName:'Studio interne', projectColor:'#404040', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'low',    priorityLabel:'Basse',   dueDate:'30 juin',       dueDateRed:false, checked:false },
   { id: 'l2', title: 'Mettre à jour les modèles de contrats',                 projectId:'int', projectName:'Studio interne', projectColor:'#404040', assignee:USERS.lea, status:'warn',   statusLabel:'En attente',priority:'low',    priorityLabel:'Basse',   dueDate:'15 juil.',      dueDateRed:false, checked:false },
 ];
 
 // ── Project Tasks (Vue Travail) ───────────────────────────────────────────────
-export const PROJECT_TASKS: Record<string, { label: string; progress: number; tasks: Task[] }[]> = {
+export const PROJECT_TASKS: Record<string, { label: string; progress: number; tasks: Task[]; completed?: boolean }[]> = {
   pj1: [
     {
       label: 'Préproduction', progress: 75,
@@ -87,6 +87,154 @@ export const PROJECT_TASKS: Record<string, { label: string; progress: number; ta
       ]
     },
   ],
+
+  // ── pj2 · Les Bâtisseurs (Studio Bleu) — préproduction 30% ──
+  pj2: [
+    {
+      label: 'Préproduction', progress: 50,
+      tasks: [
+        { id:'2p1', title:'Recherche documentaire et repérage des intervenants', projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.julie, status:'info', statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:'20 juin', checked:false, subtasks:[], activityCount:2 },
+        { id:'2p2', title:'Écriture du synopsis et de la note d\'intention',      projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.marc,  status:'ok',   statusLabel:'Complété',  priority:'normal', priorityLabel:'Normale', dueDate:'5 juin',  checked:true,  subtasks:[] },
+        { id:'2p3', title:'Calendrier de tournage et budget prévisionnel',        projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.marc,  status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'25 juin', checked:false, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Production', progress: 0,
+      tasks: [
+        { id:'2pr1', title:'Tournage interviews — Semaine 1',         projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.julie, status:'warn', statusLabel:'En attente', priority:'high',   priorityLabel:'Élevée',  dueDate:'10 juil.', checked:false, subtasks:[] },
+        { id:'2pr2', title:'Captation des lieux et plans de coupe',   projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.marc,  status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'15 juil.', checked:false, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Postproduction', progress: 0,
+      tasks: [
+        { id:'2pp1', title:'Dérushage et sélection des prises',       projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.julie, status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'20 juil.', checked:false, subtasks:[] },
+        { id:'2pp2', title:'Montage première version',               projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.julie, status:'warn', statusLabel:'En attente', priority:'high',   priorityLabel:'Élevée',  dueDate:'28 juil.', checked:false, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Livraison', progress: 0,
+      tasks: [
+        { id:'2l1', title:'Export master et livraison',              projectId:'pj2', projectName:'Les Bâtisseurs', projectColor:'#1a6b4a', assignee:USERS.marc,  status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'1 août', checked:false, subtasks:[] },
+      ]
+    },
+  ],
+
+  // ── pj3 · Film institutionnel 2025 (Maison Leroux) — postproduction 80% ──
+  pj3: [
+    {
+      label: 'Préproduction', progress: 100, completed: true,
+      tasks: [
+        { id:'3p1', title:'Brief et validation du concept', projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.sarah,  status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'2 mai', checked:true, subtasks:[] },
+        { id:'3p2', title:'Scénario et storyboard',         projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.thomas, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'8 mai', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Production', progress: 100, completed: true,
+      tasks: [
+        { id:'3pr1', title:'Tournage principal',      projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.sarah,  status:'ok', statusLabel:'Complété', priority:'high',   priorityLabel:'Élevée',  dueDate:'18 mai', checked:true, subtasks:[] },
+        { id:'3pr2', title:'Interviews dirigeants',   projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.thomas, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'20 mai', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Postproduction', progress: 65,
+      tasks: [
+        { id:'3pp1', title:'Montage et structure narrative',     projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.thomas, status:'info', statusLabel:'En cours',  priority:'high',   priorityLabel:'Élevée',  dueDate:'12 juin', checked:false, subtasks:[], activityCount:3 },
+        { id:'3pp2', title:'Étalonnage colorimétrique',          projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.sarah,  status:'info', statusLabel:'En cours',  priority:'normal', priorityLabel:'Normale', dueDate:'15 juin', checked:false, subtasks:[] },
+        { id:'3pp3', title:'Habillage graphique et sous-titres', projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.thomas, status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'18 juin', checked:false, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Livraison', progress: 0,
+      tasks: [
+        { id:'3l1', title:'Validation client et exports finaux', projectId:'pj3', projectName:'Film institutionnel 2025', projectColor:'#2d5a7d', assignee:USERS.sarah, status:'warn', statusLabel:'En attente', priority:'high', priorityLabel:'Élevée', dueDate:'20 juin', checked:false, subtasks:[] },
+      ]
+    },
+  ],
+
+  // ── pj4 · Clip Horizon (Collectif Ondes) — production 45%, en retard ──
+  pj4: [
+    {
+      label: 'Préproduction', progress: 100, completed: true,
+      tasks: [
+        { id:'4p1', title:'Concept créatif et moodboard',     projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.sarah, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'1 juin', checked:true, subtasks:[] },
+        { id:'4p2', title:'Repérage et casting danseurs',     projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.marc,  status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'5 juin', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Production', progress: 50,
+      tasks: [
+        { id:'4pr1', title:'Tournage J1 — Rooftop',     projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.marc,  status:'danger', statusLabel:'En retard',  priority:'high',   priorityLabel:'Élevée',  dueDate:'8 juin',  checked:false, subtasks:[], activityCount:4 },
+        { id:'4pr2', title:'Tournage J2 — Studio',      projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.julie, status:'info',   statusLabel:'En cours',   priority:'high',   priorityLabel:'Élevée',  dueDate:'12 juin', checked:false, subtasks:[] },
+        { id:'4pr3', title:'Captation drone',           projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.sarah, status:'warn',   statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'14 juin', checked:false, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Postproduction', progress: 0,
+      tasks: [
+        { id:'4pp1', title:'Montage rythmique sur la musique', projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.julie, status:'warn', statusLabel:'En attente', priority:'high',   priorityLabel:'Élevée',  dueDate:'20 juin', checked:false, subtasks:[] },
+        { id:'4pp2', title:'VFX et étalonnage',               projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.marc,  status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'25 juin', checked:false, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Livraison', progress: 0,
+      tasks: [
+        { id:'4l1', title:'Export formats réseaux sociaux', projectId:'pj4', projectName:'Clip Horizon', projectColor:'#7d4e57', assignee:USERS.julie, status:'warn', statusLabel:'En attente', priority:'normal', priorityLabel:'Normale', dueDate:'28 juin', checked:false, subtasks:[] },
+      ]
+    },
+  ],
+
+  // ── pj5 · Motion Design Pack (Agence Vertigo) — livraison 92% ──
+  pj5: [
+    {
+      label: 'Conception', progress: 100, completed: true,
+      tasks: [
+        { id:'5p1', title:'Charte motion et style frames', projectId:'pj5', projectName:'Motion Design Pack', projectColor:'#3d3d30', assignee:USERS.thomas, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'15 mai', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Production', progress: 100, completed: true,
+      tasks: [
+        { id:'5pr1', title:'Animation des 5 modules', projectId:'pj5', projectName:'Motion Design Pack', projectColor:'#3d3d30', assignee:USERS.thomas, status:'ok', statusLabel:'Complété', priority:'high',   priorityLabel:'Élevée',  dueDate:'1 juin', checked:true, subtasks:[] },
+        { id:'5pr2', title:'Sound design',            projectId:'pj5', projectName:'Motion Design Pack', projectColor:'#3d3d30', assignee:USERS.thomas, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'5 juin', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Livraison', progress: 60,
+      tasks: [
+        { id:'5l1', title:'Exports finaux et déclinaisons',     projectId:'pj5', projectName:'Motion Design Pack', projectColor:'#3d3d30', assignee:USERS.thomas, status:'info', statusLabel:'En cours',  priority:'high', priorityLabel:'Élevée', dueDate:'12 juin', checked:false, subtasks:[], activityCount:1 },
+        { id:'5l2', title:'Présentation et validation client',  projectId:'pj5', projectName:'Motion Design Pack', projectColor:'#3d3d30', assignee:USERS.thomas, status:'warn', statusLabel:'En attente', priority:'high', priorityLabel:'Élevée', dueDate:'14 juin', checked:false, subtasks:[] },
+      ]
+    },
+  ],
+
+  // ── pj6 · Brand Film Q4 (Studio Bleu) — complété 100% ──
+  pj6: [
+    {
+      label: 'Préproduction', progress: 100, completed: true,
+      tasks: [
+        { id:'6p1', title:'Brief et scénario', projectId:'pj6', projectName:'Brand Film Q4', projectColor:'#1a6b4a', assignee:USERS.sarah, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'Oct 2024', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Production', progress: 100, completed: true,
+      tasks: [
+        { id:'6pr1', title:'Tournage', projectId:'pj6', projectName:'Brand Film Q4', projectColor:'#1a6b4a', assignee:USERS.sarah, status:'ok', statusLabel:'Complété', priority:'high', priorityLabel:'Élevée', dueDate:'Nov 2024', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Postproduction', progress: 100, completed: true,
+      tasks: [
+        { id:'6pp1', title:'Montage et étalonnage', projectId:'pj6', projectName:'Brand Film Q4', projectColor:'#1a6b4a', assignee:USERS.julie, status:'ok', statusLabel:'Complété', priority:'high', priorityLabel:'Élevée', dueDate:'Nov 2024', checked:true, subtasks:[] },
+      ]
+    },
+    {
+      label: 'Livraison', progress: 100, completed: true,
+      tasks: [
+        { id:'6l1', title:'Livraison finale — 5 formats', projectId:'pj6', projectName:'Brand Film Q4', projectColor:'#1a6b4a', assignee:USERS.julie, status:'ok', statusLabel:'Complété', priority:'normal', priorityLabel:'Normale', dueDate:'Déc 2024', checked:true, subtasks:[] },
+      ]
+    },
+  ],
 };
 
 // ── Resources ─────────────────────────────────────────────────────────────────
@@ -99,6 +247,7 @@ export const RESOURCES: Resource[] = [
   { id:'r6', type:'inspirations',eyebrow:'INSPIRATIONS', title:'Références visuelles',         status:'neutral', statusLabel:'8 références', meta:'8 références',      colors:['#1e2d3d','#3d2a1e','#1e3d2d','#3d3d1e','#2d1e3d','#2a2a2a'], avatars:[{initials:'JT',bg:'#2d3748'}] },
   { id:'r7', type:'file',        eyebrow:'FICHIERS',       title:'Dossiers du projet',                   status:'neutral', statusLabel:'Fichiers',   meta:'12 fichiers' },
   { id:'r8', type:'form',        eyebrow:'FORMULAIRE',     title:'Questionnaire de satisfaction client',  status:'info',    statusLabel:'En cours', meta:'0 réponse' },
+  { id:'r9', type:'web_review',  eyebrow:'SITE WEB',       title:'Site client — Révision V2',            status:'review',  statusLabel:'En révision', meta:'2 annotations', webUrl:'https://www.propulsetoi.ca' },
 ];
 
 // ── Video Review ──────────────────────────────────────────────────────────────

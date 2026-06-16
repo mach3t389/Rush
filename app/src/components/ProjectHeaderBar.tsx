@@ -1,30 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { SFIcon } from './ui';
-import { PROJECTS } from '../data/mock';
+import { findProject } from '../data/projectStore';
+import { STATUS_COLOR } from '../data/status';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { useProjectTaskNotifCount, useProjectResourceNotifCount } from '../hooks/useNotifs';
+import { PROJECT_STATUS_OPTIONS, ProjectEditPanel } from './ProjectCard';
+import type { EditUpdates } from './ProjectCard';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const STATUS_COLOR: Record<string, string> = {
-  '':      'var(--border-2)',
-  warn:    'var(--warn)',
-  info:    'var(--info)',
-  ok:      'var(--ok)',
-  danger:  'var(--danger)',
-  review:  'var(--review)',
-  neutral: 'var(--text-3)',
-};
-
-const STATUS_OPTIONS = [
-  { value: 'info',    label: 'En cours'          },
-  { value: 'ok',      label: 'En avance'         },
-  { value: 'warn',    label: 'En attente client' },
-  { value: 'danger',  label: 'En retard'         },
-  { value: 'review',  label: 'En révision'       },
-  { value: 'neutral', label: 'Complété'          },
-];
 
 const DOT_COLORS = [
   '#5B8AF5','#34C98A','#C45BE8','#F5975B','#E85B7A','#5BC4E8',
@@ -41,7 +25,7 @@ export function ProjectHeaderBar({
   children?: React.ReactNode;
 }) {
   const navigate = useNavigate();
-  const project = PROJECTS.find(p => p.id === projectId);
+  const project = findProject(projectId);
 
   const [, forceUpdate] = useState(0);
   const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
@@ -49,6 +33,11 @@ export function ProjectHeaderBar({
   const [status, setStatus] = useState(project?.status ?? '');
   const [statusLabel, setStatusLabel] = useState(project?.statusLabel ?? '');
   const [statusOpen, setStatusOpen] = useState(false);
+  const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
+  const statusBtnRef = useRef<HTMLButtonElement>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [localName, setLocalName] = useState(project?.name ?? '');
+  const [localColor, setLocalColor] = useState(dotColor);
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
   const resourceNotifs = useProjectResourceNotifCount(projectId);
@@ -59,6 +48,7 @@ export function ProjectHeaderBar({
     { label: "Vue d'ensemble", path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
     { label: 'Tâches',         path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
     { label: 'Ressources',     path: `/projets/${projectId}/ressources`, end: false, badge: resourceNotifs },
+    { label: 'Calendrier',     path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
     { label: 'Équipe',         path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
   ];
 
@@ -76,12 +66,12 @@ export function ProjectHeaderBar({
           fontFamily: 'var(--ff-mono)', fontSize: 11,
           color: 'var(--text-3)', marginBottom: 8,
         }}>
-          <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            Clients
-          </button>
-          <span>/</span>
           <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {project.clientName}
+          </button>
+          <span>/</span>
+          <button onClick={() => navigate(`/clients/${project.clientId}?tab=projets`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            Projets
           </button>
           <span>/</span>
 
@@ -140,7 +130,8 @@ export function ProjectHeaderBar({
           {/* Status badge */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <button
-              onClick={() => setStatusOpen(v => !v)}
+              ref={statusBtnRef}
+              onClick={() => { const r = statusBtnRef.current?.getBoundingClientRect() ?? null; setStatusRect(r); setStatusOpen(v => !v); }}
               title="Changer le statut du projet"
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
@@ -155,30 +146,30 @@ export function ProjectHeaderBar({
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: STATUS_COLOR[status] ?? 'var(--border-2)', flexShrink: 0 }} />
               {statusLabel || 'Aucun statut'}
             </button>
-            {statusOpen && (
+            {statusOpen && statusRect && (
               <>
                 <div onClick={() => setStatusOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
                 <div style={{
-                  position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                  position: 'fixed', top: statusRect.bottom + 6, left: statusRect.left,
                   zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)',
                   borderRadius: 10, padding: 4,
                   boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 160,
                 }}>
-                  {STATUS_OPTIONS.map(o => (
+                  {PROJECT_STATUS_OPTIONS.map(o => (
                     <button
-                      key={o.value}
-                      onClick={() => { setStatus(o.value); setStatusLabel(o.label); setStatusOpen(false); }}
+                      key={o.status}
+                      onClick={() => { setStatus(o.status); setStatusLabel(o.label); setStatusOpen(false); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                         padding: '7px 10px', borderRadius: 7, border: 'none',
-                        background: status === o.value ? 'var(--surface-3)' : 'transparent',
+                        background: status === o.status ? 'var(--surface-3)' : 'transparent',
                         color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
                         cursor: 'pointer', textAlign: 'left',
                       }}
-                      onMouseEnter={e => { if (status !== o.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={e => { if (status !== o.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                      onMouseEnter={e => { if (status !== o.status) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { if (status !== o.status) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.status], display: 'block', flexShrink: 0 }} />
                       {o.label}
                     </button>
                   ))}
@@ -219,6 +210,28 @@ export function ProjectHeaderBar({
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {children}
         </div>
+      )}
+
+      {editOpen && project && (
+        <ProjectEditPanel
+          p={project}
+          color={localColor}
+          name={localName}
+          status={status as any}
+          statusLabel={statusLabel}
+          phase={project.phase}
+          phaseLabel={project.phaseLabel}
+          deliveryDate={project.deliveryDate}
+          onClose={() => setEditOpen(false)}
+          onSave={(u: EditUpdates) => {
+            setLocalName(u.name);
+            setLocalColor(u.color);
+            setProjectColor(project.id, u.color);
+            setStatus(u.status);
+            setStatusLabel(u.statusLabel);
+            forceUpdate(n => n + 1);
+          }}
+        />
       )}
     </div>
   );

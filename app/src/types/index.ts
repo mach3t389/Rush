@@ -63,7 +63,10 @@ export interface Task {
   statusLabel: string;
   priority: Priority;
   priorityLabel: string;
-  dueDate: string;
+  dueDate: string;        // date de début (ou date unique)
+  endDate?: string;       // date de fin optionnelle (plage multi-jours)
+  startTime?: string;
+  endTime?: string;
   dueDateRed?: boolean;
   checked: boolean;
   subtasks?: Task[];
@@ -79,13 +82,14 @@ export interface Task {
 }
 
 // ── Resource ──────────────────────────────────────────────────────────────────
-export type ResourceType = 'screenplay' | 'video_review' | 'moodboard' | 'document' | 'checklist' | 'inspirations' | 'file' | 'form';
+export type ResourceType = 'screenplay' | 'video_review' | 'moodboard' | 'document' | 'checklist' | 'inspirations' | 'file' | 'form' | 'web_review';
 
 export interface Resource {
   id: string;
   type: ResourceType;
   eyebrow: string;
   title: string;
+  description?: string;
   status: Status;
   statusLabel: string;
   meta: string;
@@ -94,6 +98,7 @@ export interface Resource {
   avatars?: { initials: string; bg: string }[];
   colors?: string[];
   mediaSubtype?: 'video' | 'photo' | 'file';
+  webUrl?: string;
 }
 
 // ── Video Review ──────────────────────────────────────────────────────────────

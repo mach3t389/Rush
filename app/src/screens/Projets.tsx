@@ -1,20 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SFPill, SFCard, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar, DatePickerDropdown, formatDisplay } from '../components/ui';
-import { PROJECTS, CLIENTS, USERS } from '../data/mock';
+import { SFPill, SFCard, SFButton, SFIcon, SFAvatar, DatePickerDropdown, formatDisplay } from '../components/ui';
+import { USERS } from '../data/mock';
 import { BUILT_IN_TEMPLATES, loadAllTemplates } from '../data/templates';
-import type { Project, Status } from '../types/index';
-import { isPinned, togglePin, subscribePinned, getPinnedIds } from '../data/pinnedStore';
-import { useProjectTotalNotifCount } from '../hooks/useNotifs';
-
-const STATUS_OPTIONS: { status: Status; label: string }[] = [
-  { status: 'ok',      label: 'Terminé' },
-  { status: 'info',    label: 'En cours' },
-  { status: 'warn',    label: 'À faire' },
-  { status: 'review',  label: 'En révision' },
-  { status: 'danger',  label: 'Bloqué' },
-  { status: 'neutral', label: 'En attente' },
-];
+import type { Project, Status, SectionData, Task } from '../types/index';
+import { ProjectCard, PROJECT_STATUS_OPTIONS } from '../components/ProjectCard';
+import { getProjects, addProject, subscribeProjects } from '../data/projectStore';
+import { getClients } from '../data/clientStore';
+import { setSections } from '../data/taskStore';
 
 type Step = 'start' | 'info' | 'team';
 
@@ -49,8 +42,9 @@ function StepDot({ label, active, done }: { label: string; active: boolean; done
 function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p: Project) => void }) {
   const [step, setStep]                 = useState<Step>('start');
   const [templateId, setTemplateId]     = useState<string | null>(null);  // null = blank
+  const clients = getClients();
   const [name, setName]                 = useState('');
-  const [clientId, setClientId]         = useState(CLIENTS[0].id);
+  const [clientId, setClientId]         = useState(clients[0]?.id ?? '');
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [dateRect, setDateRect]         = useState<DOMRect | null>(null);
@@ -78,10 +72,12 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   };
 
   const create = () => {
-    const client = CLIENTS.find(c => c.id === clientId) ?? CLIENTS[0];
+    const allClients = getClients();
+    const client = allClients.find(c => c.id === clientId) ?? allClients[0];
     const members = TEAM.filter(u => memberIds.includes(u.id));
+    const projectId = `pj${Date.now()}`;
     const newProject: Project = {
-      id: `pj${Date.now()}`,
+      id: projectId,
       name: name.trim(),
       clientId: client.id,
       clientName: client.name,
@@ -97,6 +93,29 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
       statusLabel: 'En cours',
       modifiedAt: "À l'instant",
     };
+    // Seed taskStore from template sections
+    if (selectedTemplate) {
+      const sections: SectionData[] = selectedTemplate.sections.map(sec => ({
+        label: sec.label,
+        progress: 0,
+        tasks: sec.tasks.map((tt, i): Task => ({
+          id: `${projectId}-${sec.label}-${i}`,
+          title: tt.title,
+          projectId,
+          projectName: newProject.name,
+          projectColor: color,
+          assignee: members[0] ?? USERS.lea,
+          status: 'warn',
+          statusLabel: 'En attente',
+          priority: tt.priority ?? 'normal',
+          priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+          dueDate: '',
+          checked: false,
+          subtasks: [],
+        })),
+      }));
+      setSections(projectId, sections);
+    }
     onCreate(newProject);
     onClose();
   };
@@ -235,7 +254,7 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Client</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {CLIENTS.map(c => (
+                  {clients.map(c => (
                     <button
                       key={c.id}
                       onClick={() => setClientId(c.id)}
@@ -392,165 +411,21 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   );
 }
 
-// ── Project card ─────────────────────────────────────────────────────────────
 
-function ProjectCard({ p }: { p: Project }) {
-  const navigate = useNavigate();
-  const notifCount = useProjectTotalNotifCount(p.id);
-  const [hovered, setHovered] = useState(false);
-  const [pinned, setPinned] = useState(() => isPinned(p.id));
-  const [status, setStatus] = useState<Status>(p.status);
-  const [statusLabel, setStatusLabel] = useState(p.statusLabel);
-  const [dropOpen, setDropOpen] = useState(false);
-  const [dropRect, setDropRect] = useState<DOMRect | null>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => subscribePinned(() => setPinned(isPinned(p.id))), [p.id]);
-
-  useEffect(() => {
-    if (!dropOpen) return;
-    const close = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [dropOpen]);
-
-  const openStatusDrop = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDropRect((e.currentTarget as HTMLElement).getBoundingClientRect());
-    setDropOpen(o => !o);
-  };
-
-  const pickStatus = (e: React.MouseEvent, s: Status, label: string) => {
-    e.stopPropagation();
-    setStatus(s);
-    setStatusLabel(label);
-    setDropOpen(false);
-  };
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/projets/${p.id}`)}
-      style={{
-        background: 'var(--surface)', borderRadius: 'var(--radius)',
-        border: `1px solid ${hovered ? 'var(--border-2)' : 'var(--border)'}`,
-        padding: 18, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 10,
-        transition: 'border-color 0.15s, transform 0.12s',
-        transform: (hovered && !dropOpen) ? 'translateY(-1px)' : 'none',
-      }}
-    >
-      {/* Top row: name + actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-          <i style={{ width: 10, height: 10, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>{p.clientName}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <p style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>{p.name}</p>
-              {notifCount > 0 && (
-                <span style={{
-                  fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)',
-                  background: 'var(--accent)', color: 'var(--on-accent)',
-                  borderRadius: 999, padding: '1px 5px', lineHeight: 1.5,
-                  minWidth: 14, textAlign: 'center', flexShrink: 0,
-                }}>
-                  {notifCount}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right controls: star + status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          {/* Star */}
-          <button
-            onClick={e => { e.stopPropagation(); togglePin(p.id); }}
-            title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6,
-              color: pinned ? 'var(--accent)' : 'var(--text-3)',
-              opacity: pinned || hovered ? 1 : 0,
-              transition: 'opacity 0.15s, color 0.15s',
-              display: 'flex',
-            }}
-          >
-            <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
-          </button>
-
-          {/* Status dropdown trigger */}
-          <button
-            onClick={openStatusDrop}
-            title="Changer le statut"
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
-          >
-            <SFPill status={status} small>{statusLabel}</SFPill>
-            <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
-          </button>
-        </div>
-      </div>
-
-      <SFBar value={p.progress} height={3} />
-
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
-        <span>{p.taskCount} tâches</span>
-        <span>Livraison {p.deliveryDate}</span>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <SFAvatarGroup avatars={p.members.map(m => ({ initials: m.initials, bg: m.avatarColor, name: m.name }))} size={22} />
-        <SFPill status="neutral" small>{p.phaseLabel}</SFPill>
-      </div>
-
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Modifié {p.modifiedAt}</span>
-      </div>
-
-      {/* Status dropdown */}
-      {dropOpen && dropRect && (
-        <div
-          ref={dropRef}
-          onClick={e => e.stopPropagation()}
-          style={{
-            position: 'fixed', top: dropRect.bottom + 4, left: dropRect.left,
-            zIndex: 500, background: 'var(--surface-3)', border: '1px solid var(--border-2)',
-            borderRadius: 10, padding: 4, minWidth: 155, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          }}
-        >
-          {STATUS_OPTIONS.map(opt => (
-            <button key={opt.status}
-              onClick={e => pickStatus(e, opt.status, opt.label)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                padding: '6px 10px', border: 'none', borderRadius: 7, cursor: 'pointer',
-                background: status === opt.status ? 'var(--surface)' : 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-              onMouseLeave={e => (e.currentTarget.style.background = status === opt.status ? 'var(--surface)' : 'transparent')}
-            >
-              <SFPill status={opt.status} small>{opt.label}</SFPill>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function Projets() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'late' | 'done'>('all');
+  const [filter, setFilter] = useState<'all' | Status>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'alpha' | 'alpha-desc' | 'delivery' | 'client' | 'progress'>('recent');
   const [sortOpen, setSortOpen] = useState(false);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
-  const [projects, setProjects] = useState(PROJECTS);
+  const [projects, setProjects] = useState(getProjects);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
 
   const SORT_OPTIONS: { value: typeof sortBy; label: string; icon: string }[] = [
     { value: 'recent',     label: 'Récent',          icon: 'clock' },
@@ -565,9 +440,7 @@ export function Projets() {
     .filter(p => {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.clientName.toLowerCase().includes(search.toLowerCase());
       if (!matchSearch) return false;
-      if (filter === 'active') return p.status !== 'danger' && p.status !== 'ok' && p.status !== 'neutral';
-      if (filter === 'late') return p.status === 'danger';
-      if (filter === 'done') return p.status === 'ok' || p.status === 'neutral';
+      if (filter !== 'all') return p.status === filter;
       return true;
     })
     .slice()
@@ -581,7 +454,7 @@ export function Projets() {
       return (b.modifiedAt ?? '').localeCompare(a.modifiedAt ?? '');
     });
 
-  const handleCreate = (p: Project) => setProjects(prev => [p, ...prev]);
+  const handleCreate = (p: Project) => { addProject(p); };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -611,11 +484,11 @@ export function Projets() {
                 style={{ width: '100%', height: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {([['all', 'Tous'], ['active', 'En cours'], ['late', 'En retard'], ['done', 'Complétés']] as const).map(([val, label]) => (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {([['all', 'Tous'], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, o.label])] as [string, string][]).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setFilter(val)}
+                  onClick={() => setFilter(val as 'all' | Status)}
                   style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
                 >
                   {label}

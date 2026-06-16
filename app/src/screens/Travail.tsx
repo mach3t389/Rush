@@ -1,7 +1,10 @@
 ﻿import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, NavLink } from 'react-router-dom';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, formatDisplay, TODAY_DP } from '../components/ui';
-import { PROJECTS, PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
+import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, TODAY_DP } from '../components/ui';
+import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
+import { findProject } from '../data/projectStore';
+import { STATUS_COLOR } from '../data/status';
 import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
@@ -11,7 +14,6 @@ import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '..
 import type { ProjectTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, Status } from '../types';
 import { TravailBoard } from './TravailBoard';
-import { TravailCalendar } from './TravailCalendar';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
 
@@ -141,7 +143,7 @@ function ColHeader() {
       <span style={COL_STYLE}>Assigné à</span>
       <span style={COL_STYLE}>Priorité</span>
       <span style={COL_STYLE}>Statut</span>
-      <span style={COL_STYLE}>Échéance</span>
+      <span style={COL_STYLE}>Date</span>
       <span />
     </div>
   );
@@ -149,7 +151,7 @@ function ColHeader() {
 
 // ── Shared inline dropdown ────────────────────────────────────────────────────
 
-function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex = 100 }: {
+function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex = 1000 }: {
   onClose: () => void;
   children: React.ReactNode;
   anchorRect?: DOMRect | null;
@@ -168,13 +170,14 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
     const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
     setPos({ top, left, visibility: 'visible' });
   }, [anchorRect]);
-  return (
+  return createPortal(
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: zIndex - 1 }} />
       <div ref={dropRef} style={{ position: 'fixed', ...pos, zIndex, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
         {children}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -187,14 +190,6 @@ const STATUS_OPTIONS = [
   { value: 'review', label: 'En révision'  },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  '':     'var(--border-2)',
-  warn:   'var(--warn)',
-  info:   'var(--info)',
-  ok:     'var(--ok)',
-  danger: 'var(--danger)',
-  review: 'var(--review)',
-};
 
 // ── Task activity cell ────────────────────────────────────────────────────────
 
@@ -269,6 +264,10 @@ function TaskRow({
   const [status, setStatus] = useState(task.status as string);
   const [statusLabel, setStatusLabel] = useState(task.statusLabel);
   const [dueDate, setDueDate] = useState(task.dueDate);
+  const [endDate, setEndDate] = useState(task.endDate ?? '');
+  const [startTime, setStartTime] = useState(task.startTime ?? '');
+  const [endTime, setEndTime] = useState(task.endTime ?? '');
+  const { projectId: rowProjectId } = useParams<{ projectId: string }>();
   const [open, setOpen] = useState<'priority' | 'assignee' | 'status' | 'dueDate' | 'context' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -318,7 +317,7 @@ function TaskRow({
           <SFIcon name="grip-vertical" size={11} />
         </div>
         <button
-          onClick={() => setChecked(!checked)}
+          onClick={() => { const next = !checked; setChecked(next); if (rowProjectId) updateTask(rowProjectId, task.id, { checked: next }); }}
           style={{
             width: 16, height: 16, borderRadius: '50%',
             border: checked ? 'none' : '1.5px solid var(--border-2)',
@@ -380,7 +379,7 @@ function TaskRow({
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>,
               assignee === null
             )}
-            {TEAM.map(u => ddItem(() => { setAssignee(u); setOpen(null); },
+            {TEAM.map(u => ddItem(() => { setAssignee(u); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignee: u }); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}
@@ -400,7 +399,7 @@ function TaskRow({
         </button>
         {open === 'priority' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect}>
-            {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); },
+            {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { priority: p, priorityLabel: PRIORITY_LABEL[p] }); },
               <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
               priority === p
             ))}
@@ -422,7 +421,7 @@ function TaskRow({
         </button>
         {open === 'status' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect}>
-            {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(o.label); setOpen(null); },
+            {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(o.label); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { status: o.value as Task['status'], statusLabel: o.label }); },
               <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{o.label}</>,
               status === o.value
             ))}
@@ -430,19 +429,25 @@ function TaskRow({
         )}
       </div>
 
-      {/* Due date — custom date picker */}
+      {/* Date — date + time picker */}
       <div style={{ position: 'relative' }}>
         <button
           onClick={e => openDrop('dueDate', e)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-3)', whiteSpace: 'nowrap' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: task.dueDateRed ? 'var(--danger)' : (dueDate && dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)', whiteSpace: 'nowrap' }}
         >
-          {dueDate}
-          <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+          <SFIcon name="calendar" size={10} color={task.dueDateRed ? 'var(--danger)' : 'var(--text-3)'} />
+          {(dueDate && dueDate !== '—') ? fmtTaskDate(dueDate, startTime, endTime, endDate) : '—'}
         </button>
         {open === 'dueDate' && (
-          <DatePickerDropdown
-            value={parseYMD(dueDate) ? dueDate : ''}
-            onChange={v => { setDueDate(formatDisplay(v)); setOpen(null); }}
+          <TaskDatePopover
+            date={parseYMD(dueDate) ? dueDate : ''}
+            endDate={endDate}
+            startTime={startTime}
+            endTime={endTime}
+            onChange={(d, s, e, ed) => {
+              setDueDate(d); setEndDate(ed ?? ''); setStartTime(s ?? ''); setEndTime(e ?? '');
+              if (rowProjectId) updateTask(rowProjectId, task.id, { dueDate: d, endDate: ed ?? '', startTime: s ?? '', endTime: e ?? '' });
+            }}
             onClose={() => setOpen(null)}
             anchorRect={dropRect}
           />
@@ -631,17 +636,17 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
           )}
         </div>
 
-        {/* Due date — custom dropdown */}
+        {/* Date — custom dropdown */}
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('dueDate', e)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
-            {dueDate || 'Échéance'}
-            <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+            <SFIcon name="calendar" size={10} color="var(--text-3)" />
+            {dueDate ? fmtTaskDate(dueDate) : 'Date'}
           </button>
           {openField === 'dueDate' && (
-            <DatePickerDropdown
-              value={dueDate}
-              onChange={v => { setDueDate(formatDisplay(v)); setOpenField(null); }}
+            <TaskDatePopover
+              date={parseYMD(dueDate) ? dueDate : ''}
+              onChange={(d) => { setDueDate(d); setOpenField(null); }}
               onClose={() => setOpenField(null)}
               anchorRect={addDropRect}
             />
@@ -1366,11 +1371,13 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
 export function Travail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const project = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
+  const project = findProject(projectId ?? '') ?? findProject('pj1')!;
 
   const getInitialSections = () => {
     const stored = getSections(project.id);
-    return stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? PROJECT_TASKS[PROJECTS[0].id]);
+    // Each project shows its own tasks; a project with none starts empty
+    // (the "Nouvelle section" affordance lets the user build it out).
+    return stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []);
   };
   const [sections, setSectionsState] = useState<SectionData[]>(getInitialSections);
 
@@ -1388,7 +1395,7 @@ export function Travail() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
-  const [view, setView] = useState<'list' | 'board' | 'calendar'>('list');
+  const [view, setView] = useState<'list' | 'board'>('list');
   const [viewOpen, setViewOpen] = useState(false);
   const [showCompletedSections, setShowCompletedSections] = useState(() => loadViewPref('sf_showCompletedSections', true));
   const [showCompletedTasks, setShowCompletedTasks] = useState(() => loadViewPref('sf_showCompletedTasks', true));
@@ -1521,7 +1528,6 @@ export function Travail() {
           {([
             { key: 'list',     icon: 'list',          label: 'Liste'      },
             { key: 'board',    icon: 'layout-kanban', label: 'Tableau'    },
-            { key: 'calendar', icon: 'calendar',      label: 'Calendrier' },
           ] as const).map(v => (
             <button key={v.key} onClick={() => setView(v.key)} title={v.label}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: view === v.key ? 'var(--surface)' : 'transparent', color: view === v.key ? 'var(--text)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: view === v.key ? 600 : 400, transition: 'all 0.1s', boxShadow: view === v.key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none' }}
@@ -1624,19 +1630,8 @@ export function Travail() {
         />
       )}
 
-      {/* Calendar view */}
-      {view === 'calendar' && (
-        <TravailCalendar
-          sections={sections}
-          onAddTask={handleAddTask}
-          projectId={project.id}
-          projectName={project.name}
-          projectColor={project.clientColor}
-        />
-      )}
-
       {/* List view */}
-      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column' }}>
+      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20 }}>
         <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {visibleSections.map((section, vIdx) => {
           const globalIdx = sections.findIndex(s => s.label === section.label);

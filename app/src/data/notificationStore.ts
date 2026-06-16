@@ -3,6 +3,9 @@
 // Components subscribe for reactive updates.
 
 import { PROJECT_TASKS } from './mock';
+import { loadPersisted, savePersisted } from './persist';
+
+const STORAGE_KEY = 'sf_notifs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,10 +85,12 @@ function seedNotifs(): AppNotif[] {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-let _notifs: AppNotif[] = seedNotifs();
+// Seed once (uses timestamps) on first load, then persist so read-state survives reloads.
+let _notifs: AppNotif[] = loadPersisted(STORAGE_KEY, seedNotifs());
 const _listeners = new Set<() => void>();
 
 function notify() { _listeners.forEach(fn => fn()); }
+function persist() { savePersisted(STORAGE_KEY, _notifs); }
 
 export function subscribeNotifs(fn: () => void): () => void {
   _listeners.add(fn);
@@ -118,16 +123,32 @@ export function getUnreadResourceCountForProject(projectId: string): number {
 
 export function markTaskRead(taskId: string): void {
   _notifs = _notifs.map(n => n.taskId === taskId ? { ...n, read: true } : n);
+  persist();
   notify();
 }
 
 export function markResourceRead(resourceId: string): void {
   _notifs = _notifs.map(n => n.resourceId === resourceId ? { ...n, read: true } : n);
+  persist();
   notify();
 }
 
 export function markAllProjectRead(projectId: string): void {
   _notifs = _notifs.map(n => n.projectId === projectId ? { ...n, read: true } : n);
+  persist();
+  notify();
+}
+
+export function markAllRead(): void {
+  _notifs = _notifs.map(n => ({ ...n, read: true }));
+  persist();
+  notify();
+}
+
+export function addNotif(notif: Omit<AppNotif, 'id' | 'read'>): void {
+  const id = `user-${Date.now()}-${_notifs.length}`;
+  _notifs = [{ ...notif, id, read: false }, ..._notifs];
+  persist();
   notify();
 }
 

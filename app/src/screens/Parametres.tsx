@@ -1,18 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { SFButton, SFIcon } from '../components/ui';
 import { MonEquipe } from './MonEquipe';
+import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
 
-function LogoUploader({ label, hint, aspectLabel, previewW, previewH }: {
+function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, setter }: {
   label: string; hint: string; aspectLabel: string; previewW: number; previewH: number;
+  getter: () => string | null; setter: (v: string | null) => void;
 }) {
-  const [src, setSrc] = useState<string | null>(null);
+  const [src, setSrc] = useState<string | null>(getter);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = ev => setSrc(ev.target?.result as string);
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      setSrc(dataUrl);
+      setter(dataUrl);
+    };
     reader.readAsDataURL(f);
   };
 
@@ -36,7 +42,7 @@ function LogoUploader({ label, hint, aspectLabel, previewW, previewH }: {
           <>
             <img src={src} alt={label} style={{ maxWidth: previewW, maxHeight: previewH, objectFit: 'contain', borderRadius: 4 }} />
             <button
-              onClick={e => { e.stopPropagation(); setSrc(null); if (inputRef.current) inputRef.current.value = ''; }}
+              onClick={e => { e.stopPropagation(); setSrc(null); setter(null); if (inputRef.current) inputRef.current.value = ''; }}
               style={{
                 position: 'absolute', top: 6, right: 6,
                 width: 20, height: 20, borderRadius: '50%', border: 'none',
@@ -281,6 +287,8 @@ export function Parametres() {
                   aspectLabel="Horizontale"
                   previewW={140}
                   previewH={48}
+                  getter={getLogoFull}
+                  setter={setLogoFull}
                 />
                 {/* Icône carrée */}
                 <LogoUploader
@@ -289,6 +297,8 @@ export function Parametres() {
                   aspectLabel="Carrée"
                   previewW={48}
                   previewH={48}
+                  getter={getLogoSquare}
+                  setter={setLogoSquare}
                 />
               </div>
             </div>

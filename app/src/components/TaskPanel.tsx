@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay } from './ui';
-import { PROJECTS, USERS } from '../data/mock';
+import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate } from './ui';
+import { USERS } from '../data/mock';
+import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import type { Task, Priority, ResourceType, DeliverableFormat, Status } from '../types';
@@ -22,14 +23,6 @@ const PRIORITY_LABEL: Record<Priority, string> = {
 };
 const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 
-const STATUS_COLOR: Record<string, string> = {
-  '':     'var(--border-2)',
-  warn:   'var(--warn)',
-  info:   'var(--info)',
-  ok:     'var(--ok)',
-  danger: 'var(--danger)',
-  review: 'var(--review)',
-};
 
 const PANEL_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: '',       label: 'Aucun statut' },
@@ -290,10 +283,10 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel }: {
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
   const [description, setDescription] = useState('');
-  const [dateDebut, setDateDebut] = useState('');
-  const [heureDebut, setHeureDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [heureFin, setHeureFin] = useState('');
+  const [dateDebut, setDateDebut] = useState(task.dueDate ?? '');
+  const [heureDebut, setHeureDebut] = useState(task.startTime ?? '');
+  const [dateFin, setDateFin] = useState(task.endDate ?? '');
+  const [heureFin, setHeureFin] = useState(task.endTime ?? '');
   const [datePickerOpen, setDatePickerOpen] = useState<'debut' | 'fin' | null>(null);
   const [datePickerRect, setDatePickerRect] = useState<DOMRect | null>(null);
   const [comment, setComment] = useState('');
@@ -641,7 +634,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel }: {
           {/* Échéance (ligne séparée sous la grille) */}
           <div style={{ marginTop: 8 }}>
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Échéance actuelle</span>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-2)', marginLeft: 8 }}>{task.dueDate}</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-2)', marginLeft: 8 }}>{dateDebut ? fmtTaskDate(dateDebut, heureDebut, heureFin, dateFin) : '—'}</span>
           </div>
 
           {/* Dates — Début / Fin côte à côte */}
@@ -690,16 +683,16 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel }: {
 
           {/* DatePicker popups */}
           {datePickerOpen === 'debut' && (
-            <DatePickerDropdown value={dateDebut} onChange={v => { setDateDebut(v); setDatePickerOpen(null); }} onClose={() => setDatePickerOpen(null)} anchorRect={datePickerRect} zIndex={300} />
+            <DatePickerDropdown value={dateDebut} onChange={v => { setDateDebut(v); onUpdate?.({ dueDate: v }); setDatePickerOpen(null); }} onClose={() => setDatePickerOpen(null)} anchorRect={datePickerRect} zIndex={300} />
           )}
           {datePickerOpen === 'fin' && (
-            <DatePickerDropdown value={dateFin} onChange={v => { setDateFin(v); setDatePickerOpen(null); }} onClose={() => setDatePickerOpen(null)} anchorRect={datePickerRect} zIndex={300} />
+            <DatePickerDropdown value={dateFin} onChange={v => { setDateFin(v); onUpdate?.({ endDate: v }); setDatePickerOpen(null); }} onClose={() => setDatePickerOpen(null)} anchorRect={datePickerRect} zIndex={300} />
           )}
           {panelOpen === 'heureDebut' && (
-            <TimePickerDropdown value={heureDebut} onChange={v => { setHeureDebut(v); setPanelOpen(null); }} onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={310} />
+            <TimePickerDropdown value={heureDebut} onChange={v => { setHeureDebut(v); onUpdate?.({ startTime: v }); setPanelOpen(null); }} onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={310} />
           )}
           {panelOpen === 'heureFin' && (
-            <TimePickerDropdown value={heureFin} onChange={v => { setHeureFin(v); setPanelOpen(null); }} onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={310} />
+            <TimePickerDropdown value={heureFin} onChange={v => { setHeureFin(v); onUpdate?.({ endTime: v }); setPanelOpen(null); }} onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={310} />
           )}
         </div>
 

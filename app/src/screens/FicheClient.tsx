@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
-import { CLIENTS, PROJECTS, USERS } from '../data/mock';
+import { PROJECTS, USERS } from '../data/mock';
+import { findClient } from '../data/clientStore';
+import { STATUS_COLOR } from '../data/status';
 import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
+import { ProjectCard } from '../components/ProjectCard';
+import type { Client, Status } from '../types/index';
 
 // ── Client contacts (shared store) ───────────────────────────────────────────
 
-import { type ClientContact as ClientMember } from '../data/clientContactsStore';
+import { getClientContacts, type ClientContact as ClientMember } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
 
 function getStoredApprover(clientId: string): string | null {
@@ -722,7 +727,7 @@ function ActiviteTab({ projects }: { projects: typeof PROJECTS }) {
   return (
     <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
       {/* Left: feed */}
-      <div style={{ flex: 1, minWidth: 0, maxWidth: 680 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 20 }}>
         {FILTER_OPTIONS.map(f => (
@@ -941,7 +946,7 @@ const cardStyle: React.CSSProperties = { background: 'var(--surface)', border: '
 const cardTitleStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
 
 function ApercuTab({ client, projects, clientId, onGoTab }: {
-  client: typeof CLIENTS[0];
+  client: NonNullable<ReturnType<typeof findClient>>;
   projects: typeof PROJECTS;
   clientId: string;
   onGoTab: (t: ClientTab) => void;
@@ -1157,8 +1162,18 @@ function DocumentsTab({ clientId }: { clientId: string }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState<DocCategory>('contrat');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   const persist = (next: ClientDocument[]) => { setDocs(next); saveDocuments(clientId, next); };
+
+  const startRename = (d: ClientDocument) => { setEditingId(d.id); setEditingName(d.name); };
+  const commitRename = () => {
+    if (!editingId) return;
+    const name = editingName.trim();
+    if (name) persist(docs.map(d => d.id === editingId ? { ...d, name, fileType: fileTypeFromName(name) } : d));
+    setEditingId(null);
+  };
 
   const fileTypeFromName = (name: string): DocFileType => {
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
@@ -1237,7 +1252,19 @@ function DocumentsTab({ clientId }: { clientId: string }) {
                   <SFIcon name={fm.icon} size={17} color={fm.color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                  {editingId === d.id ? (
+                    <input
+                      autoFocus
+                      value={editingName}
+                      onChange={e => setEditingName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null); }}
+                      onBlur={commitRename}
+                      onClick={e => e.stopPropagation()}
+                      style={{ width: '100%', fontSize: 13, fontWeight: 600, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  ) : (
+                    <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '1px 7px', borderRadius: 5 }}>
                       <SFIcon name={cm.icon} size={9} color="var(--text-3)" />{cm.label}
@@ -1245,15 +1272,20 @@ function DocumentsTab({ clientId }: { clientId: string }) {
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{d.size} · {d.date} · {d.uploadedBy}</span>
                   </div>
                 </div>
+                <button title="Renommer" onClick={e => { e.stopPropagation(); startRename(d); }} style={{ display: 'flex', padding: 7, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
+                  <SFIcon name="pencil" size={14} />
+                </button>
                 <button title="Télécharger" style={{ display: 'flex', padding: 7, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                  <SFIcon name="download" size={15} />
+                  <SFIcon name="download" size={14} />
                 </button>
                 <button title="Supprimer" onClick={() => removeDoc(d.id)} style={{ display: 'flex', padding: 7, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
-                  <SFIcon name="trash-2" size={15} />
+                  <SFIcon name="trash-2" size={14} />
                 </button>
               </div>
             );
@@ -1304,16 +1336,118 @@ function DocumentsTab({ clientId }: { clientId: string }) {
   );
 }
 
+// ── Client Edit Panel ─────────────────────────────────────────────────────────
+
+function ClientEditPanel({ client, onClose, onSave }: {
+  client: Client;
+  onClose: () => void;
+  onSave: (updates: { name: string; sector: string; city: string; status: Status; statusLabel: string }) => void;
+}) {
+  const [lName, setLName]     = useState(client.name);
+  const [lSector, setLSector] = useState(client.sector);
+  const [lCity, setLCity]     = useState(client.city);
+  const [lStatus, setLStatus] = useState<Status>(client.status);
+  const [lStatusLabel, setLStatusLabel] = useState(client.statusLabel);
+
+  const save = () => {
+    onSave({ name: lName.trim() || client.name, sector: lSector.trim(), city: lCity.trim(), status: lStatus, statusLabel: lStatusLabel });
+    onClose();
+  };
+
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+              {client.initials}
+            </div>
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{lName || client.name}</h3>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>Modifier le client</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
+            <SFIcon name="x" size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {[
+            { label: 'Nom du client', value: lName, set: setLName },
+            { label: 'Secteur', value: lSector, set: setLSector },
+            { label: 'Ville', value: lCity, set: setLCity },
+          ].map(({ label, value, set }) => (
+            <div key={label}>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{label}</label>
+              <input
+                value={value}
+                onChange={e => set(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') save(); }}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+              />
+            </div>
+          ))}
+
+          {/* Statut */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Statut</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {PROJECT_STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setLStatus(opt.value as Status); setLStatusLabel(opt.label); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 9,
+                    border: `1px solid ${lStatus === opt.value ? (STATUS_COLOR[opt.value] ?? 'var(--border)') : 'var(--border)'}`,
+                    background: lStatus === opt.value ? 'var(--surface-3)' : 'var(--surface-2)',
+                    cursor: 'pointer', textAlign: 'left', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)',
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[opt.value] ?? 'var(--text-3)', flexShrink: 0 }} />
+                  {opt.label}
+                  {lStatus === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="primary" onClick={save}>Enregistrer</SFButton>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function FicheClient() {
   const { clientId } = useParams();
   const navigate = useNavigate();
-  const client = CLIENTS.find(c => c.id === clientId) ?? CLIENTS[0];
+  const client = findClient(clientId ?? '') ?? findClient('c1')!;
   const projects = PROJECTS.filter(p => p.clientId === client.id);
-  const [tab, setTab] = useState<ClientTab>('apercu');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
+  const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'done' | 'archived'>('all');
   const [projectOverrides, setProjectOverrides] = useState<Record<string, { status?: string; statusLabel?: string; archived?: boolean }>>({});
   const [clientArchived, setClientArchived] = useState(false);
   const [clientMenuOpen, setClientMenuOpen] = useState(false);
+  const [clientEditOpen, setClientEditOpen] = useState(() => searchParams.get('edit') === 'true');
+  const [localClientName, setLocalClientName] = useState(client.name);
+  const [localClientSector, setLocalClientSector] = useState(client.sector);
+  const [localClientCity, setLocalClientCity] = useState(client.city);
+  const [localClientStatus, setLocalClientStatus] = useState<Status>(client.status);
+  const [localClientStatusLabel, setLocalClientStatusLabel] = useState(client.statusLabel);
   const clientMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1374,30 +1508,7 @@ export function FicheClient() {
                 ARCHIVÉ
               </span>
             )}
-            <SFButton variant="secondary" icon="edit-3">Modifier</SFButton>
-            {!clientArchived && <SFButton variant="primary" icon="plus">Nouveau projet</SFButton>}
-            {/* ⋯ client menu */}
-            <div ref={clientMenuRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => setClientMenuOpen(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border-2)', background: clientMenuOpen ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)' }}
-              >
-                <SFIcon name="more-horizontal" size={15} />
-              </button>
-              {clientMenuOpen && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                  <button
-                    onClick={() => { setClientArchived(v => !v); setClientMenuOpen(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: clientArchived ? 'var(--text)' : 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = clientArchived ? 'var(--surface-2)' : 'color-mix(in srgb, var(--danger) 10%, transparent)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    <SFIcon name={clientArchived ? 'archive-restore' : 'archive'} size={14} />
-                    {clientArchived ? 'Désarchiver le client' : 'Archiver le client'}
-                  </button>
-                </div>
-              )}
-            </div>
+            <SFButton variant="primary" icon="plus">Nouveau projet</SFButton>
           </div>
         </div>
 
@@ -1432,19 +1543,10 @@ export function FicheClient() {
                 </p>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, width: '100%' }}>
-              {filteredProjects.map(p => {
-                const ov = getProjectStatus(p);
-                return (
-                  <ClientProjectRow
-                    key={p.id} p={p}
-                    status={ov.status} statusLabel={ov.statusLabel}
-                    onNavigate={() => navigate(`/projets/${p.id}`)}
-                    onStatusChange={(s, l) => setProjectOverrides(prev => ({ ...prev, [p.id]: { ...prev[p.id], status: s, statusLabel: l } }))}
-                    onArchive={() => setProjectOverrides(prev => ({ ...prev, [p.id]: { ...prev[p.id], archived: true } }))}
-                  />
-                );
-              })}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, width: '100%' }}>
+              {filteredProjects.map(p => (
+                <ProjectCard key={p.id} p={p} />
+              ))}
             </div>
           </>
         )}
@@ -1455,6 +1557,20 @@ export function FicheClient() {
 
         {tab === 'documents' && <DocumentsTab clientId={client.id} />}
       </div>
+
+      {clientEditOpen && (
+        <ClientEditPanel
+          client={{ ...client, name: localClientName, sector: localClientSector, city: localClientCity, status: localClientStatus, statusLabel: localClientStatusLabel }}
+          onClose={() => setClientEditOpen(false)}
+          onSave={u => {
+            setLocalClientName(u.name);
+            setLocalClientSector(u.sector);
+            setLocalClientCity(u.city);
+            setLocalClientStatus(u.status);
+            setLocalClientStatusLabel(u.statusLabel);
+          }}
+        />
+      )}
     </div>
   );
 }

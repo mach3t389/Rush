@@ -7,6 +7,7 @@ import {
   getUnreadResourceCountForProject,
   getUnreadForProject,
 } from '../data/notificationStore';
+import { getProjects } from '../data/projectStore';
 
 export function useTaskNotifCount(taskId: string): number {
   const [count, setCount] = useState(() => getUnreadForTask(taskId).length);
@@ -50,5 +51,18 @@ export function useProjectTotalNotifCount(projectId: string): number {
     setCount(getUnreadForProject(projectId).length);
     return subscribeNotifs(() => setCount(getUnreadForProject(projectId).length));
   }, [projectId]);
+  return count;
+}
+
+export function useClientTotalNotifCount(clientId: string): number {
+  const getTotal = () => {
+    const ids = getProjects().filter(p => p.clientId === clientId).map(p => p.id);
+    return ids.reduce((sum, pid) => sum + getUnreadForProject(pid).length, 0);
+  };
+  const [count, setCount] = useState(getTotal);
+  useEffect(() => {
+    setCount(getTotal());
+    return subscribeNotifs(() => setCount(getTotal()));
+  }, [clientId]);
   return count;
 }

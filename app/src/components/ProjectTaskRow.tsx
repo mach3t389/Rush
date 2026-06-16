@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, parseYMD, formatDisplay } from './ui';
 import { USERS } from '../data/mock';
+import { STATUS_COLOR } from '../data/status';
 import type { Task, Priority, SectionData } from '../types';
 
 // ── Shared task-row constants ──────────────────────────────────────────────────
@@ -28,14 +29,6 @@ export const STATUS_OPTIONS = [
   { value: 'review', label: 'En révision'  },
 ];
 
-export const STATUS_COLOR: Record<string, string> = {
-  '':     'var(--border-2)',
-  warn:   'var(--warn)',
-  info:   'var(--info)',
-  ok:     'var(--ok)',
-  danger: 'var(--danger)',
-  review: 'var(--review)',
-};
 
 export const TEAM = Object.values(USERS);
 

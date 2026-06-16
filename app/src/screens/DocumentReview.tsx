@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
-import { getResources } from '../data/resourceStore';
+import { STATUS_COLOR } from '../data/status';
+import { getResources, updateResource } from '../data/resourceStore';
 import { markResourceRead } from '../data/notificationStore';
-import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
@@ -66,10 +66,6 @@ const SEED_ROUNDS: DocRound[] = [
     file: { name: 'brief_v2_final.pdf', size: 1580000, type: 'application/pdf' } },
 ];
 
-const STATUS_COLOR: Record<Status, string> = {
-  ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)',
-  info: 'var(--info)', review: 'var(--accent)', neutral: 'var(--text-3)',
-};
 
 function fmtSize(bytes: number) {
   if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} Mo`;
@@ -180,6 +176,24 @@ export function DocumentReview() {
   const resource = getResources().find(r => r.id === resourceId);
   const project = PROJECTS.find(p => p.id === projectId);
 
+  const [localTitle, setLocalTitle] = useState(resource?.title ?? '');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleVal, setTitleVal] = useState(resource?.title ?? '');
+  const [localDesc, setLocalDesc] = useState(resource?.description ?? '');
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descVal, setDescVal] = useState(resource?.description ?? '');
+
+  const commitTitle = () => {
+    const trimmed = titleVal.trim();
+    if (trimmed && resource) { updateResource(resource.id, { title: trimmed }); setLocalTitle(trimmed); }
+    else setTitleVal(localTitle);
+    setEditingTitle(false);
+  };
+  const commitDesc = () => {
+    if (resource) { const t = descVal.trim(); updateResource(resource.id, { description: t || undefined }); setLocalDesc(t); }
+    setEditingDesc(false);
+  };
+
   const [rounds, setRounds] = useState<DocRound[]>(SEED_ROUNDS);
   const [activeRound, setActiveRound] = useState(SEED_ROUNDS[SEED_ROUNDS.length - 1].v);
   const [currentPage, setCurrentPage] = useState(1);
@@ -288,14 +302,53 @@ export function DocumentReview() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <ProjectHeaderBar projectId={projectId}>
+      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
         <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,image/*" style={{ display: 'none' }} onChange={handleFileChange} />
         <SFButton variant="ghost" size="sm" icon="upload" onClick={() => fileInputRef.current?.click()}
           style={{ border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-2)' }}>
           Téléverser
         </SFButton>
         <SFButton variant="primary" icon="plus" onClick={() => fileInputRef.current?.click()}>Nouvelle version</SFButton>
-      </ProjectHeaderBar>
+      </div>
+
+      {/* Title + description row */}
+      <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <SFIcon name="file-text" size={15} color="var(--accent)" />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={titleVal}
+              onChange={e => setTitleVal(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(localTitle); setEditingTitle(false); } }}
+              style={{ fontSize:15, fontWeight:700, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:6, padding:'2px 8px', outline:'none', color:'var(--text)', fontFamily:'var(--ff-display)', width:'100%', maxWidth:400 }}
+            />
+          ) : (
+            <h2 onClick={() => setEditingTitle(true)} title="Cliquer pour renommer" style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6 }}>
+              {localTitle || resource.title}
+              <SFIcon name="pencil" size={11} color="var(--text-3)" />
+            </h2>
+          )}
+          {editingDesc ? (
+            <textarea
+              autoFocus
+              value={descVal}
+              onChange={e => setDescVal(e.target.value)}
+              onBlur={commitDesc}
+              onKeyDown={e => { if (e.key === 'Escape') { setDescVal(localDesc); setEditingDesc(false); } }}
+              style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:400, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
+              rows={2}
+            />
+          ) : (
+            <p onClick={() => setEditingDesc(true)} title="Cliquer pour modifier la description" style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:2, fontStyle: localDesc ? 'normal' : 'italic' }}>
+              {localDesc || 'Ajouter une description...'}
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* Version bar */}
       <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', flexShrink: 0 }}>

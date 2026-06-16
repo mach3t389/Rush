@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
-import { getResources } from '../data/resourceStore';
+import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { markResourceRead } from '../data/notificationStore';
 import { addDeliverable } from '../data/taskStore';
 import type { Resource, Status } from '../types';
@@ -150,6 +150,28 @@ function AnnotationLayer({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function VideoReviewBody({ resource, projectId }: { resource: Resource; projectId?: string }) {
+
+  const [localTitle, setLocalTitle] = useState(resource.title);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleVal, setTitleVal] = useState(resource.title);
+  const [localDesc, setLocalDesc] = useState(resource.description ?? '');
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descVal, setDescVal] = useState(resource.description ?? '');
+  useEffect(() => { setLocalTitle(resource.title); setTitleVal(resource.title); }, [resource.title]);
+  useEffect(() => { setLocalDesc(resource.description ?? ''); setDescVal(resource.description ?? ''); }, [resource.description]);
+
+  const commitTitle = () => {
+    const trimmed = titleVal.trim();
+    if (trimmed && trimmed !== localTitle) { updateResource(resource.id, { title: trimmed }); setLocalTitle(trimmed); }
+    else setTitleVal(localTitle);
+    setEditingTitle(false);
+  };
+  const commitDesc = () => {
+    const trimmed = descVal.trim();
+    updateResource(resource.id, { description: trimmed || undefined });
+    setLocalDesc(trimmed);
+    setEditingDesc(false);
+  };
 
   const [tab, setTab]             = useState<'comments' | 'tasks'>('comments');
   const [taskCreatedFlash, setTaskCreatedFlash] = useState(false);
@@ -650,9 +672,38 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
           {/* Resource summary */}
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>VIDÉO · {activeVersion}</p>
-                <p style={{ fontWeight: 600, fontSize: 13, marginTop: 2 }}>{resource?.title ?? 'Rough Cut'}</p>
+                {editingTitle ? (
+                  <input
+                    autoFocus
+                    value={titleVal}
+                    onChange={e => setTitleVal(e.target.value)}
+                    onBlur={commitTitle}
+                    onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(localTitle); setEditingTitle(false); } }}
+                    style={{ fontSize:13, fontWeight:600, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'1px 6px', outline:'none', color:'var(--text)', width:'100%', marginTop:2 }}
+                  />
+                ) : (
+                  <p onClick={() => setEditingTitle(true)} title="Cliquer pour renommer" style={{ fontWeight: 600, fontSize: 13, marginTop: 2, cursor:'text', display:'inline-flex', alignItems:'center', gap:5 }}>
+                    {localTitle}
+                    <SFIcon name="pencil" size={10} color="var(--text-3)" />
+                  </p>
+                )}
+                {editingDesc ? (
+                  <textarea
+                    autoFocus
+                    value={descVal}
+                    onChange={e => setDescVal(e.target.value)}
+                    onBlur={commitDesc}
+                    onKeyDown={e => { if (e.key === 'Escape') { setDescVal(localDesc); setEditingDesc(false); } }}
+                    style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
+                    rows={2}
+                  />
+                ) : (
+                  <p onClick={() => setEditingDesc(true)} title="Cliquer pour modifier la description" style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:3, fontStyle: localDesc ? 'normal' : 'italic' }}>
+                    {localDesc || 'Ajouter une description...'}
+                  </p>
+                )}
               </div>
               {/* Status dropdown */}
               <div style={{ position: 'relative' }}>
@@ -972,6 +1023,8 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
 export function VideoReview() {
   const { projectId, resourceId } = useParams();
   const navigate = useNavigate();
+  const [, setTick] = useState(0);
+  useEffect(() => subscribeResources(() => setTick(t => t + 1)), []);
 
   const resources = getResources();
   const project  = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
@@ -996,25 +1049,14 @@ export function VideoReview() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>
-          <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clients</button>
-          <span>/</span>
-          <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{project.clientName}</button>
-          <span>/</span>
-          <button onClick={() => navigate(`/projets/${project.id}/ressources`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{project.name}</button>
-          <span>/</span>
-          <span style={{ color: 'var(--text-2)' }}>{resource?.title ?? 'Vidéo Review'}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <SFButton variant="secondary" icon={shared ? 'check' : 'share-2'} onClick={handleShare}>
-            {shared ? 'Lien copié' : 'Partager'}
-          </SFButton>
-          <SFButton variant="primary" icon={approvalRequested ? 'check' : 'send'} onClick={handleRequestApproval}
-            style={approvalRequested ? { background: 'var(--ok)', color: 'white' } : undefined}>
-            {approvalRequested ? 'Demande envoyée' : 'Demander approbation'}
-          </SFButton>
-        </div>
+      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+        <SFButton variant="secondary" icon={shared ? 'check' : 'share-2'} onClick={handleShare}>
+          {shared ? 'Lien copié' : 'Partager'}
+        </SFButton>
+        <SFButton variant="primary" icon={approvalRequested ? 'check' : 'send'} onClick={handleRequestApproval}
+          style={approvalRequested ? { background: 'var(--ok)', color: 'white' } : undefined}>
+          {approvalRequested ? 'Demande envoyée' : 'Demander approbation'}
+        </SFButton>
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <VideoReviewBody resource={resource} projectId={projectId} />
