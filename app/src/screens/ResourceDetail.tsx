@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -275,7 +275,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
   const resolvedComments = comments.filter(c => c.resolved);
 
   return (
-    <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
+    <div id="rd-comments-panel" style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
       <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', flexShrink:0, display:'flex', alignItems:'center', gap:6 }}>
         <SFIcon name="message-circle" size={12} color="var(--text-3)" />
         <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Commentaires</p>
@@ -4471,10 +4471,24 @@ export function ResourceBody({ resource }: { resource: Resource }) {
 
 export function ResourceDetail() {
   const { projectId, resourceId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const project = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
   const [resources, setResources] = useState(getResources);
   useEffect(() => subscribeResources(() => setResources(getResources())), []);
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
+
+  // Focus comments panel when arriving from a notification link
+  useEffect(() => {
+    if (searchParams.get('focus') !== 'comments') return;
+    setSearchParams({}, { replace: true });
+    setTimeout(() => {
+      const el = document.getElementById('rd-comments-panel');
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      el.style.animation = 'highlight-flash 2s ease forwards';
+      el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
+    }, 150);
+  }, []);
 
   const resource = resources.find(r => r.id === resourceId);
 

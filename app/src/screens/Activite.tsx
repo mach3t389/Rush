@@ -124,8 +124,8 @@ function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: 
   const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
 
   const handleClick = () => {
-    if (taskId)     navigate(`/projets/${projectId}`);
-    else if (resourceId) navigate(`/projets/${projectId}/ressources`);
+    if (taskId)          navigate(`/projets/${projectId}?highlight=${taskId}`);
+    else if (resourceId) navigate(`/projets/${projectId}/ressources/${resourceId}?focus=comments`);
   };
 
   return (

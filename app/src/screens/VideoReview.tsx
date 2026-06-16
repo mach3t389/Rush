@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -150,6 +150,22 @@ function AnnotationLayer({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function VideoReviewBody({ resource, projectId }: { resource: Resource; projectId?: string }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<'comments' | 'tasks'>('comments');
+
+  // Focus comments panel when arriving from a notification link
+  useEffect(() => {
+    if (searchParams.get('focus') !== 'comments') return;
+    setSearchParams({}, { replace: true });
+    setTab('comments');
+    setTimeout(() => {
+      const el = document.getElementById('vr-comments-panel');
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      el.style.animation = 'highlight-flash 2s ease forwards';
+      el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
+    }, 120);
+  }, []);
 
   const [localTitle, setLocalTitle] = useState(resource.title);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -173,7 +189,6 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
     setEditingDesc(false);
   };
 
-  const [tab, setTab]             = useState<'comments' | 'tasks'>('comments');
   const [taskCreatedFlash, setTaskCreatedFlash] = useState(false);
   const [playing, setPlaying]     = useState(false);
   const [currentTime, setCurrentTime] = useState(63);
@@ -667,7 +682,7 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
         </div>
 
         {/* ── Right: comments panel ── */}
-        <div style={{ width: 380, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+        <div id="vr-comments-panel" style={{ width: 380, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
 
           {/* Resource summary */}
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

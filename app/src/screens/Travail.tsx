@@ -1,6 +1,6 @@
-﻿import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate, NavLink } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, TODAY_DP } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject } from '../data/projectStore';
@@ -284,6 +284,7 @@ function TaskRow({
   return (
     <>
     <div
+      data-task-id={task.id}
       draggable
       onDragStart={e => {
         if (!dragHandleActive.current) { e.preventDefault(); return; }
@@ -1371,7 +1372,25 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
 export function Travail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const project = findProject(projectId ?? '') ?? findProject('pj1')!;
+
+  // Highlight a task coming from a notification link
+  useEffect(() => {
+    const taskId = searchParams.get('highlight');
+    if (!taskId) return;
+    // Clear param immediately so back-nav doesn't re-trigger
+    setSearchParams({}, { replace: true });
+    // Wait for sections to render, then scroll + flash
+    const timer = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.animation = 'highlight-flash 2s ease forwards';
+      el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [searchParams]);
 
   const getInitialSections = () => {
     const stored = getSections(project.id);
