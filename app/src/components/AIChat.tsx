@@ -154,6 +154,13 @@ RÈGLES ABSOLUES — respecte-les sans exception :
 5. AVANT de créer ou modifier quelque chose (projet, événement, ressource), résume en une phrase ce que tu vas faire et demande : "Je fais ça ?" ou "Tu confirmes ?" Attends le oui avant d'agir.
 6. Pour les lectures (lister projets, clients, tâches), agis directement puis présente les résultats de façon lisible — pas en tableau JSON, mais en texte clair avec des tirets ou du gras.
 7. Garde tes réponses courtes sauf si l'utilisateur demande des détails.
+8. Si l'utilisateur te salue (bonjour, allo, salut, hey, hi…) ou semble hésiter (ex: "euh", "hmm", "je sais pas", "qu'est-ce que tu peux faire"), réponds chaleureusement et propose des exemples concrets regroupés par thème avec des puces et des verbes d'action. Voici les catégories à suggérer :
+   - **Projets** : créer un nouveau projet pour un client, lister les projets actifs, voir l'avancement
+   - **Calendrier** : créer un tournage, une réunion ou une deadline, consulter les événements à venir
+   - **Tâches** : lister les tâches en retard, voir ce qui est en cours, filtrer par statut
+   - **Clients** : lister les clients actifs, voir leurs projets associés
+   - **Ressources** : créer un scénario, une révision vidéo ou un document dans un projet
+   - **Navigation** : aller directement à n'importe quelle section de la plateforme
 
 CONTEXTE DE LA PLATEFORME (pour toi uniquement, ne le récite pas mot pour mot) :
 Date : ${new Date().toLocaleDateString('fr-CA')}
@@ -403,6 +410,10 @@ export function AIChat() {
     if (open && textareaRef.current) textareaRef.current.focus();
   }, [open]);
 
+  useEffect(() => {
+    autoResize();
+  }, [input]);
+
   const toggleListening = () => {
     if (!SpeechRecognitionAPI) {
       alert('La reconnaissance vocale n\'est pas supportée par ce navigateur. Utilise Chrome ou Edge.');
@@ -452,7 +463,7 @@ export function AIChat() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    el.style.height = Math.min(el.scrollHeight, 260) + 'px';
   };
 
   const send = async (text?: string) => {
@@ -809,11 +820,9 @@ export function AIChat() {
                 title={listening ? 'Arrêter l\'écoute' : 'Dicter un message'}
                 style={{
                   width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-                  background: listening
-                    ? 'color-mix(in srgb, var(--danger) 18%, transparent)'
-                    : 'var(--surface-3)',
+                  background: listening ? 'var(--accent)' : 'var(--surface-3)',
                   border: listening
-                    ? '1px solid color-mix(in srgb, var(--danger) 50%, transparent)'
+                    ? '1px solid var(--accent)'
                     : '1px solid transparent',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -821,7 +830,7 @@ export function AIChat() {
                   animation: listening ? 'mic-pulse 1.4s ease-in-out infinite' : 'none',
                 }}
               >
-                <SFIcon name={listening ? 'mic-off' : 'mic'} size={13} color={listening ? 'var(--danger)' : 'var(--text-3)'} />
+                <SFIcon name="mic" size={13} color={listening ? 'var(--on-accent)' : 'var(--text-3)'} />
               </button>
               <button
                 onClick={() => send()}

@@ -327,17 +327,47 @@ export function Parametres() {
                 ))}
               </div>
 
-              {/* Custom hex input */}
+              {/* Custom color picker + hex input */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: accentColor, border: '1px solid var(--border-2)', flexShrink: 0 }} />
+                {/* Native colour picker — clicking the swatch opens the OS colour dialog */}
+                <label title="Ouvrir le sélecteur de couleur" style={{ position: 'relative', width: 36, height: 36, borderRadius: 9, background: accentColor, border: '2px solid var(--border-2)', flexShrink: 0, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-fA-F]{6}$/.test(accentColor) ? accentColor : '#f9ff00'}
+                    onChange={e => {
+                      const c = e.target.value;
+                      setAccentColor(c);
+                      setHexInput(c);
+                      applyPortalAccent(c);
+                    }}
+                    style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }}
+                  />
+                  <SFIcon name="pipette" size={14} color={(() => { const r=parseInt(accentColor.slice(1,3)||'f9',16),g=parseInt(accentColor.slice(3,5)||'ff',16),b=parseInt(accentColor.slice(5,7)||'00',16); return (0.299*r+0.587*g+0.114*b)/255>0.55?'#0a0a0a':'#ffffff'; })()} />
+                </label>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-3)', overflow: 'hidden', flex: 1, maxWidth: 200 }}>
                   <span style={{ padding: '0 10px', fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', userSelect: 'none' }}>#</span>
                   <input
                     value={hexInput.replace(/^#/, '')}
                     onChange={e => {
-                      const raw = '#' + e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                      const cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                      const raw = '#' + cleaned;
                       setHexInput(raw);
                       if (/^#[0-9a-fA-F]{6}$/.test(raw)) { setAccentColor(raw); applyPortalAccent(raw); }
+                    }}
+                    onBlur={e => {
+                      let cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '');
+                      // Expand 3-char shorthand: abc → aabbcc
+                      if (cleaned.length === 3) cleaned = cleaned.split('').map(c => c + c).join('');
+                      if (cleaned.length === 6) {
+                        const full = '#' + cleaned;
+                        setHexInput(full);
+                        setAccentColor(full);
+                        applyPortalAccent(full);
+                      }
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                     }}
                     placeholder="f9ff00"
                     maxLength={6}
@@ -517,7 +547,7 @@ export function Parametres() {
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 10, background: '#00005b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontFamily: 'sans-serif', fontWeight: 900, fontSize: 15, color: '#9999ff', letterSpacing: '-1px' }}>Pr</span>
+                  <span style={{ fontFamily: 'var(--ff-text)', fontWeight: 900, fontSize: 15, color: '#9999ff', letterSpacing: '-1px' }}>Pr</span>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -554,7 +584,7 @@ export function Parametres() {
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 10, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
-                  <span style={{ fontFamily: 'sans-serif', fontWeight: 900, fontSize: 13, color: '#e8b4a0', letterSpacing: '-0.5px' }}>Da</span>
+                  <span style={{ fontFamily: 'var(--ff-text)', fontWeight: 900, fontSize: 13, color: '#e8b4a0', letterSpacing: '-0.5px' }}>Da</span>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

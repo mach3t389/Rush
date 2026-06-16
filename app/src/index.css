@@ -113,6 +113,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 @keyframes mic-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 40%, transparent); }
-  50%       { box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 0%, transparent); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); }
+  50%       { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
 }

@@ -282,7 +282,7 @@ export function ProjectCard({ p }: { p: Project }) {
             background: 'var(--surface-2)', border: '1px solid var(--border)',
             cursor: 'pointer', padding: '4px 10px', borderRadius: 7,
             color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 5,
-            fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 500,
+            fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 500,
           }}
           onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.borderColor = 'var(--border-2)'; }}
           onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-2)'; el.style.borderColor = 'var(--border)'; }}

@@ -1692,8 +1692,8 @@ export function FileView({ resource }: { resource: Resource }) {
             placeholder="Nom du dossier"
             style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--accent)', background:'var(--surface)', color:'var(--text)', fontSize:13, outline:'none', fontFamily:'var(--ff-text)', width:240 }}
           />
-          <button onClick={createFolder} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-mono)' }}>Créer</button>
-          <button onClick={()=>{setNewFolderOpen(false);setNewFolderName('');}} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-mono)' }}>Annuler</button>
+          <button onClick={createFolder} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Créer</button>
+          <button onClick={()=>{setNewFolderOpen(false);setNewFolderName('');}} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Annuler</button>
         </div>
       )}
 
@@ -2262,8 +2262,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               </span>
             </div>
             <div style={{ display:'flex', gap:6 }}>
-              <button onClick={createStyle} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-mono)' }}>Créer</button>
-              <button onClick={()=>setShowStyleForm(false)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-mono)' }}>×</button>
+              <button onClick={createStyle} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Créer</button>
+              <button onClick={()=>setShowStyleForm(false)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>×</button>
             </div>
           </div>
         )}
@@ -2332,8 +2332,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
                 style={{ width:'100%', padding:'7px 10px', borderRadius:9, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', fontFamily:'var(--ff-text)', colorScheme:'dark', resize:'none', boxSizing:'border-box' }}
               />
               <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-mono)' }}>Valider</button>
-                <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-mono)' }}>Annuler</button>
+                <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>Valider</button>
+                <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)' }}>Annuler</button>
               </div>
             </div>
           )}
@@ -2469,7 +2469,7 @@ function InspirationsView({ resource }: { resource: Resource }) {
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border-2)'; (e.currentTarget as HTMLElement).style.color='var(--text-3)'; }}
           >
             <SFIcon name="plus" size={20} color="inherit" />
-            <span style={{ fontSize:11, fontFamily:'var(--ff-mono)' }}>Ajouter</span>
+            <span style={{ fontSize:11, fontFamily:'var(--ff-text)' }}>Ajouter</span>
           </button>
         </div>
       </div>
@@ -3928,7 +3928,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
                       onMouseEnter={e => (e.currentTarget.style.background='var(--surface-2)')}
                       onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
                       <SFIcon name="plus" size={11} color="var(--text-3)" />
-                      <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>Ajouter un plan</span>
+                      <span style={{ fontFamily:'var(--ff-text)', fontSize:10, color:'var(--text-3)' }}>Ajouter un plan</span>
                     </button>
                   </td>
                 </tr>,
