@@ -1371,9 +1371,25 @@ function fileColor(mime: string): string {
 type SortKey = 'name' | 'date' | 'size';
 type ViewMode = 'grid' | 'list';
 
-export function FileView({ resource }: { resource: Resource }) {
+function folderNodesToFsFolders(nodes: { id: string; name: string; children?: { id: string; name: string; children?: any }[] }[] | undefined): FsFolder[] {
+  if (!nodes || nodes.length === 0) return [];
+  const folders: FsFolder[] = [];
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const traverse = (items: any[], parentId: string | null) => {
+    items.forEach(item => {
+      folders.push({ id: item.id, name: item.name, parentId, createdAt: today });
+      if (item.children && item.children.length > 0) {
+        traverse(item.children, item.id);
+      }
+    });
+  };
+  traverse(nodes, null);
+  return folders;
+}
+
+export function FileView({ resource, seedFolderStructure }: { resource: Resource; seedFolderStructure?: any[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [folders, setFolders] = useState<FsFolder[]>(INIT_FOLDERS);
+  const [folders, setFolders] = useState<FsFolder[]>(seedFolderStructure ? folderNodesToFsFolders(seedFolderStructure) : INIT_FOLDERS);
   const [files,   setFiles]   = useState<FsFile[]>(INIT_FILES);
 
   // Navigation

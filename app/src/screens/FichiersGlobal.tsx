@@ -283,14 +283,17 @@ function FileTree({
 }) {
   const [projects, setProjects] = useState(getProjects);
   const [folders, setFolders] = useState(getFolders);
+  const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
   useEffect(() => subscribeFileStore(() => setFolders(getFolders())), []);
+  useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
 
   const globalRoots = folders.filter(f => !f.projectId && !f.clientId && f.parentId === null);
 
   const toggleProject = (id: string) => setExpandedProjects(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [hoveredProjectId, setHoveredProjectId] = React.useState<string | null>(null);
 
   const SectionLabel = ({ children }: { children: React.ReactNode }) => collapsed ? null : (
     <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '12px 10px 4px', fontWeight: 700 }}>{children}</p>
@@ -323,39 +326,22 @@ function FileTree({
           {!collapsed && <span>Tous les fichiers</span>}
         </div>
 
-        {/* Global folders */}
-        {globalRoots.length > 0 && (
-          <>
-            <SectionLabel>Global</SectionLabel>
-            {globalRoots.map(f => {
-              const active = location.scope === 'global' && location.folderId === f.id;
-              return (
-                <div key={f.id}
-                  onClick={() => onNavigate({ scope: 'global', folderId: f.id })}
-                  style={ITEM_STYLE(active)}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <SFIcon name="folder" size={13} color="var(--text-3)" />
-                  {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>}
-                </div>
-              );
-            })}
-          </>
-        )}
 
-        {/* Projects */}
-        <SectionLabel>Projets</SectionLabel>
-        {projects.map(p => {
+        {/* Pinned Projects */}
+        {pinnedIds.length > 0 && (
+          <>
+            <SectionLabel>Projets épinglés</SectionLabel>
+            {projects.filter(p => pinnedIds.includes(p.id)).map(p => {
           const exp = expandedProjects.has(p.id);
           const projActive = location.scope === 'project' && location.scopeId === p.id && !location.folderId;
           const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null);
+          const isHovered = hoveredProjectId === p.id;
           return (
             <div key={p.id}>
               <div
-                style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start' }}
-                onMouseEnter={e => { if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { if (!projActive) e.currentTarget.style.background = 'transparent'; }}
+                style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative' }}
+                onMouseEnter={e => { setHoveredProjectId(p.id); if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { setHoveredProjectId(null); if (!projActive) e.currentTarget.style.background = 'transparent'; }}
               >
                 {!collapsed && projFolders.length > 0 && (
                   <div onClick={e => { e.stopPropagation(); toggleProject(p.id); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
@@ -370,6 +356,21 @@ function FileTree({
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
                   {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>}
                 </div>
+                {!collapsed && isHovered && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
+                    style={{
+                      flexShrink: 0, width: 20, height: 20, borderRadius: 4,
+                      background: 'rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
+                  >
+                    <SFIcon name="star" size={11} color="var(--accent)" />
+                  </button>
+                )}
               </div>
               {exp && !collapsed && projFolders.map(f => {
                 const active = location.scope === 'project' && location.scopeId === p.id && location.folderId === f.id;
@@ -387,7 +388,9 @@ function FileTree({
               })}
             </div>
           );
-        })}
+            })}
+          </>
+        )}
 
         {/* Separator */}
         <div style={{ height: '1px', background: 'var(--border)', margin: '12px 0' }} />
@@ -511,15 +514,43 @@ export function FichiersGlobal() {
     const crumbs: { label: string; onClick: () => void }[] = [
       { label: 'Fichiers', onClick: () => setLocation({ scope: 'root', folderId: null }) },
     ];
+
     if (location.scope === 'project') {
       const p = projects.find(p => p.id === location.scopeId);
-      if (p) crumbs.push({ label: p.name, onClick: () => setLocation({ scope: 'project', scopeId: p.id, folderId: null }) });
+      const c = p ? clients.find(c => c.id === p.clientId) : null;
+
+      // Add client first
+      if (c) {
+        crumbs.push({
+          label: c.name,
+          onClick: () => setLocation({ scope: 'client', scopeId: c.id, folderId: null })
+        });
+      }
+      // Then add project
+      if (p) {
+        crumbs.push({
+          label: p.name,
+          onClick: () => setLocation({ scope: 'project', scopeId: p.id, folderId: null })
+        });
+      }
     } else if (location.scope === 'client') {
       const c = clients.find(c => c.id === location.scopeId);
-      if (c) crumbs.push({ label: c.name, onClick: () => setLocation({ scope: 'client', scopeId: c.id, folderId: null }) });
+      if (c) {
+        crumbs.push({
+          label: c.name,
+          onClick: () => setLocation({ scope: 'client', scopeId: c.id, folderId: null })
+        });
+      }
     } else if (location.scope === 'global') {
-      // No scope label for global
+      const f = allFolders.find(f => f.id === location.folderId);
+      if (f) {
+        crumbs.push({
+          label: f.name,
+          onClick: () => setLocation({ scope: 'global', folderId: f.id })
+        });
+      }
     }
+
     if (location.folderId) {
       const path = getFolderPath(location.folderId);
       path.forEach((f, i) => {
@@ -854,6 +885,7 @@ export function FichiersGlobal() {
     loc: NavLocation; depth: number; selectedId?: string; onSelect: (childLoc: NavLocation) => void;
   }) => {
     const { folders, files, projects: columnProjects } = getColumnItems(loc);
+    const [hoveredColProjectId, setHoveredColProjectId] = React.useState<string | null>(null);
 
     const folderColor = (f: FileFolder) => {
       if (f.projectId) return projectColor(f.projectId);
@@ -866,6 +898,7 @@ export function FichiersGlobal() {
       cursor: 'pointer', borderRadius: 7,
       background: selectedId === id ? 'var(--accent)' : 'transparent',
       transition: 'background 0.1s',
+      position: 'relative',
     });
 
     const nameStyle = (id: string): React.CSSProperties => ({
@@ -915,15 +948,31 @@ export function FichiersGlobal() {
         {loc.scope === 'client' && loc.folderId === null && columnProjects && columnProjects.length > 0 && (
           <>{columnProjects.map(p => {
             const id = 'proj-' + p.id;
+            const isPinned = pinnedIds.includes(p.id);
+            const isHovered = hoveredColProjectId === p.id;
             return (
               <div key={id}
                 style={rowStyle(id)}
                 onClick={() => onSelect({ scope: 'project', scopeId: p.id, folderId: null }, id)}
-                onMouseEnter={e => { if (selectedId !== id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { if (selectedId !== id) e.currentTarget.style.background = 'transparent'; }}
+                onMouseEnter={e => { setHoveredColProjectId(p.id); if (selectedId !== id) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { setHoveredColProjectId(null); if (selectedId !== id) e.currentTarget.style.background = 'transparent'; }}
               >
                 <SFIcon name="folder" size={14} color={selectedId === id ? 'var(--on-accent)' : p.clientColor} />
                 <span style={nameStyle(id)}>{p.name}</span>
+                {isHovered && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
+                    style={{
+                      width: 18, height: 18, borderRadius: 4, background: 'rgba(0,0,0,0.2)',
+                      border: 'none', cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
+                  >
+                    <SFIcon name="star" size={10} color="var(--accent)" />
+                  </button>
+                )}
                 <SFIcon name="chevron-right" size={10} color={selectedId === id ? 'var(--on-accent)' : 'var(--text-3)'} />
               </div>
             );
@@ -968,7 +1017,145 @@ export function FichiersGlobal() {
 
   // ── Breadcrumb component ─────────────────────────────────────────────────────
 
-  const breadcrumb = buildBreadcrumb();
+  // Get current location - in columns view, use last columnSelection; otherwise use location
+  const getCurrentLocation = (): NavLocation => {
+    if (viewMode === 'columns' && columnSelections.length > 0) {
+      return columnSelections[columnSelections.length - 1];
+    }
+    return location;
+  };
+
+  // Build breadcrumb based on current location
+  const buildBreadcrumbForLocation = (loc: NavLocation): { label: string; onClick: () => void }[] => {
+    const crumbs: { label: string; onClick: () => void }[] = [
+      { label: 'Fichiers', onClick: () => {
+        if (viewMode === 'columns') {
+          setColumnSelections([]);
+        } else {
+          setLocation({ scope: 'root', folderId: null });
+        }
+      }},
+    ];
+
+    if (loc.scope === 'project') {
+      const p = projects.find(p => p.id === loc.scopeId);
+      const c = p ? clients.find(c => c.id === p.clientId) : null;
+
+      // Add "Clients" link
+      crumbs.push({
+        label: 'Clients',
+        onClick: () => {
+          if (viewMode === 'columns') {
+            setColumnSelections([{ scope: 'clients', folderId: null }]);
+          } else {
+            setLocation({ scope: 'clients', folderId: null });
+          }
+        }
+      });
+
+      // Add client name
+      if (c) {
+        crumbs.push({
+          label: c.name,
+          onClick: () => {
+            if (viewMode === 'columns') {
+              setColumnSelections([{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: c.id, folderId: null }]);
+            } else {
+              setLocation({ scope: 'client', scopeId: c.id, folderId: null });
+            }
+          }
+        });
+      }
+      // Add project name
+      if (p) {
+        crumbs.push({
+          label: p.name,
+          onClick: () => {
+            if (viewMode === 'columns') {
+              setColumnSelections([{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: c?.id, folderId: null }, { scope: 'project', scopeId: p.id, folderId: null }]);
+            } else {
+              setLocation({ scope: 'project', scopeId: p.id, folderId: null });
+            }
+          }
+        });
+      }
+    } else if (loc.scope === 'client') {
+      const c = clients.find(c => c.id === loc.scopeId);
+
+      // Add "Clients" link
+      crumbs.push({
+        label: 'Clients',
+        onClick: () => {
+          if (viewMode === 'columns') {
+            setColumnSelections([{ scope: 'clients', folderId: null }]);
+          } else {
+            setLocation({ scope: 'clients', folderId: null });
+          }
+        }
+      });
+
+      // Add client name
+      if (c) {
+        crumbs.push({
+          label: c.name,
+          onClick: () => {
+            if (viewMode === 'columns') {
+              setColumnSelections([{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: c.id, folderId: null }]);
+            } else {
+              setLocation({ scope: 'client', scopeId: c.id, folderId: null });
+            }
+          }
+        });
+      }
+    } else if (loc.scope === 'clients') {
+      // Add "Clients" as current location
+      crumbs.push({
+        label: 'Clients',
+        onClick: () => {
+          if (viewMode === 'columns') {
+            setColumnSelections([{ scope: 'clients', folderId: null }]);
+          } else {
+            setLocation({ scope: 'clients', folderId: null });
+          }
+        }
+      });
+    } else if (loc.scope === 'global') {
+      const f = allFolders.find(f => f.id === loc.folderId);
+      if (f) {
+        crumbs.push({
+          label: f.name,
+          onClick: () => {
+            if (viewMode === 'columns') {
+              setColumnSelections([{ scope: 'global', folderId: f.id }]);
+            } else {
+              setLocation({ scope: 'global', folderId: f.id });
+            }
+          }
+        });
+      }
+    }
+
+    if (loc.folderId) {
+      const path = getFolderPath(loc.folderId);
+      path.forEach((f, i) => {
+        crumbs.push({
+          label: f.name,
+          onClick: () => {
+            const newLocation = { ...loc, folderId: i === path.length - 1 ? f.id : (path[i].parentId ?? null) };
+            if (viewMode === 'columns') {
+              setColumnSelections([...columnSelections.slice(0, -1), newLocation]);
+            } else {
+              setLocation(newLocation);
+            }
+          },
+        });
+      });
+    }
+    return crumbs;
+  };
+
+  const currentLocation = getCurrentLocation();
+  const breadcrumb = buildBreadcrumbForLocation(currentLocation);
 
   // Column view state: array of selected NavLocations at each depth
   const [columnSelections, setColumnSelections] = useState<NavLocation[]>([]);
@@ -1043,10 +1230,10 @@ export function FichiersGlobal() {
       {/* Top bar */}
       <div style={{ flexShrink: 0, padding: '0 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, height: 52 }}>
         {/* Breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0, overflowX: 'auto', paddingRight: 8 }}>
           {breadcrumb.map((crumb, i) => (
             <React.Fragment key={i}>
-              {i > 0 && <SFIcon name="chevron-right" size={12} color="var(--text-3)" />}
+              {i > 0 && <SFIcon name="chevron-right" size={12} color="var(--text-3)" style={{ flexShrink: 0 }} />}
               <button
                 onClick={crumb.onClick}
                 style={{
@@ -1054,10 +1241,11 @@ export function FichiersGlobal() {
                   fontSize: 13, fontWeight: i === breadcrumb.length - 1 ? 700 : 400,
                   color: i === breadcrumb.length - 1 ? 'var(--text)' : 'var(--text-3)',
                   fontFamily: 'var(--ff-text)', padding: '0 4px', borderRadius: 4,
-                  maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  flexShrink: 0, whiteSpace: 'nowrap',
                 }}
                 onMouseEnter={e => { if (i < breadcrumb.length - 1) e.currentTarget.style.color = 'var(--text)'; }}
                 onMouseLeave={e => { if (i < breadcrumb.length - 1) e.currentTarget.style.color = 'var(--text-3)'; }}
+                title={crumb.label}
               >
                 {crumb.label}
               </button>
@@ -1186,75 +1374,29 @@ export function FichiersGlobal() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
               {viewMode === 'list' && (
                 <div>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Naviguer</p>
                   {/* List header */}
                   <div style={{ ...ROW, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
                     <div />
-                    <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
+                    <span>Nom</span><span>Type</span><span>Projets</span><span>Modifié</span>
                   </div>
-                  {pinnedIds.length > 0 && (
-                    <>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '12px 14px 4px' }}>Projets épinglés</p>
-                      {projects.filter(p => pinnedIds.includes(p.id)).map(p => (
-                        <VirtualRow key={p.id} label={p.name} icon="folder" color={p.clientColor}
-                          onClick={() => setLocation({ scope: 'project', scopeId: p.id, folderId: null })}
-                          count={allFolders.filter(f => f.projectId === p.id && f.parentId === null).length} sublabel="Projet" />
-                      ))}
-                    </>
-                  )}
-                  {globalRootFolders.length > 0 && (
-                    <>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '12px 14px 4px' }}>Global</p>
-                      {globalRootFolders.map(f => (
-                        <VirtualRow key={f.id} label={f.name} icon="folder" color={f.color ?? 'var(--text-3)'}
-                          onClick={() => setLocation({ scope: 'global', scopeId: undefined, folderId: f.id })}
-                          count={allFolders.filter(c => c.parentId === f.id).length} sublabel="Dossier" />
-                      ))}
-                    </>
-                  )}
                   <VirtualRow key="clients-folder" label="Clients" icon="users" color="var(--accent)"
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
-                    count={rootClients.length} sublabel="Dossier" />
+                    count={clients.length} sublabel="Dossier" />
                 </div>
               )}
 
               {viewMode === 'grid' && (
-                <>
-                  {/* Pinned projects */}
-                  {pinnedIds.length > 0 && (
-                    <div>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Projets épinglés</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                        {projects.filter(p => pinnedIds.includes(p.id)).map(p => (
-                          <ProjectCard key={p.id} project={p} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Global folders */}
-                  {globalRootFolders.length > 0 && (
-                    <div>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Global</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                        {globalRootFolders.map(f => <FolderCard key={f.id} folder={f} />)}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Clients folder */}
-                  <div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                      <VirtualCard
-                        key="clients-folder"
-                        label="Clients"
-                        icon="users"
-                        color="var(--accent)"
-                        onClick={() => setLocation({ scope: 'clients', folderId: null })}
-                        count={rootClients.length}
-                      />
-                    </div>
-                  </div>
-                </>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+                  <VirtualCard
+                    key="clients-folder"
+                    label="Clients"
+                    icon="users"
+                    color="var(--accent)"
+                    onClick={() => setLocation({ scope: 'clients', folderId: null })}
+                    count={clients.length}
+                  />
+                </div>
               )}
             </div>
           )}
@@ -1308,11 +1450,37 @@ export function FichiersGlobal() {
                     <div />
                     <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
-                  {projects.filter(p => p.clientId === location.scopeId).map(p => (
-                    <VirtualRow key={p.id} label={p.name} icon="folder" color={p.clientColor}
-                      onClick={() => setLocation({ scope: 'project', scopeId: p.id, folderId: null })}
-                      count={allFolders.filter(f => f.projectId === p.id && f.parentId === null).length} sublabel="Projet" />
-                  ))}
+                  {projects.filter(p => p.clientId === location.scopeId).map(p => {
+                    const isPinned = pinnedIds.includes(p.id);
+                    return (
+                      <div key={p.id}
+                        style={{ ...ROW, position: 'relative', group: 'item' } as any}
+                        onClick={() => setLocation({ scope: 'project', scopeId: p.id, folderId: null })}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <SFIcon name="folder" size={14} color={p.clientColor} />
+                        </div>
+                        <span style={{ flex: 1 }}>{p.name}</span>
+                        <span style={{ color: 'var(--text-3)', fontSize: 11 }}>Projet</span>
+                        <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 60 }}>{allFolders.filter(f => f.projectId === p.id && f.parentId === null).length}</span>
+                        <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 80 }}>—</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
+                          style={{
+                            width: 24, height: 24, borderRadius: 4, background: 'rgba(0,0,0,0.2)',
+                            border: 'none', cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
+                        >
+                          <SFIcon name="star" size={12} color={isPinned ? 'var(--accent)' : 'var(--text-3)'} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

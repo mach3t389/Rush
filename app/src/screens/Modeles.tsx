@@ -177,7 +177,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         {tpl.type === 'document' && <DocumentView resource={fakeResource} seedHTML={seedHTML} contentRef={docContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'screenplay' && <ScreenplayView resource={fakeResource} seedElements={seedElements} contentRef={screenplayContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
-        {tpl.type === 'file' && <FileView resource={fakeResource} />}
+        {tpl.type === 'file' && <FileView resource={fakeResource} seedFolderStructure={tpl.folderStructure} />}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
       </div>
     </div>
