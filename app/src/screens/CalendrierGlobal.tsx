@@ -828,7 +828,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function CalendrierGlobal() {
-  const [view, setView]             = useState<CalView>('week');
+  const [view, setView]             = useState<CalView>('month');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
   const [events, setEvents]         = useState<CalEvent[]>(() => resolveEvents(getEventTypes()));
