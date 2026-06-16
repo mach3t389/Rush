@@ -273,12 +273,13 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
 
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
-export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel }: {
+export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments }: {
   task: Task;
   onClose: () => void;
   onUpdate?: (patch: Partial<Task>) => void;
   onMove?: (newProjectId: string, newSectionLabel: string) => void;
   sectionLabel?: string;
+  autoFocusComments?: boolean;
 }) {
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
@@ -294,6 +295,21 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel }: {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionRect, setMentionRect] = useState<DOMRect | null>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
+  const commentsAnchorRef = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!autoFocusComments) return;
+    const timer = setTimeout(() => {
+      commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      commentsAnchorRef.current?.style && (commentsAnchorRef.current.style.animation = 'highlight-flash 2s ease forwards');
+      commentsAnchorRef.current?.addEventListener('animationend', () => {
+        if (commentsAnchorRef.current) commentsAnchorRef.current.style.animation = '';
+      }, { once: true });
+      commentInputRef.current?.focus();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [autoFocusComments]);
+
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [localSubtasks, setLocalSubtasks] = useState<LocalSubtask[]>(
@@ -933,7 +949,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel }: {
           {divider}
 
           {/* Commentaires */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 9 }}>
             {panelSectionLabel(`Commentaires${comments.length ? ` (${comments.length})` : ''}`)}
 
             {comments.map(c => (

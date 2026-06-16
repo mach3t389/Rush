@@ -1375,19 +1375,28 @@ export function Travail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const project = findProject(projectId ?? '') ?? findProject('pj1')!;
 
-  // Highlight a task coming from a notification link
+  const [autoFocusComments, setAutoFocusComments] = useState(false);
+
+  // Open task panel (+ optionally focus comments) from notification link
   useEffect(() => {
-    const taskId = searchParams.get('highlight');
+    const taskId = searchParams.get('openTask') ?? searchParams.get('highlight');
     if (!taskId) return;
-    // Clear param immediately so back-nav doesn't re-trigger
+    const focusComments = searchParams.get('focus') === 'comments';
     setSearchParams({}, { replace: true });
-    // Wait for sections to render, then scroll + flash
     const timer = setTimeout(() => {
-      const el = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.style.animation = 'highlight-flash 2s ease forwards';
-      el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
+      const allTasks = sections.flatMap(s => s.tasks);
+      const task = allTasks.find(t => t.id === taskId);
+      if (task) {
+        setSelectedTask(task);
+        setAutoFocusComments(focusComments);
+      } else {
+        // Fallback: flash the row if panel can't open
+        const el = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.animation = 'highlight-flash 2s ease forwards';
+        el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
+      }
     }, 120);
     return () => clearTimeout(timer);
   }, [searchParams]);
@@ -1733,7 +1742,8 @@ export function Travail() {
         <TaskPanel
           task={selectedTask}
           sectionLabel={sections.find(s => s.tasks.some(t => t.id === selectedTask.id))?.label}
-          onClose={() => setSelectedTask(null)}
+          autoFocusComments={autoFocusComments}
+          onClose={() => { setSelectedTask(null); setAutoFocusComments(false); }}
           onUpdate={patch => {
             updateTask(projectId!, selectedTask.id, patch);
             setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
