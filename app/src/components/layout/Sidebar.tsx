@@ -52,7 +52,7 @@ const NAV_BOTTOM_MAIN = [
   { to: '/clients',    icon: 'users',        label: 'Clients',    exact: true  },
   { to: '/projets',    icon: 'folder',       label: 'Projets',    exact: true  },
   { to: '/calendrier', icon: 'calendar',     label: 'Calendrier', exact: false },
-  { to: '/activite',   icon: 'activity',     label: 'Activité',   exact: false },
+  { to: '/activite',   icon: 'bell',         label: 'Notifications', exact: false },
 ];
 
 const me = USERS.lea;
