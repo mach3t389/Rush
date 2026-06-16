@@ -434,6 +434,76 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
     );
   };
 
+  // ── Sidebar events list ────────────────────────────────────────────────────
+
+  const renderSidebar = () => {
+    const withDate = allTasks
+      .map(t => ({ task: t, date: parseFrDate(t.dueDate) }))
+      .filter(({ date }) => date !== null) as { task: Task; date: Date }[];
+    withDate.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const groups: { label: string; date: Date; tasks: Task[] }[] = [];
+    for (const { task, date } of withDate) {
+      const diffDays = Math.floor((date.getTime() - TODAY.getTime()) / 86400000);
+      let label: string;
+      if (isSameDay(date, TODAY))   label = "Aujourd'hui";
+      else if (diffDays === 1)      label = 'Demain';
+      else if (diffDays === -1)     label = 'Hier';
+      else label = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
+
+      const existing = groups.find(g => isSameDay(g.date, date));
+      if (existing) existing.tasks.push(task);
+      else groups.push({ label, date, tasks: [task] });
+    }
+
+    const isPast = (d: Date) => d < TODAY && !isSameDay(d, TODAY);
+
+    return (
+      <div style={{ width: 210, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 14px 8px', fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          Événements
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+          {groups.length === 0 && (
+            <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '12px 14px' }}>Aucun événement</p>
+          )}
+          {groups.map(({ label, date, tasks: gTasks }) => (
+            <div key={label} style={{ marginBottom: 4 }}>
+              <button
+                onClick={() => { setCur(new Date(date)); setSub('day'); }}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '4px 14px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.04em',
+                  color: isSameDay(date, TODAY) ? 'var(--accent)' : isPast(date) ? 'var(--text-3)' : 'var(--text-2)',
+                  fontWeight: isSameDay(date, TODAY) ? 700 : 400,
+                }}
+              >{label}</button>
+              {gTasks.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => { setCur(new Date(date)); setSub('day'); }}
+                  style={{
+                    width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '3px 14px', background: 'none', border: 'none', cursor: 'pointer',
+                    opacity: isPast(date) ? 0.5 : 1,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: t.checked ? 'var(--ok)' : projectColor }} />
+                  <span style={{ fontSize: 12, color: t.checked ? 'var(--text-3)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: t.checked ? 'line-through' : 'none' }}>
+                    {t.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -479,8 +549,10 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
         </div>
       </div>
 
-      {/* Calendar body */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      {/* Calendar body = sidebar + grid */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {renderSidebar()}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
         {sub === 'month' ? renderMonth() : renderTimeGrid()}
 
         {/* Floating "+ Nouvelle tâche" button — visible in day/time views */}
@@ -510,7 +582,8 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
             Nouvelle tâche
           </button>
         )}
-      </div>
+        </div>{/* end inner flex column */}
+      </div>{/* end sidebar + grid row */}
 
       {/* Create task modal */}
       {modal && draft && (() => {
