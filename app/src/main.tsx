@@ -14,7 +14,6 @@ import { Portail } from './screens/Portail';
 import { Clients } from './screens/Clients';
 import { FicheClient } from './screens/FicheClient';
 import { CalendrierGlobal } from './screens/CalendrierGlobal';
-import { Notifications } from './screens/Notifications';
 import { Parametres } from './screens/Parametres';
 import { Activite } from './screens/Activite';
 import { TravailOverview } from './screens/TravailOverview';
@@ -42,7 +41,7 @@ const router = createBrowserRouter([
       { path: 'projets/:projectId/membres', element: <ProjectMembres /> },
       { path: 'clients', element: <Clients /> },
       { path: 'clients/:clientId', element: <FicheClient /> },
-      { path: 'notifications', element: <Notifications /> },
+      { path: 'notifications', element: <Activite /> },
       { path: 'parametres', element: <Parametres /> },
       { path: 'activite', element: <Activite /> },
       { path: 'calendrier', element: <CalendrierGlobal /> },

@@ -12,6 +12,7 @@ import {
   getProjectColor, setProjectColor,
 } from '../../data/pinnedStore';
 import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
+import { subscribeNotifs, getNotifHistory } from '../../data/notificationStore';
 
 function PinnedBadge({ count }: { count: number }) {
   if (count === 0) return null;
@@ -56,7 +57,7 @@ const NAV_BOTTOM_MAIN = [
 
 const me = USERS.lea;
 
-function NavItem({ to, icon, label, exact, collapsed }: { to: string; icon: string; label: string; exact?: boolean; collapsed: boolean }) {
+function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; icon: string; label: string; exact?: boolean; collapsed: boolean; badge?: number }) {
   return (
     <NavLink
       to={to}
@@ -80,8 +81,26 @@ function NavItem({ to, icon, label, exact, collapsed }: { to: string; icon: stri
         transition: 'background 0.1s, color 0.1s',
       })}
     >
-      <SFIcon name={icon} size={16} />
+      <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <SFIcon name={icon} size={16} />
+        {collapsed && badge && badge > 0 && (
+          <span style={{
+            position: 'absolute', top: -5, right: -7,
+            background: 'var(--accent)', color: 'var(--on-accent)',
+            borderRadius: 999, fontSize: 8, fontWeight: 700,
+            padding: '1px 4px', fontFamily: 'var(--ff-mono)', lineHeight: 1.4,
+          }}>{badge}</span>
+        )}
+      </span>
       {!collapsed && label}
+      {!collapsed && badge && badge > 0 ? (
+        <span style={{
+          marginLeft: 'auto',
+          background: 'var(--accent)', color: 'var(--on-accent)',
+          borderRadius: 999, fontSize: 9, fontWeight: 700,
+          padding: '1px 5px', fontFamily: 'var(--ff-mono)',
+        }}>{badge}</span>
+      ) : null}
     </NavLink>
   );
 }
@@ -102,10 +121,13 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
   const dragHandleActive = useRef(false);
   const dragClientHandleActive = useRef(false);
 
+  const [unreadCount, setUnreadCount] = useState(() => getNotifHistory().filter(n => !n.read).length);
+
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
   useEffect(() => subscribePinnedClients(() => setPinnedClientIds(getPinnedClientIds())), []);
   useEffect(() => subscribeProjects(() => setPinnedIds(prev => [...prev])), []);
   useEffect(() => subscribeClients(() => setPinnedClientIds(prev => [...prev])), []);
+  useEffect(() => subscribeNotifs(() => setUnreadCount(getNotifHistory().filter(n => !n.read).length)), []);
 
   // Close color picker on outside click
   useEffect(() => {
@@ -259,7 +281,12 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
             <NavItem key={item.to} {...item} collapsed={collapsed} />
           ))}
           {NAV_BOTTOM_MAIN.map(item => (
-            <NavItem key={item.to} icon={item.icon} label={item.label} to={item.to} exact={item.exact} collapsed={collapsed} />
+            <NavItem
+              key={item.to}
+              icon={item.icon} label={item.label} to={item.to} exact={item.exact}
+              collapsed={collapsed}
+              badge={item.to === '/activite' ? unreadCount : undefined}
+            />
           ))}
           {/* Separator */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
@@ -502,40 +529,6 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
       {/* Bottom */}
       <div style={{ padding: collapsed ? '0 6px 12px' : '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <NavLink
-          to="/notifications"
-          title={collapsed ? 'Notifications' : undefined}
-          style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
-            padding: collapsed ? '8px 0' : '8px 12px',
-            justifyContent: collapsed ? 'center' : 'space-between',
-            borderRadius: 9,
-            fontSize: 13, fontWeight: 500,
-            color: isActive ? 'var(--text)' : 'var(--text-2)',
-            background: isActive ? 'var(--surface-3)' : 'transparent',
-            borderLeft: collapsed ? 'none' : isActive ? '2px solid var(--accent)' : '2px solid transparent',
-            textDecoration: 'none',
-          })}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10, position: 'relative' }}>
-            <SFIcon name="bell" size={16} />
-            {!collapsed && 'Notifications'}
-            {collapsed && (
-              <span style={{
-                position: 'absolute', top: -6, right: -8,
-                background: 'var(--accent)', color: 'var(--on-accent)',
-                borderRadius: 999, fontSize: 8, fontWeight: 700, padding: '1px 4px',
-                fontFamily: 'var(--ff-mono)', lineHeight: 1.4,
-              }}>3</span>
-            )}
-          </span>
-          {!collapsed && (
-            <span style={{ background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 999, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
-              3
-            </span>
-          )}
-        </NavLink>
-
         <NavLink
           to="/parametres"
           title={collapsed ? 'Paramètres' : undefined}
