@@ -54,22 +54,90 @@ function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// ── Notification row ──────────────────────────────────────────────────────────
+// ── Grouping ──────────────────────────────────────────────────────────────────
 
-function NotifRow({ notif, navigate }: { notif: AppNotif; navigate: (to: string) => void }) {
-  const unread = !notif.read;
-  const color  = ACTOR_COLOR[notif.actor] ?? '#5c3d8f';
+interface NotifGroup {
+  key: string;
+  kind: NotifKind;
+  actors: string[];       // unique, most-recent first
+  count: number;
+  latestTimestamp: number;
+  unread: boolean;
+  taskId?: string;
+  resourceId?: string;
+  projectId: string;
+}
+
+function groupNotifs(notifs: AppNotif[]): NotifGroup[] {
+  const map = new Map<string, AppNotif[]>();
+
+  for (const n of notifs) {
+    const ctx = n.taskId ?? n.resourceId ?? 'global';
+    // Mentions stay individual — they're always personal
+    const k = n.kind === 'mention' ? `mention-${n.id}` : `${ctx}-${n.kind}`;
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(n);
+  }
+
+  return Array.from(map.entries()).map(([, items]) => {
+    const sorted = [...items].sort((a, b) => b.timestamp - a.timestamp);
+    const uniqueActors = [...new Set(sorted.map(n => n.actor))];
+    return {
+      key: sorted[0].id,
+      kind: sorted[0].kind,
+      actors: uniqueActors,
+      count: items.length,
+      latestTimestamp: sorted[0].timestamp,
+      unread: items.some(n => !n.read),
+      taskId: sorted[0].taskId,
+      resourceId: sorted[0].resourceId,
+      projectId: sorted[0].projectId,
+    };
+  }).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+}
+
+function groupDayLabel(ts: number): string {
+  const h = (Date.now() - ts) / 3600000;
+  if (h < 24)  return "Aujourd'hui";
+  if (h < 48)  return 'Hier';
+  if (h < 168) return 'Cette semaine';
+  return 'Plus tôt';
+}
+
+function actorSummary(actors: string[], count: number, kind: NotifKind): string {
+  const verbMap: Record<NotifKind, string> = {
+    comment:    count > 1 ? `ont laissé ${count} commentaires` : 'a commenté',
+    mention:    'vous a mentionné',
+    status:     'a mis à jour le statut',
+    annotation: count > 1 ? `ont ajouté ${count} annotations` : 'a annoté',
+    version:    'a uploadé une nouvelle version',
+  };
+  const verb = verbMap[kind];
+  if (actors.length === 1) return `${actors[0]} ${verb}`;
+  if (actors.length === 2) return `${actors[0]} et ${actors[1]} ${verb}`;
+  return `${actors[0]}, ${actors[1]} +${actors.length - 2} ${verb}`;
+}
+
+// ── Notification group row ────────────────────────────────────────────────────
+
+function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {
+  const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
+
+  const handleClick = () => {
+    if (taskId)     navigate(`/projets/${projectId}`);
+    else if (resourceId) navigate(`/projets/${projectId}/ressources`);
+  };
 
   return (
     <div
-      onClick={() => (notif.taskId ? navigate(`/projets/${notif.projectId}`) : notif.resourceId ? navigate(`/projets/${notif.projectId}/ressources`) : undefined)}
+      onClick={taskId || resourceId ? handleClick : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '7px 10px',
         borderRadius: 9,
         background: unread ? 'var(--surface-2)' : 'transparent',
         borderLeft: unread ? '2px solid var(--accent)' : '2px solid transparent',
-        cursor: notif.taskId || notif.resourceId ? 'pointer' : 'default',
+        cursor: taskId || resourceId ? 'pointer' : 'default',
         marginBottom: 2,
       }}
     >
@@ -77,12 +145,34 @@ function NotifRow({ notif, navigate }: { notif: AppNotif; navigate: (to: string)
         ? <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)', flexShrink: 0 }} />
         : <div style={{ width: 6, flexShrink: 0 }} />
       }
-      <SFAvatar initials={initials(notif.actor)} bg={color} size={24} />
+
+      {/* Stacked avatars if multiple actors */}
+      <div style={{ position: 'relative', width: 24, height: 24, flexShrink: 0 }}>
+        <SFAvatar initials={initials(actors[0])} bg={ACTOR_COLOR[actors[0]] ?? '#5c3d8f'} size={24} />
+        {actors.length > 1 && (
+          <div style={{
+            position: 'absolute', bottom: -3, right: -5,
+            width: 16, height: 16, borderRadius: '50%',
+            background: ACTOR_COLOR[actors[1]] ?? '#3b4f8f',
+            border: '1px solid var(--surface)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 7, fontWeight: 700, color: '#fff',
+          }}>{initials(actors[1])}</div>
+        )}
+      </div>
+
       <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <strong>{notif.actor}</strong>{' '}{notif.text}
+        {actorSummary(actors, count, kind)}
       </p>
-      <SFPill status={KIND_STATUS[notif.kind]} small>{KIND_LABEL[notif.kind]}</SFPill>
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{timeAgo(notif.timestamp)}</span>
+
+      {count > 1 && (
+        <span style={{
+          fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
+          background: 'var(--surface-3)', borderRadius: 5, padding: '1px 5px', flexShrink: 0,
+        }}>{count}</span>
+      )}
+      <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{timeAgo(latestTimestamp)}</span>
     </div>
   );
 }
@@ -127,7 +217,7 @@ export function Activite() {
   const unreadCount = notifs.filter(n => !n.read).length;
 
   const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'all',      label: `Toutes (${notifs.length})` },
+    { key: 'all',      label: `Toutes` },
     { key: 'unread',   label: `Non lues (${unreadCount})` },
     { key: 'mentions', label: 'Mentions' },
     { key: 'comments', label: 'Commentaires' },
@@ -140,10 +230,12 @@ export function Activite() {
     return true;
   });
 
-  const days    = Array.from(new Set(filtered.map(n => dayLabel(n.timestamp))));
+  // Group by context (task or resource) + kind, then split by day
+  const groups = groupNotifs(filtered);
+  const days = Array.from(new Set(groups.map(g => groupDayLabel(g.latestTimestamp))));
   const grouped = days.map(day => ({
     day,
-    notifications: filtered.filter(n => dayLabel(n.timestamp) === day),
+    groups: groups.filter(g => groupDayLabel(g.latestTimestamp) === day),
   }));
 
   return (
@@ -211,19 +303,19 @@ export function Activite() {
             ))}
           </div>
 
-          {filtered.length === 0 && (
+          {groups.length === 0 && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13 }}>
               Aucune notification
             </div>
           )}
 
-          {grouped.map(group => (
-            <div key={group.day}>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 10 }}>
-                {group.day}
+          {grouped.map(({ day, groups: dayGroups }) => (
+            <div key={day}>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
+                {day}
               </p>
-              {group.notifications.map(n => (
-                <NotifRow key={n.id} notif={n} navigate={navigate} />
+              {dayGroups.map(g => (
+                <NotifGroupRow key={g.key} group={g} navigate={navigate} />
               ))}
             </div>
           ))}
