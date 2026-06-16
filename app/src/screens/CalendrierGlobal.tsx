@@ -4,6 +4,7 @@ import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── Constants & helpers ───────────────────────────────────────────────────────
 
@@ -828,7 +829,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function CalendrierGlobal() {
-  const [view, setView]             = useState<CalView>('month');
+  const [view, setView]             = usePersistedState<CalView>('sf_view_calendrier', 'month');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
   const [events, setEvents]         = useState<CalEvent[]>(() => resolveEvents(getEventTypes()));

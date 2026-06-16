@@ -8,6 +8,7 @@ import { ProjectCard, PROJECT_STATUS_OPTIONS } from '../components/ProjectCard';
 import { getProjects, addProject, subscribeProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
+import { addFolderTree } from '../data/fileStore';
 
 type Step = 'start' | 'info' | 'fichiers' | 'team';
 
@@ -127,6 +128,13 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
         })),
       }));
       setSections(projectId, sections);
+    }
+    // Matérialise la structure de dossiers du modèle choisi dans la section Fichiers
+    if (folderStructTplId) {
+      const fileTpl = loadAllResourceTemplates().find(t => t.id === folderStructTplId);
+      if (fileTpl?.folderStructure?.length) {
+        addFolderTree(fileTpl.folderStructure, { projectId });
+      }
     }
     onCreate(newProject);
     onClose();

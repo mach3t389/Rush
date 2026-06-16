@@ -8,6 +8,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { updateResource, getResources, subscribeResources } from '../data/resourceStore';
 import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '../data/templates';
@@ -1423,7 +1424,7 @@ export function Travail() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
-  const [view, setView] = useState<'list' | 'board'>('list');
+  const [view, setView] = usePersistedState<'list' | 'board'>('sf_view_travail', 'list');
   const [viewOpen, setViewOpen] = useState(false);
   const [showCompletedSections, setShowCompletedSections] = useState(() => loadViewPref('sf_showCompletedSections', true));
   const [showCompletedTasks, setShowCompletedTasks] = useState(() => loadViewPref('sf_showCompletedTasks', true));

@@ -111,6 +111,34 @@ export function addFolder(f: Omit<FileFolder, 'id' | 'createdAt'>): FileFolder {
   return folder;
 }
 
+// Structure de dossiers arborescente (cf. ResourceTemplate.folderStructure).
+export interface FolderTreeNode { id?: string; name: string; children?: FolderTreeNode[] }
+
+// Crée tout un arbre de dossiers en une seule opération (ids uniques, une seule
+// notification). Utilisé pour matérialiser un modèle de structure à la création
+// d'un projet. Les ids des nœuds source ne sont pas réutilisés.
+export function addFolderTree(
+  nodes: FolderTreeNode[],
+  scope: { projectId?: string; clientId?: string },
+  parentId: string | null = null,
+): void {
+  const createdAt = new Date().toISOString().slice(0, 10);
+  let seq = 0;
+  const additions: FileFolder[] = [];
+  const walk = (list: FolderTreeNode[], parent: string | null) => {
+    list.forEach(node => {
+      const id = `folder-${Date.now()}-${seq++}`;
+      additions.push({ id, name: node.name, parentId: parent, projectId: scope.projectId, clientId: scope.clientId, createdAt });
+      if (node.children && node.children.length) walk(node.children, id);
+    });
+  };
+  walk(nodes, parentId);
+  if (!additions.length) return;
+  folders = [...folders, ...additions];
+  persist();
+  notify();
+}
+
 export function renameFolder(id: string, name: string): void {
   folders = folders.map(f => f.id === id ? { ...f, name } : f);
   persist();

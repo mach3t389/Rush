@@ -15,6 +15,7 @@ import {
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import type { Project } from '../types';
 
@@ -293,7 +294,7 @@ function FileTree({
   useEffect(() => subscribeFileStore(() => setFolders(getFolders())), []);
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
 
-  const globalRoots = folders.filter(f => !f.projectId && !f.clientId && f.parentId === null);
+  const globalRoots = folders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !f.state);
 
   const toggleProject = (id: string) => setExpandedProjects(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [hoveredProjectId, setHoveredProjectId] = React.useState<string | null>(null);
@@ -365,7 +366,7 @@ function FileTree({
             {projects.filter(p => pinnedIds.includes(p.id)).map(p => {
           const exp = expandedProjects.has(p.id);
           const projActive = location.scope === 'project' && location.scopeId === p.id && !location.folderId;
-          const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null);
+          const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null && !f.state);
           const isHovered = hoveredProjectId === p.id;
           return (
             <div key={p.id}>
@@ -454,7 +455,7 @@ function FileTree({
 export function FichiersGlobal() {
   const navigate = useNavigate();
   const [location, setLocation] = useState<NavLocation>({ scope: 'root', folderId: null });
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -685,7 +686,14 @@ export function FichiersGlobal() {
     // Dans la corbeille / les archives, on ne descend pas dans un dossier
     // (son contenu y est aussi, mais filtré des vues normales) — clic droit pour agir.
     if (folder.state) return;
-    setLocation(loc => ({ ...loc, folderId: folder.id }));
+    // Un dossier global (sans projet ni client) doit passer en scope 'global' :
+    // sinon, si on est à la racine, la vue racine ignore folderId et on ne
+    // « rentre » jamais dans le dossier (bug sur les dossiers créés à la racine).
+    if (!folder.projectId && !folder.clientId) {
+      setLocation({ scope: 'global', folderId: folder.id });
+    } else {
+      setLocation(loc => ({ ...loc, folderId: folder.id }));
+    }
   };
 
   const handleNavigateProject = (p: Project) => {
@@ -1059,7 +1067,12 @@ export function FichiersGlobal() {
         {folders.map(f => (
           <div key={f.id}
             style={rowStyle(f.id)}
-            onClick={() => onSelect({ ...loc, folderId: f.id }, f.id)}
+            onClick={() => onSelect(
+              (!f.projectId && !f.clientId)
+                ? { scope: 'global', folderId: f.id }
+                : { ...loc, folderId: f.id },
+              f.id,
+            )}
             onMouseEnter={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
             onMouseLeave={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'transparent'; }}
           >

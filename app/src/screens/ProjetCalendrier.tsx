@@ -5,6 +5,7 @@ import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -712,7 +713,7 @@ export function ProjetCalendrier() {
   const { projectId } = useParams<{ projectId: string }>();
   const project = PROJECTS.find(p => p.id === projectId);
 
-  const [view, setView]             = useState<CalView>('week');
+  const [view, setView]             = usePersistedState<CalView>('sf_view_projet_calendrier', 'week');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
   const [events, setEvents]         = useState<CalEvent[]>(() => resolveProjectEvents(projectId ?? '', getEventTypes()));
