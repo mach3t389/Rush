@@ -2,6 +2,8 @@ import { loadPersisted, savePersisted } from './persist';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+export type FileState = 'archived' | 'trashed';
+
 export interface FileFolder {
   id: string;
   name: string;
@@ -10,6 +12,8 @@ export interface FileFolder {
   clientId?: string;
   color?: string;
   createdAt: string;
+  state?: FileState;   // undefined = actif ; 'archived' = archivé ; 'trashed' = corbeille
+  deletedAt?: string;  // date de mise à la corbeille / d'archivage
 }
 
 export type FileItemType =
@@ -28,6 +32,8 @@ export interface FileItem {
   resourceId?: string;
   createdAt: string;
   updatedAt: string;
+  state?: FileState;   // undefined = actif ; 'archived' = archivé ; 'trashed' = corbeille
+  deletedAt?: string;  // date de mise à la corbeille / d'archivage
 }
 
 // ── Seed folders ───────────────────────────────────────────────────────────────
@@ -184,6 +190,79 @@ export function moveFile(id: string, parentFolderId: string | null): void {
 }
 
 export function getAllFiles(): FileItem[] { return files; }
+
+// ── Soft delete : Corbeille & Archives ───────────────────────────────────────────
+//
+// Modèle par drapeau : un dossier/fichier mis à la corbeille ou archivé ne bouge
+// pas, il reçoit simplement state='trashed'|'archived'. L'emplacement d'origine
+// est ainsi préservé pour la restauration. Les vues normales doivent exclure les
+// items ayant un state ; les vues Corbeille/Archives n'affichent que les items
+// « racine » de cet état (ceux dont le parent n'est pas lui-même dans le même état).
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Collecte un dossier + tout son sous-arbre (dossiers descendants + fichiers).
+function collectSubtree(folderId: string): { folderIds: Set<string>; fileIds: Set<string> } {
+  const folderIds = new Set<string>();
+  const fileIds = new Set<string>();
+  const walk = (fid: string) => {
+    folderIds.add(fid);
+    folders.filter(f => f.parentId === fid).forEach(f => walk(f.id));
+  };
+  walk(folderId);
+  files.forEach(fi => { if (fi.parentFolderId && folderIds.has(fi.parentFolderId)) fileIds.add(fi.id); });
+  return { folderIds, fileIds };
+}
+
+function setFolderState(id: string, state: FileState | undefined): void {
+  const { folderIds, fileIds } = collectSubtree(id);
+  const stamp = state ? today() : undefined;
+  folders = folders.map(f => folderIds.has(f.id) ? { ...f, state, deletedAt: stamp } : f);
+  files = files.map(fi => fileIds.has(fi.id) ? { ...fi, state, deletedAt: stamp } : fi);
+  persist();
+  notify();
+}
+
+function setFileState(id: string, state: FileState | undefined): void {
+  files = files.map(fi => fi.id === id ? { ...fi, state, deletedAt: state ? today() : undefined } : fi);
+  persist();
+  notify();
+}
+
+export function trashFolder(id: string): void   { setFolderState(id, 'trashed'); }
+export function trashFile(id: string): void      { setFileState(id, 'trashed'); }
+export function archiveFolder(id: string): void  { setFolderState(id, 'archived'); }
+export function archiveFile(id: string): void    { setFileState(id, 'archived'); }
+export function restoreFolder(id: string): void  { setFolderState(id, undefined); }
+export function restoreFile(id: string): void    { setFileState(id, undefined); }
+
+// Un item est « racine » dans son état si son parent n'est pas dans le même état.
+function parentInState(parentFolderId: string | null, state: FileState): boolean {
+  if (!parentFolderId) return false;
+  const parent = folders.find(f => f.id === parentFolderId);
+  return parent?.state === state;
+}
+
+export function getStatedFolders(state: FileState): FileFolder[] {
+  return folders.filter(f => f.state === state && !parentInState(f.parentId, state));
+}
+
+export function getStatedFiles(state: FileState): FileItem[] {
+  return files.filter(fi => fi.state === state && !parentInState(fi.parentFolderId, state));
+}
+
+export function getTrashedFolders(): FileFolder[]  { return getStatedFolders('trashed'); }
+export function getTrashedFiles(): FileItem[]      { return getStatedFiles('trashed'); }
+export function getArchivedFolders(): FileFolder[] { return getStatedFolders('archived'); }
+export function getArchivedFiles(): FileItem[]     { return getStatedFiles('archived'); }
+
+// Vide définitivement la corbeille (suppression réelle de tout ce qui est trashed).
+export function emptyTrash(): void {
+  folders = folders.filter(f => f.state !== 'trashed');
+  files = files.filter(fi => fi.state !== 'trashed');
+  persist();
+  notify();
+}
 
 // ── Subscriptions ──────────────────────────────────────────────────────────────
 

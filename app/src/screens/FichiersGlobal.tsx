@@ -7,6 +7,9 @@ import {
   getChildFolders, getRootFoldersForProject, getRootFoldersForClient,
   getGlobalRootFolders, getFilesInFolder, getFolderPath, formatFileSize,
   fileTypeFromExt,
+  trashFolder, trashFile, archiveFolder, archiveFile,
+  restoreFolder, restoreFile, emptyTrash,
+  getTrashedFolders, getTrashedFiles, getArchivedFolders, getArchivedFiles,
   type FileFolder, type FileItem, type FileItemType,
 } from '../data/fileStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
@@ -326,6 +329,34 @@ function FileTree({
           {!collapsed && <span>Tous les fichiers</span>}
         </div>
 
+        {/* Global folders (Archives) - children of root */}
+        {globalRoots.filter(f => !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => {
+          const active = location.scope === 'global' && location.folderId === f.id;
+          return (
+            <div key={f.id}
+              onClick={() => onNavigate({ scope: 'global', folderId: f.id })}
+              style={{ ...ITEM_STYLE(active), paddingLeft: collapsed ? (collapsed ? '6px' : '28px') : '28px' }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <SFIcon name="folder" size={12} color={active ? 'var(--on-accent)' : 'var(--text-3)'} />
+              {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{f.name}</span>}
+            </div>
+          );
+        })}
+
+        {/* Clients link - child of root */}
+        {!collapsed && (
+          <div
+            onClick={() => onNavigate({ scope: 'clients', folderId: null })}
+            style={{ ...ITEM_STYLE(location.scope === 'clients'), paddingLeft: '28px' }}
+            onMouseEnter={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'transparent'; }}
+          >
+            <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--on-accent)' : 'var(--text-3)'} />
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>Clients</span>
+          </div>
+        )}
 
         {/* Pinned Projects */}
         {pinnedIds.length > 0 && (
@@ -430,13 +461,18 @@ export function FichiersGlobal() {
   const [treeWidth] = useState(220);
   const [sidebarCollapsed] = useState(false);
 
-  const [allFolders, setAllFolders] = useState(getFolders);
-  const [allFiles, setAllFiles]     = useState(getFiles);
+  const [rawFolders, setRawFolders] = useState(getFolders);
+  const [rawFiles, setRawFiles]     = useState(getFiles);
   const [projects, setProjects]     = useState(getProjects);
   const [clients, setClients]       = useState(getClients);
   const [pinnedIds, setPinnedIds]   = useState(getPinnedIds);
 
-  useEffect(() => subscribeFileStore(() => { setAllFolders(getFolders()); setAllFiles(getFiles()); }), []);
+  // Vues normales : on ne montre que les items actifs (ni archivés, ni en corbeille).
+  // Les vues Corbeille / Archives lisent directement le store via getTrashed*/getArchived*.
+  const allFolders = rawFolders.filter(f => !f.state);
+  const allFiles   = rawFiles.filter(f => !f.state);
+
+  useEffect(() => subscribeFileStore(() => { setRawFolders(getFolders()); setRawFiles(getFiles()); }), []);
   useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
@@ -456,8 +492,14 @@ export function FichiersGlobal() {
 
   // ── Compute current folder contents ─────────────────────────────────────────
 
+  const isTrashView    = location.scope === 'global' && location.folderId === 'folder-trash';
+  const isArchivesView = location.scope === 'global' && location.folderId === 'folder-archives';
+  const isSpecialView  = isTrashView || isArchivesView;
+
   const currentFolders = (() => {
     const { scope, scopeId, folderId } = location;
+    if (isTrashView)    return getTrashedFolders();
+    if (isArchivesView) return getArchivedFolders();
     if (scope === 'root') {
       // Show all project root folders + client root folders + global root folders
       return []; // We'll show a special root view
@@ -476,6 +518,8 @@ export function FichiersGlobal() {
 
   const currentFiles = (() => {
     const { scope, scopeId, folderId } = location;
+    if (isTrashView)    return getTrashedFiles();
+    if (isArchivesView) return getArchivedFiles();
     if (scope === 'root') return [];
     if (scope === 'global') return allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === folderId);
     if (scope === 'project') return allFiles.filter(f => f.projectId === scopeId && f.parentFolderId === folderId);
@@ -587,31 +631,60 @@ export function FichiersGlobal() {
 
   const handleFolderCtx = (e: React.MouseEvent, folder: FileFolder) => {
     e.preventDefault();
-    setCtx({
-      pos: { x: e.clientX, y: e.clientY },
-      items: [
+    let items: CtxMenuItem[];
+    if (folder.state === 'trashed') {
+      items = [
+        { label: 'Restaurer', icon: 'rotate-ccw', action: () => restoreFolder(folder.id) },
+        { label: '', icon: '', action: () => {}, separator: true },
+        { label: 'Supprimer définitivement', icon: 'trash-2', action: () => { if (confirm(`Supprimer définitivement « ${folder.name} » et tout son contenu ? Cette action est irréversible.`)) deleteFolder(folder.id); }, danger: true },
+      ];
+    } else if (folder.state === 'archived') {
+      items = [
+        { label: 'Désarchiver', icon: 'rotate-ccw', action: () => restoreFolder(folder.id) },
+        { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFolder(folder.id), danger: true },
+      ];
+    } else {
+      items = [
         { label: 'Ouvrir', icon: 'folder-open', action: () => setLocation({ ...location, folderId: folder.id }) },
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(folder.id) },
         { label: '', icon: '', action: () => {}, separator: true },
-        { label: 'Supprimer', icon: 'trash-2', action: () => { if (confirm(`Supprimer « ${folder.name} » ?`)) deleteFolder(folder.id); }, danger: true },
-      ],
-    });
+        { label: 'Archiver', icon: 'archive', action: () => archiveFolder(folder.id) },
+        { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFolder(folder.id), danger: true },
+      ];
+    }
+    setCtx({ pos: { x: e.clientX, y: e.clientY }, items });
   };
 
   const handleFileCtx = (e: React.MouseEvent, file: FileItem) => {
     e.preventDefault();
-    setCtx({
-      pos: { x: e.clientX, y: e.clientY },
-      items: [
+    let items: CtxMenuItem[];
+    if (file.state === 'trashed') {
+      items = [
+        { label: 'Restaurer', icon: 'rotate-ccw', action: () => restoreFile(file.id) },
+        { label: '', icon: '', action: () => {}, separator: true },
+        { label: 'Supprimer définitivement', icon: 'trash-2', action: () => { if (confirm(`Supprimer définitivement « ${file.name} » ? Cette action est irréversible.`)) deleteFile(file.id); }, danger: true },
+      ];
+    } else if (file.state === 'archived') {
+      items = [
+        { label: 'Désarchiver', icon: 'rotate-ccw', action: () => restoreFile(file.id) },
+        { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
+      ];
+    } else {
+      items = [
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
         ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`) }] : []),
         { label: '', icon: '', action: () => {}, separator: true },
-        { label: 'Supprimer', icon: 'trash-2', action: () => deleteFile(file.id), danger: true },
-      ],
-    });
+        { label: 'Archiver', icon: 'archive', action: () => archiveFile(file.id) },
+        { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
+      ];
+    }
+    setCtx({ pos: { x: e.clientX, y: e.clientY }, items });
   };
 
   const handleNavigateFolder = (folder: FileFolder) => {
+    // Dans la corbeille / les archives, on ne descend pas dans un dossier
+    // (son contenu y est aussi, mais filtré des vues normales) — clic droit pour agir.
+    if (folder.state) return;
     setLocation(loc => ({ ...loc, folderId: folder.id }));
   };
 
@@ -852,8 +925,9 @@ export function FichiersGlobal() {
   const getColumnItems = (loc: NavLocation): { folders: FileFolder[]; files: FileItem[]; projects?: Project[] } => {
     const { scope, scopeId, folderId } = loc;
     if (scope === 'root') {
-      // Root column shows clients; we'll handle projects in ColPanel JSX
-      return { folders: [], files: [], projects: [] };
+      // Root column shows global folders (except Templates, Archives, Trash) and clients as virtual items
+      const globalFolders = allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id));
+      return { folders: globalFolders, files: [] };
     }
     if (scope === 'client' && folderId === null) {
       // Client root — show projects belonging to this client
@@ -1154,11 +1228,12 @@ export function FichiersGlobal() {
     return crumbs;
   };
 
-  const currentLocation = getCurrentLocation();
-  const breadcrumb = buildBreadcrumbForLocation(currentLocation);
-
   // Column view state: array of selected NavLocations at each depth
   const [columnSelections, setColumnSelections] = useState<NavLocation[]>([]);
+
+  // Now we can safely call getCurrentLocation and buildBreadcrumbForLocation
+  const currentLocation = getCurrentLocation();
+  const breadcrumb = buildBreadcrumbForLocation(currentLocation);
 
   const selectColumn = (depth: number, loc: NavLocation) => {
     setColumnSelections(prev => [...prev.slice(0, depth), loc]);
@@ -1178,8 +1253,8 @@ export function FichiersGlobal() {
 
   // Hide "+ Nouveau" at project/client root (virtual level — can't add projects or clients)
   const isAtVirtualRoot = (location.scope === 'project' || location.scope === 'client') && location.folderId === null;
-  const canAdd = !isAtVirtualRoot;
-  const canAddFile = !isAtVirtualRoot && location.scope !== 'root';
+  const canAdd = !isAtVirtualRoot && !isSpecialView;
+  const canAddFile = !isAtVirtualRoot && location.scope !== 'root' && !isSpecialView;
 
   // Convert folder structure to FolderNode[]
   const folderStructureToNodes = (projectId: string): FolderNode[] => {
@@ -1289,6 +1364,24 @@ export function FichiersGlobal() {
           ))}
         </div>
 
+        {/* Empty trash button — only in Corbeille view with content */}
+        {isTrashView && (filteredFolders.length > 0 || filteredFiles.length > 0) && (
+          <button
+            onClick={() => { if (confirm('Vider la corbeille ? Tous les éléments seront définitivement supprimés. Cette action est irréversible.')) emptyTrash(); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '7px 14px', borderRadius: 9,
+              background: 'transparent', color: 'var(--danger)',
+              border: '1px solid var(--danger)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,91,91,0.12)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <SFIcon name="trash-2" size={14} color="var(--danger)" />
+            Vider la corbeille
+          </button>
+        )}
+
         {/* New button — hidden at project/client virtual root */}
         {canAdd && (
           <div style={{ position: 'relative' }}>
@@ -1378,8 +1471,15 @@ export function FichiersGlobal() {
                   {/* List header */}
                   <div style={{ ...ROW, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
                     <div />
-                    <span>Nom</span><span>Type</span><span>Projets</span><span>Modifié</span>
+                    <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
+                  {/* Global folders */}
+                  {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
+                    <VirtualRow key={f.id} label={f.name} icon="folder" color={f.color ?? 'var(--text-3)'}
+                      onClick={() => setLocation({ scope: 'global', folderId: f.id })}
+                      count={allFolders.filter(c => c.parentId === f.id).length} sublabel="Dossier" />
+                  ))}
+                  {/* Clients row */}
                   <VirtualRow key="clients-folder" label="Clients" icon="users" color="var(--accent)"
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
                     count={clients.length} sublabel="Dossier" />
@@ -1388,6 +1488,12 @@ export function FichiersGlobal() {
 
               {viewMode === 'grid' && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+                  {/* Global folders (except Templates, Archives, Trash) */}
+                  {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
+                    <FolderCard key={f.id} folder={f} />
+                  ))}
+
+                  {/* Clients folder */}
                   <VirtualCard
                     key="clients-folder"
                     label="Clients"
@@ -1489,26 +1595,45 @@ export function FichiersGlobal() {
           {/* ── Folder contents ── */}
           {location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && !(location.scope === 'clients' && location.folderId === null) && (
             <>
-              {/* Type filter pills */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-                {(['all', 'pdf', 'image', 'video', 'audio', 'doc', 'zip', 'other'] as const).map(t => (
-                  <button key={t} onClick={() => setFilterType(t)} style={{
-                    padding: '4px 12px', borderRadius: 999, fontSize: 11,
-                    border: `1.5px solid ${filterType === t ? 'var(--accent)' : 'var(--border)'}`,
-                    background: filterType === t ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
-                    color: filterType === t ? 'var(--text)' : 'var(--text-3)',
-                    cursor: 'pointer', fontFamily: 'var(--ff-mono)',
-                  }}>
-                    {t === 'all' ? 'Tout' : TYPE_META[t]?.label ?? t}
-                  </button>
-                ))}
-              </div>
+              {/* Header for special views (Corbeille / Archives) */}
+              {isSpecialView && (
+                <div style={{ marginBottom: 18 }}>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <SFIcon name={isTrashView ? 'trash-2' : 'archive'} size={16} color="var(--text-2)" />
+                    {isTrashView ? 'Corbeille' : 'Archives'}
+                  </h2>
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>
+                    {isTrashView
+                      ? 'Les éléments supprimés sont conservés ici. Clic droit sur un élément pour le restaurer ou le supprimer définitivement.'
+                      : 'Les éléments archivés sont conservés ici, hors de la vue principale. Clic droit sur un élément pour le désarchiver.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Type filter pills — masqué dans les vues spéciales */}
+              {!isSpecialView && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+                  {(['all', 'pdf', 'image', 'video', 'audio', 'doc', 'zip', 'other'] as const).map(t => (
+                    <button key={t} onClick={() => setFilterType(t)} style={{
+                      padding: '4px 12px', borderRadius: 999, fontSize: 11,
+                      border: `1.5px solid ${filterType === t ? 'var(--accent)' : 'var(--border)'}`,
+                      background: filterType === t ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
+                      color: filterType === t ? 'var(--text)' : 'var(--text-3)',
+                      cursor: 'pointer', fontFamily: 'var(--ff-mono)',
+                    }}>
+                      {t === 'all' ? 'Tout' : TYPE_META[t]?.label ?? t}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {filteredFolders.length === 0 && filteredFiles.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '60px 0', color: 'var(--text-3)' }}>
-                  <SFIcon name="folder-open" size={40} color="var(--text-3)" />
-                  <p style={{ fontSize: 14 }}>Ce dossier est vide</p>
-                  <SFButton variant="ghost" icon="folder-plus" onClick={() => setShowNewFolder(true)}>Nouveau dossier</SFButton>
+                  <SFIcon name={isTrashView ? 'trash-2' : isArchivesView ? 'archive' : 'folder-open'} size={40} color="var(--text-3)" />
+                  <p style={{ fontSize: 14 }}>
+                    {isTrashView ? 'La corbeille est vide' : isArchivesView ? 'Aucun élément archivé' : 'Ce dossier est vide'}
+                  </p>
+                  {!isSpecialView && <SFButton variant="ghost" icon="folder-plus" onClick={() => setShowNewFolder(true)}>Nouveau dossier</SFButton>}
                 </div>
               ) : viewMode === 'grid' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
