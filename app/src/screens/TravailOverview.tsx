@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, DatePickerDropdown, toYMD, formatDisplay } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { PROJECTS, ACTIVITY, USERS } from '../data/mock';
 import { getDeliverables, addDeliverable, updateTask, subscribeStore } from '../data/taskStore';
@@ -452,11 +452,12 @@ export function TravailOverview() {
 
   // Edit mode for project info
   const [isEditing, setIsEditing] = useState(false);
-  const [editDeliveryDate, setEditDeliveryDate] = useState(project.deliveryDate ?? '');
+  const [editDeliveryDate, setEditDeliveryDate] = useState(''); // YYYY-MM-DD
   const [editDescription, setEditDescription] = useState(project.description ?? '');
   const [editBudget, setEditBudget] = useState(project.budget ? String(project.budget) : '');
   const [editPhase, setEditPhase] = useState(project.phase ?? '');
-  const saveEdits = () => setIsEditing(false);
+  const [datepickerAnchor, setDatepickerAnchor] = useState<DOMRect | null>(null);
+  const saveEdits = () => { setIsEditing(false); setDatepickerAnchor(null); };
 
   const toggleCompleted = () => {
     const next = !completed;
@@ -512,7 +513,7 @@ export function TravailOverview() {
       {/* Body */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
-        {/* Left column */}
+        {/* Left column — main content */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Completed banner */}
@@ -889,8 +890,8 @@ export function TravailOverview() {
 
         </div>
 
-        {/* Right column — sidebar */}
-        <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Right column — sidebar (order: -1 = visually on the left) */}
+        <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, order: -1 }}>
 
           {/* Infos du projet */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -950,16 +951,36 @@ export function TravailOverview() {
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Date de livraison</p>
                 {isEditing ? (
-                  <input
-                    value={editDeliveryDate}
-                    onChange={e => setEditDeliveryDate(e.target.value)}
-                    placeholder="ex. 30 juin 2025"
-                    style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-                  />
+                  <>
+                    <button
+                      onClick={e => setDatepickerAnchor(a => a ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 7, width: '100%',
+                        padding: '6px 10px', borderRadius: 8,
+                        border: '1px solid var(--accent)', background: 'var(--surface-2)',
+                        color: editDeliveryDate ? 'var(--text)' : 'var(--text-3)',
+                        fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left',
+                      }}
+                    >
+                      <SFIcon name="calendar" size={13} color="var(--accent)" />
+                      {editDeliveryDate ? formatDisplay(editDeliveryDate) : 'Choisir une date…'}
+                    </button>
+                    {datepickerAnchor && (
+                      <DatePickerDropdown
+                        value={editDeliveryDate}
+                        onChange={v => { setEditDeliveryDate(v); setDatepickerAnchor(null); }}
+                        onClose={() => setDatepickerAnchor(null)}
+                        anchorRect={datepickerAnchor}
+                        zIndex={300}
+                      />
+                    )}
+                  </>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{editDeliveryDate || project.deliveryDate}</span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>
+                      {editDeliveryDate ? formatDisplay(editDeliveryDate) : (project.deliveryDate || '—')}
+                    </span>
                   </div>
                 )}
               </div>
