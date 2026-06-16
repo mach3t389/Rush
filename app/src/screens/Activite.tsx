@@ -61,36 +61,28 @@ function NotifRow({ notif, navigate }: { notif: AppNotif; navigate: (to: string)
   const color  = ACTOR_COLOR[notif.actor] ?? '#5c3d8f';
 
   return (
-    <div style={{
-      display: 'flex', gap: 12, padding: '14px 16px',
-      borderRadius: 'var(--radius)',
-      background: unread ? 'var(--surface-2)' : 'transparent',
-      border: unread ? '1px solid var(--border)' : '1px solid transparent',
-      borderLeft: unread ? '2px solid var(--accent)' : '2px solid transparent',
-      marginBottom: 8,
-    }}>
+    <div
+      onClick={() => (notif.taskId ? navigate(`/projets/${notif.projectId}`) : notif.resourceId ? navigate(`/projets/${notif.projectId}/ressources`) : undefined)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '7px 10px',
+        borderRadius: 9,
+        background: unread ? 'var(--surface-2)' : 'transparent',
+        borderLeft: unread ? '2px solid var(--accent)' : '2px solid transparent',
+        cursor: notif.taskId || notif.resourceId ? 'pointer' : 'default',
+        marginBottom: 2,
+      }}
+    >
       {unread
-        ? <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--info)', flexShrink: 0, marginTop: 5 }} />
-        : <div style={{ width: 8, flexShrink: 0 }} />
+        ? <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)', flexShrink: 0 }} />
+        : <div style={{ width: 6, flexShrink: 0 }} />
       }
-      <SFAvatar initials={initials(notif.actor)} bg={color} size={32} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, lineHeight: 1.4, color: unread ? 'var(--text)' : 'var(--text-2)' }}>
-          <strong>{notif.actor}</strong>{' '}{notif.text}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          <SFPill status={KIND_STATUS[notif.kind]} small>{KIND_LABEL[notif.kind]}</SFPill>
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(notif.timestamp)}</span>
-        </div>
-        {(notif.taskId || notif.resourceId) && (
-          <button
-            onClick={() => notif.taskId ? navigate(`/projets/${notif.projectId}`) : navigate(`/projets/${notif.projectId}/ressources`)}
-            style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border-2)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}
-          >
-            {notif.taskId ? 'Voir la tâche →' : 'Voir la ressource →'}
-          </button>
-        )}
-      </div>
+      <SFAvatar initials={initials(notif.actor)} bg={color} size={24} />
+      <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <strong>{notif.actor}</strong>{' '}{notif.text}
+      </p>
+      <SFPill status={KIND_STATUS[notif.kind]} small>{KIND_LABEL[notif.kind]}</SFPill>
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{timeAgo(notif.timestamp)}</span>
     </div>
   );
 }
@@ -99,19 +91,14 @@ function NotifRow({ notif, navigate }: { notif: AppNotif; navigate: (to: string)
 
 function ActivityRow({ item, isLast }: { item: typeof ACTIVITY[number]; isLast: boolean }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '14px 0', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={32} />
-        {!isLast && <div style={{ width: 1, flex: 1, background: 'var(--border)', marginTop: 6 }} />}
-      </div>
-      <div style={{ flex: 1, paddingBottom: 8 }}>
-        <p style={{ fontSize: 13, lineHeight: 1.4 }}>
-          <strong>{item.actor.name}</strong>{' '}{item.action}{' '}
-          <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
-        </p>
-        {item.detail && <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{item.detail}</p>}
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>{item.time}</p>
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderBottom: isLast ? 'none' : '1px solid var(--border)', marginBottom: 0 }}>
+      <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
+      <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <strong>{item.actor.name}</strong>{' '}{item.action}{' '}
+        <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
+        {item.detail && <span style={{ color: 'var(--text-3)' }}> — {item.detail}</span>}
+      </p>
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{item.time}</span>
     </div>
   );
 }
