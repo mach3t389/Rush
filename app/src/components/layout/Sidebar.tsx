@@ -264,31 +264,6 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           {/* Separator */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
           <NavItem to="/modeles" icon="library" label="Modèles" exact={false} collapsed={collapsed} />
-          {/* Search */}
-          <button
-            onClick={onSearch}
-            title={collapsed ? 'Rechercher (Ctrl+K)' : undefined}
-            style={{
-              display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
-              padding: collapsed ? '8px 0' : '8px 12px',
-              justifyContent: collapsed ? 'center' : 'space-between',
-              borderRadius: 9, border: 'none', background: 'transparent',
-              color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              width: '100%', textAlign: 'left', marginTop: 1,
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10 }}>
-              <SFIcon name="search" size={16} />
-              {!collapsed && 'Rechercher'}
-            </span>
-            {!collapsed && (
-              <kbd style={{ fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-2)', borderRadius: 5, padding: '2px 5px', fontFamily: 'var(--ff-mono)', lineHeight: 1.4 }}>
-                Ctrl K
-              </kbd>
-            )}
-          </button>
         </nav>
 
         {/* Projets épinglés */}
