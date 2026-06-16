@@ -21,6 +21,7 @@ import { ResourceRouter } from './screens/ResourceRouter';
 import { Modeles } from './screens/Modeles';
 import { ProjectMembres } from './screens/ProjectMembres';
 import { ProjetCalendrier } from './screens/ProjetCalendrier';
+import { FichiersGlobal } from './screens/FichiersGlobal';
 
 const router = createBrowserRouter([
   // Portail client — sans sidebar (route standalone)
@@ -46,6 +47,7 @@ const router = createBrowserRouter([
       { path: 'activite', element: <Activite /> },
       { path: 'calendrier', element: <CalendrierGlobal /> },
       { path: 'modeles', element: <Modeles /> },
+      { path: 'fichiers', element: <FichiersGlobal /> },
     ],
   },
 ]);

@@ -503,10 +503,6 @@ export function TravailOverview() {
           ) : (
             <SFButton variant="secondary" icon="check-circle" onClick={toggleCompleted}>Marquer comme terminé</SFButton>
           )}
-          {isEditing
-            ? <SFButton variant="primary" icon="check" onClick={saveEdits}>Enregistrer</SFButton>
-            : <SFButton variant="primary" icon="edit-3" onClick={() => setIsEditing(true)}>Modifier</SFButton>
-          }
         </ProjectHeaderBar>
       </div>
 
@@ -897,9 +893,23 @@ export function TravailOverview() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>Infos du projet</span>
-              {isEditing && (
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Modification…</span>
-              )}
+              <button
+                onClick={isEditing ? saveEdits : () => setIsEditing(true)}
+                title={isEditing ? 'Enregistrer' : 'Modifier'}
+                style={{
+                  background: isEditing ? 'rgba(249,255,0,0.12)' : 'none',
+                  border: isEditing ? '1px solid rgba(249,255,0,0.3)' : 'none',
+                  borderRadius: 6, padding: '4px 6px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  color: isEditing ? 'var(--accent)' : 'var(--text-3)',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => { if (!isEditing) e.currentTarget.style.color = 'var(--text)'; }}
+                onMouseLeave={e => { if (!isEditing) e.currentTarget.style.color = 'var(--text-3)'; }}
+              >
+                <SFIcon name={isEditing ? 'check' : 'pencil'} size={13} color={isEditing ? 'var(--accent)' : undefined} />
+                {isEditing && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Enregistrer</span>}
+              </button>
             </div>
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>

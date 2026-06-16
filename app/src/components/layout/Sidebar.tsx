@@ -49,9 +49,10 @@ const NAV_MAIN = [
 ];
 
 const NAV_BOTTOM_MAIN = [
-  { to: '/clients',    icon: 'users',        label: 'Clients',    exact: true  },
-  { to: '/projets',    icon: 'folder',       label: 'Projets',    exact: true  },
-  { to: '/calendrier', icon: 'calendar',     label: 'Calendrier', exact: false },
+  { to: '/clients',    icon: 'users',        label: 'Clients',       exact: true  },
+  { to: '/projets',    icon: 'folder',       label: 'Projets',       exact: true  },
+  { to: '/fichiers',   icon: 'hard-drive',   label: 'Fichiers',      exact: false },
+  { to: '/calendrier', icon: 'calendar',     label: 'Calendrier',    exact: false },
   { to: '/activite',   icon: 'bell',         label: 'Notifications', exact: false },
 ];
 
