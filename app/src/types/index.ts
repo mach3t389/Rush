@@ -46,6 +46,7 @@ export interface Project {
   status: Status;
   statusLabel: string;
   modifiedAt: string;
+  folderStructureTemplateId?: string;
 }
 
 // ── Task ──────────────────────────────────────────────────────────────────────

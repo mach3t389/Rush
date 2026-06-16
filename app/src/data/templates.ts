@@ -35,6 +35,7 @@ export interface ProjectTemplate {
   resources: TemplateResource[];
   builtIn?: boolean;
   createdAt: string;
+  defaultFolderStructureId?: string;
 }
 
 // ── Form template types ────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
       { type: 'checklist',  title: 'Checklist tournage' },
       { type: 'document',   title: 'Contrat de production' },
     ],
+    defaultFolderStructureId: 'res-file-structure',
   },
   {
     id: 'tpl-film-institutionnel',
@@ -184,6 +186,7 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
       { type: 'checklist',    title: 'Checklist tournage' },
       { type: 'video_review', title: 'V1 client' },
     ],
+    defaultFolderStructureId: 'res-file-structure',
   },
   {
     id: 'tpl-shoot-photo',

@@ -2,14 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFCard, SFButton, SFIcon, SFAvatar, DatePickerDropdown, formatDisplay } from '../components/ui';
 import { USERS } from '../data/mock';
-import { BUILT_IN_TEMPLATES, loadAllTemplates } from '../data/templates';
+import { BUILT_IN_TEMPLATES, loadAllTemplates, loadAllResourceTemplates } from '../data/templates';
 import type { Project, Status, SectionData, Task } from '../types/index';
 import { ProjectCard, PROJECT_STATUS_OPTIONS } from '../components/ProjectCard';
 import { getProjects, addProject, subscribeProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 
-type Step = 'start' | 'info' | 'team';
+type Step = 'start' | 'info' | 'fichiers' | 'team';
 
 const PROJECT_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#a85f3e', '#2a7a8a', '#7a6a2a', '#404040'];
 const TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -28,7 +28,7 @@ function StepDot({ label, active, done }: { label: string; active: boolean; done
         {done
           ? <SFIcon name="check" size={12} color="#000" />
           : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 700, color: active ? 'var(--on-accent)' : 'var(--text-3)' }}>
-              {label === 'Départ' ? '1' : label === 'Infos' ? '2' : '3'}
+              {label === 'Départ' ? '1' : label === 'Infos' ? '2' : label === 'Fichiers' ? '3' : '4'}
             </span>
         }
       </div>
@@ -50,25 +50,36 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   const [dateRect, setDateRect]         = useState<DOMRect | null>(null);
   const [dateOpen, setDateOpen]         = useState(false);
   const [memberIds, setMemberIds]       = useState<string[]>([TEAM[0].id]);
+  const [folderStructTplId, setFolderStructTplId] = useState<string | null>(null);
 
   const templates = loadAllTemplates();
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
+  const folderStructTemplates = loadAllResourceTemplates().filter(t => t.type === 'file');
 
   const toggleMember = (id: string) =>
     setMemberIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const canNext = step === 'start' ? true
     : step === 'info' ? name.trim().length > 0
+    : step === 'fichiers' ? true
     : memberIds.length > 0;
 
   const next = () => {
-    if (step === 'start') setStep('info');
-    else if (step === 'info') setStep('team');
-    else create();
+    if (step === 'start') {
+      setFolderStructTplId(selectedTemplate?.defaultFolderStructureId ?? null);
+      setStep('info');
+    } else if (step === 'info') {
+      setStep('fichiers');
+    } else if (step === 'fichiers') {
+      setStep('team');
+    } else {
+      create();
+    }
   };
   const back = () => {
     if (step === 'info') setStep('start');
-    else if (step === 'team') setStep('info');
+    else if (step === 'fichiers') setStep('info');
+    else if (step === 'team') setStep('fichiers');
   };
 
   const create = () => {
@@ -92,6 +103,7 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
       status: 'info',
       statusLabel: 'En cours',
       modifiedAt: "À l'instant",
+      folderStructureTemplateId: folderStructTplId ?? undefined,
     };
     // Seed taskStore from template sections
     if (selectedTemplate) {
@@ -120,11 +132,8 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
     onClose();
   };
 
-  const stepDone = (s: Step) => {
-    if (s === 'start') return step === 'info' || step === 'team';
-    if (s === 'info')  return step === 'team';
-    return false;
-  };
+  const STEP_ORDER: Step[] = ['start', 'info', 'fichiers', 'team'];
+  const stepDone = (s: Step) => STEP_ORDER.indexOf(step) > STEP_ORDER.indexOf(s);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
@@ -136,15 +145,17 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
           <div>
             <h2 style={{ fontSize: 17, fontWeight: 700 }}>Nouveau projet</h2>
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              {step === 'start' ? 'Choisissez un point de départ' : step === 'info' ? 'Informations du projet' : 'Assigner une équipe'}
+              {step === 'start' ? 'Choisissez un point de départ' : step === 'info' ? 'Informations du projet' : step === 'fichiers' ? 'Structure de dossiers' : 'Assigner une équipe'}
             </p>
           </div>
           {/* Step indicators */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <StepDot label="Départ" active={step === 'start'} done={stepDone('start')} />
-            <div style={{ width: 24, height: 1, background: 'var(--border-2)' }} />
+            <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
             <StepDot label="Infos" active={step === 'info'} done={stepDone('info')} />
-            <div style={{ width: 24, height: 1, background: 'var(--border-2)' }} />
+            <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label="Fichiers" active={step === 'fichiers'} done={stepDone('fichiers')} />
+            <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
             <StepDot label="Équipe" active={step === 'team'} done={stepDone('team')} />
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
@@ -340,7 +351,91 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
             </div>
           )}
 
-          {/* ── Step 3: Team ── */}
+          {/* ── Step 3: Folder structure ── */}
+          {step === 'fichiers' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                Choisissez une structure de dossiers pour organiser les fichiers du projet. Vous pouvez l'ignorer ou la personnaliser ensuite.
+              </p>
+
+              {/* No structure option */}
+              <div
+                onClick={() => setFolderStructTplId(null)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
+                  border: `2px solid ${folderStructTplId === null ? 'var(--accent)' : 'var(--border)'}`,
+                  background: folderStructTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <SFIcon name="folder-open" size={18} color="var(--text-3)" />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: 13 }}>Aucune structure</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Créez vos dossiers manuellement dans l'onglet Fichiers du projet.</p>
+                </div>
+                {folderStructTplId === null && <SFIcon name="circle-check" size={18} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+              </div>
+
+              {/* Structure templates */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                {folderStructTemplates.map(t => {
+                  const isSelected = folderStructTplId === t.id;
+                  const folders = t.folderStructure ?? [];
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setFolderStructTplId(t.id)}
+                      style={{
+                        padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
+                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                        background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
+                        transition: 'border-color 0.15s',
+                        position: 'relative',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 9, background: t.color + '33', border: `1.5px solid ${t.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <SFIcon name={t.icon} size={17} color={t.color} />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <p style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</p>
+                            {t.builtIn && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>OFFICIEL</span>}
+                          </div>
+                          <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 8 }}>{t.description}</p>
+                          {/* Folder preview */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {folders.slice(0, 4).map(f => (
+                              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <SFIcon name="folder" size={10} color={t.color} />
+                                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>{f.name}</span>
+                                {f.children && f.children.length > 0 && (
+                                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', opacity: 0.6 }}>({f.children.length})</span>
+                                )}
+                              </div>
+                            ))}
+                            {folders.length > 4 && (
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', opacity: 0.6, paddingLeft: 15 }}>+{folders.length - 4} dossiers…</span>
+                            )}
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <div style={{ flexShrink: 0 }}>
+                            <SFIcon name="circle-check" size={16} color="var(--accent)" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 4: Team ── */}
           {step === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>Sélectionnez les membres qui participeront à ce projet.</p>
@@ -402,7 +497,7 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
               </div>
             )}
             <SFButton variant="primary" onClick={next} disabled={!canNext}>
-              {step === 'team' ? 'Créer le projet' : 'Continuer →'}
+              {step === 'team' ? '✓ Créer le projet' : 'Continuer →'}
             </SFButton>
           </div>
         </div>
