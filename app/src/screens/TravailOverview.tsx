@@ -450,6 +450,14 @@ export function TravailOverview() {
   });
   const [notes, setNotes] = useState('');
 
+  // Edit mode for project info
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDeliveryDate, setEditDeliveryDate] = useState(project.deliveryDate ?? '');
+  const [editDescription, setEditDescription] = useState(project.description ?? '');
+  const [editBudget, setEditBudget] = useState(project.budget ? String(project.budget) : '');
+  const [editPhase, setEditPhase] = useState(project.phase ?? '');
+  const saveEdits = () => setIsEditing(false);
+
   const toggleCompleted = () => {
     const next = !completed;
     setCompleted(next);
@@ -494,7 +502,10 @@ export function TravailOverview() {
           ) : (
             <SFButton variant="secondary" icon="check-circle" onClick={toggleCompleted}>Marquer comme terminé</SFButton>
           )}
-          <SFButton variant="primary" icon="edit-3">Modifier</SFButton>
+          {isEditing
+            ? <SFButton variant="primary" icon="check" onClick={saveEdits}>Enregistrer</SFButton>
+            : <SFButton variant="primary" icon="edit-3" onClick={() => setIsEditing(true)}>Modifier</SFButton>
+          }
         </ProjectHeaderBar>
       </div>
 
@@ -883,8 +894,11 @@ export function TravailOverview() {
 
           {/* Infos du projet */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>Infos du projet</span>
+              {isEditing && (
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Modification…</span>
+              )}
             </div>
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
@@ -902,16 +916,29 @@ export function TravailOverview() {
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Phase actuelle</p>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {PHASE_STEPS.map((step, i) => (
-                    <div key={step.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <div style={{ width: '100%', height: 4, borderRadius: 99, background: i <= phaseIdx ? 'var(--accent)' : 'var(--surface-3)' }} />
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', color: i === phaseIdx ? 'var(--accent)' : 'var(--text-3)', fontWeight: i === phaseIdx ? 700 : 400 }}>
-                        {step.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {isEditing ? (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {PHASE_STEPS.map(step => (
+                      <button key={step.key} onClick={() => setEditPhase(step.key)} style={{
+                        padding: '4px 9px', borderRadius: 7, border: `1px solid ${editPhase === step.key ? 'var(--accent)' : 'var(--border)'}`,
+                        background: editPhase === step.key ? 'rgba(249,255,0,0.08)' : 'transparent',
+                        color: editPhase === step.key ? 'var(--accent)' : 'var(--text-3)',
+                        fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)',
+                      }}>{step.label}</button>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {PHASE_STEPS.map((step, i) => (
+                      <div key={step.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <div style={{ width: '100%', height: 4, borderRadius: 99, background: i <= phaseIdx ? 'var(--accent)' : 'var(--surface-3)' }} />
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', color: i === phaseIdx ? 'var(--accent)' : 'var(--text-3)', fontWeight: i === phaseIdx ? 700 : 400 }}>
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -922,10 +949,50 @@ export function TravailOverview() {
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Date de livraison</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{project.deliveryDate}</span>
-                </div>
+                {isEditing ? (
+                  <input
+                    value={editDeliveryDate}
+                    onChange={e => setEditDeliveryDate(e.target.value)}
+                    placeholder="ex. 30 juin 2025"
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{editDeliveryDate || project.deliveryDate}</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Budget</p>
+                {isEditing ? (
+                  <input
+                    value={editBudget}
+                    onChange={e => setEditBudget(e.target.value)}
+                    placeholder="ex. 9 000 $"
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
+                  />
+                ) : (
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                    {editBudget ? `${editBudget}` : (project.budget ? `${project.budget.toLocaleString('fr-CA')} $` : '—')}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Description</p>
+                {isEditing ? (
+                  <textarea
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
+                    placeholder="Courte description du projet…"
+                    rows={3}
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box', colorScheme: 'dark' }}
+                  />
+                ) : (
+                  <p style={{ fontSize: 12, color: editDescription ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.5 }}>
+                    {editDescription || project.description || 'Aucune description'}
+                  </p>
+                )}
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Tâches</p>
