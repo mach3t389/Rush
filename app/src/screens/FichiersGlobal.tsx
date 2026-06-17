@@ -765,7 +765,7 @@ export function FichiersGlobal() {
   // ── List row ─────────────────────────────────────────────────────────────────
 
   const ROW: React.CSSProperties = {
-    display: 'grid', gridTemplateColumns: '36px 1fr 100px 120px 90px',
+    display: 'grid', gridTemplateColumns: '36px 1fr 100px 120px 90px 32px',
     alignItems: 'center', gap: 12,
     padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
   };
@@ -872,25 +872,27 @@ export function FichiersGlobal() {
         <button
           onClick={(e) => { e.stopPropagation(); togglePin(project.id); }}
           style={{
-            position: 'absolute', top: 8, right: 36,
+            position: 'absolute', top: 8, right: 8,
             width: 24, height: 24, borderRadius: 6,
             background: isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.3)',
-            border: 'none', cursor: 'pointer', display: showPin || isPinned || showMenu ? 'flex' : 'none',
+            border: 'none', cursor: 'pointer', display: 'flex',
             alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = isPinned ? 'rgba(249,255,0,0.8)' : 'rgba(0,0,0,0.5)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.3)'; }}
         >
-          <SFIcon name={isPinned ? 'star' : 'star'} size={12} color={isPinned ? 'var(--on-accent)' : 'var(--text-2)'} />
+          <SFIcon name={isPinned ? 'star-fill' : 'star'} size={12} color={isPinned ? 'var(--on-accent)' : 'var(--text-2)'} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
           style={{
-            position: 'absolute', top: 8, right: 8,
+            position: 'absolute', top: 8, right: 36,
             width: 24, height: 24, borderRadius: 6,
             background: showMenu ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)',
-            border: 'none', cursor: 'pointer', display: showPin || showMenu ? 'flex' : 'none',
-            alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s',
+            border: 'none', cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', transition: 'all 0.1s',
+            opacity: showPin || showMenu ? 1 : 0,
+            pointerEvents: showPin || showMenu ? 'auto' : 'none',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; }}
           onMouseLeave={e => { if (!showMenu) e.currentTarget.style.background = 'rgba(0,0,0,0.3)'; }}
@@ -1206,20 +1208,6 @@ export function FichiersGlobal() {
           }
         }
       });
-    } else if (loc.scope === 'global') {
-      const f = allFolders.find(f => f.id === loc.folderId);
-      if (f) {
-        crumbs.push({
-          label: f.name,
-          onClick: () => {
-            if (viewMode === 'columns') {
-              setColumnSelections([{ scope: 'global', folderId: f.id }]);
-            } else {
-              setLocation({ scope: 'global', folderId: f.id });
-            }
-          }
-        });
-      }
     }
 
     if (loc.folderId) {
@@ -1590,7 +1578,7 @@ export function FichiersGlobal() {
                           style={{
                             width: 24, height: 24, borderRadius: 4, background: 'rgba(0,0,0,0.2)',
                             border: 'none', cursor: 'pointer', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0,
+                            alignItems: 'center', justifyContent: 'center',
                           }}
                           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
