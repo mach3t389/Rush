@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
-import { getClients, addClient, subscribeClients } from '../data/clientStore';
+import { getClients, addClient, updateClient, subscribeClients } from '../data/clientStore';
 import type { Client } from '../types/index';
 
 // ── New client modal ──────────────────────────────────────────────────────────
@@ -136,6 +137,118 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── Client Edit Panel ─────────────────────────────────────────────────────────
+
+function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => void }) {
+  const [name,   setName]   = useState(client.name);
+  const [sector, setSector] = useState(client.sector);
+  const [city,   setCity]   = useState(client.city === '—' ? '' : client.city);
+  const [color,  setColor]  = useState(client.avatarColor);
+
+  const save = () => {
+    const initials = name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || client.initials;
+    updateClient(client.id, {
+      name: name.trim() || client.name,
+      initials,
+      sector,
+      city: city.trim() || '—',
+      avatarColor: color,
+    });
+    onClose();
+  };
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, transition: 'background 0.15s' }}>
+              {name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || client.initials}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || client.name}</h3>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{sector}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
+            <SFIcon name="x" size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Nom */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Nom du client</label>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') save(); }}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 600, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+            />
+          </div>
+
+          {/* Secteur */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Secteur</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {SECTORS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSector(s)}
+                  style={{ padding: '5px 11px', borderRadius: 8, border: `1.5px solid ${sector === s ? 'var(--accent)' : 'var(--border)'}`, background: sector === s ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)', color: sector === s ? 'var(--text)' : 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ville */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Ville</label>
+            <input
+              value={city}
+              onChange={e => setCity(e.target.value)}
+              placeholder="Ex: Paris…"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+            />
+          </div>
+
+          {/* Couleur avatar */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Couleur avatar</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {AVATAR_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  style={{ width: 28, height: 28, borderRadius: 8, background: c, border: color === c ? '3px solid white' : '3px solid transparent', outline: color === c ? `2px solid ${c}` : 'none', outlineOffset: 2, cursor: 'pointer', padding: 0, transform: color === c ? 'scale(1.15)' : 'none', transition: 'transform 0.1s', flexShrink: 0 }}
+                />
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="primary" onClick={save}>Enregistrer</SFButton>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function Clients() {
@@ -143,8 +256,8 @@ export function Clients() {
   const [search, setSearch]         = useState('');
   const [filter, setFilter]         = useState<'all' | 'active' | 'archived'>('all');
   const [clients, setClients]       = useState(getClients);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showModal, setShowModal]   = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   useEffect(() => subscribePinnedClients(() => setClients(getClients())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
@@ -160,6 +273,7 @@ export function Clients() {
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
       {showModal && <NewClientModal onClose={() => setShowModal(false)} />}
+      {editingClient && <ClientEditPanel client={editingClient} onClose={() => setEditingClient(null)} />}
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
@@ -198,7 +312,7 @@ export function Clients() {
         {filtered.map(client => {
           const pinned = isPinnedClient(client.id);
           return (
-            <SFCard key={client.id} padding={20} gap={12} onClick={() => navigate(`/clients/${client.id}`)}>
+            <SFCard key={client.id} padding={18} gap={12} onClick={() => navigate(`/clients/${client.id}`)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                   {client.initials}
@@ -209,50 +323,27 @@ export function Clients() {
                     {client.sector} · {client.city}
                   </p>
                 </div>
-                <button
-                  onClick={e => { e.stopPropagation(); togglePinClient(client.id); }}
-                  title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(var(--accent-rgb, 124,58,237), 0.12)' : 'transparent', color: pinned ? 'var(--accent)' : 'var(--text-3)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
-                  onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; } }}
-                  onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; } }}
-                >
-                  <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
-                </button>
-
-                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                {/* Star + edit */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, alignSelf: 'flex-start' }}>
                   <button
-                    onClick={() => setMenuOpenId(menuOpenId === client.id ? null : client.id)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', background: menuOpenId === client.id ? 'var(--surface-3)' : 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = menuOpenId === client.id ? 'var(--surface-3)' : 'transparent'; }}
+                    onClick={e => { e.stopPropagation(); togglePinClient(client.id); }}
+                    title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
+                    onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
+                    onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
                   >
-                    <SFIcon name="more-horizontal" size={14} />
+                    <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
                   </button>
-                  {menuOpenId === client.id && (
-                    <>
-                      <div onClick={() => setMenuOpenId(null)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 175, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-                        <button
-                          onClick={() => { navigate(`/clients/${client.id}?edit=true`); setMenuOpenId(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <SFIcon name="edit-3" size={13} color="var(--text-3)" />
-                          Modifier le client
-                        </button>
-                        <button
-                          onClick={() => { navigate(`/clients/${client.id}`); setMenuOpenId(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <SFIcon name="external-link" size={13} color="var(--text-3)" />
-                          Voir le client
-                        </button>
-                      </div>
-                    </>
-                  )}
+
+                  <button
+                    onClick={e => { e.stopPropagation(); setEditingClient(client); }}
+                    title="Modifier le client"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
+                  >
+                    <SFIcon name="square-pen" size={13} />
+                  </button>
                 </div>
               </div>
 

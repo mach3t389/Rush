@@ -238,25 +238,27 @@ export function ProjectCard({ p }: { p: Project }) {
           </div>
         </div>
 
-        {/* Star + status pill + ⋯ */}
+        {/* Star + edit */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <button
             onClick={e => { e.stopPropagation(); togglePin(p.id); }}
             title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, color: pinned ? 'var(--accent)' : 'var(--text-3)', opacity: pinned || hovered ? 1 : 0, transition: 'opacity 0.15s, color 0.15s', display: 'flex' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
+            onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
+            onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
           >
             <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
           </button>
 
           <button
-            onClick={openStatusDrop}
-            title="Changer le statut"
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+            onClick={e => { e.stopPropagation(); setEditOpen(true); }}
+            title="Modifier le projet"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
           >
-            <SFPill status={status} small>{statusLabel}</SFPill>
-            <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+            <SFIcon name="square-pen" size={13} />
           </button>
-
         </div>
       </div>
 
@@ -274,21 +276,13 @@ export function ProjectCard({ p }: { p: Project }) {
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Modifié {p.modifiedAt}</span>
-
-        {/* ⋯ menu */}
         <button
-          onClick={e => { e.stopPropagation(); setEditOpen(true); }}
-          style={{
-            background: 'var(--surface-2)', border: '1px solid var(--border)',
-            cursor: 'pointer', padding: '4px 10px', borderRadius: 7,
-            color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 5,
-            fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 500,
-          }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.borderColor = 'var(--border-2)'; }}
-          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-2)'; el.style.borderColor = 'var(--border)'; }}
+          onClick={openStatusDrop}
+          title="Changer le statut"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
         >
-          <SFIcon name="edit-3" size={12} />
-          Modifier
+          <SFPill status={status} small>{statusLabel}</SFPill>
+          <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
         </button>
       </div>
 

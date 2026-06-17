@@ -527,7 +527,7 @@ export function TravailOverview() {
           )}
 
           {/* ── Vision & positionnement ── */}
-          <Card title="Vision & positionnement" icon="compass" collapsible defaultOpen={false} action={<SFButton variant="ghost" size="sm" icon="edit-3">Modifier</SFButton>}>
+          <Card title="Vision & positionnement" icon="compass" collapsible defaultOpen={false} action={<SFButton variant="ghost" size="sm" icon="square-pen">Modifier</SFButton>}>
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <VisionField label="Concept" placeholder="Quelle est l'idée centrale du projet ?" value={vision.concept} onChange={v => setVision(p => ({ ...p, concept: v }))} multiline />
@@ -863,7 +863,7 @@ export function TravailOverview() {
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
                     >
-                      <SFIcon name="edit-3" size={12} /> Modifier
+                      <SFIcon name="square-pen" size={12} /> Modifier
                     </button>
                   </div>
                 </div>

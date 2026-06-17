@@ -1063,7 +1063,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
         {/* Footer */}
         <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <SFButton variant="secondary" size="sm" icon="edit-3" style={{ flex: 1, justifyContent: 'center' }}>Modifier</SFButton>
+          <SFButton variant="secondary" size="sm" icon="square-pen" style={{ flex: 1, justifyContent: 'center' }}>Modifier</SFButton>
           <SFButton variant="ghost" size="sm" icon="trash-2" style={{ color: 'var(--danger)' }} />
         </div>
       </div>

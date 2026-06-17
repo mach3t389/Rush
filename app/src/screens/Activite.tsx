@@ -120,7 +120,7 @@ function actorSummary(actors: string[], count: number, kind: NotifKind): string 
 
 // ── Notification group row ────────────────────────────────────────────────────
 
-function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {
+function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigate: (to: string) => void; isLast: boolean }) {
   const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
 
   const handleClick = () => {
@@ -133,19 +133,13 @@ function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: 
       onClick={taskId || resourceId ? handleClick : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        padding: '6px 10px',
-        borderRadius: 9,
-        background: unread ? 'var(--surface-2)' : 'transparent',
+        padding: '10px 12px',
+        borderBottom: isLast ? 'none' : '1px solid var(--border)',
         borderLeft: unread ? '2px solid var(--accent)' : '2px solid transparent',
+        background: unread ? 'var(--surface-2)' : 'transparent',
         cursor: taskId || resourceId ? 'pointer' : 'default',
-        marginBottom: 2,
       }}
     >
-      {unread
-        ? <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)', flexShrink: 0 }} />
-        : <div style={{ width: 6, flexShrink: 0 }} />
-      }
-
       {/* Stacked avatars if multiple actors */}
       <div style={{ position: 'relative', width: 24, height: 24, flexShrink: 0 }}>
         <SFAvatar initials={initials(actors[0])} bg={ACTOR_COLOR[actors[0]] ?? '#5c3d8f'} size={24} />
@@ -161,22 +155,22 @@ function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: 
         )}
       </div>
 
-      {/* Text block: summary on line 1, meta on line 2 */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {actorSummary(actors, count, kind)}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
-          {count > 1 && (
-            <span style={{
-              fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
-              background: 'var(--surface-3)', borderRadius: 5, padding: '1px 5px',
-            }}>{count}×</span>
-          )}
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(latestTimestamp)}</span>
-        </div>
-      </div>
+      {/* Summary text — single line */}
+      <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {actorSummary(actors, count, kind)}
+      </p>
+
+      {/* Kind pill + count */}
+      <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
+      {count > 1 && (
+        <span style={{
+          fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
+          background: 'var(--surface-3)', borderRadius: 5, padding: '1px 5px', flexShrink: 0,
+        }}>{count}×</span>
+      )}
+
+      {/* Date — fully right */}
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'right' }}>{timeAgo(latestTimestamp)}</span>
     </div>
   );
 }
@@ -185,14 +179,14 @@ function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: 
 
 function ActivityRow({ item, isLast }: { item: typeof ACTIVITY[number]; isLast: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderBottom: isLast ? 'none' : '1px solid var(--border)', marginBottom: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: isLast ? 'none' : '1px solid var(--border)', borderLeft: '2px solid transparent' }}>
       <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
       <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         <strong>{item.actor.name}</strong>{' '}{item.action}{' '}
         <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
         {item.detail && <span style={{ color: 'var(--text-3)' }}> — {item.detail}</span>}
       </p>
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{item.time}</span>
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'right' }}>{item.time}</span>
     </div>
   );
 }
@@ -318,8 +312,8 @@ export function Activite() {
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
                 {day}
               </p>
-              {dayGroups.map(g => (
-                <NotifGroupRow key={g.key} group={g} navigate={navigate} />
+              {dayGroups.map((g, i) => (
+                <NotifGroupRow key={g.key} group={g} navigate={navigate} isLast={i === dayGroups.length - 1} />
               ))}
             </div>
           ))}

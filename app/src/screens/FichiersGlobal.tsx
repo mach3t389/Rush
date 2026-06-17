@@ -400,7 +400,7 @@ function FileTree({
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
                   >
-                    <SFIcon name="star" size={11} color="var(--accent)" />
+                    <SFIcon name="star" size={11} color="var(--accent)" fill="currentColor" />
                   </button>
                 )}
               </div>
@@ -460,7 +460,7 @@ export function FichiersGlobal() {
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [treeWidth] = useState(220);
-  const [sidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [rawFolders, setRawFolders] = useState(getFolders);
   const [rawFiles, setRawFiles]     = useState(getFiles);
@@ -881,7 +881,7 @@ export function FichiersGlobal() {
           onMouseEnter={e => { e.currentTarget.style.background = isPinned ? 'rgba(249,255,0,0.8)' : 'rgba(0,0,0,0.5)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.3)'; }}
         >
-          <SFIcon name={isPinned ? 'star-fill' : 'star'} size={12} color={isPinned ? 'var(--on-accent)' : 'var(--text-2)'} />
+          <SFIcon name="star" size={12} color={isPinned ? 'var(--on-accent)' : 'var(--text-2)'} fill={isPinned ? 'currentColor' : 'none'} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
@@ -1231,6 +1231,7 @@ export function FichiersGlobal() {
 
   // Column view state: array of selected NavLocations at each depth
   const [columnSelections, setColumnSelections] = useState<NavLocation[]>([]);
+  const colsContainerRef = useRef<HTMLDivElement>(null);
 
   // Now we can safely call getCurrentLocation and buildBreadcrumbForLocation
   const currentLocation = getCurrentLocation();
@@ -1239,6 +1240,14 @@ export function FichiersGlobal() {
   const selectColumn = (depth: number, loc: NavLocation) => {
     setColumnSelections(prev => [...prev.slice(0, depth), loc]);
   };
+
+  // Auto-scroll columns container to the right whenever a new column appears
+  useEffect(() => {
+    if (viewMode === 'columns' && colsContainerRef.current) {
+      const el = colsContainerRef.current;
+      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+    }
+  }, [columnSelections.length, viewMode]);
 
   // When switching to columns view, seed from current location
   const handleSetViewMode = (m: ViewMode) => {
@@ -1305,6 +1314,21 @@ export function FichiersGlobal() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Top bar */}
       <div style={{ flexShrink: 0, padding: '0 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, height: 52 }}>
+        {/* Toggle sidebar collapse */}
+        <button
+          onClick={() => setSidebarCollapsed(v => !v)}
+          title={sidebarCollapsed ? 'Afficher la barre latérale' : 'Masquer la barre latérale'}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px',
+            borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+        >
+          <SFIcon name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={16} color="var(--text-2)" />
+        </button>
+
         {/* Breadcrumb */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0, overflowX: 'auto', paddingRight: 8 }}>
           {breadcrumb.map((crumb, i) => (
@@ -1429,13 +1453,13 @@ export function FichiersGlobal() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* Left tree */}
-        <div style={{ width: treeWidth, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto', background: 'var(--surface)' }}>
+        <div style={{ width: sidebarCollapsed ? 0 : treeWidth, flexShrink: 0, borderRight: sidebarCollapsed ? 'none' : '1px solid var(--border)', overflowY: 'auto', overflowX: 'hidden', background: 'var(--surface)', transition: 'width 0.2s', display: sidebarCollapsed ? 'none' : 'block' }}>
           <FileTree location={location} onNavigate={setLocation} collapsed={sidebarCollapsed} />
         </div>
 
         {/* ── Column view (Miller columns) ── */}
         {viewMode === 'columns' && (
-          <div style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
+          <div ref={colsContainerRef} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
             {/* Column 0: always root */}
             <ColPanel
               loc={{ scope: 'root', folderId: null }}
@@ -1583,7 +1607,7 @@ export function FichiersGlobal() {
                           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
                         >
-                          <SFIcon name="star" size={12} color={isPinned ? 'var(--accent)' : 'var(--text-3)'} />
+                          <SFIcon name="star" size={12} color={isPinned ? 'var(--accent)' : 'var(--text-3)'} fill={isPinned ? 'currentColor' : 'none'} />
                         </button>
                       </div>
                     );

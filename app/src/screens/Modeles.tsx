@@ -280,7 +280,7 @@ function InlineEditable({ value, onChange, onBlur, multiline, fontSize, fontWeig
       }
       {!focused && (
         <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: hovered ? 1 : 0, transition: 'opacity 0.12s' }}>
-          <SFIcon name="edit-3" size={11} color="var(--text-3)" />
+          <SFIcon name="square-pen" size={11} color="var(--text-3)" />
         </div>
       )}
     </div>
@@ -606,7 +606,7 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         <SFButton variant="primary" icon="plus" onClick={onCreateProject} style={{ width: '100%', justifyContent: 'center' }}>Créer un projet depuis ce modèle</SFButton>
         <SFButton variant="secondary" icon="eye" onClick={onPreview} style={{ width: '100%', justifyContent: 'center' }}>Visualiser comme projet</SFButton>
         <div style={{ display: 'flex', gap: 6 }}>
-          <SFButton variant="secondary" size="sm" icon="edit-3" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
+          <SFButton variant="secondary" size="sm" icon="square-pen" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
             {tpl.builtIn ? 'Modifier une copie' : 'Modifier'}
           </SFButton>
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>Dupliquer</SFButton>
@@ -728,7 +728,7 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
       <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
         <SFButton variant="primary" icon="clipboard-list" onClick={onFill} style={{ width: '100%', justifyContent: 'center' }}>Remplir ce formulaire</SFButton>
         <div style={{ display: 'flex', gap: 6 }}>
-          <SFButton variant="secondary" size="sm" icon="edit-3" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
+          <SFButton variant="secondary" size="sm" icon="square-pen" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
             {tpl.builtIn ? 'Modifier une copie' : 'Modifier'}
           </SFButton>
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>Dupliquer</SFButton>
@@ -866,7 +866,7 @@ function FormTemplateEditor({ template, onSave, onClose }: {
                   <div style={{ display: 'flex', gap: 2 }}>
                     <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'var(--border-2)' : 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="chevron-up" size={12} /></button>
                     <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} style={{ background: 'none', border: 'none', cursor: i === fields.length - 1 ? 'default' : 'pointer', color: i === fields.length - 1 ? 'var(--border-2)' : 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="chevron-down" size={12} /></button>
-                    <button onClick={() => openEditField(f, i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="edit-3" size={12} /></button>
+                    <button onClick={() => openEditField(f, i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="square-pen" size={12} /></button>
                     <button onClick={() => removeField(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3 }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}><SFIcon name="x" size={12} /></button>
                   </div>
                 </div>
@@ -1195,7 +1195,7 @@ function FormInstancesPanel({ templateId, templateName, templateColor, onFillNew
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={() => onEditInstance(inst)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }} title="Modifier">
-              <SFIcon name="edit-3" size={13} />
+              <SFIcon name="square-pen" size={13} />
             </button>
             <button onClick={() => handleDelete(inst.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }} title="Supprimer" onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
               <SFIcon name="trash-2" size={13} />
