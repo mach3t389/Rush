@@ -120,6 +120,30 @@ function actorSummary(actors: string[], count: number, kind: NotifKind): string 
 
 // ── Notification group row ────────────────────────────────────────────────────
 
+// Grille commune aux deux onglets : Personnes · Message · Type · Temps.
+const ROW_GRID: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '44px minmax(0, 1fr) 150px 92px',
+  alignItems: 'center',
+  gap: 12,
+  padding: '10px 12px',
+};
+
+function ColumnHeader() {
+  const cell: React.CSSProperties = {
+    fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em',
+    textTransform: 'uppercase', color: 'var(--text-3)',
+  };
+  return (
+    <div style={{ ...ROW_GRID, paddingTop: 4, paddingBottom: 8, borderBottom: '1px solid var(--border-2)', borderLeft: '2px solid transparent' }}>
+      <span style={cell}>Qui</span>
+      <span style={cell}>Message</span>
+      <span style={cell}>Type</span>
+      <span style={{ ...cell, textAlign: 'right' }}>Quand</span>
+    </div>
+  );
+}
+
 function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigate: (to: string) => void; isLast: boolean }) {
   const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
 
@@ -132,16 +156,15 @@ function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigat
     <div
       onClick={taskId || resourceId ? handleClick : undefined}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 12px',
+        ...ROW_GRID,
         borderBottom: isLast ? 'none' : '1px solid var(--border)',
         borderLeft: unread ? '2px solid var(--accent)' : '2px solid transparent',
         background: unread ? 'var(--surface-2)' : 'transparent',
         cursor: taskId || resourceId ? 'pointer' : 'default',
       }}
     >
-      {/* Stacked avatars if multiple actors */}
-      <div style={{ position: 'relative', width: 24, height: 24, flexShrink: 0 }}>
+      {/* Col 1 — Personnes (avatars empilés) */}
+      <div style={{ position: 'relative', width: 24, height: 24 }}>
         <SFAvatar initials={initials(actors[0])} bg={ACTOR_COLOR[actors[0]] ?? '#5c3d8f'} size={24} />
         {actors.length > 1 && (
           <div style={{
@@ -155,38 +178,66 @@ function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigat
         )}
       </div>
 
-      {/* Summary text — single line */}
-      <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      {/* Col 2 — Message */}
+      <p style={{ fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {actorSummary(actors, count, kind)}
       </p>
 
-      {/* Kind pill + count */}
-      <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
-      {count > 1 && (
-        <span style={{
-          fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
-          background: 'var(--surface-3)', borderRadius: 5, padding: '1px 5px', flexShrink: 0,
-        }}>{count}×</span>
-      )}
+      {/* Col 3 — Type (pastille + compteur) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
+        {count > 1 && (
+          <span style={{
+            fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
+            background: 'var(--surface-3)', borderRadius: 5, padding: '1px 5px', flexShrink: 0,
+          }}>{count}×</span>
+        )}
+      </div>
 
-      {/* Date — fully right */}
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'right' }}>{timeAgo(latestTimestamp)}</span>
+      {/* Col 4 — Temps */}
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>{timeAgo(latestTimestamp)}</span>
     </div>
   );
 }
 
 // ── Activity row ──────────────────────────────────────────────────────────────
 
+type ActivityType = 'comment' | 'upload' | 'task' | 'approve';
+
+const ACTIVITY_LABEL: Record<ActivityType, string> = {
+  comment: 'COMMENTAIRE',
+  upload:  'NOUVELLE VERSION',
+  task:    'TÂCHE',
+  approve: 'APPROBATION',
+};
+const ACTIVITY_STATUS: Record<ActivityType, Status> = {
+  comment: 'review',
+  upload:  'info',
+  task:    'info',
+  approve: 'ok',
+};
+
 function ActivityRow({ item, isLast }: { item: typeof ACTIVITY[number]; isLast: boolean }) {
+  const atype = (item.type ?? 'comment') as ActivityType;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: isLast ? 'none' : '1px solid var(--border)', borderLeft: '2px solid transparent' }}>
+    <div style={{ ...ROW_GRID, borderBottom: isLast ? 'none' : '1px solid var(--border)', borderLeft: '2px solid transparent' }}>
+      {/* Col 1 — Personne */}
       <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
-      <p style={{ flex: 1, fontSize: 12, lineHeight: 1.3, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+
+      {/* Col 2 — Message */}
+      <p style={{ fontSize: 12, lineHeight: 1.3, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         <strong>{item.actor.name}</strong>{' '}{item.action}{' '}
         <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
         {item.detail && <span style={{ color: 'var(--text-3)' }}> — {item.detail}</span>}
       </p>
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'right' }}>{item.time}</span>
+
+      {/* Col 3 — Type (pastille) */}
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+        <SFPill status={ACTIVITY_STATUS[atype]} small>{ACTIVITY_LABEL[atype]}</SFPill>
+      </div>
+
+      {/* Col 4 — Temps */}
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>{item.time}</span>
     </div>
   );
 }
@@ -236,98 +287,157 @@ export function Activite() {
     groups: groups.filter(g => groupDayLabel(g.latestTimestamp) === day),
   }));
 
+  // Stats for the sidebar panel
+  const kindCounts = notifs.reduce((acc, n) => {
+    acc[n.kind] = (acc[n.kind] ?? 0) + 1;
+    return acc;
+  }, {} as Record<NotifKind, number>);
+
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ height: '100%', overflow: 'auto', padding: 24 }}>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Notifications</h1>
-        {tab === 'personal' && unreadCount > 0 && (
-          <button
-            onClick={() => markAllRead()}
-            style={{ fontSize: 12, color: 'var(--text-2)', background: 'none', border: '1px solid var(--border-2)', borderRadius: 9, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-          >
-            Tout marquer comme lu
-          </button>
-        )}
-      </div>
+        {/* ── Colonne principale ─────────────────────────────────────────────── */}
+        <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-        {([
-          { key: 'personal' as Tab, label: 'Pour toi', badge: unreadCount },
-          { key: 'studio'   as Tab, label: 'Studio',   badge: 0 },
-        ]).map(({ key, label, badge }) => (
-          <button
-            key={key}
-            onClick={() => switchTab(key)}
-            style={{
-              padding: '8px 14px',
-              background: 'none',
-              border: 'none',
-              borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
-              color: tab === key ? 'var(--text)' : 'var(--text-2)',
-              fontSize: 13, fontWeight: tab === key ? 600 : 400,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontFamily: 'var(--ff-text)',
-              marginBottom: -1,
-            }}
-          >
-            {label}
-            {badge > 0 && (
-              <span style={{
-                background: 'var(--accent)', color: 'var(--on-accent)',
-                borderRadius: 999, fontSize: 9, fontWeight: 700,
-                padding: '1px 5px', fontFamily: 'var(--ff-mono)',
-              }}>{badge}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab: Pour toi */}
-      {tab === 'personal' && (
-        <>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {FILTERS.map(f => (
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Notifications</h1>
+            {tab === 'personal' && unreadCount > 0 && (
               <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === f.key ? 'var(--surface-3)' : 'transparent', color: filter === f.key ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                onClick={() => markAllRead()}
+                style={{ fontSize: 12, color: 'var(--text-2)', background: 'none', border: '1px solid var(--border-2)', borderRadius: 9, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
               >
-                {f.label}
+                Tout marquer comme lu
+              </button>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+            {([
+              { key: 'personal' as Tab, label: 'Pour toi', badge: unreadCount },
+              { key: 'studio'   as Tab, label: 'Studio',   badge: 0 },
+            ]).map(({ key, label, badge }) => (
+              <button
+                key={key}
+                onClick={() => switchTab(key)}
+                style={{
+                  padding: '8px 14px',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
+                  color: tab === key ? 'var(--text)' : 'var(--text-2)',
+                  fontSize: 13, fontWeight: tab === key ? 600 : 400,
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontFamily: 'var(--ff-text)',
+                  marginBottom: -1,
+                }}
+              >
+                {label}
+                {badge > 0 && (
+                  <span style={{
+                    background: 'var(--accent)', color: 'var(--on-accent)',
+                    borderRadius: 999, fontSize: 9, fontWeight: 700,
+                    padding: '1px 5px', fontFamily: 'var(--ff-mono)',
+                  }}>{badge}</span>
+                )}
               </button>
             ))}
           </div>
 
-          {groups.length === 0 && (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-              Aucune notification
-            </div>
+          {/* Tab: Pour toi */}
+          {tab === 'personal' && (
+            <>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {FILTERS.map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === f.key ? 'var(--surface-3)' : 'transparent', color: filter === f.key ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {groups.length === 0 && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13, paddingTop: 48 }}>
+                  Aucune notification
+                </div>
+              )}
+
+              {groups.length > 0 && <ColumnHeader />}
+
+              {grouped.map(({ day, groups: dayGroups }) => (
+                <div key={day}>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
+                    {day}
+                  </p>
+                  {dayGroups.map((g, i) => (
+                    <NotifGroupRow key={g.key} group={g} navigate={navigate} isLast={i === dayGroups.length - 1} />
+                  ))}
+                </div>
+              ))}
+            </>
           )}
 
-          {grouped.map(({ day, groups: dayGroups }) => (
-            <div key={day}>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
-                {day}
-              </p>
-              {dayGroups.map((g, i) => (
-                <NotifGroupRow key={g.key} group={g} navigate={navigate} isLast={i === dayGroups.length - 1} />
-              ))}
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* Tab: Studio */}
-      {tab === 'studio' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {ACTIVITY.map((item, i) => (
-            <ActivityRow key={item.id} item={item} isLast={i === ACTIVITY.length - 1} />
-          ))}
+          {/* Tab: Studio */}
+          {tab === 'studio' && (() => {
+            const activityDays = Array.from(new Set(ACTIVITY.map(a => a.day)));
+            const activityGrouped = activityDays.map(day => ({
+              day,
+              items: ACTIVITY.filter(a => a.day === day),
+            }));
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <ColumnHeader />
+                {activityGrouped.map(({ day, items }) => (
+                  <div key={day}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '12px 0 8px' }}>
+                      {day}
+                    </p>
+                    {items.map((item, i) => (
+                      <ActivityRow key={item.id} item={item} isLast={i === items.length - 1} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
-      )}
+
+        {/* ── Panneau latéral ────────────────────────────────────────────────── */}
+        <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 0 }}>
+
+          {/* Carte résumé non lus */}
+          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16 }}>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Résumé</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
+              <span style={{ fontFamily: 'var(--ff-display)', fontSize: 32, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : 'var(--text-3)', lineHeight: 1 }}>{unreadCount}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-2)' }}>non {unreadCount === 1 ? 'lue' : 'lues'}</span>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{notifs.length} au total</p>
+          </div>
+
+          {/* Carte par type */}
+          {notifs.length > 0 && (
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16 }}>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Par type</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(Object.entries(KIND_LABEL) as [NotifKind, string][]).filter(([k]) => kindCounts[k]).map(([k, label]) => (
+                  <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.charAt(0) + label.slice(1).toLowerCase()}</span>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 5, padding: '1px 6px', flexShrink: 0 }}>{kindCounts[k]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 }
