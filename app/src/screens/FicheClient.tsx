@@ -847,7 +847,7 @@ function ActiviteTab({ projects }: { projects: typeof PROJECTS }) {
   );
 }
 
-type ClientTab = 'apercu' | 'projets' | 'equipe' | 'activite' | 'documents';
+type ClientTab = 'apercu' | 'projets' | 'equipe' | 'activite' | 'documents' | 'fichiers';
 
 const fmtMoney = (n: number) => `${n.toLocaleString('fr-CA')} $`;
 
@@ -1518,6 +1518,44 @@ function ClientEditPanel({ client, onClose }: {
   );
 }
 
+// ── Fichiers client tab ────────────────────────────────────────────────────────
+
+function FichiersClientTab({ projects }: { projects: any[] }) {
+  const navigate = useNavigate();
+  if (projects.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+        <SFIcon name="folder-open" size={40} color="var(--border-2)" />
+        <p style={{ fontSize: 14, fontWeight: 500 }}>Aucun projet</p>
+        <p style={{ fontSize: 12 }}>Créez un projet pour accéder à ses fichiers</p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+        Accéder aux fichiers par projet
+      </p>
+      {projects.map(p => (
+        <button key={p.id} onClick={() => navigate(`/projets/${p.id}/fichiers`)}
+          style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.12s, background 0.12s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+        >
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: (p.clientColor ?? 'var(--accent)') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name="folder" size={20} color={p.clientColor ?? 'var(--accent)'} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{p.statusLabel || 'Aucun statut'}</p>
+          </div>
+          <SFIcon name="chevron-right" size={16} color="var(--text-3)" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function FicheClient() {
   const { clientId } = useParams();
   const navigate = useNavigate();
@@ -1605,7 +1643,7 @@ export function FicheClient() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 20, marginTop: 16 }}>
-          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['documents', 'Documents']] as const).map(([key, label]) => (
+          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['documents', 'Documents'], ['fichiers', 'Fichiers']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 6, borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent' }}>
               {label}
             </button>
@@ -1647,6 +1685,8 @@ export function FicheClient() {
         {tab === 'activite' && <ActiviteTab projects={projects} />}
 
         {tab === 'documents' && <DocumentsTab clientId={client.id} />}
+
+        {tab === 'fichiers' && <FichiersClientTab projects={projects} />}
       </div>
 
       {clientEditOpen && (

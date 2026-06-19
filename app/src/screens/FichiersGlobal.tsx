@@ -17,7 +17,61 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
-import type { Project } from '../types';
+import { addResource } from '../data/resourceStore';
+import type { Project, ResourceType } from '../types';
+
+// ── Resource types ─────────────────────────────────────────────────────────────
+
+const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; color: string }[] = [
+  { type: 'screenplay',   label: 'Scénario',        icon: 'file-text',   color: '#e85b5b' },
+  { type: 'moodboard',    label: 'Moodboard',       icon: 'image',       color: '#5b8af5' },
+  { type: 'video_review', label: 'Revue de médias', icon: 'monitor',     color: '#a05be8' },
+  { type: 'document',     label: 'Document',        icon: 'file',        color: '#5bc4e8' },
+  { type: 'checklist',    label: 'Checklist',       icon: 'list-checks', color: '#34c98a' },
+  { type: 'web_review',   label: 'Web Review',      icon: 'globe',       color: '#f5975b' },
+  { type: 'form',         label: 'Formulaire',      icon: 'clipboard',   color: '#f5d05b' },
+  { type: 'inspirations', label: 'Inspirations',    icon: 'sparkles',    color: '#c45be8' },
+];
+
+const RESOURCE_EYEBROW: Partial<Record<ResourceType, string>> = {
+  screenplay: 'SCÉNARIO', moodboard: 'MOODBOARD', video_review: 'REVUE DE MÉDIAS',
+  document: 'DOCUMENT', checklist: 'CHECKLIST', web_review: 'WEB REVIEW',
+  form: 'FORMULAIRE', inspirations: 'INSPIRATIONS',
+};
+
+// ── New resource modal ────────────────────────────────────────────────────────
+
+function NewResourceModal({ def, onSave, onClose }: { def: typeof RESOURCE_TYPES[number]; onSave: (name: string) => void; onClose: () => void }) {
+  const [name, setName] = React.useState('');
+  const ref = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => { ref.current?.focus(); }, []);
+  const handle = () => { if (!name.trim()) return; onSave(name.trim()); onClose(); };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 400, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: def.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name={def.icon} size={20} color={def.color} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Nouveau {def.label}</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Créé dans le projet courant et accessible depuis les fichiers</p>
+          </div>
+        </div>
+        <input ref={ref} value={name} onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handle(); if (e.key === 'Escape') onClose(); }}
+          placeholder={`Nom du ${def.label.toLowerCase()}…`}
+          style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1.5px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
+        />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="primary" onClick={handle} disabled={!name.trim()}>Créer</SFButton>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -479,10 +533,11 @@ export function FichiersGlobal() {
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
 
   // Modals
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [showAddFile, setShowAddFile]     = useState(false);
-  const [renamingId, setRenamingId]       = useState<string | null>(null);
-  const [newBtnOpen, setNewBtnOpen]       = useState(false);
+  const [showNewFolder, setShowNewFolder]     = useState(false);
+  const [showAddFile, setShowAddFile]         = useState(false);
+  const [renamingId, setRenamingId]           = useState<string | null>(null);
+  const [newBtnOpen, setNewBtnOpen]           = useState(false);
+  const [newResourceDef, setNewResourceDef]   = useState<typeof RESOURCE_TYPES[number] | null>(null);
   const newBtnRef = useRef<HTMLButtonElement>(null);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -627,6 +682,29 @@ export function FichiersGlobal() {
       parentFolderId: folderId,
       projectId: scope === 'project' ? scopeId : undefined,
       clientId:  scope === 'client'  ? scopeId : undefined,
+    });
+  };
+
+  const handleCreateResource = (def: typeof RESOURCE_TYPES[number], name: string) => {
+    const { scope, scopeId, folderId } = location;
+    const projectId = scope === 'project' ? scopeId : undefined;
+    const resourceId = `res-${Date.now()}`;
+    addResource({
+      id: resourceId,
+      type: def.type,
+      eyebrow: RESOURCE_EYEBROW[def.type] ?? def.label.toUpperCase(),
+      title: name,
+      status: 'info',
+      statusLabel: 'En cours',
+      meta: '',
+    });
+    addFile({
+      name,
+      type: 'resource',
+      ext: 'res',
+      parentFolderId: folderId,
+      projectId,
+      resourceId,
     });
   };
 
@@ -1425,25 +1503,35 @@ export function FichiersGlobal() {
               <SFIcon name="chevron-down" size={11} color="var(--on-accent)" />
             </button>
             {newBtnOpen && (
-              <div style={{ position: 'absolute', top: '110%', right: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 400, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
-                {([
-                  { icon: 'folder-plus', label: 'Nouveau dossier', show: true, onClick: () => { setShowNewFolder(true); setNewBtnOpen(false); } },
-                  { icon: 'file-plus', label: 'Ajouter un fichier', show: canAddFile, onClick: () => { setShowAddFile(true); setNewBtnOpen(false); } },
-                ] as { icon: string; label: string; show: boolean; onClick: () => void }[]).filter(i => i.show).map(item => (
-                  <button key={item.label} onClick={item.onClick} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    width: '100%', padding: '9px 14px', border: 'none',
-                    background: 'none', cursor: 'pointer', fontSize: 13,
-                    color: 'var(--text)', fontFamily: 'var(--ff-text)', textAlign: 'left',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                  >
-                    <SFIcon name={item.icon} size={14} color="var(--text-2)" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div onClick={() => setNewBtnOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 390 }} />
+                <div style={{ position: 'absolute', top: '110%', right: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 400, minWidth: 210, padding: '4px 0', overflow: 'hidden' }}>
+                  {/* Dossier + Fichier */}
+                  {[
+                    { icon: 'folder-plus', label: 'Nouveau dossier',   show: true,       onClick: () => { setShowNewFolder(true); setNewBtnOpen(false); } },
+                    { icon: 'upload',      label: 'Importer un fichier', show: canAddFile, onClick: () => { setShowAddFile(true);  setNewBtnOpen(false); } },
+                  ].filter(i => i.show).map(item => (
+                    <button key={item.label} onClick={item.onClick} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      <SFIcon name={item.icon} size={14} color="var(--text-2)" />
+                      {item.label}
+                    </button>
+                  ))}
+                  {/* Separator + Resources section */}
+                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 14px 3px', fontWeight: 700 }}>Ressources</p>
+                  {RESOURCE_TYPES.map(def => (
+                    <button key={def.type} onClick={() => { setNewResourceDef(def); setNewBtnOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '7px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      <SFIcon name={def.icon} size={13} color={def.color} />
+                      {def.label}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -1698,6 +1786,13 @@ export function FichiersGlobal() {
       {/* Modals */}
       {showNewFolder && <NewFolderModal onSave={handleNewFolder} onClose={() => setShowNewFolder(false)} />}
       {showAddFile   && <AddFileModal   onSave={handleAddFile}   onClose={() => setShowAddFile(false)} />}
+      {newResourceDef && (
+        <NewResourceModal
+          def={newResourceDef}
+          onSave={name => handleCreateResource(newResourceDef, name)}
+          onClose={() => setNewResourceDef(null)}
+        />
+      )}
       {showSaveTemplateModal && templateProjectId && (
         <SaveTemplateModal
           projectName={projects.find(p => p.id === templateProjectId)?.name ?? 'Projet'}
