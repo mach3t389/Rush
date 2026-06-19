@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
+import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { addDeliverable } from '../data/taskStore';
 import type { Resource, Status } from '../types';
@@ -149,7 +150,18 @@ function AnnotationLayer({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function VideoReviewBody({ resource, projectId }: { resource: Resource; projectId?: string }) {
+interface VideoReviewContent {
+  comments?: LocalComment[];
+  versions?: LocalVersion[];
+  activeVersion?: string;
+  tasks?: VideoTask[];
+  upcoming?: UpcomingItem[];
+}
+
+export function VideoReviewBody({ resource, projectId, persistKey }: { resource: Resource; projectId?: string; persistKey?: string }) {
+  // Contenu persisté par ressource (commentaires de révision, versions, tâches,
+  // éléments à venir). Absent en mode modèle → on retombe sur le contenu mock.
+  const persisted = persistKey ? getResourceContent<VideoReviewContent>(persistKey) : undefined;
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<'comments' | 'tasks'>('comments');
 
@@ -194,13 +206,16 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
   const [currentTime, setCurrentTime] = useState(63);
 
   // Versions (local, so they can be added / removed)
-  const [versions, setVersions] = useState<LocalVersion[]>(() =>
-    VIDEO_VERSIONS.map(v => ({
+  const [versions, setVersions] = useState<LocalVersion[]>(() => {
+    if (persisted?.versions) return persisted.versions;
+    if (persistKey) return [{ v: 'V1', status: 'review', label: 'Version initiale', date: TODAY_LABEL, author: USERS.lea }];
+    return VIDEO_VERSIONS.map(v => ({
       v: v.v, status: v.status, label: v.label,
       date: VERSION_SEED_DATES[v.v] ?? '', author: USERS.lea,
-    }))
-  );
-  const initialActive = VIDEO_VERSIONS.find(v => v.active)?.v ?? VIDEO_VERSIONS[VIDEO_VERSIONS.length - 1]?.v ?? 'V1';
+    }));
+  });
+  const initialActive = persisted?.activeVersion
+    ?? (persistKey ? 'V1' : (VIDEO_VERSIONS.find(v => v.active)?.v ?? VIDEO_VERSIONS[VIDEO_VERSIONS.length - 1]?.v ?? 'V1'));
   const [activeVersion, setVersion] = useState(initialActive);
   const [addVersionOpen, setAddVersionOpen] = useState(false);
   const [newVersionNote, setNewVersionNote] = useState('');
@@ -214,11 +229,13 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
   const statusDropRef = useRef<HTMLButtonElement>(null);
 
   // Upcoming items
-  const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>([
-    { id: 'ui1', text: 'Ajouter le générique de fin', done: false },
-    { id: 'ui2', text: 'Remplacer la musique de fond', done: false },
-    { id: 'ui3', text: 'Color grading final', done: false },
-  ]);
+  const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>(() =>
+    persisted?.upcoming ?? (persistKey ? [] : [
+      { id: 'ui1', text: 'Ajouter le générique de fin', done: false },
+      { id: 'ui2', text: 'Remplacer la musique de fond', done: false },
+      { id: 'ui3', text: 'Color grading final', done: false },
+    ])
+  );
   const [newUpcomingText, setNewUpcomingText] = useState('');
   const [upcomingCollapsed, setUpcomingCollapsed] = useState(false);
 
@@ -235,8 +252,8 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
     arrow:  '#ff6b35',
   };
 
-  const [comments, setComments] = useState<LocalComment[]>(
-    VIDEO_COMMENTS.map(c => ({
+  const [comments, setComments] = useState<LocalComment[]>(() =>
+    persisted?.comments ?? (persistKey ? [] : VIDEO_COMMENTS.map(c => ({
       id: c.id,
       author: c.author as typeof USERS.lea,
       text: c.text,
@@ -244,7 +261,7 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
       timeSeconds: c.timeSeconds,
       status: c.resolved ? 'resolved' : 'open',
       replies: [],
-    }))
+    })))
   );
 
   // Reply state per comment
@@ -257,10 +274,32 @@ export function VideoReviewBody({ resource, projectId }: { resource: Resource; p
   const [replyMentionQuery, setReplyMentionQuery] = useState<string | null>(null);
   const [replyMentionRect, setReplyMentionRect] = useState<DOMRect | null>(null);
 
-  const [tasks, setTasks] = useState<VideoTask[]>([
-    { id: 'vt1', title: "Couper l'intro de 3 secondes", timeLabel: '0:08', done: false, priority: 'high' },
-    { id: 'vt2', title: 'Mixer le volume de la musique', timeLabel: '1:14', done: false, priority: 'normal' },
-  ]);
+  const [tasks, setTasks] = useState<VideoTask[]>(() =>
+    persisted?.tasks ?? (persistKey ? [] : [
+      { id: 'vt1', title: "Couper l'intro de 3 secondes", timeLabel: '0:08', done: false, priority: 'high' },
+      { id: 'vt2', title: 'Mixer le volume de la musique', timeLabel: '1:14', done: false, priority: 'normal' },
+    ])
+  );
+
+  // ── Persistance du contenu de révision par ressource ───────────────────────
+  const vrPersistTimer = useRef<number | null>(null);
+  const vrMounted = useRef(false);
+  const vrSnapshotRef = useRef<VideoReviewContent | null>(null);
+  useEffect(() => {
+    const snapshot: VideoReviewContent = { comments, versions, activeVersion, tasks, upcoming: upcomingItems };
+    vrSnapshotRef.current = snapshot;
+    if (!persistKey) return;
+    if (!vrMounted.current) { vrMounted.current = true; return; } // ne pas écrire au montage
+    if (vrPersistTimer.current) clearTimeout(vrPersistTimer.current);
+    vrPersistTimer.current = window.setTimeout(() => setResourceContent(persistKey, snapshot), 400);
+  }, [persistKey, comments, versions, activeVersion, tasks, upcomingItems]);
+  // Flush la dernière modification en attente au démontage.
+  useEffect(() => () => {
+    if (persistKey && vrPersistTimer.current && vrSnapshotRef.current) {
+      clearTimeout(vrPersistTimer.current);
+      setResourceContent(persistKey, vrSnapshotRef.current);
+    }
+  }, [persistKey]);
 
   // ── Playback engine (simulated — advances currentTime in real wall-clock time) ──
   // Uses setInterval with a timestamp delta so playback stays accurate even when the
@@ -1042,10 +1081,17 @@ export function VideoReview() {
   useEffect(() => subscribeResources(() => setTick(t => t + 1)), []);
 
   const resources = getResources();
-  const project  = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
-  const resource = resources.find(r => r.id === resourceId) ?? resources.find(r => r.type === 'video_review')!;
+  const resource = resources.find(r => r.id === resourceId);
 
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
+
+  if (!resource) return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)' }}>
+      <SFIcon name="film" size={36} color="var(--text-3)" />
+      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>Ressource introuvable</p>
+      <p style={{ fontSize: 12 }}>L'identifiant <code style={{ background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--ff-mono)' }}>{resourceId}</code> ne correspond à aucune révision.</p>
+    </div>
+  );
 
   const [shared, setShared] = useState(false);
   const [approvalRequested, setApprovalRequested] = useState(false);

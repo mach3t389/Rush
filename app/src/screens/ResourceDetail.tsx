@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
+import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import type { Resource, ResourceType, Status, User } from '../types';
 import { VideoReviewBody } from './VideoReview';
@@ -1958,7 +1959,10 @@ function saveCustomStyles(styles: CustomStyle[]) {
   try { localStorage.setItem(STYLE_STORE_KEY, JSON.stringify(styles)); } catch { /* noop */ }
 }
 
-export function DocumentView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedHTML, contentRef }: { resource: Resource; seedHTML?: string; contentRef?: React.MutableRefObject<(() => string) | null> } & EditableProps) {
+export function DocumentView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedHTML, contentRef, persistKey }: { resource: Resource; seedHTML?: string; persistKey?: string; contentRef?: React.MutableRefObject<(() => string) | null> } & EditableProps) {
+  // Contenu persisté par ressource (corps HTML + commentaires). Absent en mode
+  // modèle (persistKey non fourni) — on retombe alors sur seedHTML / mock.
+  const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[] }>(persistKey) : undefined;
   const editorRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const [wordCount, setWordCount] = useState(0);
@@ -1975,10 +1979,12 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>(loadCustomStyles);
   const [showStyleForm, setShowStyleForm] = useState(false);
   const [newStyle, setNewStyle] = useState<Omit<CustomStyle,'id'>>({ name:'Mon style', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:'400', fontStyle:'normal', color:'#1a1a1a' });
-  const [comments, setComments] = useState<DocComment[]>([
-    { id:'dc1', author:USERS.sarah,  text:'La section budget nécessite une mise à jour avec les derniers chiffres.', time:'Il y a 1h' },
-    { id:'dc2', author:USERS.thomas, text:'Peut-on ajouter une section sur la stratégie sociale ?', time:'Il y a 3h' },
-  ]);
+  const [comments, setComments] = useState<DocComment[]>(
+    persisted?.comments ?? (persistKey ? [] : [
+      { id:'dc1', author:USERS.sarah,  text:'La section budget nécessite une mise à jour avec les derniers chiffres.', time:'Il y a 1h' },
+      { id:'dc2', author:USERS.thomas, text:'Peut-on ajouter une section sur la stratégie sociale ?', time:'Il y a 3h' },
+    ])
+  );
 
   const buildToc = () => {
     if (!editorRef.current) return;
@@ -1995,7 +2001,11 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
   useEffect(() => {
     if (editorRef.current && !initialized.current) {
-      editorRef.current.innerHTML = seedHTML ?? DOC_INITIAL_HTML;
+      // Priorité : contenu persisté > seed (modèle) > démarrage. Une vraie
+      // ressource neuve (persistKey, rien de persisté) démarre sur un document
+      // vierge titré, jamais sur le gros brief mock.
+      const starter = `<h1>${(resource.title || 'Document').replace(/[<>&]/g, '')}</h1><p><br></p>`;
+      editorRef.current.innerHTML = persisted?.html ?? seedHTML ?? (persistKey ? starter : DOC_INITIAL_HTML);
       initialized.current = true;
       const t = editorRef.current.innerText ?? '';
       setWordCount(t.trim().split(/\s+/).filter(Boolean).length);
@@ -2003,6 +2013,32 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
       if (contentRef) contentRef.current = () => editorRef.current?.innerHTML ?? '';
     }
   }, []);
+
+  // ── Persistance du contenu par ressource (HTML + commentaires) ──────────────
+  const commentsRef = useRef(comments);
+  useEffect(() => { commentsRef.current = comments; }, [comments]);
+  const persistTimer = useRef<number | null>(null);
+  const persistContent = useCallback(() => {
+    if (!persistKey) return;
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    persistTimer.current = window.setTimeout(() => {
+      setResourceContent(persistKey, { html: editorRef.current?.innerHTML ?? '', comments: commentsRef.current });
+    }, 400);
+  }, [persistKey]);
+  // Persiste sur tout changement de commentaires (ajout/résolution/suppression),
+  // en sautant le montage initial.
+  const persistMounted = useRef(false);
+  useEffect(() => {
+    if (!persistMounted.current) { persistMounted.current = true; return; }
+    persistContent();
+  }, [comments, persistContent]);
+  // Flush au démontage pour ne pas perdre la dernière frappe.
+  useEffect(() => () => {
+    if (persistTimer.current && persistKey) {
+      clearTimeout(persistTimer.current);
+      setResourceContent(persistKey, { html: editorRef.current?.innerHTML ?? '', comments: commentsRef.current });
+    }
+  }, [persistKey]);
 
   useEffect(() => {
     const handler = () => {
@@ -2023,6 +2059,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     document.execCommand(cmd, false, val);
     editorRef.current?.focus();
     onEdit?.();
+    persistContent();
   };
 
   const handleInput = () => {
@@ -2030,6 +2067,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     setWordCount(t.trim().split(/\s+/).filter(Boolean).length);
     buildToc();
     onEdit?.();
+    persistContent();
   };
 
   const addCommentAnchor = () => {
@@ -2069,6 +2107,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     }
     setPendingAnchorId(null);
     setNewCommentText('');
+    persistContent();
   };
 
   const scrollToAnchor = (anchorId: string) => {
@@ -2081,6 +2120,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     document.execCommand('insertHTML', false, `<span class="doc-cs-${style.id}" style="${s}">${window.getSelection()?.toString() ?? '​'}</span>`);
     editorRef.current?.focus();
     onEdit?.();
+    persistContent();
   };
 
   const createStyle = () => {
@@ -4471,11 +4511,11 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
 
 export function ResourceBody({ resource }: { resource: Resource }) {
   switch (resource.type) {
-    case 'video_review': return <VideoReviewBody resource={resource} />;
+    case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} />;
     case 'screenplay':   return <ScreenplayView resource={resource} />;
     case 'moodboard':    return <MoodboardView resource={resource} />;
     case 'checklist':    return <ChecklistView resource={resource} />;
-    case 'document':     return <DocumentView resource={resource} />;
+    case 'document':     return <DocumentView key={resource.id} resource={resource} persistKey={resource.id} />;
     case 'inspirations': return <InspirationsView resource={resource} />;
     case 'file':         return <FileView resource={resource} />;
     case 'form':         return <FormView resource={resource} />;
@@ -4549,11 +4589,11 @@ export function ResourceDetail() {
 
   const renderBody = () => {
     switch (resource.type) {
-      case 'video_review': return <VideoReviewBody resource={resource} />;
+      case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} />;
       case 'screenplay':   return <ScreenplayView resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} />;
       case 'moodboard':    return <MoodboardView resource={resource} />;
       case 'checklist':    return <ChecklistView resource={resource} />;
-      case 'document':     return <DocumentView resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} />;
+      case 'document':     return <DocumentView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
       case 'inspirations': return <InspirationsView resource={resource} />;
       case 'file':         return <FileView resource={resource} />;
       case 'form':         return <FormView resource={resource} />;
