@@ -27,6 +27,12 @@ export interface Client {
   status: Status;
   statusLabel: string;
   lastActivity: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  emailCompta?: string;
+  website?: string;
+  notes?: string;
 }
 
 // ── Project ───────────────────────────────────────────────────────────────────

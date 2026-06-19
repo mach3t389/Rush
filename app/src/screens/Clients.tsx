@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
@@ -7,9 +7,30 @@ import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data
 import { getClients, addClient, updateClient, subscribeClients } from '../data/clientStore';
 import type { Client } from '../types/index';
 
+// ── Shared edit panel primitives ──────────────────────────────────────────────
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
 // ── New client modal ──────────────────────────────────────────────────────────
 
-const SECTORS = ['Publicité', 'Documentaire', 'Social', 'Institutionnel', 'Clip musical', 'Motion design', 'Fiction', 'Événementiel', 'Autre'];
 const AVATAR_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
@@ -74,20 +95,15 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* Sector */}
+          {/* Sous-titre */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Secteur</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {SECTORS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSector(s)}
-                  style={{ padding: '5px 11px', borderRadius: 8, border: `1.5px solid ${sector === s ? 'var(--accent)' : 'var(--border)'}`, background: sector === s ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)', color: sector === s ? 'var(--text)' : 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Sous-titre</label>
+            <input
+              value={sector}
+              onChange={e => setSector(e.target.value)}
+              placeholder="Ex: Agence créative, Startup IA…"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+            />
           </div>
 
           {/* City */}
@@ -140,21 +156,33 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
 // ── Client Edit Panel ─────────────────────────────────────────────────────────
 
 function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => void }) {
-  const [name,   setName]   = useState(client.name);
-  const [sector, setSector] = useState(client.sector);
-  const [city,   setCity]   = useState(client.city === '—' ? '' : client.city);
-  const [color,  setColor]  = useState(client.avatarColor);
+  const [name,        setName]        = useState(client.name);
+  const [sector,      setSector]      = useState(client.sector);
+  const [city,        setCity]        = useState(client.city === '—' ? '' : client.city);
+  const [color,       setColor]       = useState(client.avatarColor);
+  const [address,     setAddress]     = useState(client.address ?? '');
+  const [phone,       setPhone]       = useState(client.phone ?? '');
+  const [email,       setEmail]       = useState(client.email ?? '');
+  const [emailCompta, setEmailCompta] = useState(client.emailCompta ?? '');
+  const [website,     setWebsite]     = useState(client.website ?? '');
+  const [notes,       setNotes]       = useState(client.notes ?? '');
 
-  const save = () => {
-    const initials = name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || client.initials;
+  const commit = (patch: Partial<Client>) => {
+    const finalName = ((patch.name ?? name) as string).trim() || client.name;
+    const finalCity = ((patch.city ?? city) as string).trim() || '—';
+    const initials  = finalName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || client.initials;
     updateClient(client.id, {
-      name: name.trim() || client.name,
-      initials,
-      sector,
-      city: city.trim() || '—',
-      avatarColor: color,
+      name: finalName, initials,
+      sector:      patch.sector      ?? sector,
+      city:        finalCity,
+      avatarColor: patch.avatarColor ?? color,
+      address:     patch.address     ?? address,
+      phone:       patch.phone       ?? phone,
+      email:       patch.email       ?? email,
+      emailCompta: patch.emailCompta ?? emailCompta,
+      website:     patch.website     ?? website,
+      notes:       patch.notes       ?? notes,
     });
-    onClose();
   };
 
   return createPortal(
@@ -183,65 +211,84 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
         {/* Body */}
         <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Nom */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Nom du client</label>
-            <input
-              autoFocus
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') save(); }}
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 600, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
-            />
-          </div>
+          {/* ── Identité ── */}
+          <Section label="Identité">
+            <Field label="Nom du client">
+              <input autoFocus value={name} onChange={e => setName(e.target.value)}
+                onBlur={e => commit({ name: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                style={inputStyle} />
+            </Field>
+            <Field label="Sous-titre">
+              <input value={sector} onChange={e => setSector(e.target.value)}
+                onBlur={e => commit({ sector: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: Agence créative, Startup IA…" style={inputStyle} />
+            </Field>
+            <Field label="Couleur avatar">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {AVATAR_COLORS.map(c => (
+                  <button key={c} onClick={() => { setColor(c); commit({ avatarColor: c }); }}
+                    style={{ width: 26, height: 26, borderRadius: 7, background: c, border: color === c ? '3px solid white' : '3px solid transparent', outline: color === c ? `2px solid ${c}` : 'none', outlineOffset: 2, cursor: 'pointer', padding: 0, transform: color === c ? 'scale(1.15)' : 'none', transition: 'transform 0.1s', flexShrink: 0 }}
+                  />
+                ))}
+              </div>
+            </Field>
+          </Section>
 
-          {/* Secteur */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Secteur</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {SECTORS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSector(s)}
-                  style={{ padding: '5px 11px', borderRadius: 8, border: `1.5px solid ${sector === s ? 'var(--accent)' : 'var(--border)'}`, background: sector === s ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)', color: sector === s ? 'var(--text)' : 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* ── Coordonnées ── */}
+          <Section label="Coordonnées">
+            <Field label="Adresse">
+              <input value={address} onChange={e => setAddress(e.target.value)}
+                onBlur={e => commit({ address: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: 123 rue Saint-Denis, Montréal" style={inputStyle} />
+            </Field>
+            <Field label="Ville">
+              <input value={city} onChange={e => setCity(e.target.value)}
+                onBlur={e => commit({ city: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: Montréal" style={inputStyle} />
+            </Field>
+            <Field label="Site web">
+              <input value={website} onChange={e => setWebsite(e.target.value)}
+                onBlur={e => commit({ website: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: https://acme.com" style={inputStyle} />
+            </Field>
+          </Section>
 
-          {/* Ville */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Ville</label>
-            <input
-              value={city}
-              onChange={e => setCity(e.target.value)}
-              placeholder="Ex: Paris…"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
-            />
-          </div>
+          {/* ── Contact principal ── */}
+          <Section label="Contact principal">
+            <Field label="Téléphone">
+              <input value={phone} onChange={e => setPhone(e.target.value)}
+                onBlur={e => commit({ phone: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: +1 514 555-0100" style={inputStyle} type="tel" />
+            </Field>
+            <Field label="Courriel">
+              <input value={email} onChange={e => setEmail(e.target.value)}
+                onBlur={e => commit({ email: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: contact@acme.com" style={inputStyle} type="email" />
+            </Field>
+            <Field label="Courriel comptabilité">
+              <input value={emailCompta} onChange={e => setEmailCompta(e.target.value)}
+                onBlur={e => commit({ emailCompta: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: compta@acme.com" style={inputStyle} type="email" />
+            </Field>
+          </Section>
 
-          {/* Couleur avatar */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Couleur avatar</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              {AVATAR_COLORS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  style={{ width: 28, height: 28, borderRadius: 8, background: c, border: color === c ? '3px solid white' : '3px solid transparent', outline: color === c ? `2px solid ${c}` : 'none', outlineOffset: 2, cursor: 'pointer', padding: 0, transform: color === c ? 'scale(1.15)' : 'none', transition: 'transform 0.1s', flexShrink: 0 }}
-                />
-              ))}
-            </div>
-          </div>
+          {/* ── Notes ── */}
+          <Section label="Notes internes">
+            <textarea value={notes} onChange={e => setNotes(e.target.value)}
+              onBlur={e => commit({ notes: e.target.value })}
+              placeholder="Contexte, préférences, informations importantes…"
+              rows={4}
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, colorScheme: 'dark' } as React.CSSProperties} />
+          </Section>
 
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={save}>Enregistrer</SFButton>
         </div>
       </div>
     </div>,

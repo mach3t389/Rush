@@ -450,14 +450,11 @@ export function TravailOverview() {
   });
   const [notes, setNotes] = useState('');
 
-  // Edit mode for project info
-  const [isEditing, setIsEditing] = useState(false);
   const [editDeliveryDate, setEditDeliveryDate] = useState(''); // YYYY-MM-DD
   const [editDescription, setEditDescription] = useState(project.description ?? '');
   const [editBudget, setEditBudget] = useState(project.budget ? String(project.budget) : '');
   const [editPhase, setEditPhase] = useState(project.phase ?? '');
   const [datepickerAnchor, setDatepickerAnchor] = useState<DOMRect | null>(null);
-  const saveEdits = () => { setIsEditing(false); setDatepickerAnchor(null); };
 
   const toggleCompleted = () => {
     const next = !completed;
@@ -891,25 +888,8 @@ export function TravailOverview() {
 
           {/* Infos du projet */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)' }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>Infos du projet</span>
-              <button
-                onClick={isEditing ? saveEdits : () => setIsEditing(true)}
-                title={isEditing ? 'Enregistrer' : 'Modifier'}
-                style={{
-                  background: isEditing ? 'rgba(249,255,0,0.12)' : 'none',
-                  border: isEditing ? '1px solid rgba(249,255,0,0.3)' : 'none',
-                  borderRadius: 6, padding: '4px 6px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  color: isEditing ? 'var(--accent)' : 'var(--text-3)',
-                  transition: 'color 0.15s',
-                }}
-                onMouseEnter={e => { if (!isEditing) e.currentTarget.style.color = 'var(--text)'; }}
-                onMouseLeave={e => { if (!isEditing) e.currentTarget.style.color = 'var(--text-3)'; }}
-              >
-                <SFIcon name={isEditing ? 'check' : 'pencil'} size={13} color={isEditing ? 'var(--accent)' : undefined} />
-                {isEditing && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Enregistrer</span>}
-              </button>
             </div>
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
@@ -927,29 +907,16 @@ export function TravailOverview() {
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Phase actuelle</p>
-                {isEditing ? (
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {PHASE_STEPS.map(step => (
-                      <button key={step.key} onClick={() => setEditPhase(step.key)} style={{
-                        padding: '4px 9px', borderRadius: 7, border: `1px solid ${editPhase === step.key ? 'var(--accent)' : 'var(--border)'}`,
-                        background: editPhase === step.key ? 'rgba(249,255,0,0.08)' : 'transparent',
-                        color: editPhase === step.key ? 'var(--accent)' : 'var(--text-3)',
-                        fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)',
-                      }}>{step.label}</button>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {PHASE_STEPS.map((step, i) => (
-                      <div key={step.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        <div style={{ width: '100%', height: 4, borderRadius: 99, background: i <= phaseIdx ? 'var(--accent)' : 'var(--surface-3)' }} />
-                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', color: i === phaseIdx ? 'var(--accent)' : 'var(--text-3)', fontWeight: i === phaseIdx ? 700 : 400 }}>
-                          {step.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {PHASE_STEPS.map(step => (
+                    <button key={step.key} onClick={() => setEditPhase(step.key)} style={{
+                      padding: '4px 9px', borderRadius: 7, border: `1px solid ${editPhase === step.key ? 'var(--accent)' : 'var(--border)'}`,
+                      background: editPhase === step.key ? 'rgba(249,255,0,0.08)' : 'transparent',
+                      color: editPhase === step.key ? 'var(--accent)' : 'var(--text-3)',
+                      fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)',
+                    }}>{step.label}</button>
+                  ))}
+                </div>
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -960,70 +927,47 @@ export function TravailOverview() {
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Date de livraison</p>
-                {isEditing ? (
-                  <>
-                    <button
-                      onClick={e => setDatepickerAnchor(a => a ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 7, width: '100%',
-                        padding: '6px 10px', borderRadius: 8,
-                        border: '1px solid var(--accent)', background: 'var(--surface-2)',
-                        color: editDeliveryDate ? 'var(--text)' : 'var(--text-3)',
-                        fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left',
-                      }}
-                    >
-                      <SFIcon name="calendar" size={13} color="var(--accent)" />
-                      {editDeliveryDate ? formatDisplay(editDeliveryDate) : 'Choisir une date…'}
-                    </button>
-                    {datepickerAnchor && (
-                      <DatePickerDropdown
-                        value={editDeliveryDate}
-                        onChange={v => { setEditDeliveryDate(v); setDatepickerAnchor(null); }}
-                        onClose={() => setDatepickerAnchor(null)}
-                        anchorRect={datepickerAnchor}
-                        zIndex={300}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>
-                      {editDeliveryDate ? formatDisplay(editDeliveryDate) : (project.deliveryDate || '—')}
-                    </span>
-                  </div>
+                <button
+                  onClick={e => setDatepickerAnchor(a => a ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7, width: '100%',
+                    padding: '6px 10px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface-2)',
+                    color: editDeliveryDate ? 'var(--text)' : 'var(--text-3)',
+                    fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                  {editDeliveryDate ? formatDisplay(editDeliveryDate) : (project.deliveryDate || 'Choisir une date…')}
+                </button>
+                {datepickerAnchor && (
+                  <DatePickerDropdown
+                    value={editDeliveryDate}
+                    onChange={v => { setEditDeliveryDate(v); setDatepickerAnchor(null); }}
+                    onClose={() => setDatepickerAnchor(null)}
+                    anchorRect={datepickerAnchor}
+                    zIndex={300}
+                  />
                 )}
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Budget</p>
-                {isEditing ? (
-                  <input
-                    value={editBudget}
-                    onChange={e => setEditBudget(e.target.value)}
-                    placeholder="ex. 9 000 $"
-                    style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-                  />
-                ) : (
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                    {editBudget ? `${editBudget}` : (project.budget ? `${project.budget.toLocaleString('fr-CA')} $` : '—')}
-                  </span>
-                )}
+                <input
+                  value={editBudget}
+                  onChange={e => setEditBudget(e.target.value)}
+                  placeholder="ex. 9 000 $"
+                  style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
+                />
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Description</p>
-                {isEditing ? (
-                  <textarea
-                    value={editDescription}
-                    onChange={e => setEditDescription(e.target.value)}
-                    placeholder="Courte description du projet…"
-                    rows={3}
-                    style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box', colorScheme: 'dark' }}
-                  />
-                ) : (
-                  <p style={{ fontSize: 12, color: editDescription ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.5 }}>
-                    {editDescription || project.description || 'Aucune description'}
-                  </p>
-                )}
+                <textarea
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  placeholder="Courte description du projet…"
+                  rows={3}
+                  style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box', colorScheme: 'dark' }}
+                />
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Tâches</p>

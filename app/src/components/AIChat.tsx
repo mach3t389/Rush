@@ -548,7 +548,7 @@ export function AIChat() {
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 1001,
+          position: 'fixed', bottom: 24, right: 24, zIndex: 90,
           width: 46, height: 46, borderRadius: '50%',
           background: open ? 'var(--surface-2)' : 'var(--accent)',
           border: open ? '1px solid var(--border-2)' : '2px solid color-mix(in srgb, var(--accent) 30%, transparent)',
@@ -567,7 +567,7 @@ export function AIChat() {
       {/* Panel */}
       {open && (
         <div style={{
-          position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 999,
+          position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 89,
           width: 380,
           background: 'var(--surface)',
           borderLeft: '1px solid var(--border)',

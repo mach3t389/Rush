@@ -47,7 +47,7 @@ export function ProjectHeaderBar({
   const tabs = [
     { label: "Vue d'ensemble", path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
     { label: 'Tâches',         path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
-    { label: 'Ressources',     path: `/projets/${projectId}/ressources`, end: false, badge: resourceNotifs },
+    { label: 'Fichiers',        path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
     { label: 'Calendrier',     path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
     { label: 'Équipe',         path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
   ];

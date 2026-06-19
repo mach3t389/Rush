@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
-import { findClient } from '../data/clientStore';
+import { findClient, updateClient, subscribeClients } from '../data/clientStore';
 import { STATUS_COLOR } from '../data/status';
 import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
@@ -1338,20 +1338,59 @@ function DocumentsTab({ clientId }: { clientId: string }) {
 
 // ── Client Edit Panel ─────────────────────────────────────────────────────────
 
-function ClientEditPanel({ client, onClose, onSave }: {
+const AVATAR_COLORS_FC = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
+const inputStyleFC: React.CSSProperties = { width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
+function SectionFC({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>{label}</p>
+      {children}
+    </div>
+  );
+}
+function FieldFC({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function ClientEditPanel({ client, onClose }: {
   client: Client;
   onClose: () => void;
-  onSave: (updates: { name: string; sector: string; city: string; status: Status; statusLabel: string }) => void;
 }) {
-  const [lName, setLName]     = useState(client.name);
-  const [lSector, setLSector] = useState(client.sector);
-  const [lCity, setLCity]     = useState(client.city);
-  const [lStatus, setLStatus] = useState<Status>(client.status);
+  const [lName,        setLName]        = useState(client.name);
+  const [lSector,      setLSector]      = useState(client.sector);
+  const [lCity,        setLCity]        = useState(client.city === '—' ? '' : client.city);
+  const [lStatus,      setLStatus]      = useState<Status>(client.status);
   const [lStatusLabel, setLStatusLabel] = useState(client.statusLabel);
+  const [lColor,       setLColor]       = useState(client.avatarColor ?? AVATAR_COLORS_FC[0]);
+  const [lAddress,     setLAddress]     = useState(client.address ?? '');
+  const [lPhone,       setLPhone]       = useState(client.phone ?? '');
+  const [lEmail,       setLEmail]       = useState(client.email ?? '');
+  const [lEmailCompta, setLEmailCompta] = useState(client.emailCompta ?? '');
+  const [lWebsite,     setLWebsite]     = useState(client.website ?? '');
+  const [lNotes,       setLNotes]       = useState(client.notes ?? '');
 
-  const save = () => {
-    onSave({ name: lName.trim() || client.name, sector: lSector.trim(), city: lCity.trim(), status: lStatus, statusLabel: lStatusLabel });
-    onClose();
+  const commit = (patch: Partial<Client>) => {
+    const finalName = ((patch.name ?? lName) as string).trim() || client.name;
+    const initials  = finalName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || client.initials;
+    updateClient(client.id, {
+      name: finalName, initials,
+      sector:      patch.sector      ?? lSector,
+      city:        ((patch.city ?? lCity) as string).trim() || '—',
+      status:      patch.status      ?? lStatus,
+      statusLabel: patch.statusLabel ?? lStatusLabel,
+      avatarColor: patch.avatarColor ?? lColor,
+      address:     patch.address     ?? lAddress,
+      phone:       patch.phone       ?? lPhone,
+      email:       patch.email       ?? lEmail,
+      emailCompta: patch.emailCompta ?? lEmailCompta,
+      website:     patch.website     ?? lWebsite,
+      notes:       patch.notes       ?? lNotes,
+    });
   };
 
 
@@ -1364,8 +1403,8 @@ function ClientEditPanel({ client, onClose, onSave }: {
         {/* Header */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-              {client.initials}
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: lColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0, transition: 'background 0.15s' }}>
+              {lName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || client.initials}
             </div>
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 700 }}>{lName || client.name}</h3>
@@ -1379,50 +1418,99 @@ function ClientEditPanel({ client, onClose, onSave }: {
 
         {/* Body */}
         <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {[
-            { label: 'Nom du client', value: lName, set: setLName },
-            { label: 'Secteur', value: lSector, set: setLSector },
-            { label: 'Ville', value: lCity, set: setLCity },
-          ].map(({ label, value, set }) => (
-            <div key={label}>
-              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{label}</label>
-              <input
-                value={value}
-                onChange={e => set(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') save(); }}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
-              />
-            </div>
-          ))}
 
-          {/* Statut */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Statut</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {PROJECT_STATUS_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => { setLStatus(opt.value as Status); setLStatusLabel(opt.label); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 9,
-                    border: `1px solid ${lStatus === opt.value ? (STATUS_COLOR[opt.value] ?? 'var(--border)') : 'var(--border)'}`,
-                    background: lStatus === opt.value ? 'var(--surface-3)' : 'var(--surface-2)',
-                    cursor: 'pointer', textAlign: 'left', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)',
-                  }}
-                >
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[opt.value] ?? 'var(--text-3)', flexShrink: 0 }} />
-                  {opt.label}
-                  {lStatus === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+          {/* ── Identité ── */}
+          <SectionFC label="Identité">
+            <FieldFC label="Nom du client">
+              <input autoFocus value={lName} onChange={e => setLName(e.target.value)}
+                onBlur={e => commit({ name: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                style={{ ...inputStyleFC, fontWeight: 600 }} />
+            </FieldFC>
+            <FieldFC label="Sous-titre">
+              <input value={lSector} onChange={e => setLSector(e.target.value)}
+                onBlur={e => commit({ sector: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: Agence créative, Startup IA…" style={inputStyleFC} />
+            </FieldFC>
+            <FieldFC label="Statut">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {PROJECT_STATUS_OPTIONS.map(opt => (
+                  <button key={opt.value}
+                    onClick={() => { setLStatus(opt.value as Status); setLStatusLabel(opt.label); commit({ status: opt.value as Status, statusLabel: opt.label }); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 8, border: `1px solid ${lStatus === opt.value ? (STATUS_COLOR[opt.value] ?? 'var(--border)') : 'var(--border)'}`, background: lStatus === opt.value ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)' }}
+                  >
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[opt.value] ?? 'var(--text-3)', flexShrink: 0 }} />
+                    {opt.label}
+                    {lStatus === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                  </button>
+                ))}
+              </div>
+            </FieldFC>
+            <FieldFC label="Couleur avatar">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {AVATAR_COLORS_FC.map(c => (
+                  <button key={c} onClick={() => { setLColor(c); commit({ avatarColor: c }); }}
+                    style={{ width: 26, height: 26, borderRadius: 7, background: c, border: lColor === c ? '3px solid white' : '3px solid transparent', outline: lColor === c ? `2px solid ${c}` : 'none', outlineOffset: 2, cursor: 'pointer', padding: 0, transform: lColor === c ? 'scale(1.15)' : 'none', transition: 'transform 0.1s', flexShrink: 0 }}
+                  />
+                ))}
+              </div>
+            </FieldFC>
+          </SectionFC>
 
-        {/* Footer */}
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={save}>Enregistrer</SFButton>
+          {/* ── Coordonnées ── */}
+          <SectionFC label="Coordonnées">
+            <FieldFC label="Adresse">
+              <input value={lAddress} onChange={e => setLAddress(e.target.value)}
+                onBlur={e => commit({ address: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: 123 rue Saint-Denis, Montréal" style={inputStyleFC} />
+            </FieldFC>
+            <FieldFC label="Ville">
+              <input value={lCity} onChange={e => setLCity(e.target.value)}
+                onBlur={e => commit({ city: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: Montréal" style={inputStyleFC} />
+            </FieldFC>
+            <FieldFC label="Site web">
+              <input value={lWebsite} onChange={e => setLWebsite(e.target.value)}
+                onBlur={e => commit({ website: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: https://acme.com" style={inputStyleFC} />
+            </FieldFC>
+          </SectionFC>
+
+          {/* ── Contact principal ── */}
+          <SectionFC label="Contact principal">
+            <FieldFC label="Téléphone">
+              <input value={lPhone} onChange={e => setLPhone(e.target.value)}
+                onBlur={e => commit({ phone: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: +1 514 555-0100" style={inputStyleFC} type="tel" />
+            </FieldFC>
+            <FieldFC label="Courriel">
+              <input value={lEmail} onChange={e => setLEmail(e.target.value)}
+                onBlur={e => commit({ email: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: contact@acme.com" style={inputStyleFC} type="email" />
+            </FieldFC>
+            <FieldFC label="Courriel comptabilité">
+              <input value={lEmailCompta} onChange={e => setLEmailCompta(e.target.value)}
+                onBlur={e => commit({ emailCompta: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="Ex: compta@acme.com" style={inputStyleFC} type="email" />
+            </FieldFC>
+          </SectionFC>
+
+          {/* ── Notes ── */}
+          <SectionFC label="Notes internes">
+            <textarea value={lNotes} onChange={e => setLNotes(e.target.value)}
+              onBlur={e => commit({ notes: e.target.value })}
+              placeholder="Contexte, préférences, informations importantes…"
+              rows={4}
+              style={{ ...inputStyleFC, resize: 'vertical', lineHeight: 1.6, colorScheme: 'dark' } as React.CSSProperties} />
+          </SectionFC>
+
         </div>
       </div>
     </div>,
@@ -1433,8 +1521,16 @@ function ClientEditPanel({ client, onClose, onSave }: {
 export function FicheClient() {
   const { clientId } = useParams();
   const navigate = useNavigate();
-  const client = findClient(clientId ?? '') ?? findClient('c1')!;
+  const [clientData, setClientData] = useState(() => findClient(clientId ?? '') ?? findClient('c1')!);
+  const client = clientData;
   const projects = PROJECTS.filter(p => p.clientId === client.id);
+
+  useEffect(() => {
+    return subscribeClients(() => {
+      const updated = findClient(clientId ?? '') ?? findClient('c1')!;
+      setClientData(updated);
+    });
+  }, [clientId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
   const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
@@ -1443,11 +1539,6 @@ export function FicheClient() {
   const [clientArchived, setClientArchived] = useState(false);
   const [clientMenuOpen, setClientMenuOpen] = useState(false);
   const [clientEditOpen, setClientEditOpen] = useState(() => searchParams.get('edit') === 'true');
-  const [localClientName, setLocalClientName] = useState(client.name);
-  const [localClientSector, setLocalClientSector] = useState(client.sector);
-  const [localClientCity, setLocalClientCity] = useState(client.city);
-  const [localClientStatus, setLocalClientStatus] = useState<Status>(client.status);
-  const [localClientStatusLabel, setLocalClientStatusLabel] = useState(client.statusLabel);
   const clientMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1560,15 +1651,8 @@ export function FicheClient() {
 
       {clientEditOpen && (
         <ClientEditPanel
-          client={{ ...client, name: localClientName, sector: localClientSector, city: localClientCity, status: localClientStatus, statusLabel: localClientStatusLabel }}
+          client={client}
           onClose={() => setClientEditOpen(false)}
-          onSave={u => {
-            setLocalClientName(u.name);
-            setLocalClientSector(u.sector);
-            setLocalClientCity(u.city);
-            setLocalClientStatus(u.status);
-            setLocalClientStatusLabel(u.statusLabel);
-          }}
         />
       )}
     </div>

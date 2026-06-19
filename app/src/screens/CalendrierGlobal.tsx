@@ -444,7 +444,7 @@ function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }
       {/* Day headers */}
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',borderBottom:'1px solid var(--border)',flexShrink:0 }}>
         {DAYS_FR.map(d=>(
-          <div key={d} style={{ padding:'8px 0',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
+          <div key={d} style={{ padding:'10px 0 8px',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
         ))}
       </div>
 
