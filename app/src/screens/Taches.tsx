@@ -191,6 +191,20 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
   const priorityBtnRef = useRef<HTMLButtonElement>(null);
   const statusBtnRef = useRef<HTMLButtonElement>(null);
   const dueDateBtnRef = useRef<HTMLButtonElement>(null);
+  const completeTimer = useRef<number | null>(null);
+
+  // Cocher une tâche dans Mes tâches → animation de coche, puis retrait de la
+  // liste (persisté checked:true). La tâche reste dans son projet (store séparé).
+  const toggleChecked = () => {
+    const next = !checked;
+    setChecked(next);
+    if (completeTimer.current) { clearTimeout(completeTimer.current); completeTimer.current = null; }
+    if (next) {
+      completeTimer.current = window.setTimeout(() => { updateMyTask(task.id, { checked: true }); }, 1100);
+    } else {
+      updateMyTask(task.id, { checked: false });
+    }
+  };
 
   const ddItem = (onClick: () => void, children: React.ReactNode, active?: boolean) => (
     <button
@@ -218,18 +232,17 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
         gap: 12,
         padding: '8px 16px',
         borderBottom: '1px solid var(--border)',
-        opacity: checked ? 0.45 : 1,
+        opacity: checked ? 0.4 : 1,
         background: isFlashing ? 'rgba(249,255,0,0.15)' : selected ? 'rgba(249,255,0,0.04)' : 'transparent',
         borderLeft: isFlashing ? '2px solid var(--accent)' : selected ? '2px solid var(--accent)' : '2px solid transparent',
-        transition: 'background 0.5s, border-color 0.5s',
-        transition: 'background 0.1s',
+        transition: 'opacity 0.4s, background 0.1s, border-color 0.5s',
       }}
       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
       {/* Checkbox */}
       <button
-        onClick={() => setChecked(!checked)}
+        onClick={toggleChecked}
         style={{
           width: 16, height: 16, borderRadius: '50%',
           border: checked ? 'none' : '1.5px solid var(--border-2)',
@@ -919,8 +932,11 @@ export function Taches() {
   let visible = filterTasks(tasks, filter);
   if (filterPriorities.size > 0) visible = visible.filter(t => filterPriorities.has(t.priority));
   if (filterStatuses.size > 0)   visible = visible.filter(t => filterStatuses.has(t.status as string));
+  // Les tâches terminées disparaissent de Mes tâches (elles restent dans leur projet).
+  visible = visible.filter(t => !t.checked);
 
-  const lateCount = tasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
+  const activeTasks = tasks.filter(t => !t.checked);
+  const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
   const hasActiveFilters = filterPriorities.size > 0 || filterStatuses.size > 0;
 
   // Grouped view (priority) vs flat sorted view
@@ -961,7 +977,7 @@ export function Taches() {
           <div>
             <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>Mes tâches</h1>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
-              {visible.length}/{tasks.length} tâches
+              {visible.length}/{activeTasks.length} tâches
               {lateCount > 0 && <> · <span style={{ color: 'var(--danger)' }}>{lateCount} en retard</span></>}
             </p>
           </div>

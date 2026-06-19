@@ -311,50 +311,55 @@ export function DocumentReview() {
         <SFButton variant="primary" icon="plus" onClick={() => fileInputRef.current?.click()}>Nouvelle version</SFButton>
       </div>
 
-      {/* Title + description row */}
-      <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-        <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <SFIcon name="file-text" size={15} color="var(--accent)" />
+      {/* Merged row: title/description + versions + view toggle (Option A — 2 bars total) */}
+      <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:16, flexShrink:0 }}>
+        {/* Title block */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, minWidth:0, maxWidth:340 }}>
+          <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <SFIcon name="file-text" size={15} color="var(--accent)" />
+          </div>
+          <div style={{ minWidth:0 }}>
+            {editingTitle ? (
+              <input
+                autoFocus
+                value={titleVal}
+                onChange={e => setTitleVal(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(localTitle); setEditingTitle(false); } }}
+                style={{ fontSize:15, fontWeight:700, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:6, padding:'2px 8px', outline:'none', color:'var(--text)', fontFamily:'var(--ff-display)', width:'100%', maxWidth:300 }}
+              />
+            ) : (
+              <h2 onClick={() => setEditingTitle(true)} title="Cliquer pour renommer" style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {localTitle || resource.title}
+                <SFIcon name="pencil" size={11} color="var(--text-3)" />
+              </h2>
+            )}
+            {editingDesc ? (
+              <textarea
+                autoFocus
+                value={descVal}
+                onChange={e => setDescVal(e.target.value)}
+                onBlur={commitDesc}
+                onKeyDown={e => { if (e.key === 'Escape') { setDescVal(localDesc); setEditingDesc(false); } }}
+                style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:300, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
+                rows={1}
+              />
+            ) : (
+              <p onClick={() => setEditingDesc(true)} title="Cliquer pour modifier la description" style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:1, fontStyle: localDesc ? 'normal' : 'italic', maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {localDesc || 'Ajouter une description...'}
+              </p>
+            )}
+          </div>
         </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          {editingTitle ? (
-            <input
-              autoFocus
-              value={titleVal}
-              onChange={e => setTitleVal(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(localTitle); setEditingTitle(false); } }}
-              style={{ fontSize:15, fontWeight:700, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:6, padding:'2px 8px', outline:'none', color:'var(--text)', fontFamily:'var(--ff-display)', width:'100%', maxWidth:400 }}
-            />
-          ) : (
-            <h2 onClick={() => setEditingTitle(true)} title="Cliquer pour renommer" style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6 }}>
-              {localTitle || resource.title}
-              <SFIcon name="pencil" size={11} color="var(--text-3)" />
-            </h2>
-          )}
-          {editingDesc ? (
-            <textarea
-              autoFocus
-              value={descVal}
-              onChange={e => setDescVal(e.target.value)}
-              onBlur={commitDesc}
-              onKeyDown={e => { if (e.key === 'Escape') { setDescVal(localDesc); setEditingDesc(false); } }}
-              style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:400, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
-              rows={2}
-            />
-          ) : (
-            <p onClick={() => setEditingDesc(true)} title="Cliquer pour modifier la description" style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:2, fontStyle: localDesc ? 'normal' : 'italic' }}>
-              {localDesc || 'Ajouter une description...'}
-            </p>
-          )}
-        </div>
-      </div>
 
-      {/* Version bar */}
-      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', flexShrink: 0 }}>
-        <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0, marginRight: 4 }}>Versions</span>
+        {/* Divider */}
+        <div style={{ width:1, alignSelf:'stretch', background:'var(--border)', flexShrink:0 }} />
 
-        {rounds.map(r => {
+        {/* Versions (scrollable) */}
+        <div style={{ display:'flex', gap:6, alignItems:'center', overflowX:'auto', flex:1, minWidth:0 }}>
+          <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0, marginRight: 4 }}>Versions</span>
+
+          {rounds.map(r => {
           const active = r.v === activeRound;
           return (
             <div key={r.v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
@@ -393,9 +398,10 @@ export function DocumentReview() {
             <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{fmtSize(round.file.size)}</span>
           </div>
         )}
+        </div>
 
         {/* View toggle */}
-        <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2 }}>
+        <div style={{ flexShrink: 0, display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2 }}>
           {([['page', 'file-text', 'Page par page'], ['scroll', 'align-justify', 'Défilement']] as const).map(([mode, icon, label]) => (
             <button key={mode} onClick={() => setViewMode(mode)} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',

@@ -319,6 +319,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
       assignee: task.assignee ?? null, dueDate: '', comments: [] as CommentObj[],
     })) ?? []
   );
+  const [hideCompletedSubs, setHideCompletedSubs] = useState(false);
 
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
   const [editStatus, setEditStatus] = useState(task.status as string);
@@ -924,13 +925,23 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               {panelSectionLabel(`Sous-tâches${localSubtasks.length ? ` (${localSubtasks.filter(s => s.checked).length}/${localSubtasks.length})` : ''}`)}
+              {localSubtasks.some(s => s.checked) && (
+                <button
+                  onClick={() => setHideCompletedSubs(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, border: '1px solid var(--border)', background: hideCompletedSubs ? 'rgba(249,255,0,0.07)' : 'transparent', color: hideCompletedSubs ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}
+                  title={hideCompletedSubs ? 'Afficher les sous-tâches terminées' : 'Masquer les sous-tâches terminées'}
+                >
+                  <SFIcon name={hideCompletedSubs ? 'eye-off' : 'eye'} size={12} color="inherit" />
+                  {hideCompletedSubs ? 'Terminées masquées' : 'Masquer terminées'}
+                </button>
+              )}
             </div>
             {localSubtasks.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: SUB_GRID, gap: 16, padding: '4px 8px 6px', marginBottom: 4, borderBottom: '1px solid var(--border)' }}>
                 <span />{subColLabel('Titre')}{subColLabel('Prio')}{subColLabel('Assigné')}{subColLabel('Échéance')}<span />
               </div>
             )}
-            {localSubtasks.map(sub => (
+            {localSubtasks.filter(sub => !hideCompletedSubs || !sub.checked).map(sub => (
               <SubTaskRow key={sub.id} sub={sub}
                 onToggle={() => updateSub(sub.id, { checked: !sub.checked })}
                 onUpdate={patch => updateSub(sub.id, patch)}

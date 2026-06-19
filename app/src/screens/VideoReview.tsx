@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -1076,25 +1076,14 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
 export function VideoReview() {
   const { projectId, resourceId } = useParams();
-  const navigate = useNavigate();
   const [, setTick] = useState(0);
+  const [shared, setShared] = useState(false);
+  const [approvalRequested, setApprovalRequested] = useState(false);
   useEffect(() => subscribeResources(() => setTick(t => t + 1)), []);
+  useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
 
   const resources = getResources();
   const resource = resources.find(r => r.id === resourceId);
-
-  useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
-
-  if (!resource) return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)' }}>
-      <SFIcon name="film" size={36} color="var(--text-3)" />
-      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>Ressource introuvable</p>
-      <p style={{ fontSize: 12 }}>L'identifiant <code style={{ background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--ff-mono)' }}>{resourceId}</code> ne correspond à aucune révision.</p>
-    </div>
-  );
-
-  const [shared, setShared] = useState(false);
-  const [approvalRequested, setApprovalRequested] = useState(false);
 
   const handleShare = () => {
     const url = window.location.href;
@@ -1108,6 +1097,16 @@ export function VideoReview() {
     setTimeout(() => setApprovalRequested(false), 2500);
   };
 
+  // Tous les hooks ci-dessus sont appelés inconditionnellement (règles des hooks) ;
+  // l'early-return doit venir après.
+  if (!resource) return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)' }}>
+      <SFIcon name="film" size={36} color="var(--text-3)" />
+      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>Ressource introuvable</p>
+      <p style={{ fontSize: 12 }}>L'identifiant <code style={{ background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--ff-mono)' }}>{resourceId}</code> ne correspond à aucune révision.</p>
+    </div>
+  );
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
@@ -1120,7 +1119,7 @@ export function VideoReview() {
         </SFButton>
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <VideoReviewBody resource={resource} projectId={projectId} />
+        <VideoReviewBody key={resource.id} resource={resource} projectId={projectId} persistKey={resource.id} />
       </div>
     </div>
   );
