@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, TODAY_DP } from '../components/ui';
+import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue, TODAY_DP } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
@@ -435,9 +435,9 @@ function TaskRow({
       <div style={{ position: 'relative' }}>
         <button
           onClick={e => openDrop('dueDate', e)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: task.dueDateRed ? 'var(--danger)' : (dueDate && dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)', whiteSpace: 'nowrap' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: isOverdue(dueDate) ? 'var(--danger)' : (dueDate && dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)', whiteSpace: 'nowrap' }}
         >
-          <SFIcon name="calendar" size={10} color={task.dueDateRed ? 'var(--danger)' : 'var(--text-3)'} />
+          <SFIcon name="calendar" size={10} color={isOverdue(dueDate) ? 'var(--danger)' : 'var(--text-3)'} />
           {(dueDate && dueDate !== '—') ? fmtTaskDate(dueDate, startTime, endTime, endDate) : '—'}
         </button>
         {open === 'dueDate' && (
@@ -1333,7 +1333,7 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
                       <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '1px 5px', borderRadius: 4, background: `${STATUS_DOT[t.status ?? 'neutral']}22`, color: STATUS_DOT[t.status ?? 'neutral'], border: `1px solid ${STATUS_DOT[t.status ?? 'neutral']}44`, whiteSpace: 'nowrap' }}>{t.statusLabel}</span>
                     )}
                     {keepDueDates && t.dueDate && (
-                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: t.dueDateRed ? 'var(--danger)' : 'var(--text-3)' }}>{t.dueDate}</span>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: isOverdue(t.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)' }}>{t.dueDate}</span>
                     )}
                     {keepSubtasks && t.subtasks?.length ? (
                       <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 2 }}>

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, toYMD, parseYMD, fmtTaskDate, formatDisplay } from '../components/ui';
+import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, subscribeMyTasks } from '../data/myTaskStore';
@@ -34,7 +34,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 function filterTasks(tasks: Task[], filter: Filter): Task[] {
   switch (filter) {
     case 'today': return tasks.filter(t => t.dueDate === "Aujourd'hui");
-    case 'late':  return tasks.filter(t => t.dueDateRed || t.status === 'danger');
+    case 'late':  return tasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger');
     case 'week':  return tasks.filter(t => !t.checked && t.dueDate !== 'Hier');
     default:      return tasks;
   }
@@ -512,11 +512,11 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
             background: 'none', border: 'none', cursor: 'pointer', padding: 0,
             display: 'flex', alignItems: 'center', gap: 4,
             fontFamily: 'var(--ff-mono)', fontSize: 11,
-            color: task.dueDateRed ? 'var(--danger)' : (dueDate && dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)',
+            color: isOverdue(dueDate) ? 'var(--danger)' : (dueDate && dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)',
             whiteSpace: 'nowrap',
           }}
         >
-          <SFIcon name="calendar" size={10} color={task.dueDateRed ? 'var(--danger)' : 'var(--text-3)'} />
+          <SFIcon name="calendar" size={10} color={isOverdue(dueDate) ? 'var(--danger)' : 'var(--text-3)'} />
           {(dueDate && dueDate !== '—') ? fmtTaskDate(dueDate, startTime, endTime, endDate) : '—'}
         </button>
         {open === 'dueDate' && (
@@ -920,7 +920,7 @@ export function Taches() {
   if (filterPriorities.size > 0) visible = visible.filter(t => filterPriorities.has(t.priority));
   if (filterStatuses.size > 0)   visible = visible.filter(t => filterStatuses.has(t.status as string));
 
-  const lateCount = tasks.filter(t => t.dueDateRed || t.status === 'danger').length;
+  const lateCount = tasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
   const hasActiveFilters = filterPriorities.size > 0 || filterStatuses.size > 0;
 
   // Grouped view (priority) vs flat sorted view

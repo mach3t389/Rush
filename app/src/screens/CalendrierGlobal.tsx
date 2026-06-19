@@ -8,13 +8,14 @@ import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── Constants & helpers ───────────────────────────────────────────────────────
 
-const TODAY        = new Date(2026, 5, 10);
+const TODAY        = new Date();
 const DAYS_FR      = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const MONTHS_SHORT = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const HOUR_H       = 64;
-const START_HOUR   = 7;
-const END_HOUR     = 22;
+const START_HOUR   = 0;
+const END_HOUR     = 24;
+const SCROLL_TO_HOUR = 8; // heure affichée en haut au chargement de la vue jour/semaine
 const HOURS        = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
 type CalView = 'month' | 'week' | 'day';
@@ -501,6 +502,13 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
   const isDay=days.length===1;
   const scrollRef=useRef<HTMLDivElement>(null);
 
+  // Scroll to working hours on mount / when days change
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_H;
+    }
+  }, [days[0]?.toDateString()]);
+
   // Drag-select state
   const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
@@ -515,51 +523,8 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
 
   return (
     <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
-      {/* Day column headers */}
-      <div style={{ flexShrink:0,borderBottom:'1px solid var(--border)' }}>
-        <div style={{ display:'flex' }}>
-          <div style={{ width:52,flexShrink:0 }} />
-          {days.map((d,i)=>{
-            const isToday=isSameDay(d,TODAY);
-            return (
-              <div key={i} style={{ flex:1,borderLeft:i>0?'1px solid var(--border)':undefined,padding:'8px 6px 6px',minWidth:0 }}>
-                <div style={{ display:'flex',alignItems:'center',gap:6 }}>
-                  <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase' }}>{DAYS_FR[i===0&&!isDay?0:new Date(d).getDay()===0?6:new Date(d).getDay()-1]}</span>
-                  <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
-                    <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {/* All-day events row — always visible so clicking opens new all-day event */}
-        <div style={{ display:'flex', borderTop:'1px solid var(--border)' }}>
-          <div style={{ width:52,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8 }}>
-            <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>Journée</span>
-          </div>
-          {days.map((d,i)=>{
-            const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
-            return (
-              <div key={i}
-                onClick={()=>onAllDayClick?.(d)}
-                style={{ flex:1,borderLeft:i>0?'1px solid var(--border)':undefined,padding:'3px 4px',minWidth:0,display:'flex',flexDirection:'column',gap:2,minHeight:24,cursor:'pointer' }}
-              >
-                {dayAllDay.map(ev=>(
-                  <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
-                    style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:'pointer',overflow:'hidden' }}
-                  >
-                    <span style={{ fontSize:11,fontWeight:600,color:'white',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',display:'block' }}>{ev.title}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Scrollable time grid */}
-      <div ref={scrollRef} style={{ flex:1,overflow:'auto' }}
+      {/* Scrollable area — header is sticky inside so widths always match */}
+      <div ref={scrollRef} style={{ flex:1,overflowY:'scroll',overflowX:'hidden' }}
         onMouseMove={e=>{
           if(!dragRef.current) return;
           const scrollTop=scrollRef.current?.scrollTop??0;
@@ -592,6 +557,51 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
         }}
         onMouseLeave={()=>{ dragRef.current=null; setDragSel(null); }}
       >
+        {/* ── Sticky header (inside scroll so width = content width, scrollbar included) ── */}
+        <div style={{ position:'sticky',top:0,zIndex:10,background:'var(--bg)',borderBottom:'1px solid var(--border)' }}>
+          {/* Day names + date numbers */}
+          <div style={{ display:'flex' }}>
+            <div style={{ width:52,flexShrink:0 }} />
+            {days.map((d,i)=>{
+              const isToday=isSameDay(d,TODAY);
+              const dayIdx=new Date(d).getDay()===0?6:new Date(d).getDay()-1;
+              return (
+                <div key={i} style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 0 6px',minWidth:0 }}>
+                  <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:3 }}>
+                    {isDay ? DAYS_FR[dayIdx] : DAYS_FR[i]}
+                  </span>
+                  <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
+                    <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* All-day events row */}
+          <div style={{ display:'flex',borderTop:'1px solid var(--border)' }}>
+            <div style={{ width:52,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8 }}>
+              <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>Journée</span>
+            </div>
+            {days.map((d,i)=>{
+              const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
+              return (
+                <div key={i} onClick={()=>onAllDayClick?.(d)}
+                  style={{ flex:1,padding:'3px 4px',minWidth:0,display:'flex',flexDirection:'column',gap:2,minHeight:24,cursor:'pointer' }}
+                >
+                  {dayAllDay.map(ev=>(
+                    <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
+                      style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:'pointer',overflow:'hidden' }}
+                    >
+                      <span style={{ fontSize:11,fontWeight:600,color:'white',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',display:'block' }}>{ev.title}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Time grid ── */}
         <div style={{ display:'flex',minHeight:`${HOURS.length*HOUR_H}px`,position:'relative' }}>
           {/* Time labels */}
           <div style={{ width:52,flexShrink:0 }}>

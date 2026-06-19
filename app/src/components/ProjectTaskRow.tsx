@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, parseYMD, formatDisplay } from './ui';
+import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import type { Task, Priority, SectionData } from '../types';
@@ -359,7 +359,7 @@ export function ProjectTaskRow({
       <div style={{ position: 'relative' }}>
         <button
           onClick={e => openDrop('dueDate', e)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-3)', whiteSpace: 'nowrap' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: isOverdue(dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', whiteSpace: 'nowrap' }}
         >
           {dueDate || <span style={{ color: 'var(--border-2)' }}>—</span>}
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />

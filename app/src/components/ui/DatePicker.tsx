@@ -5,8 +5,9 @@ import { SFIcon } from './SFIcon';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 export const FR_MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const FR_MONTHS_SHORT = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const FR_DAYS = ['L','M','M','J','V','S','D'];
-export const TODAY_DP = new Date(2026, 5, 10);
+export const TODAY_DP = new Date();
 
 export function toYMD(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -31,13 +32,35 @@ function parseFreeText(s: string): Date | null {
 export function formatDisplay(ymd: string) {
   const d = parseYMD(ymd);
   if (!d) return ymd;
-  return `${d.getDate()} ${FR_MONTHS[d.getMonth()].slice(0,3).toLowerCase()}. ${d.getFullYear()}`;
+  return `${d.getDate()} ${FR_MONTHS_SHORT[d.getMonth()]}. ${d.getFullYear()}`;
+}
+
+export function isOverdue(dueDate: string): boolean {
+  const d = parseYMD(dueDate);
+  if (!d) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
+export function dueDateColor(dueDate: string): string {
+  return isOverdue(dueDate) ? 'var(--danger)' : 'var(--text-3)';
 }
 
 export function fmtTaskDate(dueDate: string, startTime?: string, endTime?: string, endDate?: string): string {
   const d = parseYMD(dueDate);
-  const short = (x: Date) => `${x.getDate()} ${FR_MONTHS[x.getMonth()].slice(0,3).toLowerCase()}`;
-  const dateStr = d ? short(d) : dueDate;
+  const short = (x: Date) => `${x.getDate()} ${FR_MONTHS_SHORT[x.getMonth()]}`;
+  const todayYMD = toYMD(new Date());
+  const relLabel = (x: Date): string => {
+    const ymd = toYMD(x);
+    if (ymd === todayYMD) return "Aujourd'hui";
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    if (ymd === toYMD(yesterday)) return 'Hier';
+    if (ymd === toYMD(tomorrow))  return 'Demain';
+    return short(x);
+  };
+  const dateStr = d ? relLabel(d) : dueDate;
   if (!dateStr || dateStr === '—') return '—';
   // Plage multi-jours : « 12 → 14 juin » ou « 28 juin → 3 juil »
   const end = endDate ? parseYMD(endDate) : null;

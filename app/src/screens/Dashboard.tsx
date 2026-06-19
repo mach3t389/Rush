@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
 import { TODAY_TASKS, ACTIVITY, PROJECTS } from '../data/mock';
 import type { Project } from '../types';
 
@@ -8,7 +8,7 @@ import type { Project } from '../types';
 
 const DAYS_FR  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sep', 'oct', 'nov', 'déc'];
-const TODAY = new Date(2026, 5, 10); // 10 juin 2026
+const TODAY = new Date();
 
 function addDays(d: Date, n: number) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r;
@@ -89,9 +89,9 @@ function TaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () 
           }}>{task.projectName}</span>
           <SFPill status={task.status} small>{task.statusLabel}</SFPill>
           {task.dueDate && task.dueDate !== '—' && (
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
               <SFIcon name="calendar" size={9} color="inherit" />
-              {task.dueDate}
+              {fmtTaskDate(task.dueDate ?? '')}
             </span>
           )}
         </div>

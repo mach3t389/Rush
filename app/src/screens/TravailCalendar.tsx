@@ -5,7 +5,7 @@ import type { Task, SectionData } from '../types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const TODAY = new Date(2026, 5, 10); // June 10 2026
+const TODAY = new Date();
 
 const DAYS_FR   = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];

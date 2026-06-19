@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SFIcon, SFPill, SFAvatar } from '../components/ui';
+import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate } from '../components/ui';
 import { USERS } from '../data/mock';
 import type { Task, Priority, SectionData } from '../types';
 
@@ -160,9 +160,9 @@ export function TravailBoard({ sections, selectedTask, onSelectTask, onAddTask, 
                         )}
                         {task.dueDate && task.dueDate !== '—' && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <SFIcon name="calendar" size={10} color={task.dueDateRed ? 'var(--danger)' : 'var(--text-3)'} />
-                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-3)', whiteSpace: 'nowrap' }}>
-                              {task.dueDate}
+                            <SFIcon name="calendar" size={10} color={isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)'} />
+                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', whiteSpace: 'nowrap' }}>
+                              {fmtTaskDate(task.dueDate ?? '')}
                             </span>
                           </div>
                         )}

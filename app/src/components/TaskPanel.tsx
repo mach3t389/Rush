@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate } from './ui';
-import { USERS } from '../data/mock';
+import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate, isOverdue } from './ui';
+import { USERS, PROJECTS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -650,7 +650,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           {/* Échéance (ligne séparée sous la grille) */}
           <div style={{ marginTop: 8 }}>
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Échéance actuelle</span>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: task.dueDateRed ? 'var(--danger)' : 'var(--text-2)', marginLeft: 8 }}>{dateDebut ? fmtTaskDate(dateDebut, heureDebut, heureFin, dateFin) : '—'}</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: dateDebut && isOverdue(dateDebut) ? 'var(--danger)' : 'var(--text-2)', marginLeft: 8 }}>{dateDebut ? fmtTaskDate(dateDebut, heureDebut, heureFin, dateFin) : '—'}</span>
           </div>
 
           {/* Dates — Début / Fin côte à côte */}

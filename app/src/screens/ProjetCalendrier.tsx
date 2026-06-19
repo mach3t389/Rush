@@ -9,13 +9,14 @@ import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TODAY        = new Date(2026, 5, 10);
+const TODAY        = new Date();
 const DAYS_FR      = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const MONTHS_SHORT = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const HOUR_H       = 64;
-const START_HOUR   = 7;
-const END_HOUR     = 22;
+const START_HOUR   = 0;
+const END_HOUR     = 24;
+const SCROLL_TO_HOUR = 8;
 const HOURS        = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
 type CalView = 'month' | 'week' | 'day';
@@ -217,6 +218,12 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
   const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
 
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_H;
+    }
+  }, [days[0]?.toDateString()]);
+
   const yToTimeParts = (y: number): { h: number; m: number } => {
     const totalMins = Math.round(((y / HOUR_H) * 60 + START_HOUR * 60) / 15) * 15;
     const clamped = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, totalMins));
@@ -266,7 +273,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
           })}
         </div>
       </div>
-      <div ref={scrollRef} style={{ flex:1,overflow:'auto' }}
+      <div ref={scrollRef} style={{ flex:1,overflowY:'scroll',overflowX:'hidden',scrollbarGutter:'stable' }}
         onMouseMove={e=>{
           if(!dragRef.current) return;
           const scrollTop=scrollRef.current?.scrollTop??0;
