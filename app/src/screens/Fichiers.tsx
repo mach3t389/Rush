@@ -24,18 +24,31 @@ type SpecialView = null | 'archives' | 'trash';
 // ── Resource types available for creation ──────────────────────────────────────
 
 const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; color: string }[] = [
-  { type: 'screenplay',   label: 'Scénario',        icon: 'file-text',   color: '#e85b5b' },
-  { type: 'moodboard',    label: 'Moodboard',       icon: 'image',       color: '#5b8af5' },
-  { type: 'video_review', label: 'Revue de médias', icon: 'monitor',     color: '#a05be8' },
-  { type: 'document',     label: 'Document',        icon: 'file',        color: '#5bc4e8' },
-  { type: 'checklist',    label: 'Checklist',       icon: 'list-checks', color: '#34c98a' },
-  { type: 'web_review',   label: 'Web Review',      icon: 'globe',       color: '#f5975b' },
-  { type: 'form',         label: 'Formulaire',      icon: 'clipboard',   color: '#f5d05b' },
-  { type: 'inspirations', label: 'Inspirations',    icon: 'sparkles',    color: '#c45be8' },
+  { type: 'screenplay',   label: 'Scénario',     icon: 'file-text',   color: '#e85b5b' },
+  { type: 'moodboard',    label: 'Moodboard',    icon: 'image',       color: '#5b8af5' },
+  { type: 'video_review', label: 'Révision',     icon: 'film',        color: '#a05be8' },
+  { type: 'document',     label: 'Document',     icon: 'file',        color: '#5bc4e8' },
+  { type: 'checklist',    label: 'Checklist',    icon: 'list-checks', color: '#34c98a' },
+  { type: 'form',         label: 'Formulaire',   icon: 'clipboard',   color: '#f5d05b' },
+  { type: 'inspirations', label: 'Inspirations', icon: 'sparkles',    color: '#c45be8' },
+];
+
+interface RevisionSelection {
+  resourceType: ResourceType;
+  mediaSubtype?: 'video' | 'photo' | 'file';
+  subtypeLabel: string;
+  eyebrow: string;
+}
+
+const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file'; label: string; icon: string; color: string; desc: string }[] = [
+  { resourceType: 'video_review', mediaSubtype: 'video', label: 'Vidéo',    icon: 'video',     color: '#a05be8', desc: 'Commentaires horodatés sur une vidéo' },
+  { resourceType: 'video_review', mediaSubtype: 'photo', label: 'Photo',    icon: 'image',     color: '#5b8af5', desc: 'Annotations sur une image ou un visuel' },
+  { resourceType: 'video_review', mediaSubtype: 'file',  label: 'Document', icon: 'file-text', color: '#5bc4e8', desc: 'Révision d\'un document ou d\'un fichier' },
+  { resourceType: 'web_review',                          label: 'Site web', icon: 'globe',     color: '#f5975b', desc: 'Annotations sur un site web ou une page en ligne' },
 ];
 
 const RESOURCE_EYEBROW: Partial<Record<ResourceType, string>> = {
-  screenplay: 'SCÉNARIO', moodboard: 'MOODBOARD', video_review: 'VIDEO REVIEW',
+  screenplay: 'SCÉNARIO', moodboard: 'MOODBOARD', video_review: 'RÉVISION',
   document: 'DOCUMENT', checklist: 'CHECKLIST', web_review: 'WEB REVIEW',
   form: 'FORMULAIRE', inspirations: 'INSPIRATIONS',
 };
@@ -149,11 +162,13 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string) => void; o
   );
 }
 
-function NewResourceModal({ def, onSave, onClose }: { def: typeof RESOURCE_TYPES[number]; onSave: (name: string) => void; onClose: () => void }) {
+function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof RESOURCE_TYPES[number]; isWebReview?: boolean; onSave: (name: string, webUrl?: string) => void; onClose: () => void }) {
+  const [step, setStep] = useState<'url' | 'name'>(isWebReview ? 'url' : 'name');
+  const [webUrl, setWebUrl] = useState('');
   const [name, setName] = useState('');
   const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-  const handle = () => { if (!name.trim()) return; onSave(name.trim()); onClose(); };
+  useEffect(() => { ref.current?.focus(); }, [step]);
+  const handle = () => { if (!name.trim()) return; onSave(name.trim(), isWebReview ? webUrl.trim() : undefined); onClose(); };
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -163,18 +178,88 @@ function NewResourceModal({ def, onSave, onClose }: { def: typeof RESOURCE_TYPES
             <SFIcon name={def.icon} size={20} color={def.color} />
           </div>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Nouveau {def.label}</h3>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Créé dans ce projet et accessible depuis les fichiers</p>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Nouvelle révision — Site web</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{step === 'url' ? 'Entrez l\'URL du site à réviser' : 'Donnez un nom à cette ressource'}</p>
           </div>
         </div>
-        <input ref={ref} value={name} onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handle(); if (e.key === 'Escape') onClose(); }}
-          placeholder={`Nom du ${def.label.toLowerCase()}…`}
-          style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1.5px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
-        />
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+        {step === 'url' && (
+          <>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <SFIcon name="globe" size={14} color="var(--text-3)" />
+              </span>
+              <input ref={ref} value={webUrl} onChange={e => setWebUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && webUrl.trim()) setStep('name'); if (e.key === 'Escape') onClose(); }}
+                placeholder="https://monsite.com"
+                style={{ width: '100%', padding: '10px 14px 10px 36px', borderRadius: 9, border: '1.5px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-mono)', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+              <SFButton variant="primary" onClick={() => { if (webUrl.trim()) setStep('name'); }} disabled={!webUrl.trim()}>Continuer</SFButton>
+            </div>
+          </>
+        )}
+        {step === 'name' && (
+          <>
+            <input ref={ref} value={name} onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handle(); if (e.key === 'Escape') onClose(); }}
+              placeholder="Nom de la ressource…"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1.5px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <SFButton variant="ghost" onClick={isWebReview ? () => setStep('url') : onClose}>{isWebReview ? 'Retour' : 'Annuler'}</SFButton>
+              <SFButton variant="primary" onClick={handle} disabled={!name.trim()}>Créer</SFButton>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Revision subtype picker ────────────────────────────────────────────────────
+
+function RevisionPickerModal({ onSelect, onClose }: {
+  onSelect: (sel: RevisionSelection) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 420, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#a05be822', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <SFIcon name="film" size={18} color="#a05be8" />
+          </div>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Nouvelle révision</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>Quel type de contenu souhaitez-vous réviser ?</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 20 }}>
+          {REVISION_SUBTYPES.map(s => (
+            <button key={s.label} onClick={() => {
+              onSelect({ resourceType: s.resourceType, mediaSubtype: s.mediaSubtype, subtypeLabel: s.label, eyebrow: `RÉVISION ${s.label.toUpperCase()}` });
+              onClose();
+            }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.12s, background 0.12s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = s.color; e.currentTarget.style.background = s.color + '11'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+            >
+              <div style={{ width: 38, height: 38, borderRadius: 9, background: s.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <SFIcon name={s.icon} size={19} color={s.color} />
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{s.label}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{s.desc}</p>
+              </div>
+              <SFIcon name="chevron-right" size={14} color="var(--text-3)" style={{ marginLeft: 'auto', flexShrink: 0 }} />
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
           <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={handle} disabled={!name.trim()}>Créer</SFButton>
         </div>
       </div>
     </div>
@@ -201,9 +286,11 @@ export function Fichiers() {
   const [viewMode, setViewMode]               = usePersistedState<ViewMode>('sf_view_fichiers_projet', 'grid');
   const [search, setSearch]                   = useState('');
   const [renamingId, setRenamingId]           = useState<string | null>(null);
-  const [showNewFolder, setShowNewFolder]     = useState(false);
-  const [newResourceDef, setNewResourceDef]   = useState<typeof RESOURCE_TYPES[number] | null>(null);
-  const [ctx, setCtx]                         = useState<{ pos: { x: number; y: number }; items: CtxItem[] } | null>(null);
+  const [showNewFolder, setShowNewFolder]           = useState(false);
+  const [newResourceDef, setNewResourceDef]         = useState<typeof RESOURCE_TYPES[number] | null>(null);
+  const [showRevisionPicker, setShowRevisionPicker] = useState(false);
+  const [pendingRevision, setPendingRevision]       = useState<RevisionSelection | null>(null);
+  const [ctx, setCtx]                                 = useState<{ pos: { x: number; y: number }; items: CtxItem[] } | null>(null);
   const [newMenuPos, setNewMenuPos]           = useState<{ x: number; y: number } | null>(null);
   // Columns view: colSelections[k] = folderId selected at depth k (reveals column k+1)
   const [colSelections, setColSelections]     = useState<string[]>([]);
@@ -284,18 +371,23 @@ export function Fichiers() {
     });
   };
 
-  const handleCreateResource = (def: typeof RESOURCE_TYPES[number], name: string) => {
+  const handleCreateResource = (def: typeof RESOURCE_TYPES[number], name: string, webUrl?: string) => {
     const resourceId = `res-${Date.now()}`;
+    const isRevision = def.type === 'video_review' && pendingRevision;
+    const actualType: ResourceType = isRevision ? pendingRevision!.resourceType : def.type;
     addResource({
       id: resourceId,
-      type: def.type,
-      eyebrow: RESOURCE_EYEBROW[def.type] ?? def.label.toUpperCase(),
+      type: actualType,
+      eyebrow: isRevision ? pendingRevision!.eyebrow : (RESOURCE_EYEBROW[def.type] ?? def.label.toUpperCase()),
       title: name,
       status: 'info',
       statusLabel: 'En cours',
       meta: '',
+      ...(isRevision && pendingRevision!.mediaSubtype ? { mediaSubtype: pendingRevision!.mediaSubtype } : {}),
+      ...(actualType === 'web_review' && webUrl ? { webUrl } : {}),
     });
     addFile({ name, type: 'resource', ext: 'res', parentFolderId: currentFolderId, projectId: projectId ?? undefined, resourceId });
+    setPendingRevision(null);
   };
 
   const openResource = (file: FileItem) => {
@@ -311,7 +403,7 @@ export function Fichiers() {
     { label: 'Ressources',            icon: '',            action: () => {}, header: true },
     ...RESOURCE_TYPES.map(def => ({
       label: def.label, icon: def.icon, color: def.color,
-      action: () => setNewResourceDef(def),
+      action: () => def.type === 'video_review' ? setShowRevisionPicker(true) : setNewResourceDef(def),
     })),
   ];
 
@@ -698,11 +790,18 @@ export function Fichiers() {
 
       {/* Modals & menus */}
       {showNewFolder && <NewFolderModal onSave={handleNewFolder} onClose={() => setShowNewFolder(false)} />}
+      {showRevisionPicker && (
+        <RevisionPickerModal
+          onSelect={sel => { setPendingRevision(sel); setNewResourceDef(RESOURCE_TYPES.find(d => d.type === 'video_review')!); }}
+          onClose={() => setShowRevisionPicker(false)}
+        />
+      )}
       {newResourceDef && (
         <NewResourceModal
           def={newResourceDef}
-          onSave={name => handleCreateResource(newResourceDef, name)}
-          onClose={() => setNewResourceDef(null)}
+          isWebReview={pendingRevision?.resourceType === 'web_review'}
+          onSave={(name, webUrl) => handleCreateResource(newResourceDef, name, webUrl)}
+          onClose={() => { setNewResourceDef(null); setPendingRevision(null); }}
         />
       )}
       {ctx && <Menu items={ctx.items} pos={ctx.pos} onClose={() => setCtx(null)} />}
