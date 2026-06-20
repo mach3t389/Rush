@@ -330,6 +330,8 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
 function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId }: ScriptViewProps) {
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
   const [editingVersionLabel, setEditingVersionLabel] = useState('');
+  const [versionDropOpen, setVersionDropOpen] = useState(false);
+  const vDropRef = useRef<HTMLDivElement>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [openTypeId, setOpenTypeId] = useState<string | null>(null);
   const [panelTab, setPanelTab] = useState<'scenes' | 'analyse'>('scenes');
@@ -361,6 +363,13 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     setFocusId(null);
   }, [focusId, elements]);
+
+  useEffect(() => {
+    if (!versionDropOpen) return;
+    const close = (e: MouseEvent) => { if (vDropRef.current && !vDropRef.current.contains(e.target as Node)) setVersionDropOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [versionDropOpen]);
 
   useEffect(() => {
     if (!registerExport) return;
@@ -469,49 +478,65 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
-      {/* Top — Versions bar */}
-      <div style={{ flexShrink:0, borderBottom:'1px solid var(--border)', padding:'8px 14px', display:'flex', alignItems:'center', gap:8, background:'var(--surface)', overflowX:'auto' }}>
-        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', flexShrink:0 }}>Version :</span>
-        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-          {versions.map((v, i) => {
-            const isActive = v.id === activeVersionId;
-            const isEditing = editingVersionId === v.id;
-            return (
-              <div key={v.id} style={{ display:'flex', alignItems:'center', gap:3 }}>
-                {isEditing ? (
-                  <input
-                    autoFocus
-                    value={editingVersionLabel}
-                    onChange={e => setEditingVersionLabel(e.target.value)}
-                    onBlur={() => {
-                      setVersions(prev => prev.map(vv => vv.id === v.id ? { ...vv, label: editingVersionLabel || vv.label } : vv));
-                      setEditingVersionId(null);
-                      onEdit?.();
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
-                    onClick={e => e.stopPropagation()}
-                    style={{ width:100, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:6, padding:'2px 7px', fontSize:11, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)' }}
-                  />
-                ) : (
-                  <button
-                    onClick={() => !isActive && switchVersion(v.id)}
-                    onDoubleClick={() => isActive && (setEditingVersionId(v.id), setEditingVersionLabel(v.label))}
-                    title={isActive ? 'Double-cliquer pour renommer' : 'Activer cette version'}
-                    style={{ padding:'3px 10px', borderRadius:6, border:`1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`, background: isActive ? 'rgba(249,255,0,0.07)' : 'transparent', color: isActive ? 'var(--accent)' : 'var(--text-3)', fontFamily:'var(--ff-mono)', fontSize:10, cursor: isActive ? 'default' : 'pointer', fontWeight: isActive ? 700 : 400 }}
-                  >
-                    V{i + 1} · {v.label}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+      {/* Versions — compact dropdown */}
+      <div style={{ flexShrink:0, borderBottom:'1px solid var(--border)', padding:'5px 14px', display:'flex', alignItems:'center', gap:8, background:'var(--surface)' }}>
+        <div style={{ position:'relative' }} ref={vDropRef}>
+          <button
+            onClick={() => setVersionDropOpen(v => !v)}
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:7, border:'1px solid var(--border)', background: versionDropOpen ? 'var(--surface-2)' : 'transparent', cursor:'pointer', color:'var(--text-2)' }}
+          >
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', letterSpacing:'0.06em' }}>
+              V{versions.findIndex(v => v.id === activeVersionId) + 1}
+            </span>
+            <span style={{ fontFamily:'var(--ff-text)', fontSize:11, color:'var(--text-2)' }}>{activeVersion.label}</span>
+            <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+          </button>
+          {versionDropOpen && (
+            <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:80, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:10, padding:6, minWidth:220, boxShadow:'0 8px 28px rgba(0,0,0,0.45)' }}>
+              {versions.map((v, i) => {
+                const isActive = v.id === activeVersionId;
+                const isEditing = editingVersionId === v.id;
+                return (
+                  <div key={v.id}>
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        value={editingVersionLabel}
+                        onChange={e => setEditingVersionLabel(e.target.value)}
+                        onBlur={() => {
+                          setVersions(prev => prev.map(vv => vv.id === v.id ? { ...vv, label: editingVersionLabel || vv.label } : vv));
+                          setEditingVersionId(null);
+                          onEdit?.();
+                        }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width:'100%', background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:6, padding:'4px 8px', fontSize:11, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => { if (!isActive) { switchVersion(v.id); setVersionDropOpen(false); } }}
+                        onDoubleClick={() => isActive && (setEditingVersionId(v.id), setEditingVersionLabel(v.label))}
+                        title={isActive ? 'Double-cliquer pour renommer' : 'Activer cette version'}
+                        style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 10px', borderRadius:7, border:'none', background: isActive ? 'rgba(249,255,0,0.07)' : 'transparent', cursor: isActive ? 'default' : 'pointer', textAlign:'left' }}
+                      >
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color: isActive ? 'var(--accent)' : 'var(--text-3)', minWidth:18 }}>V{i + 1}</span>
+                        <span style={{ fontFamily:'var(--ff-text)', fontSize:12, color: isActive ? 'var(--accent)' : 'var(--text-2)', flex:1 }}>{v.label}</span>
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{v.date}</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <div style={{ borderTop:'1px solid var(--border)', margin:'4px 0' }} />
+              <button
+                onClick={() => { createVersion(); setVersionDropOpen(false); }}
+                style={{ display:'flex', alignItems:'center', gap:6, width:'100%', padding:'6px 10px', borderRadius:7, border:'none', background:'transparent', cursor:'pointer', color:'var(--text-3)', fontFamily:'var(--ff-text)', fontSize:12 }}
+              >
+                <SFIcon name="plus" size={12} />Nouvelle version
+              </button>
+            </div>
+          )}
         </div>
-        <button
-          onClick={createVersion}
-          style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:6, border:'1px dashed var(--border-2)', background:'transparent', color:'var(--text-3)', fontSize:11, cursor:'pointer', fontFamily:'var(--ff-text)', flexShrink:0 }}
-        >
-          <SFIcon name="plus" size={11} />Nouvelle version
-        </button>
       </div>
 
       {/* Content row */}
@@ -2603,6 +2628,7 @@ function InspirationsView({ resource }: { resource: Resource }) {
 // ── Resource topbar ───────────────────────────────────────────────────────────
 
 function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: (f: ExportFormat) => void }) {
+  const [collapsed, setCollapsed] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const [expOpen, setExpOpen] = useState(false);
@@ -2648,10 +2674,74 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
     return () => document.removeEventListener('mousedown', close);
   }, [expOpen]);
 
+  if (collapsed) return (
+    <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', padding:'5px 14px', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+      <div style={{ width:24, height:24, borderRadius:6, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <SFIcon name={TYPE_ICON[resource.type]} size={13} color="var(--accent)" />
+      </div>
+      <span style={{ fontFamily:'var(--ff-text)', fontSize:13, fontWeight:600, color:'var(--text)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{resource.title}</span>
+      <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
+      <button onClick={() => setCollapsed(false)} title="Déployer l'en-tête" style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
+        <SFIcon name="chevron-down" size={12} />
+      </button>
+    </div>
+  );
+
   return (
     <div style={{ background:'var(--surface)', flexShrink:0 }}>
-      <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:8 }}>
-        <div style={{ display:'flex', gap:8, alignItems:'center', position:'relative' }}>
+      {/* En-tête unifié : titre/description à gauche · actions à droite (1 barre) */}
+      <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:16 }}>
+        {/* Left: icon + title + description */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
+          <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <SFIcon name={TYPE_ICON[resource.type]} size={15} color="var(--accent)" />
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            {editingTitle ? (
+              <input
+                ref={titleInputRef}
+                value={titleVal}
+                onChange={e => setTitleVal(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(resource.title); setEditingTitle(false); } }}
+                style={{ fontSize:15, fontWeight:700, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:6, padding:'2px 8px', outline:'none', color:'var(--text)', fontFamily:'var(--ff-display)', width:'100%', maxWidth:400 }}
+              />
+            ) : (
+              <h2
+                onClick={() => setEditingTitle(true)}
+                title="Cliquer pour renommer"
+                style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+              >
+                {resource.title}
+                <SFIcon name="pencil" size={11} color="var(--text-3)" />
+              </h2>
+            )}
+            {editingDesc ? (
+              <textarea
+                autoFocus
+                value={descVal}
+                onChange={e => setDescVal(e.target.value)}
+                onBlur={commitDesc}
+                onKeyDown={e => { if (e.key === 'Escape') { setDescVal(resource.description ?? ''); setEditingDesc(false); } }}
+                style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:400, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
+                rows={1}
+              />
+            ) : (
+              <p
+                onClick={() => setEditingDesc(true)}
+                title="Cliquer pour modifier la description"
+                style={{ fontSize:11, color: descVal ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:1, fontStyle: descVal ? 'normal' : 'italic', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+              >
+                {descVal || 'Ajouter une description...'}
+              </p>
+            )}
+          </div>
+          {resource.version && (
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', background:'var(--surface-2)', borderRadius:6, padding:'3px 9px', border:'1px solid var(--border)', flexShrink:0 }}>{resource.version}</span>
+          )}
+        </div>
+        {/* Right: actions */}
+        <div style={{ display:'flex', gap:8, alignItems:'center', position:'relative', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', background:'var(--surface-2)', borderRadius:8, border:'1px solid var(--border)' }}>
             <SFIcon name={TYPE_ICON[resource.type]} size={13} color="var(--text-3)" />
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{TYPE_LABEL[resource.type]}</span>
@@ -2719,56 +2809,10 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             <SFButton variant="ghost" size="sm" icon="download">Exporter</SFButton>
           )}
           <SFButton variant="ghost" size="sm" icon="share-2">Partager</SFButton>
+          <button onClick={() => setCollapsed(true)} title="Réduire l'en-tête" style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
+            <SFIcon name="chevron-up" size={12} />
+          </button>
         </div>
-      </div>
-      <div style={{ padding:'10px 24px', display:'flex', alignItems:'center', gap:10, borderBottom:'1px solid var(--border)' }}>
-        <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <SFIcon name={TYPE_ICON[resource.type]} size={15} color="var(--accent)" />
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          {editingTitle ? (
-            <input
-              ref={titleInputRef}
-              value={titleVal}
-              onChange={e => setTitleVal(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(resource.title); setEditingTitle(false); } }}
-              style={{ fontSize:15, fontWeight:700, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:6, padding:'2px 8px', outline:'none', color:'var(--text)', fontFamily:'var(--ff-display)', width:'100%', maxWidth:400 }}
-            />
-          ) : (
-            <h2
-              onClick={() => setEditingTitle(true)}
-              title="Cliquer pour renommer"
-              style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
-            >
-              {resource.title}
-              <SFIcon name="pencil" size={11} color="var(--text-3)" />
-            </h2>
-          )}
-          <p style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-mono)', marginTop:1 }}>{resource.meta}</p>
-          {editingDesc ? (
-            <textarea
-              autoFocus
-              value={descVal}
-              onChange={e => setDescVal(e.target.value)}
-              onBlur={commitDesc}
-              onKeyDown={e => { if (e.key === 'Escape') { setDescVal(resource.description ?? ''); setEditingDesc(false); } }}
-              style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:400, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
-              rows={2}
-            />
-          ) : (
-            <p
-              onClick={() => setEditingDesc(true)}
-              title="Cliquer pour modifier la description"
-              style={{ fontSize:11, color: descVal ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:3, fontStyle: descVal ? 'normal' : 'italic' }}
-            >
-              {descVal || 'Ajouter une description...'}
-            </p>
-          )}
-        </div>
-        {resource.version && (
-          <span style={{ marginLeft:4, fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', background:'var(--surface-2)', borderRadius:6, padding:'3px 9px', border:'1px solid var(--border)' }}>{resource.version}</span>
-        )}
       </div>
     </div>
   );
