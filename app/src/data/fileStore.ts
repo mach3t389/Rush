@@ -1,4 +1,5 @@
 import { loadPersisted, savePersisted } from './persist';
+import type { ResourceType } from '../types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ export interface FileItem {
   projectId?: string;
   clientId?: string;
   resourceId?: string;
+  resourceType?: ResourceType;
   createdAt: string;
   updatedAt: string;
   state?: FileState;   // undefined = actif ; 'archived' = archivé ; 'trashed' = corbeille

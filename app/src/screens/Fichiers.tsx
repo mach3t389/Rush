@@ -68,8 +68,21 @@ const TYPE_META: Record<FileItemType | 'folder', { icon: string; color: string }
   other:       { icon: 'file',      color: '#888'    },
 };
 
-function FileTypeIcon({ type, size = 24 }: { type: FileItemType | 'folder'; size?: number }) {
-  const m = TYPE_META[type] ?? TYPE_META.other;
+const RESOURCE_TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
+  screenplay:   { icon: 'clapperboard',  color: '#f59e0b', label: 'Scénario'     },
+  video_review: { icon: 'film',          color: '#8b5cf6', label: 'Révision'     },
+  web_review:   { icon: 'globe',         color: '#3b82f6', label: 'Site web'     },
+  moodboard:    { icon: 'grid-2x2',      color: '#ec4899', label: 'Moodboard'   },
+  document:     { icon: 'file-text',     color: '#6366f1', label: 'Document'     },
+  checklist:    { icon: 'list-checks',   color: '#10b981', label: 'Checklist'    },
+  inspirations: { icon: 'sparkles',      color: '#f97316', label: 'Inspirations' },
+  form:         { icon: 'clipboard-list',color: '#14b8a6', label: 'Formulaire'   },
+  file:         { icon: 'hard-drive',    color: '#6b7280', label: 'Fichier'      },
+};
+
+function FileTypeIcon({ type, resourceType, size = 24 }: { type: FileItemType | 'folder'; resourceType?: ResourceType; size?: number }) {
+  const rm = resourceType ? RESOURCE_TYPE_META[resourceType] : undefined;
+  const m = rm ?? TYPE_META[type] ?? TYPE_META.other;
   return (
     <div style={{ width: size + 10, height: size + 10, borderRadius: 9, background: m.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       <SFIcon name={m.icon} size={size * 0.72} color={m.color} />
@@ -386,7 +399,7 @@ export function Fichiers() {
       ...(isRevision && pendingRevision!.mediaSubtype ? { mediaSubtype: pendingRevision!.mediaSubtype } : {}),
       ...(actualType === 'web_review' && webUrl ? { webUrl } : {}),
     });
-    addFile({ name, type: 'resource', ext: 'res', parentFolderId: currentFolderId, projectId: projectId ?? undefined, resourceId });
+    addFile({ name, type: 'resource', ext: 'res', parentFolderId: currentFolderId, projectId: projectId ?? undefined, resourceId, resourceType: actualType });
     setPendingRevision(null);
   };
 
@@ -539,16 +552,17 @@ export function Fichiers() {
 
   const FileRow = ({ file }: { file: FileItem }) => {
     const isRes = file.type === 'resource';
+    const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
     return (
       <div onDoubleClick={() => isRes && openResource(file)} onContextMenu={e => handleFileCtx(e, file)}
         style={ROW} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-        <FileTypeIcon type={file.type} size={18} />
+        <FileTypeIcon type={file.type} resourceType={file.resourceType} size={18} />
         {renamingId === file.id
           ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
           : <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
         }
-        <span style={{ fontSize: 11, color: isRes ? '#c45be8' : 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>
-          {isRes ? 'Ressource' : file.ext}
+        <span style={{ fontSize: 11, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>
+          {rm ? rm.label : file.ext}
         </span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{isRes ? '—' : formatFileSize(file.size)}</span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{file.updatedAt}</span>

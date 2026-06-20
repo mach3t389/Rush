@@ -818,9 +818,10 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
 const POSTIT_COLORS = ['#fde68a','#fca5a5','#86efac','#93c5fd','#f9a8d4','#fdba74'];
 const SHAPE_COLORS  = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#64748b'];
 
-export function MoodboardView({ resource }: { resource: Resource }) {
-  const [items, setItems]           = useState<MBItem[]>(INITIAL_MB_ITEMS);
-  const [arrows, setArrows]         = useState<MBArrow[]>(INITIAL_MB_ARROWS);
+export function MoodboardView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+  const _mbPersisted = persistKey ? getResourceContent<{ items: MBItem[]; arrows: MBArrow[] }>(persistKey) : undefined;
+  const [items, setItems]           = useState<MBItem[]>(_mbPersisted?.items ?? INITIAL_MB_ITEMS);
+  const [arrows, setArrows]         = useState<MBArrow[]>(_mbPersisted?.arrows ?? INITIAL_MB_ARROWS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedArrow, setSelectedArrow] = useState<string | null>(null);
   const [editingId, setEditingId]   = useState<string | null>(null);
@@ -849,6 +850,16 @@ export function MoodboardView({ resource }: { resource: Resource }) {
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { panRef.current = pan; }, [pan]);
   useEffect(() => { shapeColorRef.current = shapeColor; }, [shapeColor]);
+
+  const mbPersistTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!persistKey) return;
+    if (mbPersistTimer.current) clearTimeout(mbPersistTimer.current);
+    mbPersistTimer.current = window.setTimeout(() => {
+      setResourceContent(persistKey, { items, arrows });
+    }, 400);
+  }, [items, arrows, persistKey]);
+  useEffect(() => () => { if (mbPersistTimer.current) clearTimeout(mbPersistTimer.current); }, []);
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
@@ -1846,12 +1857,22 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
 
 // ── Checklist View ────────────────────────────────────────────────────────────
 
-export function ChecklistView({ resource, seedItems, contentRef }: { resource: Resource; seedItems?: { id: string; text: string }[]; contentRef?: React.MutableRefObject<(() => { id: string; text: string }[]) | null> }) {
-  const [items, setItems] = useState(() =>
-    seedItems
-      ? seedItems.map(i => ({ id: i.id, text: i.text, done: false, initials: '', color: 'var(--accent)', due: '—' }))
-      : CHECKLIST_ITEMS_MOCK
-  );
+export function ChecklistView({ resource, seedItems, contentRef, persistKey }: { resource: Resource; seedItems?: { id: string; text: string }[]; contentRef?: React.MutableRefObject<(() => { id: string; text: string }[]) | null>; persistKey?: string }) {
+  const [items, setItems] = useState(() => {
+    const persisted = persistKey ? getResourceContent<{ items: typeof CHECKLIST_ITEMS_MOCK }>(persistKey) : undefined;
+    if (persisted?.items) return persisted.items;
+    if (seedItems) return seedItems.map(i => ({ id: i.id, text: i.text, done: false, initials: '', color: 'var(--accent)', due: '—' }));
+    return CHECKLIST_ITEMS_MOCK;
+  });
+  const ckPersistTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!persistKey) return;
+    if (ckPersistTimer.current) clearTimeout(ckPersistTimer.current);
+    ckPersistTimer.current = window.setTimeout(() => {
+      setResourceContent(persistKey, { items });
+    }, 400);
+  }, [items, persistKey]);
+  useEffect(() => () => { if (ckPersistTimer.current) clearTimeout(ckPersistTimer.current); }, []);
   useEffect(() => {
     if (contentRef) contentRef.current = () => items.map(i => ({ id: i.id, text: i.text }));
   });
@@ -2455,15 +2476,27 @@ function getAutoThumb(url: string): string | null {
   } catch { return null; }
 }
 
-function InspirationsView({ resource }: { resource: Resource }) {
-  const [items, setItems] = useState<InspiItem[]>(INITIAL_INSPI);
+function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+  const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[]; notes: string }>(persistKey) : undefined;
+  const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? INITIAL_INSPI);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [likesNotes, setLikesNotes] = useState('Lumière naturelle diffuse, tons chauds dorés. Compositions épurées avec beaucoup de blanc. Typographie fine et élégante. Regards directs, proximité avec le sujet.');
+  const [likesNotes, setLikesNotes] = useState(_inspiPersisted?.notes ?? 'Lumière naturelle diffuse, tons chauds dorés. Compositions épurées avec beaucoup de blanc. Typographie fine et élégante. Regards directs, proximité avec le sujet.');
   const [avoidsNotes, setAvoidsNotes] = useState('Éclairages trop durs ou flashy. Couleurs saturées ou trop vives. Poses trop construites ou artificielles.');
   const [themes, setThemes] = useState(['Mode de saison','Éclairage naturel','Luxe accessible','Beauté intemporelle']);
   const [themeInput, setThemeInput] = useState('');
   const [direction, setDirection] = useState('Direction artistique : lumière naturelle, tons chauds et froids en contraste. Inspiration années 70 revisitée dans un contexte contemporain parisien.');
   const palette = ['#1e2d3d','#3d2a1e','#1e3d2d','#3d3d1e','#2d1e3d','#3d2a0e'];
+
+  type InspiContent = { items: InspiItem[]; notes: string };
+  const inspiPersistTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!persistKey) return;
+    if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current);
+    inspiPersistTimer.current = window.setTimeout(() => {
+      setResourceContent(persistKey, { items, notes: likesNotes } as InspiContent);
+    }, 400);
+  }, [items, likesNotes, persistKey]);
+  useEffect(() => () => { if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current); }, []);
 
   const addItem = () => {
     setItems(p => [...p, { id:`in${Date.now()}`, title:'Nouvelle référence', url:'', bg:`#${Math.floor(Math.random()*0x444444+0x111111).toString(16).padStart(6,'0')}`, tags:[], notes:'' }]);
@@ -2627,7 +2660,7 @@ function InspirationsView({ resource }: { resource: Resource }) {
 
 // ── Resource topbar ───────────────────────────────────────────────────────────
 
-function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: (f: ExportFormat) => void }) {
+function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport, onFullscreen, isFullscreen }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: (f: ExportFormat) => void; onFullscreen?: () => void; isFullscreen?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -2681,6 +2714,11 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
       </div>
       <span style={{ fontFamily:'var(--ff-text)', fontSize:13, fontWeight:600, color:'var(--text)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{resource.title}</span>
       <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
+      {onFullscreen && (
+        <button onClick={onFullscreen} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
+          <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={12} />
+        </button>
+      )}
       <button onClick={() => setCollapsed(false)} title="Déployer l'en-tête" style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
         <SFIcon name="chevron-down" size={12} />
       </button>
@@ -2809,6 +2847,11 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             <SFButton variant="ghost" size="sm" icon="download">Exporter</SFButton>
           )}
           <SFButton variant="ghost" size="sm" icon="share-2">Partager</SFButton>
+          {onFullscreen && (
+            <button onClick={onFullscreen} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
+              <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={12} />
+            </button>
+          )}
           <button onClick={() => setCollapsed(true)} title="Réduire l'en-tête" style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
             <SFIcon name="chevron-up" size={12} />
           </button>
@@ -2892,14 +2935,16 @@ const MOCK_RESPONSES: FormResponse[] = [
   { id:'fr3', submittedAt:'10 juin, 16:45', responder:{ name:'Sophie Martin', email:'sophiemartin@outlook.fr',  initials:'SM', bg:'#8b3a8b', source:'link'     }, answers:{ fq1:'Sophie Martin', fq2:'Recherche web',   fq3:'3', fq4:'Bon travail mais quelques délais à améliorer.' } },
 ];
 
-export function FormView({ resource, templateMode, initialQuestions, onSaveTemplate }: {
+export function FormView({ resource, templateMode, initialQuestions, onSaveTemplate, persistKey }: {
   resource: Resource;
   templateMode?: boolean;
   initialQuestions?: FormQuestion[];
   onSaveTemplate?: (q: FormQuestion[]) => void;
+  persistKey?: string;
 }) {
   const [tab, setTab] = useState<'build' | 'preview' | 'responses'>('build');
-  const [questions, setQuestions] = useState<FormQuestion[]>(initialQuestions ?? INIT_FORM_QUESTIONS);
+  const _formPersisted = persistKey ? getResourceContent<{ questions: FormQuestion[] }>(persistKey) : undefined;
+  const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? INIT_FORM_QUESTIONS);
   const [responses] = useState<FormResponse[]>(MOCK_RESPONSES);
   const [accent, setAccent] = useState(FORM_ACCENT_COLORS[0]);
   const [formTitle, setFormTitle] = useState(resource.title);
@@ -2915,6 +2960,16 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   const [collectIdentity, setCollectIdentity] = useState(true);
   const [shareLink] = useState('https://rush.app/f/q-satisfaction-cl3x9z');
   const [linkCopied, setLinkCopied] = useState(false);
+
+  const formPersistTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!persistKey) return;
+    if (formPersistTimer.current) clearTimeout(formPersistTimer.current);
+    formPersistTimer.current = window.setTimeout(() => {
+      setResourceContent(persistKey, { questions });
+    }, 400);
+  }, [questions, persistKey]);
+  useEffect(() => () => { if (formPersistTimer.current) clearTimeout(formPersistTimer.current); }, []);
 
   const selectedQuestion = questions.find(q => q.id === selectedQ);
 
@@ -4485,20 +4540,34 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
 
 type ScreenplayTab = 'script' | 'shotlist' | 'storyboard';
 
-export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null> } & EditableProps) {
+export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef, persistKey }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null>; persistKey?: string } & EditableProps) {
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
-  const [versions, setVersions] = useState<ScriptVersion[]>(() =>
-    seedElements
-      ? [{ id: 'v1', label: 'Brouillon', date: new Date().toLocaleDateString('fr-FR'), elements: seedElements }]
-      : INITIAL_VERSIONS
-  );
-  const [activeVersionId, setActiveVersionId] = useState(() => seedElements ? 'v1' : 'v3');
+  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string }>(persistKey) : undefined;
+  const [versions, setVersions] = useState<ScriptVersion[]>(() => {
+    if (_scPersisted?.versions) return _scPersisted.versions;
+    if (seedElements) return [{ id: 'v1', label: 'Brouillon', date: new Date().toLocaleDateString('fr-FR'), elements: seedElements }];
+    return INITIAL_VERSIONS;
+  });
+  const [activeVersionId, setActiveVersionId] = useState(() => {
+    if (_scPersisted?.activeId) return _scPersisted.activeId;
+    if (seedElements) return 'v1';
+    return 'v3';
+  });
   useEffect(() => {
     if (contentRef) {
       const active = versions.find(v => v.id === activeVersionId) ?? versions[0];
       contentRef.current = () => active.elements;
     }
   });
+  const scPersistTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!persistKey) return;
+    if (scPersistTimer.current) clearTimeout(scPersistTimer.current);
+    scPersistTimer.current = window.setTimeout(() => {
+      setResourceContent(persistKey, { versions, activeId: activeVersionId });
+    }, 400);
+  }, [versions, activeVersionId, persistKey]);
+  useEffect(() => () => { if (scPersistTimer.current) clearTimeout(scPersistTimer.current); }, []);
 
   const activeVersion = versions.find(v => v.id === activeVersionId) ?? versions[0];
   const elements = activeVersion.elements;
@@ -4634,20 +4703,37 @@ export function ResourceDetail() {
   const renderBody = () => {
     switch (resource.type) {
       case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} />;
-      case 'screenplay':   return <ScreenplayView resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} />;
-      case 'moodboard':    return <MoodboardView resource={resource} />;
-      case 'checklist':    return <ChecklistView resource={resource} />;
+      case 'screenplay':   return <ScreenplayView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
+      case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} />;
+      case 'checklist':    return <ChecklistView key={resource.id} resource={resource} persistKey={resource.id} />;
       case 'document':     return <DocumentView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
-      case 'inspirations': return <InspirationsView resource={resource} />;
+      case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} />;
       case 'file':         return <FileView resource={resource} />;
-      case 'form':         return <FormView resource={resource} />;
+      case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} />;
       default:             return <div style={{ padding:40, color:'var(--text-3)' }}>Type non pris en charge</div>;
     }
   };
 
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      pageRef.current?.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
   return (
-    <div style={{ height:'100%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-      <ResourceTopbar project={project} resource={resource} onStatusChange={handleStatusChange} saveState={saveState} online={online} editable={editable} onExport={handleExport} />
+    <div ref={pageRef} style={{ height:'100%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <ResourceTopbar project={project} resource={resource} onStatusChange={handleStatusChange} saveState={saveState} online={online} editable={editable} onExport={handleExport} onFullscreen={toggleFullscreen} isFullscreen={isFullscreen} />
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         {renderBody()}
       </div>

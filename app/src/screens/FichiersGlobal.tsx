@@ -184,8 +184,21 @@ const TYPE_META: Record<FileItemType | 'folder', { icon: string; color: string; 
   other:       { icon: 'file',         color: '#888',    label: 'Fichier'     },
 };
 
-function FileTypeIcon({ type, size = 28 }: { type: FileItemType | 'folder'; size?: number }) {
-  const meta = TYPE_META[type] ?? TYPE_META.other;
+const RESOURCE_TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
+  screenplay:   { icon: 'clapperboard',  color: '#f59e0b', label: 'Scénario'     },
+  video_review: { icon: 'film',          color: '#8b5cf6', label: 'Révision'     },
+  web_review:   { icon: 'globe',         color: '#3b82f6', label: 'Site web'     },
+  moodboard:    { icon: 'grid-2x2',      color: '#ec4899', label: 'Moodboard'   },
+  document:     { icon: 'file-text',     color: '#6366f1', label: 'Document'     },
+  checklist:    { icon: 'list-checks',   color: '#10b981', label: 'Checklist'    },
+  inspirations: { icon: 'sparkles',      color: '#f97316', label: 'Inspirations' },
+  form:         { icon: 'clipboard-list',color: '#14b8a6', label: 'Formulaire'   },
+  file:         { icon: 'hard-drive',    color: '#6b7280', label: 'Fichier'      },
+};
+
+function FileTypeIcon({ type, resourceType, size = 28 }: { type: FileItemType | 'folder'; resourceType?: ResourceType; size?: number }) {
+  const rm = resourceType ? RESOURCE_TYPE_META[resourceType] : undefined;
+  const meta = rm ?? TYPE_META[type] ?? TYPE_META.other;
   return (
     <div style={{
       width: size + 8, height: size + 8,
@@ -789,7 +802,7 @@ export function FichiersGlobal() {
       ...(isRevision && pendingRevision!.mediaSubtype ? { mediaSubtype: pendingRevision!.mediaSubtype } : {}),
       ...(actualType === 'web_review' && webUrl ? { webUrl } : {}),
     });
-    addFile({ name, type: 'resource', ext: 'res', parentFolderId: folderId, projectId, resourceId });
+    addFile({ name, type: 'resource', ext: 'res', parentFolderId: folderId, projectId, resourceId, resourceType: actualType });
     setPendingRevision(null);
   };
 
@@ -902,6 +915,8 @@ export function FichiersGlobal() {
   const FileCard = ({ file }: { file: FileItem }) => {
     const isRenaming = renamingId === file.id;
     const isRes = file.type === 'resource' && !!file.resourceId;
+    const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
+    const accentColor = rm?.color ?? '#c45be8';
     return (
       <div
         onContextMenu={e => handleFileCtx(e, file)}
@@ -909,13 +924,13 @@ export function FichiersGlobal() {
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: isRes ? 'pointer' : 'default',
-          border: `1.5px solid ${isRes ? 'color-mix(in srgb, #c45be8 35%, var(--border))' : 'var(--border)'}`,
+          border: `1.5px solid ${isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)'}`,
           background: 'var(--surface-2)', transition: 'border-color 0.12s',
         }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = isRes ? '#c45be8' : 'var(--border-2)'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = isRes ? 'color-mix(in srgb, #c45be8 35%, var(--border))' : 'var(--border)'}
+        onMouseEnter={e => e.currentTarget.style.borderColor = isRes ? accentColor : 'var(--border-2)'}
+        onMouseLeave={e => e.currentTarget.style.borderColor = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)'}
       >
-        <FileTypeIcon type={file.type} size={32} />
+        <FileTypeIcon type={file.type} resourceType={file.resourceType} size={32} />
         <div style={{ textAlign: 'center', width: '100%' }}>
           {isRenaming
             ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
@@ -962,6 +977,7 @@ export function FichiersGlobal() {
   const FileRow = ({ file }: { file: FileItem }) => {
     const isRenaming = renamingId === file.id;
     const isRes = file.type === 'resource' && !!file.resourceId;
+    const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
     return (
       <div
         onContextMenu={e => handleFileCtx(e, file)}
@@ -970,13 +986,15 @@ export function FichiersGlobal() {
         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
-        <FileTypeIcon type={file.type} size={18} />
+        <FileTypeIcon type={file.type} resourceType={file.resourceType} size={18} />
         {isRenaming
           ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
           : <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
         }
-        <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>{file.ext}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{formatFileSize(file.size)}</span>
+        <span style={{ fontSize: 11, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>
+          {rm ? rm.label : file.ext}
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{isRes ? '—' : formatFileSize(file.size)}</span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{file.updatedAt}</span>
       </div>
     );
