@@ -602,6 +602,15 @@ export function AIChat() {
             >
               <SFIcon name="settings" size={14} />
             </button>
+            <button
+              onClick={() => setOpen(false)}
+              title="Fermer"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 6, display: 'flex', transition: 'color 0.12s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+            >
+              <SFIcon name="x" size={15} />
+            </button>
           </div>
 
           {/* Settings panel */}
@@ -780,7 +789,7 @@ export function AIChat() {
           </div>
 
           {/* Input */}
-          <div style={{ flexShrink: 0, padding: '12px 14px', paddingRight: 80, borderTop: '1px solid var(--border)' }}>
+          <div style={{ flexShrink: 0, padding: '12px 14px', borderTop: '1px solid var(--border)' }}>
             <div style={{
               display: 'flex', gap: 8, alignItems: 'flex-end',
               background: 'var(--surface-2)', border: '1px solid var(--border-2)',

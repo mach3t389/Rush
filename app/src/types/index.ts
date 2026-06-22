@@ -84,6 +84,9 @@ export interface Task {
   format?: DeliverableFormat;
   customWidth?: number;
   customHeight?: number;
+  deliverableDuration?: string;
+  deliverableQuantity?: number;
+  deliverableNote?: string;
   linkedResources?: string[];
   sectionLabel?: string;
 }

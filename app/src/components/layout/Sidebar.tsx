@@ -542,7 +542,12 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >
           <SFIcon name="sparkles" size={16} color="var(--accent)" />
-          {!collapsed && <span style={{ fontSize: 13, fontWeight: 600 }}>Assistant IA</span>}
+          {!collapsed && (
+            <>
+              <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Assistant IA</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', opacity: 0.55, background: 'rgba(249,255,0,0.08)', border: '1px solid rgba(249,255,0,0.2)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em', flexShrink: 0 }}>⌃\</span>
+            </>
+          )}
         </button>
 
         <NavLink

@@ -14,6 +14,10 @@ export function AppShell() {
         e.preventDefault();
         setCmdOpen(prev => !prev);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault();
+        window.dispatchEvent(new Event('sf:ai-toggle'));
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -22,9 +26,11 @@ export function AppShell() {
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--bg)' }}>
       <Sidebar onSearch={() => setCmdOpen(true)} />
-      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <GlobalTopBar onSearch={() => setCmdOpen(true)} />
-        <Outlet />
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <Outlet />
+        </div>
       </main>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <AIChat />

@@ -4,12 +4,12 @@ import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients } from '../data/clientStore';
-import { getFolders, getFiles, subscribeFileStore } from '../data/fileStore';
 import { STATUS_COLOR } from '../data/status';
 import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { ProjectsListView } from '../components/ProjectsListView';
 import type { Client, Status } from '../types/index';
+import { FileBrowser } from './FichiersGlobal';
 
 // ── Client contacts (shared store) ───────────────────────────────────────────
 
@@ -889,68 +889,17 @@ const INVOICE_STATUS: Record<ClientInvoice['status'], { label: string; color: st
   overdue: { label: 'En retard',  color: 'var(--danger)' },
 };
 
-// ── Client documents (mock, persisted) ─────────────────────────────────────────
-
-type DocCategory = 'contrat' | 'brief' | 'marque' | 'facture' | 'autre';
-type DocFileType = 'pdf' | 'doc' | 'image' | 'sheet' | 'zip';
-
-interface ClientDocument {
-  id: string; name: string; category: DocCategory; fileType: DocFileType;
-  size: string; date: string; uploadedBy: string;
-}
-
-const DOC_CATEGORIES: { key: DocCategory; label: string; icon: string }[] = [
-  { key: 'contrat', label: 'Contrats',           icon: 'file-signature' },
-  { key: 'brief',   label: 'Briefs',             icon: 'clipboard-list' },
-  { key: 'marque',  label: 'Identité de marque', icon: 'palette' },
-  { key: 'facture', label: 'Factures',           icon: 'receipt' },
-  { key: 'autre',   label: 'Autres',             icon: 'folder' },
-];
-
-const DOC_FILE_META: Record<DocFileType, { icon: string; color: string }> = {
-  pdf:   { icon: 'file-text',  color: '#c0392b' },
-  doc:   { icon: 'file-text',  color: '#3b4f8f' },
-  image: { icon: 'image',      color: '#5c3d8f' },
-  sheet: { icon: 'table',      color: '#1a6b4a' },
-  zip:   { icon: 'file-archive', color: '#a85f3e' },
-};
-
-const DOC_SEEDS: Record<string, ClientDocument[]> = {
-  c1: [
-    { id: 'd1', name: 'Contrat-cadre Nova Films 2025.pdf', category: 'contrat', fileType: 'pdf',   size: '1.2 Mo',  date: '12 jan 2025', uploadedBy: 'Léa Marchand' },
-    { id: 'd2', name: 'Brief créatif — Campagne Été.pdf',   category: 'brief',   fileType: 'pdf',   size: '840 Ko',  date: '3 mars 2025', uploadedBy: 'Sarah Martin' },
-    { id: 'd3', name: 'Charte graphique Nova.pdf',           category: 'marque',  fileType: 'pdf',   size: '4.6 Mo',  date: '3 mars 2025', uploadedBy: 'Sarah Martin' },
-    { id: 'd4', name: 'Logos & déclinaisons.zip',            category: 'marque',  fileType: 'zip',   size: '22 Mo',   date: '3 mars 2025', uploadedBy: 'Thomas Robert' },
-    { id: 'd5', name: 'FAC-2025-058 — Solde 50%.pdf',        category: 'facture', fileType: 'pdf',   size: '210 Ko',  date: '10 juin 2025', uploadedBy: 'Léa Marchand' },
-    { id: 'd6', name: 'Plan de tournage.xlsx',               category: 'autre',   fileType: 'sheet', size: '88 Ko',   date: '20 avr 2025', uploadedBy: 'Thomas Robert' },
-  ],
-  c2: [
-    { id: 'd7', name: 'Contrat Studio Bleu.pdf',             category: 'contrat', fileType: 'pdf',  size: '980 Ko',  date: '8 fév 2025',  uploadedBy: 'Léa Marchand' },
-    { id: 'd8', name: 'Brief — Les Bâtisseurs.docx',         category: 'brief',   fileType: 'doc',  size: '120 Ko',  date: '15 fév 2025', uploadedBy: 'Julie Bernard' },
-  ],
-};
-
-function loadDocuments(clientId: string): ClientDocument[] {
-  try {
-    const raw = localStorage.getItem(`sf_client_docs_${clientId}`);
-    if (raw) return JSON.parse(raw);
-  } catch { /* noop */ }
-  return DOC_SEEDS[clientId] ?? [];
-}
-function saveDocuments(clientId: string, docs: ClientDocument[]) {
-  try { localStorage.setItem(`sf_client_docs_${clientId}`, JSON.stringify(docs)); } catch { /* noop */ }
-}
-
 // ── Aperçu (dashboard) tab ─────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 };
 const cardTitleStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
 
-function ApercuTab({ client, projects, clientId, onGoTab }: {
+function ApercuTab({ client, projects, clientId, onGoTab, onEdit }: {
   client: NonNullable<ReturnType<typeof findClient>>;
   projects: typeof PROJECTS;
   clientId: string;
   onGoTab: (t: ClientTab) => void;
+  onEdit: () => void;
 }) {
   const navigate = useNavigate();
   const contacts = getClientContacts(clientId);
@@ -1040,7 +989,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
 
           {/* Finances */}
           <div style={cardStyle}>
-            <SectionHeader title="Finances" action="Factures" onAction={() => onGoTab('documents')} />
+            <SectionHeader title="Finances" action="Factures" onAction={() => onGoTab('fichiers')} />
             <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
               {[
                 { label: 'Facturé',    value: finance.billed,  color: 'var(--text)' },
@@ -1079,17 +1028,20 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Client info */}
           <div style={cardStyle}>
-            <p style={{ ...cardTitleStyle, marginBottom: 12 }}>Informations</p>
-            {[
-              { icon: 'briefcase', label: 'Secteur',       value: client.sector },
-              { icon: 'map-pin',   label: 'Ville',         value: client.city },
-              { icon: 'calendar',  label: 'Client depuis', value: client.since },
-              { icon: 'mail',      label: 'Courriel',      value: `contact@${client.name.toLowerCase().replace(/[^a-z]/g, '')}.com` },
-              { icon: 'globe',     label: 'Site web',      value: `${client.name.toLowerCase().replace(/[^a-z]/g, '')}.com` },
-            ].map(row => (
+            <SectionHeader title="Informations" action="Modifier" onAction={onEdit} />
+            {([
+              { icon: 'briefcase', label: 'Secteur',            value: client.sector              },
+              { icon: 'map-pin',   label: 'Ville',              value: client.city !== '—' ? client.city : null },
+              { icon: 'home',      label: 'Adresse',            value: client.address ?? null     },
+              { icon: 'calendar',  label: 'Client depuis',      value: client.since               },
+              { icon: 'phone',     label: 'Téléphone',          value: client.phone    ?? null    },
+              { icon: 'mail',      label: 'Courriel',           value: client.email    ?? null    },
+              { icon: 'receipt',   label: 'Courriel compta',    value: client.emailCompta ?? null },
+              { icon: 'globe',     label: 'Site web',           value: client.website  ?? null    },
+            ] as { icon: string; label: string; value: string | null }[]).filter(r => r.value).map(row => (
               <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                 <SFIcon name={row.icon} size={13} color="var(--text-3)" />
-                <span style={{ fontSize: 11, color: 'var(--text-3)', width: 86, flexShrink: 0 }}>{row.label}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', width: 100, flexShrink: 0 }}>{row.label}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.value}</span>
               </div>
             ))}
@@ -1155,187 +1107,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
   );
 }
 
-// ── Documents tab ──────────────────────────────────────────────────────────────
 
-function DocumentsTab({ clientId }: { clientId: string }) {
-  const [docs, setDocs] = useState<ClientDocument[]>(() => loadDocuments(clientId));
-  const [filter, setFilter] = useState<DocCategory | 'all'>('all');
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState<DocCategory>('contrat');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-
-  const persist = (next: ClientDocument[]) => { setDocs(next); saveDocuments(clientId, next); };
-
-  const startRename = (d: ClientDocument) => { setEditingId(d.id); setEditingName(d.name); };
-  const commitRename = () => {
-    if (!editingId) return;
-    const name = editingName.trim();
-    if (name) persist(docs.map(d => d.id === editingId ? { ...d, name, fileType: fileTypeFromName(name) } : d));
-    setEditingId(null);
-  };
-
-  const fileTypeFromName = (name: string): DocFileType => {
-    const ext = name.split('.').pop()?.toLowerCase() ?? '';
-    if (['pdf'].includes(ext)) return 'pdf';
-    if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) return 'doc';
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'image';
-    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'sheet';
-    if (['zip', 'rar', '7z'].includes(ext)) return 'zip';
-    return 'doc';
-  };
-
-  const addDoc = () => {
-    const name = newName.trim();
-    if (!name) return;
-    const doc: ClientDocument = {
-      id: `d${Date.now()}`, name, category: newCategory,
-      fileType: fileTypeFromName(name),
-      size: `${(Math.random() * 4 + 0.2).toFixed(1)} Mo`,
-      date: new Date().toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' }),
-      uploadedBy: 'Léa Marchand',
-    };
-    persist([doc, ...docs]);
-    setNewName(''); setNewCategory('contrat'); setShowAdd(false);
-  };
-
-  const removeDoc = (id: string) => persist(docs.filter(d => d.id !== id));
-
-  const filtered = filter === 'all' ? docs : docs.filter(d => d.category === filter);
-  const countByCat = (k: DocCategory) => docs.filter(d => d.category === k).length;
-
-  const catMeta = (k: DocCategory) => DOC_CATEGORIES.find(c => c.key === k)!;
-
-  return (
-    <div>
-      {/* Context banner */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 18 }}>
-        <SFIcon name="info" size={14} color="var(--text-3)" style={{ marginTop: 1, flexShrink: 0 }} />
-        <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
-          Cette section regroupe les documents liés à <strong>l'entreprise cliente</strong> — contrats, briefs de marque, NDA, etc. —
-          et non les livrables de projets spécifiques, qui se trouvent dans les <strong>Ressources</strong> de chaque projet.
-        </p>
-      </div>
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <button onClick={() => setFilter('all')} style={{ padding: '5px 11px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: filter === 'all' ? 'var(--accent)' : 'var(--surface-2)', color: filter === 'all' ? 'var(--on-accent)' : 'var(--text-2)' }}>
-            Tous ({docs.length})
-          </button>
-          {DOC_CATEGORIES.map(c => (
-            <button key={c.key} onClick={() => setFilter(c.key)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: filter === c.key ? 'var(--accent)' : 'var(--surface-2)', color: filter === c.key ? 'var(--on-accent)' : 'var(--text-2)' }}>
-              <SFIcon name={c.icon} size={11}  />{c.label} ({countByCat(c.key)})
-            </button>
-          ))}
-        </div>
-        <SFButton variant="primary" icon="upload" onClick={() => setShowAdd(true)}>Téléverser</SFButton>
-      </div>
-
-      {/* Document list */}
-      {filtered.length === 0 ? (
-        <div style={{ padding: '48px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <SFIcon name="folder-open" size={30} color="var(--text-3)" />
-          <p style={{ fontSize: 13, color: 'var(--text-3)' }}>Aucun document {filter !== 'all' ? `dans « ${catMeta(filter).label} »` : ''}</p>
-          <SFButton variant="ghost" icon="upload" onClick={() => setShowAdd(true)}>Téléverser un document</SFButton>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(d => {
-            const fm = DOC_FILE_META[d.fileType];
-            const cm = catMeta(d.category);
-            return (
-              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 11, background: 'var(--surface)', border: '1px solid var(--border)', transition: 'border-color 0.12s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                <div style={{ width: 38, height: 38, borderRadius: 9, background: `${fm.color}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <SFIcon name={fm.icon} size={17} color={fm.color} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {editingId === d.id ? (
-                    <input
-                      autoFocus
-                      value={editingName}
-                      onChange={e => setEditingName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null); }}
-                      onBlur={commitRename}
-                      onClick={e => e.stopPropagation()}
-                      style={{ width: '100%', fontSize: 13, fontWeight: 600, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-                    />
-                  ) : (
-                    <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '1px 7px', borderRadius: 5 }}>
-                      <SFIcon name={cm.icon} size={9} color="var(--text-3)" />{cm.label}
-                    </span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{d.size} · {d.date} · {d.uploadedBy}</span>
-                  </div>
-                </div>
-                <button title="Renommer" onClick={e => { e.stopPropagation(); startRename(d); }} style={{ display: 'flex', padding: 7, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                  <SFIcon name="pencil" size={14} />
-                </button>
-                <button title="Télécharger" style={{ display: 'flex', padding: 7, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                  <SFIcon name="download" size={14} />
-                </button>
-                <button title="Supprimer" onClick={() => removeDoc(d.id)} style={{ display: 'flex', padding: 7, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
-                  <SFIcon name="trash-2" size={14} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Add document modal */}
-      {showAdd && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-          onClick={e => { if (e.target === e.currentTarget) setShowAdd(false); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>Téléverser un document</h3>
-              <button onClick={() => setShowAdd(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-            </div>
-            <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ border: '1.5px dashed var(--border-2)', borderRadius: 12, padding: '22px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, background: 'var(--surface-2)' }}>
-                <SFIcon name="upload-cloud" size={22} color="var(--accent)" />
-                <p style={{ fontSize: 12, color: 'var(--text-2)' }}>Glissez un fichier ici</p>
-              </div>
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Nom du fichier *</label>
-                <input value={newName} autoFocus onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addDoc(); }}
-                  placeholder="ex. Contrat 2025.pdf"
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
-              </div>
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Catégorie</label>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {DOC_CATEGORIES.map(c => (
-                    <button key={c.key} onClick={() => setNewCategory(c.key)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 9, border: `1px solid ${newCategory === c.key ? 'var(--accent)' : 'var(--border)'}`, background: newCategory === c.key ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', color: newCategory === c.key ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      <SFIcon name={c.icon} size={12}  />{c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid var(--border)' }}>
-              <SFButton variant="ghost" onClick={() => setShowAdd(false)}>Annuler</SFButton>
-              <SFButton variant="primary" icon="check" onClick={addDoc} disabled={!newName.trim()}>Ajouter</SFButton>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Client Edit Panel ─────────────────────────────────────────────────────────
 
@@ -1519,132 +1291,6 @@ function ClientEditPanel({ client, onClose }: {
   );
 }
 
-// ── Fichiers client tab ────────────────────────────────────────────────────────
-
-function FichiersClientTab({ projects, clientId: _clientId }: { projects: any[]; clientId: string }) {
-  const navigate = useNavigate();
-  const [expandedId, setExpandedId] = useState<string | null>(projects[0]?.id ?? null);
-  const [, setTick] = useState(0);
-
-  useEffect(() => subscribeFileStore(() => setTick(t => t + 1)), []);
-
-  const allFolders = getFolders();
-  const allFiles = getFiles();
-
-  const iconForFile = (f: ReturnType<typeof getFiles>[number]) => {
-    if (f.type === 'resource') {
-      const rt = f.resourceType ?? '';
-      if (rt === 'video_review') return 'video';
-      if (rt === 'web_review') return 'globe';
-      return 'image';
-    }
-    const ext = (f.ext ?? '').toLowerCase();
-    if (['pdf'].includes(ext)) return 'file-text';
-    if (['mp4', 'mov', 'avi'].includes(ext)) return 'video';
-    if (['mp3', 'wav', 'aac'].includes(ext)) return 'music';
-    if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) return 'image';
-    if (['zip', 'rar'].includes(ext)) return 'archive';
-    return 'file';
-  };
-
-  if (projects.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-        <SFIcon name="folder-open" size={40} color="var(--border-2)" />
-        <p style={{ fontSize: 14, fontWeight: 500 }}>Aucun projet</p>
-        <p style={{ fontSize: 12 }}>Créez un projet pour accéder à ses fichiers</p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {projects.map(p => {
-        const isOpen = expandedId === p.id;
-        const accent = p.clientColor ?? 'var(--accent)';
-        const projectFolders = allFolders.filter(f => f.projectId === p.id && !f.state && !f.parentId);
-        const rootFiles = allFiles.filter(f => f.projectId === p.id && !f.state && !f.parentFolderId);
-        const totalItems = allFolders.filter(f => f.projectId === p.id && !f.state).length
-                         + allFiles.filter(f => f.projectId === p.id && !f.state).length;
-
-        return (
-          <div key={p.id} style={{ borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface)' }}>
-            {/* Project row */}
-            <div
-              onClick={() => setExpandedId(isOpen ? null : p.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: isOpen ? 'var(--surface-2)' : 'transparent', transition: 'background 0.12s', userSelect: 'none' }}
-              onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'transparent'; }}
-            >
-              <SFIcon name={isOpen ? 'chevron-down' : 'chevron-right'} size={12} color="var(--text-3)" />
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: accent + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <SFIcon name="folder" size={15} color={accent} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-              </div>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginRight: 4 }}>
-                {totalItems} élément{totalItems !== 1 ? 's' : ''}
-              </span>
-              <button
-                title="Ouvrir dans Fichiers"
-                onClick={e => { e.stopPropagation(); navigate(`/projets/${p.id}/fichiers`); }}
-                style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                <SFIcon name="external-link" size={12} />
-              </button>
-            </div>
-
-            {/* Expanded file list */}
-            {isOpen && (
-              <div style={{ borderTop: '1px solid var(--border)' }}>
-                {totalItems === 0 ? (
-                  <p style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>
-                    Aucun fichier dans ce projet
-                  </p>
-                ) : (
-                  <>
-                    {projectFolders.map(folder => (
-                      <div
-                        key={folder.id}
-                        onClick={() => navigate(`/projets/${p.id}/fichiers`)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 20px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <SFIcon name="folder" size={14} color={accent} />
-                        <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
-                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dossier</span>
-                      </div>
-                    ))}
-                    {rootFiles.map((file, idx) => (
-                      <div
-                        key={file.id}
-                        onClick={() => file.type === 'resource' && file.resourceId ? navigate(`/projets/${p.id}/ressources/${file.resourceId}`) : undefined}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 20px', cursor: file.type === 'resource' ? 'pointer' : 'default', borderBottom: idx < rootFiles.length - 1 ? '1px solid var(--border)' : undefined }}
-                        onMouseEnter={e => { if (file.type === 'resource') e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <SFIcon name={iconForFile(file)} size={14} color="var(--text-3)" />
-                        <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
-                        {file.ext && (
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{file.ext}</span>
-                        )}
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export function FicheClient() {
   const { clientId } = useParams();
   const navigate = useNavigate();
@@ -1725,7 +1371,7 @@ export function FicheClient() {
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} />}
+        {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} onEdit={() => setClientEditOpen(true)} />}
 
         {tab === 'projets' && <ProjectsListView clientId={client.id} />}
 
@@ -1733,7 +1379,11 @@ export function FicheClient() {
 
         {tab === 'activite' && <ActiviteTab projects={projects} />}
 
-        {tab === 'fichiers' && <FichiersClientTab projects={projects} clientId={client.id} />}
+        {tab === 'fichiers' && (
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', margin: -24 }}>
+            <FileBrowser initialNav={{ scope: 'client', scopeId: client.id, folderId: null }} />
+          </div>
+        )}
       </div>
 
       {clientEditOpen && (

@@ -353,6 +353,9 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   const [format, setFormat] = useState<DeliverableFormat>(task.format ?? '16:9');
   const [customW, setCustomW] = useState(task.customWidth ?? 1920);
   const [customH, setCustomH] = useState(task.customHeight ?? 1080);
+  const [deliverableDuration, setDeliverableDuration] = useState(task.deliverableDuration ?? '');
+  const [deliverableQuantity, setDeliverableQuantity] = useState(task.deliverableQuantity ?? 1);
+  const [deliverableNote, setDeliverableNote] = useState(task.deliverableNote ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(task.title);
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
@@ -752,10 +755,20 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     <SFIcon name={DELIVERABLE_TYPE_OPTIONS.find(t => t.value === deliverableType)?.icon ?? 'package'} size={11} color="var(--accent)" />
                     {DELIVERABLE_TYPE_OPTIONS.find(t => t.value === deliverableType)?.label}
                     {(deliverableType === 'video' || deliverableType === 'photo') && (
-                      <span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
+                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
+                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{format === 'custom' ? `${customW}×${customH}` : format}</span></>
                     )}
-                    {(deliverableType === 'video' || deliverableType === 'photo') && (
-                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{format === 'custom' ? `${customW}×${customH}` : format}</span>
+                    {(deliverableType === 'video' || deliverableType === 'audio') && deliverableDuration && (
+                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
+                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{deliverableDuration}</span></>
+                    )}
+                    {deliverableType === 'photo' && deliverableQuantity > 1 && (
+                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
+                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{deliverableQuantity} photos</span></>
+                    )}
+                    {deliverableNote && (
+                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
+                      <span style={{ color: 'rgba(249,255,0,0.55)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliverableNote}</span></>
                     )}
                     <SFIcon name={deliverableExpanded ? 'chevron-up' : 'chevron-down'} size={10} color="var(--accent)" />
                   </button>
@@ -807,6 +820,54 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     )}
                   </div>
                 )}
+                {/* Champs spécifiques au type */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                  {(deliverableType === 'video' || deliverableType === 'audio') && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>Durée</span>
+                      <input
+                        type="text"
+                        value={deliverableDuration}
+                        onChange={e => setDeliverableDuration(e.target.value)}
+                        placeholder="ex : 1:30"
+                        style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+                      />
+                    </div>
+                  )}
+                  {deliverableType === 'photo' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>Quantité</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={deliverableQuantity}
+                        onChange={e => setDeliverableQuantity(Number(e.target.value))}
+                        style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>photos</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68, paddingTop: 5 }}>Note</span>
+                    <textarea
+                      value={deliverableNote}
+                      onChange={e => setDeliverableNote(e.target.value)}
+                      placeholder={deliverableType === 'document' || deliverableType === 'web' ? 'ex : 5 pages de destination' : 'Note personnalisée…'}
+                      rows={2}
+                      style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5 }}
+                    />
+                  </div>
+                </div>
+                {/* Confirmer — referme l'éditeur en chip compact */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 2 }}>
+                  <button
+                    onClick={() => setDeliverableExpanded(false)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name="check" size={11} color="var(--on-accent)" />
+                    Confirmer
+                  </button>
+                </div>
               </div>
             )}
           </div>

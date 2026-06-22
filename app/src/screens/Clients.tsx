@@ -326,7 +326,7 @@ function ClientActions({ clientId, pinned, onEdit }: { clientId: string; pinned:
 
 // ── Detailed list view ────────────────────────────────────────────────────────
 
-const LIST_COLS = 'minmax(200px, 2.2fr) 1.1fr 1.5fr 1fr minmax(120px, 1fr) auto';
+const LIST_COLS = 'minmax(200px, 2.2fr) 1.1fr 1.5fr 1fr minmax(120px, 1fr) 108px 68px';
 
 function ColHead({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
@@ -348,7 +348,8 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
         <ColHead>Contact</ColHead>
         <ColHead>Activité</ColHead>
         <ColHead>Progression</ColHead>
-        <ColHead style={{ textAlign: 'right' }}>Statut</ColHead>
+        <ColHead>Statut</ColHead>
+        <div />
       </div>
 
       {/* Rows */}
@@ -410,9 +411,13 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{client.progress}%</span>
             </div>
 
-            {/* Statut + actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+            {/* Statut */}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <SFPill status={client.status} small>{client.statusLabel}</SFPill>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               <ClientActions clientId={client.id} pinned={pinned} onEdit={() => onEdit(client)} />
             </div>
           </div>

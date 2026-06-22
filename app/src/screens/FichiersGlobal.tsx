@@ -161,7 +161,7 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type ViewMode = 'grid' | 'list' | 'columns';
+type ViewMode = 'grid' | 'list' | 'columns' | 'stats';
 type SortBy   = 'name' | 'date' | 'size' | 'type';
 
 interface NavLocation {
@@ -605,11 +605,150 @@ function FileTree({
   );
 }
 
+// ── Stats treemap view ────────────────────────────────────────────────────────
+
+function StatsView({ files, projects, clients, onNavigate }: {
+  files: FileItem[];
+  projects: ReturnType<typeof getProjects>;
+  clients: ReturnType<typeof getClients>;
+  onNavigate: (loc: NavLocation) => void;
+}) {
+  const byProject = new Map<string, { totalSize: number; count: number }>();
+  let unlinked = { totalSize: 0, count: 0 };
+
+  files.forEach(f => {
+    if (f.projectId) {
+      const cur = byProject.get(f.projectId) ?? { totalSize: 0, count: 0 };
+      byProject.set(f.projectId, { totalSize: cur.totalSize + (f.size ?? 0), count: cur.count + 1 });
+    } else {
+      unlinked.totalSize += f.size ?? 0;
+      unlinked.count++;
+    }
+  });
+
+  const grandTotal = Array.from(byProject.values()).reduce((s, v) => s + v.totalSize, 0) + unlinked.totalSize;
+
+  const fmtSize = (n: number) => {
+    if (n >= 1e9) return `${(n / 1e9).toFixed(1)} Go`;
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)} Mo`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(0)} Ko`;
+    return `${n} o`;
+  };
+
+  const entries = Array.from(byProject.entries())
+    .map(([projectId, data]) => {
+      const project = projects.find(p => p.id === projectId);
+      const client = project ? clients.find(c => c.id === project.clientId) : null;
+      return { projectId, project, client, ...data };
+    })
+    .sort((a, b) => b.totalSize - a.totalSize);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Summary KPIs */}
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Total', value: fmtSize(grandTotal) },
+          { label: 'Projets', value: String(entries.length) },
+          { label: 'Fichiers', value: String(files.length) },
+        ].map(kpi => (
+          <div key={kpi.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 20px', minWidth: 120 }}>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{kpi.label}</p>
+            <p style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{kpi.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Treemap */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+        {entries.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+            <SFIcon name="pie-chart" size={40} color="var(--text-3)" />
+            <p style={{ fontSize: 14 }}>Aucun fichier lié à un projet</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: 260 }}>
+            {entries.map(entry => {
+              const pct = grandTotal > 0 ? entry.totalSize / grandTotal : 0;
+              const color = entry.project?.clientColor ?? '#555';
+              return (
+                <div
+                  key={entry.projectId}
+                  onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
+                  title={`${entry.project?.name ?? entry.projectId} — ${fmtSize(entry.totalSize)}`}
+                  style={{
+                    flex: `${Math.max(pct * 100, 4)} 0 0`,
+                    minWidth: 80, minHeight: 80,
+                    background: color + 'cc',
+                    border: '2px solid var(--surface)',
+                    padding: 10,
+                    cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                    overflow: 'hidden',
+                    transition: 'filter 0.12s',
+                    position: 'relative',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.2)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
+                >
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {entry.project?.name ?? entry.projectId}
+                  </p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+                    {fmtSize(entry.totalSize)} · {entry.count} fichier{entry.count > 1 ? 's' : ''}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Table */}
+      {entries.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 120px 80px 80px', gap: 12 }}>
+            {['Projet', 'Client', 'Taille', 'Fichiers'].map(h => (
+              <span key={h} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
+            ))}
+          </div>
+          {entries.map((entry, i) => {
+            const pct = grandTotal > 0 ? (entry.totalSize / grandTotal * 100) : 0;
+            const color = entry.project?.clientColor ?? '#555';
+            return (
+              <div key={entry.projectId}
+                onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
+                style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 80px', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 3, background: color, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.project?.name ?? entry.projectId}</p>
+                    <div style={{ height: 3, background: 'var(--surface-3)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
+                    </div>
+                  </div>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text-2)', alignSelf: 'center' }}>{entry.client?.name ?? '—'}</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text)', alignSelf: 'center' }}>{fmtSize(entry.totalSize)}</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', alignSelf: 'center' }}>{entry.count}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main screen ────────────────────────────────────────────────────────────────
 
-export function FichiersGlobal() {
+export function FileBrowser({ initialNav, embedded = false }: { initialNav?: NavLocation; embedded?: boolean }) {
+  const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
   const navigate = useNavigate();
-  const [location, setLocation] = useState<NavLocation>({ scope: 'root', folderId: null });
+  const [location, setLocation] = useState<NavLocation>(effectiveNav);
   const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
@@ -1570,7 +1709,7 @@ export function FichiersGlobal() {
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
-          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3']] as [ViewMode, string][]).map(([m, icon]) => (
+          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3'], ['stats', 'pie-chart']] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
               border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
@@ -1659,6 +1798,18 @@ export function FichiersGlobal() {
           <FileTree location={location} onNavigate={setLocation} collapsed={sidebarCollapsed} />
         </div>
 
+        {/* ── Stats treemap view ── */}
+        {viewMode === 'stats' && (
+          <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+            <StatsView
+              files={allFiles}
+              projects={projects}
+              clients={clients}
+              onNavigate={(loc) => { setLocation(loc); handleSetViewMode('grid'); }}
+            />
+          </div>
+        )}
+
         {/* ── Column view (Miller columns) ── */}
         {viewMode === 'columns' && (
           <div ref={colsContainerRef} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
@@ -1687,7 +1838,7 @@ export function FichiersGlobal() {
         )}
 
         {/* Main content (grid / list) */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: viewMode === 'columns' ? 'none' : undefined }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stats') ? 'none' : undefined }}>
 
           {/* ── Root view ── */}
           {location.scope === 'root' && (
@@ -1928,6 +2079,10 @@ export function FichiersGlobal() {
       {ctx && <ContextMenu pos={ctx.pos} items={ctx.items} onClose={() => setCtx(null)} />}
     </div>
   );
+}
+
+export function FichiersGlobal() {
+  return <FileBrowser />;
 }
 
 // ── Save template modal ────────────────────────────────────────────────────────
