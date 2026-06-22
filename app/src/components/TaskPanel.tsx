@@ -308,6 +308,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   const [mentionRect, setMentionRect] = useState<DOMRect | null>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const commentsAnchorRef = useRef<HTMLDivElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
     if (!autoFocusComments) return;
@@ -321,6 +322,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     }, 200);
     return () => clearTimeout(timer);
   }, [autoFocusComments]);
+
+  useEffect(() => {
+    if (descRef.current) {
+      descRef.current.style.height = 'auto';
+      descRef.current.style.height = descRef.current.scrollHeight + 'px';
+    }
+  }, [description]);
 
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -545,12 +553,24 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 )}
               </div>
             </div>
-            <button onClick={onClose} style={{ color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6 }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-            >
-              <SFIcon name="x" size={16} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button
+                onClick={() => commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                title="Aller aux commentaires"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+              >
+                <SFIcon name="message-circle" size={13} />
+                {comments.length > 0 && <span>{comments.length}</span>}
+              </button>
+              <button onClick={onClose} style={{ color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+              >
+                <SFIcon name="x" size={16} />
+              </button>
+            </div>
           </div>
           {/* Task title — click to edit */}
           {editingTitle ? (
@@ -587,11 +607,6 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               {titleValue}
             </h3>
           )}
-          {/* Status pill row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <SFPill status={task.status} small>{task.statusLabel}</SFPill>
-          </div>
-
           {/* Metadata row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             {/* Assigné */}
@@ -665,54 +680,32 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             </div>
           </div>
 
-          {/* Échéance (ligne séparée sous la grille) */}
-          <div style={{ marginTop: 8 }}>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Échéance actuelle</span>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: dateDebut && isOverdue(dateDebut) ? 'var(--danger)' : 'var(--text-2)', marginLeft: 8 }}>{dateDebut ? fmtTaskDate(dateDebut, heureDebut, heureFin, dateFin) : '—'}</span>
-          </div>
-
-          {/* Dates — Début / Fin côte à côte */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            {/* Début */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', minWidth: 0 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Début</span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button
-                  onClick={e => { setDatePickerOpen(o => o === 'debut' ? null : 'debut'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer', fontSize: 11, color: dateDebut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)', minWidth: 0 }}
-                >
-                  <SFIcon name="calendar" size={11} color="var(--text-3)" />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dateDebut ? formatDisplay(dateDebut) : 'Date'}</span>
-                </button>
-                <button
-                  onClick={e => { openPanelDrop('heureDebut', e); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer', fontSize: 11, color: heureDebut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)', flexShrink: 0 }}
-                >
-                  <SFIcon name="clock" size={11} color="var(--text-3)" />
-                  {heureDebut || '--:--'}
-                </button>
-              </div>
-            </div>
-            {/* Fin */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', minWidth: 0 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Fin</span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button
-                  onClick={e => { setDatePickerOpen(o => o === 'fin' ? null : 'fin'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer', fontSize: 11, color: dateFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)', minWidth: 0 }}
-                >
-                  <SFIcon name="calendar" size={11} color="var(--text-3)" />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dateFin ? formatDisplay(dateFin) : 'Date'}</span>
-                </button>
-                <button
-                  onClick={e => { openPanelDrop('heureFin', e); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer', fontSize: 11, color: heureFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)', flexShrink: 0 }}
-                >
-                  <SFIcon name="clock" size={11} color="var(--text-3)" />
-                  {heureFin || '--:--'}
-                </button>
-              </div>
-            </div>
+          {/* Dates — compact inline row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+            <SFIcon name="calendar" size={11} color="var(--text-3)" />
+            <button
+              onClick={e => { setDatePickerOpen(o => o === 'debut' ? null : 'debut'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateDebut ? (isOverdue(dateDebut) ? 'var(--danger)' : 'var(--text)') : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+            >
+              {dateDebut ? formatDisplay(dateDebut) : 'Début'}
+            </button>
+            {dateDebut && (
+              <button onClick={e => openPanelDrop('heureDebut', e)}
+                style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: heureDebut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+              >{heureDebut || '--:--'}</button>
+            )}
+            <span style={{ color: 'var(--text-3)', fontSize: 11 }}>→</span>
+            <button
+              onClick={e => { setDatePickerOpen(o => o === 'fin' ? null : 'fin'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+            >
+              {dateFin ? formatDisplay(dateFin) : 'Fin'}
+            </button>
+            {dateFin && (
+              <button onClick={e => openPanelDrop('heureFin', e)}
+                style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: heureFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+              >{heureFin || '--:--'}</button>
+            )}
           </div>
 
           {/* DatePicker popups */}
@@ -878,15 +871,17 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {secLabel('Description')}
             <textarea
+              ref={descRef}
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={e => { setDescription(e.target.value); }}
               placeholder="Ajouter une description..."
-              rows={4}
+              rows={2}
               style={{
-                width: '100%', padding: '10px 12px', borderRadius: 10,
+                width: '100%', padding: '8px 12px', borderRadius: 10,
                 border: '1px solid var(--border)', background: 'var(--surface-2)',
                 color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
-                resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
+                resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
+                overflow: 'hidden', minHeight: 56,
               }}
             />
           </div>

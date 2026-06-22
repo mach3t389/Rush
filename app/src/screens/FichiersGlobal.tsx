@@ -161,10 +161,10 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type ViewMode = 'grid' | 'list' | 'columns' | 'stats';
+type ViewMode = 'grid' | 'list' | 'columns';
 type SortBy   = 'name' | 'date' | 'size' | 'type';
 
-interface NavLocation {
+export interface NavLocation {
   scope: 'root' | 'global' | 'project' | 'client' | 'clients';
   scopeId?: string;   // projectId or clientId
   folderId: string | null;
@@ -607,7 +607,7 @@ function FileTree({
 
 // ── Stats treemap view ────────────────────────────────────────────────────────
 
-function StatsView({ files, projects, clients, onNavigate }: {
+export function StatsView({ files, projects, clients, onNavigate }: {
   files: FileItem[];
   projects: ReturnType<typeof getProjects>;
   clients: ReturnType<typeof getClients>;
@@ -1709,7 +1709,7 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
-          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3'], ['stats', 'pie-chart']] as [ViewMode, string][]).map(([m, icon]) => (
+          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3']] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
               border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
@@ -1798,18 +1798,6 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
           <FileTree location={location} onNavigate={setLocation} collapsed={sidebarCollapsed} />
         </div>
 
-        {/* ── Stats treemap view ── */}
-        {viewMode === 'stats' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-            <StatsView
-              files={allFiles}
-              projects={projects}
-              clients={clients}
-              onNavigate={(loc) => { setLocation(loc); handleSetViewMode('grid'); }}
-            />
-          </div>
-        )}
-
         {/* ── Column view (Miller columns) ── */}
         {viewMode === 'columns' && (
           <div ref={colsContainerRef} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
@@ -1838,7 +1826,7 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
         )}
 
         {/* Main content (grid / list) */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stats') ? 'none' : undefined }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: viewMode === 'columns' ? 'none' : undefined }}>
 
           {/* ── Root view ── */}
           {location.scope === 'root' && (

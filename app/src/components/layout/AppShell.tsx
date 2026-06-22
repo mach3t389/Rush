@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { GlobalTopBar } from './GlobalTopBar';
 import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
+import { triggerAIToggle } from '../aiChatBridge';
 
 export function AppShell() {
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -14,13 +15,19 @@ export function AppShell() {
         e.preventDefault();
         setCmdOpen(prev => !prev);
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
-        e.preventDefault();
-        window.dispatchEvent(new Event('sf:ai-toggle'));
+      // Touche I seule — ignorée si focus dans un champ de texte hors du panneau IA
+      if ((e.key === 'i' || e.key === 'I' || e.code === 'KeyI') && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        const t = e.target as HTMLElement;
+        const inAIPanel = !!t.closest?.('[data-ai-panel]');
+        const inTextField = (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) && !inAIPanel;
+        if (!inTextField) {
+          e.preventDefault();
+          triggerAIToggle();
+        }
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, []);
 
   return (

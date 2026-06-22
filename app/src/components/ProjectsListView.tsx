@@ -517,15 +517,22 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 export function ProjectsListView({ clientId }: { clientId?: string }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | Status>('all');
+  const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [sortOpen, setSortOpen] = useState(false);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const [allProjects, setAllProjects] = useState(getProjects);
   const [showModal, setShowModal] = useState(false);
+  const [clientFilterOpen, setClientFilterOpen] = useState(false);
+  const clientFilterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => subscribeProjects(() => setAllProjects(getProjects())), []);
 
-  const projects = clientId ? allProjects.filter(p => p.clientId === clientId) : allProjects;
+  const projects = clientId
+    ? allProjects.filter(p => p.clientId === clientId)
+    : clientFilter
+      ? allProjects.filter(p => p.clientId === clientFilter)
+      : allProjects;
 
   const SORT_OPTIONS = clientId
     ? ALL_SORT_OPTIONS.filter(o => o.value !== 'client')
@@ -554,17 +561,72 @@ export function ProjectsListView({ clientId }: { clientId?: string }) {
   return (
     <>
       {/* Title row — visible only in global context */}
-      {!clientId && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Projets</h1>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-              {projects.length} projets · {projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length} actifs · {projects.filter(p => p.status === 'danger').length} en retard
-            </p>
+      {!clientId && (() => {
+        const allClients = getClients();
+        const clientsWithProjects = allClients.filter(c => allProjects.some(p => p.clientId === c.id));
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Projets</h1>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+                  {projects.length} projets · {projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length} actifs · {projects.filter(p => p.status === 'danger').length} en retard
+                </p>
+              </div>
+              <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>Nouveau projet</SFButton>
+            </div>
+            {/* Client filter dropdown */}
+            {clientsWithProjects.length > 0 && (
+              <div ref={clientFilterRef} style={{ position: 'relative', alignSelf: 'flex-start' }}>
+                <button
+                  onClick={() => setClientFilterOpen(o => !o)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                >
+                  {clientFilter ? (
+                    <>
+                      <i style={{ width: 7, height: 7, borderRadius: '50%', background: clientsWithProjects.find(c => c.id === clientFilter)?.avatarColor ?? 'var(--text-3)', flexShrink: 0, display: 'block' }} />
+                      {clientsWithProjects.find(c => c.id === clientFilter)?.name}
+                    </>
+                  ) : (
+                    <><SFIcon name="users" size={12} color="var(--text-3)" />Tous les clients</>
+                  )}
+                  <SFIcon name="chevron-down" size={12} color={clientFilter ? 'var(--accent)' : 'var(--text-3)'} />
+                </button>
+                {clientFilterOpen && (
+                  <>
+                    <div onClick={() => setClientFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 100 }} />
+                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 101, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 4, minWidth: 200, maxHeight: 280, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                      <button
+                        onClick={() => { setClientFilter(null); setClientFilterOpen(false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: clientFilter === null ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
+                      >
+                        <SFIcon name="layers" size={12} color="var(--text-3)" />
+                        Tous les clients
+                        {clientFilter === null && <SFIcon name="check" size={11} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                      </button>
+                      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                      {clientsWithProjects.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setClientFilter(c.id); setClientFilterOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: clientFilter === c.id ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)' }}
+                        >
+                          <i style={{ width: 8, height: 8, borderRadius: '50%', background: c.avatarColor, flexShrink: 0, display: 'block' }} />
+                          {c.name}
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
+                            {allProjects.filter(p => p.clientId === c.id).length}
+                          </span>
+                          {clientFilter === c.id && <SFIcon name="check" size={11} color="var(--accent)" />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>Nouveau projet</SFButton>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

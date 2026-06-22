@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { triggerAIToggle } from '../aiChatBridge';
 import { NavLink } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
 import { USERS } from '../../data/mock';
@@ -51,8 +52,7 @@ const NAV_MAIN = [
 const NAV_BOTTOM_MAIN = [
   { to: '/clients',    icon: 'users',        label: 'Clients',       exact: true  },
   { to: '/projets',    icon: 'folder',       label: 'Projets',       exact: true  },
-  { to: '/fichiers',   icon: 'hard-drive',   label: 'Fichiers',      exact: false },
-  { to: '/calendrier', icon: 'calendar',     label: 'Calendrier',    exact: false },
+  { to: '/global',     icon: 'layers',       label: 'Vue globale',   exact: false },
   { to: '/activite',   icon: 'bell',         label: 'Notifications', exact: false },
 ];
 
@@ -528,7 +528,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
       <div style={{ padding: collapsed ? '0 6px 12px' : '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
         {/* AI assistant button */}
         <button
-          onClick={() => window.dispatchEvent(new Event('sf:ai-toggle'))}
+          onClick={() => triggerAIToggle()}
           title={collapsed ? 'Assistant IA' : undefined}
           style={{
             display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
@@ -545,7 +545,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           {!collapsed && (
             <>
               <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Assistant IA</span>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', opacity: 0.55, background: 'rgba(249,255,0,0.08)', border: '1px solid rgba(249,255,0,0.2)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em', flexShrink: 0 }}>⌃\</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', opacity: 0.55, background: 'rgba(249,255,0,0.08)', border: '1px solid rgba(249,255,0,0.2)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em', flexShrink: 0 }}>I</span>
             </>
           )}
         </button>

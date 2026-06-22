@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { registerAIToggle } from './aiChatBridge';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
 import { getProjects, addProject } from '../data/projectStore';
@@ -542,17 +543,17 @@ export function AIChat() {
     }
   };
 
+  const toggle = useCallback(() => setOpen(o => !o), []);
   useEffect(() => {
-    const handler = () => setOpen(o => !o);
-    window.addEventListener('sf:ai-toggle', handler);
-    return () => window.removeEventListener('sf:ai-toggle', handler);
-  }, []);
+    registerAIToggle(toggle);
+    return () => registerAIToggle(() => {});
+  }, [toggle]);
 
   return (
     <>
       {/* Panel */}
       {open && (
-        <div style={{
+        <div data-ai-panel style={{
           position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 89,
           width: 380,
           background: 'var(--surface)',
