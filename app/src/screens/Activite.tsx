@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar } from '../components/ui';
 import { ACTIVITY } from '../data/mock';
+import { ActivityFeed } from '../components/ActivityFeed';
 import type { AppNotif, NotifKind } from '../data/notificationStore';
 import { subscribeNotifs, getNotifHistory, markAllRead } from '../data/notificationStore';
 
@@ -200,48 +201,6 @@ function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigat
   );
 }
 
-// ── Activity row ──────────────────────────────────────────────────────────────
-
-type ActivityType = 'comment' | 'upload' | 'task' | 'approve';
-
-const ACTIVITY_LABEL: Record<ActivityType, string> = {
-  comment: 'COMMENTAIRE',
-  upload:  'NOUVELLE VERSION',
-  task:    'TÂCHE',
-  approve: 'APPROBATION',
-};
-const ACTIVITY_STATUS: Record<ActivityType, Status> = {
-  comment: 'review',
-  upload:  'info',
-  task:    'info',
-  approve: 'ok',
-};
-
-function ActivityRow({ item, isLast }: { item: typeof ACTIVITY[number]; isLast: boolean }) {
-  const atype = (item.type ?? 'comment') as ActivityType;
-  return (
-    <div style={{ ...ROW_GRID, borderBottom: isLast ? 'none' : '1px solid var(--border)', borderLeft: '2px solid transparent' }}>
-      {/* Col 1 — Personne */}
-      <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
-
-      {/* Col 2 — Message */}
-      <p style={{ fontSize: 12, lineHeight: 1.3, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <strong>{item.actor.name}</strong>{' '}{item.action}{' '}
-        <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
-        {item.detail && <span style={{ color: 'var(--text-3)' }}> — {item.detail}</span>}
-      </p>
-
-      {/* Col 3 — Type (pastille) */}
-      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-        <SFPill status={ACTIVITY_STATUS[atype]} small>{ACTIVITY_LABEL[atype]}</SFPill>
-      </div>
-
-      {/* Col 4 — Temps */}
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>{item.time}</span>
-    </div>
-  );
-}
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 type Tab = 'personal' | 'studio';
@@ -383,33 +342,25 @@ export function Activite() {
             </>
           )}
 
-          {/* Tab: Studio */}
-          {tab === 'studio' && (() => {
-            const activityDays = Array.from(new Set(ACTIVITY.map(a => a.day)));
-            const activityGrouped = activityDays.map(day => ({
-              day,
-              items: ACTIVITY.filter(a => a.day === day),
-            }));
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                <ColumnHeader />
-                {activityGrouped.map(({ day, items }) => (
-                  <div key={day}>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '12px 0 8px' }}>
-                      {day}
-                    </p>
-                    {items.map((item, i) => (
-                      <ActivityRow key={item.id} item={item} isLast={i === items.length - 1} />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+          {/* Tab: Studio — même flux riche que la fiche client */}
+          {tab === 'studio' && (
+            <ActivityFeed activities={ACTIVITY.map(a => ({
+              id: a.id,
+              day: a.day,
+              type: a.type ?? 'comment',
+              actorName: a.actor.name,
+              actorInitials: a.actor.initials,
+              actorColor: a.actor.avatarColor,
+              action: a.action,
+              target: a.target,
+              detail: a.detail,
+              time: a.time,
+            }))} />
+          )}
         </div>
 
-        {/* ── Panneau latéral ────────────────────────────────────────────────── */}
-        <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 0 }}>
+        {/* ── Panneau latéral (notifications) — masqué en mode Studio qui a sa propre colonne ── */}
+        {tab === 'personal' && <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 0 }}>
 
           {/* Carte résumé non lus */}
           <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16 }}>
@@ -435,7 +386,7 @@ export function Activite() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
       </div>
     </div>
