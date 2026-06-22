@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
+import { updateProject } from '../data/projectStore';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
 const PROJECT_COLORS = [
@@ -24,11 +25,20 @@ export const PROJECT_STATUS_OPTIONS: { status: Status; label: string }[] = [
 
 // ── Project Edit Panel ─────────────────────────────────────────────────────────
 
+export const PROJECT_PHASE_OPTIONS: { phase: Phase; label: string }[] = [
+  { phase: 'preproduction',  label: 'Préproduction' },
+  { phase: 'production',     label: 'Production' },
+  { phase: 'postproduction', label: 'Postproduction' },
+  { phase: 'livraison',      label: 'Livraison' },
+];
+
 export interface EditUpdates {
   name: string; color: string;
   status: Status; statusLabel: string;
   phase: Phase; phaseLabel: string;
   deliveryDate: string;
+  budget?: number;
+  description?: string;
 }
 
 export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, phaseLabel, deliveryDate, onClose, onSave }: {
@@ -42,16 +52,24 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   const [lColor, setLColor]             = useState(color);
   const [lStatus, setLStatus]           = useState<Status>(status);
   const [lStatusLabel, setLStatusLabel] = useState(statusLabel);
+  const [lPhase, setLPhase]             = useState<Phase>(phase);
+  const [lPhaseLabel, setLPhaseLabel]   = useState(phaseLabel);
+  const [lDelivery, setLDelivery]       = useState(deliveryDate);
+  const [lBudget, setLBudget]           = useState(p.budget ? String(p.budget) : '');
+  const [lDescription, setLDescription] = useState(p.description ?? '');
 
   const save = () => {
+    const budgetNum = Number(String(lBudget).replace(/[^\d.]/g, ''));
     onSave({
       name: lName.trim() || name,
       color: lColor,
       status: lStatus,
       statusLabel: lStatusLabel,
-      phase,
-      phaseLabel,
-      deliveryDate,
+      phase: lPhase,
+      phaseLabel: lPhaseLabel,
+      deliveryDate: lDelivery,
+      budget: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined,
+      description: lDescription.trim() || undefined,
     });
     onClose();
   };
@@ -135,6 +153,61 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             </div>
           </div>
 
+          {/* Phase */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Phase actuelle</label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {PROJECT_PHASE_OPTIONS.map(opt => (
+                <button
+                  key={opt.phase}
+                  onClick={() => { setLPhase(opt.phase); setLPhaseLabel(opt.label); }}
+                  style={{
+                    padding: '6px 11px', borderRadius: 8,
+                    border: `1px solid ${lPhase === opt.phase ? 'var(--accent)' : 'var(--border)'}`,
+                    background: lPhase === opt.phase ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)',
+                    color: lPhase === opt.phase ? 'var(--accent)' : 'var(--text-2)',
+                    fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)',
+                  }}
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date de livraison */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Date de livraison</label>
+            <input
+              value={lDelivery}
+              onChange={e => setLDelivery(e.target.value)}
+              placeholder="ex. 15 juin 2025"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+            />
+          </div>
+
+          {/* Budget */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Budget</label>
+            <input
+              value={lBudget}
+              onChange={e => setLBudget(e.target.value)}
+              placeholder="ex. 9000"
+              inputMode="numeric"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description</label>
+            <textarea
+              value={lDescription}
+              onChange={e => setLDescription(e.target.value)}
+              placeholder="Courte description du projet…"
+              rows={3}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
+            />
+          </div>
+
         </div>
 
         {/* Footer */}
@@ -205,6 +278,11 @@ export function ProjectCard({ p }: { p: Project }) {
     setStatus(u.status); setStatusLabel(u.statusLabel);
     setPhase(u.phase); setPhaseLabel(u.phaseLabel);
     setDeliveryDate(u.deliveryDate);
+    updateProject(p.id, {
+      name: u.name, status: u.status, statusLabel: u.statusLabel,
+      phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
+      budget: u.budget, description: u.description,
+    });
   };
 
   return (

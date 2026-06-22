@@ -77,6 +77,7 @@ interface CalEvent {
   allDay?: boolean;
   description?: string;
   location?: string;
+  meetingUrl?: string;
   participantIds?: string[];
   sectionId?: string;
   sectionLabel?: string;
@@ -102,6 +103,7 @@ function resolveEvents(eventTypes: EventType[]): CalEvent[] {
       allDay: e.allDay,
       description: e.description,
       location: e.location,
+      meetingUrl: e.meetingUrl,
       participantIds: e.memberIds,
     };
   });
@@ -137,6 +139,63 @@ function layoutEvents(events: CalEvent[]) {
 
 // ── Create event modal ────────────────────────────────────────────────────────
 
+// ── Rencontre en ligne (Jitsi auto + lien collé) ───────────────────────────────
+
+function makeJitsiUrl(title: string): string {
+  const slug = (title || 'Rencontre')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // retire les accents
+    .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    .slice(0, 30) || 'Rencontre';
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `https://meet.jit.si/Rush-${slug}-${rand}`;
+}
+
+export function MeetingField({ value, onChange, title }: {
+  value: string;
+  onChange: (url: string) => void;
+  title: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  if (!value) {
+    return (
+      <button onClick={() => onChange(makeJitsiUrl(title))}
+        style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:7,width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',fontSize:12,cursor:'pointer',fontFamily:'var(--ff-text)',marginBottom:8,boxSizing:'border-box' }}
+        onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.borderColor='var(--accent)'; }}
+        onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.borderColor='var(--border)'; }}
+      >
+        <SFIcon name="video" size={13} color="var(--accent)" />
+        Créer une rencontre en ligne
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display:'flex',flexDirection:'column',gap:7,marginBottom:8,padding:'9px 11px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)' }}>
+      <div style={{ display:'flex',alignItems:'center',gap:7 }}>
+        <SFIcon name="video" size={13} color="var(--accent)" />
+        <span style={{ fontSize:9,fontFamily:'var(--ff-mono)',color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Rencontre en ligne</span>
+        <button onClick={()=>onChange('')} title="Retirer la rencontre" style={{ marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2 }}>
+          <SFIcon name="x" size={13} />
+        </button>
+      </div>
+      <input value={value} onChange={e=>onChange(e.target.value)} placeholder="Coller un lien Meet / Zoom / Teams…"
+        style={{ width:'100%',padding:'6px 8px',borderRadius:7,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-mono)',boxSizing:'border-box' }}
+      />
+      <div style={{ display:'flex',gap:6 }}>
+        <a href={value} target="_blank" rel="noopener noreferrer"
+          style={{ display:'flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:7,background:'var(--accent)',color:'var(--on-accent)',fontSize:11,fontWeight:600,textDecoration:'none',fontFamily:'var(--ff-text)' }}>
+          <SFIcon name="external-link" size={11} color="var(--on-accent)" /> Rejoindre
+        </a>
+        <button onClick={()=>{ navigator.clipboard?.writeText(value); setCopied(true); setTimeout(()=>setCopied(false),1500); }}
+          style={{ display:'flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:7,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text-2)',fontSize:11,cursor:'pointer',fontFamily:'var(--ff-text)' }}>
+          <SFIcon name={copied?'check':'copy'} size={11} color={copied?'var(--ok)':'var(--text-3)'} /> {copied?'Copié':'Copier'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defaultAllDay, onClose }: {
   defaultDate: Date;
   defaultStartTime?: string;
@@ -153,6 +212,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   const [endT, setEndT]           = useState(defaultEndTime ?? `${fmt2((defaultDate.getHours()||9)+1)}:00`);
   const [projectId, setProjectId] = useState('');
   const [location, setLocation]   = useState('');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [participants, setParticipants] = useState<string[]>(['lea']);
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
@@ -197,6 +257,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
       end: allDay ? dateStr : end.toISOString(),
       allDay,
       location: location || undefined,
+      meetingUrl: meetingUrl || undefined,
       memberIds: participants,
     });
     onClose();
@@ -297,6 +358,9 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
         <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
+
+        {/* Online meeting */}
+        <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
         {/* Description */}
         <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
@@ -420,7 +484,10 @@ function EventBlock({ ev, col, numCols, onClick }: { ev: CalEvent; col: number; 
         background:`${ev.eventTypeColor}cc`, border:`1px solid ${ev.eventTypeColor}`, borderLeft:`3px solid ${ev.projectColor}`, boxShadow:hov?`0 2px 12px ${ev.eventTypeColor}66`:undefined, transition:'box-shadow 0.15s',
       }}
     >
-      <p style={{ fontSize:11,fontWeight:700,color:'white',lineHeight:1.2,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
+      <div style={{ display:'flex',alignItems:'center',gap:4 }}>
+        {ev.meetingUrl && <SFIcon name="video" size={10} color="white" style={{ flexShrink:0 }} />}
+        <p style={{ fontSize:11,fontWeight:700,color:'white',lineHeight:1.2,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
+      </div>
       {h>30 && <p style={{ fontSize:10,color:'rgba(255,255,255,0.8)',fontFamily:'var(--ff-mono)' }}>{fmtTime(ev.startDate)} – {fmtTime(ev.endDate)}</p>}
       {h>50 && ev.location && <p style={{ fontSize:9,color:'rgba(255,255,255,0.7)',marginTop:2 }}>📍 {ev.location}</p>}
     </div>
@@ -687,6 +754,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   const [endT, setEndT]           = useState(ev.allDay ? '10:00' : toTimeStr(ev.endDate));
   const [projectId, setProjectId] = useState(ev.projectId ?? '');
   const [location, setLocation]   = useState(ev.location ?? '');
+  const [meetingUrl, setMeetingUrl] = useState(ev.meetingUrl ?? '');
   const [participants, setParticipants] = useState<string[]>(ev.participantIds ?? []);
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const PARTICIPANT_THRESHOLD = 4;
@@ -710,6 +778,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
       end:   allDay ? dateStr : end.toISOString(),
       allDay: allDay || undefined,
       location: location || undefined,
+      meetingUrl: meetingUrl || undefined,
       memberIds: participants,
     });
     onClose();
@@ -755,6 +824,9 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
+
+        {/* Online meeting */}
+        <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
         {/* Description */}
         <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
@@ -850,7 +922,7 @@ export function CalendrierGlobal() {
   const [createAllDay, setCreateAllDay] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent|null>(null);
   const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
-  const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(new Set());
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const unsub1 = subscribeEvents(() => setEvents(resolveEvents(getEventTypes())));
@@ -864,10 +936,10 @@ export function CalendrierGlobal() {
     return d&&!t.checked?[{date:d,title:t.title,color:t.projectColor}]:[];
   });
 
-  // Filter events by selected projects + event types
-  const visibleEvents = events.filter(ev => !hiddenProjects.has(ev.projectId ?? '') && (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId)));
+  // Filter events by visible projects + event types (modèle exclusion des deux côtés)
+  const visibleEvents = events.filter(ev => !hiddenProjects.has(ev.projectId ?? '') && !hiddenTypes.has(ev.eventTypeId));
 
-  const toggleEventType = (id: string) => setSelectedEventTypes(s => {
+  const toggleEventType = (id: string) => setHiddenTypes(s => {
     const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
   });
 
@@ -996,30 +1068,47 @@ export function CalendrierGlobal() {
           );
         })()}
 
-        {/* Event type filters */}
+        {/* Event type filters — même modèle que les projets */}
         {(()=>{
-          const hasFilter = selectedEventTypes.size > 0;
+          const allTypeIds = eventTypes.map(t => t.id);
+          const allHidden = allTypeIds.length > 0 && allTypeIds.every(id => hiddenTypes.has(id));
+          const shownIds = allTypeIds.filter(id => !hiddenTypes.has(id));
+          const isSolo = shownIds.length === 1;
+
+          const toggleAll = () => {
+            if (allHidden) setHiddenTypes(new Set());
+            else setHiddenTypes(new Set(allTypeIds));
+          };
+          const solo = (id: string) => {
+            if (isSolo && shownIds[0] === id) setHiddenTypes(new Set());
+            else setHiddenTypes(new Set(allTypeIds.filter(x => x !== id)));
+          };
+
           return (
             <div>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
                 <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Types d'événements</p>
-                {hasFilter && (
-                  <button onClick={()=>setSelectedEventTypes(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                    Tout afficher
-                  </button>
-                )}
+                <button onClick={toggleAll} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
+                  {allHidden ? 'Tout afficher' : 'Tout masquer'}
+                </button>
               </div>
               <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
                 {eventTypes.map(t=>{
-                  const active = !hasFilter || selectedEventTypes.has(t.id);
+                  const hidden = hiddenTypes.has(t.id);
+                  const isThisSolo = isSolo && shownIds[0] === t.id;
                   return (
-                    <button key={t.id} onClick={()=>toggleEventType(t.id)}
-                      style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}
-                    >
-                      <div style={{ width:10,height:10,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1 }}>{t.label}</span>
-                      {active&&hasFilter&&<SFIcon name="checkmark" size={11} color="var(--text-3)" />}
-                    </button>
+                    <div key={t.id} style={{ display:'flex',alignItems:'center',gap:4 }}>
+                      <button onClick={()=>toggleEventType(t.id)}
+                        style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',opacity:hidden?0.35:1,transition:'opacity 0.15s',flex:1,minWidth:0 }}
+                      >
+                        <div style={{ width:10,height:10,borderRadius:'50%',background:t.color,flexShrink:0 }} />
+                        <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{t.label}</span>
+                        {hidden && <SFIcon name="eye-off" size={11} color="var(--text-3)" />}
+                      </button>
+                      <button onClick={()=>solo(t.id)} title="Voir uniquement ce type"
+                        style={{ padding:'3px 6px',borderRadius:6,border:`1px solid ${isThisSolo?'var(--accent)':'var(--border)'}`,background:isThisSolo?'rgba(249,255,0,0.07)':'transparent',color:isThisSolo?'var(--accent)':'var(--text-3)',cursor:'pointer',fontSize:9,fontFamily:'var(--ff-mono)',flexShrink:0,transition:'all 0.12s' }}
+                      >Solo</button>
+                    </div>
                   );
                 })}
               </div>

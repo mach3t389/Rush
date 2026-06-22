@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients } from '../data/clientStore';
-import { STATUS_COLOR } from '../data/status';
 import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { ProjectsListView } from '../components/ProjectsListView';
@@ -461,7 +460,9 @@ function EquipeTab({ clientId }: { clientId: string }) {
           <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
             {confirmDelete ? (
               <>
-                <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1 }}>Confirmer le retrait ?</span>
+                <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1 }}>
+                  {m.internal ? "Retirer de l'équipe du client ? Le membre reste assigné à ses projets." : 'Retirer ce contact du client ?'}
+                </span>
                 <SFButton variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</SFButton>
                 <SFButton variant="ghost" onClick={() => { removeMember(m.id); onClose(); }} style={{ color: 'var(--danger)' }}>Retirer</SFButton>
               </>
@@ -471,7 +472,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                   onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,60,60,0.08)'; el.style.borderColor = 'var(--danger)'; }}
                   onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.borderColor = 'var(--border)'; }}>
                   <SFIcon name="user-minus" size={13} color="var(--danger)" />
-                  Retirer du projet
+                  {m.internal ? "Retirer du client" : 'Retirer le contact'}
                 </button>
                 <div style={{ flex: 1 }} />
                 <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
@@ -532,7 +533,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
       </div>
 
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={m => { addClientTeamMember(clientId, m); setMembers(getClientTeam(clientId)); }} />}
-      {showAssign && <AssignInternalModal existingIds={internalIds} onClose={() => setShowAssign(false)} onAssign={m => { addClientTeamMember(clientId, m); setMembers(getClientTeam(clientId)); }} />}
+      {showAssign && <AssignInternalModal existingIds={internalIds} onClose={() => setShowAssign(false)} onAssign={ms => { ms.forEach(m => addClientTeamMember(clientId, m)); setMembers(getClientTeam(clientId)); }} />}
       {panelMember && (
         <MemberEditPanel
           m={panelMember}
@@ -928,12 +929,11 @@ const INVOICE_STATUS: Record<ClientInvoice['status'], { label: string; color: st
 const cardStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 };
 const cardTitleStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
 
-function ApercuTab({ client, projects, clientId, onGoTab, onEdit }: {
+function ApercuTab({ client, projects, clientId, onGoTab }: {
   client: NonNullable<ReturnType<typeof findClient>>;
   projects: typeof PROJECTS;
   clientId: string;
   onGoTab: (t: ClientTab) => void;
-  onEdit: () => void;
 }) {
   const navigate = useNavigate();
   const contacts = getClientContacts(clientId);
@@ -1060,23 +1060,22 @@ function ApercuTab({ client, projects, clientId, onGoTab, onEdit }: {
 
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Client info */}
+          {/* Coordonnées — ce qui n'est pas déjà dans l'en-tête. Édition via le bouton de l'en-tête. */}
           <div style={cardStyle}>
-            <SectionHeader title="Informations" action="Modifier" onAction={onEdit} />
+            <SectionHeader title="Coordonnées" />
             {([
-              { icon: 'briefcase', label: 'Secteur',            value: client.sector              },
-              { icon: 'map-pin',   label: 'Ville',              value: client.city !== '—' ? client.city : null },
-              { icon: 'home',      label: 'Adresse',            value: client.address ?? null     },
-              { icon: 'calendar',  label: 'Client depuis',      value: client.since               },
-              { icon: 'phone',     label: 'Téléphone',          value: client.phone    ?? null    },
-              { icon: 'mail',      label: 'Courriel',           value: client.email    ?? null    },
-              { icon: 'receipt',   label: 'Courriel compta',    value: client.emailCompta ?? null },
-              { icon: 'globe',     label: 'Site web',           value: client.website  ?? null    },
-            ] as { icon: string; label: string; value: string | null }[]).filter(r => r.value).map(row => (
-              <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+              { icon: 'home',    label: 'Adresse',         value: client.address     ?? null },
+              { icon: 'phone',   label: 'Téléphone',       value: client.phone       ?? null },
+              { icon: 'mail',    label: 'Courriel',        value: client.email       ?? null },
+              { icon: 'receipt', label: 'Courriel compta', value: client.emailCompta ?? null },
+              { icon: 'globe',   label: 'Site web',        value: client.website     ?? null },
+            ] as { icon: string; label: string; value: string | null }[]).map((row, i, arr) => (
+              <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <SFIcon name={row.icon} size={13} color="var(--text-3)" />
                 <span style={{ fontSize: 11, color: 'var(--text-3)', width: 100, flexShrink: 0 }}>{row.label}</span>
-                <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.value}</span>
+                <span style={{ fontSize: 12, color: row.value ? 'var(--text-2)' : 'var(--text-3)', fontStyle: row.value ? 'normal' : 'italic', flex: 1, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {row.value ?? 'Non renseigné'}
+                </span>
               </div>
             ))}
           </div>
@@ -1240,18 +1239,23 @@ function ClientEditPanel({ client, onClose }: {
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 placeholder="Ex: Agence créative, Startup IA…" style={inputStyleFC} />
             </FieldFC>
-            <FieldFC label="Statut">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {PROJECT_STATUS_OPTIONS.map(opt => (
-                  <button key={opt.value}
-                    onClick={() => { setLStatus(opt.value as Status); setLStatusLabel(opt.label); commit({ status: opt.value as Status, statusLabel: opt.label }); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 8, border: `1px solid ${lStatus === opt.value ? (STATUS_COLOR[opt.value] ?? 'var(--border)') : 'var(--border)'}`, background: lStatus === opt.value ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)' }}
-                  >
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[opt.value] ?? 'var(--text-3)', flexShrink: 0 }} />
-                    {opt.label}
-                    {lStatus === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                  </button>
-                ))}
+            <FieldFC label="Relation">
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([
+                  { value: 'ok' as Status,      label: 'Actif',   color: 'var(--ok)' },
+                  { value: 'neutral' as Status, label: 'Archivé', color: 'var(--text-3)' },
+                ]).map(opt => {
+                  const active = lStatus === opt.value;
+                  return (
+                    <button key={opt.value}
+                      onClick={() => { setLStatus(opt.value); setLStatusLabel(opt.label); commit({ status: opt.value, statusLabel: opt.label }); }}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? opt.color : 'var(--border)'}`, background: active ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: active ? 'var(--text)' : 'var(--text-2)', fontWeight: active ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: opt.color, flexShrink: 0 }} />
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </FieldFC>
             <FieldFC label="Couleur avatar">
@@ -1389,6 +1393,14 @@ export function FicheClient() {
                 ARCHIVÉ
               </span>
             )}
+            <button onClick={() => setClientEditOpen(true)} title="Modifier le client"
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+            >
+              <SFIcon name="square-pen" size={14} color="var(--text-3)" />
+              Modifier
+            </button>
             <SFButton variant="primary" icon="plus" onClick={() => setTab('projets')}>Nouveau projet</SFButton>
           </div>
         </div>
@@ -1405,7 +1417,7 @@ export function FicheClient() {
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} onEdit={() => setClientEditOpen(true)} />}
+        {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} />}
 
         {tab === 'projets' && <ProjectsListView clientId={client.id} />}
 
@@ -1415,7 +1427,7 @@ export function FicheClient() {
 
         {tab === 'fichiers' && (
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', margin: -24 }}>
-            <FileBrowser initialNav={{ scope: 'client', scopeId: client.id, folderId: null }} />
+            <FileBrowser initialNav={{ scope: 'client', scopeId: client.id, folderId: null }} locked key={client.id} />
           </div>
         )}
       </div>

@@ -1,8 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, DatePickerDropdown, toYMD, formatDisplay } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { PROJECTS, ACTIVITY, USERS } from '../data/mock';
+import { ACTIVITY, USERS } from '../data/mock';
+import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, subscribeStore } from '../data/taskStore';
 import { getClientApprover } from './FicheClient';
 import type { Task, DeliverableFormat, DeliverableType } from '../types';
@@ -424,7 +425,9 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true }
 export function TravailOverview() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const project = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
+  const [, forceUpdate] = useState(0);
+  useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
+  const project = findProject(projectId ?? '') ?? getProjects()[0];
 
   const [completed, setCompleted] = useState(() => loadCompleted(project.id));
 
@@ -453,12 +456,6 @@ export function TravailOverview() {
     references: '',
   });
   const [notes, setNotes] = useState('');
-
-  const [editDeliveryDate, setEditDeliveryDate] = useState(''); // YYYY-MM-DD
-  const [editDescription, setEditDescription] = useState(project.description ?? '');
-  const [editBudget, setEditBudget] = useState(project.budget ? String(project.budget) : '');
-  const [editPhase, setEditPhase] = useState(project.phase ?? '');
-  const [datepickerAnchor, setDatepickerAnchor] = useState<DOMRect | null>(null);
 
   const toggleCompleted = () => {
     const next = !completed;
@@ -528,7 +525,7 @@ export function TravailOverview() {
           )}
 
           {/* ── Vision & positionnement ── */}
-          <Card title="Vision & positionnement" icon="compass" collapsible defaultOpen={false} action={<SFButton variant="ghost" size="sm" icon="square-pen">Modifier</SFButton>}>
+          <Card title="Vision & positionnement" icon="compass" collapsible defaultOpen={false}>
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <VisionField label="Concept" placeholder="Quelle est l'idée centrale du projet ?" value={vision.concept} onChange={v => setVision(p => ({ ...p, concept: v }))} multiline />
@@ -912,14 +909,19 @@ export function TravailOverview() {
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Phase actuelle</p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {PHASE_STEPS.map(step => (
-                    <button key={step.key} onClick={() => setEditPhase(step.key)} style={{
-                      padding: '4px 9px', borderRadius: 7, border: `1px solid ${editPhase === step.key ? 'var(--accent)' : 'var(--border)'}`,
-                      background: editPhase === step.key ? 'rgba(249,255,0,0.08)' : 'transparent',
-                      color: editPhase === step.key ? 'var(--accent)' : 'var(--text-3)',
-                      fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)',
-                    }}>{step.label}</button>
-                  ))}
+                  {PHASE_STEPS.map((step, i) => {
+                    const active = step.key === project.phase;
+                    const done = phaseIdx >= 0 && i < phaseIdx;
+                    return (
+                      <span key={step.key} style={{
+                        padding: '4px 9px', borderRadius: 7,
+                        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                        background: active ? 'rgba(249,255,0,0.08)' : 'transparent',
+                        color: active ? 'var(--accent)' : done ? 'var(--text-2)' : 'var(--text-3)',
+                        fontSize: 11, fontFamily: 'var(--ff-text)',
+                      }}>{step.label}</span>
+                    );
+                  })}
                 </div>
               </div>
               <div>
@@ -931,48 +933,23 @@ export function TravailOverview() {
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Date de livraison</p>
-                <button
-                  onClick={e => setDatepickerAnchor(a => a ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 7, width: '100%',
-                    padding: '6px 10px', borderRadius: 8,
-                    border: '1px solid var(--border)', background: 'var(--surface-2)',
-                    color: editDeliveryDate ? 'var(--text)' : 'var(--text-3)',
-                    fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left',
-                  }}
-                >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: project.deliveryDate ? 'var(--text-2)' : 'var(--text-3)' }}>
                   <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                  {editDeliveryDate ? formatDisplay(editDeliveryDate) : (project.deliveryDate || 'Choisir une date…')}
-                </button>
-                {datepickerAnchor && (
-                  <DatePickerDropdown
-                    value={editDeliveryDate}
-                    onChange={v => { setEditDeliveryDate(v); setDatepickerAnchor(null); }}
-                    onClose={() => setDatepickerAnchor(null)}
-                    anchorRect={datepickerAnchor}
-                    zIndex={300}
-                  />
-                )}
+                  {project.deliveryDate || 'Non définie'}
+                </div>
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Budget</p>
-                <input
-                  value={editBudget}
-                  onChange={e => setEditBudget(e.target.value)}
-                  placeholder="ex. 9 000 $"
-                  style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-                />
+                <p style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', color: project.budget ? 'var(--text-2)' : 'var(--text-3)', fontStyle: project.budget ? 'normal' : 'italic' }}>
+                  {project.budget ? `${project.budget.toLocaleString('fr-CA')} $` : 'Non défini'}
+                </p>
               </div>
-              <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Description</p>
-                <textarea
-                  value={editDescription}
-                  onChange={e => setEditDescription(e.target.value)}
-                  placeholder="Courte description du projet…"
-                  rows={3}
-                  style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box', colorScheme: 'dark' }}
-                />
-              </div>
+              {project.description && (
+                <div>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Description</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{project.description}</p>
+                </div>
+              )}
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Tâches</p>
                 <div style={{ display: 'flex', gap: 12 }}>

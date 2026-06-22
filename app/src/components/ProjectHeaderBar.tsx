@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { SFIcon } from './ui';
-import { findProject } from '../data/projectStore';
+import { findProject, updateProject, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { useProjectTaskNotifCount, useProjectResourceNotifCount } from '../hooks/useNotifs';
@@ -41,6 +41,8 @@ export function ProjectHeaderBar({
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
   const resourceNotifs = useProjectResourceNotifCount(projectId);
+
+  useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
 
   if (!project) return null;
 
@@ -168,7 +170,7 @@ export function ProjectHeaderBar({
                   {PROJECT_STATUS_OPTIONS.map(o => (
                     <button
                       key={o.status}
-                      onClick={() => { setStatus(o.status); setStatusLabel(o.label); setStatusOpen(false); }}
+                      onClick={() => { setStatus(o.status); setStatusLabel(o.label); setStatusOpen(false); updateProject(project.id, { status: o.status, statusLabel: o.label }); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                         padding: '7px 10px', borderRadius: 7, border: 'none',
@@ -239,6 +241,11 @@ export function ProjectHeaderBar({
             setProjectColor(project.id, u.color);
             setStatus(u.status);
             setStatusLabel(u.statusLabel);
+            updateProject(project.id, {
+              name: u.name, status: u.status, statusLabel: u.statusLabel,
+              phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
+              budget: u.budget, description: u.description,
+            });
             forceUpdate(n => n + 1);
           }}
         />

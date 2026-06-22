@@ -8,6 +8,7 @@ export interface CalendarEvent {
   allDay?: boolean;
   description?: string;
   location?: string;
+  meetingUrl?: string;
   memberIds?: string[];
 }
 

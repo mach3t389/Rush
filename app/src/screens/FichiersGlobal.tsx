@@ -432,11 +432,12 @@ function TreeNode({
 // ── Left sidebar tree ──────────────────────────────────────────────────────────
 
 function FileTree({
-  location, onNavigate, collapsed,
+  location, onNavigate, collapsed, lockedScope,
 }: {
   location: NavLocation;
   onNavigate: (loc: NavLocation) => void;
   collapsed: boolean;
+  lockedScope?: NavLocation;
 }) {
   const [projects, setProjects] = useState(getProjects);
   const [folders, setFolders] = useState(getFolders);
@@ -468,12 +469,83 @@ function FileTree({
     fontSize: 12, fontWeight: active ? 600 : 400,
   });
 
+  // Render an expandable project row + its root folders (shared between locked and unlocked).
+  const renderProjectRow = (p: ReturnType<typeof getProjects>[number]) => {
+    const exp = expandedProjects.has(p.id);
+    const projActive = location.scope === 'project' && location.scopeId === p.id && !location.folderId;
+    const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null && !f.state);
+    const isHovered = hoveredProjectId === p.id;
+    const isPinned = pinnedIds.includes(p.id);
+    return (
+      <div key={p.id}>
+        <div
+          style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative' }}
+          onMouseEnter={e => { setHoveredProjectId(p.id); if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
+          onMouseLeave={e => { setHoveredProjectId(null); if (!projActive) e.currentTarget.style.background = 'transparent'; }}
+        >
+          {!collapsed && projFolders.length > 0 && (
+            <div onClick={e => { e.stopPropagation(); toggleProject(p.id); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
+              <SFIcon name={exp ? 'chevron-down' : 'chevron-right'} size={10} color="var(--text-3)" />
+            </div>
+          )}
+          {(!collapsed && projFolders.length === 0) && <div style={{ width: 10 }} />}
+          <div
+            onClick={() => { onNavigate({ scope: 'project', scopeId: p.id, folderId: null }); if (!exp && projFolders.length) toggleProject(p.id); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0, cursor: 'pointer' }}
+          >
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
+            {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>}
+          </div>
+          {!collapsed && isHovered && (
+            <button
+              onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
+              title={isPinned ? 'Désépingler' : 'Épingler'}
+              style={{
+                flexShrink: 0, width: 20, height: 20, borderRadius: 4,
+                background: isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = isPinned ? 'rgba(249,255,0,0.8)' : 'rgba(0,0,0,0.4)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)'; }}
+            >
+              <SFIcon name="star" size={11} color={isPinned ? 'var(--on-accent)' : 'var(--text-3)'} fill={isPinned ? 'currentColor' : 'none'} />
+            </button>
+          )}
+        </div>
+        {exp && !collapsed && projFolders.map(f => {
+          const active = location.scope === 'project' && location.scopeId === p.id && location.folderId === f.id;
+          return (
+            <div key={f.id}
+              onClick={() => onNavigate({ scope: 'project', scopeId: p.id, folderId: f.id })}
+              style={{ ...ITEM_STYLE(active), paddingLeft: 28 }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <SFIcon name="folder" size={11} color={p.clientColor} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{f.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: collapsed ? '8px 4px' : '8px 6px' }}>
 
-        {/* Root */}
-        <div
+        {/* Locked-scope subtree: only the scoped project / client projects */}
+        {lockedScope && lockedScope.scope === 'project' && (() => {
+          const p = projects.find(p => p.id === lockedScope.scopeId);
+          return p ? renderProjectRow(p) : null;
+        })()}
+        {lockedScope && lockedScope.scope === 'client' && (
+          <>{projects.filter(p => p.clientId === lockedScope.scopeId).map(p => renderProjectRow(p))}</>
+        )}
+
+        {/* Root — hidden when locked */}
+        {!lockedScope && <div
           onClick={() => onNavigate({ scope: 'root', folderId: null })}
           style={ITEM_STYLE(isRootActive)}
           onMouseEnter={e => { if (!isRootActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
@@ -481,10 +553,23 @@ function FileTree({
         >
           <SFIcon name="hard-drive" size={13} color={isRootActive ? 'var(--accent)' : 'var(--text-3)'} />
           {!collapsed && <span>Tous les fichiers</span>}
-        </div>
+        </div>}
+
+        {/* Clients link - child of root (rendu avant les dossiers globaux pour cohérence avec la vue colonnes) */}
+        {!lockedScope && !collapsed && (
+          <div
+            onClick={() => onNavigate({ scope: 'clients', folderId: null })}
+            style={{ ...ITEM_STYLE(location.scope === 'clients'), paddingLeft: '28px' }}
+            onMouseEnter={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'transparent'; }}
+          >
+            <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--accent)' : 'var(--text-3)'} />
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>Clients</span>
+          </div>
+        )}
 
         {/* Global folders (Archives) - children of root */}
-        {globalRoots.filter(f => !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => {
+        {!lockedScope && globalRoots.filter(f => !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => {
           const active = location.scope === 'global' && location.folderId === f.id;
           return (
             <div key={f.id}
@@ -499,83 +584,11 @@ function FileTree({
           );
         })}
 
-        {/* Clients link - child of root */}
-        {!collapsed && (
-          <div
-            onClick={() => onNavigate({ scope: 'clients', folderId: null })}
-            style={{ ...ITEM_STYLE(location.scope === 'clients'), paddingLeft: '28px' }}
-            onMouseEnter={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'transparent'; }}
-          >
-            <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--accent)' : 'var(--text-3)'} />
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>Clients</span>
-          </div>
-        )}
-
-        {/* All Projects */}
-        {projects.length > 0 && (
+        {/* All Projects — hidden when locked (the scoped subtree is rendered at the top instead) */}
+        {!lockedScope && projects.length > 0 && (
           <>
             <SectionLabel>Projets</SectionLabel>
-            {projects.map(p => {
-              const exp = expandedProjects.has(p.id);
-              const projActive = location.scope === 'project' && location.scopeId === p.id && !location.folderId;
-              const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null && !f.state);
-              const isHovered = hoveredProjectId === p.id;
-              const isPinned = pinnedIds.includes(p.id);
-              return (
-                <div key={p.id}>
-                  <div
-                    style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative' }}
-                    onMouseEnter={e => { setHoveredProjectId(p.id); if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { setHoveredProjectId(null); if (!projActive) e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    {!collapsed && projFolders.length > 0 && (
-                      <div onClick={e => { e.stopPropagation(); toggleProject(p.id); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
-                        <SFIcon name={exp ? 'chevron-down' : 'chevron-right'} size={10} color="var(--text-3)" />
-                      </div>
-                    )}
-                    {(!collapsed && projFolders.length === 0) && <div style={{ width: 10 }} />}
-                    <div
-                      onClick={() => { onNavigate({ scope: 'project', scopeId: p.id, folderId: null }); if (!exp && projFolders.length) toggleProject(p.id); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0, cursor: 'pointer' }}
-                    >
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
-                      {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>}
-                    </div>
-                    {!collapsed && isHovered && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
-                        title={isPinned ? 'Désépingler' : 'Épingler'}
-                        style={{
-                          flexShrink: 0, width: 20, height: 20, borderRadius: 4,
-                          background: isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'background 0.1s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = isPinned ? 'rgba(249,255,0,0.8)' : 'rgba(0,0,0,0.4)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)'; }}
-                      >
-                        <SFIcon name="star" size={11} color={isPinned ? 'var(--on-accent)' : 'var(--text-3)'} fill={isPinned ? 'currentColor' : 'none'} />
-                      </button>
-                    )}
-                  </div>
-                  {exp && !collapsed && projFolders.map(f => {
-                    const active = location.scope === 'project' && location.scopeId === p.id && location.folderId === f.id;
-                    return (
-                      <div key={f.id}
-                        onClick={() => onNavigate({ scope: 'project', scopeId: p.id, folderId: f.id })}
-                        style={{ ...ITEM_STYLE(active), paddingLeft: 28 }}
-                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <SFIcon name="folder" size={11} color={p.clientColor} />
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{f.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+            {projects.map(p => renderProjectRow(p))}
           </>
         )}
 
@@ -940,8 +953,9 @@ export function StorageView({
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 
-export function FileBrowser({ initialNav, embedded = false }: { initialNav?: NavLocation; embedded?: boolean }) {
+export function FileBrowser({ initialNav, embedded = false, locked = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean }) {
   const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
+  const lockedScope: NavLocation | undefined = locked && initialNav ? initialNav : undefined;
   const navigate = useNavigate();
   const [location, setLocation] = useState<NavLocation>(effectiveNav);
   const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
@@ -990,10 +1004,20 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
   const isArchivesView = location.scope === 'global' && location.folderId === 'folder-archives';
   const isSpecialView  = isTrashView || isArchivesView;
 
+  // When locked, restrict trash/archives to items of the scoped project/client.
+  const scopeFilterFolders = (arr: FileFolder[]): FileFolder[] =>
+    !lockedScope ? arr
+      : lockedScope.scope === 'project' ? arr.filter(f => f.projectId === lockedScope.scopeId)
+      : arr.filter(f => f.clientId === lockedScope.scopeId);
+  const scopeFilterFiles = (arr: FileItem[]): FileItem[] =>
+    !lockedScope ? arr
+      : lockedScope.scope === 'project' ? arr.filter(f => f.projectId === lockedScope.scopeId)
+      : arr.filter(f => f.clientId === lockedScope.scopeId);
+
   const currentFolders = (() => {
     const { scope, scopeId, folderId } = location;
-    if (isTrashView)    return getTrashedFolders();
-    if (isArchivesView) return getArchivedFolders();
+    if (isTrashView)    return scopeFilterFolders(getTrashedFolders());
+    if (isArchivesView) return scopeFilterFolders(getArchivedFolders());
     if (scope === 'root') {
       // Show all project root folders + client root folders + global root folders
       return []; // We'll show a special root view
@@ -1012,8 +1036,8 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
 
   const currentFiles = (() => {
     const { scope, scopeId, folderId } = location;
-    if (isTrashView)    return getTrashedFiles();
-    if (isArchivesView) return getArchivedFiles();
+    if (isTrashView)    return scopeFilterFiles(getTrashedFiles());
+    if (isArchivesView) return scopeFilterFiles(getArchivedFiles());
     if (scope === 'root') return [];
     if (scope === 'global') return allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === folderId);
     if (scope === 'project') return allFiles.filter(f => f.projectId === scopeId && f.parentFolderId === folderId);
@@ -1643,6 +1667,41 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
 
   // Build breadcrumb based on current location
   const buildBreadcrumbForLocation = (loc: NavLocation): { label: string; onClick: () => void }[] => {
+    // Locked scope: start at the scoped project/client root — no "Fichiers"/"Clients"
+    // higher-level crumbs that would let the user escape the scope.
+    if (lockedScope) {
+      const crumbs: { label: string; onClick: () => void }[] = [];
+      const seedColumns = (l: NavLocation) => {
+        if (viewMode === 'columns') setColumnSelections([l]); else setLocation(l);
+      };
+      if (lockedScope.scope === 'project') {
+        const p = projects.find(p => p.id === lockedScope.scopeId);
+        const base: NavLocation = { scope: 'project', scopeId: lockedScope.scopeId, folderId: null };
+        crumbs.push({ label: p?.name ?? 'Projet', onClick: () => seedColumns(base) });
+      } else {
+        const c = clients.find(c => c.id === lockedScope.scopeId);
+        const base: NavLocation = { scope: 'client', scopeId: lockedScope.scopeId, folderId: null };
+        crumbs.push({ label: c?.name ?? 'Client', onClick: () => seedColumns(base) });
+      }
+      if (loc.folderId) {
+        const path = getFolderPath(loc.folderId);
+        path.forEach((f, i) => {
+          crumbs.push({
+            label: f.name,
+            onClick: () => {
+              const newLocation = { ...loc, folderId: i === path.length - 1 ? f.id : (path[i].parentId ?? null) };
+              if (viewMode === 'columns') {
+                setColumnSelections([...columnSelections.slice(0, -1), newLocation]);
+              } else {
+                setLocation(newLocation);
+              }
+            },
+          });
+        });
+      }
+      return crumbs;
+    }
+
     const crumbs: { label: string; onClick: () => void }[] = [
       { label: 'Fichiers', onClick: () => {
         if (viewMode === 'columns') {
@@ -1777,9 +1836,14 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
   }, [columnSelections.length, viewMode]);
 
   // When switching to columns view, seed from current location
+  // When locked, the location that matches the locked scope root is already represented
+  // by column 0 — seeding it again would duplicate the first column.
+  const isLockedRoot = (loc: NavLocation) =>
+    !!lockedScope && loc.scope === lockedScope.scope && loc.scopeId === lockedScope.scopeId && !loc.folderId;
+
   const handleSetViewMode = (m: ViewMode) => {
     if (m === 'columns' && viewMode !== 'columns') {
-      if (location.scope !== 'root') {
+      if (location.scope !== 'root' && !isLockedRoot(location)) {
         setColumnSelections([location]);
       } else {
         setColumnSelections([]);
@@ -1792,7 +1856,7 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
   const handleTreeNavigate = (loc: NavLocation) => {
     setLocation(loc);
     if (viewMode === 'columns') {
-      setColumnSelections(loc.scope === 'root' ? [] : [loc]);
+      setColumnSelections(loc.scope === 'root' || isLockedRoot(loc) ? [] : [loc]);
     }
   };
 
@@ -2028,14 +2092,14 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
 
         {/* Left tree */}
         <div style={{ width: sidebarCollapsed ? 0 : treeWidth, flexShrink: 0, borderRight: sidebarCollapsed ? 'none' : '1px solid var(--border)', overflowY: 'auto', overflowX: 'hidden', background: 'var(--surface)', transition: 'width 0.2s', display: sidebarCollapsed ? 'none' : 'block' }}>
-          <FileTree location={location} onNavigate={handleTreeNavigate} collapsed={sidebarCollapsed} />
+          <FileTree location={location} onNavigate={handleTreeNavigate} collapsed={sidebarCollapsed} lockedScope={lockedScope} />
         </div>
 
         {/* ── Stockage view ── */}
         {viewMode === 'stockage' && (
           <StorageView
-            folders={isTrashView ? getTrashedFolders() : isArchivesView ? getArchivedFolders() : allFolders}
-            files={isTrashView ? getTrashedFiles() : isArchivesView ? getArchivedFiles() : allFiles}
+            folders={isTrashView ? scopeFilterFolders(getTrashedFolders()) : isArchivesView ? scopeFilterFolders(getArchivedFolders()) : scopeFilterFolders(allFolders)}
+            files={isTrashView ? scopeFilterFiles(getTrashedFiles()) : isArchivesView ? scopeFilterFiles(getArchivedFiles()) : scopeFilterFiles(allFiles)}
             context={isTrashView ? 'trashed' : isArchivesView ? 'archived' : 'active'}
             projects={projects}
             clients={clients}
@@ -2047,9 +2111,9 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
         {/* ── Column view (Miller columns) ── */}
         {viewMode === 'columns' && (
           <div ref={colsContainerRef} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
-            {/* Column 0: always root */}
+            {/* Column 0: root (or the locked scope when scoped) */}
             <ColPanel
-              loc={{ scope: 'root', folderId: null }}
+              loc={lockedScope ?? { scope: 'root', folderId: null }}
               depth={0}
               selectedId={columnSelections[0]
                 ? (columnSelections[0].scope === 'clients' ? 'clients-folder' : columnSelections[0].scope === 'project' ? 'proj-' + columnSelections[0].scopeId : columnSelections[0].scope === 'client' ? 'client-' + columnSelections[0].scopeId : columnSelections[0].folderId ?? undefined)

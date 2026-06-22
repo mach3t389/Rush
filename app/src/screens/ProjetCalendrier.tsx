@@ -6,6 +6,7 @@ import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { MeetingField } from './CalendrierGlobal';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ interface CalEvent {
   allDay?: boolean;
   description?: string;
   location?: string;
+  meetingUrl?: string;
   participantIds?: string[];
 }
 
@@ -103,6 +105,7 @@ function resolveProjectEvents(projectId: string, eventTypes: EventType[]): CalEv
         allDay: e.allDay,
         description: e.description,
         location: e.location,
+        meetingUrl: e.meetingUrl,
         participantIds: e.memberIds,
       };
     });
@@ -139,7 +142,10 @@ function EventBlock({ ev, col, numCols, onClick }: { ev: CalEvent; col: number; 
         background:`${ev.eventTypeColor}cc`, border:`1px solid ${ev.eventTypeColor}`, borderLeft:`3px solid ${ev.projectColor}`, boxShadow:hov?`0 2px 12px ${ev.eventTypeColor}66`:undefined, transition:'box-shadow 0.15s',
       }}
     >
-      <p style={{ fontSize:11,fontWeight:700,color:'white',lineHeight:1.2,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
+      <div style={{ display:'flex',alignItems:'center',gap:4 }}>
+        {ev.meetingUrl && <SFIcon name="video" size={10} color="white" style={{ flexShrink:0 }} />}
+        <p style={{ fontSize:11,fontWeight:700,color:'white',lineHeight:1.2,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
+      </div>
       {h>30 && <p style={{ fontSize:10,color:'rgba(255,255,255,0.8)',fontFamily:'var(--ff-mono)' }}>{fmtTime(ev.startDate)} – {fmtTime(ev.endDate)}</p>}
       {h>50 && ev.location && <p style={{ fontSize:9,color:'rgba(255,255,255,0.7)',marginTop:2 }}>📍 {ev.location}</p>}
     </div>
@@ -382,6 +388,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
   const [startT, setStartT]       = useState(defaultStartTime ?? `${fmt2(defaultDate.getHours()||9)}:00`);
   const [endT, setEndT]           = useState(defaultEndTime ?? `${fmt2((defaultDate.getHours()||9)+1)}:00`);
   const [location, setLocation]   = useState('');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [participants, setParticipants] = useState<string[]>(['lea']);
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
   const [showNewType, setShowNewType] = useState(false);
@@ -435,6 +442,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
       end: allDay ? dateStr : end.toISOString(),
       allDay,
       location: location || undefined,
+      meetingUrl: meetingUrl || undefined,
       memberIds: participants,
     });
     onClose();
@@ -513,6 +521,8 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
 
+        <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
+
         <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
           style={{ width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,resize:'vertical',lineHeight:1.5 }}
         />
@@ -581,6 +591,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   const [startT, setStartT]       = useState(ev.allDay ? '09:00' : toTimeStr(ev.startDate));
   const [endT, setEndT]           = useState(ev.allDay ? '10:00' : toTimeStr(ev.endDate));
   const [location, setLocation]   = useState(ev.location ?? '');
+  const [meetingUrl, setMeetingUrl] = useState(ev.meetingUrl ?? '');
   const [participants, setParticipants] = useState<string[]>(ev.participantIds ?? []);
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const PARTICIPANT_THRESHOLD = 4;
@@ -603,6 +614,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
       end:   allDay ? dateStr : end.toISOString(),
       allDay: allDay || undefined,
       location: location || undefined,
+      meetingUrl: meetingUrl || undefined,
       memberIds: participants,
     });
     onClose();
@@ -640,6 +652,9 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
+
+        {/* Online meeting */}
+        <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
         {/* Description */}
         <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
