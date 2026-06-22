@@ -87,37 +87,71 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
 
 // ── Assign internal member modal ──────────────────────────────────────────────
 
-function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: string[]; onClose: () => void; onAssign: (m: ClientMember) => void }) {
+function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: string[]; onClose: () => void; onAssign: (members: ClientMember[]) => void }) {
   const available = INTERNAL_TEAM.filter(u => !existingIds.includes(u.id));
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) => setSelected(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+
+  const allSelected = available.length > 0 && selected.size === available.length;
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(available.map(u => u.id)));
+
+  const handleConfirm = () => {
+    const members: ClientMember[] = available
+      .filter(u => selected.has(u.id))
+      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@studioflow.fr`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id }));
+    if (members.length) onAssign(members);
+    onClose();
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Assigner un membre interne</h3>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 400, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Assigner des membres internes</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
         {available.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>Tous les membres internes sont déjà assignés.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {available.map(u => (
-              <button key={u.id} onClick={() => {
-                onAssign({ id: `int${Date.now()}`, name: u.name, role: u.role, email: `${u.id}@studioflow.fr`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id });
-                onClose();
-              }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-              >
-                <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{u.role}</p>
-                </div>
-                <SFIcon name="plus" size={14} color="var(--text-3)" style={{ marginLeft: 'auto' }} />
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Sélectionnez un ou plusieurs membres.</p>
+              <button onClick={toggleAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 500 }}>
+                {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
               </button>
-            ))}
-          </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', flex: 1 }}>
+              {available.map(u => {
+                const isSel = selected.has(u.id);
+                return (
+                  <button key={u.id} onClick={() => toggle(u.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border)'}`, background: isSel ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, border: isSel ? 'none' : '1.5px solid var(--border-2)', background: isSel ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {isSel && <SFIcon name="check" size={12} color="var(--on-accent)" />}
+                    </span>
+                    <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{u.role}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+              <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+              <SFButton variant="primary" onClick={handleConfirm} disabled={selected.size === 0}>
+                {selected.size > 0 ? `Assigner (${selected.size})` : 'Assigner'}
+              </SFButton>
+            </div>
+          </>
         )}
       </div>
     </div>

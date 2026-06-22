@@ -493,7 +493,7 @@ function FileTree({
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
             >
-              <SFIcon name="folder" size={12} color={active ? 'var(--on-accent)' : 'var(--text-3)'} />
+              <SFIcon name="folder" size={12} color={active ? 'var(--accent)' : 'var(--text-3)'} />
               {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{f.name}</span>}
             </div>
           );
@@ -507,7 +507,7 @@ function FileTree({
             onMouseEnter={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'var(--surface-2)'; }}
             onMouseLeave={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'transparent'; }}
           >
-            <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--on-accent)' : 'var(--text-3)'} />
+            <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--accent)' : 'var(--text-3)'} />
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>Clients</span>
           </div>
         )}
@@ -605,198 +605,335 @@ function FileTree({
   );
 }
 
-// ── Stats treemap view ────────────────────────────────────────────────────────
+// -- Storage view (WinDirStat-style) --
 
-export function StatsView({ files, projects, clients, onNavigate }: {
+interface StorageItem {
+  id: string;
+  name: string;
+  subtitle?: string;
+  isFolder: boolean;
+  size: number;
+  count: number;
+  color: string;
+  icon: string;
+  onClick?: () => void;
+  folderItem?: FileFolder;
+  fileItem?: FileItem;
+}
+
+function buildSizeMap(folders: FileFolder[], files: FileItem[]): Map<string, { size: number; count: number }> {
+  const map = new Map<string, { size: number; count: number }>();
+  folders.forEach(f => map.set(f.id, { size: 0, count: 0 }));
+  files.forEach(f => {
+    if (f.parentFolderId && map.has(f.parentFolderId)) {
+      const cur = map.get(f.parentFolderId)!;
+      map.set(f.parentFolderId, { size: cur.size + (f.size ?? 0), count: cur.count + 1 });
+    }
+  });
+  const visited = new Set<string>();
+  const folderIds = new Set(folders.map(f => f.id));
+  const compute = (id: string): { size: number; count: number } => {
+    if (visited.has(id)) return map.get(id) ?? { size: 0, count: 0 };
+    visited.add(id);
+    let { size, count } = map.get(id) ?? { size: 0, count: 0 };
+    folders.filter(f => f.parentId === id).forEach(child => {
+      const r = compute(child.id);
+      size += r.size;
+      count += r.count;
+    });
+    map.set(id, { size, count });
+    return { size, count };
+  };
+  folders.filter(f => !f.parentId || !folderIds.has(f.parentId)).forEach(f => compute(f.id));
+  return map;
+}
+
+const fmtSz = (n: number): string => {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} Go`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} Mo`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} Ko`;
+  return `${n} o`;
+};
+
+export function StorageView({
+  folders, files, projects, clients, location, onNavigate, context = 'active',
+}: {
+  folders: FileFolder[];
   files: FileItem[];
   projects: ReturnType<typeof getProjects>;
   clients: ReturnType<typeof getClients>;
+  location: NavLocation;
   onNavigate: (loc: NavLocation) => void;
+  context?: 'active' | 'trashed' | 'archived';
 }) {
-  const [confirming, setConfirming] = React.useState<string | null>(null);
-  const [hoveredBlock, setHoveredBlock] = React.useState<string | null>(null);
-  const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
+  const [hoveredId, setHoveredId] = React.useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
 
-  const byProject = new Map<string, { totalSize: number; count: number }>();
-  let unlinked = { totalSize: 0, count: 0 };
+  const sizeMap = React.useMemo(() => buildSizeMap(folders, files), [folders, files]);
 
-  files.forEach(f => {
-    if (f.projectId) {
-      const cur = byProject.get(f.projectId) ?? { totalSize: 0, count: 0 };
-      byProject.set(f.projectId, { totalSize: cur.totalSize + (f.size ?? 0), count: cur.count + 1 });
-    } else {
-      unlinked.totalSize += f.size ?? 0;
-      unlinked.count++;
+  const projectSizeMap = React.useMemo(() => {
+    const map = new Map<string, { size: number; count: number }>();
+    files.forEach(f => {
+      if (f.projectId) {
+        const cur = map.get(f.projectId) ?? { size: 0, count: 0 };
+        map.set(f.projectId, { size: cur.size + (f.size ?? 0), count: cur.count + 1 });
+      }
+    });
+    return map;
+  }, [files]);
+
+  const items: StorageItem[] = React.useMemo(() => {
+    const { scope, scopeId, folderId } = location;
+
+    if (scope === 'root') {
+      return projects
+        .map(p => {
+          const sz = projectSizeMap.get(p.id) ?? { size: 0, count: 0 };
+          const client = clients.find(c => c.id === p.clientId);
+          return {
+            id: p.id, name: p.name, subtitle: client?.name,
+            isFolder: true, size: sz.size, count: sz.count,
+            color: p.clientColor ?? '#6366f1',
+            icon: 'folder',
+            onClick: () => onNavigate({ scope: 'project', scopeId: p.id, folderId: null }),
+          };
+        })
+        .filter(i => i.size > 0)
+        .sort((a, b) => b.size - a.size);
     }
-  });
 
-  const grandTotal = Array.from(byProject.values()).reduce((s, v) => s + v.totalSize, 0) + unlinked.totalSize;
+    let currentFolders: FileFolder[] = [];
+    let currentFiles: FileItem[] = [];
 
-  const fmtSize = (n: number) => {
-    if (n >= 1e9) return `${(n / 1e9).toFixed(1)} Go`;
-    if (n >= 1e6) return `${(n / 1e6).toFixed(1)} Mo`;
-    if (n >= 1e3) return `${(n / 1e3).toFixed(0)} Ko`;
-    return `${n} o`;
+    if (scope === 'project') {
+      if (!folderId) {
+        currentFolders = folders.filter(f => f.projectId === scopeId && !f.parentId);
+        currentFiles   = files.filter(f => f.projectId === scopeId && !f.parentFolderId);
+      } else {
+        currentFolders = folders.filter(f => f.parentId === folderId);
+        currentFiles   = files.filter(f => f.parentFolderId === folderId);
+      }
+    } else if (scope === 'client') {
+      if (!folderId) {
+        currentFolders = folders.filter(f => f.clientId === scopeId && !f.parentId);
+        currentFiles   = files.filter(f => f.clientId === scopeId && !f.parentFolderId);
+      } else {
+        currentFolders = folders.filter(f => f.parentId === folderId);
+        currentFiles   = files.filter(f => f.parentFolderId === folderId);
+      }
+    } else if (scope === 'global') {
+      currentFolders = folders.filter(f => !f.projectId && !f.clientId && f.parentId === folderId);
+      currentFiles   = files.filter(f => !f.projectId && !f.clientId && f.parentFolderId === folderId);
+    } else if (scope === 'clients') {
+      currentFolders = [];
+      currentFiles   = [];
+    }
+
+    const folderItems: StorageItem[] = currentFolders.map(f => {
+      const sz = sizeMap.get(f.id) ?? { size: 0, count: 0 };
+      return {
+        id: f.id, name: f.name, isFolder: true,
+        size: sz.size, count: sz.count,
+        color: '#f5c842', icon: 'folder',
+        folderItem: f,
+        onClick: () => onNavigate({ ...location, folderId: f.id }),
+      };
+    });
+
+    const fileItems: StorageItem[] = currentFiles.map(f => {
+      const meta = TYPE_META[f.type] ?? TYPE_META.other;
+      return {
+        id: f.id, name: f.name, isFolder: false,
+        size: f.size ?? 0, count: 0,
+        color: meta.color, icon: meta.icon,
+        fileItem: f,
+      };
+    });
+
+    return [...folderItems, ...fileItems].sort((a, b) => b.size - a.size);
+  }, [location, folders, files, projects, clients, sizeMap, projectSizeMap, onNavigate]);
+
+  const totalSize  = items.reduce((s, i) => s + i.size, 0);
+  const totalCount = files.length;
+
+  const handleAction = (item: StorageItem) => {
+    if (context !== 'active') {
+      if (item.isFolder && item.folderItem) restoreFolder(item.folderItem.id);
+      else if (item.fileItem) restoreFile(item.fileItem.id);
+    } else {
+      if (item.isFolder && item.folderItem) trashFolder(item.folderItem.id);
+      else if (item.fileItem) trashFile(item.fileItem.id);
+    }
+    setConfirmingId(null);
   };
 
-  const entries = Array.from(byProject.entries())
-    .map(([projectId, data]) => {
-      const project = projects.find(p => p.id === projectId);
-      const client = project ? clients.find(c => c.id === project.clientId) : null;
-      return { projectId, project, client, ...data };
-    })
-    .sort((a, b) => b.totalSize - a.totalSize);
-
-  const handleDelete = (projectId: string) => {
-    files.filter(f => f.projectId === projectId).forEach(f => trashFile(f.id));
-    setConfirming(null);
-  };
+  const actionIcon  = context !== 'active' ? 'rotate-ccw' : 'trash-2';
+  const actionColor = context !== 'active' ? 'var(--ok)' : 'var(--danger)';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Summary KPIs */}
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-        {[
-          { label: 'Total', value: fmtSize(grandTotal) },
-          { label: 'Projets', value: String(entries.length) },
-          { label: 'Fichiers', value: String(files.length) },
-        ].map(kpi => (
-          <div key={kpi.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 20px', minWidth: 120 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{kpi.label}</p>
-            <p style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{kpi.value}</p>
-          </div>
+    <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* Context banner */}
+      {context !== 'active' && (
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+          <SFIcon name={context === 'trashed' ? 'trash-2' : 'archive'} size={13} color="var(--text-2)" />
+          <span style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>
+            Vue stockage &mdash; <strong>{context === 'trashed' ? 'Corbeille' : 'Archives'}</strong>
+          </span>
+        </div>
+      )}
+
+      {/* Summary strip */}
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 16, padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: totalSize > 0 ? 'var(--text)' : 'var(--text-3)' }}>
+          {totalSize > 0 ? fmtSz(totalSize) : 'Vide'}
+        </span>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>
+          {items.length} {items.length !== 1 ? 'éléments' : 'élément'} &bull; {totalCount} {totalCount !== 1 ? 'fichiers' : 'fichier'}
+        </span>
+      </div>
+
+      {/* Column headers */}
+      <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px', gap: 8, padding: '6px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+        {['Nom', 'Taille', 'Éléments', '%', ''].map(h => (
+          <span key={h} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
         ))}
       </div>
 
-      {/* Treemap */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        {entries.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-            <SFIcon name="bar-chart-2" size={40} color="var(--text-3)" />
-            <p style={{ fontSize: 14 }}>Aucun fichier lié à un projet</p>
+      {/* Scrollable rows */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        {items.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+            <SFIcon name="chart-bar" size={36} color="var(--text-2)" />
+            <p style={{ fontSize: 13, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>Aucun fichier dans cet emplacement</p>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: 260 }}>
-            {entries.map(entry => {
-              const pct = grandTotal > 0 ? entry.totalSize / grandTotal : 0;
-              const color = entry.project?.clientColor ?? '#555';
-              const isHovered = hoveredBlock === entry.projectId;
-              return (
-                <div
-                  key={entry.projectId}
-                  onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
-                  title={`${entry.project?.name ?? entry.projectId} — ${fmtSize(entry.totalSize)}`}
-                  onMouseEnter={() => setHoveredBlock(entry.projectId)}
-                  onMouseLeave={() => setHoveredBlock(null)}
-                  style={{
-                    flex: `${Math.max(pct * 100, 4)} 0 0`,
-                    minWidth: 80, minHeight: 80,
-                    background: color + 'cc',
-                    border: '2px solid var(--surface)',
-                    padding: 10,
-                    cursor: 'pointer',
-                    display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-                    overflow: 'hidden',
-                    filter: isHovered ? 'brightness(1.2)' : 'none',
-                    transition: 'filter 0.12s',
-                    position: 'relative',
-                  }}
-                >
-                  {/* Delete overlay button */}
-                  {isHovered && (
-                    <button
-                      onClick={e => { e.stopPropagation(); setConfirming(entry.projectId); }}
-                      title="Mettre à la corbeille"
-                      style={{
-                        position: 'absolute', top: 6, right: 6,
-                        width: 24, height: 24, borderRadius: 6,
-                        background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.15)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <SFIcon name="trash-2" size={12} color="#fff" />
-                    </button>
-                  )}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {entry.project?.name ?? entry.projectId}
-                  </p>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
-                    {fmtSize(entry.totalSize)} · {entry.count} fichier{entry.count > 1 ? 's' : ''}
-                  </p>
+        ) : items.map(item => {
+          const pct = totalSize > 0 ? item.size / totalSize * 100 : 0;
+          const isHov = hoveredId === item.id;
+          const isCfm = confirmingId === item.id;
+          return (
+            <div
+              key={item.id}
+              onMouseEnter={() => setHoveredId(item.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              style={{
+                display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px',
+                gap: 8, padding: '6px 20px',
+                borderBottom: '1px solid var(--border)',
+                background: isHov ? 'var(--surface-2)' : 'transparent',
+                alignItems: 'center',
+                transition: 'background 0.08s',
+              }}
+            >
+              {/* Name */}
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: item.onClick ? 'pointer' : 'default' }}
+                onClick={item.onClick}
+              >
+                <SFIcon name={item.icon} size={15} color={item.color} />
+                <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: item.isFolder ? 600 : 400 }}>
+                  {item.name}
+                </span>
+                {item.subtitle && (
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>
+                    {item.subtitle}
+                  </span>
+                )}
+              </div>
+
+              {/* Bar + size */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, height: 5, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: 3 }} />
                 </div>
-              );
-            })}
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>
+                  {fmtSz(item.size)}
+                </span>
+              </div>
+
+              {/* Count */}
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)' }}>
+                {item.isFolder && item.count > 0 ? item.count : ''}
+              </span>
+
+              {/* Percentage */}
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)' }}>
+                {pct >= 0.1 ? `${pct.toFixed(1)}%` : '<0.1%'}
+              </span>
+
+              {/* Action */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {isCfm ? (
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    <button
+                      onClick={() => handleAction(item)}
+                      style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid ${actionColor}`, background: 'transparent', color: actionColor, fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 600 }}
+                    >
+                      {context !== 'active' ? 'Restaurer' : 'Ok'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmingId(null)}
+                      style={{ padding: '2px 7px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer' }}
+                    >
+                      X
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingId(item.id)}
+                    style={{ opacity: isHov ? 1 : 0, width: 26, height: 26, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.1s' }}
+                  >
+                    <SFIcon name={actionIcon} size={12} color={actionColor} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Treemap footer */}
+      <div style={{ flexShrink: 0, height: 180, borderTop: '2px solid var(--border)', display: 'flex', overflow: 'hidden' }}>
+        {items.filter(i => i.size > 0).map(item => {
+          const pct = totalSize > 0 ? item.size / totalSize : 0;
+          return (
+            <div
+              key={item.id}
+              onClick={item.onClick}
+              title={`${item.name} — ${fmtSz(item.size)} (${(pct * 100).toFixed(1)}%)`}
+              style={{
+                flex: `${Math.max(pct * 100, 0.5)} 0 0`,
+                background: item.color + 'cc',
+                border: '2px solid var(--bg)',
+                cursor: item.onClick ? 'pointer' : 'default',
+                display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                padding: 7, overflow: 'hidden', position: 'relative',
+                transition: 'filter 0.1s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.3)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
+            >
+              {pct > 0.05 && (
+                <>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.name}
+                  </p>
+                  {pct > 0.1 && (
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>
+                      {fmtSz(item.size)}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+        {items.filter(i => i.size > 0).length === 0 && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>Aucune donnée</span>
           </div>
         )}
       </div>
-
-      {/* Table */}
-      {entries.length > 0 && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 140px 80px 60px 80px', gap: 12 }}>
-            {['Projet', 'Client', 'Taille', 'Fichiers', 'Actions'].map(h => (
-              <span key={h} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
-            ))}
-          </div>
-          {entries.map((entry, i) => {
-            const pct = grandTotal > 0 ? (entry.totalSize / grandTotal * 100) : 0;
-            const color = entry.project?.clientColor ?? '#555';
-            const isRowHovered = hoveredRow === entry.projectId;
-            const isConfirming = confirming === entry.projectId;
-            return (
-              <div
-                key={entry.projectId}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 140px 80px 60px 80px', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', background: isRowHovered ? 'var(--surface-2)' : 'transparent', transition: 'background 0.1s' }}
-                onMouseEnter={() => setHoveredRow(entry.projectId)}
-                onMouseLeave={() => setHoveredRow(null)}
-              >
-                <div
-                  onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer' }}
-                >
-                  <div style={{ width: 12, height: 12, borderRadius: 3, background: color, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.project?.name ?? entry.projectId}</p>
-                    <div style={{ height: 3, background: 'var(--surface-3)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
-                    </div>
-                  </div>
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--text-2)', alignSelf: 'center' }}>{entry.client?.name ?? '—'}</span>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text)', alignSelf: 'center' }}>{fmtSize(entry.totalSize)}</span>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', alignSelf: 'center' }}>{entry.count}</span>
-                <div style={{ alignSelf: 'center', display: 'flex', gap: 4 }}>
-                  {isConfirming ? (
-                    <>
-                      <button
-                        onClick={() => handleDelete(entry.projectId)}
-                        style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--danger)', background: 'rgba(239,68,68,0.12)', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 600 }}
-                      >
-                        Oui
-                      </button>
-                      <button
-                        onClick={() => setConfirming(null)}
-                        style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                      >
-                        Non
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => setConfirming(entry.projectId)}
-                      title="Mettre à la corbeille"
-                      style={{ opacity: isRowHovered ? 1 : 0, width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.1s' }}
-                    >
-                      <SFIcon name="trash-2" size={13} color="var(--danger)" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -809,6 +946,7 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
   const [location, setLocation] = useState<NavLocation>(effectiveNav);
   const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
   const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [sortOpen, setSortOpen] = useState(false);
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [treeWidth] = useState(220);
@@ -1650,6 +1788,14 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
     setViewMode(m);
   };
 
+  // Navigation depuis l'arbre gauche : met aussi à jour les colonnes en vue colonnes
+  const handleTreeNavigate = (loc: NavLocation) => {
+    setLocation(loc);
+    if (viewMode === 'columns') {
+      setColumnSelections(loc.scope === 'root' ? [] : [loc]);
+    }
+  };
+
   // Hide "+ Nouveau" at project/client root (virtual level — can't add projects or clients)
   const isAtVirtualRoot = (location.scope === 'project' || location.scope === 'client') && location.folderId === null;
   const canAdd = !isAtVirtualRoot && !isSpecialView;
@@ -1754,20 +1900,49 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
         </div>
 
         {/* Sort */}
-        <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value as SortBy)}
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-mono)', cursor: 'pointer', outline: 'none' }}
-        >
-          <option value="name">Nom</option>
-          <option value="date">Date</option>
-          <option value="size">Taille</option>
-          <option value="type">Type</option>
-        </select>
+        {(() => {
+          const SORT_OPTS: { value: SortBy; label: string; icon: string }[] = [
+            { value: 'name', label: 'Nom',    icon: 'arrow-down-a-z' },
+            { value: 'date', label: 'Date',   icon: 'calendar'     },
+            { value: 'size', label: 'Taille', icon: 'chart-bar'    },
+            { value: 'type', label: 'Type',   icon: 'shapes'       },
+          ];
+          const current = SORT_OPTS.find(o => o.value === sortBy) ?? SORT_OPTS[0];
+          return (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setSortOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '6px 11px', fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)', cursor: 'pointer', minWidth: 96 }}
+              >
+                <SFIcon name={current.icon} size={13} color="var(--text-3)" />
+                <span style={{ flex: 1, textAlign: 'left' }}>{current.label}</span>
+                <SFIcon name="chevron-down" size={12} color="var(--text-3)" />
+              </button>
+              {sortOpen && (
+                <>
+                  <div onClick={() => setSortOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 100 }} />
+                  <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 101, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                    {SORT_OPTS.map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: sortBy === opt.value ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: sortBy === opt.value ? 'var(--text)' : 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
+                      >
+                        <SFIcon name={opt.icon} size={13} color={sortBy === opt.value ? 'var(--accent)' : 'var(--text-3)'} />
+                        {opt.label}
+                        {sortBy === opt.value && <SFIcon name="check" size={11} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
-          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3'], ['stockage', 'bar-chart-2']] as [ViewMode, string][]).map(([m, icon]) => (
+          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3'], ['stockage', 'chart-bar']] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
               border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
@@ -1853,19 +2028,20 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
 
         {/* Left tree */}
         <div style={{ width: sidebarCollapsed ? 0 : treeWidth, flexShrink: 0, borderRight: sidebarCollapsed ? 'none' : '1px solid var(--border)', overflowY: 'auto', overflowX: 'hidden', background: 'var(--surface)', transition: 'width 0.2s', display: sidebarCollapsed ? 'none' : 'block' }}>
-          <FileTree location={location} onNavigate={setLocation} collapsed={sidebarCollapsed} />
+          <FileTree location={location} onNavigate={handleTreeNavigate} collapsed={sidebarCollapsed} />
         </div>
 
         {/* ── Stockage view ── */}
         {viewMode === 'stockage' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-            <StatsView
-              files={allFiles}
-              projects={projects}
-              clients={clients}
-              onNavigate={(loc) => { setLocation(loc); handleSetViewMode('grid'); }}
-            />
-          </div>
+          <StorageView
+            folders={isTrashView ? getTrashedFolders() : isArchivesView ? getArchivedFolders() : allFolders}
+            files={isTrashView ? getTrashedFiles() : isArchivesView ? getArchivedFiles() : allFiles}
+            context={isTrashView ? 'trashed' : isArchivesView ? 'archived' : 'active'}
+            projects={projects}
+            clients={clients}
+            location={location}
+            onNavigate={setLocation}
+          />
         )}
 
         {/* ── Column view (Miller columns) ── */}

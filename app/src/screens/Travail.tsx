@@ -714,7 +714,7 @@ function Section({
 }) {
   const done = tasks.filter(t => t.checked).length;
   const progress = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(completed);
   const [headerHovered, setHeaderHovered] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [taskDragOverIdx, setTaskDragOverIdx] = useState<number | null>(null);
@@ -884,7 +884,7 @@ function Section({
         )}
       </div>
 
-      {!completed && !collapsed && (
+      {!collapsed && (
         <>
           <ColHeader />
           <DropLine idx={0} />
