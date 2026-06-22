@@ -219,6 +219,12 @@ export function moveFile(id: string, parentFolderId: string | null): void {
   notify();
 }
 
+export function moveFileFull(id: string, parentFolderId: string | null, projectId?: string, clientId?: string): void {
+  files = files.map(f => f.id === id ? { ...f, parentFolderId, projectId, clientId } : f);
+  persist();
+  notify();
+}
+
 export function getAllFiles(): FileItem[] { return files; }
 
 // ── Soft delete : Corbeille & Archives ───────────────────────────────────────────

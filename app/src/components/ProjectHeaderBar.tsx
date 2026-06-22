@@ -127,6 +127,16 @@ export function ProjectHeaderBar({
 
           <span style={{ color: 'var(--text-2)' }}>{project.name}</span>
 
+          <button
+            onClick={() => setEditOpen(true)}
+            title="Modifier le projet"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, border: '1px solid var(--border-2)', background: 'var(--surface-3)', color: 'var(--text-3)', cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text-3)'; el.style.borderColor = 'var(--border-2)'; }}
+          >
+            <SFIcon name="square-pen" size={11} />
+          </button>
+
           {/* Status badge */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <button

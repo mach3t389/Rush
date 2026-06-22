@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+﻿import React, { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
@@ -600,7 +600,7 @@ function FilterDropdown({ label, count, onClear, children, anchorRef }: {
               {count}
             </span>
           )}
-          <SFIcon name={open ? 'chevron-up' : 'chevron-down'} size={11} color="inherit" />
+          <SFIcon name={open ? 'chevron-up' : 'chevron-down'} size={11}  />
         </button>
         {active && (
           <button
@@ -719,7 +719,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
-        <SFIcon name="plus" size={13} color="inherit" />
+        <SFIcon name="plus" size={13}  />
         Ajouter une tâche
       </button>
     );

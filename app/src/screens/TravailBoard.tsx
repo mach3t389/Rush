@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate } from '../components/ui';
 import { USERS } from '../data/mock';
 import type { Task, Priority, SectionData } from '../types';
@@ -200,7 +200,7 @@ export function TravailBoard({ sections, selectedTask, onSelectTask, onAddTask, 
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
             >
-              <SFIcon name="plus" size={13} color="inherit" />
+              <SFIcon name="plus" size={13}  />
               Ajouter une tâche
             </button>
           </div>
@@ -221,7 +221,7 @@ export function TravailBoard({ sections, selectedTask, onSelectTask, onAddTask, 
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
       >
-        <SFIcon name="plus" size={14} color="inherit" />
+        <SFIcon name="plus" size={14}  />
         Nouvelle section
       </button>
     </div>

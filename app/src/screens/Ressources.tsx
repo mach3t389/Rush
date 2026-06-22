@@ -30,9 +30,10 @@ const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; desc: s
   { type: 'web_review',   label: 'Site web',          icon: 'globe',          desc: 'Révision d\'un site web avec annotations positionnées' },
 ];
 
-const MEDIA_SUBTYPES: { value: 'video' | 'photo' | 'file'; label: string; icon: string; desc: string }[] = [
+const MEDIA_SUBTYPES: { value: 'video' | 'photo' | 'file' | 'audio'; label: string; icon: string; desc: string }[] = [
   { value: 'video', label: 'Vidéo',   icon: 'video',      desc: 'Révision d\'une vidéo avec annotations et commentaires' },
   { value: 'photo', label: 'Photo',   icon: 'image',      desc: 'Révision d\'images ou de visuels avec le client' },
+  { value: 'audio', label: 'Audio',   icon: 'music',      desc: 'Révision d\'un fichier audio avec commentaires horodatés' },
   { value: 'file',  label: 'Fichier', icon: 'file-text',  desc: 'Révision d\'un PDF, document ou autre fichier' },
 ];
 
@@ -40,7 +41,7 @@ function NewResourceModal({ projectId, onClose }: { projectId: string; onClose: 
   const navigate = useNavigate();
   const [step, setStep] = useState<'type' | 'media' | 'url' | 'name'>('type');
   const [selected, setSelected] = useState<ResourceType | null>(null);
-  const [mediaSubtype, setMediaSubtype] = useState<'video' | 'photo' | 'file' | null>(null);
+  const [mediaSubtype, setMediaSubtype] = useState<'video' | 'photo' | 'file' | 'audio' | null>(null);
   const [webUrl, setWebUrl] = useState('');
   const [title, setTitle] = useState('');
 
@@ -240,11 +241,13 @@ const TYPE_ICON: Record<ResourceType, string> = {
 const SUBTYPE_ICON: Record<string, string> = {
   video: 'video',
   photo: 'image',
+  audio: 'music',
   file:  'file-search',
 };
 const SUBTYPE_LABEL: Record<string, string> = {
   video: 'VIDÉO',
   photo: 'PHOTOS',
+  audio: 'AUDIO',
   file:  'DOCUMENT',
 };
 

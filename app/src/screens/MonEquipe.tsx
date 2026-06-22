@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto } from '../components/profile/ProfileEditPanel';
@@ -282,7 +282,7 @@ export function MonEquipe() {
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
           >
-            <SFIcon name="user-plus" size={18} color="inherit" />
+            <SFIcon name="user-plus" size={18}  />
             <span style={{ fontSize: 13, fontFamily: 'var(--ff-text)' }}>Inviter un membre</span>
           </div>
         </div>

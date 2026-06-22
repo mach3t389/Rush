@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
@@ -256,6 +256,8 @@ interface ScriptViewProps extends EditableProps {
   setVersions: React.Dispatch<React.SetStateAction<ScriptVersion[]>>;
   activeVersionId: string;
   setActiveVersionId: (id: string) => void;
+  panelTab: 'scenes' | 'analyse';
+  setPanelTab: (t: 'scenes' | 'analyse') => void;
 }
 
 // ── Script comment sidebar ────────────────────────────────────────────────────
@@ -327,14 +329,9 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
   );
 }
 
-function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId }: ScriptViewProps) {
-  const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
-  const [editingVersionLabel, setEditingVersionLabel] = useState('');
-  const [versionDropOpen, setVersionDropOpen] = useState(false);
-  const vDropRef = useRef<HTMLDivElement>(null);
+function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId, panelTab, setPanelTab }: ScriptViewProps) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [openTypeId, setOpenTypeId] = useState<string | null>(null);
-  const [panelTab, setPanelTab] = useState<'scenes' | 'analyse'>('scenes');
   const [collapsedScenes, setCollapsedScenes] = useState<Set<string>>(new Set());
   const dragSceneRef = useRef<string | null>(null);
   const [dragOverScene, setDragOverScene] = useState<string | null>(null);
@@ -363,13 +360,6 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     setFocusId(null);
   }, [focusId, elements]);
-
-  useEffect(() => {
-    if (!versionDropOpen) return;
-    const close = (e: MouseEvent) => { if (vDropRef.current && !vDropRef.current.contains(e.target as Node)) setVersionDropOpen(false); };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [versionDropOpen]);
 
   useEffect(() => {
     if (!registerExport) return;
@@ -412,27 +402,6 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
     } else if (e.key === 'ArrowDown' && idx < elements.length - 1) {
       setFocusId(elements[idx + 1].id);
     }
-  };
-
-  const createVersion = () => {
-    const now = new Date();
-    const dateStr = `${now.getDate()} ${['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'][now.getMonth()]}`;
-    const newId = `v${Date.now()}`;
-    const newVersion: ScriptVersion = {
-      id: newId,
-      label: `Version ${versions.length + 1}`,
-      date: dateStr,
-      elements: elements.map(e => ({ ...e, id: `${e.id}_${newId}` })),
-    };
-    setVersions(prev => [...prev, newVersion]);
-    setActiveVersionId(newId);
-    onEdit?.();
-    setEditingVersionId(newId);
-    setEditingVersionLabel(newVersion.label);
-  };
-
-  const switchVersion = (id: string) => {
-    setActiveVersionId(id);
   };
 
   const scrollToScene = (elId: string) => {
@@ -478,80 +447,11 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
-      {/* Versions — compact dropdown */}
-      <div style={{ flexShrink:0, borderBottom:'1px solid var(--border)', padding:'5px 14px', display:'flex', alignItems:'center', gap:8, background:'var(--surface)' }}>
-        <div style={{ position:'relative' }} ref={vDropRef}>
-          <button
-            onClick={() => setVersionDropOpen(v => !v)}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:7, border:'1px solid var(--border)', background: versionDropOpen ? 'var(--surface-2)' : 'transparent', cursor:'pointer', color:'var(--text-2)' }}
-          >
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', letterSpacing:'0.06em' }}>
-              V{versions.findIndex(v => v.id === activeVersionId) + 1}
-            </span>
-            <span style={{ fontFamily:'var(--ff-text)', fontSize:11, color:'var(--text-2)' }}>{activeVersion.label}</span>
-            <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-          </button>
-          {versionDropOpen && (
-            <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:80, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:10, padding:6, minWidth:220, boxShadow:'0 8px 28px rgba(0,0,0,0.45)' }}>
-              {versions.map((v, i) => {
-                const isActive = v.id === activeVersionId;
-                const isEditing = editingVersionId === v.id;
-                return (
-                  <div key={v.id}>
-                    {isEditing ? (
-                      <input
-                        autoFocus
-                        value={editingVersionLabel}
-                        onChange={e => setEditingVersionLabel(e.target.value)}
-                        onBlur={() => {
-                          setVersions(prev => prev.map(vv => vv.id === v.id ? { ...vv, label: editingVersionLabel || vv.label } : vv));
-                          setEditingVersionId(null);
-                          onEdit?.();
-                        }}
-                        onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
-                        onClick={e => e.stopPropagation()}
-                        style={{ width:'100%', background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:6, padding:'4px 8px', fontSize:11, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
-                      />
-                    ) : (
-                      <button
-                        onClick={() => { if (!isActive) { switchVersion(v.id); setVersionDropOpen(false); } }}
-                        onDoubleClick={() => isActive && (setEditingVersionId(v.id), setEditingVersionLabel(v.label))}
-                        title={isActive ? 'Double-cliquer pour renommer' : 'Activer cette version'}
-                        style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 10px', borderRadius:7, border:'none', background: isActive ? 'rgba(249,255,0,0.07)' : 'transparent', cursor: isActive ? 'default' : 'pointer', textAlign:'left' }}
-                      >
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color: isActive ? 'var(--accent)' : 'var(--text-3)', minWidth:18 }}>V{i + 1}</span>
-                        <span style={{ fontFamily:'var(--ff-text)', fontSize:12, color: isActive ? 'var(--accent)' : 'var(--text-2)', flex:1 }}>{v.label}</span>
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{v.date}</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-              <div style={{ borderTop:'1px solid var(--border)', margin:'4px 0' }} />
-              <button
-                onClick={() => { createVersion(); setVersionDropOpen(false); }}
-                style={{ display:'flex', alignItems:'center', gap:6, width:'100%', padding:'6px 10px', borderRadius:7, border:'none', background:'transparent', cursor:'pointer', color:'var(--text-3)', fontFamily:'var(--ff-text)', fontSize:12 }}
-              >
-                <SFIcon name="plus" size={12} />Nouvelle version
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Content row */}
       <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
       {/* Left — Structure panel */}
       <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)', overflow:'hidden' }}>
-        {/* Tab bar */}
-        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-          {(['scenes','analyse'] as const).map(t => (
-            <button key={t} onClick={() => setPanelTab(t)} style={{ flex:1, padding:'9px 0', border:'none', background:'transparent', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.07em', color: panelTab===t ? 'var(--text)' : 'var(--text-3)', borderBottom: panelTab===t ? '2px solid var(--accent)' : '2px solid transparent', marginBottom:-1 }}>
-              {t === 'scenes' ? 'Scènes' : 'Analyse'}
-            </button>
-          ))}
-        </div>
 
         {panelTab === 'scenes' && (
           <div style={{ flex:1, overflow:'auto', padding:'10px 10px' }}>
@@ -2582,7 +2482,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--accent)'; (e.currentTarget as HTMLElement).style.color='var(--accent)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border-2)'; (e.currentTarget as HTMLElement).style.color='var(--text-3)'; }}
           >
-            <SFIcon name="plus" size={20} color="inherit" />
+            <SFIcon name="plus" size={20}  />
             <span style={{ fontSize:11, fontFamily:'var(--ff-text)' }}>Ajouter</span>
           </button>
         </div>
@@ -4553,6 +4453,43 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
     if (seedElements) return 'v1';
     return 'v3';
   });
+
+  // Lifted from ScriptView
+  const [panelTab, setPanelTab] = useState<'scenes' | 'analyse'>('scenes');
+  const [versionDropOpen, setVersionDropOpen] = useState(false);
+  const vDropRef = useRef<HTMLDivElement>(null);
+  const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [editingVersionLabel, setEditingVersionLabel] = useState('');
+
+  useEffect(() => {
+    if (!versionDropOpen) return;
+    const close = (e: MouseEvent) => { if (vDropRef.current && !vDropRef.current.contains(e.target as Node)) setVersionDropOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [versionDropOpen]);
+
+  const activeVersion = versions.find(v => v.id === activeVersionId) ?? versions[0];
+  const elements = activeVersion.elements;
+
+  const createVersion = () => {
+    const now = new Date();
+    const dateStr = `${now.getDate()} ${['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'][now.getMonth()]}`;
+    const newId = `v${Date.now()}`;
+    const newVersion: ScriptVersion = {
+      id: newId,
+      label: `Version ${versions.length + 1}`,
+      date: dateStr,
+      elements: elements.map(e => ({ ...e, id: `${e.id}_${newId}` })),
+    };
+    setVersions(prev => [...prev, newVersion]);
+    setActiveVersionId(newId);
+    onEdit?.();
+    setEditingVersionId(newId);
+    setEditingVersionLabel(newVersion.label);
+  };
+
+  const switchVersion = (id: string) => { setActiveVersionId(id); };
+
   useEffect(() => {
     if (contentRef) {
       const active = versions.find(v => v.id === activeVersionId) ?? versions[0];
@@ -4569,9 +4506,6 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
   }, [versions, activeVersionId, persistKey]);
   useEffect(() => () => { if (scPersistTimer.current) clearTimeout(scPersistTimer.current); }, []);
 
-  const activeVersion = versions.find(v => v.id === activeVersionId) ?? versions[0];
-  const elements = activeVersion.elements;
-
   const scriptScenes: ScriptScene[] = elements
     .filter(e => e.type === 'scene')
     .map((s, i) => ({ id: s.id, number: i + 1, label: s.text }));
@@ -4584,8 +4518,9 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-      {/* View switcher */}
+      {/* Merged bar: [Script|Shotlist|Storyboard] | [Scènes|Analyse] ——spacer—— [Version ▼] */}
       <div style={{ display:'flex', alignItems:'center', gap:2, padding:'0 16px', borderBottom:'1px solid var(--border)', flexShrink:0, background:'var(--surface)' }}>
+        {/* Main tabs */}
         {TABS.map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', border:'none', background:'transparent', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, textTransform:'uppercase', letterSpacing:'0.07em', color: activeTab===tab.key ? 'var(--text)' : 'var(--text-3)', borderBottom: activeTab===tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom:-1, whiteSpace:'nowrap' }}>
@@ -4593,10 +4528,89 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
             {tab.label}
           </button>
         ))}
+
+        {/* Panel tabs (Scènes / Analyse) — only when script tab is active */}
+        {activeTab === 'script' && (
+          <>
+            <div style={{ width:1, height:20, background:'var(--border)', margin:'0 10px', flexShrink:0 }} />
+            {(['scenes','analyse'] as const).map(t => (
+              <button key={t} onClick={() => setPanelTab(t)}
+                style={{ padding:'9px 10px', border:'none', background:'transparent', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.07em', color: panelTab===t ? 'var(--text)' : 'var(--text-3)', borderBottom: panelTab===t ? '2px solid var(--accent)' : '2px solid transparent', marginBottom:-1, whiteSpace:'nowrap' }}>
+                {t === 'scenes' ? 'Scènes' : 'Analyse'}
+              </button>
+            ))}
+          </>
+        )}
+
+        {/* Spacer */}
+        <div style={{ flex:1 }} />
+
+        {/* Scenes count badge for non-script tabs */}
         {scriptScenes.length > 0 && activeTab !== 'script' && (
-          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)' }}>
             <SFIcon name="link" size={10} color="var(--ok)" />
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--ok)' }}>{scriptScenes.length} scène{scriptScenes.length > 1 ? 's' : ''} depuis le script</span>
+          </div>
+        )}
+
+        {/* Version dropdown — only when script tab is active */}
+        {activeTab === 'script' && (
+          <div style={{ position:'relative' }} ref={vDropRef}>
+            <button
+              onClick={() => setVersionDropOpen(v => !v)}
+              style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:7, border:'1px solid var(--border)', background: versionDropOpen ? 'var(--surface-2)' : 'transparent', cursor:'pointer', color:'var(--text-2)' }}
+            >
+              <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', letterSpacing:'0.06em' }}>
+                V{versions.findIndex(v => v.id === activeVersionId) + 1}
+              </span>
+              <span style={{ fontFamily:'var(--ff-text)', fontSize:11, color:'var(--text-2)' }}>{activeVersion.label}</span>
+              <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+            </button>
+            {versionDropOpen && (
+              <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:80, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:10, padding:6, minWidth:220, boxShadow:'0 8px 28px rgba(0,0,0,0.45)' }}>
+                {versions.map((v, i) => {
+                  const isActive = v.id === activeVersionId;
+                  const isEditing = editingVersionId === v.id;
+                  return (
+                    <div key={v.id}>
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          value={editingVersionLabel}
+                          onChange={e => setEditingVersionLabel(e.target.value)}
+                          onBlur={() => {
+                            setVersions(prev => prev.map(vv => vv.id === v.id ? { ...vv, label: editingVersionLabel || vv.label } : vv));
+                            setEditingVersionId(null);
+                            onEdit?.();
+                          }}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
+                          onClick={e => e.stopPropagation()}
+                          style={{ width:'100%', background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:6, padding:'4px 8px', fontSize:11, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => { if (!isActive) { switchVersion(v.id); setVersionDropOpen(false); } }}
+                          onDoubleClick={() => isActive && (setEditingVersionId(v.id), setEditingVersionLabel(v.label))}
+                          title={isActive ? 'Double-cliquer pour renommer' : 'Activer cette version'}
+                          style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 10px', borderRadius:7, border:'none', background: isActive ? 'rgba(249,255,0,0.07)' : 'transparent', cursor: isActive ? 'default' : 'pointer', textAlign:'left' }}
+                        >
+                          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color: isActive ? 'var(--accent)' : 'var(--text-3)', minWidth:18 }}>V{i + 1}</span>
+                          <span style={{ fontFamily:'var(--ff-text)', fontSize:12, color: isActive ? 'var(--accent)' : 'var(--text-2)', flex:1 }}>{v.label}</span>
+                          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{v.date}</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <div style={{ borderTop:'1px solid var(--border)', margin:'4px 0' }} />
+                <button
+                  onClick={() => { createVersion(); setVersionDropOpen(false); }}
+                  style={{ display:'flex', alignItems:'center', gap:6, width:'100%', padding:'6px 10px', borderRadius:7, border:'none', background:'transparent', cursor:'pointer', color:'var(--text-3)', fontFamily:'var(--ff-text)', fontSize:12 }}
+                >
+                  <SFIcon name="plus" size={12} />Nouvelle version
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -4608,6 +4622,7 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
           versions={versions} setVersions={setVersions}
           activeVersionId={activeVersionId} setActiveVersionId={setActiveVersionId}
           onEdit={onEdit} saveState={saveState} online={online} registerExport={registerExport}
+          panelTab={panelTab} setPanelTab={setPanelTab}
         />
       </div>
       <div style={{ flex:1, overflow:'hidden', display: activeTab === 'shotlist' ? 'flex' : 'none' }}>

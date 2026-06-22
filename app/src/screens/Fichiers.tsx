@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -8,11 +8,11 @@ import {
   trashFolder, trashFile, archiveFolder, archiveFile,
   restoreFolder, restoreFile,
   getTrashedFolders, getTrashedFiles, getArchivedFolders, getArchivedFiles,
-  formatFileSize,
+  formatFileSize, emptyTrash, moveFile, moveFileFull,
   type FileFolder, type FileItem, type FileItemType,
 } from '../data/fileStore';
 import { addResource } from '../data/resourceStore';
-import { findProject } from '../data/projectStore';
+import { findProject, getProjects } from '../data/projectStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import type { ResourceType } from '../types';
 
@@ -35,14 +35,15 @@ const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; color: 
 
 interface RevisionSelection {
   resourceType: ResourceType;
-  mediaSubtype?: 'video' | 'photo' | 'file';
+  mediaSubtype?: 'video' | 'photo' | 'file' | 'audio';
   subtypeLabel: string;
   eyebrow: string;
 }
 
-const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file'; label: string; icon: string; color: string; desc: string }[] = [
+const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; label: string; icon: string; color: string; desc: string }[] = [
   { resourceType: 'video_review', mediaSubtype: 'video', label: 'Vidéo',    icon: 'video',     color: '#a05be8', desc: 'Commentaires horodatés sur une vidéo' },
   { resourceType: 'video_review', mediaSubtype: 'photo', label: 'Photo',    icon: 'image',     color: '#5b8af5', desc: 'Annotations sur une image ou un visuel' },
+  { resourceType: 'video_review', mediaSubtype: 'audio', label: 'Audio',    icon: 'music',     color: '#4ec994', desc: 'Révision d\'un fichier audio avec commentaires horodatés' },
   { resourceType: 'video_review', mediaSubtype: 'file',  label: 'Document', icon: 'file-text', color: '#5bc4e8', desc: 'Révision d\'un document ou d\'un fichier' },
   { resourceType: 'web_review',                          label: 'Site web', icon: 'globe',     color: '#f5975b', desc: 'Annotations sur un site web ou une page en ligne' },
 ];
@@ -279,6 +280,113 @@ function RevisionPickerModal({ onSelect, onClose }: {
   );
 }
 
+// ── Move modal ─────────────────────────────────────────────────────────────────
+
+function MoveModal({ fileIds, currentProjectId, onMove, onClose }: {
+  fileIds: string[];
+  currentProjectId: string;
+  onMove: (targetFolderId: string | null, targetProjectId?: string) => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<'project' | 'other'>('project');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(currentProjectId);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null | '__root__'>('__root__');
+  const allProjects = getProjects();
+  const allFolders = getFolders();
+
+  const projectFolders = allFolders.filter(f => f.projectId === selectedProjectId && !f.state);
+
+  const buildFolderTree = (parentId: string | null, depth: number): { folder: FileFolder; depth: number }[] => {
+    const children = projectFolders.filter(f => f.parentId === parentId);
+    return children.flatMap(f => [{ folder: f, depth }, ...buildFolderTree(f.id, depth + 1)]);
+  };
+  const folderTree = buildFolderTree(null, 0);
+
+  const handleConfirm = () => {
+    const folderId = selectedFolderId === '__root__' ? null : selectedFolderId as string | null;
+    const projId = selectedProjectId !== currentProjectId ? selectedProjectId : undefined;
+    onMove(folderId, projId);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-2)', width: 400, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Déplacer vers</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{fileIds.length} fichier{fileIds.length > 1 ? 's' : ''} sélectionné{fileIds.length > 1 ? 's' : ''}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          {([['project', 'Ce projet'], ['other', 'Autre projet']] as const).map(([key, label]) => (
+            <button key={key} onClick={() => { setTab(key); setSelectedFolderId('__root__'); if (key === 'project') setSelectedProjectId(currentProjectId); }}
+              style={{ flex: 1, padding: '10px 4px', fontSize: 12, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Project selector — only in "other" tab */}
+        {tab === 'other' && (
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Projet</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 120, overflowY: 'auto' }}>
+              {allProjects.filter(p => p.id !== currentProjectId).map(p => (
+                <button key={p.id} onClick={() => { setSelectedProjectId(p.id); setSelectedFolderId('__root__'); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: `1px solid ${selectedProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: selectedProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor ?? '#888', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: selectedProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: selectedProjectId === p.id ? 600 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                  {selectedProjectId === p.id && <SFIcon name="check" size={12} color="var(--accent)" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Folder list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px' }}>
+          {/* Root option */}
+          <button onClick={() => setSelectedFolderId('__root__')}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 8, border: 'none', background: selectedFolderId === '__root__' ? 'rgba(249,255,0,0.07)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            onMouseEnter={e => { if (selectedFolderId !== '__root__') (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (selectedFolderId !== '__root__') (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            <SFIcon name="hard-drive" size={14} color={selectedFolderId === '__root__' ? 'var(--accent)' : 'var(--text-3)'} />
+            <span style={{ fontSize: 12, color: selectedFolderId === '__root__' ? 'var(--accent)' : 'var(--text)', fontWeight: selectedFolderId === '__root__' ? 600 : 400 }}>Racine du projet</span>
+            {selectedFolderId === '__root__' && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+          </button>
+          {/* Folder tree */}
+          {folderTree.map(({ folder, depth }) => (
+            <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', paddingLeft: 12 + depth * 16, borderRadius: 8, border: 'none', background: selectedFolderId === folder.id ? 'rgba(249,255,0,0.07)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => { if (selectedFolderId !== folder.id) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { if (selectedFolderId !== folder.id) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              <SFIcon name="folder" size={14} color={selectedFolderId === folder.id ? 'var(--accent)' : 'var(--text-3)'} />
+              <span style={{ fontSize: 12, color: selectedFolderId === folder.id ? 'var(--accent)' : 'var(--text)', fontWeight: selectedFolderId === folder.id ? 600 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
+              {selectedFolderId === folder.id && <SFIcon name="check" size={12} color="var(--accent)" />}
+            </button>
+          ))}
+          {folderTree.length === 0 && (
+            <p style={{ padding: '12px', fontSize: 11, color: 'var(--text-3)', textAlign: 'center' }}>Aucun dossier dans ce projet</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="primary" icon="folder-input" onClick={handleConfirm} disabled={tab === 'other' && selectedProjectId === currentProjectId}>
+            Déplacer ici
+          </SFButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main screen ────────────────────────────────────────────────────────────────
 
 export function Fichiers() {
@@ -297,6 +405,8 @@ export function Fichiers() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [specialView, setSpecialView]         = useState<SpecialView>(null);
   const [viewMode, setViewMode]               = usePersistedState<ViewMode>('sf_view_fichiers_projet', 'grid');
+  const [sortBy, setSortBy]                   = usePersistedState<'name' | 'date' | 'size' | 'type'>('sf_sort_fichiers_projet', 'name');
+  const [typeFilter, setTypeFilter]           = useState<FileItemType | 'all' | 'resource'>('all');
   const [search, setSearch]                   = useState('');
   const [renamingId, setRenamingId]           = useState<string | null>(null);
   const [showNewFolder, setShowNewFolder]           = useState(false);
@@ -307,6 +417,12 @@ export function Fichiers() {
   const [newMenuPos, setNewMenuPos]           = useState<{ x: number; y: number } | null>(null);
   // Columns view: colSelections[k] = folderId selected at depth k (reveals column k+1)
   const [colSelections, setColSelections]     = useState<string[]>([]);
+  // Multi-select & drag state
+  const [selectedIds, setSelectedIds]         = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId]   = useState<string | null>(null);
+  const [dragging, setDragging]               = useState<string[] | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [moveModal, setMoveModal]             = useState<{ fileIds: string[] } | null>(null);
   const colsRef   = useRef<HTMLDivElement>(null);
   const newBtnRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -326,7 +442,21 @@ export function Fichiers() {
   })();
 
   const filteredFolders = currentFolders.filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()));
-  const filteredFiles   = currentFiles.filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()));
+
+  const filteredFiles = currentFiles
+    .filter(f => {
+      if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (typeFilter === 'all') return true;
+      if (typeFilter === 'resource') return f.type === 'resource';
+      return f.type === typeFilter;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'date') return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
+      if (sortBy === 'size') return (b.size ?? 0) - (a.size ?? 0);
+      if (sortBy === 'type') return a.type.localeCompare(b.type);
+      return 0;
+    });
 
   // ── Breadcrumb ───────────────────────────────────────────────────────────────
 
@@ -338,7 +468,29 @@ export function Fichiers() {
   };
   const path = buildPath(currentFolderId);
 
-  const goTo = (folderId: string | null) => { setCurrentFolderId(folderId); setSpecialView(null); };
+  const goTo = (folderId: string | null) => { setCurrentFolderId(folderId); setSpecialView(null); setSelectedIds(new Set()); };
+
+  const handleFileClick = (e: React.MouseEvent, file: FileItem) => {
+    if (e.shiftKey && lastSelectedId) {
+      // Shift+click: range select
+      const allIds = filteredFiles.map(f => f.id);
+      const idx1 = allIds.indexOf(lastSelectedId);
+      const idx2 = allIds.indexOf(file.id);
+      const [start, end] = idx1 < idx2 ? [idx1, idx2] : [idx2, idx1];
+      setSelectedIds(new Set(allIds.slice(start, end + 1)));
+    } else if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Cmd+click: toggle select
+      const next = new Set(selectedIds);
+      if (next.has(file.id)) next.delete(file.id); else next.add(file.id);
+      setSelectedIds(next);
+      setLastSelectedId(file.id);
+    } else {
+      // Plain click: open resource, or select single non-resource
+      setSelectedIds(new Set());
+      setLastSelectedId(file.id);
+      if (file.type === 'resource' && file.resourceId) openResource(file);
+    }
+  };
 
   // ── Auto-scroll columns ──────────────────────────────────────────────────────
 
@@ -453,6 +605,10 @@ export function Fichiers() {
     ] : [
       ...(file.type === 'resource' && file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => openResource(file) }] : []),
       { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
+      { label: 'Déplacer vers...', icon: 'folder-input', action: () => {
+        const ids = selectedIds.has(file.id) ? Array.from(selectedIds) : [file.id];
+        setMoveModal({ fileIds: ids });
+      }},
       { label: '', icon: '', action: () => {}, separator: true },
       { label: 'Archiver',              icon: 'archive', action: () => archiveFile(file.id) },
       { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
@@ -491,42 +647,58 @@ export function Fichiers() {
 
   // ── Grid cards ────────────────────────────────────────────────────────────────
 
-  const FolderCard = ({ folder }: { folder: FileFolder }) => (
-    <div
-      onDoubleClick={() => !isSpecial && goTo(folder.id)}
-      onContextMenu={e => handleFolderCtx(e, folder)}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 12px', borderRadius: 12, cursor: 'pointer', border: '1.5px solid var(--border)', background: 'var(--surface-2)', transition: 'border-color 0.12s, background 0.12s' }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-    >
-      <SFIcon name="folder" size={36} color={projectColor} />
-      <div style={{ textAlign: 'center', width: '100%' }}>
-        {renamingId === folder.id
-          ? <RenameInput value={folder.name} onSave={v => { renameFolder(folder.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
-          : <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</p>
-        }
+  const FolderCard = ({ folder }: { folder: FileFolder }) => {
+    const isDragOver = dragOverFolderId === folder.id;
+    const childCount = allFolders.filter(f => f.parentId === folder.id).length
+                     + allFiles.filter(f => f.parentFolderId === folder.id).length;
+    return (
+      <div
+        onDoubleClick={() => !isSpecial && goTo(folder.id)}
+        onContextMenu={e => handleFolderCtx(e, folder)}
+        onDragOver={e => { e.preventDefault(); setDragOverFolderId(folder.id); }}
+        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolderId(null); }}
+        onDrop={e => { e.preventDefault(); if (dragging) dragging.forEach(id => moveFile(id, folder.id)); setDragging(null); setDragOverFolderId(null); }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 12px', borderRadius: 12, cursor: 'pointer', border: isDragOver ? '1.5px solid var(--accent)' : '1.5px solid var(--border)', background: isDragOver ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', transition: 'border-color 0.12s, background 0.12s' }}
+        onMouseEnter={e => { if (!isDragOver) { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; } }}
+        onMouseLeave={e => { if (!isDragOver) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; } }}
+      >
+        <SFIcon name="folder" size={36} color={projectColor} />
+        <div style={{ textAlign: 'center', width: '100%' }}>
+          {renamingId === folder.id
+            ? <RenameInput value={folder.name} onSave={v => { renameFolder(folder.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
+            : <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</p>
+          }
+          {childCount > 0 && <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{childCount} élément{childCount !== 1 ? 's' : ''}</p>}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const FileCard = ({ file }: { file: FileItem }) => {
     const isRes = file.type === 'resource';
+    const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
+    const accentColor = rm?.color ?? '#c45be8';
+    const isSelected = selectedIds.has(file.id);
+    const isDragged = dragging?.includes(file.id) && dragOverFolderId !== null;
     return (
       <div
-        onDoubleClick={() => isRes && openResource(file)}
+        draggable={!isSpecial}
+        onDragStart={e => { const ids = selectedIds.has(file.id) ? Array.from(selectedIds) : [file.id]; setDragging(ids); e.dataTransfer.effectAllowed = 'move'; }}
+        onDragEnd={() => setDragging(null)}
+        onClick={e => handleFileClick(e, file)}
         onContextMenu={e => handleFileCtx(e, file)}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 12px', borderRadius: 12, cursor: isRes ? 'pointer' : 'default', border: `1.5px solid ${isRes ? 'color-mix(in srgb, #c45be8 35%, var(--border))' : 'var(--border)'}`, background: 'var(--surface-2)', transition: 'border-color 0.12s' }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = isRes ? '#c45be8' : 'var(--border-2)'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = isRes ? 'color-mix(in srgb, #c45be8 35%, var(--border))' : 'var(--border)'}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 12px', borderRadius: 12, cursor: 'pointer', border: isSelected ? '1.5px solid var(--accent)' : `1.5px solid ${isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)'}`, background: isSelected ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', transition: 'border-color 0.12s', opacity: isDragged ? 0.45 : 1 }}
+        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = isRes ? accentColor : 'var(--border-2)'; }}
+        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)'; }}
       >
-        <FileTypeIcon type={file.type} size={30} />
+        <FileTypeIcon type={file.type} resourceType={file.resourceType} size={30} />
         <div style={{ textAlign: 'center', width: '100%' }}>
           {renamingId === file.id
             ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
             : <p style={{ fontSize: 11, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p>
           }
           {isRes
-            ? <p style={{ fontSize: 9, color: '#c45be8', fontFamily: 'var(--ff-mono)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ressource</p>
+            ? <p style={{ fontSize: 9, color: accentColor, fontFamily: 'var(--ff-mono)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rm?.label ?? 'Ressource'}</p>
             : <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{formatFileSize(file.size)}</p>
           }
         </div>
@@ -553,9 +725,19 @@ export function Fichiers() {
   const FileRow = ({ file }: { file: FileItem }) => {
     const isRes = file.type === 'resource';
     const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
+    const isSelected = selectedIds.has(file.id);
+    const isDragged = dragging?.includes(file.id) && dragOverFolderId !== null;
     return (
-      <div onDoubleClick={() => isRes && openResource(file)} onContextMenu={e => handleFileCtx(e, file)}
-        style={ROW} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+      <div
+        draggable={!isSpecial}
+        onDragStart={e => { const ids = selectedIds.has(file.id) ? Array.from(selectedIds) : [file.id]; setDragging(ids); e.dataTransfer.effectAllowed = 'move'; }}
+        onDragEnd={() => setDragging(null)}
+        onClick={e => handleFileClick(e, file)}
+        onContextMenu={e => handleFileCtx(e, file)}
+        style={{ ...ROW, background: isSelected ? 'rgba(249,255,0,0.06)' : 'transparent', boxShadow: isSelected ? 'inset 2px 0 0 var(--accent)' : 'none', cursor: 'pointer', opacity: isDragged ? 0.45 : 1 }}
+        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = isSelected ? 'rgba(249,255,0,0.06)' : 'transparent'; }}
+      >
         <FileTypeIcon type={file.type} resourceType={file.resourceType} size={18} />
         {renamingId === file.id
           ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
@@ -575,8 +757,14 @@ export function Fichiers() {
   const getColItems = (depth: number) => {
     const parentId = depth === 0 ? null : (colSelections[depth - 1] ?? null);
     return {
-      folders: allFolders.filter(f => f.parentId === parentId),
-      files:   allFiles.filter(f => f.parentFolderId === parentId),
+      folders: allFolders.filter(f => f.parentId === parentId && (!search || f.name.toLowerCase().includes(search.toLowerCase()))),
+      files: allFiles.filter(f => {
+        if (f.parentFolderId !== parentId) return false;
+        if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
+        if (typeFilter === 'all') return true;
+        if (typeFilter === 'resource') return f.type === 'resource';
+        return f.type === typeFilter;
+      }),
     };
   };
 
@@ -608,19 +796,21 @@ export function Fichiers() {
           </div>
         ))}
         {files.map(f => {
-          const m = TYPE_META[f.type] ?? TYPE_META.other;
           const isRes = f.type === 'resource';
+          const rm = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
+          const m = rm ?? TYPE_META[f.type] ?? TYPE_META.other;
+          const isFileSel = selectedIds.has(f.id);
           return (
             <div key={f.id}
-              onClick={() => isRes ? openResource(f) : undefined}
+              onClick={e => handleFileClick(e, f)}
               onContextMenu={e => handleFileCtx(e, f)}
-              style={{ ...rowStyle(f.id), cursor: isRes ? 'pointer' : 'default' }}
-              onMouseEnter={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'transparent'; }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', cursor: 'pointer', borderRadius: 7, transition: 'background 0.1s', background: isFileSel ? 'rgba(249,255,0,0.1)' : 'transparent', boxShadow: isFileSel ? 'inset 2px 0 0 var(--accent)' : 'none' }}
+              onMouseEnter={e => { if (!isFileSel) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isFileSel ? 'rgba(249,255,0,0.1)' : 'transparent'; }}
             >
-              <SFIcon name={m.icon} size={14} color={selectedId === f.id ? 'var(--on-accent)' : m.color} />
-              <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: textColor(f.id) }}>{f.name}</span>
-              {isRes && <span style={{ fontSize: 9, color: selectedId === f.id ? 'var(--on-accent)' : '#c45be8', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>RES</span>}
+              <SFIcon name={m.icon} size={14} color={isFileSel ? 'var(--accent)' : m.color} />
+              <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isFileSel ? 'var(--accent)' : 'var(--text)' }}>{f.name}</span>
+              {isRes && <span style={{ fontSize: 9, color: isFileSel ? 'var(--accent)' : m.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
             </div>
           );
         })}
@@ -724,6 +914,18 @@ export function Fichiers() {
                 style={{ background: 'none', border: 'none', outline: 'none', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)', width: 130 }} />
             </div>
 
+            {/* Sort */}
+            <div style={{ position: 'relative' }}>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                style={{ appearance: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 28px 5px 10px', fontSize: 12, color: 'var(--text)', fontFamily: 'var(--ff-text)', cursor: 'pointer', outline: 'none' }}>
+                <option value="name">Nom</option>
+                <option value="date">Date</option>
+                <option value="size">Taille</option>
+                <option value="type">Type</option>
+              </select>
+              <SFIcon name="chevrons-up-down" size={11} color="var(--text-3)" style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' } as React.CSSProperties} />
+            </div>
+
             {/* View toggle */}
             <div style={{ display: 'flex', background: 'var(--surface-2)', borderRadius: 8, padding: 2, border: '1px solid var(--border)', gap: 1 }}>
               {(['grid', 'list', 'columns'] as const).map(v => (
@@ -734,6 +936,15 @@ export function Fichiers() {
                 </button>
               ))}
             </div>
+
+            {/* Vider corbeille */}
+            {specialView === 'trash' && (getTrashedFiles().filter(f => f.projectId === projectId).length > 0 || getTrashedFolders().filter(f => f.projectId === projectId).length > 0) && (
+              <button onClick={() => emptyTrash()}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)', flexShrink: 0 }}>
+                <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                Vider la corbeille
+              </button>
+            )}
 
             {/* + Nouveau */}
             {canAdd && (
@@ -753,6 +964,51 @@ export function Fichiers() {
             )}
           </div>
 
+          {/* Type filter pills */}
+          {!isSpecial && (
+            <div style={{ display: 'flex', gap: 4, padding: '6px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, overflowX: 'auto' }}>
+              {([
+                ['all',        'Tous',         null],
+                ['resource',   'Ressources',   'sparkles'],
+                ['pdf',        'PDF',          'file-text'],
+                ['image',      'Images',       'image'],
+                ['video',      'Vidéos',       'video'],
+                ['audio',      'Audio',        'music'],
+                ['doc',        'Documents',    'file'],
+                ['spreadsheet','Tableurs',     'table'],
+                ['zip',        'Archives',     'archive'],
+              ] as [typeof typeFilter, string, string | null][]).map(([val, label, icon]) => (
+                <button key={val} onClick={() => setTypeFilter(val)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase', background: typeFilter === val ? 'var(--surface-3)' : 'transparent', color: typeFilter === val ? 'var(--text)' : 'var(--text-3)', transition: 'background 0.1s' }}>
+                  {icon && <SFIcon name={icon} size={10} />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Selection toolbar */}
+          {selectedIds.size > 0 && (
+            <div style={{ padding: '6px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(249,255,0,0.06)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+              <button onClick={() => setMoveModal({ fileIds: Array.from(selectedIds) })}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>
+                <SFIcon name="folder-input" size={11} />Déplacer
+              </button>
+              <button onClick={() => { Array.from(selectedIds).forEach(id => archiveFile(id)); setSelectedIds(new Set()); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>
+                <SFIcon name="archive" size={11} />Archiver
+              </button>
+              <button onClick={() => { Array.from(selectedIds).forEach(id => trashFile(id)); setSelectedIds(new Set()); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border-2)', background: 'rgba(229,72,77,0.08)', cursor: 'pointer', fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-text)' }}>
+                <SFIcon name="trash-2" size={11} />Corbeille
+              </button>
+              <button onClick={() => setSelectedIds(new Set())} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>
+                <SFIcon name="x" size={11} />Annuler
+              </button>
+            </div>
+          )}
+
           {/* Content area */}
           {viewMode === 'columns' ? (
             <div ref={colsRef} style={{ flex: 1, display: 'flex', overflow: 'auto' }} onContextMenu={handleBgCtx}>
@@ -763,6 +1019,7 @@ export function Fichiers() {
             <div
               style={{ flex: 1, overflowY: 'auto', padding: viewMode === 'grid' ? 20 : 0 }}
               onContextMenu={handleBgCtx}
+              onClick={e => { if (e.target === e.currentTarget) setSelectedIds(new Set()); }}
               onDragOver={e => e.preventDefault()}
               onDrop={e => { e.preventDefault(); if (canAdd) handleDropFiles(Array.from(e.dataTransfer.files)); }}
             >
@@ -820,6 +1077,24 @@ export function Fichiers() {
       )}
       {ctx && <Menu items={ctx.items} pos={ctx.pos} onClose={() => setCtx(null)} />}
       {newMenuPos && <Menu items={newMenuItems()} pos={newMenuPos} onClose={() => setNewMenuPos(null)} />}
+      {moveModal && (
+        <MoveModal
+          fileIds={moveModal.fileIds}
+          currentProjectId={projectId ?? ''}
+          onMove={(targetFolderId, targetProjectId) => {
+            moveModal.fileIds.forEach(id => {
+              if (targetProjectId && targetProjectId !== projectId) {
+                moveFileFull(id, targetFolderId, targetProjectId);
+              } else {
+                moveFile(id, targetFolderId);
+              }
+            });
+            setSelectedIds(new Set());
+            setMoveModal(null);
+          }}
+          onClose={() => setMoveModal(null)}
+        />
+      )}
     </div>
   );
 }

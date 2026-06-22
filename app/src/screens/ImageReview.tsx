@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
@@ -150,6 +150,8 @@ export function ImageReview() {
   const [addRoundOpen, setAddRoundOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [roundDropOpen, setRoundDropOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -265,106 +267,121 @@ export function ImageReview() {
   if (!resource || !project) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
+      {/* ── Single unified header bar ── */}
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-        <SFButton variant="ghost" size="sm" icon="upload" onClick={() => fileInputRef.current?.click()}
-          style={{ border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text-2)' }}>
-          Ajouter des images
-        </SFButton>
-        <SFButton variant="primary" icon="plus" onClick={() => setAddRoundOpen(true)}>Nouvelle ronde</SFButton>
-      </div>
 
-      {/* Title + description row */}
-      {resource && (
-        <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-          <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <SFIcon name="image" size={15} color="var(--accent)" />
-          </div>
-          <div style={{ flex:1, minWidth:0 }}>
+        {/* Icon */}
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <SFIcon name="image" size={15} color="var(--accent)" />
+        </div>
+
+        {/* Title + description */}
+        {resource && (
+          <div style={{ flex: 1, minWidth: 0, maxWidth: 260 }}>
             {editingTitle ? (
-              <input
-                autoFocus
-                value={titleVal}
-                onChange={e => setTitleVal(e.target.value)}
-                onBlur={commitTitle}
+              <input autoFocus value={titleVal} onChange={e => setTitleVal(e.target.value)} onBlur={commitTitle}
                 onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(localTitle); setEditingTitle(false); } }}
-                style={{ fontSize:15, fontWeight:700, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:6, padding:'2px 8px', outline:'none', color:'var(--text)', fontFamily:'var(--ff-display)', width:'100%', maxWidth:400 }}
-              />
+                style={{ fontSize: 13, fontWeight: 700, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 8px', outline: 'none', color: 'var(--text)', fontFamily: 'var(--ff-display)', width: '100%' }} />
             ) : (
-              <h2 onClick={() => setEditingTitle(true)} title="Cliquer pour renommer" style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6 }}>
-                {localTitle || resource.title}
-                <SFIcon name="pencil" size={11} color="var(--text-3)" />
-              </h2>
+              <p onClick={() => setEditingTitle(true)} title="Renommer"
+                style={{ fontSize: 13, fontWeight: 700, cursor: 'text', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{localTitle || resource.title}</span>
+                <SFIcon name="pencil" size={10} color="var(--text-3)" />
+              </p>
             )}
             {editingDesc ? (
-              <textarea
-                autoFocus
-                value={descVal}
-                onChange={e => setDescVal(e.target.value)}
-                onBlur={commitDesc}
+              <textarea autoFocus value={descVal} onChange={e => setDescVal(e.target.value)} onBlur={commitDesc}
                 onKeyDown={e => { if (e.key === 'Escape') { setDescVal(localDesc); setEditingDesc(false); } }}
-                style={{ fontSize:11, color:'var(--text-2)', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', outline:'none', resize:'none', width:'100%', maxWidth:400, fontFamily:'var(--ff-text)', marginTop:3, display:'block' }}
-                rows={2}
-              />
+                style={{ fontSize: 10, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 4, padding: '1px 6px', outline: 'none', resize: 'none', width: '100%', fontFamily: 'var(--ff-text)', display: 'block' }} rows={1} />
             ) : (
-              <p onClick={() => setEditingDesc(true)} title="Cliquer pour modifier la description" style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:2, fontStyle: localDesc ? 'normal' : 'italic' }}>
-                {localDesc || 'Ajouter une description...'}
+              <p onClick={() => setEditingDesc(true)} title="Modifier la description"
+                style={{ fontSize: 10, color: 'var(--text-3)', cursor: 'text', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {localDesc || 'Ajouter une description…'}
               </p>
             )}
           </div>
+        )}
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 26, background: 'var(--border)', flexShrink: 0 }} />
+
+        {/* Round dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setRoundDropOpen(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[round.status], flexShrink: 0 }} />
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{activeRound}</span>
+            <span style={{ color: 'var(--text-3)', fontSize: 9 }}>{round.label}</span>
+            <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+          </button>
+          {roundDropOpen && (
+            <>
+              <div onClick={() => setRoundDropOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98 }} />
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 99, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 230, padding: '4px 0', overflow: 'hidden' }}>
+                {rounds.map(r => (
+                  <div key={r.v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => { const x = (e.currentTarget as HTMLElement).querySelector('.rdd-del') as HTMLElement | null; if (x) x.style.opacity = '1'; }}
+                    onMouseLeave={e => { const x = (e.currentTarget as HTMLElement).querySelector('.rdd-del') as HTMLElement | null; if (x) x.style.opacity = '0'; }}>
+                    <button onClick={() => { setActiveRound(r.v); setRoundDropOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: activeRound === r.v ? 'var(--surface-2)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', paddingRight: rounds.length > 1 ? 36 : 14 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[r.status], flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: activeRound === r.v ? 'var(--accent)' : 'var(--text)', fontWeight: activeRound === r.v ? 600 : 400 }}>{r.v}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginLeft: 'auto', flexShrink: 0 }}>{r.date}</span>
+                    </button>
+                    {rounds.length > 1 && (
+                      <button className="rdd-del" onClick={e => { e.stopPropagation(); setDeleteTarget(r.v); setRoundDropOpen(false); }}
+                        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
+                        <SFIcon name="x" size={11} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid var(--border)', padding: '4px 0 2px' }}>
+                  <button onClick={() => { setAddRoundOpen(true); setRoundDropOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                    <SFIcon name="plus" size={12} color="var(--accent)" />
+                    Nouvelle ronde
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      )}
 
-      {/* Round selector + view toggle */}
-      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', flexShrink: 0 }}>
-        <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0, marginRight: 4 }}>Rondes</span>
-        {rounds.map(r => {
-          const active = r.v === activeRound;
-          return (
-            <div key={r.v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => { const btn = (e.currentTarget as HTMLElement).querySelector('.rd-del') as HTMLElement; if (btn) btn.style.opacity = '1'; }}
-              onMouseLeave={e => { const btn = (e.currentTarget as HTMLElement).querySelector('.rd-del') as HTMLElement; if (btn) btn.style.opacity = '0'; }}>
-              <button onClick={() => setActiveRound(r.v)} style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
-                borderRadius: 8, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--surface-2)',
-                color: active ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, cursor: 'pointer',
-                fontFamily: 'var(--ff-text)', fontWeight: active ? 600 : 400, paddingRight: 28,
-              }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[r.status], flexShrink: 0 }} />
-                {r.label}
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: active ? 'var(--accent)' : 'var(--text-3)', opacity: 0.8 }}>{r.date}</span>
-              </button>
-              {rounds.length > 1 && (
-                <button className="rd-del" onClick={() => setDeleteTarget(r.v)} style={{
-                  position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)',
-                  display: 'flex', padding: 2, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s',
-                }}>
-                  <SFIcon name="x" size={11} />
-                </button>
-              )}
-            </div>
-          );
-        })}
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
 
-        {/* Spacer + view toggle */}
-        <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2 }}>
+        {/* View toggle — icon only */}
+        <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2, flexShrink: 0 }}>
           {(['gallery', 'single'] as const).map(mode => (
-            <button key={mode} onClick={() => setViewMode(mode)} style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              background: viewMode === mode ? 'var(--surface)' : 'transparent',
-              color: viewMode === mode ? 'var(--text)' : 'var(--text-3)',
-              fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: viewMode === mode ? 600 : 400,
-              boxShadow: viewMode === mode ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-              transition: 'all 0.12s',
-            }}>
-              <SFIcon name={mode === 'gallery' ? 'layout-grid' : 'square'} size={12} />
-              {mode === 'gallery' ? 'Galerie' : 'Individuel'}
+            <button key={mode} onClick={() => setViewMode(mode)}
+              title={mode === 'gallery' ? 'Vue galerie' : 'Vue individuelle'}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer', background: viewMode === mode ? 'var(--surface)' : 'transparent', color: viewMode === mode ? 'var(--text)' : 'var(--text-3)', boxShadow: viewMode === mode ? '0 1px 3px rgba(0,0,0,0.3)' : 'none', transition: 'all 0.12s' }}>
+              <SFIcon name={mode === 'gallery' ? 'layout-grid' : 'square'} size={12}  />
             </button>
           ))}
         </div>
+
+        {/* Add images icon button */}
+        <button onClick={() => fileInputRef.current?.click()} title="Ajouter des images"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name="upload" size={13}  />
+        </button>
+
+        {/* Fullscreen button */}
+        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={13}  />
+        </button>
       </div>
 
       {/* Main layout */}

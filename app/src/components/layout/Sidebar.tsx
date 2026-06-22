@@ -225,16 +225,12 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           {collapsed ? (
             logoSquare
               ? <img src={logoSquare} alt="Logo" style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
-              : <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--on-accent)', fontFamily: 'var(--ff-display)', lineHeight: 1 }}>R</span>
-                </div>
+              : <img src="/favicon.svg" alt="Rush" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
           ) : (
             logoFull
               ? <img src={logoFull} alt="Logo" style={{ maxHeight: 32, maxWidth: 160, objectFit: 'contain', flexShrink: 0 }} />
               : <>
-                  <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--on-accent)', fontFamily: 'var(--ff-display)', lineHeight: 1 }}>R</span>
-                  </div>
+                  <img src="/favicon.svg" alt="Rush" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
                   <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Rush</span>
                 </>
           )}
@@ -530,6 +526,25 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
       {/* Bottom */}
       <div style={{ padding: collapsed ? '0 6px 12px' : '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {/* AI assistant button */}
+        <button
+          onClick={() => window.dispatchEvent(new Event('sf:ai-toggle'))}
+          title={collapsed ? 'Assistant IA' : undefined}
+          style={{
+            display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
+            padding: collapsed ? '8px 0' : '8px 12px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            borderRadius: 9, border: 'none', cursor: 'pointer',
+            background: 'transparent', width: '100%', textAlign: 'left',
+            color: 'var(--accent)', marginBottom: 2,
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+        >
+          <SFIcon name="sparkles" size={16} color="var(--accent)" />
+          {!collapsed && <span style={{ fontSize: 13, fontWeight: 600 }}>Assistant IA</span>}
+        </button>
+
         <NavLink
           to="/parametres"
           title={collapsed ? 'Paramètres' : undefined}

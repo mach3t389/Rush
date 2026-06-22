@@ -34,14 +34,15 @@ const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; color: 
 
 interface RevisionSelection {
   resourceType: ResourceType;
-  mediaSubtype?: 'video' | 'photo' | 'file';
+  mediaSubtype?: 'video' | 'photo' | 'file' | 'audio';
   subtypeLabel: string;
   eyebrow: string;
 }
 
-const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file'; label: string; icon: string; color: string; desc: string }[] = [
+const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; label: string; icon: string; color: string; desc: string }[] = [
   { resourceType: 'video_review', mediaSubtype: 'video', label: 'Vidéo',    icon: 'video',     color: '#a05be8', desc: 'Commentaires horodatés sur une vidéo' },
   { resourceType: 'video_review', mediaSubtype: 'photo', label: 'Photo',    icon: 'image',     color: '#5b8af5', desc: 'Annotations sur une image ou un visuel' },
+  { resourceType: 'video_review', mediaSubtype: 'audio', label: 'Audio',    icon: 'music',     color: '#4ec994', desc: 'Révision d\'un fichier audio avec commentaires horodatés' },
   { resourceType: 'video_review', mediaSubtype: 'file',  label: 'Document', icon: 'file-text', color: '#5bc4e8', desc: 'Révision d\'un document ou d\'un fichier' },
   { resourceType: 'web_review',                          label: 'Site web', icon: 'globe',     color: '#f5975b', desc: 'Annotations sur un site web ou une page en ligne' },
 ];
@@ -511,67 +512,69 @@ function FileTree({
           </div>
         )}
 
-        {/* Pinned Projects */}
-        {pinnedIds.length > 0 && (
+        {/* All Projects */}
+        {projects.length > 0 && (
           <>
-            <SectionLabel>Projets épinglés</SectionLabel>
-            {projects.filter(p => pinnedIds.includes(p.id)).map(p => {
-          const exp = expandedProjects.has(p.id);
-          const projActive = location.scope === 'project' && location.scopeId === p.id && !location.folderId;
-          const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null && !f.state);
-          const isHovered = hoveredProjectId === p.id;
-          return (
-            <div key={p.id}>
-              <div
-                style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative' }}
-                onMouseEnter={e => { setHoveredProjectId(p.id); if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { setHoveredProjectId(null); if (!projActive) e.currentTarget.style.background = 'transparent'; }}
-              >
-                {!collapsed && projFolders.length > 0 && (
-                  <div onClick={e => { e.stopPropagation(); toggleProject(p.id); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
-                    <SFIcon name={exp ? 'chevron-down' : 'chevron-right'} size={10} color="var(--text-3)" />
+            <SectionLabel>Projets</SectionLabel>
+            {projects.map(p => {
+              const exp = expandedProjects.has(p.id);
+              const projActive = location.scope === 'project' && location.scopeId === p.id && !location.folderId;
+              const projFolders = folders.filter(f => f.projectId === p.id && f.parentId === null && !f.state);
+              const isHovered = hoveredProjectId === p.id;
+              const isPinned = pinnedIds.includes(p.id);
+              return (
+                <div key={p.id}>
+                  <div
+                    style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative' }}
+                    onMouseEnter={e => { setHoveredProjectId(p.id); if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { setHoveredProjectId(null); if (!projActive) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {!collapsed && projFolders.length > 0 && (
+                      <div onClick={e => { e.stopPropagation(); toggleProject(p.id); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
+                        <SFIcon name={exp ? 'chevron-down' : 'chevron-right'} size={10} color="var(--text-3)" />
+                      </div>
+                    )}
+                    {(!collapsed && projFolders.length === 0) && <div style={{ width: 10 }} />}
+                    <div
+                      onClick={() => { onNavigate({ scope: 'project', scopeId: p.id, folderId: null }); if (!exp && projFolders.length) toggleProject(p.id); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0, cursor: 'pointer' }}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
+                      {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>}
+                    </div>
+                    {!collapsed && isHovered && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
+                        title={isPinned ? 'Désépingler' : 'Épingler'}
+                        style={{
+                          flexShrink: 0, width: 20, height: 20, borderRadius: 4,
+                          background: isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = isPinned ? 'rgba(249,255,0,0.8)' : 'rgba(0,0,0,0.4)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)'; }}
+                      >
+                        <SFIcon name="star" size={11} color={isPinned ? 'var(--on-accent)' : 'var(--text-3)'} fill={isPinned ? 'currentColor' : 'none'} />
+                      </button>
+                    )}
                   </div>
-                )}
-                {(!collapsed && projFolders.length === 0) && <div style={{ width: 10 }} />}
-                <div
-                  onClick={() => { onNavigate({ scope: 'project', scopeId: p.id, folderId: null }); if (!exp && projFolders.length) toggleProject(p.id); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0, cursor: 'pointer' }}
-                >
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
-                  {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>}
+                  {exp && !collapsed && projFolders.map(f => {
+                    const active = location.scope === 'project' && location.scopeId === p.id && location.folderId === f.id;
+                    return (
+                      <div key={f.id}
+                        onClick={() => onNavigate({ scope: 'project', scopeId: p.id, folderId: f.id })}
+                        style={{ ...ITEM_STYLE(active), paddingLeft: 28 }}
+                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <SFIcon name="folder" size={11} color={p.clientColor} />
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{f.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                {!collapsed && isHovered && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
-                    style={{
-                      flexShrink: 0, width: 20, height: 20, borderRadius: 4,
-                      background: 'rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.1s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
-                  >
-                    <SFIcon name="star" size={11} color="var(--accent)" fill="currentColor" />
-                  </button>
-                )}
-              </div>
-              {exp && !collapsed && projFolders.map(f => {
-                const active = location.scope === 'project' && location.scopeId === p.id && location.folderId === f.id;
-                return (
-                  <div key={f.id}
-                    onClick={() => onNavigate({ scope: 'project', scopeId: p.id, folderId: f.id })}
-                    style={{ ...ITEM_STYLE(active), paddingLeft: 28 }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <SFIcon name="folder" size={11} color={p.clientColor} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{f.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          );
+              );
             })}
           </>
         )}
@@ -1270,15 +1273,19 @@ export function FichiersGlobal() {
         ))}
         {/* Files */}
         {files.map(f => {
-          const meta = TYPE_META[f.type] ?? TYPE_META.other;
+          const isRes = f.type === 'resource' && !!f.resourceId;
+          const rm = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
+          const meta = rm ?? TYPE_META[f.type] ?? TYPE_META.other;
           return (
             <div key={f.id}
-              style={{ ...rowStyle(f.id), cursor: 'default' }}
+              style={{ ...rowStyle(f.id), cursor: isRes ? 'pointer' : 'default' }}
+              onClick={() => { if (isRes) { const p = f.projectId; if (p) { window.location.href = `/projets/${p}/ressources/${f.resourceId}`; } } }}
               onMouseEnter={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'transparent'; }}
             >
               <SFIcon name={meta.icon} size={14} color={selectedId === f.id ? 'var(--on-accent)' : meta.color} />
               <span style={nameStyle(f.id)}>{f.name}</span>
+              {isRes && <span style={{ fontSize: 9, color: selectedId === f.id ? 'var(--on-accent)' : meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
             </div>
           );
         })}

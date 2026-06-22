@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { USERS } from '../data/mock';
 import type { Task, SectionData } from '../types';
@@ -268,7 +268,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
                     >
-                      <SFIcon name="plus" size={12} color="inherit" />
+                      <SFIcon name="plus" size={12}  />
                     </button>
                   )}
                 </div>
@@ -337,7 +337,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--on-accent)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
                 >
-                  <SFIcon name="plus" size={12} color="inherit" />
+                  <SFIcon name="plus" size={12}  />
                 </button>
               </div>
             );

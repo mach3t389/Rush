@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { SFAvatar, SFButton, SFIcon } from './ui';
 import { USERS } from '../data/mock';
 
@@ -296,7 +296,7 @@ export function RevisionCommentSidebar({
               transition: 'all 0.12s',
             }}
           >
-            <SFIcon name="map-pin" size={12} color="inherit" />
+            <SFIcon name="map-pin" size={12}  />
             {drawing ? 'Cliquer sur le média…' : 'Annoter'}
           </button>
         </div>

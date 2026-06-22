@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
 import { TODAY_TASKS, ACTIVITY, PROJECTS } from '../data/mock';
@@ -90,7 +90,7 @@ function TaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () 
           <SFPill status={task.status} small>{task.statusLabel}</SFPill>
           {task.dueDate && task.dueDate !== '—' && (
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <SFIcon name="calendar" size={9} color="inherit" />
+              <SFIcon name="calendar" size={9}  />
               {fmtTaskDate(task.dueDate ?? '')}
             </span>
           )}

@@ -57,7 +57,7 @@ export interface Project {
 
 // ── Task ──────────────────────────────────────────────────────────────────────
 export type DeliverableFormat = '16:9' | '9:16' | '1:1' | '4:3' | '2.35:1' | 'custom';
-export type DeliverableType = 'video' | 'photo' | 'audio' | 'graphique' | 'document';
+export type DeliverableType = 'video' | 'photo' | 'audio' | 'document' | 'web' | 'graphique' | 'service' | 'produit' | 'autre';
 
 export interface Task {
   id: string;
@@ -104,7 +104,7 @@ export interface Resource {
   progress?: number;
   avatars?: { initials: string; bg: string }[];
   colors?: string[];
-  mediaSubtype?: 'video' | 'photo' | 'file';
+  mediaSubtype?: 'video' | 'photo' | 'file' | 'audio';
   webUrl?: string;
 }
 

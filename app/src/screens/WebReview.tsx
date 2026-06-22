@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { SFIcon, SFButton, SFPill, SFAvatar } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
@@ -125,6 +125,7 @@ export function WebReview() {
   const [sidebarTab, setSidebarTab] = useState<'annotations' | 'info'>('annotations');
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // Track iframe scroll position to keep annotation pins anchored to page content
   const [iframeScroll, setIframeScroll] = useState({ x: 0, y: 0 });
 
@@ -217,7 +218,7 @@ export function WebReview() {
   const pendingScreen = pendingPos ? toScreenPct(pendingPos.x, pendingPos.y) : null;
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
         {resource && (
           <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
@@ -240,6 +241,12 @@ export function WebReview() {
         >
           {addingPin ? 'Annuler' : 'Annoter'}
         </SFButton>
+        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14}  />
+        </button>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>

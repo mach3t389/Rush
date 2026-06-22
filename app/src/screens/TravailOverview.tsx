@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, DatePickerDropdown, toYMD, formatDisplay } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -33,11 +33,15 @@ const INVOICE_STATUS: Record<string, { label:string; color:string; bg:string }> 
 };
 
 const DELIVERABLE_TYPES: { value: DeliverableType; label: string; icon: string }[] = [
-  { value: 'video',     label: 'Vidéo',     icon: 'video'      },
-  { value: 'photo',     label: 'Photo',     icon: 'image'      },
-  { value: 'audio',     label: 'Audio',     icon: 'music'      },
-  { value: 'graphique', label: 'Graphique', icon: 'pen-tool'   },
-  { value: 'document',  label: 'Document',  icon: 'file-text'  },
+  { value: 'video',     label: 'Vidéo',     icon: 'video'        },
+  { value: 'photo',     label: 'Photo',     icon: 'image'        },
+  { value: 'audio',     label: 'Audio',     icon: 'music'        },
+  { value: 'document',  label: 'Document',  icon: 'file-text'    },
+  { value: 'web',       label: 'Site web',  icon: 'globe'        },
+  { value: 'graphique', label: 'Graphique', icon: 'pen-tool'     },
+  { value: 'service',   label: 'Service',   icon: 'briefcase'    },
+  { value: 'produit',   label: 'Produit',   icon: 'package-2'    },
+  { value: 'autre',     label: 'Autre',     icon: 'circle-dashed'},
 ];
 
 const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }[] = [
@@ -763,7 +767,7 @@ export function TravailOverview() {
                   {DELIVERABLE_TYPES.map(t => (
                     <button key={t.value} onClick={() => setNewDlType(t.value)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlType === t.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlType === t.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlType === t.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      <SFIcon name={t.icon} size={11} color="inherit" />
+                      <SFIcon name={t.icon} size={11}  />
                       {t.label}
                     </button>
                   ))}

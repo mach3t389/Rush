@@ -542,28 +542,14 @@ export function AIChat() {
     }
   };
 
+  useEffect(() => {
+    const handler = () => setOpen(o => !o);
+    window.addEventListener('sf:ai-toggle', handler);
+    return () => window.removeEventListener('sf:ai-toggle', handler);
+  }, []);
+
   return (
     <>
-      {/* Floating button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 90,
-          width: 46, height: 46, borderRadius: '50%',
-          background: open ? 'var(--surface-2)' : 'var(--accent)',
-          border: open ? '1px solid var(--border-2)' : '2px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: open
-            ? '-4px 4px 16px rgba(0,0,0,0.4)'
-            : '0 4px 20px rgba(249,255,0,0.25)',
-          transition: 'background 0.15s, box-shadow 0.15s, border-color 0.15s',
-        }}
-        title={open ? 'Fermer l\'assistant' : 'Assistant IA'}
-      >
-        <SFIcon name={open ? 'x' : 'sparkles'} size={open ? 17 : 19} color={open ? 'var(--text-2)' : '#000'} />
-      </button>
-
       {/* Panel */}
       {open && (
         <div style={{

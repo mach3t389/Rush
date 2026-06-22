@@ -5,6 +5,7 @@ import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
 import { getClients, addClient, updateClient, subscribeClients } from '../data/clientStore';
+import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
 
 // ── Shared edit panel primitives ──────────────────────────────────────────────
@@ -296,7 +297,135 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
   );
 }
 
+// ── Shared row actions (star + edit) ──────────────────────────────────────────
+
+function ClientActions({ clientId, pinned, onEdit }: { clientId: string; pinned: boolean; onEdit: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <button
+        onClick={e => { e.stopPropagation(); togglePinClient(clientId); }}
+        title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
+        onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
+        onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
+      >
+        <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
+      </button>
+      <button
+        onClick={e => { e.stopPropagation(); onEdit(); }}
+        title="Modifier le client"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
+        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
+        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
+      >
+        <SFIcon name="square-pen" size={13} />
+      </button>
+    </div>
+  );
+}
+
+// ── Detailed list view ────────────────────────────────────────────────────────
+
+const LIST_COLS = 'minmax(200px, 2.2fr) 1.1fr 1.5fr 1fr minmax(120px, 1fr) auto';
+
+function ColHead({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', ...style }}>
+      {children}
+    </span>
+  );
+}
+
+function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Client) => void }) {
+  const navigate = useNavigate();
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflowX: 'auto', overflowY: 'hidden', background: 'var(--surface)' }}>
+      <div style={{ minWidth: 820 }}>
+      {/* Header */}
+      <div style={{ display: 'grid', gridTemplateColumns: LIST_COLS, gap: 16, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+        <ColHead>Client</ColHead>
+        <ColHead>Localisation</ColHead>
+        <ColHead>Contact</ColHead>
+        <ColHead>Activité</ColHead>
+        <ColHead>Progression</ColHead>
+        <ColHead style={{ textAlign: 'right' }}>Statut</ColHead>
+      </div>
+
+      {/* Rows */}
+      {clients.map((client, i) => {
+        const pinned = isPinnedClient(client.id);
+        return (
+          <div
+            key={client.id}
+            onClick={() => navigate(`/clients/${client.id}`)}
+            style={{ display: 'grid', gridTemplateColumns: LIST_COLS, gap: 16, alignItems: 'center', padding: '12px 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            {/* Client */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                {client.initials}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{client.sector}</p>
+              </div>
+            </div>
+
+            {/* Localisation */}
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.city}</p>
+              {client.website && (
+                <a
+                  href={client.website.startsWith('http') ? client.website : `https://${client.website}`}
+                  target="_blank" rel="noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', marginTop: 1 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                >
+                  {client.website.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+            </div>
+
+            {/* Contact */}
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {client.email
+                ? <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</span>
+                : <span style={{ fontSize: 12, color: 'var(--text-3)' }}>—</span>}
+              {client.phone && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{client.phone}</span>}
+            </div>
+
+            {/* Activité */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{client.activeProjects} projets actifs</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{client.pendingDeliverables} livrables · depuis {client.since}</span>
+            </div>
+
+            {/* Progression */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}><SFBar value={client.progress} height={4} /></div>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{client.progress}%</span>
+            </div>
+
+            {/* Statut + actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+              <SFPill status={client.status} small>{client.statusLabel}</SFPill>
+              <ClientActions clientId={client.id} pinned={pinned} onEdit={() => onEdit(client)} />
+            </div>
+          </div>
+        );
+      })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
+
+const VIEW_KEY = 'sf_clients_view';
 
 export function Clients() {
   const navigate = useNavigate();
@@ -305,6 +434,9 @@ export function Clients() {
   const [clients, setClients]       = useState(getClients);
   const [showModal, setShowModal]   = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [view, setView]             = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
+
+  const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
 
   useEffect(() => subscribePinnedClients(() => setClients(getClients())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
@@ -352,9 +484,27 @@ export function Clients() {
             </button>
           ))}
         </div>
+
+        {/* View toggle */}
+        <div style={{ display: 'flex', gap: 2, marginLeft: 'auto', background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>
+          {([['grid', 'layout-grid', 'Grille'], ['list', 'list', 'Liste']] as const).map(([val, icon, label]) => (
+            <button
+              key={val}
+              onClick={() => changeView(val)}
+              title={label}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 26, borderRadius: 7, border: 'none', background: view === val ? 'var(--surface-3)' : 'transparent', color: view === val ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', transition: 'background 0.12s, color 0.12s' }}
+            >
+              <SFIcon name={icon} size={15} />
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* List view */}
+      {view === 'list' && <ClientListView clients={filtered} onEdit={setEditingClient} />}
+
       {/* Grid */}
+      {view === 'grid' && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {filtered.map(client => {
           const pinned = isPinnedClient(client.id);
@@ -410,6 +560,7 @@ export function Clients() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

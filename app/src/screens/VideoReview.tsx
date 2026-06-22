@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
@@ -6,6 +6,7 @@ import { getResources, updateResource, subscribeResources } from '../data/resour
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { addDeliverable } from '../data/taskStore';
+import { STATUS_COLOR } from '../data/status';
 import type { Resource, Status } from '../types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -44,12 +45,6 @@ interface VideoTask {
   timeLabel?: string;
   done: boolean;
   priority: 'high' | 'normal' | 'low';
-}
-
-interface UpcomingItem {
-  id: string;
-  text: string;
-  done: boolean;
 }
 
 interface LocalVersion {
@@ -141,7 +136,7 @@ function AnnotationLayer({
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawTool ? 'crosshair' : 'default', userSelect: 'none', pointerEvents: drawTool ? 'auto' : 'none', zIndex: 2 }}
       onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
     >
-      {annotations.map(({ id, annotation }) => renderAnnotation(annotation, id, activeId === id ? 1 : activeId ? 0.25 : 0.6))}
+      {annotations.map(({ id, annotation }) => renderAnnotation(annotation, id, activeId === id ? 1 : 0.65))}
       {pending && renderAnnotation(pending, 'pending', 1)}
       {drawing && renderAnnotation(drawing, 'drawing', 0.8, true)}
     </svg>
@@ -155,14 +150,25 @@ interface VideoReviewContent {
   versions?: LocalVersion[];
   activeVersion?: string;
   tasks?: VideoTask[];
-  upcoming?: UpcomingItem[];
 }
 
 export function VideoReviewBody({ resource, projectId, persistKey }: { resource: Resource; projectId?: string; persistKey?: string }) {
-  // Contenu persisté par ressource (commentaires de révision, versions, tâches,
-  // éléments à venir). Absent en mode modèle → on retombe sur le contenu mock.
   const persisted = persistKey ? getResourceContent<VideoReviewContent>(persistKey) : undefined;
   const [searchParams, setSearchParams] = useSearchParams();
+  const [shared, setShared] = useState(false);
+  const [approvalRequested, setApprovalRequested] = useState(false);
+
+  const handleShare = () => {
+    const url = window.location.href;
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).catch(() => {});
+    setShared(true);
+    setTimeout(() => setShared(false), 2000);
+  };
+
+  const handleRequestApproval = () => {
+    setApprovalRequested(true);
+    setTimeout(() => setApprovalRequested(false), 2500);
+  };
   const [tab, setTab] = useState<'comments' | 'tasks'>('comments');
 
   // Focus comments panel when arriving from a notification link
@@ -201,6 +207,11 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setEditingDesc(false);
   };
 
+  const isAudio = resource.mediaSubtype === 'audio';
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [versionDropOpen, setVersionDropOpen] = useState(false);
+
   const [taskCreatedFlash, setTaskCreatedFlash] = useState(false);
   const [playing, setPlaying]     = useState(false);
   const [currentTime, setCurrentTime] = useState(63);
@@ -227,17 +238,6 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [statusDropOpen, setStatusDropOpen] = useState(false);
   const [statusDropRect, setStatusDropRect] = useState<DOMRect | null>(null);
   const statusDropRef = useRef<HTMLButtonElement>(null);
-
-  // Upcoming items
-  const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>(() =>
-    persisted?.upcoming ?? (persistKey ? [] : [
-      { id: 'ui1', text: 'Ajouter le générique de fin', done: false },
-      { id: 'ui2', text: 'Remplacer la musique de fond', done: false },
-      { id: 'ui3', text: 'Color grading final', done: false },
-    ])
-  );
-  const [newUpcomingText, setNewUpcomingText] = useState('');
-  const [upcomingCollapsed, setUpcomingCollapsed] = useState(false);
 
   // Drawing
   const [drawTool, setDrawTool]   = useState<DrawTool | null>(null);
@@ -286,13 +286,13 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const vrMounted = useRef(false);
   const vrSnapshotRef = useRef<VideoReviewContent | null>(null);
   useEffect(() => {
-    const snapshot: VideoReviewContent = { comments, versions, activeVersion, tasks, upcoming: upcomingItems };
+    const snapshot: VideoReviewContent = { comments, versions, activeVersion, tasks };
     vrSnapshotRef.current = snapshot;
     if (!persistKey) return;
     if (!vrMounted.current) { vrMounted.current = true; return; } // ne pas écrire au montage
     if (vrPersistTimer.current) clearTimeout(vrPersistTimer.current);
     vrPersistTimer.current = window.setTimeout(() => setResourceContent(persistKey, snapshot), 400);
-  }, [persistKey, comments, versions, activeVersion, tasks, upcomingItems]);
+  }, [persistKey, comments, versions, activeVersion, tasks]);
   // Flush la dernière modification en attente au démontage.
   useEffect(() => () => {
     if (persistKey && vrPersistTimer.current && vrSnapshotRef.current) {
@@ -471,12 +471,6 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     }
   };
 
-  const addUpcomingItem = () => {
-    if (!newUpcomingText.trim()) return;
-    setUpcomingItems(p => [...p, { id: `ui${Date.now()}`, text: newUpcomingText.trim(), done: false }]);
-    setNewUpcomingText('');
-  };
-
   const handleCommentChange = (val: string, el: HTMLInputElement | null) => {
     setCommentText(val);
     const m = val.match(/@(\w*)$/);
@@ -507,78 +501,123 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
       : part
   );
 
-  const annotatedComments = comments.filter(c => c.annotation).map(c => ({ id: c.id, annotation: c.annotation! }));
+  // Only show annotations for the selected comment or those matching the current playback position (±0.5s)
+  const annotatedComments = comments
+    .filter(c => c.annotation && c.status !== 'resolved' && (
+      c.id === activeCommentId ||
+      (c.timeSeconds !== null && Math.abs(c.timeSeconds - currentTime) <= 0.5)
+    ))
+    .map(c => ({ id: c.id, annotation: c.annotation! }));
   const unresolvedCount   = comments.filter(c => c.status !== 'resolved').length;
   const openTaskCount     = tasks.filter(t => !t.done).length;
 
   const currentStatusMeta = REVIEW_STATUSES.find(s => s.key === reviewStatus)!;
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
 
-      {/* ── Versions + Annotation bar at top ── */}
+      {/* ── Versions dropdown + Annotation bar at top ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
-        {/* Versions */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-          {versions.map(v => {
-            const isActive = activeVersion === v.v;
-            return (
-              <div key={v.v} style={{ position: 'relative' }}
-                onMouseEnter={e => { const x = e.currentTarget.querySelector('.vr-del') as HTMLElement | null; if (x) x.style.opacity = '1'; }}
-                onMouseLeave={e => { const x = e.currentTarget.querySelector('.vr-del') as HTMLElement | null; if (x) x.style.opacity = '0'; }}>
-                <button onClick={() => setVersion(v.v)}
-                  title={`${v.v} · ${v.label}${v.date ? ` · ${v.date}` : ''}`}
-                  style={{ padding: '3px 10px', borderRadius: 8, border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border-2)'}`, background: isActive ? 'rgba(249,255,0,0.1)' : 'transparent', color: isActive ? 'var(--accent)' : 'var(--text-2)', fontFamily: 'var(--ff-mono)', fontSize: 10, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <span>{v.v}</span>
-                  <span style={{ fontSize: 8, color: isActive ? 'rgba(249,255,0,0.6)' : 'var(--text-3)' }}>{v.label}</span>
-                </button>
-                {versions.length > 1 && (
-                  <button className="vr-del"
-                    onClick={e => { e.stopPropagation(); setVersionToDelete(v); }}
-                    title={`Supprimer ${v.v}`}
-                    style={{ position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%', background: 'var(--danger)', border: '2px solid var(--surface)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0, transition: 'opacity 0.12s', padding: 0, zIndex: 2 }}>
-                    <SFIcon name="x" size={8} color="white" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-          <button onClick={() => setAddVersionOpen(true)}
-            title="Téléverser une nouvelle version"
-            style={{ padding: '3px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 10, fontFamily: 'var(--ff-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-            <SFIcon name="upload" size={10} color="inherit" />Version
+        {/* Compact version dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setVersionDropOpen(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[versions.find(v => v.v === activeVersion)?.status ?? 'review'], flexShrink: 0 }} />
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{activeVersion}</span>
+            <span style={{ color: 'var(--text-3)', fontSize: 9 }}>{versions.find(v => v.v === activeVersion)?.label}</span>
+            <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
           </button>
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
-
-        {/* Annotation tools */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 2 }}>Annoter</span>
-          {([
-            { tool: 'point' as DrawTool,  icon: 'mouse-pointer-2', label: 'Pointer',  color: TOOL_COLORS.point  },
-            { tool: 'circle' as DrawTool, icon: 'circle',          label: 'Entourer', color: TOOL_COLORS.circle },
-            { tool: 'arrow' as DrawTool,  icon: 'arrow-up-right',  label: 'Flèche',   color: TOOL_COLORS.arrow  },
-          ] as const).map(({ tool, icon, label, color }) => (
-            <button key={tool} onClick={() => setDrawTool(t => t === tool ? null : tool)}
-              title={label}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: `1px solid ${drawTool === tool ? color : 'var(--border)'}`, background: drawTool === tool ? `${color}18` : 'var(--surface-2)', color: drawTool === tool ? color : 'var(--text-2)', fontSize: 11, cursor: 'pointer', transition: 'all 0.12s' }}>
-              <SFIcon name={icon} size={12} color="inherit" />
-              {label}
-            </button>
-          ))}
-          {pendingAnnotation && (
-            <button onClick={() => setPendingAnnotation(null)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer' }}>
-              <SFIcon name="trash-2" size={11} />Effacer
-            </button>
+          {versionDropOpen && (
+            <>
+              <div onClick={() => setVersionDropOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98 }} />
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 99, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 230, padding: '4px 0', overflow: 'hidden' }}>
+                {versions.map(v => (
+                  <div key={v.v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => { const x = (e.currentTarget as HTMLElement).querySelector('.vrd-del') as HTMLElement | null; if (x) x.style.opacity = '1'; }}
+                    onMouseLeave={e => { const x = (e.currentTarget as HTMLElement).querySelector('.vrd-del') as HTMLElement | null; if (x) x.style.opacity = '0'; }}>
+                    <button onClick={() => { setVersion(v.v); setVersionDropOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: activeVersion === v.v ? 'var(--surface-2)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', paddingRight: versions.length > 1 ? 36 : 14 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[v.status], flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: activeVersion === v.v ? 'var(--accent)' : 'var(--text)', fontWeight: activeVersion === v.v ? 600 : 400 }}>{v.v}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.label}</span>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginLeft: 'auto', flexShrink: 0 }}>{v.date}</span>
+                    </button>
+                    {versions.length > 1 && (
+                      <button className="vrd-del" onClick={e => { e.stopPropagation(); setVersionToDelete(v); setVersionDropOpen(false); }}
+                        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
+                        <SFIcon name="x" size={11} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid var(--border)', padding: '4px 0 2px' }}>
+                  <button onClick={() => { setAddVersionOpen(true); setVersionDropOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                    <SFIcon name="upload" size={12} color="var(--accent)" />
+                    Téléverser une version
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
+        {/* Divider */}
+        {!isAudio && <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />}
+
+        {/* Annotation tools — video/photo only */}
+        {!isAudio && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 2 }}>Annoter</span>
+            {([
+              { tool: 'point' as DrawTool,  icon: 'mouse-pointer-2', label: 'Pointer',  color: TOOL_COLORS.point  },
+              { tool: 'circle' as DrawTool, icon: 'circle',          label: 'Entourer', color: TOOL_COLORS.circle },
+              { tool: 'arrow' as DrawTool,  icon: 'arrow-up-right',  label: 'Flèche',   color: TOOL_COLORS.arrow  },
+            ] as const).map(({ tool, icon, label, color }) => (
+              <button key={tool} onClick={() => setDrawTool(t => t === tool ? null : tool)}
+                title={label}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: `1px solid ${drawTool === tool ? color : 'var(--border)'}`, background: drawTool === tool ? `${color}18` : 'var(--surface-2)', color: drawTool === tool ? color : 'var(--text-2)', fontSize: 11, cursor: 'pointer', transition: 'all 0.12s' }}>
+                <SFIcon name={icon} size={12}  />
+                {label}
+              </button>
+            ))}
+            {pendingAnnotation && (
+              <button onClick={() => setPendingAnnotation(null)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer' }}>
+                <SFIcon name="trash-2" size={11} />Effacer
+              </button>
+            )}
+          </div>
+        )}
+
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{secsToLabel(currentTime)} / 03:28</span>
+
+        {/* Divider before share actions */}
+        <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
+
+        {/* Share */}
+        <button onClick={handleShare} title={shared ? 'Lien copié !' : 'Copier le lien'}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: `1px solid ${shared ? 'var(--ok)' : 'var(--border)'}`, background: shared ? 'rgba(78,201,148,0.12)' : 'var(--surface-2)', cursor: 'pointer', color: shared ? 'var(--ok)' : 'var(--text-2)', flexShrink: 0, transition: 'all 0.15s' }}
+          onMouseEnter={e => { if (!shared) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; } }}
+          onMouseLeave={e => { if (!shared) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; } }}>
+          <SFIcon name={shared ? 'check' : 'share-2'} size={12}  />
+        </button>
+
+        {/* Request approval */}
+        <SFButton variant="primary" icon={approvalRequested ? 'check' : 'send'} onClick={handleRequestApproval}
+          style={{ flexShrink: 0, fontSize: 11, padding: '4px 10px', borderRadius: 7, height: 28, ...(approvalRequested ? { background: 'var(--ok)', borderColor: 'var(--ok)' } : {}) }}>
+          {approvalRequested ? 'Envoyée' : 'Approbation'}
+        </SFButton>
+
+        {/* Fullscreen */}
+        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={13}  />
+        </button>
       </div>
 
       {/* ── Body row ── */}
@@ -587,7 +626,51 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
         {/* ── Left: player ── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 0' }}>
 
-          {/* Video frame */}
+          {/* Audio player — shown instead of video frame for audio subtypes */}
+          {isAudio ? (
+            <div onClick={togglePlay}
+              style={{ borderRadius: 12, background: '#0c0f0a', border: '1px solid var(--border)', flexShrink: 0, cursor: 'pointer', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 20, userSelect: 'none' }}>
+              {/* File info row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 10, background: 'rgba(78,201,148,0.12)', border: '1px solid rgba(78,201,148,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <SFIcon name={playing ? 'pause' : 'music'} size={22} color="#4ec994" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--ff-text)', fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource?.title ?? 'Audio'}</div>
+                  <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', marginTop: 3 }}>{activeVersion} · {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}</div>
+                </div>
+                {playing && (
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 24 }}>
+                    {[0.4,0.7,1,0.6,0.9,0.5,0.8,0.45,0.75,0.6,0.95,0.55].map((h, i) => (
+                      <div key={i} style={{ width: 3, borderRadius: 2, background: '#4ec994', opacity: 0.7 + (i % 3) * 0.1,
+                        height: `${h * 100}%`, animation: `audio-bar ${0.4 + (i % 4) * 0.15}s ease-in-out infinite alternate` }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Waveform visualization */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 1, height: 56, position: 'relative' }}>
+                {Array.from({ length: 80 }, (_, i) => {
+                  const h = 20 + Math.abs(Math.sin(i * 0.7 + i * i * 0.02) * 80);
+                  const played = i / 80 <= currentTime / TOTAL;
+                  return (
+                    <div key={i} onClick={e => { e.stopPropagation(); setCurrentTime(Math.round((i / 80) * TOTAL)); }}
+                      style={{ flex: 1, height: `${h}%`, borderRadius: 2, background: played ? '#4ec994' : 'rgba(255,255,255,0.1)', transition: 'background 0.05s', cursor: 'pointer' }} />
+                  );
+                })}
+                {/* Playhead */}
+                <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(currentTime / TOTAL) * 100}%`, width: 2, background: '#4ec994', boxShadow: '0 0 6px #4ec994', pointerEvents: 'none', borderRadius: 2 }} />
+                {/* Comment markers */}
+                {comments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (
+                  <div key={c.id}
+                    onClick={e => { e.stopPropagation(); jumpToComment(c); }}
+                    title={`${c.timeLabel} — ${c.author.name}: ${c.text.slice(0, 40)}`}
+                    style={{ position: 'absolute', bottom: -6, left: `${(c.timeSeconds! / TOTAL) * 100}%`, transform: 'translateX(-50%)', width: activeCommentId === c.id ? 10 : 7, height: activeCommentId === c.id ? 10 : 7, borderRadius: '50%', background: 'var(--accent)', border: `2px solid var(--bg)`, cursor: 'pointer', zIndex: 2 }} />
+                ))}
+              </div>
+            </div>
+          ) : (
+          /* Video frame */
           <div ref={videoFrameRef}
             onClick={() => { if (!drawTool) togglePlay(); }}
             style={{ borderRadius: 12, background: '#0a0a0a', aspectRatio: '16/9', position: 'relative', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, cursor: drawTool ? 'crosshair' : 'pointer' }}>
@@ -632,12 +715,13 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               onMouseDown={handleSvgMouseDown} onMouseMove={handleSvgMouseMove} onMouseUp={handleSvgMouseUp}
             />
           </div>
+          )}
 
           {/* Timeline */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 6px', flexShrink: 0 }}>
             <button onClick={() => seekBy(-5)} title="Reculer de 5s"
               style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
-              <SFIcon name="rewind" size={12} color="inherit" />
+              <SFIcon name="rewind" size={12}  />
             </button>
             <button onClick={togglePlay} title={playing ? 'Pause (Espace)' : 'Lecture (Espace)'}
               style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
@@ -645,7 +729,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             </button>
             <button onClick={() => seekBy(5)} title="Avancer de 5s"
               style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
-              <SFIcon name="fast-forward" size={12} color="inherit" />
+              <SFIcon name="fast-forward" size={12}  />
             </button>
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'center' }}>{secsToLabel(currentTime)} / {secsToLabel(TOTAL)}</span>
             <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}
@@ -671,53 +755,6 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             </div>
           </div>
 
-          {/* ── Upcoming items panel ── */}
-          <div style={{ flexShrink: 0, border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12, marginTop: 6 }}>
-            <button
-              onClick={() => setUpcomingCollapsed(v => !v)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-              <SFIcon name={upcomingCollapsed ? 'chevron-right' : 'chevron-down'} size={12} color="var(--text-3)" />
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Éléments à venir · prochaine version
-              </span>
-              <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-                {upcomingItems.filter(i => !i.done).length} en attente
-              </span>
-            </button>
-            {!upcomingCollapsed && (
-              <div style={{ background: 'var(--surface)', padding: '8px 12px' }}>
-                {upcomingItems.map(item => (
-                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-                    <button
-                      onClick={() => setUpcomingItems(p => p.map(i => i.id === item.id ? { ...i, done: !i.done } : i))}
-                      style={{ width: 15, height: 15, borderRadius: '50%', flexShrink: 0, border: item.done ? 'none' : '1.5px solid var(--border-2)', background: item.done ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                      {item.done && <SFIcon name="check" size={8} color="white" />}
-                    </button>
-                    <span style={{ flex: 1, fontSize: 11, color: item.done ? 'var(--text-3)' : 'var(--text-2)', textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</span>
-                    <button onClick={() => setUpcomingItems(p => p.filter(i => i.id !== item.id))}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2 }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
-                      <SFIcon name="x" size={11} />
-                    </button>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', gap: 6, paddingTop: 8 }}>
-                  <input
-                    value={newUpcomingText}
-                    onChange={e => setNewUpcomingText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addUpcomingItem(); }}
-                    placeholder="Ajouter un élément à venir…"
-                    style={{ flex: 1, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
-                  />
-                  <button onClick={addUpcomingItem}
-                    style={{ padding: '5px 10px', borderRadius: 7, border: 'none', background: newUpcomingText.trim() ? 'var(--accent)' : 'var(--surface-3)', color: newUpcomingText.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 11, cursor: newUpcomingText.trim() ? 'pointer' : 'default' }}>
-                    Ajouter
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* ── Right: comments panel ── */}
@@ -956,7 +993,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <button onClick={() => setWithTimestamp(v => !v)}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, border: `1px solid ${withTimestamp ? 'var(--accent)' : 'var(--border)'}`, background: withTimestamp ? 'rgba(249,255,0,0.07)' : 'transparent', color: withTimestamp ? 'var(--accent)' : 'var(--text-3)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
-                  <SFIcon name="clock" size={10} color="inherit" />
+                  <SFIcon name="clock" size={10}  />
                   {withTimestamp ? secsToLabel(currentTime) : 'Général'}
                 </button>
               </div>
@@ -1077,25 +1114,11 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 export function VideoReview() {
   const { projectId, resourceId } = useParams();
   const [, setTick] = useState(0);
-  const [shared, setShared] = useState(false);
-  const [approvalRequested, setApprovalRequested] = useState(false);
   useEffect(() => subscribeResources(() => setTick(t => t + 1)), []);
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
 
   const resources = getResources();
   const resource = resources.find(r => r.id === resourceId);
-
-  const handleShare = () => {
-    const url = window.location.href;
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).catch(() => {});
-    setShared(true);
-    setTimeout(() => setShared(false), 2000);
-  };
-
-  const handleRequestApproval = () => {
-    setApprovalRequested(true);
-    setTimeout(() => setApprovalRequested(false), 2500);
-  };
 
   // Tous les hooks ci-dessus sont appelés inconditionnellement (règles des hooks) ;
   // l'early-return doit venir après.
@@ -1109,18 +1132,7 @@ export function VideoReview() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
-        <SFButton variant="secondary" icon={shared ? 'check' : 'share-2'} onClick={handleShare}>
-          {shared ? 'Lien copié' : 'Partager'}
-        </SFButton>
-        <SFButton variant="primary" icon={approvalRequested ? 'check' : 'send'} onClick={handleRequestApproval}
-          style={approvalRequested ? { background: 'var(--ok)', color: 'white' } : undefined}>
-          {approvalRequested ? 'Demande envoyée' : 'Demander approbation'}
-        </SFButton>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <VideoReviewBody key={resource.id} resource={resource} projectId={projectId} persistKey={resource.id} />
-      </div>
+      <VideoReviewBody key={resource.id} resource={resource} projectId={projectId} persistKey={resource.id} />
     </div>
   );
 }

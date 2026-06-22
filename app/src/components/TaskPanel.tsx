@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate, isOverdue } from './ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
-import type { Task, Priority, ResourceType, DeliverableFormat, Status } from '../types';
+import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -49,6 +49,18 @@ const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }
   { value: '4:3',     label: '4:3',     ratio: '4/3' },
   { value: '2.35:1',  label: '2.35:1',  ratio: '2.35/1' },
   { value: 'custom',  label: 'Personnalisé', ratio: '4/3' },
+];
+
+const DELIVERABLE_TYPE_OPTIONS: { value: DeliverableType; label: string; icon: string }[] = [
+  { value: 'video',     label: 'Vidéo',     icon: 'video'       },
+  { value: 'photo',     label: 'Photo',     icon: 'image'       },
+  { value: 'audio',     label: 'Audio',     icon: 'music'       },
+  { value: 'document',  label: 'Document',  icon: 'file-text'   },
+  { value: 'web',       label: 'Site web',  icon: 'globe'       },
+  { value: 'graphique', label: 'Graphique', icon: 'pen-tool'    },
+  { value: 'service',   label: 'Service',   icon: 'briefcase'   },
+  { value: 'produit',   label: 'Produit',   icon: 'package-2'   },
+  { value: 'autre',     label: 'Autre',     icon: 'circle-dashed'},
 ];
 
 const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
@@ -336,6 +348,8 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   const [fsStatusDropOpen, setFsStatusDropOpen] = useState(false);
   const [fsStatusRect, setFsStatusRect] = useState<DOMRect | null>(null);
   const [isDeliverable, setIsDeliverable] = useState(task.deliverable ?? false);
+  const [deliverableExpanded, setDeliverableExpanded] = useState(false);
+  const [deliverableType, setDeliverableType] = useState<DeliverableType>(task.deliverableType ?? 'video');
   const [format, setFormat] = useState<DeliverableFormat>(task.format ?? '16:9');
   const [customW, setCustomW] = useState(task.customWidth ?? 1920);
   const [customH, setCustomH] = useState(task.customHeight ?? 1080);
@@ -717,37 +731,80 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
         <div style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Livrable toggle + format */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               {secLabel('Livrable client')}
-              <button
-                onClick={() => setIsDeliverable(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 10px', borderRadius: 8, border: `1px solid ${isDeliverable ? 'var(--accent)' : 'var(--border)'}`, background: isDeliverable ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: isDeliverable ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: isDeliverable ? 600 : 400 }}
-              >
-                <SFIcon name="package" size={12} color={isDeliverable ? 'var(--accent)' : 'var(--text-3)'} />
-                {isDeliverable ? 'Livrable activé' : 'Marquer comme livrable'}
-              </button>
+              {!isDeliverable ? (
+                <button
+                  onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name="package" size={12} />
+                  Marquer comme livrable
+                </button>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {/* Compact summary chip — click to expand/collapse editor */}
+                  <button
+                    onClick={() => setDeliverableExpanded(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)', letterSpacing: '0.03em' }}
+                  >
+                    <SFIcon name={DELIVERABLE_TYPE_OPTIONS.find(t => t.value === deliverableType)?.icon ?? 'package'} size={11} color="var(--accent)" />
+                    {DELIVERABLE_TYPE_OPTIONS.find(t => t.value === deliverableType)?.label}
+                    {(deliverableType === 'video' || deliverableType === 'photo') && (
+                      <span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
+                    )}
+                    {(deliverableType === 'video' || deliverableType === 'photo') && (
+                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{format === 'custom' ? `${customW}×${customH}` : format}</span>
+                    )}
+                    <SFIcon name={deliverableExpanded ? 'chevron-up' : 'chevron-down'} size={10} color="var(--accent)" />
+                  </button>
+                  {/* Disable button */}
+                  <button
+                    onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); }}
+                    title="Désactiver le livrable"
+                    style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                  >
+                    <SFIcon name="x" size={11} />
+                  </button>
+                </div>
+              )}
             </div>
-            {isDeliverable && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format / Ratio</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {FORMAT_OPTIONS.map(f => (
-                    <button key={f.value} onClick={() => setFormat(f.value)}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 9, border: `1px solid ${format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', minWidth: 58 }}>
-                      <div style={{ width: 28, aspectRatio: f.ratio, border: `2px solid ${format === f.value ? 'var(--accent)' : 'var(--border-2)'}`, borderRadius: 3 }} />
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: format === f.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{f.label}</span>
+
+            {/* Expanded editor */}
+            {isDeliverable && deliverableExpanded && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                {/* Type pills */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {DELIVERABLE_TYPE_OPTIONS.map(t => (
+                    <button key={t.value} onClick={() => setDeliverableType(t.value)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${deliverableType === t.value ? 'var(--accent)' : 'var(--border)'}`, background: deliverableType === t.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
+                      <SFIcon name={t.icon} size={11} color={deliverableType === t.value ? 'var(--accent)' : 'var(--text-3)'} />
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: deliverableType === t.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{t.label}</span>
                     </button>
                   ))}
                 </div>
-                {format === 'custom' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="number" value={customW} onChange={e => setCustomW(Number(e.target.value))}
-                      style={{ width: 80, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
-                    <span style={{ color: 'var(--text-3)', fontSize: 13 }}>×</span>
-                    <input type="number" value={customH} onChange={e => setCustomH(Number(e.target.value))}
-                      style={{ width: 80, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>px</span>
+                {/* Format pills — only for video/photo */}
+                {(deliverableType === 'video' || deliverableType === 'photo') && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    {FORMAT_OPTIONS.map(f => (
+                      <button key={f.value} onClick={() => setFormat(f.value)}
+                        style={{ padding: '3px 9px', borderRadius: 7, border: `1px solid ${format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', fontSize: 9, color: format === f.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em' }}>
+                        {f.label}
+                      </button>
+                    ))}
+                    {format === 'custom' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginTop: 4 }}>
+                        <input type="number" value={customW} onChange={e => setCustomW(Number(e.target.value))}
+                          style={{ width: 72, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+                        <span style={{ color: 'var(--text-3)', fontSize: 12 }}>×</span>
+                        <input type="number" value={customH} onChange={e => setCustomH(Number(e.target.value))}
+                          style={{ width: 72, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>px</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -931,7 +988,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, border: '1px solid var(--border)', background: hideCompletedSubs ? 'rgba(249,255,0,0.07)' : 'transparent', color: hideCompletedSubs ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}
                   title={hideCompletedSubs ? 'Afficher les sous-tâches terminées' : 'Masquer les sous-tâches terminées'}
                 >
-                  <SFIcon name={hideCompletedSubs ? 'eye-off' : 'eye'} size={12} color="inherit" />
+                  <SFIcon name={hideCompletedSubs ? 'eye-off' : 'eye'} size={12}  />
                   {hideCompletedSubs ? 'Terminées masquées' : 'Masquer terminées'}
                 </button>
               )}

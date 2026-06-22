@@ -1,13 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients } from '../data/clientStore';
+import { getFolders, getFiles, subscribeFileStore } from '../data/fileStore';
 import { STATUS_COLOR } from '../data/status';
 import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
-import { ProjectCard } from '../components/ProjectCard';
+import { ProjectsListView } from '../components/ProjectsListView';
 import type { Client, Status } from '../types/index';
 
 // ── Client contacts (shared store) ───────────────────────────────────────────
@@ -847,7 +848,7 @@ function ActiviteTab({ projects }: { projects: typeof PROJECTS }) {
   );
 }
 
-type ClientTab = 'apercu' | 'projets' | 'equipe' | 'activite' | 'documents' | 'fichiers';
+type ClientTab = 'apercu' | 'projets' | 'equipe' | 'activite' | 'fichiers';
 
 const fmtMoney = (n: number) => `${n.toLocaleString('fr-CA')} $`;
 
@@ -979,7 +980,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
         <button onClick={onAction} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-          {action}<SFIcon name="arrow-right" size={11} color="inherit" />
+          {action}<SFIcon name="arrow-right" size={11}  />
         </button>
       )}
     </div>
@@ -1225,7 +1226,7 @@ function DocumentsTab({ clientId }: { clientId: string }) {
           </button>
           {DOC_CATEGORIES.map(c => (
             <button key={c.key} onClick={() => setFilter(c.key)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: filter === c.key ? 'var(--accent)' : 'var(--surface-2)', color: filter === c.key ? 'var(--on-accent)' : 'var(--text-2)' }}>
-              <SFIcon name={c.icon} size={11} color="inherit" />{c.label} ({countByCat(c.key)})
+              <SFIcon name={c.icon} size={11}  />{c.label} ({countByCat(c.key)})
             </button>
           ))}
         </div>
@@ -1319,7 +1320,7 @@ function DocumentsTab({ clientId }: { clientId: string }) {
                   {DOC_CATEGORIES.map(c => (
                     <button key={c.key} onClick={() => setNewCategory(c.key)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 9, border: `1px solid ${newCategory === c.key ? 'var(--accent)' : 'var(--border)'}`, background: newCategory === c.key ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', color: newCategory === c.key ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      <SFIcon name={c.icon} size={12} color="inherit" />{c.label}
+                      <SFIcon name={c.icon} size={12}  />{c.label}
                     </button>
                   ))}
                 </div>
@@ -1520,8 +1521,32 @@ function ClientEditPanel({ client, onClose }: {
 
 // ── Fichiers client tab ────────────────────────────────────────────────────────
 
-function FichiersClientTab({ projects }: { projects: any[] }) {
+function FichiersClientTab({ projects, clientId: _clientId }: { projects: any[]; clientId: string }) {
   const navigate = useNavigate();
+  const [expandedId, setExpandedId] = useState<string | null>(projects[0]?.id ?? null);
+  const [, setTick] = useState(0);
+
+  useEffect(() => subscribeFileStore(() => setTick(t => t + 1)), []);
+
+  const allFolders = getFolders();
+  const allFiles = getFiles();
+
+  const iconForFile = (f: ReturnType<typeof getFiles>[number]) => {
+    if (f.type === 'resource') {
+      const rt = f.resourceType ?? '';
+      if (rt === 'video_review') return 'video';
+      if (rt === 'web_review') return 'globe';
+      return 'image';
+    }
+    const ext = (f.ext ?? '').toLowerCase();
+    if (['pdf'].includes(ext)) return 'file-text';
+    if (['mp4', 'mov', 'avi'].includes(ext)) return 'video';
+    if (['mp3', 'wav', 'aac'].includes(ext)) return 'music';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) return 'image';
+    if (['zip', 'rar'].includes(ext)) return 'archive';
+    return 'file';
+  };
+
   if (projects.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
@@ -1531,27 +1556,91 @@ function FichiersClientTab({ projects }: { projects: any[] }) {
       </div>
     );
   }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
-        Accéder aux fichiers par projet
-      </p>
-      {projects.map(p => (
-        <button key={p.id} onClick={() => navigate(`/projets/${p.id}/fichiers`)}
-          style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.12s, background 0.12s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-        >
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: (p.clientColor ?? 'var(--accent)') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <SFIcon name="folder" size={20} color={p.clientColor ?? 'var(--accent)'} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {projects.map(p => {
+        const isOpen = expandedId === p.id;
+        const accent = p.clientColor ?? 'var(--accent)';
+        const projectFolders = allFolders.filter(f => f.projectId === p.id && !f.state && !f.parentId);
+        const rootFiles = allFiles.filter(f => f.projectId === p.id && !f.state && !f.parentFolderId);
+        const totalItems = allFolders.filter(f => f.projectId === p.id && !f.state).length
+                         + allFiles.filter(f => f.projectId === p.id && !f.state).length;
+
+        return (
+          <div key={p.id} style={{ borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface)' }}>
+            {/* Project row */}
+            <div
+              onClick={() => setExpandedId(isOpen ? null : p.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: isOpen ? 'var(--surface-2)' : 'transparent', transition: 'background 0.12s', userSelect: 'none' }}
+              onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <SFIcon name={isOpen ? 'chevron-down' : 'chevron-right'} size={12} color="var(--text-3)" />
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: accent + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <SFIcon name="folder" size={15} color={accent} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+              </div>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginRight: 4 }}>
+                {totalItems} élément{totalItems !== 1 ? 's' : ''}
+              </span>
+              <button
+                title="Ouvrir dans Fichiers"
+                onClick={e => { e.stopPropagation(); navigate(`/projets/${p.id}/fichiers`); }}
+                style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <SFIcon name="external-link" size={12} />
+              </button>
+            </div>
+
+            {/* Expanded file list */}
+            {isOpen && (
+              <div style={{ borderTop: '1px solid var(--border)' }}>
+                {totalItems === 0 ? (
+                  <p style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                    Aucun fichier dans ce projet
+                  </p>
+                ) : (
+                  <>
+                    {projectFolders.map(folder => (
+                      <div
+                        key={folder.id}
+                        onClick={() => navigate(`/projets/${p.id}/fichiers`)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 20px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <SFIcon name="folder" size={14} color={accent} />
+                        <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dossier</span>
+                      </div>
+                    ))}
+                    {rootFiles.map((file, idx) => (
+                      <div
+                        key={file.id}
+                        onClick={() => file.type === 'resource' && file.resourceId ? navigate(`/projets/${p.id}/ressources/${file.resourceId}`) : undefined}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 20px', cursor: file.type === 'resource' ? 'pointer' : 'default', borderBottom: idx < rootFiles.length - 1 ? '1px solid var(--border)' : undefined }}
+                        onMouseEnter={e => { if (file.type === 'resource') e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <SFIcon name={iconForFile(file)} size={14} color="var(--text-3)" />
+                        <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+                        {file.ext && (
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{file.ext}</span>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{p.statusLabel || 'Aucun statut'}</p>
-          </div>
-          <SFIcon name="chevron-right" size={16} color="var(--text-3)" />
-        </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1572,8 +1661,6 @@ export function FicheClient() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
   const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
-  const [filterTab, setFilterTab] = useState<'all' | 'active' | 'done' | 'archived'>('all');
-  const [projectOverrides, setProjectOverrides] = useState<Record<string, { status?: string; statusLabel?: string; archived?: boolean }>>({});
   const [clientArchived, setClientArchived] = useState(false);
   const [clientMenuOpen, setClientMenuOpen] = useState(false);
   const [clientEditOpen, setClientEditOpen] = useState(() => searchParams.get('edit') === 'true');
@@ -1587,21 +1674,6 @@ export function FicheClient() {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [clientMenuOpen]);
-
-  const getProjectStatus = (p: typeof PROJECTS[0]) => ({
-    status: projectOverrides[p.id]?.status ?? p.status,
-    statusLabel: projectOverrides[p.id]?.statusLabel ?? p.statusLabel,
-    archived: projectOverrides[p.id]?.archived ?? false,
-  });
-
-  const filteredProjects = projects.filter(p => {
-    const ov = getProjectStatus(p);
-    if (filterTab === 'archived') return ov.archived;
-    if (ov.archived) return false;
-    if (filterTab === 'active') return ov.status !== 'ok' && ov.status !== 'neutral';
-    if (filterTab === 'done') return ov.status === 'ok' || ov.status === 'neutral';
-    return true;
-  });
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1637,13 +1709,13 @@ export function FicheClient() {
                 ARCHIVÉ
               </span>
             )}
-            <SFButton variant="primary" icon="plus">Nouveau projet</SFButton>
+            <SFButton variant="primary" icon="plus" onClick={() => setTab('projets')}>Nouveau projet</SFButton>
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 20, marginTop: 16 }}>
-          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['documents', 'Documents'], ['fichiers', 'Fichiers']] as const).map(([key, label]) => (
+          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['fichiers', 'Fichiers']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 6, borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent' }}>
               {label}
             </button>
@@ -1655,38 +1727,13 @@ export function FicheClient() {
       <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} />}
 
-        {tab === 'projets' && (
-          <>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {([['all', 'Tous'], ['active', 'En cours'], ['done', 'Complétés'], ['archived', 'Archivés']] as const).map(([val, label]) => (
-                <button key={val} onClick={() => setFilterTab(val)} style={{ padding: '5px 10px', borderRadius: 9, border: 'none', background: filterTab === val ? 'var(--surface-3)' : 'transparent', color: filterTab === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {filteredProjects.length === 0 && (
-              <div style={{ padding: '40px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <SFIcon name="folder" size={28} color="var(--text-3)" />
-                <p style={{ fontSize: 13, color: 'var(--text-3)' }}>
-                  {filterTab === 'archived' ? 'Aucun projet archivé' : 'Aucun projet dans cette catégorie'}
-                </p>
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, width: '100%' }}>
-              {filteredProjects.map(p => (
-                <ProjectCard key={p.id} p={p} />
-              ))}
-            </div>
-          </>
-        )}
+        {tab === 'projets' && <ProjectsListView clientId={client.id} />}
 
         {tab === 'equipe' && <EquipeTab clientId={client.id} />}
 
         {tab === 'activite' && <ActiviteTab projects={projects} />}
 
-        {tab === 'documents' && <DocumentsTab clientId={client.id} />}
-
-        {tab === 'fichiers' && <FichiersClientTab projects={projects} />}
+        {tab === 'fichiers' && <FichiersClientTab projects={projects} clientId={client.id} />}
       </div>
 
       {clientEditOpen && (

@@ -301,7 +301,7 @@ function TaskRow({
         padding: '8px 16px',
         borderBottom: '1px solid var(--border)',
         background: selected ? 'rgba(249,255,0,0.04)' : hovered ? 'var(--surface-2)' : 'transparent',
-        borderLeft: selected ? '2px solid var(--accent)' : '2px solid transparent',
+        borderLeft: selected ? '2px solid var(--accent)' : task.deliverable ? '2px solid rgba(249,255,0,0.3)' : '2px solid transparent',
         opacity: checked ? 0.45 : 1,
         transition: 'background 0.1s',
       }}
@@ -333,17 +333,12 @@ function TaskRow({
       </div>
 
       {/* Title — clicking opens panel */}
-      <span
-        onClick={() => onSelect(task)}
-        style={{
-          fontSize: 13, fontWeight: 500,
-          textDecoration: checked ? 'line-through' : 'none',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          cursor: 'pointer',
-        }}
-      >
-        {task.title}
-      </span>
+      <div onClick={() => onSelect(task)} style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: 'pointer' }}>
+        {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
+        <span style={{ fontSize: 13, fontWeight: 500, textDecoration: checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {task.title}
+        </span>
+      </div>
 
       {/* Sous-tâches */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -551,7 +546,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
         onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-2)')}
         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
       >
-        <SFIcon name="plus" size={13} color="inherit" />
+        <SFIcon name="plus" size={13}  />
         Ajouter une tâche
       </button>
     );
@@ -693,7 +688,7 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 
 function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
-  onDragStart, isDragging, onAddTask,
+  onDragStart, isDragging, onAddTask, onDelete,
   projectId, projectName, projectColor,
   draggedTask, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
 }: {
@@ -706,6 +701,7 @@ function Section({
   onDragStart: () => void;
   isDragging: boolean;
   onAddTask: (task: Task) => void;
+  onDelete: () => void;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -719,6 +715,8 @@ function Section({
   const done = tasks.filter(t => t.checked).length;
   const progress = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
   const [collapsed, setCollapsed] = useState(false);
+  const [headerHovered, setHeaderHovered] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [taskDragOverIdx, setTaskDragOverIdx] = useState<number | null>(null);
   const sectionDragHandleActive = React.useRef(false);
 
@@ -790,7 +788,11 @@ function Section({
         transition: 'border-color 0.15s, opacity 0.2s',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)', background: completed ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+      <div
+        onMouseEnter={() => setHeaderHovered(true)}
+        onMouseLeave={() => { setHeaderHovered(false); setConfirmDelete(false); }}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)', background: completed ? 'rgba(255,255,255,0.02)' : 'transparent' }}
+      >
 
         {/* Drag handle */}
         <div
@@ -856,6 +858,30 @@ function Section({
           <SFBar value={completed ? 100 : progress} height={3} />
         </div>
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{done}/{tasks.length}</span>
+
+        {/* Delete section */}
+        <button
+          onClick={e => { e.stopPropagation(); if (tasks.length > 0) { setConfirmDelete(true); } else { onDelete(); } }}
+          title="Supprimer la section"
+          style={{ visibility: headerHovered && !confirmDelete ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+        >
+          <SFIcon name="trash-2" size={11} />
+        </button>
+        {confirmDelete && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>Supprimer {tasks.length} tâche{tasks.length > 1 ? 's' : ''} ?</span>
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--danger)', background: 'rgba(255,60,60,0.1)', color: 'var(--danger)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >Oui</button>
+            <button
+              onClick={e => { e.stopPropagation(); setConfirmDelete(false); }}
+              style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >Annuler</button>
+          </div>
+        )}
       </div>
 
       {!completed && !collapsed && (
@@ -1460,6 +1486,12 @@ export function Travail() {
     setSections(prev => prev.map((s, i) => i === idx ? { ...s, completed: !s.completed } : s));
   };
 
+  const handleDeleteSection = (idx: number) => {
+    const label = sections[idx]?.label;
+    setSections(prev => prev.filter((_, i) => i !== idx));
+    if (activeSection === label) setActiveSection(null);
+  };
+
   const handleDragStart = (idx: number) => setDraggedIdx(idx);
 
   const handleDragOver = (e: React.DragEvent, idx: number) => {
@@ -1676,6 +1708,7 @@ export function Travail() {
                 onDragStart={() => handleDragStart(globalIdx)}
                 isDragging={draggedIdx === globalIdx}
                 onAddTask={task => handleAddTask(globalIdx, task)}
+                onDelete={() => handleDeleteSection(globalIdx)}
                 projectId={project.id}
                 projectName={project.name}
                 projectColor={project.clientColor}
