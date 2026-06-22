@@ -161,7 +161,7 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type ViewMode = 'grid' | 'list' | 'columns';
+type ViewMode = 'grid' | 'list' | 'columns' | 'stockage';
 type SortBy   = 'name' | 'date' | 'size' | 'type';
 
 export interface NavLocation {
@@ -613,6 +613,10 @@ export function StatsView({ files, projects, clients, onNavigate }: {
   clients: ReturnType<typeof getClients>;
   onNavigate: (loc: NavLocation) => void;
 }) {
+  const [confirming, setConfirming] = React.useState<string | null>(null);
+  const [hoveredBlock, setHoveredBlock] = React.useState<string | null>(null);
+  const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
+
   const byProject = new Map<string, { totalSize: number; count: number }>();
   let unlinked = { totalSize: 0, count: 0 };
 
@@ -643,6 +647,11 @@ export function StatsView({ files, projects, clients, onNavigate }: {
     })
     .sort((a, b) => b.totalSize - a.totalSize);
 
+  const handleDelete = (projectId: string) => {
+    files.filter(f => f.projectId === projectId).forEach(f => trashFile(f.id));
+    setConfirming(null);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Summary KPIs */}
@@ -663,7 +672,7 @@ export function StatsView({ files, projects, clients, onNavigate }: {
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         {entries.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-            <SFIcon name="pie-chart" size={40} color="var(--text-3)" />
+            <SFIcon name="bar-chart-2" size={40} color="var(--text-3)" />
             <p style={{ fontSize: 14 }}>Aucun fichier lié à un projet</p>
           </div>
         ) : (
@@ -671,11 +680,14 @@ export function StatsView({ files, projects, clients, onNavigate }: {
             {entries.map(entry => {
               const pct = grandTotal > 0 ? entry.totalSize / grandTotal : 0;
               const color = entry.project?.clientColor ?? '#555';
+              const isHovered = hoveredBlock === entry.projectId;
               return (
                 <div
                   key={entry.projectId}
                   onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
                   title={`${entry.project?.name ?? entry.projectId} — ${fmtSize(entry.totalSize)}`}
+                  onMouseEnter={() => setHoveredBlock(entry.projectId)}
+                  onMouseLeave={() => setHoveredBlock(null)}
                   style={{
                     flex: `${Math.max(pct * 100, 4)} 0 0`,
                     minWidth: 80, minHeight: 80,
@@ -685,12 +697,27 @@ export function StatsView({ files, projects, clients, onNavigate }: {
                     cursor: 'pointer',
                     display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
                     overflow: 'hidden',
+                    filter: isHovered ? 'brightness(1.2)' : 'none',
                     transition: 'filter 0.12s',
                     position: 'relative',
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
                 >
+                  {/* Delete overlay button */}
+                  {isHovered && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setConfirming(entry.projectId); }}
+                      title="Mettre à la corbeille"
+                      style={{
+                        position: 'absolute', top: 6, right: 6,
+                        width: 24, height: 24, borderRadius: 6,
+                        background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <SFIcon name="trash-2" size={12} color="#fff" />
+                    </button>
+                  )}
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.project?.name ?? entry.projectId}
                   </p>
@@ -707,22 +734,27 @@ export function StatsView({ files, projects, clients, onNavigate }: {
       {/* Table */}
       {entries.length > 0 && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 120px 80px 80px', gap: 12 }}>
-            {['Projet', 'Client', 'Taille', 'Fichiers'].map(h => (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 140px 80px 60px 80px', gap: 12 }}>
+            {['Projet', 'Client', 'Taille', 'Fichiers', 'Actions'].map(h => (
               <span key={h} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
             ))}
           </div>
           {entries.map((entry, i) => {
             const pct = grandTotal > 0 ? (entry.totalSize / grandTotal * 100) : 0;
             const color = entry.project?.clientColor ?? '#555';
+            const isRowHovered = hoveredRow === entry.projectId;
+            const isConfirming = confirming === entry.projectId;
             return (
-              <div key={entry.projectId}
-                onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 80px', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              <div
+                key={entry.projectId}
+                style={{ display: 'grid', gridTemplateColumns: '1fr 140px 80px 60px 80px', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', background: isRowHovered ? 'var(--surface-2)' : 'transparent', transition: 'background 0.1s' }}
+                onMouseEnter={() => setHoveredRow(entry.projectId)}
+                onMouseLeave={() => setHoveredRow(null)}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <div
+                  onClick={() => onNavigate({ scope: 'project', scopeId: entry.projectId, folderId: null })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer' }}
+                >
                   <div style={{ width: 12, height: 12, borderRadius: 3, background: color, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.project?.name ?? entry.projectId}</p>
@@ -734,6 +766,32 @@ export function StatsView({ files, projects, clients, onNavigate }: {
                 <span style={{ fontSize: 12, color: 'var(--text-2)', alignSelf: 'center' }}>{entry.client?.name ?? '—'}</span>
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text)', alignSelf: 'center' }}>{fmtSize(entry.totalSize)}</span>
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', alignSelf: 'center' }}>{entry.count}</span>
+                <div style={{ alignSelf: 'center', display: 'flex', gap: 4 }}>
+                  {isConfirming ? (
+                    <>
+                      <button
+                        onClick={() => handleDelete(entry.projectId)}
+                        style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--danger)', background: 'rgba(239,68,68,0.12)', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 600 }}
+                      >
+                        Oui
+                      </button>
+                      <button
+                        onClick={() => setConfirming(null)}
+                        style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                      >
+                        Non
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setConfirming(entry.projectId)}
+                      title="Mettre à la corbeille"
+                      style={{ opacity: isRowHovered ? 1 : 0, width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.1s' }}
+                    >
+                      <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -1709,13 +1767,13 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
-          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3']] as [ViewMode, string][]).map(([m, icon]) => (
+          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3'], ['stockage', 'bar-chart-2']] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
               border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
               display: 'flex', alignItems: 'center',
             }}>
-              <SFIcon name={icon} size={13} color={viewMode === m ? 'var(--text)' : 'var(--text-3)'} />
+              <SFIcon name={icon} size={13} color={viewMode === m ? 'var(--accent)' : 'var(--text-2)'} />
             </button>
           ))}
         </div>
@@ -1798,6 +1856,18 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
           <FileTree location={location} onNavigate={setLocation} collapsed={sidebarCollapsed} />
         </div>
 
+        {/* ── Stockage view ── */}
+        {viewMode === 'stockage' && (
+          <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+            <StatsView
+              files={allFiles}
+              projects={projects}
+              clients={clients}
+              onNavigate={(loc) => { setLocation(loc); handleSetViewMode('grid'); }}
+            />
+          </div>
+        )}
+
         {/* ── Column view (Miller columns) ── */}
         {viewMode === 'columns' && (
           <div ref={colsContainerRef} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
@@ -1826,7 +1896,7 @@ export function FileBrowser({ initialNav, embedded = false }: { initialNav?: Nav
         )}
 
         {/* Main content (grid / list) */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: viewMode === 'columns' ? 'none' : undefined }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stockage') ? 'none' : undefined }}>
 
           {/* ── Root view ── */}
           {location.scope === 'root' && (

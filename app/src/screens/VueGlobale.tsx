@@ -1,30 +1,18 @@
 import { useState } from 'react';
-import { FileBrowser, StatsView } from './FichiersGlobal';
+import { FileBrowser } from './FichiersGlobal';
 import { CalendrierGlobal } from './CalendrierGlobal';
 import { SFIcon } from '../components/ui/SFIcon';
-import { getFiles } from '../data/fileStore';
-import { getProjects } from '../data/projectStore';
-import { getClients } from '../data/clientStore';
-import type { NavLocation } from './FichiersGlobal';
 
 const TABS = [
-  { id: 'fichiers'      as const, label: 'Fichiers',       icon: 'hard-drive' },
-  { id: 'calendrier'   as const, label: 'Calendrier',     icon: 'calendar'   },
-  { id: 'statistiques' as const, label: 'Statistiques',   icon: 'bar-chart-2'},
+  { id: 'fichiers'    as const, label: 'Fichiers',   icon: 'hard-drive' },
+  { id: 'calendrier' as const, label: 'Calendrier', icon: 'calendar'   },
 ];
 
 export function VueGlobale() {
-  const [tab, setTab] = useState<'fichiers' | 'calendrier' | 'statistiques'>('fichiers');
-  const [statsNav, setStatsNav] = useState<NavLocation | null>(null);
-
-  const handleStatsNavigate = (loc: NavLocation) => {
-    setStatsNav(loc);
-    setTab('fichiers');
-  };
+  const [tab, setTab] = useState<'fichiers' | 'calendrier'>('fichiers');
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Tab bar */}
       <div style={{ flexShrink: 0, display: 'flex', gap: 0, padding: '0 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         {TABS.map(t => (
           <button
@@ -47,21 +35,9 @@ export function VueGlobale() {
           </button>
         ))}
       </div>
-
-      {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {tab === 'fichiers'      && <FileBrowser initialNav={statsNav ?? undefined} key={statsNav ? JSON.stringify(statsNav) : 'default'} />}
-        {tab === 'calendrier'    && <CalendrierGlobal />}
-        {tab === 'statistiques'  && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, height: '100%', boxSizing: 'border-box' }}>
-            <StatsView
-              files={getFiles()}
-              projects={getProjects()}
-              clients={getClients()}
-              onNavigate={handleStatsNavigate}
-            />
-          </div>
-        )}
+        {tab === 'fichiers'    && <FileBrowser />}
+        {tab === 'calendrier'  && <CalendrierGlobal />}
       </div>
     </div>
   );
