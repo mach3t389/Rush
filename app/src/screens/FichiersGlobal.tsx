@@ -984,6 +984,7 @@ export function StorageView({
             <div
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
+              onMouseDown={noSelectOnModifier}
               onClick={e => handleStorageClick(e, item.id)}
               onContextMenu={e => openItemCtx(e, item)}
               style={{
@@ -1470,6 +1471,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     setCtx({ pos: { x: e.clientX, y: e.clientY }, items: newMenuItems() });
   };
 
+  // Prevents native browser text-selection on shift/ctrl+click before React handles it.
+  const noSelectOnModifier = (e: React.MouseEvent) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); };
+
   // Unified click handler — dossiers et fichiers, shift/ctrl multi-select.
   // La liste ordonnée dossiers-puis-fichiers reflète l'affichage pour shift-range.
   const orderedItemIds = [...filteredFolders.map(f => f.id), ...filteredFiles.map(f => f.id)];
@@ -1526,6 +1530,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                      + allFiles.filter(f => f.parentFolderId === folder.id).length;
     return (
       <div
+        onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
           handleItemClick(e, folder.id);
@@ -1562,6 +1567,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const baseBorder = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)';
     return (
       <div
+        onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
@@ -1606,6 +1612,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                      + allFiles.filter(f => f.parentFolderId === folder.id).length;
     return (
       <div
+        onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
           handleItemClick(e, folder.id);
@@ -1634,6 +1641,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isSelected = selectedIds.has(file.id);
     return (
       <div
+        onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
@@ -1949,6 +1957,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         {folders.map(f => (
           <div key={f.id}
             style={rowStyle(f.id)}
+            onMouseDown={noSelectOnModifier}
             onClick={e => handleColClick(e, f.id, () => onSelect(
               (!f.projectId && !f.clientId)
                 ? { scope: 'global', folderId: f.id }
@@ -1980,6 +1989,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           return (
             <div key={f.id}
               style={localRowStyle}
+              onMouseDown={noSelectOnModifier}
               onClick={e => {
                 if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey && isRes && f.projectId) {
                   navigate(`/projets/${f.projectId}/ressources/${f.resourceId}`);

@@ -467,19 +467,27 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
   const divider = <div style={{ height: 1, background: 'var(--border)' }} />;
 
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', justifyContent: 'flex-end' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
+  // Close on click outside the panel
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+    };
+    // Delay to avoid closing immediately on the click that opened the panel
+    const t = setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => { clearTimeout(t); document.removeEventListener('mousedown', handler); };
+  }, [onClose]);
 
-      {/* Panel */}
-      <div style={{
-        position: 'relative',
+  return (
+    <>
+      {/* Panel — fixed right drawer, no backdrop */}
+      <div ref={panelRef} style={{
+        position: 'fixed',
+        right: 0,
+        top: 0,
+        bottom: 0,
         width: 760,
-        height: '100%',
+        zIndex: 200,
         background: 'var(--surface)',
         display: 'flex',
         flexDirection: 'column',
@@ -1193,7 +1201,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
       </div>
 
       {/* Resource fullscreen overlay — uses the same ResourceBody as the full resource page */}
-      {fullscreenResource && (() => {
+      {fullscreenResource && (() => { // eslint-disable-line
         const res = resources.find(r => r.id === fullscreenResource);
         if (!res) return null;
         return (
@@ -1248,6 +1256,6 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           </div>
         );
       })()}
-    </div>
+    </>
   );
 }

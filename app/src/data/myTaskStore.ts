@@ -16,6 +16,12 @@ export function updateMyTask(taskId: string, patch: Partial<Task>): void {
   notify();
 }
 
+export function removeMyTask(taskId: string): void {
+  _tasks = _tasks.filter(t => t.id !== taskId);
+  savePersisted(STORAGE_KEY, _tasks);
+  notify();
+}
+
 export function subscribeMyTasks(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);

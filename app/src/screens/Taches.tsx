@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, subscribeMyTasks } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, removeMyTask, subscribeMyTasks } from '../data/myTaskStore';
 import { getSections } from '../data/taskStore';
 import type { Task, Priority, ResourceType } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
@@ -12,7 +12,7 @@ import { TaskPanel } from '../components/TaskPanel';
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
 // cb | titre | sous-tâches | activité | projet | assigné(avatar) | priorité | statut | échéance | more
-const GRID = '28px 1fr 80px 65px 160px 36px 110px 130px 90px 28px';
+const GRID = '28px 1fr 80px 65px 160px 36px 110px 130px 90px 24px 28px';
 
 type Filter = 'today' | 'week' | 'late' | 'all';
 type SortCol = 'title' | 'priority' | 'status' | 'dueDate';
@@ -191,6 +191,7 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
   const priorityBtnRef = useRef<HTMLButtonElement>(null);
   const statusBtnRef = useRef<HTMLButtonElement>(null);
   const dueDateBtnRef = useRef<HTMLButtonElement>(null);
+  const [hovered, setHovered] = useState(false);
   const completeTimer = useRef<number | null>(null);
 
   // Cocher une tâche dans Mes tâches → animation de coche, puis retrait de la
@@ -237,8 +238,8 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
         borderLeft: isFlashing ? '2px solid var(--accent)' : selected ? '2px solid var(--accent)' : '2px solid transparent',
         transition: 'opacity 0.4s, background 0.1s, border-color 0.5s',
       }}
-      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={e => { setHovered(true); if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+      onMouseLeave={e => { setHovered(false); if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
       {/* Checkbox */}
       <button
@@ -547,6 +548,17 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
           />
         )}
       </div>
+
+      {/* Unassign — retire la tâche de Mes tâches sans la supprimer du projet */}
+      <button
+        onClick={e => { e.stopPropagation(); removeMyTask(task.id); }}
+        title="Retirer de Mes tâches"
+        style={{ visibility: hovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 3, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+      >
+        <SFIcon name="user-minus" size={13} />
+      </button>
 
       {/* More — opens panel */}
       <button

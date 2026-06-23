@@ -2705,11 +2705,7 @@ export function Modeles() {
                       />
                     ))}
                   </>
-                ) : (
-                  <button onClick={() => setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], sections: [], resources: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] })} style={emptyCreateStyle}>
-                    <SFIcon name="plus" size={13} />Créer mon premier modèle
-                  </button>
-                )}
+                ) : null}
                 <button onClick={() => setBuiltInsCollapsed(v => !v)} style={collapsibleBtnStyle}>
                   <SFIcon name={builtInsCollapsed ? 'chevron-right' : 'chevron-down'} size={11} />
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -2740,11 +2736,7 @@ export function Modeles() {
                       />
                     ))}
                   </>
-                ) : (
-                  <button onClick={() => { setFormViewData({}); setFormViewOpen(true); }} style={emptyCreateStyle}>
-                    <SFIcon name="plus" size={13} />Créer mon premier formulaire
-                  </button>
-                )}
+                ) : null}
                 <button onClick={() => setFormBuiltInsCollapsed(v => !v)} style={collapsibleBtnStyle}>
                   <SFIcon name={formBuiltInsCollapsed ? 'chevron-right' : 'chevron-down'} size={11} />
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -2775,11 +2767,7 @@ export function Modeles() {
                       />
                     ))}
                   </>
-                ) : (
-                  <button onClick={() => { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }} style={emptyCreateStyle}>
-                    <SFIcon name="plus" size={13} />Créer mon premier modèle
-                  </button>
-                )}
+                ) : null}
                 <button onClick={() => setResBuiltInsCollapsed(v => !v)} style={collapsibleBtnStyle}>
                   <SFIcon name={resBuiltInsCollapsed ? 'chevron-right' : 'chevron-down'} size={11} />
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>

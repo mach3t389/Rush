@@ -304,7 +304,7 @@ export function ProjectCard({ p }: { p: Project }) {
         background: 'var(--surface)', borderRadius: 'var(--radius)',
         border: `1px solid ${hovered ? 'var(--border-2)' : 'var(--border)'}`,
         padding: 18, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 10,
-        transition: 'border-color 0.15s, transform 0.12s',
+        transition: (dropOpen || menuOpen) ? 'border-color 0.15s' : 'border-color 0.15s, transform 0.12s',
         transform: (hovered && !dropOpen && !menuOpen) ? 'translateY(-1px)' : 'none',
       }}
     >

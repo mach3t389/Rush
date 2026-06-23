@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue, TODAY_DP } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
-import { findProject } from '../data/projectStore';
+import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, deleteTask } from '../data/taskStore';
+import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, moveSection, deleteTask } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -238,13 +238,142 @@ function TaskActivityCell({ taskId }: { taskId: string }) {
   );
 }
 
+// ── Section move modal ────────────────────────────────────────────────────────
+
+function SectionMoveModal({ sectionLabel, onMove, onClose }: {
+  sectionLabel: string;
+  onMove: (projectId: string) => void;
+  onClose: () => void;
+}) {
+  const [projects, setProjects] = useState(() => getProjects());
+  const [targetProjectId, setTargetProjectId] = useState('');
+  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
+
+  return createPortal(
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 380, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Déplacer la section</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>La section <strong style={{ color: 'var(--text)' }}>« {sectionLabel} »</strong> et toutes ses tâches seront déplacées vers :</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
+          {projects.map(p => (
+            <button key={p.id} onClick={() => setTargetProjectId(p.id)}
+              style={{ padding: '8px 12px', borderRadius: 9, border: `1px solid ${targetProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: targetProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: targetProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: targetProjectId === p.id ? 600 : 400 }}
+            >{p.name}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button onClick={() => { if (targetProjectId) { onMove(targetProjectId); onClose(); } }} disabled={!targetProjectId}
+            style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: !targetProjectId ? 'var(--surface-3)' : 'var(--accent)', color: !targetProjectId ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: !targetProjectId ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
+          >Déplacer</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ── Bulk move modal (tasks or section) ────────────────────────────────────────
+
+function BulkMoveModal({ title, onMove, onClose }: {
+  title: string;
+  onMove: (projectId: string, sectionLabel: string) => void;
+  onClose: () => void;
+}) {
+  const [projects, setProjects] = useState(() => getProjects());
+  const [targetProjectId, setTargetProjectId] = useState('');
+  const [targetSection, setTargetSection] = useState('');
+  const [newSection, setNewSection] = useState('');
+
+  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
+
+  const targetSections = targetProjectId ? getSections(targetProjectId) : [];
+
+  return createPortal(
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 420, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+        </div>
+
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Projet destination</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
+          {projects.map(p => (
+            <button key={p.id} onClick={() => { setTargetProjectId(p.id); setTargetSection(''); }}
+              style={{ padding: '8px 12px', borderRadius: 9, border: `1px solid ${targetProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: targetProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: targetProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: targetProjectId === p.id ? 600 : 400 }}
+            >{p.name}</button>
+          ))}
+        </div>
+
+        {targetProjectId && (
+          <>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Section destination</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, maxHeight: 160, overflowY: 'auto' }}>
+              {targetSections.map(s => (
+                <button key={s.label} onClick={() => setTargetSection(s.label)}
+                  style={{ padding: '7px 12px', borderRadius: 9, border: `1px solid ${targetSection === s.label ? 'var(--accent)' : 'var(--border)'}`, background: targetSection === s.label ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontFamily: 'var(--ff-text)', color: targetSection === s.label ? 'var(--accent)' : 'var(--text)' }}
+                >{s.label}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input value={newSection} onChange={e => { setNewSection(e.target.value); if (e.target.value) setTargetSection(e.target.value); }}
+                placeholder="Ou créer une nouvelle section…"
+                style={{ flex: 1, padding: '7px 12px', borderRadius: 9, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+              />
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button
+            onClick={() => { if (targetProjectId && targetSection) { onMove(targetProjectId, targetSection); onClose(); } }}
+            disabled={!targetProjectId || !targetSection}
+            style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
+          >Déplacer</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // ── Task row ──────────────────────────────────────────────────────────────────
+
+function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number; y: number }; onDelete: () => void; onOpen: () => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+      {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>Ouvrir le détail</span></>, onOpen)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
 
 const TEAM = Object.values(USERS);
 
 function TaskRow({
   task,
   selected,
+  multiSelected,
   onSelect,
   onTaskDragStart,
   onTaskDragEnd,
@@ -254,7 +383,8 @@ function TaskRow({
 }: {
   task: Task;
   selected: boolean;
-  onSelect: (t: Task) => void;
+  onSelect: (t: Task, e?: React.MouseEvent) => void;
+  multiSelected?: boolean;
   onTaskDragStart?: () => void;
   onTaskDragEnd?: () => void;
   allSections?: SectionData[];
@@ -275,6 +405,7 @@ function TaskRow({
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const [hovered, setHovered] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const dragHandleActive = React.useRef(false);
 
   const openDrop = (key: typeof open, e: React.MouseEvent<HTMLButtonElement>) => {
@@ -302,13 +433,16 @@ function TaskRow({
         gap: 12,
         padding: '8px 16px',
         borderBottom: '1px solid var(--border)',
-        background: selected ? 'rgba(249,255,0,0.04)' : hovered ? 'var(--surface-2)' : 'transparent',
+        background: multiSelected ? 'rgba(249,255,0,0.08)' : selected ? 'rgba(249,255,0,0.04)' : hovered ? 'var(--surface-2)' : 'transparent',
+        outline: multiSelected ? '1px solid rgba(249,255,0,0.35)' : 'none',
+        outlineOffset: '-1px',
         borderLeft: selected ? '2px solid var(--accent)' : task.deliverable ? '2px solid rgba(249,255,0,0.3)' : '2px solid transparent',
         opacity: checked ? 0.45 : 1,
         transition: 'background 0.1s',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onContextMenu={e => { e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
     >
       {/* Drag handle + Checkbox */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, position: 'relative' }}>
@@ -335,7 +469,7 @@ function TaskRow({
       </div>
 
       {/* Title — clicking opens panel */}
-      <div onClick={() => onSelect(task)} style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: 'pointer' }}>
+      <div onClick={e => onSelect(task, e)} style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: 'pointer' }}>
         {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
         <span style={{ fontSize: 13, fontWeight: 500, textDecoration: checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
@@ -490,6 +624,14 @@ function TaskRow({
         sections={allSections}
         onMove={onMoveToSection}
         onClose={() => setShowMoveModal(false)}
+      />
+    )}
+    {ctxPos && (
+      <TaskContextMenu
+        pos={ctxPos}
+        onDelete={() => { onDelete?.(); setCtxPos(null); }}
+        onOpen={() => { onSelect(task); setCtxPos(null); }}
+        onClose={() => setCtxPos(null)}
       />
     )}
     </>
@@ -701,23 +843,26 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 
 function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
-  onDragStart, isDragging, onAddTask, onDelete,
-  projectId, projectName, projectColor,
+  onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection,
+  projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
 }: {
   label: string;
   tasks: Task[];
   completed: boolean;
   selectedTask: Task | null;
-  onSelectTask: (t: Task) => void;
+  onSelectTask: (t: Task, e?: React.MouseEvent) => void;
   onToggleComplete: () => void;
   onDragStart: () => void;
   isDragging: boolean;
   onAddTask: (task: Task) => void;
   onDelete: () => void;
+  onDeleteTask: (taskId: string) => void;
+  onMoveSection: () => void;
   projectId: string;
   projectName: string;
   projectColor: string;
+  multiSelIds: Set<string>;
   draggedTask: { task: Task; fromSectionLabel: string } | null;
   onTaskDragStart: (task: Task) => void;
   onTaskDragEnd: () => void;
@@ -880,6 +1025,17 @@ function Section({
         </div>
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{done}/{tasks.length}</span>
 
+        {/* Move section */}
+        <button
+          onClick={e => { e.stopPropagation(); onMoveSection(); }}
+          title="Déplacer la section vers un autre projet"
+          style={{ visibility: headerHovered && !confirmDelete ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+        >
+          <SFIcon name="move-right" size={11} />
+        </button>
+
         {/* Delete section */}
         <button
           onClick={e => { e.stopPropagation(); if (tasks.length > 0) { setConfirmDelete(true); } else { onDelete(); } }}
@@ -914,12 +1070,13 @@ function Section({
               <TaskRow
                 task={task}
                 selected={selectedTask?.id === task.id}
+                multiSelected={multiSelIds.has(task.id)}
                 onSelect={onSelectTask}
                 onTaskDragStart={() => onTaskDragStart(task)}
                 onTaskDragEnd={onTaskDragEnd}
                 allSections={allSections}
                 onMoveToSection={toLabel => onMoveTaskToSection(task, label, toLabel)}
-                onDelete={() => deleteTask(projectId, task.id)}
+                onDelete={() => onDeleteTask(task.id)}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
@@ -1466,6 +1623,9 @@ export function Travail() {
     });
   };
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [sectionMoveLabel, setSectionMoveLabel] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
@@ -1491,7 +1651,18 @@ export function Travail() {
       tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked),
     }));
 
-  const handleSelectTask = (task: Task) => {
+  const handleSelectTask = (task: Task, e?: React.MouseEvent) => {
+    if (e && (e.ctrlKey || e.metaKey)) {
+      // Ctrl+click → multi-select, don't open panel
+      setMultiSelIds(prev => {
+        const next = new Set(prev);
+        next.has(task.id) ? next.delete(task.id) : next.add(task.id);
+        return next;
+      });
+      setSelectedTask(null);
+      return;
+    }
+    setMultiSelIds(new Set());
     setSelectedTask(prev => prev?.id === task.id ? null : task);
   };
 
@@ -1730,6 +1901,7 @@ export function Travail() {
                 isDragging={draggedIdx === globalIdx}
                 onAddTask={task => handleAddTask(globalIdx, task)}
                 onDelete={() => handleDeleteSection(globalIdx)}
+                onDeleteTask={taskId => setSections(prev => prev.map((s, i) => i === globalIdx ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s))}
                 projectId={project.id}
                 projectName={project.name}
                 projectColor={project.clientColor}
@@ -1739,6 +1911,8 @@ export function Travail() {
                 onTaskDrop={handleTaskDrop}
                 allSections={sections}
                 onMoveTaskToSection={handleMoveTaskToSection}
+                onMoveSection={() => setSectionMoveLabel(section.label)}
+                multiSelIds={multiSelIds}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
             </React.Fragment>
@@ -1816,6 +1990,56 @@ export function Travail() {
           projectName={project.name}
           sections={sections}
           onClose={() => setSaveTemplateOpen(false)}
+        />
+      )}
+
+      {/* Multi-select floating action bar */}
+      {multiSelIds.size > 0 && createPortal(
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
+          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{multiSelIds.size} tâche{multiSelIds.size > 1 ? 's' : ''}</span>
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+          <button onClick={() => setBulkMoveOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="move-right" size={13} />
+            Déplacer
+          </button>
+          <button onClick={() => {
+            const ids = [...multiSelIds];
+            setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => !ids.includes(t.id)) })));
+            setMultiSelIds(new Set());
+          }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="trash-2" size={13} />
+            Supprimer
+          </button>
+          <button onClick={() => setMultiSelIds(new Set())} style={{ display: 'flex', alignItems: 'center', padding: '4px', borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+            <SFIcon name="x" size={14} />
+          </button>
+        </div>,
+        document.body,
+      )}
+
+      {/* Bulk move tasks modal */}
+      {bulkMoveOpen && (
+        <BulkMoveModal
+          title={`Déplacer ${multiSelIds.size} tâche${multiSelIds.size > 1 ? 's' : ''}`}
+          onMove={(toProjectId, toSectionLabel) => {
+            moveTasks(project.id, [...multiSelIds], toProjectId, toSectionLabel);
+            setSections(getSections(project.id));
+            setMultiSelIds(new Set());
+          }}
+          onClose={() => setBulkMoveOpen(false)}
+        />
+      )}
+
+      {/* Move section modal */}
+      {sectionMoveLabel && (
+        <SectionMoveModal
+          sectionLabel={sectionMoveLabel}
+          onMove={toProjectId => {
+            moveSection(project.id, sectionMoveLabel, toProjectId);
+            setSections(getSections(project.id));
+            setSectionMoveLabel(null);
+          }}
+          onClose={() => setSectionMoveLabel(null)}
         />
       )}
     </div>

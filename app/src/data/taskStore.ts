@@ -90,6 +90,40 @@ export function moveTask(fromProjectId: string, taskId: string, toProjectId: str
   setSections(toProjectId, nextTo);
 }
 
+export function moveSection(fromProjectId: string, sectionLabel: string, toProjectId: string): void {
+  const fromSections = getSections(fromProjectId);
+  const section = fromSections.find(s => s.label === sectionLabel);
+  if (!section) return;
+  setSections(fromProjectId, fromSections.filter(s => s.label !== sectionLabel));
+  const toSections = getSections(toProjectId);
+  const existingIdx = toSections.findIndex(s => s.label === sectionLabel);
+  if (existingIdx >= 0) {
+    // Merge tasks into existing section
+    const merged = toSections.map((s, i) => i === existingIdx ? { ...s, tasks: [...s.tasks, ...section.tasks] } : s);
+    setSections(toProjectId, merged);
+  } else {
+    setSections(toProjectId, [...toSections, { ...section }]);
+  }
+}
+
+export function moveTasks(fromProjectId: string, taskIds: string[], toProjectId: string, toSectionLabel: string): void {
+  const idSet = new Set(taskIds);
+  const movedTasks: Task[] = [];
+  const fromSections = getSections(fromProjectId).map(s => {
+    const kept: Task[] = [];
+    s.tasks.forEach(t => { if (idSet.has(t.id)) movedTasks.push(t); else kept.push(t); });
+    return { ...s, tasks: kept };
+  });
+  setSections(fromProjectId, fromSections);
+  const toSections = getSections(toProjectId);
+  const idx = toSections.findIndex(s => s.label === toSectionLabel);
+  if (idx >= 0) {
+    setSections(toProjectId, toSections.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, ...movedTasks] } : s));
+  } else {
+    setSections(toProjectId, [...toSections, { label: toSectionLabel, progress: 0, tasks: movedTasks }]);
+  }
+}
+
 export function subscribeStore(fn: () => void): () => void {
   _listeners.add(fn);
   return () => { _listeners.delete(fn); };
