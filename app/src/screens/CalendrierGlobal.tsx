@@ -240,6 +240,85 @@ function ProjectSelect({ value, onChange }: { value: string; onChange: (id: stri
   );
 }
 
+function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [types, setTypes] = useState<EventType[]>(getEventTypes);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editColor, setEditColor] = useState('#3b82f6');
+  const [showNew, setShowNew] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newColor, setNewColor] = useState('#3b82f6');
+
+  useEffect(() => subscribeEventTypes(() => setTypes(getEventTypes())), []);
+
+  const startEdit = (t: EventType) => { setEditingId(t.id); setEditLabel(t.label); setEditColor(t.color); onChange(t.id); setShowNew(false); };
+  const saveEdit = () => { if (!editLabel.trim() || !editingId) return; updateEventType(editingId, { label: editLabel.trim(), color: editColor }); setEditingId(null); };
+  const removeType = (id: string) => { if (value === id) onChange(types.find(t => t.id !== id)?.id ?? 'autre'); deleteEventType(id); setEditingId(null); };
+  const addNew = () => {
+    if (!newLabel.trim()) return;
+    const t = addEventType({ label: newLabel.trim(), color: newColor, icon: 'circle' });
+    onChange(t.id);
+    setNewLabel(''); setShowNew(false);
+  };
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Type d'événement</p>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {types.map(t => (
+          <div key={t.id} style={{ position: 'relative', display: 'inline-flex' }}
+            onMouseEnter={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '0')}
+          >
+            <button onClick={() => { onChange(t.id); setEditingId(null); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', paddingRight: editingId === t.id ? '10px' : '24px', borderRadius: 8, border: `1px solid ${value === t.id ? t.color : 'var(--border)'}`, background: value === t.id ? `${t.color}22` : 'transparent', color: value === t.id ? t.color : 'var(--text-2)', cursor: 'pointer', fontSize: 11, fontWeight: 500, transition: 'all 0.12s' }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+              {t.label}
+            </button>
+            <button className="et-edit" onClick={e => { e.stopPropagation(); editingId === t.id ? setEditingId(null) : startEdit(t); }}
+              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0, transition: 'opacity 0.12s', padding: 2, display: 'flex', alignItems: 'center' }}
+            >
+              <SFIcon name="pencil" size={10} />
+            </button>
+          </div>
+        ))}
+        <button onClick={() => { setShowNew(v => !v); setEditingId(null); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, transition: 'all 0.12s' }}
+        >+ Nouveau</button>
+      </div>
+      {editingId && (() => {
+        const t = types.find(x => x.id === editingId);
+        return (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)}
+              style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', padding: 2, flexShrink: 0 }} />
+            <input value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }}
+              style={{ flex: 1, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
+            <button onClick={saveEdit} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>Enregistrer</button>
+            {!t?.builtIn && (
+              <button onClick={() => removeType(editingId)} style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <SFIcon name="trash-2" size={12} />
+              </button>
+            )}
+          </div>
+        );
+      })()}
+      {showNew && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
+          <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)}
+            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', padding: 2 }} />
+          <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Nom du type…" autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') addNew(); if (e.key === 'Escape') setShowNew(false); }}
+            style={{ flex: 1, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
+          <button onClick={addNew} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Ajouter</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defaultAllDay, onClose }: {
   defaultDate: Date;
   defaultStartTime?: string;
@@ -260,30 +339,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   const [participants, setParticipants] = useState<string[]>(['lea']);
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
-  const [showNewType, setShowNewType] = useState(false);
-  const [newTypeLabel, setNewTypeLabel] = useState('');
-  const [newTypeColor, setNewTypeColor] = useState('#3b82f6');
-  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
-  const [editLabel, setEditLabel] = useState('');
-  const [editColor, setEditColor] = useState('#3b82f6');
-
   const PARTICIPANT_THRESHOLD = 4;
-
-  const startEdit = (t: EventType) => {
-    setEditingTypeId(t.id); setEditLabel(t.label); setEditColor(t.color);
-    setEventTypeId(t.id);
-    setShowNewType(false);
-  };
-  const saveEdit = () => {
-    if (!editLabel.trim() || !editingTypeId) return;
-    updateEventType(editingTypeId, { label: editLabel.trim(), color: editColor });
-    setEditingTypeId(null);
-  };
-  const removeType = (id: string) => {
-    if (eventTypeId === id) setEventTypeId(localEventTypes.find(t => t.id !== id)?.id ?? 'autre');
-    deleteEventType(id);
-    setEditingTypeId(null);
-  };
 
   const save = () => {
     if(!title.trim()) return;
@@ -311,14 +367,6 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
 
   useEffect(() => subscribeEventTypes(() => setLocalEventTypes(getEventTypes())), []);
 
-  const addNewType = () => {
-    if (!newTypeLabel.trim()) return;
-    const newType = addEventType({ label: newTypeLabel.trim(), color: newTypeColor, icon: 'circle' });
-    setEventTypeId(newType.id);
-    setNewTypeLabel('');
-    setShowNewType(false);
-  };
-
   const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
 
   return (
@@ -330,60 +378,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
         </div>
 
         {/* Event type selector */}
-        <div style={{ marginBottom:16 }}>
-          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Type d'événement</p>
-          <div style={{ display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
-            {localEventTypes.map(t=>(
-              <div key={t.id} style={{ position:'relative',display:'inline-flex' }}
-                onMouseEnter={e=>(e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity='1')}
-                onMouseLeave={e=>(e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity='0')}
-              >
-                <button onClick={()=>{ setEventTypeId(t.id); setEditingTypeId(null); }}
-                  style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',paddingRight:editingTypeId===t.id?'10px':'24px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
-                >
-                  <div style={{ width:8,height:8,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                  {t.label}
-                </button>
-                <button className="et-edit" onClick={e=>{ e.stopPropagation(); editingTypeId===t.id ? setEditingTypeId(null) : startEdit(t); }}
-                  style={{ position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',opacity:0,transition:'opacity 0.12s',padding:2,display:'flex',alignItems:'center' }}
-                >
-                  <SFIcon name="pencil" size={10} />
-                </button>
-              </div>
-            ))}
-            <button onClick={()=>{ setShowNewType(v=>!v); setEditingTypeId(null); }}
-              style={{ display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:8,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-3)',cursor:'pointer',fontSize:11,transition:'all 0.12s' }}
-            >+ Nouveau</button>
-          </div>
-          {editingTypeId && (() => {
-            const t = localEventTypes.find(x => x.id === editingTypeId);
-            return (
-              <div style={{ display:'flex',gap:6,alignItems:'center',marginTop:8,padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)' }}>
-                <input type="color" value={editColor} onChange={e=>setEditColor(e.target.value)}
-                  style={{ width:28,height:28,borderRadius:6,border:'1px solid var(--border)',background:'none',cursor:'pointer',padding:2,flexShrink:0 }} />
-                <input value={editLabel} onChange={e=>setEditLabel(e.target.value)} autoFocus
-                  onKeyDown={e=>{ if(e.key==='Enter') saveEdit(); if(e.key==='Escape') setEditingTypeId(null); }}
-                  style={{ flex:1,padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-3)',color:'var(--text)',fontSize:11,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark' }} />
-                <button onClick={saveEdit} style={{ padding:'5px 10px',borderRadius:8,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:11,cursor:'pointer',fontWeight:600,flexShrink:0 }}>Enregistrer</button>
-                {!t?.builtIn && (
-                  <button onClick={()=>removeType(editingTypeId)} style={{ padding:'5px 8px',borderRadius:8,border:'1px solid var(--danger)',background:'transparent',color:'var(--danger)',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0 }}>
-                    <SFIcon name="trash-2" size={12} />
-                  </button>
-                )}
-              </div>
-            );
-          })()}
-          {showNewType && (
-            <div style={{ display:'flex',gap:6,alignItems:'center',marginTop:8 }}>
-              <input type="color" value={newTypeColor} onChange={e=>setNewTypeColor(e.target.value)}
-                style={{ width:28,height:28,borderRadius:6,border:'1px solid var(--border)',background:'none',cursor:'pointer',padding:2 }} />
-              <input value={newTypeLabel} onChange={e=>setNewTypeLabel(e.target.value)} placeholder="Nom du type…" autoFocus
-                onKeyDown={e=>{ if(e.key==='Enter') addNewType(); if(e.key==='Escape') setShowNewType(false); }}
-                style={{ flex:1,padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:11,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark' }} />
-              <button onClick={addNewType} style={{ padding:'5px 10px',borderRadius:8,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:11,cursor:'pointer',fontWeight:600 }}>Ajouter</button>
-            </div>
-          )}
-        </div>
+        <EventTypeSelector value={eventTypeId} onChange={setEventTypeId} />
 
         {/* Project */}
         <ProjectSelect value={projectId} onChange={setProjectId} />
@@ -781,7 +776,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
 
 function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => void; onDelete: () => void }) {
   const navigate = useNavigate();
-  const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
+  const [localEventTypes] = useState<EventType[]>(getEventTypes);
   const toDateStr = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth()+1)}-${fmt2(d.getDate())}`;
   const toTimeStr = (d: Date) => `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
   const [title, setTitle]         = useState(ev.title);
@@ -798,7 +793,6 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const PARTICIPANT_THRESHOLD = 4;
   const togglePart = (id: string) => setParticipants(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  useEffect(() => subscribeEventTypes(() => setLocalEventTypes(getEventTypes())), []);
   const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
 
   const save = () => {
@@ -832,19 +826,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         </div>
 
         {/* Event type selector */}
-        <div style={{ marginBottom:16 }}>
-          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Type d'événement</p>
-          <div style={{ display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
-            {localEventTypes.map(t=>(
-              <button key={t.id} onClick={()=>setEventTypeId(t.id)}
-                style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
-              >
-                <div style={{ width:8,height:8,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <EventTypeSelector value={eventTypeId} onChange={setEventTypeId} />
 
         {/* Project */}
         <ProjectSelect value={projectId} onChange={setProjectId} />

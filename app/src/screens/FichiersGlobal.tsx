@@ -742,6 +742,46 @@ export function StorageView({
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
   const [ctx, setCtx] = React.useState<{ pos: { x: number; y: number }; items: CtxMenuItem[] } | null>(null);
+  const [storageSelIds, setStorageSelIds] = React.useState<Set<string>>(new Set());
+  const [storageLast, setStorageLast] = React.useState<string | null>(null);
+
+  const handleStorageClick = (e: React.MouseEvent, id: string) => {
+    if (e.shiftKey && storageLast) {
+      e.preventDefault();
+      const a = storageOrderedIds.indexOf(storageLast);
+      const b = storageOrderedIds.indexOf(id);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        setStorageSelIds(new Set(storageOrderedIds.slice(lo, hi + 1)));
+      } else { setStorageSelIds(new Set([id])); }
+      setStorageLast(id);
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setStorageSelIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+      setStorageLast(id);
+      return;
+    }
+    setStorageSelIds(new Set([id]));
+    setStorageLast(id);
+  };
+
+  const trashStorageSelected = () => {
+    storageSelIds.forEach(id => {
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      if (context !== 'active') {
+        if (item.isFolder && item.folderItem) restoreFolder(item.folderItem.id);
+        else if (item.fileItem) restoreFile(item.fileItem.id);
+      } else {
+        if (item.isFolder && item.folderItem) trashFolder(item.folderItem.id);
+        else if (item.fileItem) trashFile(item.fileItem.id);
+      }
+    });
+    setStorageSelIds(new Set());
+    setStorageLast(null);
+  };
 
   const deleteVersion = (item: StorageItem, versionId: string) => {
     const resourceId = item.fileItem?.resourceId;
@@ -860,6 +900,8 @@ export function StorageView({
     return [...folderItems, ...fileItems].sort((a, b) => b.size - a.size);
   }, [location, folders, files, projects, clients, sizeMap, projectSizeMap, onNavigate]);
 
+  const storageOrderedIds = React.useMemo(() => items.map(i => i.id), [items]);
+
   const totalSize  = items.reduce((s, i) => s + i.size, 0);
   const totalCount = files.length;
 
@@ -878,6 +920,7 @@ export function StorageView({
   const actionColor = context !== 'active' ? 'var(--ok)' : 'var(--danger)';
 
   return (
+    <>
     <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Context banner */}
@@ -898,6 +941,22 @@ export function StorageView({
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>
           {items.length} {items.length !== 1 ? 'éléments' : 'élément'} &bull; {totalCount} {totalCount !== 1 ? 'fichiers' : 'fichier'}
         </span>
+        {storageSelIds.size > 0 && (
+          <button
+            onClick={trashStorageSelected}
+            title={`${context !== 'active' ? 'Restaurer' : 'Mettre à la corbeille'} (${storageSelIds.size})`}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', marginLeft: 'auto' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = context !== 'active' ? 'var(--ok)' : 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = context !== 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+          >
+            <SFIcon name={context !== 'active' ? 'rotate-ccw' : 'trash-2'} size={13} color={context !== 'active' ? 'var(--ok)' : 'var(--danger)'} />
+            {storageSelIds.size > 1 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 8, background: context !== 'active' ? 'var(--ok)' : 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                {storageSelIds.size}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Column headers */}
@@ -919,19 +978,24 @@ export function StorageView({
           const isHov = hoveredId === item.id;
           const isCfm = confirmingId === item.id;
           const isExpanded = expandedIds.has(item.id);
+          const isStorageSel = storageSelIds.has(item.id);
           return (
             <React.Fragment key={item.id}>
             <div
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
+              onClick={e => handleStorageClick(e, item.id)}
               onContextMenu={e => openItemCtx(e, item)}
               style={{
                 display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px',
                 gap: 8, padding: '6px 20px',
                 borderBottom: '1px solid var(--border)',
-                background: isHov ? 'var(--surface-2)' : 'transparent',
+                background: isStorageSel ? 'rgba(249,255,0,0.06)' : isHov ? 'var(--surface-2)' : 'transparent',
+                outline: isStorageSel ? '1px solid rgba(249,255,0,0.3)' : 'none',
+                outlineOffset: '-1px',
                 alignItems: 'center',
                 transition: 'background 0.08s',
+                cursor: 'default',
               }}
             >
               {/* Name */}
@@ -1080,6 +1144,7 @@ export function StorageView({
       </div>
     </div>
     {ctx && <ContextMenu items={ctx.items} pos={ctx.pos} onClose={() => setCtx(null)} />}
+    </>
   );
 }
 
@@ -1761,10 +1826,41 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       return 'var(--accent)';
     };
 
+    // Ordered list of all items in this column for shift-range select
+    const colOrderedIds = [...folders.map(f => f.id), ...files.map(f => f.id)];
+
+    const handleColClick = (e: React.MouseEvent, id: string, onNavigate?: () => void) => {
+      if (e.shiftKey && lastSelectedId) {
+        e.preventDefault();
+        const a = colOrderedIds.indexOf(lastSelectedId);
+        const b = colOrderedIds.indexOf(id);
+        if (a !== -1 && b !== -1) {
+          const [lo, hi] = a < b ? [a, b] : [b, a];
+          setSelectedIds(new Set(colOrderedIds.slice(lo, hi + 1)));
+        } else { setSelectedIds(new Set([id])); }
+        setLastSelectedId(id);
+        return;
+      }
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+        setLastSelectedId(id);
+        return;
+      }
+      // Plain click: select + navigate if provided
+      setSelectedIds(new Set([id]));
+      setLastSelectedId(id);
+      onNavigate?.();
+    };
+
+    const isColSel = (id: string) => selectedIds.has(id);
+
     const rowStyle = (id: string): React.CSSProperties => ({
       display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
       cursor: 'pointer', borderRadius: 7,
-      background: selectedId === id ? 'var(--accent)' : 'transparent',
+      background: selectedId === id ? 'var(--accent)' : isColSel(id) ? 'rgba(249,255,0,0.08)' : 'transparent',
+      outline: isColSel(id) && selectedId !== id ? '1px solid rgba(249,255,0,0.3)' : 'none',
+      outlineOffset: '-1px',
       transition: 'background 0.1s',
       position: 'relative',
     });
@@ -1853,15 +1949,15 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         {folders.map(f => (
           <div key={f.id}
             style={rowStyle(f.id)}
-            onClick={() => onSelect(
+            onClick={e => handleColClick(e, f.id, () => onSelect(
               (!f.projectId && !f.clientId)
                 ? { scope: 'global', folderId: f.id }
                 : { ...loc, folderId: f.id },
               f.id,
-            )}
+            ))}
             onContextMenu={e => handleFolderCtx(e, f)}
-            onMouseEnter={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'transparent'; }}
+            onMouseEnter={e => { if (selectedId !== f.id && !isColSel(f.id)) e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (selectedId !== f.id && !isColSel(f.id)) e.currentTarget.style.background = 'transparent'; }}
           >
             <SFIcon name="folder" size={14} color={selectedId === f.id ? 'var(--on-accent)' : folderColor(f)} />
             <span style={nameStyle(f.id)}>{f.name}</span>
@@ -1873,11 +1969,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           const isRes = f.type === 'resource' && !!f.resourceId;
           const rm = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
           const meta = rm ?? TYPE_META[f.type] ?? TYPE_META.other;
-          const isLocSel = localSelectedFileId === f.id;
+          const isLocSel = isColSel(f.id) || localSelectedFileId === f.id;
           const localRowStyle: React.CSSProperties = {
             ...rowStyle(f.id),
-            background: isLocSel ? 'var(--surface-3)' : 'transparent',
-            outline: isLocSel ? '1px solid var(--border-2)' : 'none',
+            background: isLocSel ? 'rgba(249,255,0,0.08)' : 'transparent',
+            outline: isLocSel ? '1px solid rgba(249,255,0,0.3)' : 'none',
             outlineOffset: '-1px',
             cursor: isRes ? 'pointer' : 'default',
           };
@@ -1885,11 +1981,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             <div key={f.id}
               style={localRowStyle}
               onClick={e => {
-                if (e.detail === 2 && isRes && f.projectId) {
+                if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey && isRes && f.projectId) {
                   navigate(`/projets/${f.projectId}/ressources/${f.resourceId}`);
                   return;
                 }
-                setLocalSelectedFileId(f.id);
+                handleColClick(e, f.id);
               }}
               onContextMenu={e => handleFileCtx(e, f)}
               onMouseEnter={e => { if (!isLocSel) e.currentTarget.style.background = 'var(--surface-2)'; }}
@@ -2228,27 +2324,22 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           ))}
         </div>
 
-        {/* Barre de sélection multiple */}
+        {/* Bouton corbeille (sélection active) */}
         {selectedIds.size > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 11px', borderRadius: 9, background: 'rgba(249,255,0,0.08)', border: '1px solid var(--accent)', flexShrink: 0 }}>
-            <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--ff-text)' }}>
-              {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
-            </span>
-            <button
-              onClick={trashSelected}
-              title="Mettre à la corbeille"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--danger)', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            >
-              <SFIcon name="trash-2" size={12} color="var(--danger)" /> Corbeille
-            </button>
-            <button
-              onClick={() => { setSelectedIds(new Set()); setLastSelectedId(null); }}
-              title="Tout désélectionner"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer' }}
-            >
-              <SFIcon name="x" size={13} />
-            </button>
-          </div>
+          <button
+            onClick={trashSelected}
+            title={`Mettre ${selectedIds.size} élément${selectedIds.size > 1 ? 's' : ''} à la corbeille`}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+          >
+            <SFIcon name="trash-2" size={14} color="var(--danger)" />
+            {selectedIds.size > 1 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                {selectedIds.size}
+              </span>
+            )}
+          </button>
         )}
 
         {/* Search */}
