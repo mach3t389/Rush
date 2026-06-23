@@ -5,7 +5,7 @@ import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerD
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask } from '../data/taskStore';
+import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, deleteTask } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';

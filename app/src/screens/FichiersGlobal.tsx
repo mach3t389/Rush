@@ -1363,12 +1363,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       setLastSelectedId(file.id);
       return;
     }
-    // Plain click
-    if (isRes && file.projectId) {
-      navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
-    } else {
-      setSelectedIds(new Set([file.id]));
-    }
+    // Plain click → sélectionne (double-clic ouvre la ressource)
+    setSelectedIds(new Set([file.id]));
     setLastSelectedId(file.id);
   };
 
@@ -2426,7 +2422,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                         <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <SFIcon name="folder" size={14} color={p.clientColor} />
                         </div>
-                        <span style={{ flex: 1 }}>{p.name}</span>
+                        <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
                         <span style={{ color: 'var(--text-3)', fontSize: 11 }}>Projet</span>
                         <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 60 }}>{allFolders.filter(f => f.projectId === p.id && f.parentId === null).length}</span>
                         <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 80 }}>—</span>

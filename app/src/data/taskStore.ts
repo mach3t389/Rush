@@ -59,6 +59,12 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
   setSections(projectId, next);
 }
 
+export function deleteTask(projectId: string, taskId: string): void {
+  const sections = getSections(projectId);
+  const next = sections.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== taskId) }));
+  setSections(projectId, next);
+}
+
 export function getDeliverables(projectId: string): Task[] {
   return getSections(projectId).flatMap(s => s.tasks).filter(t => t.deliverable);
 }

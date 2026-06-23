@@ -164,7 +164,6 @@ function PortalAccentSettings() {
               }}
               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
               placeholder="f9ff00"
-              maxLength={6}
               style={{ flex: 1, padding: '8px 10px 8px 0', background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none' }}
             />
           </div>

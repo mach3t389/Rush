@@ -87,7 +87,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget) onClose(); }}
+      onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget) save(); }}
     >
       <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -100,7 +100,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
               <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{p.clientName}</p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
+          <button onClick={save} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
             <SFIcon name="x" size={16} />
           </button>
         </div>
@@ -115,7 +115,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
               autoFocus
               value={lName}
               onChange={e => setLName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') save(); }}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') save(); }}
               style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 600, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
             />
           </div>
@@ -225,11 +225,6 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={save}>Enregistrer</SFButton>
-        </div>
       </div>
     </div>,
     document.body
