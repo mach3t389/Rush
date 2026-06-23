@@ -715,6 +715,14 @@ function Section({
   const done = tasks.filter(t => t.checked).length;
   const progress = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
   const [collapsed, setCollapsed] = useState(completed);
+  // Replie/déplie automatiquement quand le statut "terminée" change (le repli manuel est préservé tant que `completed` ne change pas).
+  const prevCompleted = React.useRef(completed);
+  React.useEffect(() => {
+    if (prevCompleted.current !== completed) {
+      setCollapsed(completed);
+      prevCompleted.current = completed;
+    }
+  }, [completed]);
   const [headerHovered, setHeaderHovered] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [taskDragOverIdx, setTaskDragOverIdx] = useState<number | null>(null);
@@ -1583,7 +1591,7 @@ export function Travail() {
       <div style={{ flexShrink: 0 }}>
       <ProjectHeaderBar projectId={project.id}>
         {/* Save as template */}
-        <SFButton variant="ghost" size="sm" icon="layout-template" onClick={() => setSaveTemplateOpen(true)} style={{ color: 'var(--text-3)', border: '1px solid var(--border)', borderRadius: 9 }}>+ Modèle</SFButton>
+        <SFButton variant="ghost" icon="layout-template" onClick={() => setSaveTemplateOpen(true)} style={{ color: 'var(--text-3)', border: '1px solid var(--border)', borderRadius: 9 }}>+ Modèle</SFButton>
         {/* View switcher */}
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
           {([
@@ -1633,8 +1641,6 @@ export function Travail() {
             </>
           )}
         </div>
-        <SFButton variant="secondary" icon="layers" onClick={() => setAddingSection(true)}>Nouvelle section</SFButton>
-        <SFButton variant="primary" icon="plus">Nouvelle tâche</SFButton>
       </ProjectHeaderBar>
 
       {/* Section nav bar — only in list view */}
@@ -1685,6 +1691,7 @@ export function Travail() {
           onSelectTask={handleSelectTask}
           onAddTask={handleAddTask}
           onMoveTask={handleMoveTask}
+          onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
           projectId={project.id}
           projectName={project.name}
           projectColor={project.clientColor}

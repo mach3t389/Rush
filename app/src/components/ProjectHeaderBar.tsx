@@ -129,16 +129,6 @@ export function ProjectHeaderBar({
 
           <span style={{ color: 'var(--text-2)' }}>{project.name}</span>
 
-          <button
-            onClick={() => setEditOpen(true)}
-            title="Modifier le projet"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, border: '1px solid var(--border-2)', background: 'var(--surface-3)', color: 'var(--text-3)', cursor: 'pointer', flexShrink: 0 }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text-3)'; el.style.borderColor = 'var(--border-2)'; }}
-          >
-            <SFIcon name="square-pen" size={11} />
-          </button>
-
           {/* Status badge */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <button
@@ -217,12 +207,20 @@ export function ProjectHeaderBar({
         </div>
       </div>
 
-      {/* Right slot */}
-      {children && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {children}
-        </div>
-      )}
+      {/* Right slot — bouton Modifier (partagé sur tous les onglets) + actions propres à l'onglet */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        <button
+          onClick={() => setEditOpen(true)}
+          title="Modifier le projet"
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+        >
+          <SFIcon name="square-pen" size={14} color="var(--text-3)" />
+          Modifier
+        </button>
+        {children}
+      </div>
 
       {editOpen && project && (
         <ProjectEditPanel

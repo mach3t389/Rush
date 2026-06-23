@@ -250,14 +250,24 @@ const INITIAL_VERSIONS: ScriptVersion[] = [
   { id: 'v3', label: 'Dialogues finaux',    date: '8 mai',  elements: INITIAL_ELEMENTS.map(e => ({ ...e })) },
 ];
 
+// ── Accessoires / props (liste de breakdown rattachée au scénario) ──────────────
+interface PropItem { id: string; text: string; scene?: string; toBring: boolean; }
+const INITIAL_PROPS: PropItem[] = [
+  { id: 'pr1', text: 'Robe de créatrice (mannequin)',  scene: 'INT. LOFT PARISIEN — JOUR', toBring: true  },
+  { id: 'pr2', text: 'Mannequins de présentation',      scene: 'INT. LOFT PARISIEN — JOUR', toBring: true  },
+  { id: 'pr3', text: 'Bijoux et accessoires de mode',   toBring: false },
+];
+
 interface ScriptViewProps extends EditableProps {
   resource: Resource;
   versions: ScriptVersion[];
   setVersions: React.Dispatch<React.SetStateAction<ScriptVersion[]>>;
   activeVersionId: string;
   setActiveVersionId: (id: string) => void;
-  panelTab: 'scenes' | 'analyse';
-  setPanelTab: (t: 'scenes' | 'analyse') => void;
+  panelTab: 'scenes' | 'analyse' | 'props';
+  setPanelTab: (t: 'scenes' | 'analyse' | 'props') => void;
+  propItems: PropItem[];
+  setPropItems: React.Dispatch<React.SetStateAction<PropItem[]>>;
 }
 
 // ── Script comment sidebar ────────────────────────────────────────────────────
@@ -329,7 +339,9 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
   );
 }
 
-function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId, panelTab, setPanelTab }: ScriptViewProps) {
+function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId, panelTab, setPanelTab, propItems, setPropItems }: ScriptViewProps) {
+  const [newProp, setNewProp] = useState('');
+  const [propSceneOpen, setPropSceneOpen] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [openTypeId, setOpenTypeId] = useState<string | null>(null);
   const [collapsedScenes, setCollapsedScenes] = useState<Set<string>>(new Set());
@@ -539,6 +551,84 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             )}
           </div>
         )}
+
+        {panelTab === 'props' && (() => {
+          const sceneLabels = scenes.map(s => s.text).filter(Boolean);
+          const addProp = () => {
+            const t = newProp.trim();
+            if (!t) return;
+            setPropItems(prev => [...prev, { id: `pr${Date.now()}`, text: t, toBring: true }]);
+            setNewProp('');
+            onEdit?.();
+          };
+          return (
+            <div style={{ flex:1, overflow:'auto', padding:'10px 10px', display:'flex', flexDirection:'column' }}>
+              {/* Counter */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10, padding:'0 2px' }}>
+                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>À apporter</span>
+                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>{propItems.filter(p => p.toBring).length}/{propItems.length}</span>
+              </div>
+
+              {propItems.length === 0 && (
+                <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>Aucun accessoire</p>
+              )}
+
+              {propItems.map(p => (
+                <div key={p.id} style={{ marginBottom:6, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 8px' }}>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
+                    {/* À apporter */}
+                    <button onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, toBring: !x.toBring } : x)); onEdit?.(); }}
+                      title={p.toBring ? 'À apporter' : 'Optionnel'}
+                      style={{ width:16, height:16, borderRadius:5, flexShrink:0, marginTop:1, border: p.toBring ? 'none' : '1.5px solid var(--border-2)', background: p.toBring ? 'var(--accent)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+                      {p.toBring && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                    </button>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <input value={p.text} onChange={e => setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, text: e.target.value } : x))} onBlur={() => onEdit?.()}
+                        style={{ width:'100%', background:'transparent', border:'none', outline:'none', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', padding:0 }} />
+                      {/* Scène rattachée */}
+                      <div style={{ position:'relative', marginTop:4 }}>
+                        <button onClick={() => setPropSceneOpen(o => o === p.id ? null : p.id)}
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'1px 6px', borderRadius:5, border:'1px solid var(--border)', background:'var(--surface-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:7, color: p.scene ? '#86efac' : 'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.04em', maxWidth:'100%' }}>
+                          <SFIcon name="clapperboard" size={9} color={p.scene ? '#86efac' : 'var(--text-3)'} />
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.scene ?? 'Aucune scène'}</span>
+                        </button>
+                        {propSceneOpen === p.id && (
+                          <>
+                            <div onClick={() => setPropSceneOpen(null)} style={{ position:'fixed', inset:0, zIndex:90 }} />
+                            <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:100, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:9, padding:4, minWidth:180, maxHeight:200, overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,0.5)' }}>
+                              <button onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, scene: undefined } : x)); setPropSceneOpen(null); onEdit?.(); }}
+                                style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background:'transparent', cursor:'pointer', fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>Aucune scène</button>
+                              {sceneLabels.map((s, si) => (
+                                <button key={si} onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, scene: s } : x)); setPropSceneOpen(null); onEdit?.(); }}
+                                  style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background: p.scene === s ? 'var(--surface-2)' : 'transparent', cursor:'pointer', fontSize:11, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{s}</button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {/* Supprimer */}
+                    <button onClick={() => { setPropItems(prev => prev.filter(x => x.id !== p.id)); onEdit?.(); }} title="Supprimer"
+                      style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:2 }}>
+                      <SFIcon name="x" size={11} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Ajout */}
+              <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
+                <input value={newProp} onChange={e => setNewProp(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addProp(); }}
+                  placeholder="+ Ajouter un accessoire"
+                  style={{ flex:1, background:'var(--surface-2)', border:'1px dashed var(--border-2)', borderRadius:7, padding:'6px 8px', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none' }} />
+                {newProp.trim() && (
+                  <button onClick={addProp} style={{ flexShrink:0, background:'var(--accent)', color:'var(--on-accent)', border:'none', borderRadius:7, padding:'6px 9px', cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>Ajouter</button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Center — Editor */}
@@ -4442,7 +4532,7 @@ type ScreenplayTab = 'script' | 'shotlist' | 'storyboard';
 
 export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef, persistKey }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null>; persistKey?: string } & EditableProps) {
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
-  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string }>(persistKey) : undefined;
+  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[] }>(persistKey) : undefined;
   const [versions, setVersions] = useState<ScriptVersion[]>(() => {
     if (_scPersisted?.versions) return _scPersisted.versions;
     if (seedElements) return [{ id: 'v1', label: 'Brouillon', date: new Date().toLocaleDateString('fr-FR'), elements: seedElements }];
@@ -4455,7 +4545,8 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
   });
 
   // Lifted from ScriptView
-  const [panelTab, setPanelTab] = useState<'scenes' | 'analyse'>('scenes');
+  const [panelTab, setPanelTab] = useState<'scenes' | 'analyse' | 'props'>('scenes');
+  const [propItems, setPropItems] = useState<PropItem[]>(() => _scPersisted?.props ?? INITIAL_PROPS);
   const [versionDropOpen, setVersionDropOpen] = useState(false);
   const vDropRef = useRef<HTMLDivElement>(null);
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
@@ -4501,9 +4592,9 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
     if (!persistKey) return;
     if (scPersistTimer.current) clearTimeout(scPersistTimer.current);
     scPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { versions, activeId: activeVersionId });
+      setResourceContent(persistKey, { versions, activeId: activeVersionId, props: propItems });
     }, 400);
-  }, [versions, activeVersionId, persistKey]);
+  }, [versions, activeVersionId, propItems, persistKey]);
   useEffect(() => () => { if (scPersistTimer.current) clearTimeout(scPersistTimer.current); }, []);
 
   const scriptScenes: ScriptScene[] = elements
@@ -4533,10 +4624,10 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
         {activeTab === 'script' && (
           <>
             <div style={{ width:1, height:20, background:'var(--border)', margin:'0 10px', flexShrink:0 }} />
-            {(['scenes','analyse'] as const).map(t => (
+            {(['scenes','analyse','props'] as const).map(t => (
               <button key={t} onClick={() => setPanelTab(t)}
                 style={{ padding:'9px 10px', border:'none', background:'transparent', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.07em', color: panelTab===t ? 'var(--text)' : 'var(--text-3)', borderBottom: panelTab===t ? '2px solid var(--accent)' : '2px solid transparent', marginBottom:-1, whiteSpace:'nowrap' }}>
-                {t === 'scenes' ? 'Scènes' : 'Analyse'}
+                {t === 'scenes' ? 'Scènes' : t === 'analyse' ? 'Analyse' : 'Accessoires'}
               </button>
             ))}
           </>
@@ -4623,6 +4714,7 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
           activeVersionId={activeVersionId} setActiveVersionId={setActiveVersionId}
           onEdit={onEdit} saveState={saveState} online={online} registerExport={registerExport}
           panelTab={panelTab} setPanelTab={setPanelTab}
+          propItems={propItems} setPropItems={setPropItems}
         />
       </div>
       <div style={{ flex:1, overflow:'hidden', display: activeTab === 'shotlist' ? 'flex' : 'none' }}>

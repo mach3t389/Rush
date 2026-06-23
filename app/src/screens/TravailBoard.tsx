@@ -17,15 +17,26 @@ interface Props {
   onSelectTask: (t: Task) => void;
   onAddTask: (sectionIdx: number, task: Task) => void;
   onMoveTask: (task: Task, fromIdx: number, toIdx: number) => void;
+  onAddSection: (label: string) => void;
   projectId: string;
   projectName: string;
   projectColor: string;
 }
 
-export function TravailBoard({ sections, selectedTask, onSelectTask, onAddTask, onMoveTask, projectId, projectName, projectColor }: Props) {
+export function TravailBoard({ sections, selectedTask, onSelectTask, onAddTask, onMoveTask, onAddSection, projectId, projectName, projectColor }: Props) {
   const [dragTask, setDragTask] = useState<{ task: Task; sectionIdx: number } | null>(null);
   const [dragOverSection, setDragOverSection] = useState<number | null>(null);
+  const [addingSection, setAddingSection] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
   const firstUser = Object.values(USERS)[0];
+
+  const commitSection = () => {
+    const label = newLabel.trim();
+    if (!label) { setAddingSection(false); setNewLabel(''); return; }
+    onAddSection(label);
+    setNewLabel('');
+    setAddingSection(false);
+  };
 
   return (
     <div style={{
@@ -208,22 +219,59 @@ export function TravailBoard({ sections, selectedTask, onSelectTask, onAddTask, 
       })}
 
       {/* Nouvelle colonne */}
-      <button
-        style={{
+      {addingSection ? (
+        <div style={{
           width: 240, flexShrink: 0, borderRadius: 'var(--radius)',
-          border: '1px dashed var(--border-2)', padding: '13px 16px',
-          display: 'flex', alignItems: 'center', gap: 8,
-          color: 'var(--text-3)', fontSize: 13, cursor: 'pointer',
-          fontFamily: 'var(--ff-text)', background: 'transparent',
-          transition: 'color 0.12s, border-color 0.12s',
-          alignSelf: 'flex-start',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-      >
-        <SFIcon name="plus" size={14}  />
-        Nouvelle section
-      </button>
+          border: '1px solid var(--accent)', background: 'var(--surface)',
+          padding: 10, alignSelf: 'flex-start',
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <input
+            autoFocus
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitSection(); if (e.key === 'Escape') { setAddingSection(false); setNewLabel(''); } }}
+            onBlur={commitSection}
+            placeholder="Nom de la section..."
+            style={{
+              width: '100%', padding: '8px 10px', borderRadius: 8,
+              border: '1px solid var(--border-2)', background: 'var(--surface-2)',
+              color: 'var(--text)', fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={commitSection}
+              style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >Ajouter</button>
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { setAddingSection(false); setNewLabel(''); }}
+              style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >Annuler</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAddingSection(true)}
+          style={{
+            width: 240, flexShrink: 0, borderRadius: 'var(--radius)',
+            border: '1px dashed var(--border-2)', padding: '13px 16px',
+            display: 'flex', alignItems: 'center', gap: 8,
+            color: 'var(--text-3)', fontSize: 13, cursor: 'pointer',
+            fontFamily: 'var(--ff-text)', background: 'transparent',
+            transition: 'color 0.12s, border-color 0.12s',
+            alignSelf: 'flex-start',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+        >
+          <SFIcon name="plus" size={14}  />
+          Nouvelle section
+        </button>
+      )}
     </div>
   );
 }
