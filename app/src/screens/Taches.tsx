@@ -1,11 +1,12 @@
-﻿import React, { useState, useRef, useCallback } from 'react';
+﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection } from '../data/myTaskStore';
-import { getSections } from '../data/taskStore';
+import { getSections, moveTasks, copyTasks } from '../data/taskStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, ResourceType } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 
@@ -168,6 +169,71 @@ function PanelDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex =
 
 // �"?�"? Task row �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
+function BulkMoveModal({ count, mode, onMove, onClose }: {
+  count: number;
+  mode: 'move' | 'copy';
+  onMove: (projectId: string, projectName: string, projectColor: string, sectionLabel: string) => void;
+  onClose: () => void;
+}) {
+  const [projects, setProjects] = useState(() => getProjects());
+  const [targetProjectId, setTargetProjectId] = useState('');
+  const [targetSection, setTargetSection] = useState('');
+  const [newSection, setNewSection] = useState('');
+  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
+
+  const targetSections = targetProjectId ? getSections(targetProjectId) : [];
+  const proj = projects.find(p => p.id === targetProjectId);
+
+  return createPortal(
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 420, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? 'Copier' : 'Déplacer'} {count} tâche{count > 1 ? 's' : ''}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+        </div>
+
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Projet destination</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
+          {projects.map(p => (
+            <button key={p.id} onClick={() => { setTargetProjectId(p.id); setTargetSection(''); setNewSection(''); }}
+              style={{ padding: '8px 12px', borderRadius: 9, border: `1px solid ${targetProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: targetProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: targetProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: targetProjectId === p.id ? 600 : 400 }}>
+              {p.name}
+            </button>
+          ))}
+        </div>
+
+        {targetProjectId && (
+          <>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Section destination</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10, maxHeight: 150, overflowY: 'auto' }}>
+              {targetSections.map(s => (
+                <button key={s.label} onClick={() => { setTargetSection(s.label); setNewSection(''); }}
+                  style={{ padding: '7px 12px', borderRadius: 9, border: `1px solid ${targetSection === s.label ? 'var(--accent)' : 'var(--border)'}`, background: targetSection === s.label ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontFamily: 'var(--ff-text)', color: targetSection === s.label ? 'var(--accent)' : 'var(--text)' }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <input value={newSection} onChange={e => { setNewSection(e.target.value); if (e.target.value) setTargetSection(e.target.value); }}
+              placeholder="Ou créer une nouvelle section…"
+              style={{ width: '100%', padding: '7px 12px', borderRadius: 9, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box', marginBottom: 16 }}
+            />
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button
+            onClick={() => { if (proj && targetSection) { onMove(proj.id, proj.name, (proj as { clientColor?: string }).clientColor ?? 'var(--text-3)', targetSection); onClose(); } }}
+            disabled={!targetProjectId || !targetSection}
+            style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
+          >{mode === 'copy' ? 'Copier' : 'Déplacer'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onDelete: () => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -283,9 +349,10 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         {checked && <SFIcon name="check" size={10} color="white" />}
       </button>
 
-      {/* Titre — clicking opens panel (Ctrl+click → multi-select) */}
+      {/* Titre — clicking opens panel (Ctrl+click / Shift+click → multi-select) */}
       <span
         onClick={e => onSelect(task, e)}
+        onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
         style={{
           fontSize: 13, fontWeight: 500,
           textDecoration: checked ? 'line-through' : 'none',
@@ -965,22 +1032,12 @@ export function Taches() {
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
 
   React.useEffect(() => subscribeMyTasks(() => { setTasks(getMyTasks()); setMySections(getMyTaskSections()); }), []);
 
-  const handleSelectTask = useCallback((task: Task, e?: React.MouseEvent) => {
-    if (e && (e.ctrlKey || e.metaKey)) {
-      setMultiSelIds(prev => {
-        const next = new Set(prev);
-        next.has(task.id) ? next.delete(task.id) : next.add(task.id);
-        return next;
-      });
-      setSelectedTask(null);
-      return;
-    }
-    setMultiSelIds(new Set());
-    setSelectedTask(prev => prev?.id === task.id ? null : task);
-  }, []);
+  const anchorTaskId = React.useRef<string | null>(null);
 
   const toggleGroup = (key: string) =>
     setCollapsedGroups(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
@@ -1061,6 +1118,32 @@ export function Taches() {
 
   const flatSorted = sortCol ? sortTasks(visible, sortCol, sortDir) : visible;
   const useFlat = sortCol !== null;
+
+  const handleSelectTask = useCallback((task: Task, e?: React.MouseEvent) => {
+    if (e && e.shiftKey && anchorTaskId.current) {
+      const orderedIds = useFlat
+        ? flatSorted.map(t => t.id)
+        : [...noSectionTasks, ...sectionGroups.flatMap(g => g.tasks)].map(t => t.id);
+      const aIdx = orderedIds.indexOf(anchorTaskId.current);
+      const bIdx = orderedIds.indexOf(task.id);
+      if (aIdx !== -1 && bIdx !== -1) {
+        const [lo, hi] = aIdx < bIdx ? [aIdx, bIdx] : [bIdx, aIdx];
+        setMultiSelIds(new Set(orderedIds.slice(lo, hi + 1)));
+        setSelectedTask(null);
+        return;
+      }
+    }
+    if (e && (e.ctrlKey || e.metaKey)) {
+      setMultiSelIds(prev => { const n = new Set(prev); n.has(task.id) ? n.delete(task.id) : n.add(task.id); return n; });
+      anchorTaskId.current = task.id;
+      setSelectedTask(null);
+      return;
+    }
+    anchorTaskId.current = task.id;
+    setMultiSelIds(new Set());
+    setSelectedTask(prev => prev?.id === task.id ? null : task);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flatSorted, noSectionTasks, sectionGroups, useFlat]);
 
   const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort };
 
@@ -1224,6 +1307,14 @@ export function Taches() {
         <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
           <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{multiSelIds.size} tâche{multiSelIds.size > 1 ? 's' : ''}</span>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+          <button onClick={() => setBulkMoveOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="move-right" size={13} />
+            Déplacer
+          </button>
+          <button onClick={() => setBulkCopyOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="copy" size={13} />
+            Copier
+          </button>
           <button onClick={() => {
             [...multiSelIds].forEach(id => removeMyTask(id));
             setMultiSelIds(new Set());
@@ -1236,6 +1327,45 @@ export function Taches() {
           </button>
         </div>,
         document.body,
+      )}
+
+      {bulkMoveOpen && (
+        <BulkMoveModal
+          count={multiSelIds.size}
+          mode="move"
+          onMove={(projectId, projectName, projectColor, sectionLabel) => {
+            [...multiSelIds].forEach(id => updateMyTask(id, { projectId, projectName, projectColor, sectionLabel }));
+            const bySource = new Map<string, string[]>();
+            tasks.filter(t => multiSelIds.has(t.id)).forEach(t => {
+              const ids = bySource.get(t.projectId) ?? [];
+              ids.push(t.id);
+              bySource.set(t.projectId, ids);
+            });
+            bySource.forEach((ids, src) => moveTasks(src, ids, projectId, sectionLabel));
+            setMultiSelIds(new Set());
+            setBulkMoveOpen(false);
+          }}
+          onClose={() => setBulkMoveOpen(false)}
+        />
+      )}
+
+      {bulkCopyOpen && (
+        <BulkMoveModal
+          count={multiSelIds.size}
+          mode="copy"
+          onMove={(projectId, _projectName, _projectColor, sectionLabel) => {
+            const bySource = new Map<string, string[]>();
+            tasks.filter(t => multiSelIds.has(t.id)).forEach(t => {
+              const ids = bySource.get(t.projectId) ?? [];
+              ids.push(t.id);
+              bySource.set(t.projectId, ids);
+            });
+            bySource.forEach((ids, src) => copyTasks(ids, src, projectId, sectionLabel));
+            setMultiSelIds(new Set());
+            setBulkCopyOpen(false);
+          }}
+          onClose={() => setBulkCopyOpen(false)}
+        />
       )}
 
       {/* Task panel overlay */}

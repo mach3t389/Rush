@@ -5,7 +5,7 @@ import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, TaskDatePopover, DatePickerD
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, moveSection, deleteTask } from '../data/taskStore';
+import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, deleteTask } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -240,8 +240,9 @@ function TaskActivityCell({ taskId }: { taskId: string }) {
 
 // ── Section move modal ────────────────────────────────────────────────────────
 
-function SectionMoveModal({ sectionLabel, onMove, onClose }: {
+function SectionMoveModal({ sectionLabel, mode = 'move', onMove, onClose }: {
   sectionLabel: string;
+  mode?: 'move' | 'copy';
   onMove: (projectId: string) => void;
   onClose: () => void;
 }) {
@@ -253,10 +254,10 @@ function SectionMoveModal({ sectionLabel, onMove, onClose }: {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 380, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Déplacer la section</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? 'Copier' : 'Déplacer'} la section</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>La section <strong style={{ color: 'var(--text)' }}>« {sectionLabel} »</strong> et toutes ses tâches seront déplacées vers :</p>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>La section <strong style={{ color: 'var(--text)' }}>« {sectionLabel} »</strong> et toutes ses tâches seront {mode === 'copy' ? 'copiées' : 'déplacées'} vers :</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
           {projects.map(p => (
             <button key={p.id} onClick={() => setTargetProjectId(p.id)}
@@ -268,7 +269,7 @@ function SectionMoveModal({ sectionLabel, onMove, onClose }: {
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
           <button onClick={() => { if (targetProjectId) { onMove(targetProjectId); onClose(); } }} disabled={!targetProjectId}
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: !targetProjectId ? 'var(--surface-3)' : 'var(--accent)', color: !targetProjectId ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: !targetProjectId ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
-          >Déplacer</button>
+          >{mode === 'copy' ? 'Copier' : 'Déplacer'}</button>
         </div>
       </div>
     </div>,
@@ -278,8 +279,9 @@ function SectionMoveModal({ sectionLabel, onMove, onClose }: {
 
 // ── Bulk move modal (tasks or section) ────────────────────────────────────────
 
-function BulkMoveModal({ title, onMove, onClose }: {
+function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
   title: string;
+  mode?: 'move' | 'copy';
   onMove: (projectId: string, sectionLabel: string) => void;
   onClose: () => void;
 }) {
@@ -334,7 +336,7 @@ function BulkMoveModal({ title, onMove, onClose }: {
             onClick={() => { if (targetProjectId && targetSection) { onMove(targetProjectId, targetSection); onClose(); } }}
             disabled={!targetProjectId || !targetSection}
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
-          >Déplacer</button>
+          >{mode === 'copy' ? 'Copier' : 'Déplacer'}</button>
         </div>
       </div>
     </div>,
@@ -469,7 +471,7 @@ function TaskRow({
       </div>
 
       {/* Title — clicking opens panel */}
-      <div onClick={e => onSelect(task, e)} style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: 'pointer' }}>
+      <div onClick={e => onSelect(task, e)} onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }} style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: 'pointer' }}>
         {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
         <span style={{ fontSize: 13, fontWeight: 500, textDecoration: checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
@@ -843,7 +845,7 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 
 function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
-  onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection,
+  onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection, onCopySection,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
 }: {
@@ -859,6 +861,7 @@ function Section({
   onDelete: () => void;
   onDeleteTask: (taskId: string) => void;
   onMoveSection: () => void;
+  onCopySection: () => void;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -1024,6 +1027,17 @@ function Section({
           <SFBar value={completed ? 100 : progress} height={3} />
         </div>
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{done}/{tasks.length}</span>
+
+        {/* Copy section */}
+        <button
+          onClick={e => { e.stopPropagation(); onCopySection(); }}
+          title="Copier la section vers un autre projet"
+          style={{ visibility: headerHovered && !confirmDelete ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+        >
+          <SFIcon name="copy" size={11} />
+        </button>
 
         {/* Move section */}
         <button
@@ -1625,7 +1639,9 @@ export function Travail() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [sectionMoveLabel, setSectionMoveLabel] = useState<string | null>(null);
+  const [sectionCopyLabel, setSectionCopyLabel] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
@@ -1651,17 +1667,32 @@ export function Travail() {
       tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked),
     }));
 
+  const anchorTaskId = React.useRef<string | null>(null);
+
   const handleSelectTask = (task: Task, e?: React.MouseEvent) => {
+    if (e && e.shiftKey && anchorTaskId.current) {
+      // Shift+click → range select between anchor and current
+      const orderedIds = visibleSections.flatMap(s => s.tasks.map(t => t.id));
+      const aIdx = orderedIds.indexOf(anchorTaskId.current);
+      const bIdx = orderedIds.indexOf(task.id);
+      if (aIdx !== -1 && bIdx !== -1) {
+        const [lo, hi] = aIdx < bIdx ? [aIdx, bIdx] : [bIdx, aIdx];
+        setMultiSelIds(new Set(orderedIds.slice(lo, hi + 1)));
+        setSelectedTask(null);
+        return;
+      }
+    }
     if (e && (e.ctrlKey || e.metaKey)) {
-      // Ctrl+click → multi-select, don't open panel
       setMultiSelIds(prev => {
         const next = new Set(prev);
         next.has(task.id) ? next.delete(task.id) : next.add(task.id);
         return next;
       });
+      anchorTaskId.current = task.id;
       setSelectedTask(null);
       return;
     }
+    anchorTaskId.current = task.id;
     setMultiSelIds(new Set());
     setSelectedTask(prev => prev?.id === task.id ? null : task);
   };
@@ -1912,6 +1943,7 @@ export function Travail() {
                 allSections={sections}
                 onMoveTaskToSection={handleMoveTaskToSection}
                 onMoveSection={() => setSectionMoveLabel(section.label)}
+                onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
@@ -2002,6 +2034,10 @@ export function Travail() {
             <SFIcon name="move-right" size={13} />
             Déplacer
           </button>
+          <button onClick={() => setBulkCopyOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="copy" size={13} />
+            Copier
+          </button>
           <button onClick={() => {
             const ids = [...multiSelIds];
             setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => !ids.includes(t.id)) })));
@@ -2021,12 +2057,26 @@ export function Travail() {
       {bulkMoveOpen && (
         <BulkMoveModal
           title={`Déplacer ${multiSelIds.size} tâche${multiSelIds.size > 1 ? 's' : ''}`}
+          mode="move"
           onMove={(toProjectId, toSectionLabel) => {
             moveTasks(project.id, [...multiSelIds], toProjectId, toSectionLabel);
             setSections(getSections(project.id));
             setMultiSelIds(new Set());
           }}
           onClose={() => setBulkMoveOpen(false)}
+        />
+      )}
+
+      {/* Bulk copy tasks modal */}
+      {bulkCopyOpen && (
+        <BulkMoveModal
+          title={`Copier ${multiSelIds.size} tâche${multiSelIds.size > 1 ? 's' : ''}`}
+          mode="copy"
+          onMove={(toProjectId, toSectionLabel) => {
+            copyTasks([...multiSelIds], project.id, toProjectId, toSectionLabel);
+            setMultiSelIds(new Set());
+          }}
+          onClose={() => setBulkCopyOpen(false)}
         />
       )}
 
@@ -2040,6 +2090,19 @@ export function Travail() {
             setSectionMoveLabel(null);
           }}
           onClose={() => setSectionMoveLabel(null)}
+        />
+      )}
+
+      {/* Copy section modal */}
+      {sectionCopyLabel && (
+        <SectionMoveModal
+          sectionLabel={sectionCopyLabel}
+          mode="copy"
+          onMove={toProjectId => {
+            copySection(project.id, sectionCopyLabel, toProjectId);
+            setSectionCopyLabel(null);
+          }}
+          onClose={() => setSectionCopyLabel(null)}
         />
       )}
     </div>

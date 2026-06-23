@@ -106,6 +106,34 @@ export function moveSection(fromProjectId: string, sectionLabel: string, toProje
   }
 }
 
+export function copyTasks(taskIds: string[], fromProjectId: string, toProjectId: string, toSectionLabel: string): void {
+  const idSet = new Set(taskIds);
+  const originals: Task[] = [];
+  getSections(fromProjectId).forEach(s => s.tasks.forEach(t => { if (idSet.has(t.id)) originals.push(t); }));
+  if (!originals.length) return;
+  const copies = originals.map(t => ({ ...t, id: `${t.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2)}` }));
+  const toSections = getSections(toProjectId);
+  const idx = toSections.findIndex(s => s.label === toSectionLabel);
+  if (idx >= 0) {
+    setSections(toProjectId, toSections.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, ...copies] } : s));
+  } else {
+    setSections(toProjectId, [...toSections, { label: toSectionLabel, progress: 0, tasks: copies }]);
+  }
+}
+
+export function copySection(fromProjectId: string, sectionLabel: string, toProjectId: string): void {
+  const section = getSections(fromProjectId).find(s => s.label === sectionLabel);
+  if (!section) return;
+  const copies = section.tasks.map(t => ({ ...t, id: `${t.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2)}` }));
+  const toSections = getSections(toProjectId);
+  const existingIdx = toSections.findIndex(s => s.label === sectionLabel);
+  if (existingIdx >= 0) {
+    setSections(toProjectId, toSections.map((s, i) => i === existingIdx ? { ...s, tasks: [...s.tasks, ...copies] } : s));
+  } else {
+    setSections(toProjectId, [...toSections, { ...section, tasks: copies }]);
+  }
+}
+
 export function moveTasks(fromProjectId: string, taskIds: string[], toProjectId: string, toSectionLabel: string): void {
   const idSet = new Set(taskIds);
   const movedTasks: Task[] = [];
