@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, removeMyTask, subscribeMyTasks } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection } from '../data/myTaskStore';
 import { getSections } from '../data/taskStore';
 import type { Task, Priority, ResourceType } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
@@ -168,7 +168,31 @@ function PanelDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex =
 
 // �"?�"? Task row �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: boolean; onSelect: (t: Task) => void; flashId?: string | null }) {
+function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onDelete: () => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+      {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>Ouvrir le détail</span></>, onOpen)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
+
+function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void }) {
   const navigate = useNavigate();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
@@ -192,6 +216,7 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
   const statusBtnRef = useRef<HTMLButtonElement>(null);
   const dueDateBtnRef = useRef<HTMLButtonElement>(null);
   const [hovered, setHovered] = useState(false);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const completeTimer = useRef<number | null>(null);
 
   // Cocher une tâche dans Mes tâches → animation de coche, puis retrait de la
@@ -234,12 +259,15 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
         padding: '8px 16px',
         borderBottom: '1px solid var(--border)',
         opacity: checked ? 0.4 : 1,
-        background: isFlashing ? 'rgba(249,255,0,0.15)' : selected ? 'rgba(249,255,0,0.04)' : 'transparent',
+        background: isFlashing ? 'rgba(249,255,0,0.15)' : multiSelected ? 'rgba(249,255,0,0.08)' : selected ? 'rgba(249,255,0,0.04)' : 'transparent',
+        outline: multiSelected ? '1px solid rgba(249,255,0,0.35)' : 'none',
+        outlineOffset: '-1px',
         borderLeft: isFlashing ? '2px solid var(--accent)' : selected ? '2px solid var(--accent)' : '2px solid transparent',
         transition: 'opacity 0.4s, background 0.1s, border-color 0.5s',
       }}
-      onMouseEnter={e => { setHovered(true); if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-      onMouseLeave={e => { setHovered(false); if (!selected) e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={e => { setHovered(true); if (!selected && !multiSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+      onMouseLeave={e => { setHovered(false); if (!selected && !multiSelected) e.currentTarget.style.background = 'transparent'; }}
+      onContextMenu={e => { e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
     >
       {/* Checkbox */}
       <button
@@ -255,9 +283,9 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
         {checked && <SFIcon name="check" size={10} color="white" />}
       </button>
 
-      {/* Titre — clicking opens panel */}
+      {/* Titre — clicking opens panel (Ctrl+click → multi-select) */}
       <span
-        onClick={() => onSelect(task)}
+        onClick={e => onSelect(task, e)}
         style={{
           fontSize: 13, fontWeight: 500,
           textDecoration: checked ? 'line-through' : 'none',
@@ -549,24 +577,36 @@ function TaskRow({ task, selected, onSelect, flashId }: { task: Task; selected: 
         )}
       </div>
 
-      {/* Unassign — retire la tâche de Mes tâches sans la supprimer du projet */}
-      <button
-        onClick={e => { e.stopPropagation(); removeMyTask(task.id); }}
-        title="Retirer de Mes tâches"
-        style={{ visibility: hovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 3, display: 'flex', borderRadius: 5, flexShrink: 0 }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-      >
-        <SFIcon name="user-minus" size={13} />
-      </button>
+      {/* Delete — supprime la tâche de Mes tâches */}
+      {onDelete && (
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          title="Supprimer la tâche"
+          style={{ visibility: hovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 3, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+        >
+          <SFIcon name="trash-2" size={13} />
+        </button>
+      )}
 
       {/* More — opens panel */}
       <button
-        onClick={() => onSelect(task)}
+        onClick={e => onSelect(task, e)}
         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
       >
         <SFIcon name="more-horizontal" size={14} color="var(--text-3)" />
       </button>
+
+      {/* Right-click context menu */}
+      {ctxPos && (
+        <TaskContextMenu
+          pos={ctxPos}
+          onOpen={() => { onSelect(task); setCtxPos(null); }}
+          onDelete={() => { onDelete?.(); setCtxPos(null); }}
+          onClose={() => setCtxPos(null)}
+        />
+      )}
     </div>
   );
 }
@@ -688,6 +728,39 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 // �"?�"? Add task row �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
 type AddOpts = { priority: Priority; assignee: typeof TEAM[0] | null; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
+
+function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setConfirm(false); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--surface-2)', borderBottom: collapsed ? 'none' : '1px solid var(--border)' }}
+    >
+      <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flex: 1, textAlign: 'left' }}>
+        <SFIcon name={collapsed ? 'chevron-right' : 'chevron-down'} size={13} color="var(--text-3)" />
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-2)', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({count})</span>
+      </button>
+      {hovered && !confirm && (
+        <button onClick={() => setConfirm(true)} title="Supprimer la section"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2, borderRadius: 5 }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
+          <SFIcon name="trash-2" size={11} />
+        </button>
+      )}
+      {confirm && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>Supprimer ?</span>
+          <button onClick={onDelete} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Oui</button>
+          <button onClick={() => setConfirm(false)} style={{ padding: '2px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Non</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void }) {
   const [title, setTitle]       = useState('');
@@ -887,12 +960,30 @@ export function Taches() {
   const [sortDir, setSortDir]         = useState<SortDir>('asc');
   const [filterPriorities, setFilterPriorities] = useState<Set<Priority>>(new Set());
   const [filterStatuses, setFilterStatuses]     = useState<Set<string>>(new Set());
-  const [collapsedGroups, setCollapsedGroups]   = useState<Set<Priority>>(new Set());
+  const [collapsedGroups, setCollapsedGroups]   = useState<Set<string>>(new Set());
+  const [mySections, setMySections]   = useState<string[]>(getMyTaskSections);
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSectionLabel, setNewSectionLabel] = useState('');
+  const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
 
-  React.useEffect(() => subscribeMyTasks(() => setTasks(getMyTasks())), []);
+  React.useEffect(() => subscribeMyTasks(() => { setTasks(getMyTasks()); setMySections(getMyTaskSections()); }), []);
 
-  const toggleGroup = (p: Priority) =>
-    setCollapsedGroups(prev => { const s = new Set(prev); s.has(p) ? s.delete(p) : s.add(p); return s; });
+  const handleSelectTask = useCallback((task: Task, e?: React.MouseEvent) => {
+    if (e && (e.ctrlKey || e.metaKey)) {
+      setMultiSelIds(prev => {
+        const next = new Set(prev);
+        next.has(task.id) ? next.delete(task.id) : next.add(task.id);
+        return next;
+      });
+      setSelectedTask(null);
+      return;
+    }
+    setMultiSelIds(new Set());
+    setSelectedTask(prev => prev?.id === task.id ? null : task);
+  }, []);
+
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
 
   const handleSort = useCallback((col: SortCol) => {
     setSortCol(prev => {
@@ -924,7 +1015,7 @@ export function Taches() {
 
   const clearFilters = () => { setFilterPriorities(new Set()); setFilterStatuses(new Set()); };
 
-  const addTask = useCallback((title: string, opts: AddOpts) => {
+  const addTask = useCallback((title: string, opts: AddOpts & { mySection?: string }) => {
     const newTask: Task = {
       id: `my-${Date.now()}`,
       title,
@@ -940,8 +1031,9 @@ export function Taches() {
       dueDateRed: false,
       checked: false,
       subtasks: [],
+      mySection: opts.mySection,
     };
-    setTasks(prev => [...prev, newTask]);
+    addMyTask(newTask);
   }, []);
 
   const flash = useCallback((id: string) => {
@@ -960,10 +1052,12 @@ export function Taches() {
   const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
   const hasActiveFilters = filterPriorities.size > 0 || filterStatuses.size > 0;
 
-  // Grouped view (priority) vs flat sorted view
-  const grouped = PRIORITY_ORDER
-    .map(p => ({ priority: p, tasks: sortCol && sortCol !== 'priority' ? sortTasks(visible.filter(t => t.priority === p), sortCol, sortDir) : visible.filter(t => t.priority === p) }))
-    .filter(g => g.tasks.length > 0);
+  // Grouped view (by section) vs flat sorted view
+  const noSectionTasks = visible.filter(t => !t.mySection);
+  const sectionGroups = mySections.map(label => ({
+    label,
+    tasks: visible.filter(t => t.mySection === label),
+  }));
 
   const flatSorted = sortCol ? sortTasks(visible, sortCol, sortDir) : visible;
   const useFlat = sortCol !== null;
@@ -1040,45 +1134,109 @@ export function Taches() {
                 <ColHeader {...colHeaderProps} />
               </div>
               {flatSorted.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} onSelect={setSelectedTask} flashId={flashId} />
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
               ))}
               <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
             </div>
           )
         ) : (
-          /* Grouped by priority */
-          grouped.map((g) => {
-            const collapsed = collapsedGroups.has(g.priority);
-            return (
-              <div key={g.priority} style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                <button
-                  onClick={() => toggleGroup(g.priority)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', width: '100%', background: 'var(--surface-2)', border: 'none', borderBottom: collapsed ? 'none' : '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
-                >
-                  <SFIcon name={collapsed ? 'chevron-right' : 'chevron-down'} size={13} color="var(--text-3)" />
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: PRIORITY_COLOR[g.priority], display: 'block', flexShrink: 0 }} />
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-2)', fontWeight: 600 }}>
-                    {PRIORITY_LABEL[g.priority]}
-                  </span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({g.tasks.length})</span>
-                </button>
-                {!collapsed && (
-                  <>
-                    <div style={{ padding: '8px 0 0' }}>
-                      <ColHeader {...colHeaderProps} />
-                    </div>
-                    {g.tasks.map(task => (
-                      <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} onSelect={setSelectedTask} flashId={flashId} />
-                    ))}
-                    <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, opts)} />
-                  </>
-                )}
+          /* Grouped by section */
+          <>
+            {/* Tasks with no section */}
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ padding: '8px 0 0' }}>
+                <ColHeader {...colHeaderProps} />
               </div>
-            );
-          })
+              {noSectionTasks.map(task => (
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
+              ))}
+              <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
+            </div>
+
+            {/* Named sections */}
+            {sectionGroups.map(g => {
+              const collapsed = collapsedGroups.has(g.label);
+              return (
+                <div key={g.label} style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                  <SectionHeader
+                    label={g.label}
+                    count={g.tasks.length}
+                    collapsed={collapsed}
+                    onToggle={() => toggleGroup(g.label)}
+                    onDelete={() => removeMyTaskSection(g.label)}
+                  />
+                  {!collapsed && (
+                    <>
+                      <div style={{ padding: '8px 0 0' }}>
+                        <ColHeader {...colHeaderProps} />
+                      </div>
+                      {g.tasks.map(task => (
+                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
+                      ))}
+                      <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} />
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Add section */}
+            {addingSection ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                <input
+                  autoFocus
+                  value={newSectionLabel}
+                  onChange={e => setNewSectionLabel(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newSectionLabel.trim()) {
+                      addMyTaskSection(newSectionLabel.trim());
+                      setNewSectionLabel('');
+                      setAddingSection(false);
+                    }
+                    if (e.key === 'Escape') { setAddingSection(false); setNewSectionLabel(''); }
+                  }}
+                  placeholder="Nom de la section…"
+                  style={{ flex: 1, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+                />
+                <button onClick={() => { setAddingSection(false); setNewSectionLabel(''); }}
+                  style={{ padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                  Annuler
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAddingSection(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'none', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', width: '100%', transition: 'border-color 0.1s, color 0.1s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+              >
+                <SFIcon name="plus" size={13} />
+                Nouvelle section
+              </button>
+            )}
+          </>
         )}
       </div>
       </div>
+
+      {/* Multi-select floating action bar */}
+      {multiSelIds.size > 0 && createPortal(
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
+          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{multiSelIds.size} tâche{multiSelIds.size > 1 ? 's' : ''}</span>
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+          <button onClick={() => {
+            [...multiSelIds].forEach(id => removeMyTask(id));
+            setMultiSelIds(new Set());
+          }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="trash-2" size={13} />
+            Supprimer
+          </button>
+          <button onClick={() => setMultiSelIds(new Set())} style={{ display: 'flex', padding: 4, borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+            <SFIcon name="x" size={14} />
+          </button>
+        </div>,
+        document.body,
+      )}
 
       {/* Task panel overlay */}
       {selectedTask && (

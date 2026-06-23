@@ -91,6 +91,7 @@ export interface Task {
   deliverableNote?: string;
   linkedResources?: string[];
   sectionLabel?: string;
+  mySection?: string;
 }
 
 // ── Resource ──────────────────────────────────────────────────────────────────

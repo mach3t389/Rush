@@ -471,7 +471,10 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      const t = e.target as Element | null;
+      // Ignore clicks inside portaled children (DatePicker, TimePicker dropdowns)
+      if (t?.closest('[data-panel-child]')) return;
+      if (panelRef.current && !panelRef.current.contains(t)) onClose();
     };
     // Delay to avoid closing immediately on the click that opened the panel
     const t = setTimeout(() => document.addEventListener('mousedown', handler), 0);
