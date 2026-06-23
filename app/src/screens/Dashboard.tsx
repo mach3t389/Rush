@@ -1,12 +1,13 @@
-﻿import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
 import { TODAY_TASKS, ACTIVITY, PROJECTS } from '../data/mock';
-import type { Project } from '../types';
+import { getEvents, subscribeEvents, type CalendarEvent } from '../data/eventStore';
+import { getEventTypeById } from '../data/eventTypeStore';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const DAYS_FR  = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const DAYS_FR   = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sep', 'oct', 'nov', 'déc'];
 const TODAY = new Date();
 
@@ -32,6 +33,24 @@ function parseFrDate(s: string): Date | null {
   return null;
 }
 
+function fmtEventTime(ev: CalendarEvent): string {
+  const start = new Date(ev.start);
+  const now = new Date();
+  const isToday = isSameDay(start, now);
+  const isTomorrow = isSameDay(start, addDays(now, 1));
+  const dayStr = isToday ? "Aujourd'hui" : isTomorrow ? 'Demain'
+    : `${DAYS_FR[start.getDay()]} ${start.getDate()} ${MONTHS_FR[start.getMonth()]}`;
+  if (ev.allDay) return dayStr;
+  const hh = String(start.getHours()).padStart(2, '0');
+  const mm = String(start.getMinutes()).padStart(2, '0');
+  return `${dayStr} · ${hh}h${mm}`;
+}
+
+function isEventNow(ev: CalendarEvent): boolean {
+  const now = Date.now();
+  return new Date(ev.start).getTime() <= now && new Date(ev.end).getTime() >= now;
+}
+
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: 'var(--danger)',
   high:   'var(--warn)',
@@ -39,96 +58,70 @@ const PRIORITY_COLOR: Record<string, string> = {
   low:    'var(--surface-3)',
 };
 
-// ── Task row ──────────────────────────────────────────────────────────────────
+// ── Collapsible section card ──────────────────────────────────────────────────
 
-function TaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () => void }) {
-  const [checked, setChecked] = useState(false);
+function CollapsibleCard({
+  icon, title, badge, linkLabel, onLink, children, defaultOpen = true,
+}: {
+  icon: string; title: string; badge?: string | number;
+  linkLabel?: string; onLink?: () => void;
+  children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'flex-start', gap: 10,
-        padding: '9px 0', borderBottom: '1px solid var(--border)',
-        cursor: onClick ? 'pointer' : 'default',
-        opacity: checked ? 0.45 : 1, transition: 'opacity 0.15s',
-      }}
-    >
-      {/* Priority bar */}
-      <div style={{
-        width: 3, alignSelf: 'stretch', borderRadius: 99, flexShrink: 0,
-        background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)',
-        minHeight: 28,
-      }} />
-
-      {/* Checkbox */}
+    <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
       <button
-        onClick={e => { e.stopPropagation(); setChecked(v => !v); }}
+        onClick={() => setOpen(v => !v)}
         style={{
-          width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-          border: checked ? 'none' : '1.5px solid var(--border-2)',
-          background: checked ? 'var(--ok)' : 'transparent',
-          cursor: 'pointer', marginTop: 2,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+          padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer',
+          borderBottom: open ? '1px solid var(--border)' : 'none',
         }}
       >
-        {checked && <SFIcon name="check" size={9} color="#fff" />}
+        <SFIcon name={icon} size={14} color="var(--text-3)" />
+        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', flex: 1, textAlign: 'left' }}>{title}</span>
+        {badge !== undefined && (
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 6, padding: '1px 7px' }}>{badge}</span>
+        )}
+        {linkLabel && onLink && (
+          <span
+            onClick={e => { e.stopPropagation(); onLink(); }}
+            style={{ fontSize: 12, color: 'var(--accent-dim)', marginLeft: 4, cursor: 'pointer' }}
+          >{linkLabel} →</span>
+        )}
+        <SFIcon name={open ? 'chevron-up' : 'chevron-down'} size={13} color="var(--text-3)" />
       </button>
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          fontSize: 13, lineHeight: 1.4, fontWeight: 500,
-          color: checked ? 'var(--text-3)' : 'var(--text)',
-          textDecoration: checked ? 'line-through' : 'none',
-        }}>{task.title}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-          <span style={{
-            fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700,
-            color: 'white', background: task.projectColor ?? 'var(--surface-3)',
-            borderRadius: 5, padding: '1px 6px',
-          }}>{task.projectName}</span>
-          <SFPill status={task.status} small>{task.statusLabel}</SFPill>
-          {task.dueDate && task.dueDate !== '—' && (
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <SFIcon name="calendar" size={9}  />
-              {fmtTaskDate(task.dueDate ?? '')}
-            </span>
-          )}
-        </div>
-      </div>
+      {open && children}
     </div>
   );
 }
 
-// ── Project card ──────────────────────────────────────────────────────────────
+// ── Compact task row ──────────────────────────────────────────────────────────
 
-function ProjectCard({ p, onClick }: { p: Project; onClick: () => void }) {
+function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () => void }) {
   return (
     <div
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 0', borderBottom: '1px solid var(--border)',
-        cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 9,
+        padding: '9px 18px', borderBottom: '1px solid var(--border)',
+        cursor: onClick ? 'pointer' : 'default',
       }}
-      onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
-      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      {/* Color dot */}
-      <div style={{ width: 32, height: 32, borderRadius: 9, background: p.clientColor, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'white', fontWeight: 700 }}>{p.clientName.slice(0, 2).toUpperCase()}</span>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-          <SFPill status={p.status} small>{p.statusLabel}</SFPill>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <SFBar value={p.progress} height={3} style={{ flex: 1 }} />
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{p.progress}%</span>
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{p.deliveryDate}</span>
-        </div>
-      </div>
+      <div style={{ width: 3, height: 26, borderRadius: 99, flexShrink: 0, background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)' }} />
+      <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>{task.title}</p>
+      <span style={{
+        fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700,
+        color: 'white', background: task.projectColor ?? 'var(--surface-3)',
+        borderRadius: 5, padding: '1px 6px', flexShrink: 0,
+      }}>{task.projectName}</span>
+      {task.dueDate && task.dueDate !== '—' && (
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', flexShrink: 0 }}>
+          {fmtTaskDate(task.dueDate ?? '')}
+        </span>
+      )}
     </div>
   );
 }
@@ -140,15 +133,16 @@ export function Dashboard() {
   const activeProjects = PROJECTS.filter(p => p.status !== 'neutral');
   const lateProjects   = PROJECTS.filter(p => p.status === 'danger').length;
   const urgentToday    = TODAY_TASKS.filter(t => t.priority === 'urgent').length;
-  const [taskFilter, setTaskFilter] = useState<'all' | 'urgent' | 'today'>('all');
-  const [showAllTasks, setShowAllTasks] = useState(false);
 
-  const filteredTasks = TODAY_TASKS.filter(t => {
-    if (taskFilter === 'urgent') return t.priority === 'urgent';
-    if (taskFilter === 'today')  return t.dueDate === "Aujourd'hui";
-    return true;
-  });
-  const visibleTasks = showAllTasks ? filteredTasks : filteredTasks.slice(0, 8);
+  const [events, setEvents] = useState<CalendarEvent[]>(getEvents);
+  useEffect(() => subscribeEvents(() => setEvents(getEvents())), []);
+
+  const now = new Date();
+  const in14Days = addDays(now, 14);
+  const upcomingEvents = events
+    .filter(ev => new Date(ev.end) >= now && new Date(ev.start) <= in14Days)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    .slice(0, 6);
 
   // Next 7 days for deadlines strip
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(TODAY, i));
@@ -171,244 +165,252 @@ export function Dashboard() {
   })();
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      {/* Header compact */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 26, lineHeight: 1.2 }}>Bonjour, Léa 👋</h1>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-            {dayLabel} · {urgentToday > 0
-              ? <><span style={{ color: 'var(--danger)' }}>{urgentToday} tâche{urgentToday > 1 ? 's' : ''} urgente{urgentToday > 1 ? 's' : ''}</span> aujourd'hui</>
-              : 'Aucune tâche urgente aujourd\'hui'}
+          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>Bonjour, Léa 👋</h1>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+            {dayLabel}
           </p>
+        </div>
+        {/* Inline mini-stats */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginRight: 'auto', marginLeft: 24 }}>
+          {[
+            { value: activeProjects.length, label: 'projets actifs',     color: 'var(--text-2)' },
+            { value: TODAY_TASKS.length,    label: 'tâches cette semaine', color: 'var(--text-2)' },
+            ...(lateProjects > 0  ? [{ value: lateProjects,             label: 'en retard',      color: 'var(--danger)' }] : []),
+            ...(urgentToday > 0   ? [{ value: urgentToday,              label: 'urgentes auj.',  color: 'var(--warn)'   }] : []),
+          ].map(s => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: 20, color: s.color, lineHeight: 1 }}>{s.value}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{s.label}</span>
+            </div>
+          ))}
         </div>
         <SFButton variant="primary" icon="plus" onClick={() => navigate('/projets')}>Nouveau projet</SFButton>
       </div>
 
-      {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {[
-          { value: activeProjects.length, label: 'Projets actifs',          icon: 'folder',       color: 'var(--accent)',  bg: 'rgba(249,255,0,0.06)'  },
-          { value: TODAY_TASKS.length,    label: 'Tâches cette semaine',     icon: 'check-square', color: 'var(--info)',    bg: 'rgba(100,160,255,0.06)' },
-          { value: lateProjects,          label: 'Projets en retard',        icon: 'alert-circle', color: 'var(--danger)',  bg: 'rgba(255,60,60,0.06)'  },
-          { value: PENDING_APPROVALS.length, label: 'Approbations en attente', icon: 'shield',    color: 'var(--warn)',    bg: 'rgba(255,180,0,0.06)'  },
-        ].map(kpi => (
-          <div key={kpi.label} style={{
-            background: kpi.bg, border: `1px solid ${kpi.color}20`,
-            borderRadius: 'var(--radius)', padding: '14px 18px',
-            display: 'flex', alignItems: 'center', gap: 14,
-          }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${kpi.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <SFIcon name={kpi.icon} size={18} color={kpi.color} />
-            </div>
-            <div>
-              <p style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 28, color: kpi.color, lineHeight: 1 }}>{kpi.value}</p>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{kpi.label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Main body: 2 columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16, flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16 }}>
 
-        {/* LEFT — Mes tâches */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* LEFT */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          {/* Tasks card */}
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Card header */}
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>Mes tâches</span>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 6, padding: '1px 7px' }}>{filteredTasks.length}</span>
-              </div>
-              {/* Filters */}
-              <div style={{ display: 'flex', gap: 4 }}>
-                {([
-                  { key: 'all'    as const, label: 'Toutes' },
-                  { key: 'urgent' as const, label: '🔴 Urgentes' },
-                  { key: 'today'  as const, label: "Aujourd'hui" },
-                ]).map(f => (
-                  <button key={f.key} onClick={() => setTaskFilter(f.key)} style={{
-                    padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                    background: taskFilter === f.key ? 'var(--surface-3)' : 'transparent',
-                    color: taskFilter === f.key ? 'var(--text)' : 'var(--text-3)',
-                    fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: taskFilter === f.key ? 600 : 400,
-                  }}>{f.label}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Task list */}
-            <div style={{ padding: '0 18px', overflowY: 'auto' }}>
-              {visibleTasks.map(t => (
-                <TaskRow key={t.id} task={t} onClick={() => navigate('/taches')} />
-              ))}
-              {filteredTasks.length === 0 && (
-                <p style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Aucune tâche</p>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              {filteredTasks.length > 8 && (
-                <button
-                  onClick={() => setShowAllTasks(v => !v)}
-                  style={{ fontSize: 12, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  {showAllTasks ? 'Voir moins ↑' : `+${filteredTasks.length - 8} tâches`}
-                </button>
-              )}
-              <button
-                onClick={() => navigate('/taches')}
-                style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--accent-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                Voir toutes mes tâches →
+          {/* Mes tâches — collapsible compact */}
+          <CollapsibleCard
+            icon="check-square" title="Mes tâches" badge={TODAY_TASKS.length}
+            linkLabel="Voir toutes" onLink={() => navigate('/taches')}
+          >
+            {TODAY_TASKS.slice(0, 5).map(t => (
+              <CompactTaskRow key={t.id} task={t} onClick={() => navigate('/taches')} />
+            ))}
+            {TODAY_TASKS.length > 5 && (
+              <button onClick={() => navigate('/taches')} style={{
+                width: '100%', padding: '8px 16px', background: 'none', border: 'none',
+                cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', textAlign: 'left',
+              }}>
+                +{TODAY_TASKS.length - 5} tâches → Voir toutes
               </button>
-            </div>
-          </div>
+            )}
+          </CollapsibleCard>
 
-          {/* Prochaines échéances — 7-day strip */}
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <SFIcon name="calendar-days" size={14} color="var(--text-3)" />
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Prochaines échéances</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '12px 18px', gap: 6 }}>
+          {/* Prochaines échéances — compact */}
+          <CollapsibleCard icon="calendar-days" title="Prochaines échéances" defaultOpen={false}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '10px 16px', gap: 4 }}>
               {tasksByDay.map(({ day, tasks: dayTasks }, i) => {
                 const isToday = i === 0;
                 const hasUrgent = dayTasks.some(t => t.priority === 'urgent');
                 return (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: isToday ? 'var(--accent)' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: isToday ? 'var(--accent)' : 'var(--text-3)', textTransform: 'uppercase' }}>
                       {DAYS_FR[day.getDay()]}
                     </span>
                     <div style={{
-                      width: 28, height: 28, borderRadius: '50%',
+                      width: 24, height: 24, borderRadius: '50%',
                       background: isToday ? 'var(--accent)' : 'transparent',
                       border: isToday ? 'none' : '1px solid var(--border)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? 'var(--on-accent)' : 'var(--text-2)' }}>{day.getDate()}</span>
+                      <span style={{ fontSize: 11, fontWeight: isToday ? 700 : 400, color: isToday ? 'var(--on-accent)' : 'var(--text-2)' }}>{day.getDate()}</span>
                     </div>
-                    {dayTasks.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
-                        {dayTasks.slice(0, 2).map((t, ti) => (
-                          <div key={ti} style={{
-                            height: 4, borderRadius: 99,
-                            background: hasUrgent ? 'var(--danger)' : 'var(--accent)',
-                          }} />
-                        ))}
-                        {dayTasks.length > 2 && (
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textAlign: 'center' }}>+{dayTasks.length - 2}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <div style={{ height: 4 }} />
+                    {dayTasks.length > 0 && (
+                      <div style={{ width: 16, height: 3, borderRadius: 99, background: hasUrgent ? 'var(--danger)' : 'var(--accent)' }} />
                     )}
                   </div>
                 );
               })}
             </div>
-            {/* List of tasks with dates this week */}
-            <div style={{ borderTop: '1px solid var(--border)', padding: '0 18px' }}>
-              {tasksByDay.flatMap(({ day, tasks: dTasks }) => dTasks.map(t => ({ t, day }))).slice(0, 4).map(({ t, day }, i, arr) => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ width: 3, height: 30, borderRadius: 99, background: PRIORITY_COLOR[t.priority] ?? 'var(--border-2)', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{t.projectName}</p>
-                  </div>
+            <div style={{ borderTop: '1px solid var(--border)' }}>
+              {tasksByDay.flatMap(({ day, tasks: dTasks }) => dTasks.map(t => ({ t, day }))).slice(0, 3).map(({ t, day }, i, arr) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 18px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ width: 3, height: 26, borderRadius: 99, background: PRIORITY_COLOR[t.priority] ?? 'var(--border-2)', flexShrink: 0 }} />
+                  <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isSameDay(day, TODAY) ? 'var(--accent)' : 'var(--text-3)', flexShrink: 0 }}>
                     {isSameDay(day, TODAY) ? "Auj." : `${DAYS_FR[day.getDay()]} ${day.getDate()}`}
                   </span>
                 </div>
               ))}
               {tasksByDay.flatMap(({ tasks: dTasks }) => dTasks).length === 0 && (
-                <p style={{ padding: '12px 0', color: 'var(--text-3)', fontSize: 12 }}>Aucune échéance cette semaine</p>
+                <p style={{ padding: '12px 18px', color: 'var(--text-3)', fontSize: 13 }}>Aucune échéance cette semaine</p>
               )}
             </div>
-          </div>
-        </div>
+          </CollapsibleCard>
 
-        {/* RIGHT — Projets + Approbations + Activité */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Projets actifs */}
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Projets actifs</span>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 6, padding: '1px 7px' }}>{activeProjects.length}</span>
-            </div>
-            <div style={{ padding: '0 18px' }}>
-              {PROJECTS.slice(0, 5).map(p => (
-                <ProjectCard key={p.id} p={p} onClick={() => navigate(`/projets/${p.id}`)} />
-              ))}
-            </div>
-            <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)' }}>
-              <button onClick={() => navigate('/projets')} style={{ fontSize: 12, color: 'var(--accent-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                Voir tous les projets →
-              </button>
-            </div>
-          </div>
-
-          {/* En attente d'approbation */}
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <SFIcon name="shield" size={14} color="var(--warn)" />
-              <span style={{ fontWeight: 600, fontSize: 14 }}>En attente d'approbation</span>
-            </div>
-            <div style={{ padding: '0 18px' }}>
-              {PENDING_APPROVALS.map((item, i) => (
+          {/* Prochains événements */}
+          <CollapsibleCard
+            icon="calendar-clock" title="Prochains événements"
+            linkLabel="Calendrier" onLink={() => navigate('/calendrier')}
+          >
+            {upcomingEvents.length === 0 && (
+              <p style={{ padding: '16px 18px', color: 'var(--text-3)', fontSize: 13 }}>Aucun événement dans les 14 prochains jours</p>
+            )}
+            {upcomingEvents.map((ev, i) => {
+              const type = getEventTypeById(ev.eventTypeId);
+              const inProgress = isEventNow(ev);
+              const project = PROJECTS.find(p => p.id === ev.projectId);
+              return (
                 <div
-                  key={item.name}
-                  onClick={() => navigate(`/projets/${item.projectId}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < PENDING_APPROVALS.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  key={ev.id}
+                  onClick={() => navigate('/calendrier')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '9px 18px',
+                    borderBottom: i < upcomingEvents.length - 1 ? '1px solid var(--border)' : 'none',
+                    cursor: 'pointer',
+                    background: inProgress ? 'rgba(249,255,0,0.03)' : 'transparent',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = inProgress ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = inProgress ? 'rgba(249,255,0,0.03)' : 'transparent')}
                 >
-                  <div style={{ width: 34, height: 24, borderRadius: 6, flexShrink: 0, background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 10px), var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
-                    <SFIcon name="film" size={11} color="var(--text-3)" />
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                    background: `${type?.color ?? '#888'}1a`,
+                    border: `1px solid ${type?.color ?? '#888'}40`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <SFIcon name={type?.icon ?? 'circle'} size={14} color={type?.color ?? '#888'} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: `var(--${item.status})`, marginTop: 2 }}>En attente depuis {item.delay}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
+                      {inProgress && (
+                        <span style={{
+                          flexShrink: 0, fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700,
+                          color: 'var(--on-accent)', background: 'var(--accent)',
+                          borderRadius: 4, padding: '1px 5px', letterSpacing: '0.05em',
+                        }}>EN COURS</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: inProgress ? 'var(--accent)' : 'var(--text-3)' }}>
+                        {fmtEventTime(ev)}
+                      </span>
+                      {project && (
+                        <>
+                          <span style={{ color: 'var(--border-2)', fontSize: 9 }}>·</span>
+                          <span style={{
+                            fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700,
+                            color: 'white', background: project.clientColor,
+                            borderRadius: 4, padding: '1px 6px',
+                          }}>{project.name}</span>
+                        </>
+                      )}
+                      {ev.location && (
+                        <>
+                          <span style={{ color: 'var(--border-2)', fontSize: 9 }}>·</span>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.location}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <SFIcon name="chevron-right" size={13} color="var(--text-3)" />
                 </div>
-              ))}
-            </div>
-          </div>
+              );
+            })}
+          </CollapsibleCard>
+        </div>
 
-          {/* Activité récente (compact) */}
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <SFIcon name="activity" size={14} color="var(--text-3)" />
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Activité récente</span>
-            </div>
-            <div style={{ padding: '0 18px' }}>
-              {ACTIVITY.slice(0, 4).map((item, i) => (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 0', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
-                  <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontWeight: 600 }}>{item.actor.name.split(' ')[0]}</span>
-                      {' '}<span style={{ color: 'var(--text-3)' }}>{item.action}</span>{' '}
-                      <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
-                    </p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{item.time}</p>
-                  </div>
+        {/* RIGHT */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Projets actifs — collapsible compact */}
+          <CollapsibleCard
+            icon="folder" title="Projets actifs" badge={activeProjects.length}
+            linkLabel="Voir tous" onLink={() => navigate('/projets')}
+          >
+            {PROJECTS.slice(0, 6).map((p, i) => (
+              <div
+                key={p.id}
+                onClick={() => navigate(`/projets/${p.id}`)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 18px',
+                  borderBottom: i < Math.min(PROJECTS.length, 6) - 1 ? '1px solid var(--border)' : 'none',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
+                <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+                <div style={{ width: 60, flexShrink: 0 }}>
+                  <SFBar value={p.progress} height={3} />
                 </div>
-              ))}
-            </div>
-            <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)' }}>
-              <button onClick={() => navigate('/activite')} style={{ fontSize: 12, color: 'var(--accent-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                Voir toute l'activité →
-              </button>
-            </div>
-          </div>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, width: 28, textAlign: 'right' }}>{p.progress}%</span>
+                <SFPill status={p.status} small>{p.statusLabel}</SFPill>
+              </div>
+            ))}
+          </CollapsibleCard>
+
+          {/* En attente d'approbation */}
+          <CollapsibleCard icon="shield" title="En attente d'approbation" badge={PENDING_APPROVALS.length}>
+            {PENDING_APPROVALS.map((item, i) => (
+              <div
+                key={item.name}
+                onClick={() => navigate(`/projets/${item.projectId}`)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 18px',
+                  borderBottom: i < PENDING_APPROVALS.length - 1 ? '1px solid var(--border)' : 'none',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ width: 34, height: 24, borderRadius: 6, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SFIcon name="film" size={12} color="var(--text-3)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: `var(--${item.status})`, marginTop: 2 }}>En attente depuis {item.delay}</p>
+                </div>
+                <SFIcon name="chevron-right" size={13} color="var(--text-3)" />
+              </div>
+            ))}
+          </CollapsibleCard>
+
+          {/* Activité récente */}
+          <CollapsibleCard
+            icon="activity" title="Activité récente"
+            linkLabel="Tout voir" onLink={() => navigate('/activite')}
+            defaultOpen={false}
+          >
+            {ACTIVITY.slice(0, 5).map((item, i) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 18px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontWeight: 600 }}>{item.actor.name.split(' ')[0]}</span>
+                    {' '}<span style={{ color: 'var(--text-3)' }}>{item.action}</span>{' '}
+                    <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
+                  </p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{item.time}</p>
+                </div>
+              </div>
+            ))}
+          </CollapsibleCard>
 
         </div>
       </div>

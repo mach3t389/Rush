@@ -1704,7 +1704,6 @@ export function Travail() {
     setSections(prev => [...prev, { label, tasks: [] }]);
     setNewSectionLabel('');
     setAddingSection(false);
-    setActiveSection(label);
   };
 
   const handleToggleComplete = (idx: number) => {

@@ -1109,21 +1109,17 @@ export function Taches() {
   const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
   const hasActiveFilters = filterPriorities.size > 0 || filterStatuses.size > 0;
 
-  // Grouped view (by section) vs flat sorted view
-  const noSectionTasks = visible.filter(t => !t.mySection);
+  // Grouped view (always on — sort applies within each group)
+  const sortedVisible = sortCol ? sortTasks(visible, sortCol, sortDir) : visible;
+  const noSectionTasks = sortedVisible.filter(t => !t.mySection);
   const sectionGroups = mySections.map(label => ({
     label,
-    tasks: visible.filter(t => t.mySection === label),
+    tasks: sortedVisible.filter(t => t.mySection === label),
   }));
-
-  const flatSorted = sortCol ? sortTasks(visible, sortCol, sortDir) : visible;
-  const useFlat = sortCol !== null;
 
   const handleSelectTask = useCallback((task: Task, e?: React.MouseEvent) => {
     if (e && e.shiftKey && anchorTaskId.current) {
-      const orderedIds = useFlat
-        ? flatSorted.map(t => t.id)
-        : [...noSectionTasks, ...sectionGroups.flatMap(g => g.tasks)].map(t => t.id);
+      const orderedIds = [...noSectionTasks, ...sectionGroups.flatMap(g => g.tasks)].map(t => t.id);
       const aIdx = orderedIds.indexOf(anchorTaskId.current);
       const bIdx = orderedIds.indexOf(task.id);
       if (aIdx !== -1 && bIdx !== -1) {
@@ -1143,7 +1139,7 @@ export function Taches() {
     setMultiSelIds(new Set());
     setSelectedTask(prev => prev?.id === task.id ? null : task);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flatSorted, noSectionTasks, sectionGroups, useFlat]);
+  }, [noSectionTasks, sectionGroups]);
 
   const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort };
 
@@ -1209,22 +1205,8 @@ export function Taches() {
           </div>
         )}
 
-        {useFlat ? (
-          /* Flat sorted view */
-          flatSorted.length > 0 && (
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '8px 0 0' }}>
-                <ColHeader {...colHeaderProps} />
-              </div>
-              {flatSorted.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
-              ))}
-              <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
-            </div>
-          )
-        ) : (
-          /* Grouped by section */
-          <>
+        {/* Grouped by section — sort applies within each group */}
+        <>
             {/* Tasks with no section */}
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '8px 0 0' }}>
@@ -1298,7 +1280,6 @@ export function Taches() {
               </button>
             )}
           </>
-        )}
       </div>
       </div>
 
