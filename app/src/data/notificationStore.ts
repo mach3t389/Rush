@@ -9,7 +9,7 @@ const STORAGE_KEY = 'sf_notifs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type NotifKind = 'comment' | 'mention' | 'status' | 'annotation' | 'version';
+export type NotifKind = 'comment' | 'mention' | 'status' | 'annotation' | 'version' | 'approval';
 
 export interface AppNotif {
   id: string;
@@ -37,6 +37,7 @@ function seedNotifs(): AppNotif[] {
     status:     ['a changé le statut', 'a mis à jour la priorité'],
     annotation: ['a ajouté une annotation'],
     version:    ['a uploadé une nouvelle version'],
+    approval:   ['a demandé une approbation'],
   };
   const actors = ['Sarah Martin', 'Thomas Robert', 'Julie Bernard', 'Marc Dufour'];
 

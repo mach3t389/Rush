@@ -196,6 +196,50 @@ export function MeetingField({ value, onChange, title }: {
   );
 }
 
+// Sélecteur de projet stylé — remplace le <select> natif, cohérent avec les autres menus déroulants
+function ProjectSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const options = [
+    { id: '', label: '— Sans projet —', color: null as string | null, italic: true },
+    ...PROJECTS.map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
+  ];
+  const sel = options.find(o => o.id === value) ?? options[0];
+  return (
+    <div style={{ position:'relative', marginBottom:12 }}>
+      <button type="button" onClick={()=>setOpen(o=>!o)}
+        style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:9, border:`1px solid ${open?'var(--accent)':'var(--border)'}`, background:'var(--surface-2)', color:'var(--text)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)', textAlign:'left', boxSizing:'border-box' }}
+      >
+        {sel.color && <div style={{ width:9, height:9, borderRadius:'50%', background:sel.color, flexShrink:0 }} />}
+        <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontStyle: sel.italic?'italic':undefined, color: sel.italic?'var(--text-3)':'var(--text)' }}>{sel.label}</span>
+        <SFIcon name={open?'chevron-up':'chevron-down'} size={13} color="var(--text-3)" />
+      </button>
+      {open && (
+        <>
+          <div onClick={()=>setOpen(false)} style={{ position:'fixed', inset:0, zIndex:60 }} />
+          <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:70, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:11, padding:5, boxShadow:'0 12px 32px rgba(0,0,0,0.55)', maxHeight:240, overflowY:'auto' }}>
+            {options.map(o=>{
+              const on = o.id === value;
+              return (
+                <button key={o.id} type="button" onClick={()=>{ onChange(o.id); setOpen(false); }}
+                  style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 10px', borderRadius:7, border:'none', background: on?'rgba(249,255,0,0.07)':'transparent', cursor:'pointer', textAlign:'left' }}
+                  onMouseEnter={e=>{ if(!on)(e.currentTarget as HTMLElement).style.background='var(--surface-2)'; }}
+                  onMouseLeave={e=>{ if(!on)(e.currentTarget as HTMLElement).style.background='transparent'; }}
+                >
+                  {o.color
+                    ? <div style={{ width:9, height:9, borderRadius:'50%', background:o.color, flexShrink:0 }} />
+                    : <div style={{ width:9, height:9, flexShrink:0 }} />}
+                  <span style={{ flex:1, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontStyle:o.italic?'italic':undefined, color: on?'var(--accent)':(o.italic?'var(--text-3)':'var(--text)') }}>{o.label}</span>
+                  {on && <SFIcon name="check" size={13} color="var(--accent)" />}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defaultAllDay, onClose }: {
   defaultDate: Date;
   defaultStartTime?: string;
@@ -342,12 +386,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
         </div>
 
         {/* Project */}
-        <select value={projectId} onChange={e=>setProjectId(e.target.value)}
-          style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,boxSizing:'border-box' }}
-        >
-          <option value=''>— Sans projet —</option>
-          {PROJECTS.map(p=><option key={p.id} value={p.id}>{p.name} — {p.clientName}</option>)}
-        </select>
+        <ProjectSelect value={projectId} onChange={setProjectId} />
 
         {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder="Titre…"
@@ -808,12 +847,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         </div>
 
         {/* Project */}
-        <select value={projectId} onChange={e=>setProjectId(e.target.value)}
-          style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,boxSizing:'border-box' }}
-        >
-          <option value=''>— Sans projet —</option>
-          {PROJECTS.map(p=><option key={p.id} value={p.id}>{p.name} — {p.clientName}</option>)}
-        </select>
+        <ProjectSelect value={projectId} onChange={setProjectId} />
 
         {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Titre…"
@@ -1014,7 +1048,9 @@ export function CalendrierGlobal() {
   return (
     <div style={{ height:'100%',display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
-      <div style={{ width:240,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
+      <div style={{ width:240,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden' }}>
+        {/* Zone scrollable : actions + filtres — indépendante des « Prochains événements » pour que les filtres ne bougent pas */}
+        <div style={{ flex:1,minHeight:0,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:20 }}>
         <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
 
         <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
@@ -1116,10 +1152,12 @@ export function CalendrierGlobal() {
           );
         })()}
 
-        {/* Upcoming */}
-        <div>
-          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Prochains événements</p>
-          <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
+        </div>{/* fin zone scrollable filtres */}
+
+        {/* Prochains événements — panneau ancré au bas, scroll interne : ne déplace plus les filtres au-dessus */}
+        <div style={{ flexShrink:0,borderTop:'1px solid var(--border)',padding:'12px 16px',display:'flex',flexDirection:'column',gap:8,maxHeight:'42%' }}>
+          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Prochains événements</p>
+          <div style={{ display:'flex',flexDirection:'column',gap:6,overflowY:'auto',minHeight:0 }}>
             {upcoming.map(ev=>(
               <div key={ev.id} onClick={()=>setSelectedEvent(ev)} style={{ display:'flex',gap:8,cursor:'pointer',padding:'6px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)' }}
                 onMouseEnter={e=>(e.currentTarget.style.borderColor='var(--border-2)')}

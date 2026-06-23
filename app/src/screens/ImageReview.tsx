@@ -4,6 +4,7 @@ import { SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
+import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { markResourceRead } from '../data/notificationStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
@@ -374,6 +375,9 @@ export function ImageReview() {
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
           <SFIcon name="upload" size={13}  />
         </button>
+
+        {/* Request approval */}
+        <RequestApprovalButton resource={resource} projectId={projectId} />
 
         {/* Fullscreen button */}
         <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}

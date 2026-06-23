@@ -18,6 +18,7 @@ import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import { addResource } from '../data/resourceStore';
+import { getResourceContent } from '../data/resourceContentStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ function FileTypeIcon({ type, resourceType, size = 28 }: { type: FileItemType | 
 
 // ── Context menu ───────────────────────────────────────────────────────────────
 
-interface CtxMenuItem { label: string; icon: string; action: () => void; danger?: boolean; separator?: boolean }
+interface CtxMenuItem { label: string; icon: string; action: () => void; danger?: boolean; separator?: boolean; header?: boolean; color?: string }
 
 function ContextMenu({ items, pos, onClose }: { items: CtxMenuItem[]; pos: { x: number; y: number }; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -234,6 +235,8 @@ function ContextMenu({ items, pos, onClose }: { items: CtxMenuItem[]; pos: { x: 
     }}>
       {items.map((item, i) => item.separator
         ? <div key={i} style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+        : item.header
+        ? <p key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 14px 3px', fontWeight: 700 }}>{item.label}</p>
         : (
           <button key={i}
             onClick={() => { item.action(); onClose(); }}
@@ -247,7 +250,7 @@ function ContextMenu({ items, pos, onClose }: { items: CtxMenuItem[]; pos: { x: 
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
           >
-            <SFIcon name={item.icon} size={13} color={item.danger ? 'var(--danger)' : 'var(--text-2)'} />
+            <SFIcon name={item.icon} size={13} color={item.danger ? 'var(--danger)' : item.color ?? 'var(--text-2)'} />
             {item.label}
           </button>
         )
@@ -620,6 +623,8 @@ function FileTree({
 
 // -- Storage view (WinDirStat-style) --
 
+interface StorageVersion { id: string; name: string; subtitle?: string; size: number }
+
 interface StorageItem {
   id: string;
   name: string;
@@ -632,6 +637,19 @@ interface StorageItem {
   onClick?: () => void;
   folderItem?: FileFolder;
   fileItem?: FileItem;
+  versions?: StorageVersion[];
+}
+
+// Versions (avec tailles) d'une ressource à upload (révision vidéo/photo/audio/fichier), lues sans entrer dans la ressource.
+const FALLBACK_VERSION_BYTES = [1_600_000_000, 1_900_000_000, 2_150_000_000]; // V1·V2·V3 simulées si la ressource n'a jamais été ouverte
+function resourceVersionSizes(file: FileItem): StorageVersion[] | undefined {
+  if (file.type !== 'resource' || !file.resourceId || file.resourceType !== 'video_review') return undefined;
+  const content = getResourceContent<{ versions?: { v: string; label?: string; size?: number }[] }>(file.resourceId);
+  if (content?.versions?.length) {
+    return content.versions.map(v => ({ id: `${file.id}-${v.v}`, name: v.v, subtitle: v.label, size: v.size ?? 0 }));
+  }
+  // Repli : versions simulées stables (la persistance réelle prend le relais dès que la ressource est ouverte).
+  return FALLBACK_VERSION_BYTES.map((sz, i) => ({ id: `${file.id}-V${i + 1}`, name: `V${i + 1}`, subtitle: i === 0 ? 'Version initiale' : 'Révision', size: sz }));
 }
 
 function buildSizeMap(folders: FileFolder[], files: FileItem[]): Map<string, { size: number; count: number }> {
@@ -681,6 +699,7 @@ export function StorageView({
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
 
   const sizeMap = React.useMemo(() => buildSizeMap(folders, files), [folders, files]);
 
@@ -755,11 +774,14 @@ export function StorageView({
 
     const fileItems: StorageItem[] = currentFiles.map(f => {
       const meta = TYPE_META[f.type] ?? TYPE_META.other;
+      const versions = resourceVersionSizes(f);
+      const size = versions ? versions.reduce((s, v) => s + v.size, 0) : (f.size ?? 0);
       return {
         id: f.id, name: f.name, isFolder: false,
-        size: f.size ?? 0, count: 0,
+        size, count: versions ? versions.length : 0,
         color: meta.color, icon: meta.icon,
         fileItem: f,
+        versions,
       };
     });
 
@@ -824,9 +846,10 @@ export function StorageView({
           const pct = totalSize > 0 ? item.size / totalSize * 100 : 0;
           const isHov = hoveredId === item.id;
           const isCfm = confirmingId === item.id;
+          const isExpanded = expandedIds.has(item.id);
           return (
+            <React.Fragment key={item.id}>
             <div
-              key={item.id}
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
               style={{
@@ -839,19 +862,35 @@ export function StorageView({
               }}
             >
               {/* Name */}
-              <div
-                style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: item.onClick ? 'pointer' : 'default' }}
-                onClick={item.onClick}
-              >
-                <SFIcon name={item.icon} size={15} color={item.color} />
-                <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: item.isFolder ? 600 : 400 }}>
-                  {item.name}
-                </span>
-                {item.subtitle && (
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>
-                    {item.subtitle}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                {item.versions ? (
+                  <button
+                    onClick={() => setExpandedIds(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })}
+                    title={isExpanded ? 'Replier les versions' : 'Voir les versions'}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: 'var(--text-3)', flexShrink: 0 }}
+                  >
+                    <SFIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={13} />
+                  </button>
+                ) : <span style={{ width: 13, flexShrink: 0 }} />}
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, cursor: item.onClick ? 'pointer' : 'default' }}
+                  onClick={item.onClick}
+                >
+                  <SFIcon name={item.icon} size={15} color={item.color} />
+                  <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: item.isFolder ? 600 : 400 }}>
+                    {item.name}
                   </span>
-                )}
+                  {item.subtitle && (
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>
+                      {item.subtitle}
+                    </span>
+                  )}
+                  {item.versions && (
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 5, padding: '1px 6px', flexShrink: 0 }}>
+                      {item.versions.length} version{item.versions.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Bar + size */}
@@ -901,6 +940,30 @@ export function StorageView({
                 )}
               </div>
             </div>
+
+            {/* Sous-lignes : versions de la ressource */}
+            {item.versions && isExpanded && item.versions.map(v => {
+              const vpct = totalSize > 0 ? v.size / totalSize * 100 : 0;
+              return (
+                <div key={v.id} style={{ display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px', gap: 8, padding: '4px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, paddingLeft: 32 }}>
+                    <SFIcon name="git-commit-horizontal" size={12} color="var(--text-3)" />
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)', flexShrink: 0 }}>{v.name}</span>
+                    {v.subtitle && <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.subtitle}</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 4, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${vpct}%`, background: 'var(--text-3)', borderRadius: 3 }} />
+                    </div>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{fmtSz(v.size)}</span>
+                  </div>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }} />
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{vpct >= 0.1 ? `${vpct.toFixed(1)}%` : '<0.1%'}</span>
+                  <span />
+                </div>
+              );
+            })}
+            </React.Fragment>
           );
         })}
       </div>
@@ -997,6 +1060,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   // Context menu
   const [ctx, setCtx] = useState<{ pos: { x: number; y: number }; items: CtxMenuItem[] } | null>(null);
+
+  // Multi-selection of files
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
   // ── Compute current folder contents ─────────────────────────────────────────
 
@@ -1170,6 +1237,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   const handleFolderCtx = (e: React.MouseEvent, folder: FileFolder) => {
     e.preventDefault();
+    e.stopPropagation();
     let items: CtxMenuItem[];
     if (folder.state === 'trashed') {
       items = [
@@ -1196,6 +1264,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   const handleFileCtx = (e: React.MouseEvent, file: FileItem) => {
     e.preventDefault();
+    e.stopPropagation();
     let items: CtxMenuItem[];
     if (file.state === 'trashed') {
       items = [
@@ -1224,6 +1293,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     // Dans la corbeille / les archives, on ne descend pas dans un dossier
     // (son contenu y est aussi, mais filtré des vues normales) — clic droit pour agir.
     if (folder.state) return;
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
     // Un dossier global (sans projet ni client) doit passer en scope 'global' :
     // sinon, si on est à la racine, la vue racine ignore folderId et on ne
     // « rentre » jamais dans le dossier (bug sur les dossiers créés à la racine).
@@ -1236,6 +1307,69 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   const handleNavigateProject = (p: Project) => {
     setLocation({ scope: 'project', scopeId: p.id, folderId: null });
+  };
+
+  // ── "Nouveau" menu items (shared between the + button dropdown and the
+  //    background right-click context menu) ──────────────────────────────────
+  const newMenuItems = (): CtxMenuItem[] => {
+    const items: CtxMenuItem[] = [
+      { label: 'Nouveau dossier', icon: 'folder-plus', action: () => setShowNewFolder(true) },
+    ];
+    if (canAddFile) {
+      items.push({ label: 'Importer un fichier', icon: 'upload', action: () => setShowAddFile(true) });
+    }
+    items.push({ label: '', icon: '', action: () => {}, separator: true });
+    items.push({ label: 'Ressources', icon: '', action: () => {}, header: true });
+    RESOURCE_TYPES.forEach(def => {
+      items.push({
+        label: def.label, icon: def.icon, color: def.color,
+        action: () => { if (def.type === 'video_review') setShowRevisionPicker(true); else setNewResourceDef(def); },
+      });
+    });
+    return items;
+  };
+
+  // Background right-click on the main content area → open the "Nouveau" menu.
+  const handleBgCtx = (e: React.MouseEvent) => {
+    if (!canAdd) return;
+    e.preventDefault();
+    setCtx({ pos: { x: e.clientX, y: e.clientY }, items: newMenuItems() });
+  };
+
+  // File click: shift/ctrl multi-select, plain click opens resource or selects.
+  const handleFileClick = (e: React.MouseEvent, file: FileItem) => {
+    const isRes = file.type === 'resource' && !!file.resourceId;
+    if (e.shiftKey && lastSelectedId) {
+      e.preventDefault();
+      const ids = filteredFiles.map(f => f.id);
+      const a = ids.indexOf(lastSelectedId);
+      const b = ids.indexOf(file.id);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        setSelectedIds(new Set(ids.slice(lo, hi + 1)));
+      } else {
+        setSelectedIds(new Set([file.id]));
+      }
+      setLastSelectedId(file.id);
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.has(file.id) ? next.delete(file.id) : next.add(file.id);
+        return next;
+      });
+      setLastSelectedId(file.id);
+      return;
+    }
+    // Plain click
+    if (isRes && file.projectId) {
+      navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
+    } else {
+      setSelectedIds(new Set([file.id]));
+    }
+    setLastSelectedId(file.id);
   };
 
   // ── Project color lookup ─────────────────────────────────────────────────────
@@ -1279,18 +1413,21 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isRes = file.type === 'resource' && !!file.resourceId;
     const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
     const accentColor = rm?.color ?? '#c45be8';
+    const isSelected = selectedIds.has(file.id);
+    const baseBorder = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)';
     return (
       <div
+        onClick={e => handleFileClick(e, file)}
         onContextMenu={e => handleFileCtx(e, file)}
         onDoubleClick={() => { if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`); }}
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: isRes ? 'pointer' : 'default',
-          border: `1.5px solid ${isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)'}`,
-          background: 'var(--surface-2)', transition: 'border-color 0.12s',
+          border: isSelected ? '1.5px solid var(--accent)' : `1.5px solid ${baseBorder}`,
+          background: isSelected ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', transition: 'border-color 0.12s',
         }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = isRes ? accentColor : 'var(--border-2)'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)'}
+        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = isRes ? accentColor : 'var(--border-2)'; }}
+        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = baseBorder; }}
       >
         <FileTypeIcon type={file.type} resourceType={file.resourceType} size={32} />
         <div style={{ textAlign: 'center', width: '100%' }}>
@@ -1340,13 +1477,18 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isRenaming = renamingId === file.id;
     const isRes = file.type === 'resource' && !!file.resourceId;
     const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
+    const isSelected = selectedIds.has(file.id);
     return (
       <div
+        onClick={e => handleFileClick(e, file)}
         onContextMenu={e => handleFileCtx(e, file)}
         onDoubleClick={() => { if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`); }}
-        style={{ ...ROW, cursor: isRes ? 'pointer' : 'default' }}
-        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        style={{
+          ...ROW, cursor: isRes ? 'pointer' : 'default',
+          ...(isSelected ? { border: '1.5px solid var(--accent)', background: 'rgba(249,255,0,0.06)' } : {}),
+        }}
+        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
       >
         <FileTypeIcon type={file.type} resourceType={file.resourceType} size={18} />
         {isRenaming
@@ -1860,10 +2002,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     }
   };
 
-  // Hide "+ Nouveau" at project/client root (virtual level — can't add projects or clients)
-  const isAtVirtualRoot = (location.scope === 'project' || location.scope === 'client') && location.folderId === null;
+  // Seul le niveau "liste des clients" est virtuel (on n'y ajoute pas un client).
+  // Les roots de projet/client sont de vrais espaces de travail → ajout possible en vue globale ET verrouillée (parité).
+  const isAtVirtualRoot = location.scope === 'clients';
   const canAdd = !isAtVirtualRoot && !isSpecialView;
-  const canAddFile = !isAtVirtualRoot && location.scope !== 'root' && !isSpecialView;
+  // Un fichier a besoin d'un emplacement concret : pas à la racine globale (sauf en mode verrouillé où la racine = le projet/client).
+  const canAddFile = canAdd && (location.scope !== 'root' || !!lockedScope);
 
   // Convert folder structure to FolderNode[]
   const folderStructureToNodes = (projectId: string): FolderNode[] => {
@@ -1925,8 +2069,29 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
         >
-          <SFIcon name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={16} color="var(--text-2)" />
+          <SFIcon name={sidebarCollapsed ? 'panel-left-open' : 'panel-left-close'} size={16} color="var(--text-2)" />
         </button>
+
+        {/* Remonter d'un niveau (parent du fil d'Ariane) */}
+        {(() => {
+          const parent = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2] : null;
+          return (
+            <button
+              onClick={() => parent?.onClick()}
+              disabled={!parent}
+              title="Remonter d'un niveau"
+              style={{
+                background: 'none', border: 'none', cursor: parent ? 'pointer' : 'default', padding: '4px 8px',
+                borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, opacity: parent ? 1 : 0.35,
+              }}
+              onMouseEnter={e => { if (parent) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+            >
+              <SFIcon name="arrow-left" size={16} color="var(--text-2)" />
+            </button>
+          );
+        })()}
 
         {/* Breadcrumb */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0, overflowX: 'auto', paddingRight: 8 }}>
@@ -1951,6 +2116,29 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             </React.Fragment>
           ))}
         </div>
+
+        {/* Barre de sélection multiple */}
+        {selectedIds.size > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 11px', borderRadius: 9, background: 'rgba(249,255,0,0.08)', border: '1px solid var(--accent)', flexShrink: 0 }}>
+            <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--ff-text)' }}>
+              {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={() => { selectedIds.forEach(id => trashFile(id)); setSelectedIds(new Set()); setLastSelectedId(null); }}
+              title="Mettre à la corbeille"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--danger)', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >
+              <SFIcon name="trash-2" size={12} color="var(--danger)" /> Corbeille
+            </button>
+            <button
+              onClick={() => { setSelectedIds(new Set()); setLastSelectedId(null); }}
+              title="Tout désélectionner"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer' }}
+            >
+              <SFIcon name="x" size={13} />
+            </button>
+          </div>
+        )}
 
         {/* Search */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '5px 12px' }}>
@@ -2056,30 +2244,20 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               <>
                 <div onClick={() => setNewBtnOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 390 }} />
                 <div style={{ position: 'absolute', top: '110%', right: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 400, minWidth: 210, padding: '4px 0', overflow: 'hidden' }}>
-                  {/* Dossier + Fichier */}
-                  {[
-                    { icon: 'folder-plus', label: 'Nouveau dossier',   show: true,       onClick: () => { setShowNewFolder(true); setNewBtnOpen(false); } },
-                    { icon: 'upload',      label: 'Importer un fichier', show: canAddFile, onClick: () => { setShowAddFile(true);  setNewBtnOpen(false); } },
-                  ].filter(i => i.show).map(item => (
-                    <button key={item.label} onClick={item.onClick} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                      <SFIcon name={item.icon} size={14} color="var(--text-2)" />
-                      {item.label}
-                    </button>
-                  ))}
-                  {/* Separator + Resources section */}
-                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 14px 3px', fontWeight: 700 }}>Ressources</p>
-                  {RESOURCE_TYPES.map(def => (
-                    <button key={def.type} onClick={() => { if (def.type === 'video_review') { setShowRevisionPicker(true); } else { setNewResourceDef(def); } setNewBtnOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '7px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                      <SFIcon name={def.icon} size={13} color={def.color} />
-                      {def.label}
-                    </button>
-                  ))}
+                  {newMenuItems().map((item, i) => item.separator
+                    ? <div key={i} style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    : item.header
+                    ? <p key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 14px 3px', fontWeight: 700 }}>{item.label}</p>
+                    : (
+                      <button key={i} onClick={() => { item.action(); setNewBtnOpen(false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                        <SFIcon name={item.icon} size={14} color={item.color ?? 'var(--text-2)'} />
+                        {item.label}
+                      </button>
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -2136,7 +2314,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         )}
 
         {/* Main content (grid / list) */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stockage') ? 'none' : undefined }}>
+        <div
+          onContextMenu={handleBgCtx}
+          onClick={e => { if (e.target === e.currentTarget) { setSelectedIds(new Set()); setLastSelectedId(null); } }}
+          style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stockage') ? 'none' : undefined }}
+        >
 
           {/* ── Root view ── */}
           {location.scope === 'root' && (

@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
+import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { addDeliverable } from '../data/taskStore';
@@ -53,6 +54,16 @@ interface LocalVersion {
   label: string;
   date: string;
   author: typeof USERS.lea;
+  size?: number; // octets — taille simulée du fichier de la version (visible dans la vue Stockage)
+}
+
+// Tailles plausibles par type d'upload + index de version (déterministe → stable).
+const VERSION_BASE_BYTES: Record<string, number> = {
+  video: 1_900_000_000, photo: 22_000_000, audio: 78_000_000, file: 5_200_000,
+};
+function mockVersionSize(subtype: string | undefined, idx: number): number {
+  const base = VERSION_BASE_BYTES[subtype ?? 'video'] ?? VERSION_BASE_BYTES.video;
+  return Math.round(base * (0.8 + idx * 0.13));
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -156,7 +167,6 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const persisted = persistKey ? getResourceContent<VideoReviewContent>(persistKey) : undefined;
   const [searchParams, setSearchParams] = useSearchParams();
   const [shared, setShared] = useState(false);
-  const [approvalRequested, setApprovalRequested] = useState(false);
 
   const handleShare = () => {
     const url = window.location.href;
@@ -165,10 +175,6 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setTimeout(() => setShared(false), 2000);
   };
 
-  const handleRequestApproval = () => {
-    setApprovalRequested(true);
-    setTimeout(() => setApprovalRequested(false), 2500);
-  };
   const [tab, setTab] = useState<'comments' | 'tasks'>('comments');
 
   // Focus comments panel when arriving from a notification link
@@ -218,11 +224,12 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
   // Versions (local, so they can be added / removed)
   const [versions, setVersions] = useState<LocalVersion[]>(() => {
-    if (persisted?.versions) return persisted.versions;
-    if (persistKey) return [{ v: 'V1', status: 'review', label: 'Version initiale', date: TODAY_LABEL, author: USERS.lea }];
-    return VIDEO_VERSIONS.map(v => ({
+    if (persisted?.versions) return persisted.versions.map((v, i) => ({ ...v, size: v.size ?? mockVersionSize(resource.mediaSubtype, i) }));
+    if (persistKey) return [{ v: 'V1', status: 'review', label: 'Version initiale', date: TODAY_LABEL, author: USERS.lea, size: mockVersionSize(resource.mediaSubtype, 0) }];
+    return VIDEO_VERSIONS.map((v, i) => ({
       v: v.v, status: v.status, label: v.label,
       date: VERSION_SEED_DATES[v.v] ?? '', author: USERS.lea,
+      size: mockVersionSize(resource.mediaSubtype, i),
     }));
   });
   const initialActive = persisted?.activeVersion
@@ -354,6 +361,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     const newV: LocalVersion = {
       v: name, status: 'review', label: newVersionNote.trim() || 'En révision',
       date: TODAY_LABEL, author: USERS.lea,
+      size: mockVersionSize(resource.mediaSubtype, versions.length),
     };
     setVersions(p => [...p, newV]);
     setVersion(name);
@@ -606,10 +614,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
         </button>
 
         {/* Request approval */}
-        <SFButton variant="primary" icon={approvalRequested ? 'check' : 'send'} onClick={handleRequestApproval}
-          style={{ flexShrink: 0, fontSize: 11, padding: '4px 10px', borderRadius: 7, height: 28, ...(approvalRequested ? { background: 'var(--ok)', borderColor: 'var(--ok)' } : {}) }}>
-          {approvalRequested ? 'Envoyée' : 'Approbation'}
-        </SFButton>
+        <RequestApprovalButton resource={resource} projectId={projectId} />
 
         {/* Fullscreen */}
         <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
@@ -1061,7 +1066,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               {/* Drop zone (mock) */}
               <div style={{ border: '1.5px dashed var(--border-2)', borderRadius: 12, padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, background: 'var(--surface-2)' }}>
                 <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <SFIcon name="upload-cloud" size={20} color="var(--accent)" />
+                  <SFIcon name="cloud-upload" size={20} color="var(--accent)" />
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-2)', textAlign: 'center' }}>Glissez un fichier vidéo ici</p>
                 <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Sera enregistré comme <span style={{ color: 'var(--accent)' }}>{nextVersionName()}</span></p>

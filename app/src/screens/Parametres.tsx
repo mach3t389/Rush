@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { SFButton, SFIcon } from '../components/ui';
 import { MonEquipe } from './MonEquipe';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
+import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
+import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
+import { USERS } from '../data/mock';
 
 function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, setter }: {
   label: string; hint: string; aspectLabel: string; previewW: number; previewH: number;
@@ -89,6 +92,99 @@ function applyPortalAccent(color: string) {
 
 function loadPortalAccent(): string {
   try { return localStorage.getItem(PORTAL_ACCENT_KEY) ?? '#f9ff00'; } catch { return '#f9ff00'; }
+}
+
+// Panneau « Portail client » — perso de la couleur accent (appliquée + persistée en live).
+function PortalAccentSettings() {
+  const [accentColor, setAccentColor] = useState(loadPortalAccent);
+  const [hexInput, setHexInput] = useState(loadPortalAccent);
+  const onAccent = (c: string) => { setAccentColor(c); setHexInput(c); applyPortalAccent(c); };
+  const readable = (c: string) => {
+    const r = parseInt(c.slice(1, 3) || 'f9', 16), g = parseInt(c.slice(3, 5) || 'ff', 16), b = parseInt(c.slice(5, 7) || '00', 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? '#0a0a0a' : '#ffffff';
+  };
+  return (
+    <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div>
+        <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>Portail client</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>Personnalisez l'apparence du portail partagé avec vos clients. La couleur s'applique immédiatement.</p>
+      </div>
+
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Couleur accent portail client</label>
+          <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Choisissez une couleur parmi les suggestions ou entrez un code hexadécimal.</p>
+        </div>
+
+        {/* Swatches */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {ACCENT_COLORS.map(color => (
+            <button
+              key={color}
+              onClick={() => onAccent(color)}
+              title={color}
+              style={{
+                width: 32, height: 32, borderRadius: '50%', background: color,
+                border: accentColor === color ? '3px solid var(--text)' : '3px solid transparent',
+                outline: accentColor === color ? `2px solid ${color}` : 'none',
+                outlineOffset: 2,
+                cursor: 'pointer', flexShrink: 0, transition: 'border 0.1s',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Custom color picker + hex input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <label title="Ouvrir le sélecteur de couleur" style={{ position: 'relative', width: 36, height: 36, borderRadius: 9, background: accentColor, border: '2px solid var(--border-2)', flexShrink: 0, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(accentColor) ? accentColor : '#f9ff00'}
+              onChange={e => onAccent(e.target.value)}
+              style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }}
+            />
+            <SFIcon name="pipette" size={14} color={readable(accentColor)} />
+          </label>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-3)', overflow: 'hidden', flex: 1, maxWidth: 200 }}>
+            <span style={{ padding: '0 10px', fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', userSelect: 'none' }}>#</span>
+            <input
+              value={hexInput.replace(/^#/, '')}
+              onFocus={e => e.target.select()}
+              onChange={e => {
+                const cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                const raw = '#' + cleaned;
+                setHexInput(raw);
+                if (/^#[0-9a-fA-F]{6}$/.test(raw)) { setAccentColor(raw); applyPortalAccent(raw); }
+              }}
+              onBlur={e => {
+                let cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '');
+                if (cleaned.length === 3) cleaned = cleaned.split('').map(c => c + c).join('');
+                if (cleaned.length === 6) onAccent('#' + cleaned);
+              }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              placeholder="f9ff00"
+              maxLength={6}
+              style={{ flex: 1, padding: '8px 10px 8px 0', background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+            />
+          </div>
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>Couleur actuelle</span>
+        </div>
+
+        {/* Live preview */}
+        <div style={{ padding: '14px 16px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: readable(accentColor), fontFamily: 'var(--ff-display)' }}>S</span>
+          </div>
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Aperçu portail client</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>La couleur s'applique aux boutons et accents du portail.</p>
+          </div>
+          <button style={{ marginLeft: 'auto', padding: '6px 14px', borderRadius: 8, border: 'none', background: accentColor, color: readable(accentColor), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Voir le portail</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Font Picker ────────────────────────────────────────────────────────────────
@@ -198,13 +294,53 @@ function CustomFontImport({ onImported }: { onImported: (name: string, value: st
   );
 }
 
+// Interrupteur on/off réutilisable
+function Toggle({ on, onChange, disabled }: { on: boolean; onChange?: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={() => { if (!disabled) onChange?.(!on); }}
+      disabled={disabled}
+      role="switch"
+      aria-checked={on}
+      style={{ width: 38, height: 22, borderRadius: 999, border: 'none', background: on ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, transition: 'background 0.15s', flexShrink: 0, padding: 0 }}
+    >
+      <span style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: on ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
+    </button>
+  );
+}
+
+// Sessions actives — mock (l'auth réelle nécessite un backend)
+const MOCK_SESSIONS = [
+  { device: 'Windows · Chrome', location: 'Montréal, QC', current: true,  last: 'Maintenant' },
+  { device: 'iPhone · Safari',  location: 'Montréal, QC', current: false, last: 'Il y a 2 h' },
+  { device: 'macOS · Chrome',   location: 'Paris, FR',    current: false, last: 'Hier' },
+];
+
 export function Parametres() {
   const [activeSection, setActiveSection] = useState('infos');
-  const [accentColor, setAccentColor] = useState(loadPortalAccent);
-  const [hexInput, setHexInput] = useState(loadPortalAccent);
   const [uiFonts, setUiFonts] = useState(loadUiFonts);
   const [customHeadings, setCustomHeadings] = useState<typeof HEADING_FONTS>([]);
   const [customBodies, setCustomBodies] = useState<typeof BODY_FONTS>([]);
+
+  // ── Compte ──────────────────────────────────────────────────────────────────
+  const me = USERS.lea; // utilisateur courant (cf. Sidebar)
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState(() => {
+    const o = loadProfile(me.id);
+    return {
+      name: o.name ?? me.name,
+      role: o.role ?? me.role,
+      email: o.email ?? 'alexismorel11@hotmail.ca',
+      phone: o.phone ?? '',
+      photo: loadPhoto(me.id),
+    };
+  });
+
+  const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(loadNotifPrefs);
+  const [notifSaved, setNotifSaved] = useState(false);
+  const setChannel = (key: string, channel: 'inapp' | 'email', value: boolean) =>
+    setNotifPrefs(p => ({ ...p, [key]: { ...p[key], [channel]: value } }));
+  const saveNotifs = () => { saveNotifPrefs(notifPrefs); setNotifSaved(true); setTimeout(() => setNotifSaved(false), 2000); };
 
   return (
     <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
@@ -303,92 +439,6 @@ export function Parametres() {
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Couleur accent portail client</label>
-                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Choisissez une couleur parmi les suggestions ou entrez un code hexadécimal.</p>
-              </div>
-
-              {/* Swatches */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {ACCENT_COLORS.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => { setAccentColor(color); setHexInput(color); applyPortalAccent(color); }}
-                    title={color}
-                    style={{
-                      width: 32, height: 32, borderRadius: '50%', background: color,
-                      border: accentColor === color ? '3px solid var(--text)' : '3px solid transparent',
-                      outline: accentColor === color ? `2px solid ${color}` : 'none',
-                      outlineOffset: 2,
-                      cursor: 'pointer', flexShrink: 0, transition: 'border 0.1s',
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Custom color picker + hex input */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {/* Native colour picker — clicking the swatch opens the OS colour dialog */}
-                <label title="Ouvrir le sélecteur de couleur" style={{ position: 'relative', width: 36, height: 36, borderRadius: 9, background: accentColor, border: '2px solid var(--border-2)', flexShrink: 0, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <input
-                    type="color"
-                    value={/^#[0-9a-fA-F]{6}$/.test(accentColor) ? accentColor : '#f9ff00'}
-                    onChange={e => {
-                      const c = e.target.value;
-                      setAccentColor(c);
-                      setHexInput(c);
-                      applyPortalAccent(c);
-                    }}
-                    style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }}
-                  />
-                  <SFIcon name="pipette" size={14} color={(() => { const r=parseInt(accentColor.slice(1,3)||'f9',16),g=parseInt(accentColor.slice(3,5)||'ff',16),b=parseInt(accentColor.slice(5,7)||'00',16); return (0.299*r+0.587*g+0.114*b)/255>0.55?'#0a0a0a':'#ffffff'; })()} />
-                </label>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-3)', overflow: 'hidden', flex: 1, maxWidth: 200 }}>
-                  <span style={{ padding: '0 10px', fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', userSelect: 'none' }}>#</span>
-                  <input
-                    value={hexInput.replace(/^#/, '')}
-                    onChange={e => {
-                      const cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
-                      const raw = '#' + cleaned;
-                      setHexInput(raw);
-                      if (/^#[0-9a-fA-F]{6}$/.test(raw)) { setAccentColor(raw); applyPortalAccent(raw); }
-                    }}
-                    onBlur={e => {
-                      let cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '');
-                      // Expand 3-char shorthand: abc → aabbcc
-                      if (cleaned.length === 3) cleaned = cleaned.split('').map(c => c + c).join('');
-                      if (cleaned.length === 6) {
-                        const full = '#' + cleaned;
-                        setHexInput(full);
-                        setAccentColor(full);
-                        applyPortalAccent(full);
-                      }
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    }}
-                    placeholder="f9ff00"
-                    maxLength={6}
-                    style={{ flex: 1, padding: '8px 10px 8px 0', background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none' }}
-                  />
-                </div>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>Couleur actuelle</span>
-              </div>
-
-              {/* Live preview */}
-              <div style={{ padding: '14px 16px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 900, color: (() => { const r=parseInt(accentColor.slice(1,3)||'f9',16),g=parseInt(accentColor.slice(3,5)||'ff',16),b=parseInt(accentColor.slice(5,7)||'00',16); return (0.299*r+0.587*g+0.114*b)/255>0.55?'#0a0a0a':'#fff'; })(), fontFamily: 'var(--ff-display)' }}>S</span>
-                </div>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Aperçu portail client</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>La couleur s'applique aux boutons et accents du portail.</p>
-                </div>
-                <button style={{ marginLeft: 'auto', padding: '6px 14px', borderRadius: 8, border: 'none', background: accentColor, color: (() => { const r=parseInt(accentColor.slice(1,3)||'f9',16),g=parseInt(accentColor.slice(3,5)||'ff',16),b=parseInt(accentColor.slice(5,7)||'00',16); return (0.299*r+0.587*g+0.114*b)/255>0.55?'#0a0a0a':'#fff'; })(), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Voir le portail</button>
-              </div>
-            </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <SFButton variant="primary">Enregistrer les modifications</SFButton>
@@ -398,6 +448,140 @@ export function Parametres() {
         {activeSection === 'team' && (
           <MonEquipe />
         )}
+
+        {/* ── Portail client ── */}
+        {activeSection === 'portail' && <PortalAccentSettings />}
+
+        {/* ── Profil ── */}
+        {activeSection === 'profil' && (
+          <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>Profil</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>Gérez vos informations personnelles, votre photo et vos permissions.</p>
+            </div>
+
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', alignItems: 'center', gap: 18 }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: me.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#fff', overflow: 'hidden', flexShrink: 0 }}>
+                {profile.photo
+                  ? <img src={profile.photo} alt={profile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : me.initials}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 16, fontWeight: 700 }}>{profile.name}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 1 }}>{profile.role}</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {profile.email}{profile.phone ? `  ·  ${profile.phone}` : ''}
+                </p>
+              </div>
+              <SFButton variant="secondary" icon="square-pen" onClick={() => setProfileOpen(true)}>Modifier</SFButton>
+            </div>
+          </div>
+        )}
+
+        {/* ── Notifications ── */}
+        {activeSection === 'notifs' && (
+          <div style={{ maxWidth: 660, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>Notifications</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>Choisissez les événements qui vous notifient, et par quel canal.</p>
+            </div>
+
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px', gap: 12, padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Événement</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>In-app</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>Email</span>
+              </div>
+              {NOTIF_EVENTS.map((ev, i) => (
+                <div key={ev.key} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px', gap: 12, alignItems: 'center', padding: '12px 20px', borderBottom: i < NOTIF_EVENTS.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <SFIcon name={ev.icon} size={14} color="var(--text-2)" />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500 }}>{ev.label}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{ev.desc}</p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <Toggle on={!!notifPrefs[ev.key]?.inapp} onChange={v => setChannel(ev.key, 'inapp', v)} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <Toggle on={!!notifPrefs[ev.key]?.email} onChange={v => setChannel(ev.key, 'email', v)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5 }}>
+              Les notifications in-app sont actives immédiatement. L'envoi d'emails deviendra effectif une fois la messagerie connectée.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center' }}>
+              {notifSaved && <span style={{ fontSize: 12, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 5 }}><SFIcon name="check" size={13} color="var(--ok)" /> Préférences enregistrées</span>}
+              <SFButton variant="primary" onClick={saveNotifs}>Enregistrer</SFButton>
+            </div>
+          </div>
+        )}
+
+        {/* ── Sécurité (scaffold — auth non connectée) ── */}
+        {activeSection === 'securite' && (
+          <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>Sécurité</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>Gérez l'accès à votre compte.</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, padding: '12px 16px', borderRadius: 10, border: '1px solid rgba(255,180,0,0.3)', background: 'rgba(255,180,0,0.06)', alignItems: 'flex-start' }}>
+              <span style={{ display: 'flex', flexShrink: 0, marginTop: 1 }}><SFIcon name="info" size={16} color="var(--warn)" /></span>
+              <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                L'authentification de compte n'est pas encore connectée. Ces réglages sont une <strong style={{ color: 'var(--text)' }}>préversion</strong> et deviendront actifs une fois le backend en place.
+              </p>
+            </div>
+
+            {/* Mot de passe */}
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mot de passe</label>
+              {['Mot de passe actuel', 'Nouveau mot de passe', 'Confirmer le nouveau mot de passe'].map(ph => (
+                <input key={ph} type="password" placeholder={ph} disabled
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', opacity: 0.6, cursor: 'not-allowed', boxSizing: 'border-box' }} />
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button disabled style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 13, cursor: 'not-allowed', opacity: 0.6, fontFamily: 'var(--ff-text)', fontWeight: 500 }}>Mettre à jour le mot de passe</button>
+              </div>
+            </div>
+
+            {/* 2FA */}
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontWeight: 600 }}>Double authentification (2FA)</p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Ajoute une étape de vérification supplémentaire à la connexion.</p>
+              </div>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Bientôt</span>
+              <Toggle on={false} disabled />
+            </div>
+
+            {/* Sessions actives */}
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px 10px' }}>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sessions actives</label>
+              </div>
+              {MOCK_SESSIONS.map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+                  <SFIcon name={s.device.startsWith('iPhone') ? 'smartphone' : 'monitor'} size={16} color="var(--text-3)" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 500 }}>{s.device} {s.current && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--ok)', background: 'rgba(78,201,148,0.12)', borderRadius: 4, padding: '1px 6px', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cet appareil</span>}</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{s.location} · {s.last}</p>
+                  </div>
+                  <button disabled style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'not-allowed', opacity: 0.5, fontFamily: 'var(--ff-text)' }}>
+                    {s.current ? 'Actuelle' : 'Déconnecter'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeSection === 'polices' && (
           <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
@@ -633,12 +817,32 @@ export function Parametres() {
             </div>
           </div>
         )}
-        {activeSection !== 'infos' && activeSection !== 'team' && activeSection !== 'polices' && activeSection !== 'integrations' && activeSection !== 'plugins' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <p style={{ color: 'var(--text-3)', fontSize: 14 }}>Section — bientôt disponible</p>
+        {!['infos', 'team', 'portail', 'profil', 'notifs', 'securite', 'polices', 'integrations', 'plugins'].includes(activeSection) && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
+            <SFIcon name="clock" size={24} color="var(--border-2)" />
+            <p style={{ color: 'var(--text-3)', fontSize: 14 }}>
+              {(SECTIONS.flatMap(s => s.items).find(it => it.key === activeSection)?.label ?? 'Cette section')} — bientôt disponible
+            </p>
           </div>
         )}
       </div>
+
+      {/* Drawer profil (éditeur complet réutilisé) */}
+      {profileOpen && (
+        <ProfileEditPanel
+          userId={me.id}
+          initialName={me.name}
+          initialRole={me.role}
+          initialEmail={profile.email}
+          initialPhone={profile.phone}
+          initialInitials={me.initials}
+          initialColor={me.avatarColor}
+          isSelf
+          isAdmin={me.role === 'Admin'}
+          onClose={() => setProfileOpen(false)}
+          onSave={data => setProfile({ name: data.name, role: data.role, email: data.email, phone: data.phone, photo: data.photoUrl })}
+        />
+      )}
     </div>
   );
 }

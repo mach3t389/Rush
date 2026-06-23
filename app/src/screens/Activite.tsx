@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SFPill, SFAvatar } from '../components/ui';
+import { SFPill, SFAvatar, SFIcon } from '../components/ui';
 import { ACTIVITY } from '../data/mock';
 import { ActivityFeed } from '../components/ActivityFeed';
 import type { AppNotif, NotifKind } from '../data/notificationStore';
@@ -19,20 +19,13 @@ function timeAgo(ts: number): string {
   return `Il y a ${Math.floor(hours / 24)} jours`;
 }
 
-function dayLabel(ts: number): string {
-  const h = (Date.now() - ts) / 3600000;
-  if (h < 24)  return "Aujourd'hui";
-  if (h < 48)  return 'Hier';
-  if (h < 168) return 'Cette semaine';
-  return 'Plus tôt';
-}
-
 const KIND_LABEL: Record<NotifKind, string> = {
   comment:    'COMMENTAIRE',
   mention:    'MENTION',
   status:     'STATUT',
   annotation: 'ANNOTATION',
   version:    'NOUVELLE VERSION',
+  approval:   'APPROBATION',
 };
 
 import type { Status } from '../types';
@@ -42,6 +35,7 @@ const KIND_STATUS: Record<NotifKind, Status> = {
   status:     'warn',
   annotation: 'info',
   version:    'info',
+  approval:   'review',
 };
 
 const ACTOR_COLOR: Record<string, string> = {
@@ -112,6 +106,7 @@ function actorSummary(actors: string[], count: number, kind: NotifKind): string 
     status:     'a mis à jour le statut',
     annotation: count > 1 ? `ont ajouté ${count} annotations` : 'a annoté',
     version:    'a uploadé une nouvelle version',
+    approval:   'a demandé une approbation',
   };
   const verb = verbMap[kind];
   if (actors.length === 1) return `${actors[0]} ${verb}`;
@@ -121,32 +116,20 @@ function actorSummary(actors: string[], count: number, kind: NotifKind): string 
 
 // ── Notification group row ────────────────────────────────────────────────────
 
-// Grille commune aux deux onglets : Personnes · Message · Type · Temps.
-const ROW_GRID: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '44px minmax(0, 1fr) 150px 92px',
-  alignItems: 'center',
-  gap: 12,
-  padding: '10px 12px',
+// Icône + couleurs par type de notification — même langage visuel que le flux d'activité (cartes).
+const NOTIF_ICON: Record<NotifKind, { icon: string; color: string; bg: string }> = {
+  comment:    { icon: 'message-circle', color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)' },
+  mention:    { icon: 'at-sign',        color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)' },
+  status:     { icon: 'flag',           color: '#a85f3e', bg: 'rgba(168,95,62,0.15)' },
+  annotation: { icon: 'pen-line',       color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)' },
+  version:    { icon: 'cloud-upload',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)' },
+  approval:   { icon: 'shield-check',   color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)' },
 };
 
-function ColumnHeader() {
-  const cell: React.CSSProperties = {
-    fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em',
-    textTransform: 'uppercase', color: 'var(--text-3)',
-  };
-  return (
-    <div style={{ ...ROW_GRID, paddingTop: 4, paddingBottom: 8, borderBottom: '1px solid var(--border-2)', borderLeft: '2px solid transparent' }}>
-      <span style={cell}>Qui</span>
-      <span style={cell}>Message</span>
-      <span style={cell}>Type</span>
-      <span style={{ ...cell, textAlign: 'right' }}>Quand</span>
-    </div>
-  );
-}
-
-function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigate: (to: string) => void; isLast: boolean }) {
+function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {
   const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
+  const meta = NOTIF_ICON[kind] ?? NOTIF_ICON.comment;
+  const clickable = !!(taskId || resourceId);
 
   const handleClick = () => {
     if (taskId)          navigate(`/projets/${projectId}?openTask=${taskId}&focus=comments`);
@@ -155,48 +138,36 @@ function NotifGroupRow({ group, navigate, isLast }: { group: NotifGroup; navigat
 
   return (
     <div
-      onClick={taskId || resourceId ? handleClick : undefined}
+      onClick={clickable ? handleClick : undefined}
       style={{
-        ...ROW_GRID,
-        borderBottom: isLast ? 'none' : '1px solid var(--border)',
-        borderLeft: unread ? '2px solid var(--accent)' : '2px solid transparent',
-        background: unread ? 'var(--surface-2)' : 'transparent',
-        cursor: taskId || resourceId ? 'pointer' : 'default',
+        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderRadius: 10,
+        background: unread ? 'var(--surface-2)' : 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderLeft: unread ? '2px solid var(--accent)' : '1px solid var(--border)',
+        cursor: clickable ? 'pointer' : 'default',
       }}
     >
-      {/* Col 1 — Personnes (avatars empilés) */}
-      <div style={{ position: 'relative', width: 24, height: 24 }}>
-        <SFAvatar initials={initials(actors[0])} bg={ACTOR_COLOR[actors[0]] ?? '#5c3d8f'} size={24} />
-        {actors.length > 1 && (
-          <div style={{
-            position: 'absolute', bottom: -3, right: -5,
-            width: 16, height: 16, borderRadius: '50%',
-            background: ACTOR_COLOR[actors[1]] ?? '#3b4f8f',
-            border: '1px solid var(--surface)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 7, fontWeight: 700, color: '#fff',
-          }}>{initials(actors[1])}</div>
-        )}
+      {/* Icône type */}
+      <div style={{ width: 30, height: 30, borderRadius: 8, background: meta.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+        <SFIcon name={meta.icon} size={14} color={meta.color} />
       </div>
-
-      {/* Col 2 — Message */}
-      <p style={{ fontSize: 12, lineHeight: 1.3, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {actorSummary(actors, count, kind)}
-      </p>
-
-      {/* Col 3 — Type (pastille + compteur) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
-        {count > 1 && (
-          <span style={{
-            fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
-            background: 'var(--surface-3)', borderRadius: 5, padding: '1px 5px', flexShrink: 0,
-          }}>{count}×</span>
-        )}
+      {/* Contenu */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <SFAvatar initials={initials(actors[0])} bg={ACTOR_COLOR[actors[0]] ?? '#5c3d8f'} size={18} />
+          <span style={{ fontSize: 12, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {actorSummary(actors, count, kind)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
+          {count > 1 && (
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{count}×</span>
+          )}
+        </div>
       </div>
-
-      {/* Col 4 — Temps */}
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>{timeAgo(latestTimestamp)}</span>
+      {/* Temps */}
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}>{timeAgo(latestTimestamp)}</span>
     </div>
   );
 }
@@ -254,10 +225,7 @@ export function Activite() {
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 24 }}>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-
-        {/* ── Colonne principale ─────────────────────────────────────────────── */}
-        <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -308,38 +276,67 @@ export function Activite() {
 
           {/* Tab: Pour toi */}
           {tab === 'personal' && (
-            <>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {FILTERS.map(f => (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === f.key ? 'var(--surface-3)' : 'transparent', color: filter === f.key ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                  >
-                    {f.label}
-                  </button>
+            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+              {/* Colonne flux */}
+              <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {FILTERS.map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setFilter(f.key)}
+                      style={{ padding: '5px 11px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: filter === f.key ? 'var(--accent)' : 'var(--surface-2)', color: filter === f.key ? 'var(--on-accent)' : 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {groups.length === 0 && (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13, paddingTop: 48 }}>
+                    Aucune notification
+                  </div>
+                )}
+
+                {grouped.map(({ day, groups: dayGroups }) => (
+                  <div key={day} style={{ marginBottom: 8 }}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
+                      {day}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {dayGroups.map(g => (
+                        <NotifGroupRow key={g.key} group={g} navigate={navigate} />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
 
-              {groups.length === 0 && (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13, paddingTop: 48 }}>
-                  Aucune notification
+              {/* Panneau latéral (notifications) — même position que celui de Studio */}
+              <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0, alignSelf: 'flex-start' }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Résumé</p>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontFamily: 'var(--ff-display)', fontSize: 32, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : 'var(--text-3)', lineHeight: 1 }}>{unreadCount}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>non {unreadCount === 1 ? 'lue' : 'lues'}</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{notifs.length} au total</p>
                 </div>
-              )}
 
-              {groups.length > 0 && <ColumnHeader />}
-
-              {grouped.map(({ day, groups: dayGroups }) => (
-                <div key={day}>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
-                    {day}
-                  </p>
-                  {dayGroups.map((g, i) => (
-                    <NotifGroupRow key={g.key} group={g} navigate={navigate} isLast={i === dayGroups.length - 1} />
-                  ))}
-                </div>
-              ))}
-            </>
+                {notifs.length > 0 && (
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Par type</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(Object.entries(KIND_LABEL) as [NotifKind, string][]).filter(([k]) => kindCounts[k]).map(([k, label]) => (
+                        <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.charAt(0) + label.slice(1).toLowerCase()}</span>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 5, padding: '1px 6px', flexShrink: 0 }}>{kindCounts[k]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Tab: Studio — même flux riche que la fiche client */}
@@ -357,36 +354,6 @@ export function Activite() {
               time: a.time,
             }))} />
           )}
-        </div>
-
-        {/* ── Panneau latéral (notifications) — masqué en mode Studio qui a sa propre colonne ── */}
-        {tab === 'personal' && <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 0 }}>
-
-          {/* Carte résumé non lus */}
-          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Résumé</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-display)', fontSize: 32, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : 'var(--text-3)', lineHeight: 1 }}>{unreadCount}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-2)' }}>non {unreadCount === 1 ? 'lue' : 'lues'}</span>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{notifs.length} au total</p>
-          </div>
-
-          {/* Carte par type */}
-          {notifs.length > 0 && (
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16 }}>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Par type</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(Object.entries(KIND_LABEL) as [NotifKind, string][]).filter(([k]) => kindCounts[k]).map(([k, label]) => (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.charAt(0) + label.slice(1).toLowerCase()}</span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 5, padding: '1px 6px', flexShrink: 0 }}>{kindCounts[k]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>}
 
       </div>
     </div>

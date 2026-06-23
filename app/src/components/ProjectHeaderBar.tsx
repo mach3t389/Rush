@@ -1,12 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { SFIcon } from './ui';
-import { findProject, updateProject, subscribeProjects } from '../data/projectStore';
-import { STATUS_COLOR } from '../data/status';
+import { findProject, subscribeProjects } from '../data/projectStore';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { useProjectTaskNotifCount, useProjectResourceNotifCount } from '../hooks/useNotifs';
-import { PROJECT_STATUS_OPTIONS, ProjectEditPanel } from './ProjectCard';
-import type { EditUpdates } from './ProjectCard';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -30,14 +27,6 @@ export function ProjectHeaderBar({
   const [, forceUpdate] = useState(0);
   const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
   const [colorOpen, setColorOpen] = useState(false);
-  const [status, setStatus] = useState(project?.status ?? '');
-  const [statusLabel, setStatusLabel] = useState(project?.statusLabel ?? '');
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
-  const statusBtnRef = useRef<HTMLButtonElement>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [localName, setLocalName] = useState(project?.name ?? '');
-  const [localColor, setLocalColor] = useState(dotColor);
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
   const resourceNotifs = useProjectResourceNotifCount(projectId);
@@ -128,57 +117,6 @@ export function ProjectHeaderBar({
           </div>
 
           <span style={{ color: 'var(--text-2)' }}>{project.name}</span>
-
-          {/* Status badge */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <button
-              ref={statusBtnRef}
-              onClick={() => { const r = statusBtnRef.current?.getBoundingClientRect() ?? null; setStatusRect(r); setStatusOpen(v => !v); }}
-              title="Changer le statut du projet"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '2px 8px', borderRadius: 20,
-                border: `1px solid ${STATUS_COLOR[status] ?? 'var(--border-2)'}`,
-                background: `color-mix(in srgb, ${STATUS_COLOR[status] ?? 'var(--border-2)'} 12%, transparent)`,
-                color: STATUS_COLOR[status] ?? 'var(--text-3)',
-                fontSize: 10, fontFamily: 'var(--ff-mono)', cursor: 'pointer',
-                letterSpacing: '0.03em',
-              }}
-            >
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: STATUS_COLOR[status] ?? 'var(--border-2)', flexShrink: 0 }} />
-              {statusLabel || 'Aucun statut'}
-            </button>
-            {statusOpen && statusRect && (
-              <>
-                <div onClick={() => setStatusOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-                <div style={{
-                  position: 'fixed', top: statusRect.bottom + 6, left: statusRect.left,
-                  zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)',
-                  borderRadius: 10, padding: 4,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 160,
-                }}>
-                  {PROJECT_STATUS_OPTIONS.map(o => (
-                    <button
-                      key={o.status}
-                      onClick={() => { setStatus(o.status); setStatusLabel(o.label); setStatusOpen(false); updateProject(project.id, { status: o.status, statusLabel: o.label }); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                        padding: '7px 10px', borderRadius: 7, border: 'none',
-                        background: status === o.status ? 'var(--surface-3)' : 'transparent',
-                        color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
-                        cursor: 'pointer', textAlign: 'left',
-                      }}
-                      onMouseEnter={e => { if (status !== o.status) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={e => { if (status !== o.status) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                    >
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.status], display: 'block', flexShrink: 0 }} />
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Tab bar */}
@@ -207,46 +145,11 @@ export function ProjectHeaderBar({
         </div>
       </div>
 
-      {/* Right slot — bouton Modifier (partagé sur tous les onglets) + actions propres à l'onglet */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-        <button
-          onClick={() => setEditOpen(true)}
-          title="Modifier le projet"
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-        >
-          <SFIcon name="square-pen" size={14} color="var(--text-3)" />
-          Modifier
-        </button>
-        {children}
-      </div>
-
-      {editOpen && project && (
-        <ProjectEditPanel
-          p={project}
-          color={localColor}
-          name={localName}
-          status={status as any}
-          statusLabel={statusLabel}
-          phase={project.phase}
-          phaseLabel={project.phaseLabel}
-          deliveryDate={project.deliveryDate}
-          onClose={() => setEditOpen(false)}
-          onSave={(u: EditUpdates) => {
-            setLocalName(u.name);
-            setLocalColor(u.color);
-            setProjectColor(project.id, u.color);
-            setStatus(u.status);
-            setStatusLabel(u.statusLabel);
-            updateProject(project.id, {
-              name: u.name, status: u.status, statusLabel: u.statusLabel,
-              phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
-              budget: u.budget, description: u.description,
-            });
-            forceUpdate(n => n + 1);
-          }}
-        />
+      {/* Right slot — actions propres à l'onglet */}
+      {children && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+          {children}
+        </div>
       )}
     </div>
   );

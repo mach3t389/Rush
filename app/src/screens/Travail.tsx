@@ -690,7 +690,7 @@ function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
   onDragStart, isDragging, onAddTask, onDelete,
   projectId, projectName, projectColor,
-  draggedTask, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
+  draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
 }: {
   label: string;
   tasks: Task[];
@@ -1485,7 +1485,7 @@ export function Travail() {
     const label = newSectionLabel.trim();
     if (!label) return;
     setSections(prev => [...prev, { label, tasks: [] }]);
-    setNewsecLabel('');
+    setNewSectionLabel('');
     setAddingSection(false);
     setActiveSection(label);
   };
@@ -1738,7 +1738,7 @@ export function Travail() {
               autoFocus
               value={newSectionLabel}
               onChange={e => setNewSectionLabel(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddSection(); if (e.key === 'Escape') { setAddingSection(false); setNewsecLabel(''); } }}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddSection(); if (e.key === 'Escape') { setAddingSection(false); setNewSectionLabel(''); } }}
               placeholder="Nom de la section..."
               style={{
                 flex: 1,
@@ -1754,7 +1754,7 @@ export function Travail() {
               }}
             />
             <SFButton variant="primary" size="sm" onClick={handleAddSection}>Ajouter</SFButton>
-            <SFButton variant="ghost" size="sm" onClick={() => { setAddingSection(false); setNewsecLabel(''); }}>Annuler</SFButton>
+            <SFButton variant="ghost" size="sm" onClick={() => { setAddingSection(false); setNewSectionLabel(''); }}>Annuler</SFButton>
           </div>
         ) : (
           <button

@@ -52,6 +52,8 @@ export interface Project {
   status: Status;
   statusLabel: string;
   modifiedAt: string;
+  budget?: number;
+  description?: string;
   folderStructureTemplateId?: string;
 }
 

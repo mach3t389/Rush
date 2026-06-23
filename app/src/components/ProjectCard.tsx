@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton } from './ui';
+import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject } from '../data/projectStore';
@@ -52,11 +52,20 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   const [lColor, setLColor]             = useState(color);
   const [lStatus, setLStatus]           = useState<Status>(status);
   const [lStatusLabel, setLStatusLabel] = useState(statusLabel);
-  const [lPhase, setLPhase]             = useState<Phase>(phase);
-  const [lPhaseLabel, setLPhaseLabel]   = useState(phaseLabel);
-  const [lDelivery, setLDelivery]       = useState(deliveryDate);
+  // Date de livraison : sélecteur de date (YMD) + heure, comme le panneau d'une tâche.
+  // L'ancienne valeur stockée est une chaîne d'affichage non-YMD → le picker démarre vide ; on la garde en repli.
+  const [lDeliveryYMD, setLDeliveryYMD] = useState(parseYMD(deliveryDate) ? deliveryDate : '');
+  const [lDeliveryTime, setLDeliveryTime] = useState('');
+  const [dateOpen, setDateOpen] = useState(false);
+  const [dateRect, setDateRect] = useState<DOMRect | null>(null);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [timeRect, setTimeRect] = useState<DOMRect | null>(null);
   const [lBudget, setLBudget]           = useState(p.budget ? String(p.budget) : '');
   const [lDescription, setLDescription] = useState(p.description ?? '');
+
+  const deliveryOut = lDeliveryYMD
+    ? formatDisplay(lDeliveryYMD) + (lDeliveryTime ? ` · ${lDeliveryTime}` : '')
+    : deliveryDate;
 
   const save = () => {
     const budgetNum = Number(String(lBudget).replace(/[^\d.]/g, ''));
@@ -65,9 +74,10 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
       color: lColor,
       status: lStatus,
       statusLabel: lStatusLabel,
-      phase: lPhase,
-      phaseLabel: lPhaseLabel,
-      deliveryDate: lDelivery,
+      // Phase n'est plus éditable manuellement — dérivée des sections complétées dans Tâches.
+      phase,
+      phaseLabel,
+      deliveryDate: deliveryOut,
       budget: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined,
       description: lDescription.trim() || undefined,
     });
@@ -153,35 +163,40 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             </div>
           </div>
 
-          {/* Phase */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Phase actuelle</label>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {PROJECT_PHASE_OPTIONS.map(opt => (
-                <button
-                  key={opt.phase}
-                  onClick={() => { setLPhase(opt.phase); setLPhaseLabel(opt.label); }}
-                  style={{
-                    padding: '6px 11px', borderRadius: 8,
-                    border: `1px solid ${lPhase === opt.phase ? 'var(--accent)' : 'var(--border)'}`,
-                    background: lPhase === opt.phase ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)',
-                    color: lPhase === opt.phase ? 'var(--accent)' : 'var(--text-2)',
-                    fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)',
-                  }}
-                >{opt.label}</button>
-              ))}
-            </div>
-          </div>
 
-          {/* Date de livraison */}
+          {/* Date de livraison — sélecteur date + heure */}
           <div>
             <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Date de livraison</label>
-            <input
-              value={lDelivery}
-              onChange={e => setLDelivery(e.target.value)}
-              placeholder="ex. 15 juin 2025"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
-            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 13, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+              >
+                <SFIcon name="calendar" size={14} color="var(--text-3)" />
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || 'Choisir une date…'}</span>
+              </button>
+              {lDeliveryYMD && (
+                <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder="Heure" />
+              )}
+            </div>
+            {dateOpen && (
+              <DatePickerDropdown
+                value={lDeliveryYMD}
+                onChange={v => { setLDeliveryYMD(v); setDateOpen(false); }}
+                onClose={() => setDateOpen(false)}
+                anchorRect={dateRect}
+                zIndex={700}
+              />
+            )}
+            {timeOpen && (
+              <TimePickerDropdown
+                value={lDeliveryTime}
+                onChange={v => { setLDeliveryTime(v); setTimeOpen(false); }}
+                onClose={() => setTimeOpen(false)}
+                anchorRect={timeRect}
+                zIndex={700}
+              />
+            )}
           </div>
 
           {/* Budget */}

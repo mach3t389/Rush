@@ -21,7 +21,7 @@ export interface FeedActivity {
 
 const ACTIVITY_ICON: Record<string, { icon: string; color: string; bg: string }> = {
   task:    { icon: 'check-circle',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)'  },
-  upload:  { icon: 'upload-cloud',   color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)'  },
+  upload:  { icon: 'cloud-upload',   color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)'  },
   comment: { icon: 'message-circle', color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)'  },
   approve: { icon: 'check-circle',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)'  },
   client:  { icon: 'user',           color: '#7d4e57', bg: 'rgba(125,78,87,0.15)'  },

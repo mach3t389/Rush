@@ -33,6 +33,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── New client modal ──────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
+const SECTORS = ['Publicité', 'Clip musical', 'Documentaire', 'Institutionnel', 'Motion design', 'Social', 'Autre'];
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();

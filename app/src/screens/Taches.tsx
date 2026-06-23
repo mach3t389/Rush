@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
+import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, subscribeMyTasks } from '../data/myTaskStore';
@@ -568,15 +568,24 @@ function FilterDropdown({ label, count, onClear, children, anchorRef }: {
   label: string; count: number; onClear: () => void; children: React.ReactNode; anchorRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = React.useState<React.CSSProperties>({ visibility: 'hidden' });
+  const dropRef = React.useRef<HTMLDivElement>(null);
 
-  const toggle = () => {
-    if (!open && anchorRef.current) {
-      const r = anchorRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 4, left: r.left });
-    }
-    setOpen(v => !v);
-  };
+  const toggle = () => setOpen(v => !v);
+
+  // Mesure le menu (rendu en visibility:hidden) puis le clampe dans le viewport
+  React.useLayoutEffect(() => {
+    if (!open) { setPos({ visibility: 'hidden' }); return; }
+    if (!anchorRef.current || !dropRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    const h = dropRef.current.offsetHeight;
+    const w = dropRef.current.offsetWidth;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const top = r.bottom + 4 + h > vh && r.top >= h + 4 ? r.top - h - 4 : r.bottom + 4;
+    const left = Math.max(8, Math.min(r.left, vw - w - 8));
+    setPos({ top, left, visibility: 'visible' });
+  }, [open, anchorRef]);
 
   const active = count > 0;
   return (
@@ -614,10 +623,10 @@ function FilterDropdown({ label, count, onClear, children, anchorRef }: {
           </button>
         )}
       </div>
-      {open && pos && (
+      {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 990 }} />
-          <div style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 11, padding: 6, minWidth: 200, boxShadow: '0 8px 28px rgba(0,0,0,0.5)' }}>
+          <div ref={dropRef} style={{ position: 'fixed', ...pos, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 11, padding: 6, minWidth: 200, boxShadow: '0 8px 28px rgba(0,0,0,0.5)' }}>
             {children}
           </div>
         </>

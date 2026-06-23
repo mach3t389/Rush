@@ -5,6 +5,7 @@ import { PROJECTS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
+import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import type { Resource, ResourceType, Status, User } from '../types';
 import { VideoReviewBody } from './VideoReview';
 
@@ -346,6 +347,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   const [openTypeId, setOpenTypeId] = useState<string | null>(null);
   const [collapsedScenes, setCollapsedScenes] = useState<Set<string>>(new Set());
   const dragSceneRef = useRef<string | null>(null);
+  const sceneDragArmed = useRef(false); // n'autorise le drag qu'après mousedown sur la poignée
   const [dragOverScene, setDragOverScene] = useState<string | null>(null);
   const taRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -729,20 +731,36 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                   <div
                     key={sceneEl.id}
                     draggable
-                    onDragStart={() => { dragSceneRef.current = sceneEl.id; }}
-                    onDragEnd={() => { dragSceneRef.current = null; setDragOverScene(null); }}
+                    onDragStart={e => {
+                      // Ne démarrer le drag que s'il a été armé par la poignée
+                      if (!sceneDragArmed.current) { e.preventDefault(); return; }
+                      dragSceneRef.current = sceneEl.id;
+                    }}
+                    onDragEnd={() => { dragSceneRef.current = null; sceneDragArmed.current = false; setDragOverScene(null); }}
                     onDragOver={e => { e.preventDefault(); setDragOverScene(sceneEl.id); }}
                     onDrop={e => {
                       e.preventDefault();
                       if (dragSceneRef.current) reorderScene(dragSceneRef.current, sceneEl.id);
                       dragSceneRef.current = null;
+                      sceneDragArmed.current = false;
                       setDragOverScene(null);
                     }}
                     ref={div => { if (div) elRowRefs.current.set(sceneEl.id, div); else elRowRefs.current.delete(sceneEl.id); }}
-                    style={{ marginBottom: gi < groups.length - 1 ? 28 : 4, borderLeft: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', paddingLeft: isDragOver ? 6 : 6, transition:'border-color .15s', cursor:'grab' }}
+                    style={{ marginBottom: gi < groups.length - 1 ? 28 : 4, borderLeft: isDragOver ? '2px solid var(--accent)' : '2px solid transparent', paddingLeft: 6, transition:'border-color .15s' }}
                   >
                     {/* Scene heading row */}
                     <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:collapsed ? 0 : 8, paddingBottom:6, borderBottom:'1px solid var(--border)' }}>
+                      {/* Poignée de réorganisation — maintenir pour glisser */}
+                      <span
+                        onMouseDown={() => { sceneDragArmed.current = true; }}
+                        onMouseUp={() => { sceneDragArmed.current = false; }}
+                        title="Maintenir et glisser pour réordonner la scène"
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', cursor:'grab', color:'var(--text-2)', background:'var(--surface-3)', border:'1px solid var(--border)', borderRadius:5, padding:'3px 2px', flexShrink:0 }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                      >
+                        <SFIcon name="grip-vertical" size={13} />
+                      </span>
                       <button
                         onClick={() => setCollapsedScenes(prev => { const s = new Set(prev); s.has(sceneEl.id) ? s.delete(sceneEl.id) : s.add(sceneEl.id); return s; })}
                         style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', padding:'2px 4px', borderRadius:4, fontSize:11, lineHeight:1, flexShrink:0 }}
@@ -2837,6 +2855,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             <SFButton variant="ghost" size="sm" icon="download">Exporter</SFButton>
           )}
           <SFButton variant="ghost" size="sm" icon="share-2">Partager</SFButton>
+          <RequestApprovalButton resource={resource} projectId={project?.id} onStatusChange={onStatusChange} />
           {onFullscreen && (
             <button onClick={onFullscreen} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
               <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={12} />

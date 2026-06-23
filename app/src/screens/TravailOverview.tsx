@@ -3,10 +3,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { ACTIVITY, USERS } from '../data/mock';
-import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
-import { getDeliverables, addDeliverable, updateTask, subscribeStore } from '../data/taskStore';
+import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
+import { getDeliverables, addDeliverable, updateTask, subscribeStore, getSections } from '../data/taskStore';
+import { getProjectColor, setProjectColor } from '../data/pinnedStore';
+import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
-import type { Task, DeliverableFormat, DeliverableType } from '../types';
+import { getResources, subscribeResources } from '../data/resourceStore';
+import type { Task, DeliverableFormat, DeliverableType, ResourceType } from '../types';
+
+// Icônes par type de ressource (pour les ressources liées aux livrables)
+const RES_ICON: Record<ResourceType, string> = {
+  screenplay: 'scroll-text', video_review: 'clapperboard', moodboard: 'layout-grid',
+  document: 'file-text', checklist: 'list-checks', inspirations: 'sparkles',
+  file: 'folder', form: 'clipboard-list', web_review: 'globe',
+};
 
 // ── Vision state type ──────────────────────────────────────────────────────────
 
@@ -73,7 +83,7 @@ const MOCK_DOCS = [
 
 const ACTIVITY_ICON: Record<string, string> = {
   comment: 'message-circle',
-  upload:  'upload-cloud',
+  upload:  'cloud-upload',
   task:    'check-circle',
   approve: 'shield-check',
   client:  'user',
@@ -430,6 +440,7 @@ export function TravailOverview() {
   const project = findProject(projectId ?? '') ?? getProjects()[0];
 
   const [completed, setCompleted] = useState(() => loadCompleted(project.id));
+  const [editOpen, setEditOpen] = useState(false);
 
   const [approvalModal, setApprovalModal] = useState(false);
   const [approvalSent, setApprovalSent] = useState(false);
@@ -437,6 +448,8 @@ export function TravailOverview() {
   const [formResponseModal, setFormResponseModal] = useState<ProjectForm | null>(null);
   const [forms, setForms] = useState<ProjectForm[]>(MOCK_FORMS);
   const [deliverables, setDeliverables] = useState<Task[]>(() => getDeliverables(project.id));
+  const [resources, setResources] = useState(getResources);
+  const [linkPickerOpen, setLinkPickerOpen] = useState<string | null>(null);
   const [addingDeliverable, setAddingDeliverable] = useState(false);
   const [newDlTitle, setNewDlTitle] = useState('');
   const [newDlFormat, setNewDlFormat] = useState<DeliverableFormat>('16:9');
@@ -447,6 +460,8 @@ export function TravailOverview() {
   useEffect(() => {
     return subscribeStore(() => setDeliverables(getDeliverables(project.id)));
   }, [project.id]);
+
+  useEffect(() => subscribeResources(() => setResources(getResources())), []);
 
   const [vision, setVision] = useState<VisionState>({
     concept: '',
@@ -463,13 +478,14 @@ export function TravailOverview() {
     localStorage.setItem(`sf_project_completed_${project.id}`, JSON.stringify(next));
   };
 
-  const PHASE_STEPS = [
-    { key: 'preproduction',  label: 'Préprod.'   },
-    { key: 'production',     label: 'Production' },
-    { key: 'postproduction', label: 'Postprod.'  },
-    { key: 'livraison',      label: 'Livraison'  },
-  ];
-  const phaseIdx = PHASE_STEPS.findIndex(p => p.key === project.phase);
+  // Phase dérivée des sections de Tâches : la phase courante = la 1re section non terminée.
+  const projectSections = getSections(project.id);
+  const firstOpenIdx = projectSections.findIndex(s => !s.completed);
+  const currentPhaseLabel = completed
+    ? 'Terminé'
+    : firstOpenIdx >= 0
+      ? projectSections[firstOpenIdx].label
+      : projectSections.length > 0 ? 'Terminé' : '—';
 
   const totalInvoiced = MOCK_INVOICES.reduce((s, f) => s + f.amount, 0);
   const totalPaid     = MOCK_INVOICES.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
@@ -607,29 +623,94 @@ export function TravailOverview() {
               </div>
             )}
 
-            {deliverables.map((dl, i) => {
+            {deliverables.map((dl) => {
               const st = DELIVERABLE_STATUS[dl.status] ?? DELIVERABLE_STATUS['warn'];
               const fmt = FORMAT_OPTIONS.find(f => f.value === dl.format);
               const dlType = DELIVERABLE_TYPES.find(t => t.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
               const isPickerOpen = formatPickerOpen === dl.id;
               const isTypeOpen = typePickerOpen === dl.id;
+              const linkedIds = dl.linkedResources ?? [];
+              const linkedRes = resources.filter(r => linkedIds.includes(r.id));
+              const isLinkOpen = linkPickerOpen === dl.id;
+              const toggleResource = (rid: string) => updateTask(project.id, dl.id, {
+                linkedResources: linkedIds.includes(rid) ? linkedIds.filter(id => id !== rid) : [...linkedIds, rid],
+              });
               return (
                 <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  {/* Label + sous-tâches */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer' }}
-                    onClick={() => navigate(`/projets/${project.id}`)}>
-                    <div style={{ width: 28, height: 28, borderRadius: 7, background: `${st.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name={st.icon} size={13} color={st.color} />
+                  {/* Label + sous-tâches + ressources liées */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer', flex: 1 }}
+                      onClick={() => navigate(`/projets/${project.id}`)}>
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: `${st.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <SFIcon name={st.icon} size={13} color={st.color} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.title}</p>
+                        {dl.subtasks && dl.subtasks.length > 0 && (
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 1 }}>
+                            {dl.subtasks.filter(s => s.checked).length}/{dl.subtasks.length} sous-tâches
+                          </p>
+                        )}
+                        {/* Chips ressources liées */}
+                        {linkedRes.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                            {linkedRes.map(r => (
+                              <span key={r.id}
+                                onClick={e => { e.stopPropagation(); navigate(`/projets/${project.id}/ressources/${r.id}`); }}
+                                title={`Ouvrir « ${r.title} »`}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 160, padding: '2px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer' }}>
+                                <SFIcon name={RES_ICON[r.type] ?? 'file'} size={10} color="var(--text-3)" />
+                                <span style={{ fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                                <span onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleResource(r.id); }}
+                                  title="Retirer" style={{ display: 'inline-flex', flexShrink: 0 }}>
+                                  <SFIcon name="x" size={9} color="var(--text-3)" />
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.title}</p>
-                      {dl.subtasks && dl.subtasks.length > 0 && (
-                        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 1 }}>
-                          {dl.subtasks.filter(s => s.checked).length}/{dl.subtasks.length} sous-tâches
-                        </p>
+
+                    {/* Bouton lier une ressource existante */}
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <button onClick={e => { e.stopPropagation(); setLinkPickerOpen(isLinkOpen ? null : dl.id); setTypePickerOpen(null); setFormatPickerOpen(null); }}
+                        title="Lier une ressource existante"
+                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: isLinkOpen ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${isLinkOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: linkedRes.length ? 'var(--accent)' : 'var(--text-3)' }}>
+                        <SFIcon name="paperclip" size={12} color={linkedRes.length ? 'var(--accent)' : 'var(--text-3)'} />
+                        {linkedRes.length > 0 && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10 }}>{linkedRes.length}</span>}
+                      </button>
+                      {isLinkOpen && (
+                        <>
+                          <div onClick={() => setLinkPickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
+                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 6, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', width: 280, maxHeight: 320, overflowY: 'auto' }}>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 8px 4px' }}>Ressources existantes</p>
+                            {resources.length === 0 && (
+                              <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>Aucune ressource — créez-en dans l'onglet Ressources.</p>
+                            )}
+                            {resources.map(r => {
+                              const on = linkedIds.includes(r.id);
+                              return (
+                                <button key={r.id} onClick={() => toggleResource(r.id)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 8px', borderRadius: 8, border: 'none', background: on ? 'rgba(249,255,0,0.06)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                                  onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                                  onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                                  <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <SFIcon name={RES_ICON[r.type] ?? 'file'} size={12} color="var(--text-3)" />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
+                                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 1 }}>{r.eyebrow}</p>
+                                  </div>
+                                  {on && <SFIcon name="check" size={13} color="var(--accent)" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
@@ -889,17 +970,24 @@ export function TravailOverview() {
 
           {/* Infos du projet */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>Infos du projet</span>
+              <button onClick={() => setEditOpen(true)} title="Modifier le projet"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
+              >
+                <SFIcon name="square-pen" size={12} />
+                Modifier
+              </button>
             </div>
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Client</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 7, background: project.clientColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'white', fontWeight: 700 }}>{project.clientName.slice(0, 2).toUpperCase()}</span>
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{project.clientName}</span>
+              {/* Identité — nom du projet (client en sous-titre) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: getProjectColor(project.id, project.clientColor), flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{project.clientName}</p>
                 </div>
               </div>
               <div>
@@ -907,22 +995,33 @@ export function TravailOverview() {
                 <SFPill status={completed ? 'ok' : project.status} small>{completed ? 'Terminé' : project.statusLabel}</SFPill>
               </div>
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Phase actuelle</p>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {PHASE_STEPS.map((step, i) => {
-                    const active = step.key === project.phase;
-                    const done = phaseIdx >= 0 && i < phaseIdx;
-                    return (
-                      <span key={step.key} style={{
-                        padding: '4px 9px', borderRadius: 7,
-                        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                        background: active ? 'rgba(249,255,0,0.08)' : 'transparent',
-                        color: active ? 'var(--accent)' : done ? 'var(--text-2)' : 'var(--text-3)',
-                        fontSize: 11, fontFamily: 'var(--ff-text)',
-                      }}>{step.label}</span>
-                    );
-                  })}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Phase actuelle</p>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)' }}>{currentPhaseLabel}</span>
                 </div>
+                {projectSections.length > 0 ? (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {projectSections.map((step, i) => {
+                      const isCurrent = !completed && i === firstOpenIdx;
+                      const isDone = completed || step.completed;
+                      return (
+                        <span key={step.label + i} style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '4px 9px', borderRadius: 7,
+                          border: `1px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isCurrent ? 'rgba(249,255,0,0.08)' : 'transparent',
+                          color: isCurrent ? 'var(--accent)' : isDone ? 'var(--text-2)' : 'var(--text-3)',
+                          fontSize: 11, fontFamily: 'var(--ff-text)',
+                        }}>
+                          {isDone && <SFIcon name="check" size={10} color="var(--ok)" />}
+                          {step.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans Tâches</p>
+                )}
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1030,6 +1129,27 @@ export function TravailOverview() {
         </div>
       </div>
 
+      {editOpen && (
+        <ProjectEditPanel
+          p={project}
+          color={getProjectColor(project.id, project.clientColor)}
+          name={project.name}
+          status={project.status}
+          statusLabel={project.statusLabel}
+          phase={project.phase}
+          phaseLabel={project.phaseLabel}
+          deliveryDate={project.deliveryDate}
+          onClose={() => setEditOpen(false)}
+          onSave={(u: EditUpdates) => {
+            setProjectColor(project.id, u.color);
+            updateProject(project.id, {
+              name: u.name, status: u.status, statusLabel: u.statusLabel,
+              deliveryDate: u.deliveryDate, budget: u.budget, description: u.description,
+            });
+            forceUpdate(n => n + 1);
+          }}
+        />
+      )}
       {formsBuilderOpen && <FormBuilderModal onClose={() => setFormsBuilderOpen(false)} />}
       {formResponseModal && <FormResponseModal form={formResponseModal} onClose={() => setFormResponseModal(null)} />}
 
