@@ -37,7 +37,7 @@ React 19 + TypeScript + Vite 8 + Tailwind v4 (via `@tailwindcss/vite`). SPA sans
   /projets                   → Projets
   /projets/:projectId        → Travail (vue Kanban/sections du projet)
   /projets/:projectId/overview       → TravailOverview
-  /projets/:projectId/ressources     → Ressources
+  /projets/:projectId/fichiers       → Fichiers (wrapper FileBrowser scopé projet)
   /projets/:projectId/ressources/:resourceId → ResourceRouter → (VideoReview | ImageReview | DocumentReview | WebReview | ResourceDetail)
   /projets/:projectId/calendrier     → ProjetCalendrier
   /projets/:projectId/membres        → ProjectMembres
@@ -45,12 +45,31 @@ React 19 + TypeScript + Vite 8 + Tailwind v4 (via `@tailwindcss/vite`). SPA sans
   /clients/:clientId         → FicheClient
   /calendrier                → CalendrierGlobal
   /modeles                   → Modeles
-  /notifications             → Notifications
+  /fichiers                  → FichiersGlobal
+  /global                    → VueGlobale (onglets Fichiers + Calendrier)
   /parametres                → Parametres
   /activite                  → Activite
 ```
 
 `ResourceRouter` lit le `type` de la ressource et dispatch vers le bon composant de revue.
+
+**Ressources = Fichiers.** L'ancienne page liste `Ressources.tsx` (route `/projets/:id/ressources`) a été **supprimée** (juin 2026). Les ressources sont désormais gérées dans l'onglet **Fichiers** du projet (`FileBrowser`). On ouvre une ressource via la route détail `/projets/:id/ressources/:resourceId` (toujours active, utilisée par le FileBrowser, l'Activité, l'AIChat et l'aperçu projet). Ne pas recréer de page liste de ressources.
+
+### Raccourcis clavier globaux (`app/src/components/layout/AppShell.tsx`)
+
+Un unique `useEffect` dans `AppShell` attache un listener `keydown` global (phase capture) :
+
+| Touche | Action |
+|--------|--------|
+| `R` (seule) | Ouvre la recherche (`CommandPalette`) — affichée dans la barre supérieure |
+| `⌘K` / `Ctrl+K` | Bascule la recherche (convention universelle, conservée en plus de `R`) |
+| `I` (seule) | Bascule l'Assistant IA via le bridge `triggerAIToggle()` |
+
+**Pattern des touches uniques :** chaque touche simple est ignorée si le focus est dans un champ de saisie (`INPUT`/`TEXTAREA`/`contentEditable`), pour ne pas se déclencher pendant la frappe. `I` a une exception : il reste actif dans le panneau IA (`[data-ai-panel]`).
+
+**Pourquoi `I` passe par un bridge :** `AIChat` gère son propre état d'ouverture en interne (composant frère), donc `AppShell` ne peut pas le piloter directement. Le bridge `aiChatBridge.ts` (`registerAIToggle`/`triggerAIToggle`) relaie l'action. `R` n'a pas besoin de bridge : `AppShell` possède l'état `cmdOpen` de la palette.
+
+**⚠️ Piège HMR :** comme le listener est posé dans `useEffect(() => { window.addEventListener(...) }, [])` (deps vides), modifier le handler ne re-enregistre pas toujours le listener via Fast Refresh — l'ancien handler reste attaché et le nouveau raccourci semble « ne pas marcher ». **Toujours faire un rechargement complet de l'onglet (Ctrl+Shift+R) après avoir touché à ces raccourcis.** Le code, lui, est correct (vérifié en chargement propre).
 
 ### Couche données (`app/src/data/`)
 
@@ -66,10 +85,13 @@ mock.ts             → PROJECTS, CLIENTS, USERS, MY_TASKS, … (données de see
 projectStore.ts     → getProjects / addProject / subscribeProjects
 eventStore.ts       → getEvents / addEvent / subscribeEvents
 resourceStore.ts    → getResources / addResource / subscribeResources
-taskStore.ts        → store de tâches par projet
+taskStore.ts        → store de tâches par projet (get/setSections, moveTask(s), copyTasks, moveSection, copySection, deleteTask)
+myTaskStore.ts      → tâches perso « Mes tâches » + sections perso (getMyTaskSections / add / remove)
 clientStore.ts      → store clients
 status.ts           → utilitaires de mapping Status → couleur/label
 ```
+
+**Tâches — parité des vues.** Les actions tâches/sections (créer, supprimer, déplacer, copier, multi-sélection `Ctrl`/`Shift`+clic, menu clic droit) doivent rester cohérentes entre les 3 surfaces : `Travail.tsx` (liste), `TravailBoard.tsx` (Kanban) et `Taches.tsx` (Mes tâches). Déplacer/copier en masse passe par `BulkMoveModal` (sélecteur projet → section). Toute nouvelle action de tâche doit être ajoutée aux 3 endroits.
 
 ### Composants UI (`app/src/components/ui/`)
 
