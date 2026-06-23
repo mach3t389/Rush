@@ -8,7 +8,6 @@ import { Dashboard } from './screens/Dashboard';
 import { Taches } from './screens/Taches';
 import { Projets } from './screens/Projets';
 import { Travail } from './screens/Travail';
-import { Ressources } from './screens/Ressources';
 import { VideoReview } from './screens/VideoReview';
 import { Portail } from './screens/Portail';
 import { Clients } from './screens/Clients';
@@ -39,13 +38,11 @@ const router = createBrowserRouter([
       { path: 'projets/:projectId', element: <Travail /> },
       { path: 'projets/:projectId/overview', element: <TravailOverview /> },
       { path: 'projets/:projectId/fichiers', element: <Fichiers /> },
-      { path: 'projets/:projectId/ressources', element: <Ressources /> },
       { path: 'projets/:projectId/ressources/:resourceId', element: <ResourceRouter /> },
       { path: 'projets/:projectId/calendrier', element: <ProjetCalendrier /> },
       { path: 'projets/:projectId/membres', element: <ProjectMembres /> },
       { path: 'clients', element: <Clients /> },
       { path: 'clients/:clientId', element: <FicheClient /> },
-      { path: 'notifications', element: <Activite /> },
       { path: 'parametres', element: <Parametres /> },
       { path: 'activite', element: <Activite /> },
       { path: 'calendrier', element: <CalendrierGlobal /> },

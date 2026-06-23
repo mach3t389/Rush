@@ -868,7 +868,7 @@ export function TravailOverview() {
           </Card>
 
           {/* ── Documents & fichiers ── */}
-          <Card title="Documents & fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload">Importer</SFButton>}>
+          <Card title="Documents & fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
             {MOCK_DOCS.map((doc, i) => (
               <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < MOCK_DOCS.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -1087,7 +1087,7 @@ export function TravailOverview() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>Équipe</span>
-              <SFButton variant="ghost" size="sm" icon="user-plus">Inviter</SFButton>
+              <SFButton variant="ghost" size="sm" icon="user-plus" onClick={() => navigate(`/projets/${project.id}/membres`)}>Inviter</SFButton>
             </div>
             <div style={{ padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 2 }}>
               {project.members.map(member => (

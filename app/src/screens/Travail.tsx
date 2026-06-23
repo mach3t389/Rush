@@ -1328,10 +1328,11 @@ export function ResourcePreviewContent({ res }: { res: typeof RESOURCES[0] }) {
         <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{res.title}</p>
         <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{res.meta}</p>
       </div>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <SFButton variant="secondary" icon="external-link">Ouvrir dans l'onglet</SFButton>
-        <SFButton variant="ghost" icon="download">Télécharger</SFButton>
-      </div>
+      {res.webUrl
+        ? <div style={{ display: 'flex', gap: 10 }}>
+            <SFButton variant="secondary" icon="external-link" onClick={() => window.open(res.webUrl, '_blank', 'noopener,noreferrer')}>Ouvrir dans l'onglet</SFButton>
+          </div>
+        : <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucun aperçu disponible pour ce type de fichier.</p>}
     </div>
   );
 }
@@ -1904,10 +1905,13 @@ export function Travail() {
         <TravailBoard
           sections={visibleSections}
           selectedTask={selectedTask}
+          multiSelIds={multiSelIds}
           onSelectTask={handleSelectTask}
           onAddTask={handleAddTask}
           onMoveTask={handleMoveTask}
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
+          onDeleteTask={task => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== task.id) })))}
+          onDeleteSection={label => setSections(prev => prev.filter(s => s.label !== label))}
           projectId={project.id}
           projectName={project.name}
           projectColor={project.clientColor}

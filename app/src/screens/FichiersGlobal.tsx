@@ -1969,7 +1969,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             onMouseLeave={e => { if (selectedId !== f.id && !isColSel(f.id)) e.currentTarget.style.background = 'transparent'; }}
           >
             <SFIcon name="folder" size={14} color={selectedId === f.id ? 'var(--on-accent)' : folderColor(f)} />
-            <span style={nameStyle(f.id)}>{f.name}</span>
+            {renamingId === f.id
+              ? <RenameInput value={f.name} onSave={v => { renameFolder(f.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
+              : <span style={nameStyle(f.id)}>{f.name}</span>}
             <SFIcon name="chevron-right" size={10} color={selectedId === f.id ? 'var(--on-accent)' : 'var(--text-3)'} />
           </div>
         ))}
@@ -2002,8 +2004,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               onMouseLeave={e => { if (!isLocSel) e.currentTarget.style.background = 'transparent'; }}
             >
               <SFIcon name={meta.icon} size={14} color={meta.color} />
-              <span style={{ ...nameStyle(f.id), color: isLocSel ? 'var(--text)' : nameStyle(f.id).color }}>{f.name}</span>
-              {isRes && <span style={{ fontSize: 9, color: meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
+              {renamingId === f.id
+                ? <RenameInput value={f.name} onSave={v => { renameFile(f.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
+                : <span style={{ ...nameStyle(f.id), color: isLocSel ? 'var(--text)' : nameStyle(f.id).color }}>{f.name}</span>}
+              {isRes && renamingId !== f.id && <span style={{ fontSize: 9, color: meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
             </div>
           );
         })}

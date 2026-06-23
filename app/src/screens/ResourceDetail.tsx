@@ -2674,6 +2674,14 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
   const dropRef = useRef<HTMLDivElement>(null);
   const [expOpen, setExpOpen] = useState(false);
   const expRef = useRef<HTMLDivElement>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const shareLink = () => {
+    const url = `${window.location.origin}/projets/${project?.id ?? ''}/ressources/${resource.id}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1800);
+    }).catch(() => {});
+  };
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(resource.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -2852,9 +2860,9 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
               )}
             </div>
           ) : (
-            <SFButton variant="ghost" size="sm" icon="download">Exporter</SFButton>
+            <SFButton variant="ghost" size="sm" icon="download" onClick={() => onExport?.('pdf')}>Exporter</SFButton>
           )}
-          <SFButton variant="ghost" size="sm" icon="share-2">Partager</SFButton>
+          <SFButton variant="ghost" size="sm" icon={linkCopied ? 'check' : 'share-2'} onClick={shareLink}>{linkCopied ? 'Lien copié' : 'Partager'}</SFButton>
           <RequestApprovalButton resource={resource} projectId={project?.id} onStatusChange={onStatusChange} />
           {onFullscreen && (
             <button onClick={onFullscreen} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>

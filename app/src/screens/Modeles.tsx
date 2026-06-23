@@ -1,11 +1,16 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { SFButton, SFIcon } from '../components/ui';
+import { useNavigate } from 'react-router-dom';
+import { SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { USERS } from '../data/mock';
+import { addProject } from '../data/projectStore';
+import { getClients } from '../data/clientStore';
+import { setSections } from '../data/taskStore';
+import { addFolderTree } from '../data/fileStore';
 import type { ProjectTemplate, TemplateSection, TemplateTask, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, ChecklistItem, DocumentSection, SceneBlock, ReviewRound, FolderNode, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES, loadAllFormTemplates, loadCustomFormTemplates, saveCustomFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, BUILT_IN_RESOURCE_TEMPLATES } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
-import type { Priority, ResourceType, Resource, Task, User } from '../types';
+import type { Priority, ResourceType, Resource, Task, User, Project, SectionData } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
 import { ChecklistView, DocumentView, ScreenplayView, MoodboardView, FileView, FormView, mkQ as mkFormQ } from './ResourceDetail';
@@ -620,12 +625,69 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
 // ── Create Project Modal ───────────────────────────────────────────────────────
 
 function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; onClose: () => void }) {
+  const navigate = useNavigate();
+  const clients = getClients();
   const [name, setName] = useState('');
-  const [client, setClient] = useState('');
+  const [clientId, setClientId] = useState(clients[0]?.id ?? '');
+
   const handleCreate = () => {
     if (!name.trim()) return;
-    alert(`Projet "${name.trim()}" créé à partir du modèle "${template.name}".\n(Intégration complète dans la prochaine version)`);
+    const client = clients.find(c => c.id === clientId) ?? clients[0];
+    const members = Object.values(USERS).filter(u => u.role !== 'Cliente');
+    const owner = members[0] ?? USERS.lea;
+    const color = template.color || 'var(--accent)';
+    const projectId = `pj${Date.now()}`;
+
+    const newProject: Project = {
+      id: projectId,
+      name: name.trim(),
+      clientId: client?.id ?? '',
+      clientName: client?.name ?? 'Sans client',
+      clientColor: color,
+      phase: 'preproduction',
+      phaseLabel: 'Préproduction',
+      progress: 0,
+      taskCount: template.sections.reduce((n, s) => n + s.tasks.length, 0),
+      deliverableCount: 0,
+      members,
+      deliveryDate: '—',
+      status: 'info',
+      statusLabel: 'En cours',
+      modifiedAt: "À l'instant",
+      folderStructureTemplateId: template.defaultFolderStructureId ?? undefined,
+    };
+
+    // Materialize the template's sections + tasks into the project task store.
+    const sections: SectionData[] = template.sections.map(sec => ({
+      label: sec.label,
+      progress: 0,
+      tasks: sec.tasks.map((tt, i): Task => ({
+        id: `${projectId}-${sec.label}-${i}`,
+        title: tt.title,
+        projectId,
+        projectName: newProject.name,
+        projectColor: color,
+        assignee: owner,
+        status: 'warn',
+        statusLabel: 'En attente',
+        priority: tt.priority ?? 'normal',
+        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+        dueDate: '',
+        checked: false,
+        subtasks: [],
+      })),
+    }));
+    if (sections.length) setSections(projectId, sections);
+
+    // Materialize the default folder structure if the template defines one.
+    if (template.defaultFolderStructureId) {
+      const fileTpl = loadAllResourceTemplates().find(t => t.id === template.defaultFolderStructureId);
+      if (fileTpl?.folderStructure?.length) addFolderTree(fileTpl.folderStructure, { projectId });
+    }
+
+    addProject(newProject);
     onClose();
+    navigate(`/projets/${projectId}`);
   };
   return (
     <>
@@ -639,12 +701,16 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
         <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {[{ label: 'Nom du projet', value: name, set: setName, placeholder: 'ex. Campagne été 2026' }, { label: 'Client', value: client, set: setClient, placeholder: 'Nom du client' }].map(f => (
-            <div key={f.label} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle()}>{f.label}</label>
-              <input value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder} style={fieldStyle()} />
-            </div>
-          ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle()}>Nom du projet</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="ex. Campagne été 2026" autoFocus style={fieldStyle()} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle()}>Client</label>
+            <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...fieldStyle(), colorScheme: 'dark', cursor: 'pointer' }}>
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
           <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Ce projet inclura</p>
             <div style={{ display: 'flex', gap: 14 }}>
