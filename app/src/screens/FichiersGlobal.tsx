@@ -19,6 +19,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import { addResource } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
+import { setFileContent, getFileContent, removeFileContent, hasFileContent } from '../data/fileContentStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -310,6 +311,199 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string) => void; o
           <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
           <SFButton variant="primary" onClick={() => { onSave(name.trim() || 'Nouveau dossier'); onClose(); }}>Créer</SFButton>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── File preview modal ────────────────────────────────────────────────────────
+
+const PREVIEW_ICONS: Partial<Record<FileItemType, string>> = {
+  pdf: 'file-text', video: 'film', audio: 'music', image: 'image',
+  doc: 'file', spreadsheet: 'table', zip: 'archive', other: 'file',
+};
+
+const BTN_STYLE: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', cursor: 'pointer',
+  fontSize: 12, fontFamily: 'var(--ff-text)', transition: 'background 0.12s',
+};
+
+function PreviewBtn({ icon, label, onClick, disabled }: { icon: string; label?: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ ...BTN_STYLE, opacity: disabled ? 0.3 : 1, cursor: disabled ? 'default' : 'pointer' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+    >
+      <SFIcon name={icon} size={13} />
+      {label && <span>{label}</span>}
+    </button>
+  );
+}
+
+function FilePreviewModal({ file, files, onNavigate, onClose }: {
+  file: FileItem;
+  files: FileItem[];
+  onNavigate: (f: FileItem) => void;
+  onClose: () => void;
+}) {
+  const url = getFileContent(file.id);
+  const icon = PREVIEW_ICONS[file.type] ?? 'file';
+
+  // Navigation globale (toutes vues : ←/→)
+  const idx = files.findIndex(f => f.id === file.id);
+  const hasPrev = idx > 0;
+  const hasNext = idx < files.length - 1;
+
+  // Navigation audio — uniquement parmi les fichiers audio du dossier
+  const audioFiles = files.filter(f => f.type === 'audio');
+  const audioIdx = audioFiles.findIndex(f => f.id === file.id);
+
+  // Image zoom & pan
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
+  const dragRef = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
+  const imgWrapRef = useRef<HTMLDivElement>(null);
+
+  // Reset zoom/pan à chaque changement de fichier
+  useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [file.id]);
+
+  // Raccourcis clavier
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'ArrowLeft'  && hasPrev) onNavigate(files[idx - 1]);
+      if (e.key === 'ArrowRight' && hasNext)  onNavigate(files[idx + 1]);
+      if (file.type === 'image') {
+        if (e.key === '+' || e.key === '=') setZoom(z => Math.min(6, z * 1.2));
+        if (e.key === '-') setZoom(z => Math.max(0.2, z / 1.2));
+        if (e.key === '0') { setZoom(1); setPan({ x: 0, y: 0 }); }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [file, files, idx, hasPrev, hasNext, onNavigate, onClose]);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.88;
+    setZoom(z => Math.max(0.2, Math.min(6, z * factor)));
+  };
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragRef.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+    setPanning(true);
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!panning || !dragRef.current) return;
+    setPan({ x: dragRef.current.px + e.clientX - dragRef.current.mx, y: dragRef.current.py + e.clientY - dragRef.current.my });
+  };
+  const handleMouseUp = () => { setPanning(false); dragRef.current = null; };
+
+  const handleFullscreen = () => { imgWrapRef.current?.requestFullscreen?.(); };
+
+  const HEADER: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, fontFamily: 'var(--ff-text)' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 900, display: 'flex', flexDirection: 'column', fontFamily: 'var(--ff-text)' }}>
+
+      {/* Header */}
+      <div style={HEADER}>
+        {/* Nav ← → */}
+        <PreviewBtn icon="chevron-left" onClick={() => hasPrev && onNavigate(files[idx - 1])} disabled={!hasPrev} />
+        <PreviewBtn icon="chevron-right" onClick={() => hasNext && onNavigate(files[idx + 1])} disabled={!hasNext} />
+
+        <SFIcon name={icon} size={15} color="var(--text-3)" />
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+        <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', flexShrink: 0 }}>{formatFileSize(file.size)}</span>
+        {idx >= 0 && files.length > 1 && (
+          <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', flexShrink: 0 }}>{idx + 1} / {files.length}</span>
+        )}
+
+        {/* Image controls */}
+        {file.type === 'image' && url && (<>
+          <PreviewBtn icon="zoom-out" onClick={() => setZoom(z => Math.max(0.2, z / 1.2))} />
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+          <PreviewBtn icon="zoom-in" onClick={() => setZoom(z => Math.min(6, z * 1.2))} />
+          <PreviewBtn icon="minimize-2" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} />
+          <PreviewBtn icon="maximize-2" onClick={handleFullscreen} />
+        </>)}
+
+        {url && (
+          <a href={url} download={file.name} style={{ ...BTN_STYLE, textDecoration: 'none' }}>
+            <SFIcon name="download" size={13} /><span>Télécharger</span>
+          </a>
+        )}
+        <button onClick={onClose} style={{ ...BTN_STYLE, border: 'none' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}>
+          <SFIcon name="x" size={16} />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: file.type === 'pdf' ? 0 : 24, position: 'relative' }}>
+        {!url ? (
+          <div style={{ textAlign: 'center' }}>
+            <SFIcon name={icon} size={52} color="var(--text-3)" />
+            <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>Aucun contenu disponible</p>
+            <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Glissez ce fichier depuis votre ordinateur pour le charger.</p>
+          </div>
+
+        ) : file.type === 'pdf' ? (
+          <iframe src={url} style={{ width: '100%', height: '100%', border: 'none' }} title={file.name} />
+
+        ) : file.type === 'image' ? (
+          <div ref={imgWrapRef}
+            onWheel={handleWheel} onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+            style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: panning ? 'grabbing' : zoom > 1 ? 'grab' : 'zoom-in' }}
+          >
+            <img src={url} alt={file.name} draggable={false}
+              style={{ maxWidth: zoom === 1 ? '100%' : 'none', maxHeight: zoom === 1 ? '100%' : 'none', transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center', transition: panning ? 'none' : 'transform 0.1s', userSelect: 'none', pointerEvents: 'none', borderRadius: zoom === 1 ? 8 : 0 }}
+            />
+          </div>
+
+        ) : file.type === 'video' ? (
+          <video controls src={url} autoPlay
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8, background: '#000', outline: 'none' }} />
+
+        ) : file.type === 'audio' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, minWidth: 320 }}>
+            {/* Art */}
+            <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', boxShadow: '0 0 40px rgba(249,255,0,0.08)' }}>
+              <SFIcon name="music" size={44} color="var(--accent)" />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{file.name.replace(/\.[^.]+$/, '')}</p>
+              <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{file.ext.toUpperCase()} · {formatFileSize(file.size)}</p>
+            </div>
+            <audio controls src={url} autoPlay style={{ width: 320 }} />
+            {/* Prev / Next among audio files */}
+            {audioFiles.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <PreviewBtn icon="skip-back" onClick={() => audioIdx > 0 && onNavigate(audioFiles[audioIdx - 1])} disabled={audioIdx <= 0} />
+                <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', minWidth: 50, textAlign: 'center' }}>{audioIdx + 1} / {audioFiles.length}</span>
+                <PreviewBtn icon="skip-forward" onClick={() => audioIdx < audioFiles.length - 1 && onNavigate(audioFiles[audioIdx + 1])} disabled={audioIdx >= audioFiles.length - 1} />
+              </div>
+            )}
+          </div>
+
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <SFIcon name={icon} size={52} color="var(--text-3)" />
+            <p style={{ marginTop: 14, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{file.name}</p>
+            <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginTop: 4 }}>{formatFileSize(file.size)}</p>
+            <a href={url} download={file.name}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 20, padding: '10px 20px', borderRadius: 10, background: 'var(--accent)', color: 'var(--on-accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>
+              <SFIcon name="download" size={14} /> Télécharger
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -783,6 +977,14 @@ export function StorageView({
     setStorageLast(null);
   };
 
+  const noSelectOnModifier = (e: React.MouseEvent) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); };
+
+  const openResource = (file: FileItem) => {
+    if (!file.resourceId) return;
+    const pid = file.projectId ?? getFiles().find(f => f.resourceId === file.resourceId)?.projectId;
+    if (pid) navigate(`/projets/${pid}/ressources/${file.resourceId}`);
+  };
+
   const deleteVersion = (item: StorageItem, versionId: string) => {
     const resourceId = item.fileItem?.resourceId;
     if (!resourceId) return;
@@ -1155,7 +1357,15 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
   const lockedScope: NavLocation | undefined = locked && initialNav ? initialNav : undefined;
   const navigate = useNavigate();
-  const [location, setLocation] = useState<NavLocation>(effectiveNav);
+  // Persistance de la position de navigation — clé distincte par contexte
+  const navKey = locked && initialNav
+    ? `sf_nav_${(initialNav as { scope: string; scopeId?: string }).scope}_${'scopeId' in initialNav ? (initialNav as { scopeId: string }).scopeId : 'root'}`
+    : 'sf_nav_global';
+  const [persistedNav, setPersistedNav] = usePersistedState<NavLocation>(navKey, effectiveNav);
+  const [lockedNav, setLockedNav] = useState<NavLocation>(effectiveNav);
+  // Règle : vue locked → état local (le scope/scopeId ne doit pas dériver) ; vue libre → persisté
+  const location: NavLocation = locked ? lockedNav : persistedNav;
+  const setLocation = locked ? setLockedNav : setPersistedNav;
   const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortOpen, setSortOpen] = useState(false);
@@ -1191,6 +1401,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [showNewFolder, setShowNewFolder]             = useState(false);
   const [showAddFile, setShowAddFile]                 = useState(false);
   const [renamingId, setRenamingId]                   = useState<string | null>(null);
+  const [previewFile, setPreviewFile]                 = useState<FileItem | null>(null);
+  const [isDraggingOver, setIsDraggingOver]           = useState(false);
+  const fileInputRef                                  = useRef<HTMLInputElement>(null);
   const [newBtnOpen, setNewBtnOpen]                   = useState(false);
   const [newResourceDef, setNewResourceDef]           = useState<typeof RESOURCE_TYPES[number] | null>(null);
   const [showRevisionPicker, setShowRevisionPicker] = useState(false);
@@ -1218,11 +1431,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         const file = getFiles().find(f => f.id === fileId);
         if (file?.resourceId) { e.preventDefault(); openResource(file); }
       }
-      if (e.key === 'Escape') { setSelectedIds(new Set()); setLastSelectedId(null); setSelectedVirtualId(null); setCtx(null); }
+      if (e.key === 'Escape') { if (previewFile) { setPreviewFile(null); return; } setSelectedIds(new Set()); setLastSelectedId(null); setSelectedVirtualId(null); setCtx(null); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedIds, openResource]);
+  }, [selectedIds, openResource, previewFile]);
 
   // ── Compute current folder contents ─────────────────────────────────────────
 
@@ -1373,6 +1586,23 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     });
   };
 
+  // Traite des fichiers réels déposés (drag-and-drop OS ou input[type=file])
+  const processUploadedFiles = useCallback((files: File[]) => {
+    const { scope, scopeId, folderId } = location;
+    for (const file of files) {
+      const ext = (file.name.split('.').pop() ?? '').toLowerCase();
+      const type = fileTypeFromExt(ext);
+      const newFile = addFile({
+        name: file.name, type, ext,
+        size: file.size,
+        parentFolderId: folderId,
+        projectId: scope === 'project' ? scopeId : undefined,
+        clientId:  scope === 'client'  ? scopeId : undefined,
+      });
+      setFileContent(newFile.id, file);
+    }
+  }, [location]);
+
   const handleCreateResource = (def: typeof RESOURCE_TYPES[number], name: string, webUrl?: string) => {
     const { scope, scopeId, folderId } = location;
     const projectId = scope === 'project' ? scopeId : undefined;
@@ -1475,7 +1705,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       { label: 'Nouveau dossier', icon: 'folder-plus', action: () => setShowNewFolder(true) },
     ];
     if (canAddFile) {
-      items.push({ label: 'Importer un fichier', icon: 'upload', action: () => setShowAddFile(true) });
+      items.push({ label: 'Importer un fichier', icon: 'upload', action: () => fileInputRef.current?.click() });
     }
     items.push({ label: '', icon: '', action: () => {}, separator: true });
     items.push({ label: 'Ressources', icon: '', action: () => {}, header: true });
@@ -1596,14 +1826,14 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             if (isRes) { openResource(file); return; }
-            return;
+            setPreviewFile(file); return;
           }
           handleItemClick(e, file.id);
         }}
         onContextMenu={e => handleFileCtx(e, file)}
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-          padding: '16px 12px', borderRadius: 12, cursor: isRes ? 'pointer' : 'default',
+          padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
           border: isSelected ? '1.5px solid var(--accent)' : `1.5px solid ${baseBorder}`,
           background: isSelected ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', transition: 'border-color 0.12s',
         }}
@@ -1670,13 +1900,13 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             if (isRes) { openResource(file); return; }
-            return;
+            setPreviewFile(file); return;
           }
           handleItemClick(e, file.id);
         }}
         onContextMenu={e => handleFileCtx(e, file)}
         style={{
-          ...ROW, cursor: isRes ? 'pointer' : 'default',
+          ...ROW, cursor: 'pointer',
           ...(isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}),
         }}
         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
@@ -2572,8 +2802,20 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         <div
           onContextMenu={handleBgCtx}
           onClick={e => { if (e.target === e.currentTarget) { setSelectedIds(new Set()); setLastSelectedId(null); } }}
-          style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stockage') ? 'none' : undefined }}
+          onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsDraggingOver(true); } }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDraggingOver(false); }}
+          onDrop={e => { e.preventDefault(); setIsDraggingOver(false); if (e.dataTransfer.types.includes('Files')) processUploadedFiles(Array.from(e.dataTransfer.files)); }}
+          style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stockage') ? 'none' : undefined, position: 'relative' }}
         >
+          {/* Drop overlay */}
+          {isDraggingOver && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249,255,0,0.04)', border: '2px dashed var(--accent)', borderRadius: 12, pointerEvents: 'none' }}>
+              <div style={{ textAlign: 'center' }}>
+                <SFIcon name="upload" size={32} color="var(--accent)" />
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>Déposer pour importer</p>
+              </div>
+            </div>
+          )}
 
           {/* ── Root view ── */}
           {location.scope === 'root' && (
@@ -2814,6 +3056,18 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
       {/* Context menu */}
       {ctx && <ContextMenu pos={ctx.pos} items={ctx.items} onClose={() => setCtx(null)} />}
+
+      {/* File preview modal */}
+      {previewFile && <FilePreviewModal file={previewFile} files={filteredFiles} onNavigate={setPreviewFile} onClose={() => setPreviewFile(null)} />}
+
+      {/* Hidden file input for OS file picker */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => { processUploadedFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }}
+      />
     </div>
   );
 }
