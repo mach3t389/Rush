@@ -18,7 +18,7 @@ import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import { addResource } from '../data/resourceStore';
-import { getResourceContent } from '../data/resourceContentStore';
+import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -686,6 +686,46 @@ const fmtSz = (n: number): string => {
   return `${n} o`;
 };
 
+function VersionRow({ v, vpct, canDelete, onDelete }: {
+  v: StorageVersion; vpct: number; canDelete: boolean; onDelete: () => void;
+}) {
+  const [hov, setHov] = React.useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px', gap: 8, padding: '4px 20px', borderBottom: '1px solid var(--border)', background: hov ? 'rgba(255,255,255,0.02)' : 'var(--surface)', alignItems: 'center' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, paddingLeft: 32 }}>
+        <SFIcon name="git-commit-horizontal" size={12} color="var(--text-3)" />
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)', flexShrink: 0 }}>{v.name}</span>
+        {v.subtitle && <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.subtitle}</span>}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, height: 4, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${vpct}%`, background: 'var(--text-3)', borderRadius: 3 }} />
+        </div>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{fmtSz(v.size)}</span>
+      </div>
+      <span />
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{vpct >= 0.1 ? `${vpct.toFixed(1)}%` : '<0.1%'}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            title="Supprimer cette version"
+            style={{ opacity: hov ? 1 : 0, width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.1s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+          >
+            <SFIcon name="trash-2" size={11} color="var(--danger)" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function StorageView({
   folders, files, projects, clients, location, onNavigate, context = 'active',
 }: {
@@ -697,9 +737,40 @@ export function StorageView({
   onNavigate: (loc: NavLocation) => void;
   context?: 'active' | 'trashed' | 'archived';
 }) {
+  const navigate = useNavigate();
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
+  const [ctx, setCtx] = React.useState<{ pos: { x: number; y: number }; items: CtxMenuItem[] } | null>(null);
+
+  const deleteVersion = (item: StorageItem, versionId: string) => {
+    const resourceId = item.fileItem?.resourceId;
+    if (!resourceId) return;
+    const content = getResourceContent<{ versions?: { v: string; [k: string]: unknown }[] }>(resourceId);
+    if (!content?.versions) return;
+    const vKey = versionId.replace(`${item.fileItem!.id}-`, '');
+    setResourceContent(resourceId, { ...content, versions: content.versions.filter(v => v.v !== vKey) });
+  };
+
+  const openItemCtx = (e: React.MouseEvent, item: StorageItem) => {
+    e.preventDefault();
+    const menuItems: CtxMenuItem[] = [];
+    if (item.fileItem?.resourceId && item.fileItem.projectId) {
+      menuItems.push({ label: 'Ouvrir la ressource', icon: 'external-link', action: () => navigate(`/projets/${item.fileItem!.projectId}/ressources/${item.fileItem!.resourceId}`) });
+      menuItems.push({ label: '', icon: '', action: () => {}, separator: true });
+    } else if (item.isFolder && item.onClick) {
+      menuItems.push({ label: 'Ouvrir', icon: 'folder-open', action: item.onClick });
+      menuItems.push({ label: '', icon: '', action: () => {}, separator: true });
+    }
+    if (context !== 'active') {
+      if (item.isFolder && item.folderItem) menuItems.push({ label: 'Restaurer', icon: 'rotate-ccw', action: () => { restoreFolder(item.folderItem!.id); } });
+      else if (item.fileItem) menuItems.push({ label: 'Restaurer', icon: 'rotate-ccw', action: () => { restoreFile(item.fileItem!.id); } });
+    } else {
+      if (item.isFolder && item.folderItem) menuItems.push({ label: 'Mettre à la corbeille', icon: 'trash-2', danger: true, action: () => { trashFolder(item.folderItem!.id); } });
+      else if (item.fileItem) menuItems.push({ label: 'Mettre à la corbeille', icon: 'trash-2', danger: true, action: () => { trashFile(item.fileItem!.id); } });
+    }
+    if (menuItems.length > 0) setCtx({ pos: { x: e.clientX, y: e.clientY }, items: menuItems });
+  };
 
   const sizeMap = React.useMemo(() => buildSizeMap(folders, files), [folders, files]);
 
@@ -773,7 +844,8 @@ export function StorageView({
     });
 
     const fileItems: StorageItem[] = currentFiles.map(f => {
-      const meta = TYPE_META[f.type] ?? TYPE_META.other;
+      const rm = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
+      const meta = rm ?? TYPE_META[f.type] ?? TYPE_META.other;
       const versions = resourceVersionSizes(f);
       const size = versions ? versions.reduce((s, v) => s + v.size, 0) : (f.size ?? 0);
       return {
@@ -852,6 +924,7 @@ export function StorageView({
             <div
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
+              onContextMenu={e => openItemCtx(e, item)}
               style={{
                 display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px',
                 gap: 8, padding: '6px 20px',
@@ -873,8 +946,14 @@ export function StorageView({
                   </button>
                 ) : <span style={{ width: 13, flexShrink: 0 }} />}
                 <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, cursor: item.onClick ? 'pointer' : 'default' }}
-                  onClick={item.onClick}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, cursor: (item.onClick || (!item.isFolder && item.fileItem?.resourceId)) ? 'pointer' : 'default' }}
+                  onClick={e => {
+                    if (!item.isFolder && item.fileItem?.resourceId && item.fileItem.projectId) {
+                      if (e.detail === 2) navigate(`/projets/${item.fileItem.projectId}/ressources/${item.fileItem.resourceId}`);
+                      return;
+                    }
+                    item.onClick?.();
+                  }}
                 >
                   <SFIcon name={item.icon} size={15} color={item.color} />
                   <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: item.isFolder ? 600 : 400 }}>
@@ -944,23 +1023,12 @@ export function StorageView({
             {/* Sous-lignes : versions de la ressource */}
             {item.versions && isExpanded && item.versions.map(v => {
               const vpct = totalSize > 0 ? v.size / totalSize * 100 : 0;
+              const canDelete = !!getResourceContent(item.fileItem?.resourceId ?? '');
               return (
-                <div key={v.id} style={{ display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px', gap: 8, padding: '4px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, paddingLeft: 32 }}>
-                    <SFIcon name="git-commit-horizontal" size={12} color="var(--text-3)" />
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)', flexShrink: 0 }}>{v.name}</span>
-                    {v.subtitle && <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.subtitle}</span>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1, height: 4, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${vpct}%`, background: 'var(--text-3)', borderRadius: 3 }} />
-                    </div>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{fmtSz(v.size)}</span>
-                  </div>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }} />
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{vpct >= 0.1 ? `${vpct.toFixed(1)}%` : '<0.1%'}</span>
-                  <span />
-                </div>
+                <VersionRow
+                  key={v.id} v={v} vpct={vpct} canDelete={canDelete}
+                  onDelete={() => deleteVersion(item, v.id)}
+                />
               );
             })}
             </React.Fragment>
@@ -1011,6 +1079,7 @@ export function StorageView({
         )}
       </div>
     </div>
+    {ctx && <ContextMenu items={ctx.items} pos={ctx.pos} onClose={() => setCtx(null)} />}
   );
 }
 
@@ -1336,36 +1405,46 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     setCtx({ pos: { x: e.clientX, y: e.clientY }, items: newMenuItems() });
   };
 
-  // File click: shift/ctrl multi-select, plain click opens resource or selects.
-  const handleFileClick = (e: React.MouseEvent, file: FileItem) => {
-    const isRes = file.type === 'resource' && !!file.resourceId;
+  // Unified click handler — dossiers et fichiers, shift/ctrl multi-select.
+  // La liste ordonnée dossiers-puis-fichiers reflète l'affichage pour shift-range.
+  const orderedItemIds = [...filteredFolders.map(f => f.id), ...filteredFiles.map(f => f.id)];
+
+  const handleItemClick = (e: React.MouseEvent, id: string) => {
     if (e.shiftKey && lastSelectedId) {
       e.preventDefault();
-      const ids = filteredFiles.map(f => f.id);
-      const a = ids.indexOf(lastSelectedId);
-      const b = ids.indexOf(file.id);
+      const a = orderedItemIds.indexOf(lastSelectedId);
+      const b = orderedItemIds.indexOf(id);
       if (a !== -1 && b !== -1) {
         const [lo, hi] = a < b ? [a, b] : [b, a];
-        setSelectedIds(new Set(ids.slice(lo, hi + 1)));
+        setSelectedIds(new Set(orderedItemIds.slice(lo, hi + 1)));
       } else {
-        setSelectedIds(new Set([file.id]));
+        setSelectedIds(new Set([id]));
       }
-      setLastSelectedId(file.id);
+      setLastSelectedId(id);
       return;
     }
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       setSelectedIds(prev => {
         const next = new Set(prev);
-        next.has(file.id) ? next.delete(file.id) : next.add(file.id);
+        next.has(id) ? next.delete(id) : next.add(id);
         return next;
       });
-      setLastSelectedId(file.id);
+      setLastSelectedId(id);
       return;
     }
-    // Plain click → sélectionne (double-clic ouvre la ressource)
-    setSelectedIds(new Set([file.id]));
-    setLastSelectedId(file.id);
+    // Clic simple → sélection (double-clic gère la navigation)
+    setSelectedIds(new Set([id]));
+    setLastSelectedId(id);
+  };
+
+  const trashSelected = () => {
+    selectedIds.forEach(id => {
+      if (filteredFolders.some(f => f.id === id) || allFolders.some(f => f.id === id)) trashFolder(id);
+      else trashFile(id);
+    });
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
   };
 
   // ── Project color lookup ─────────────────────────────────────────────────────
@@ -1377,20 +1456,25 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   const FolderCard = ({ folder }: { folder: FileFolder }) => {
     const isRenaming = renamingId === folder.id;
+    const isSelected = selectedIds.has(folder.id);
     const childCount = allFolders.filter(f => f.parentId === folder.id).length
                      + allFiles.filter(f => f.parentFolderId === folder.id).length;
     return (
       <div
-        onDoubleClick={() => handleNavigateFolder(folder)}
+        onClick={e => {
+          if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
+          handleItemClick(e, folder.id);
+        }}
         onContextMenu={e => handleFolderCtx(e, folder)}
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
-          border: '1.5px solid var(--border)', background: 'var(--surface-2)',
+          border: isSelected ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
+          background: isSelected ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)',
           transition: 'border-color 0.12s, background 0.12s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; } }}
+        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; } }}
       >
         <SFIcon name="folder" size={36} color={folder.projectId ? projectColor(folder.projectId) : folder.clientId ? clientColor(folder.clientId) : 'var(--accent)'} />
         <div style={{ textAlign: 'center', width: '100%' }}>
@@ -1413,9 +1497,14 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const baseBorder = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)';
     return (
       <div
-        onClick={e => handleFileClick(e, file)}
+        onClick={e => {
+          if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
+            return;
+          }
+          handleItemClick(e, file.id);
+        }}
         onContextMenu={e => handleFileCtx(e, file)}
-        onDoubleClick={() => { if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`); }}
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: isRes ? 'pointer' : 'default',
@@ -1447,15 +1536,19 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   const FolderRow = ({ folder }: { folder: FileFolder }) => {
     const isRenaming = renamingId === folder.id;
+    const isSelected = selectedIds.has(folder.id);
     const childCount = allFolders.filter(f => f.parentId === folder.id).length
                      + allFiles.filter(f => f.parentFolderId === folder.id).length;
     return (
       <div
-        onDoubleClick={() => handleNavigateFolder(folder)}
+        onClick={e => {
+          if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
+          handleItemClick(e, folder.id);
+        }}
         onContextMenu={e => handleFolderCtx(e, folder)}
-        style={ROW}
-        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        style={{ ...ROW, ...(isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}) }}
+        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
       >
         <SFIcon name="folder" size={20} color={folder.projectId ? projectColor(folder.projectId) : 'var(--accent)'} />
         {isRenaming
@@ -1476,12 +1569,17 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isSelected = selectedIds.has(file.id);
     return (
       <div
-        onClick={e => handleFileClick(e, file)}
+        onClick={e => {
+          if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
+            return;
+          }
+          handleItemClick(e, file.id);
+        }}
         onContextMenu={e => handleFileCtx(e, file)}
-        onDoubleClick={() => { if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`); }}
         style={{
           ...ROW, cursor: isRes ? 'pointer' : 'default',
-          ...(isSelected ? { border: '1.5px solid var(--accent)', background: 'rgba(249,255,0,0.06)' } : {}),
+          ...(isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}),
         }}
         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
@@ -1655,6 +1753,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   }) => {
     const { folders, files, projects: columnProjects } = getColumnItems(loc);
     const [hoveredColProjectId, setHoveredColProjectId] = React.useState<string | null>(null);
+    const [localSelectedFileId, setLocalSelectedFileId] = React.useState<string | null>(null);
 
     const folderColor = (f: FileFolder) => {
       if (f.projectId) return projectColor(f.projectId);
@@ -1760,6 +1859,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                 : { ...loc, folderId: f.id },
               f.id,
             )}
+            onContextMenu={e => handleFolderCtx(e, f)}
             onMouseEnter={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
             onMouseLeave={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'transparent'; }}
           >
@@ -1768,21 +1868,36 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             <SFIcon name="chevron-right" size={10} color={selectedId === f.id ? 'var(--on-accent)' : 'var(--text-3)'} />
           </div>
         ))}
-        {/* Files */}
+        {/* Files — clic simple = sélection locale, double-clic = ouvre la ressource */}
         {files.map(f => {
           const isRes = f.type === 'resource' && !!f.resourceId;
           const rm = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
           const meta = rm ?? TYPE_META[f.type] ?? TYPE_META.other;
+          const isLocSel = localSelectedFileId === f.id;
+          const localRowStyle: React.CSSProperties = {
+            ...rowStyle(f.id),
+            background: isLocSel ? 'var(--surface-3)' : 'transparent',
+            outline: isLocSel ? '1px solid var(--border-2)' : 'none',
+            outlineOffset: '-1px',
+            cursor: isRes ? 'pointer' : 'default',
+          };
           return (
             <div key={f.id}
-              style={{ ...rowStyle(f.id), cursor: isRes ? 'pointer' : 'default' }}
-              onClick={() => { if (isRes) { const p = f.projectId; if (p) { window.location.href = `/projets/${p}/ressources/${f.resourceId}`; } } }}
-              onMouseEnter={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { if (selectedId !== f.id) e.currentTarget.style.background = 'transparent'; }}
+              style={localRowStyle}
+              onClick={e => {
+                if (e.detail === 2 && isRes && f.projectId) {
+                  navigate(`/projets/${f.projectId}/ressources/${f.resourceId}`);
+                  return;
+                }
+                setLocalSelectedFileId(f.id);
+              }}
+              onContextMenu={e => handleFileCtx(e, f)}
+              onMouseEnter={e => { if (!isLocSel) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { if (!isLocSel) e.currentTarget.style.background = 'transparent'; }}
             >
-              <SFIcon name={meta.icon} size={14} color={selectedId === f.id ? 'var(--on-accent)' : meta.color} />
-              <span style={nameStyle(f.id)}>{f.name}</span>
-              {isRes && <span style={{ fontSize: 9, color: selectedId === f.id ? 'var(--on-accent)' : meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
+              <SFIcon name={meta.icon} size={14} color={meta.color} />
+              <span style={{ ...nameStyle(f.id), color: isLocSel ? 'var(--text)' : nameStyle(f.id).color }}>{f.name}</span>
+              {isRes && <span style={{ fontSize: 9, color: meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
             </div>
           );
         })}
@@ -2120,7 +2235,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
             </span>
             <button
-              onClick={() => { selectedIds.forEach(id => trashFile(id)); setSelectedIds(new Set()); setLastSelectedId(null); }}
+              onClick={trashSelected}
               title="Mettre à la corbeille"
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--danger)', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
             >

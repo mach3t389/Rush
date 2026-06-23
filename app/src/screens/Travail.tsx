@@ -127,7 +127,7 @@ function MoveTaskModal({ task, sections, onMove, onClose }: {
 
 // ── Column header ──────────────────────────────────────────────────────────────
 
-const GRID = '28px 1fr 80px 65px 160px 110px 130px 90px 28px';
+const GRID = '28px 1fr 80px 65px 160px 110px 130px 90px 24px 28px';
 
 const COL_STYLE: React.CSSProperties = {
   fontFamily: 'var(--ff-mono)', fontSize: 10,
@@ -250,6 +250,7 @@ function TaskRow({
   onTaskDragEnd,
   allSections,
   onMoveToSection,
+  onDelete,
 }: {
   task: Task;
   selected: boolean;
@@ -258,6 +259,7 @@ function TaskRow({
   onTaskDragEnd?: () => void;
   allSections?: SectionData[];
   onMoveToSection?: (toSectionLabel: string) => void;
+  onDelete?: () => void;
 }) {
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
@@ -451,6 +453,17 @@ function TaskRow({
         )}
       </div>
 
+      {/* Delete button — visible on hover */}
+      <button
+        onClick={e => { e.stopPropagation(); onDelete?.(); }}
+        title="Supprimer la tâche"
+        style={{ visibility: hovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 3, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+      >
+        <SFIcon name="trash-2" size={13} />
+      </button>
+
       {/* Context menu "..." */}
       <div style={{ position: 'relative' }}>
         <button
@@ -466,7 +479,7 @@ function TaskRow({
             {ddItem(() => { onSelect(task); setOpen(null); }, <><SFIcon name="maximize-2" size={13} color="var(--text-3)" />Ouvrir le détail</>)}
             {allSections && allSections.length > 1 && ddItem(() => { setOpen(null); setShowMoveModal(true); }, <><SFIcon name="move-right" size={13} color="var(--text-3)" />Déplacer vers...</>)}
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-            {ddItem(() => setOpen(null), <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}><SFIcon name="trash-2" size={13} color="var(--danger)" />Supprimer</span>)}
+            {ddItem(() => { onDelete?.(); setOpen(null); }, <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}><SFIcon name="trash-2" size={13} color="var(--danger)" />Supprimer</span>)}
           </InlineDropdown>
         )}
       </div>
@@ -906,6 +919,7 @@ function Section({
                 onTaskDragEnd={onTaskDragEnd}
                 allSections={allSections}
                 onMoveToSection={toLabel => onMoveTaskToSection(task, label, toLabel)}
+                onDelete={() => deleteTask(projectId, task.id)}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
