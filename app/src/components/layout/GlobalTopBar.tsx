@@ -129,7 +129,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           padding: '1px 5px',
           fontFamily: 'var(--ff-mono)',
           flexShrink: 0,
-        }}>⌘K</kbd>
+        }}>R</kbd>
       </button>
     </div>
   );

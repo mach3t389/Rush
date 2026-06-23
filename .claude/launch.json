@@ -6,7 +6,7 @@
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
       "runtimeArgs": ["run", "dev", "--prefix", "app"],
       "port": 5173,
-      "autoPort": false,
+      "autoPort": true,
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }

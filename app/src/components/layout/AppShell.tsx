@@ -15,6 +15,15 @@ export function AppShell() {
         e.preventDefault();
         setCmdOpen(prev => !prev);
       }
+      // Touche R seule — ouvre la recherche ; ignorée si focus dans un champ de texte
+      if ((e.key === 'r' || e.key === 'R' || e.code === 'KeyR') && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        const t = e.target as HTMLElement;
+        const inTextField = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+        if (!inTextField) {
+          e.preventDefault();
+          setCmdOpen(true);
+        }
+      }
       // Touche I seule — ignorée si focus dans un champ de texte hors du panneau IA
       if ((e.key === 'i' || e.key === 'I' || e.code === 'KeyI') && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
         const t = e.target as HTMLElement;
