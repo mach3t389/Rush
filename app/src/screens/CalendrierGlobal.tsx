@@ -937,8 +937,8 @@ export function CalendrierGlobal() {
   const [createEndTime, setCreateEndTime] = useState('10:00');
   const [createAllDay, setCreateAllDay] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent|null>(null);
-  const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
-  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const unsub1 = subscribeEvents(() => setEvents(resolveEvents(getEventTypes())));
@@ -952,11 +952,14 @@ export function CalendrierGlobal() {
     return d&&!t.checked?[{date:d,title:t.title,color:t.projectColor}]:[];
   });
 
-  // Filter events by visible projects + event types (modèle exclusion des deux côtés)
-  const visibleEvents = events.filter(ev => !hiddenProjects.has(ev.projectId ?? '') && !hiddenTypes.has(ev.eventTypeId));
+  // Filter events — modèle inclusion (même que ProjetCalendrier)
+  const visibleEvents = events.filter(ev =>
+    (selectedProjects.size === 0 || selectedProjects.has(ev.projectId ?? '')) &&
+    (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId))
+  );
 
-  const toggleEventType = (id: string) => setHiddenTypes(s => {
-    const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  const toggleEventType = (id: string) => setSelectedEventTypes(s => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
   // Navigation
@@ -971,10 +974,8 @@ export function CalendrierGlobal() {
     else setCur(d=>addDays(d,1));
   };
 
-  const toggleProject = (id: string) => setHiddenProjects(s=>{
-    const n=new Set(s);
-    if(n.has(id)) n.delete(id); else n.add(id);
-    return n;
+  const toggleProject = (id: string) => setSelectedProjects(s => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
   const handleSlotClick = (d: Date, h: number) => {
@@ -1021,11 +1022,14 @@ export function CalendrierGlobal() {
 
   const handleDeleteEvent = (id: string) => { deleteEvent(id); setSelectedEvent(null); };
 
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+
   // Upcoming events
-  const upcoming = [...visibleEvents]
+  const allUpcoming = [...visibleEvents]
     .filter(ev=>ev.startDate>=TODAY)
-    .sort((a,b)=>a.startDate.getTime()-b.startDate.getTime())
-    .slice(0,6);
+    .sort((a,b)=>a.startDate.getTime()-b.startDate.getTime());
+  const UPCOMING_VISIBLE = 3;
+  const upcoming = upcomingExpanded ? allUpcoming : allUpcoming.slice(0, UPCOMING_VISIBLE);
 
   return (
     <div style={{ height:'100%',display:'flex',overflow:'hidden' }}>
@@ -1038,47 +1042,30 @@ export function CalendrierGlobal() {
         <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
 
         {/* Project filters */}
-        {(() => {
+        {(()=>{
           const allProjects = [{ id: '', name: 'Sans projet', color: 'var(--text-3)' }, ...PROJECTS.filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
-          const allIds = allProjects.map(p => p.id);
-          const allHidden = allIds.every(id => hiddenProjects.has(id));
-          const soloId = allIds.filter(id => !hiddenProjects.has(id));
-          const isSolo = soloId.length === 1;
-
-          const toggleAll = () => {
-            if (allHidden) setHiddenProjects(new Set());
-            else setHiddenProjects(new Set(allIds));
-          };
-          const solo = (id: string) => {
-            if (isSolo && soloId[0] === id) setHiddenProjects(new Set());
-            else setHiddenProjects(new Set(allIds.filter(x => x !== id)));
-          };
-
+          const hasFilter = selectedProjects.size > 0;
           return (
             <div>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
                 <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Mes projets</p>
-                <button onClick={toggleAll} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                  {allHidden ? 'Tout afficher' : 'Tout masquer'}
-                </button>
+                {hasFilter && (
+                  <button onClick={()=>setSelectedProjects(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
+                    Tout afficher
+                  </button>
+                )}
               </div>
               <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
                 {allProjects.map(p=>{
-                  const hidden = hiddenProjects.has(p.id);
-                  const isThisSolo = isSolo && soloId[0] === p.id;
+                  const active = !hasFilter || selectedProjects.has(p.id);
                   return (
-                    <div key={p.id} style={{ display:'flex',alignItems:'center',gap:4 }}>
-                      <button onClick={()=>toggleProject(p.id)}
-                        style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',opacity:hidden?0.35:1,transition:'opacity 0.15s',flex:1,minWidth:0 }}
-                      >
-                        <div style={{ width:10,height:10,borderRadius:'50%',background:p.color,flexShrink:0 }} />
-                        <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontStyle:p.id===''?'italic':undefined }}>{p.name}</span>
-                        {hidden && <SFIcon name="eye-off" size={11} color="var(--text-3)" />}
-                      </button>
-                      <button onClick={()=>solo(p.id)} title="Voir uniquement ce projet"
-                        style={{ padding:'3px 6px',borderRadius:6,border:`1px solid ${isThisSolo?'var(--accent)':'var(--border)'}`,background:isThisSolo?'rgba(249,255,0,0.07)':'transparent',color:isThisSolo?'var(--accent)':'var(--text-3)',cursor:'pointer',fontSize:9,fontFamily:'var(--ff-mono)',flexShrink:0,transition:'all 0.12s' }}
-                      >Solo</button>
-                    </div>
+                    <button key={p.id} onClick={()=>toggleProject(p.id)}
+                      style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}
+                    >
+                      <div style={{ width:10,height:10,borderRadius:'50%',background:p.color,flexShrink:0 }} />
+                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontStyle:p.id===''?'italic':undefined }}>{p.name}</span>
+                      {active&&hasFilter&&<SFIcon name="check" size={11} color="var(--text-3)" />}
+                    </button>
                   );
                 })}
               </div>
@@ -1086,47 +1073,30 @@ export function CalendrierGlobal() {
           );
         })()}
 
-        {/* Event type filters — même modèle que les projets */}
+        {/* Event type filters */}
         {(()=>{
-          const allTypeIds = eventTypes.map(t => t.id);
-          const allHidden = allTypeIds.length > 0 && allTypeIds.every(id => hiddenTypes.has(id));
-          const shownIds = allTypeIds.filter(id => !hiddenTypes.has(id));
-          const isSolo = shownIds.length === 1;
-
-          const toggleAll = () => {
-            if (allHidden) setHiddenTypes(new Set());
-            else setHiddenTypes(new Set(allTypeIds));
-          };
-          const solo = (id: string) => {
-            if (isSolo && shownIds[0] === id) setHiddenTypes(new Set());
-            else setHiddenTypes(new Set(allTypeIds.filter(x => x !== id)));
-          };
-
+          const hasFilter = selectedEventTypes.size > 0;
           return (
             <div>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
                 <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Types d'événements</p>
-                <button onClick={toggleAll} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                  {allHidden ? 'Tout afficher' : 'Tout masquer'}
-                </button>
+                {hasFilter && (
+                  <button onClick={()=>setSelectedEventTypes(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
+                    Tout afficher
+                  </button>
+                )}
               </div>
               <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
                 {eventTypes.map(t=>{
-                  const hidden = hiddenTypes.has(t.id);
-                  const isThisSolo = isSolo && shownIds[0] === t.id;
+                  const active = !hasFilter || selectedEventTypes.has(t.id);
                   return (
-                    <div key={t.id} style={{ display:'flex',alignItems:'center',gap:4 }}>
-                      <button onClick={()=>toggleEventType(t.id)}
-                        style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:'transparent',cursor:'pointer',textAlign:'left',opacity:hidden?0.35:1,transition:'opacity 0.15s',flex:1,minWidth:0 }}
-                      >
-                        <div style={{ width:10,height:10,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                        <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{t.label}</span>
-                        {hidden && <SFIcon name="eye-off" size={11} color="var(--text-3)" />}
-                      </button>
-                      <button onClick={()=>solo(t.id)} title="Voir uniquement ce type"
-                        style={{ padding:'3px 6px',borderRadius:6,border:`1px solid ${isThisSolo?'var(--accent)':'var(--border)'}`,background:isThisSolo?'rgba(249,255,0,0.07)':'transparent',color:isThisSolo?'var(--accent)':'var(--text-3)',cursor:'pointer',fontSize:9,fontFamily:'var(--ff-mono)',flexShrink:0,transition:'all 0.12s' }}
-                      >Solo</button>
-                    </div>
+                    <button key={t.id} onClick={()=>toggleEventType(t.id)}
+                      style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}
+                    >
+                      <div style={{ width:10,height:10,borderRadius:'50%',background:t.color,flexShrink:0 }} />
+                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1 }}>{t.label}</span>
+                      {active&&hasFilter&&<SFIcon name="check" size={11} color="var(--text-3)" />}
+                    </button>
                   );
                 })}
               </div>
@@ -1136,10 +1106,10 @@ export function CalendrierGlobal() {
 
         </div>{/* fin zone scrollable filtres */}
 
-        {/* Prochains événements — panneau ancré au bas, scroll interne : ne déplace plus les filtres au-dessus */}
-        <div style={{ flexShrink:0,borderTop:'1px solid var(--border)',padding:'12px 16px',display:'flex',flexDirection:'column',gap:8,maxHeight:'42%' }}>
+        {/* Prochains événements — panneau ancré au bas */}
+        <div style={{ flexShrink:0,borderTop:'1px solid var(--border)',padding:'12px 16px',display:'flex',flexDirection:'column',gap:8 }}>
           <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Prochains événements</p>
-          <div style={{ display:'flex',flexDirection:'column',gap:6,overflowY:'auto',minHeight:0 }}>
+          <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
             {upcoming.map(ev=>(
               <div key={ev.id} onClick={()=>setSelectedEvent(ev)} style={{ display:'flex',gap:8,cursor:'pointer',padding:'6px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)' }}
                 onMouseEnter={e=>(e.currentTarget.style.borderColor='var(--border-2)')}
@@ -1155,6 +1125,16 @@ export function CalendrierGlobal() {
                 </div>
               </div>
             ))}
+            {allUpcoming.length > UPCOMING_VISIBLE && (
+              <button onClick={()=>setUpcomingExpanded(x=>!x)}
+                style={{ display:'flex',alignItems:'center',gap:4,background:'none',border:'none',color:'var(--text-3)',fontSize:10,fontFamily:'var(--ff-mono)',cursor:'pointer',padding:'2px 4px',alignSelf:'flex-start',transition:'color 0.12s' }}
+                onMouseEnter={e=>(e.currentTarget.style.color='var(--text-2)')}
+                onMouseLeave={e=>(e.currentTarget.style.color='var(--text-3)')}
+              >
+                <SFIcon name={upcomingExpanded?'chevron-up':'chevron-down'} size={11} />
+                {upcomingExpanded ? 'Réduire' : `${allUpcoming.length - UPCOMING_VISIBLE} de plus`}
+              </button>
+            )}
           </div>
         </div>
       </div>

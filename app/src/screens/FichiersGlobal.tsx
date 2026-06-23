@@ -795,8 +795,8 @@ export function StorageView({
   const openItemCtx = (e: React.MouseEvent, item: StorageItem) => {
     e.preventDefault();
     const menuItems: CtxMenuItem[] = [];
-    if (item.fileItem?.resourceId && item.fileItem.projectId) {
-      menuItems.push({ label: 'Ouvrir la ressource', icon: 'external-link', action: () => navigate(`/projets/${item.fileItem!.projectId}/ressources/${item.fileItem!.resourceId}`) });
+    if (item.fileItem?.resourceId) {
+      menuItems.push({ label: 'Ouvrir la ressource', icon: 'external-link', action: () => item.fileItem && openResource(item.fileItem) });
       menuItems.push({ label: '', icon: '', action: () => {}, separator: true });
     } else if (item.isFolder && item.onClick) {
       menuItems.push({ label: 'Ouvrir', icon: 'folder-open', action: item.onClick });
@@ -1013,8 +1013,8 @@ export function StorageView({
                 <div
                   style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, cursor: (item.onClick || (!item.isFolder && item.fileItem?.resourceId)) ? 'pointer' : 'default' }}
                   onClick={e => {
-                    if (!item.isFolder && item.fileItem?.resourceId && item.fileItem.projectId) {
-                      if (e.detail === 2) navigate(`/projets/${item.fileItem.projectId}/ressources/${item.fileItem.resourceId}`);
+                    if (!item.isFolder && item.fileItem?.resourceId) {
+                      if (e.detail === 2) openResource(item.fileItem);
                       return;
                     }
                     item.onClick?.();
@@ -1180,6 +1180,13 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
 
+  // Ouvre une ressource en naviguant vers sa route, avec fallback si projectId manquant
+  const openResource = useCallback((file: FileItem) => {
+    if (!file.resourceId) return;
+    const pid = file.projectId ?? getFiles().find(f => f.resourceId === file.resourceId)?.projectId;
+    if (pid) navigate(`/projets/${pid}/ressources/${file.resourceId}`);
+  }, [navigate]);
+
   // Modals
   const [showNewFolder, setShowNewFolder]             = useState(false);
   const [showAddFile, setShowAddFile]                 = useState(false);
@@ -1199,6 +1206,23 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   // Multi-selection of files
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [selectedVirtualId, setSelectedVirtualId] = useState<string | null>(null);
+
+  // Raccourcis clavier : Enter ouvre la ressource sélectionnée, Escape vide la sélection
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+      if (e.key === 'Enter' && selectedIds.size === 1) {
+        const fileId = [...selectedIds][0];
+        const file = getFiles().find(f => f.id === fileId);
+        if (file?.resourceId) { e.preventDefault(); openResource(file); }
+      }
+      if (e.key === 'Escape') { setSelectedIds(new Set()); setLastSelectedId(null); setSelectedVirtualId(null); setCtx(null); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedIds, openResource]);
 
   // ── Compute current folder contents ─────────────────────────────────────────
 
@@ -1415,7 +1439,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     } else {
       items = [
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
-        ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`) }] : []),
+        ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => openResource(file) }] : []),
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Archiver', icon: 'archive', action: () => archiveFile(file.id) },
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
@@ -1505,6 +1529,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     // Clic simple → sélection (double-clic gère la navigation)
     setSelectedIds(new Set([id]));
     setLastSelectedId(id);
+    setSelectedVirtualId(null);
   };
 
   const trashSelected = () => {
@@ -1570,7 +1595,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
+            if (isRes) { openResource(file); return; }
             return;
           }
           handleItemClick(e, file.id);
@@ -1644,7 +1669,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            if (isRes && file.projectId) navigate(`/projets/${file.projectId}/ressources/${file.resourceId}`);
+            if (isRes) { openResource(file); return; }
             return;
           }
           handleItemClick(e, file.id);
@@ -1673,12 +1698,18 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   // ── Root view cards / rows ────────────────────────────────────────────────────
 
-  const VirtualRow = ({ label, icon, color, onClick, count, sublabel }: { label: string; icon: string; color: string; onClick: () => void; count?: number; sublabel?: string }) => (
+  const VirtualRow = ({ id, label, icon, color, onClick, count, sublabel }: { id: string; label: string; icon: string; color: string; onClick: () => void; count?: number; sublabel?: string }) => {
+    const isSelected = selectedVirtualId === id;
+    return (
     <div
-      onClick={onClick}
-      style={{ ...ROW, background: 'transparent', transition: 'background 0.1s' }}
-      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      onClick={e => {
+        setSelectedVirtualId(id);
+        setSelectedIds(new Set());
+        if (e.detail >= 2) onClick();
+      }}
+      style={{ ...ROW, background: isSelected ? 'rgba(249,255,0,0.06)' : 'transparent', outline: isSelected ? '1px solid rgba(249,255,0,0.2)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s' }}
+      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
     >
       <div style={{ width: 28, height: 28, borderRadius: 6, background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <SFIcon name={icon} size={15} color={color} />
@@ -1688,28 +1719,35 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{count !== undefined ? `${count} dossier${count !== 1 ? 's' : ''}` : '—'}</span>
       <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
     </div>
-  );
+  );};
 
-  const VirtualCard = ({ label, icon, color, onClick, count }: { label: string; icon: string; color: string; onClick: () => void; count?: number }) => (
-    <div
-      onDoubleClick={onClick}
-      onClick={onClick}
-      style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-        padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
-        border: '1.5px solid var(--border)', background: 'var(--surface-2)',
-        transition: 'border-color 0.12s, background 0.12s',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = color + '88'; e.currentTarget.style.background = color + '11'; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-    >
-      <SFIcon name={icon} size={32} color={color} />
-      <div style={{ textAlign: 'center' }}>
-        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{label}</p>
-        {count !== undefined && <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{count} dossier{count > 1 ? 's' : ''}</p>}
+  const VirtualCard = ({ id, label, icon, color, onClick, count }: { id: string; label: string; icon: string; color: string; onClick: () => void; count?: number }) => {
+    const isSelected = selectedVirtualId === id;
+    return (
+      <div
+        onClick={e => {
+          setSelectedVirtualId(id);
+          setSelectedIds(new Set());
+          if (e.detail >= 2) onClick();
+        }}
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
+          border: isSelected ? `1.5px solid ${color}88` : '1.5px solid var(--border)',
+          background: isSelected ? color + '18' : 'var(--surface-2)',
+          transition: 'border-color 0.12s, background 0.12s',
+        }}
+        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = color + '55'; e.currentTarget.style.background = color + '0d'; } }}
+        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; } }}
+      >
+        <SFIcon name={icon} size={32} color={color} />
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{label}</p>
+          {count !== undefined && <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{count} dossier{count > 1 ? 's' : ''}</p>}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Project card with pin & menu buttons
   const ProjectCard = ({ project }: { project: Project }) => {
@@ -1719,6 +1757,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     return (
       <div style={{ position: 'relative' }}>
         <VirtualCard
+          id={`project-${project.id}`}
           label={project.name}
           icon="folder"
           color={project.clientColor}
@@ -1855,10 +1894,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         setLastSelectedId(id);
         return;
       }
-      // Plain click: select + navigate if provided
+      // Simple clic: sélectionner; double-clic: naviguer
       setSelectedIds(new Set([id]));
       setLastSelectedId(id);
-      onNavigate?.();
+      if (e.detail >= 2) onNavigate?.();
     };
 
     const isColSel = (id: string) => selectedIds.has(id);
@@ -1993,8 +2032,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               style={localRowStyle}
               onMouseDown={noSelectOnModifier}
               onClick={e => {
-                if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey && isRes && f.projectId) {
-                  navigate(`/projets/${f.projectId}/ressources/${f.resourceId}`);
+                if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey && isRes) {
+                  openResource(f);
                   return;
                 }
                 handleColClick(e, f.id);
@@ -2549,12 +2588,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                   </div>
                   {/* Global folders */}
                   {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
-                    <VirtualRow key={f.id} label={f.name} icon="folder" color={f.color ?? 'var(--text-3)'}
+                    <VirtualRow key={f.id} id={`gfolder-${f.id}`} label={f.name} icon="folder" color={f.color ?? 'var(--text-3)'}
                       onClick={() => setLocation({ scope: 'global', folderId: f.id })}
                       count={allFolders.filter(c => c.parentId === f.id).length} sublabel="Dossier" />
                   ))}
                   {/* Clients row */}
-                  <VirtualRow key="clients-folder" label="Clients" icon="users" color="var(--accent)"
+                  <VirtualRow key="clients-folder" id="vrow-clients" label="Clients" icon="users" color="var(--accent)"
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
                     count={clients.length} sublabel="Dossier" />
                 </div>
@@ -2570,6 +2609,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                   {/* Clients folder */}
                   <VirtualCard
                     key="clients-folder"
+                    id="vcard-clients"
                     label="Clients"
                     icon="users"
                     color="var(--accent)"
@@ -2590,6 +2630,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                   {clients.map(c => (
                     <VirtualCard
                       key={c.id}
+                      id={`client-${c.id}`}
                       label={c.name}
                       icon="user"
                       color={c.avatarColor}
@@ -2605,7 +2646,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                     <span>Nom</span><span>Type</span><span>Projets</span><span>Modifié</span>
                   </div>
                   {clients.map(c => (
-                    <VirtualRow key={c.id} label={c.name} icon="user" color={c.avatarColor}
+                    <VirtualRow key={c.id} id={`client-${c.id}`} label={c.name} icon="user" color={c.avatarColor}
                       onClick={() => setLocation({ scope: 'client', scopeId: c.id, folderId: null })}
                       count={projects.filter(p => p.clientId === c.id).length} sublabel="Client" />
                   ))}
@@ -2634,10 +2675,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                     const isPinned = pinnedIds.includes(p.id);
                     return (
                       <div key={p.id}
-                        style={{ ...ROW, position: 'relative', group: 'item' } as any}
-                        onClick={() => setLocation({ scope: 'project', scopeId: p.id, folderId: null })}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        style={{ ...ROW, position: 'relative', background: selectedVirtualId === `project-${p.id}` ? 'rgba(249,255,0,0.06)' : 'transparent', outline: selectedVirtualId === `project-${p.id}` ? '1px solid rgba(249,255,0,0.2)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s' } as any}
+                        onClick={e => { setSelectedVirtualId(`project-${p.id}`); setSelectedIds(new Set()); if (e.detail >= 2) setLocation({ scope: 'project', scopeId: p.id, folderId: null }); }}
+                        onMouseEnter={e => { if (selectedVirtualId !== `project-${p.id}`) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={e => { if (selectedVirtualId !== `project-${p.id}`) e.currentTarget.style.background = 'transparent'; }}
                       >
                         <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <SFIcon name="folder" size={14} color={p.clientColor} />
