@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
-import { TODAY_TASKS, ACTIVITY, PROJECTS } from '../data/mock';
+import { TODAY_TASKS, ACTIVITY, PROJECTS, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, type CalendarEvent } from '../data/eventStore';
+import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById } from '../data/eventTypeStore';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,9 +54,19 @@ function isEventNow(ev: CalendarEvent): boolean {
 
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: 'var(--danger)',
-  high:   'var(--warn)',
-  normal: 'var(--border-2)',
-  low:    'var(--surface-3)',
+  high:   'var(--danger)',
+  normal: 'var(--warn)',
+  low:    'var(--info)',
+  none:   'var(--border-2)',
+};
+const PRIORITY_LABEL: Record<string, string> = {
+  urgent: 'Urgente', high: 'Élevée', normal: 'Moyenne', low: 'Basse', none: 'Aucune',
+};
+const STATUS_BG: Record<string, string> = {
+  danger: '#3a1515', warn: '#3a2f10', info: '#102a3a', ok: '#0f2f1a', review: '#2a1a3a', neutral: 'var(--surface-3)',
+};
+const STATUS_COLOR: Record<string, string> = {
+  danger: 'var(--danger)', warn: 'var(--warn)', info: 'var(--info)', ok: 'var(--ok)', review: 'var(--review)', neutral: 'var(--text-3)',
 };
 
 // ── Collapsible section card ──────────────────────────────────────────────────
@@ -96,31 +107,70 @@ function CollapsibleCard({
   );
 }
 
-// ── Compact task row ──────────────────────────────────────────────────────────
+// ── Compact task row — same look as Taches.tsx TaskRow ───────────────────────
 
 function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () => void }) {
+  const [checked, setChecked] = useState(task.checked ?? false);
   return (
     <div
-      onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 9,
-        padding: '9px 18px', borderBottom: '1px solid var(--border)',
-        cursor: onClick ? 'pointer' : 'default',
+        display: 'grid',
+        gridTemplateColumns: '28px 1fr 130px 110px 90px',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 16px',
+        borderBottom: '1px solid var(--border)',
+        cursor: 'pointer',
+        opacity: checked ? 0.4 : 1,
+        transition: 'opacity 0.3s, background 0.1s',
+        borderLeft: '2px solid transparent',
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+      onClick={onClick}
     >
-      <div style={{ width: 3, height: 26, borderRadius: 99, flexShrink: 0, background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)' }} />
-      <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>{task.title}</p>
+      {/* Checkbox */}
+      <button
+        onClick={e => { e.stopPropagation(); setChecked(v => !v); }}
+        style={{
+          width: 16, height: 16, borderRadius: '50%',
+          border: checked ? 'none' : '1.5px solid var(--border-2)',
+          background: checked ? 'var(--ok)' : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, cursor: 'pointer',
+        }}
+      >
+        {checked && <SFIcon name="check" size={10} color="white" />}
+      </button>
+
+      {/* Titre */}
+      <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>
+        {task.title}
+      </span>
+
+      {/* Projet */}
       <span style={{
-        fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700,
+        fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 600,
         color: 'white', background: task.projectColor ?? 'var(--surface-3)',
-        borderRadius: 5, padding: '1px 6px', flexShrink: 0,
+        borderRadius: 5, padding: '2px 7px', overflow: 'hidden',
+        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{task.projectName}</span>
-      {task.dueDate && task.dueDate !== '—' && (
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', flexShrink: 0 }}>
+
+      {/* Priorité */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)', flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: PRIORITY_COLOR[task.priority] ?? 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
+          {PRIORITY_LABEL[task.priority] ?? '—'}
+        </span>
+      </span>
+
+      {/* Échéance */}
+      {task.dueDate && task.dueDate !== '—' ? (
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', flexShrink: 0 }}>
           {fmtTaskDate(task.dueDate ?? '')}
         </span>
+      ) : (
+        <span style={{ fontSize: 11, color: 'var(--text-3)' }}>—</span>
       )}
     </div>
   );
@@ -164,13 +214,19 @@ export function Dashboard() {
     return `${label} ${TODAY.getDate()} ${month}`;
   })();
 
+  const firstName = (() => {
+    const p = loadProfile(USERS.lea.id);
+    const full = p.name ?? USERS.lea.name;
+    return full.split(' ')[0];
+  })();
+
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* Header compact */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>Bonjour, Léa 👋</h1>
+          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>Bonjour, {firstName} 👋</h1>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
             {dayLabel}
           </p>

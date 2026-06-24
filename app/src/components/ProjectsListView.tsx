@@ -318,20 +318,31 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
               </div>
 
               <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Date de livraison</label>
-                <button
-                  onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)',
-                    background: 'var(--surface-2)', cursor: 'pointer',
-                    fontFamily: 'var(--ff-mono)', fontSize: 12,
-                    color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
-                  }}
-                >
-                  <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                  {deliveryDate ? formatDisplay(deliveryDate) : 'Choisir une date…'}
-                </button>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Date de livraison <span style={{ fontWeight: 400, opacity: 0.6 }}>(optionnel)</span></label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)',
+                      background: 'var(--surface-2)', cursor: 'pointer',
+                      fontFamily: 'var(--ff-mono)', fontSize: 12,
+                      color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
+                    }}
+                  >
+                    <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                    {deliveryDate ? formatDisplay(deliveryDate) : 'Choisir une date…'}
+                  </button>
+                  {deliveryDate && (
+                    <button
+                      onClick={() => setDeliveryDate('')}
+                      title="Supprimer la date"
+                      style={{ width: 26, height: 26, borderRadius: 7, border: 'none', background: 'var(--surface-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', flexShrink: 0 }}
+                    >
+                      <SFIcon name="x" size={12} />
+                    </button>
+                  )}
+                </div>
                 {dateOpen && (
                   <DatePickerDropdown
                     value={deliveryDate}
@@ -514,7 +525,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
 // ── Shared project list view ──────────────────────────────────────────────────
 
-export function ProjectsListView({ clientId }: { clientId?: string }) {
+export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | Status>('all');
   const [clientFilter, setClientFilter] = useState<string | null>(null);
@@ -527,6 +538,10 @@ export function ProjectsListView({ clientId }: { clientId?: string }) {
   const clientFilterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => subscribeProjects(() => setAllProjects(getProjects())), []);
+
+  useEffect(() => {
+    if (autoOpen) { setShowModal(true); onModalClose?.(); }
+  }, [autoOpen]);
 
   const projects = clientId
     ? allProjects.filter(p => p.clientId === clientId)

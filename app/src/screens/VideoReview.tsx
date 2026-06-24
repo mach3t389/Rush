@@ -33,6 +33,7 @@ interface Reply {
 
 interface LocalComment {
   id: string;
+  versionId: string;
   author: typeof USERS.lea;
   text: string;
   timeLabel: string | null;
@@ -272,6 +273,9 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [addVersionOpen, setAddVersionOpen] = useState(false);
   const [newVersionNote, setNewVersionNote] = useState('');
   const [versionToDelete, setVersionToDelete] = useState<LocalVersion | null>(null);
+  const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [editVersionKey, setEditVersionKey]     = useState('');
+  const [editVersionLabel, setEditVersionLabel] = useState('');
   const [commentText, setCommentText] = useState('');
   const [withTimestamp, setWithTimestamp] = useState(true);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
@@ -296,6 +300,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [comments, setComments] = useState<LocalComment[]>(() =>
     persisted?.comments ?? (persistKey ? [] : VIDEO_COMMENTS.map(c => ({
       id: c.id,
+      versionId: 'V1',
       author: c.author as typeof USERS.lea,
       text: c.text,
       timeLabel: c.timeLabel,
@@ -485,6 +490,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     const ts = withTimestamp ? Math.round(currentTime) : null;
     const newC: LocalComment = {
       id: `c${Date.now()}`,
+      versionId: activeVersion,
       author: USERS.lea,
       text: commentText.trim(),
       timeLabel: ts !== null ? secsToLabel(ts) : null,
@@ -544,6 +550,25 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setTab('comments');
   };
 
+  const versionComments = comments.filter(c => c.versionId === activeVersion);
+  const timedComments = versionComments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').sort((a, b) => a.timeSeconds! - b.timeSeconds!);
+  const goNextComment = () => { const next = timedComments.find(c => c.timeSeconds! > currentTime + 0.3); if (next) jumpToComment(next); };
+  const goPrevComment = () => { const prev = [...timedComments].reverse().find(c => c.timeSeconds! < currentTime - 0.3); if (prev) jumpToComment(prev); };
+
+  const removeMediaFromVersion = () => {
+    setVersions(prev => prev.map(v => v.v === activeVersion ? { ...v, mediaFileId: undefined, mediaName: undefined, mediaType: undefined } : v));
+    setComments(prev => prev.filter(c => c.versionId !== activeVersion));
+    setMediaDuration(null); setCurrentTime(0); setPlaying(false);
+  };
+
+  const saveVersionEdit = () => {
+    if (!editingVersionId) return;
+    const newKey = editVersionKey.trim() || editingVersionId;
+    setVersions(prev => prev.map(v => v.v === editingVersionId ? { ...v, v: newKey, label: editVersionLabel.trim() || v.label } : v));
+    if (activeVersion === editingVersionId) setVersion(newKey);
+    setEditingVersionId(null);
+  };
+
   const openStatusDrop = () => {
     if (statusDropRef.current) {
       setStatusDropRect(statusDropRef.current.getBoundingClientRect());
@@ -582,13 +607,13 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   );
 
   // Only show annotations for the selected comment or those matching the current playback position (±0.5s)
-  const annotatedComments = comments
+  const annotatedComments = versionComments
     .filter(c => c.annotation && c.status !== 'resolved' && (
       c.id === activeCommentId ||
       (c.timeSeconds !== null && Math.abs(c.timeSeconds - currentTime) <= 0.5)
     ))
     .map(c => ({ id: c.id, annotation: c.annotation! }));
-  const unresolvedCount   = comments.filter(c => c.status !== 'resolved').length;
+  const unresolvedCount   = versionComments.filter(c => c.status !== 'resolved').length;
   const openTaskCount     = tasks.filter(t => !t.done).length;
 
   const currentStatusMeta = REVIEW_STATUSES.find(s => s.key === reviewStatus)!;
@@ -610,23 +635,71 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           {versionDropOpen && (
             <>
               <div onClick={() => setVersionDropOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98 }} />
-              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 99, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 230, padding: '4px 0', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 99, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 280, padding: '4px 0', overflow: 'hidden' }}>
                 {versions.map(v => (
-                  <div key={v.v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => { const x = (e.currentTarget as HTMLElement).querySelector('.vrd-del') as HTMLElement | null; if (x) x.style.opacity = '1'; }}
-                    onMouseLeave={e => { const x = (e.currentTarget as HTMLElement).querySelector('.vrd-del') as HTMLElement | null; if (x) x.style.opacity = '0'; }}>
-                    <button onClick={() => { setVersion(v.v); setVersionDropOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: activeVersion === v.v ? 'var(--surface-2)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', paddingRight: versions.length > 1 ? 36 : 14 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[v.status], flexShrink: 0 }} />
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: activeVersion === v.v ? 'var(--accent)' : 'var(--text)', fontWeight: activeVersion === v.v ? 600 : 400 }}>{v.v}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.label}</span>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginLeft: 'auto', flexShrink: 0 }}>{v.date}</span>
-                    </button>
-                    {versions.length > 1 && (
-                      <button className="vrd-del" onClick={e => { e.stopPropagation(); setVersionToDelete(v); setVersionDropOpen(false); }}
-                        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
-                        <SFIcon name="x" size={11} />
-                      </button>
+                  <div key={v.v}>
+                    {editingVersionId === v.v ? (
+                      /* ── Inline edit form ── */
+                      <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--surface-2)' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ flex: '0 0 60px' }}>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 3 }}>N° version</p>
+                            <input value={editVersionKey} onChange={e => setEditVersionKey(e.target.value)}
+                              style={{ width: '100%', padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 700, outline: 'none', colorScheme: 'dark', boxSizing: 'border-box' }} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 3 }}>Notes / label</p>
+                            <input autoFocus value={editVersionLabel} onChange={e => setEditVersionLabel(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveVersionEdit(); if (e.key === 'Escape') setEditingVersionId(null); }}
+                              placeholder="ex. Corrections son…"
+                              style={{ width: '100%', padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 11, outline: 'none', colorScheme: 'dark', boxSizing: 'border-box' }} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
+                          <button onClick={() => setEditingVersionId(null)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer' }}>Annuler</button>
+                          <button onClick={saveVersionEdit} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Enregistrer</button>
+                        </div>
+                        {/* Video actions for this version */}
+                        {v.mediaFileId && (
+                          <div style={{ display: 'flex', gap: 6, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                            <button onClick={() => { mediaFileInputRef.current?.click(); setEditingVersionId(null); }}
+                              style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                              <SFIcon name="refresh-cw" size={10} />Remplacer la vidéo
+                            </button>
+                            <button onClick={() => { removeMediaFromVersion(); setEditingVersionId(null); }}
+                              style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(229,72,77,0.3)', background: 'transparent', color: 'var(--danger)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <SFIcon name="trash-2" size={10} />Supprimer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* ── Normal version row ── */
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.vrd-action').forEach(x => x.style.opacity = '1'); }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.vrd-action').forEach(x => x.style.opacity = '0'); }}>
+                        <button onClick={() => { setVersion(v.v); setVersionDropOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: activeVersion === v.v ? 'var(--surface-2)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', paddingRight: 60 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[v.status], flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: activeVersion === v.v ? 'var(--accent)' : 'var(--text)', fontWeight: activeVersion === v.v ? 600 : 400, flexShrink: 0 }}>{v.v}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.label || '—'}</span>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', flexShrink: 0 }}>{v.date}</span>
+                        </button>
+                        {/* Edit button */}
+                        <button className="vrd-action" onClick={e => { e.stopPropagation(); setEditingVersionId(v.v); setEditVersionKey(v.v); setEditVersionLabel(v.label || ''); }}
+                          title="Modifier"
+                          style={{ position: 'absolute', right: versions.length > 1 ? 28 : 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
+                          <SFIcon name="pencil" size={11} />
+                        </button>
+                        {/* Delete version button */}
+                        {versions.length > 1 && (
+                          <button className="vrd-action" onClick={e => { e.stopPropagation(); setVersionToDelete(v); setVersionDropOpen(false); }}
+                            title="Supprimer la version"
+                            style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
+                            <SFIcon name="x" size={11} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -702,7 +775,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
         {/* ── Left: player ── */}
         <div
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 0', position: 'relative' }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 12px', position: 'relative' }}
           onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsMediaDragging(true); } }}
           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsMediaDragging(false); }}
           onDrop={e => { e.preventDefault(); setIsMediaDragging(false); const f = Array.from(e.dataTransfer.files)[0]; if (f) assignMediaToActive(f); }}
@@ -763,7 +836,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 {/* Playhead */}
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(currentTime / TOTAL) * 100}%`, width: 2, background: '#4ec994', boxShadow: '0 0 6px #4ec994', pointerEvents: 'none', borderRadius: 2 }} />
                 {/* Comment markers */}
-                {comments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (
+                {versionComments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (
                   <div key={c.id}
                     onClick={e => { e.stopPropagation(); jumpToComment(c); }}
                     title={`${c.timeLabel} — ${c.author.name}: ${c.text.slice(0, 40)}`}
@@ -804,10 +877,6 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               </div>
             )}
 
-            {/* Playback scan line (motion cue) */}
-            {playing && mediaUrl && (
-              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(currentTime / TOTAL) * 100}%`, width: 2, background: 'rgba(249,255,0,0.45)', boxShadow: '0 0 8px rgba(249,255,0,0.5)', pointerEvents: 'none', zIndex: 3 }} />
-            )}
 
             {/* Center overlay — only when media present, paused & not drawing */}
             {mediaUrl && !drawTool && !playing && (
@@ -837,23 +906,16 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           </div>
           )}
 
-          {/* Timeline */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 6px', flexShrink: 0 }}>
-            <button onClick={() => seekBy(-5)} title="Reculer de 5s"
-              style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
-              <SFIcon name="rewind" size={12}  />
-            </button>
-            <button onClick={togglePlay} title={playing ? 'Pause (Espace)' : 'Lecture (Espace)'}
-              style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-              <SFIcon name={playing ? 'pause' : currentTime >= TOTAL ? 'rotate-ccw' : 'play'} size={14} color="var(--on-accent)" />
-            </button>
-            <button onClick={() => seekBy(5)} title="Avancer de 5s"
-              style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
-              <SFIcon name="fast-forward" size={12}  />
-            </button>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 78, textAlign: 'center' }}>{secsToLabel(currentTime)} / {secsToLabel(TOTAL)}</span>
+          {/* Timeline + transport controls */}
+          <div style={{ flexShrink: 0, padding: '8px 0 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {/* Scrubber bar */}
             <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}
               onClick={e => {
+                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                seekTo((e.clientX - rect.left) / rect.width * TOTAL);
+              }}
+              onMouseMove={e => {
+                if (e.buttons !== 1) return;
                 const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                 seekTo((e.clientX - rect.left) / rect.width * TOTAL);
               }}>
@@ -870,7 +932,78 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 const secs = m * 60 + s;
                 return <div key={t.id} title={t.title} style={{ position: 'absolute', top: '50%', left: `${(secs / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', border: '2px solid var(--bg)', zIndex: 1 }} />;
               })}
-              <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', zIndex: 2 }} />
+              <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', zIndex: 2, boxShadow: '0 0 6px rgba(249,255,0,0.4)' }} />
+            </div>
+            {/* Transport controls — 3 sections */}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {/* Left: timecode */}
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 96 }}>
+                {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
+              </span>
+
+              {/* Center: transport controls */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {/* Prev comment */}
+                <button onClick={goPrevComment} title="Commentaire précédent"
+                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="skip-back" size={14} />
+                </button>
+                {/* Rewind -5s */}
+                <button onClick={() => seekBy(-5)} title="Reculer de 5s"
+                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
+                  <SFIcon name="rewind" size={14} />
+                </button>
+                {/* Play/Pause — large, centered */}
+                <button onClick={togglePlay} title={playing ? 'Pause (Espace)' : 'Lecture (Espace)'}
+                  style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: '0 0 18px rgba(249,255,0,0.25)' }}>
+                  <SFIcon name={playing ? 'pause' : currentTime >= TOTAL ? 'rotate-ccw' : 'play'} size={20} color="var(--on-accent)" />
+                </button>
+                {/* Forward +5s */}
+                <button onClick={() => seekBy(5)} title="Avancer de 5s"
+                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
+                  <SFIcon name="fast-forward" size={14} />
+                </button>
+                {/* Next comment */}
+                <button onClick={goNextComment} title="Commentaire suivant"
+                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="skip-forward" size={14} />
+                </button>
+              </div>
+
+              {/* Right: volume + fullscreen */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 96, justifyContent: 'flex-end' }}>
+                {/* Volume / Mute */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={() => setShowVolume(true)}
+                  onMouseLeave={() => setShowVolume(false)}>
+                  <button onClick={toggleMute} title={muted ? 'Activer le son' : 'Couper le son'}
+                    style={{ width: 32, height: 32, borderRadius: 8, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: muted ? 'var(--text-3)' : 'var(--text-2)', flexShrink: 0 }}>
+                    <SFIcon name={muted || volume === 0 ? 'volume-x' : volume < 0.5 ? 'volume-1' : 'volume-2'} size={16} />
+                  </button>
+                  {showVolume && (
+                    <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, zIndex: 50 }}>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>{Math.round((muted ? 0 : volume) * 100)}%</span>
+                      <input
+                        type="range" min={0} max={1} step={0.02} value={muted ? 0 : volume}
+                        onChange={e => changeVolume(Number(e.target.value))}
+                        style={{ writingMode: 'vertical-lr', direction: 'rtl', height: 80, width: 4, accentColor: 'var(--accent)', cursor: 'pointer' } as React.CSSProperties}
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* Fullscreen */}
+                <button
+                  onClick={() => {
+                    const el = videoFrameRef.current;
+                    if (!el) return;
+                    if (!document.fullscreenElement) el.requestFullscreen().catch(() => setIsFullscreen(f => !f));
+                    else document.exitFullscreen().catch(() => setIsFullscreen(f => !f));
+                  }}
+                  title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}>
+                  <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={15} />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -928,7 +1061,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               {[
-                { label: 'Commentaires', value: comments.length },
+                { label: 'Commentaires', value: versionComments.length },
                 { label: 'Ouverts', value: unresolvedCount, color: 'var(--warn)' },
                 { label: 'Tâches', value: openTaskCount, color: 'var(--info)' },
               ].map(s => (
@@ -958,10 +1091,18 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
             {tab === 'comments' && (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {comments.length === 0 && (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Aucun commentaire pour le moment.</div>
+                {versionComments.length === 0 && (
+                  <div style={{ padding: '28px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 14 }}>Aucun commentaire pour le moment.</div>
+                    <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', textAlign: 'left' }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.55 }}>
+                        💬 Cliquez sur la vidéo pour placer une annotation, puis rédigez votre commentaire.<br />
+                        Utilisez <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@prénom</span> pour mentionner un membre de l'équipe.
+                      </p>
+                    </div>
+                  </div>
                 )}
-                {comments.map(c => {
+                {versionComments.map(c => {
                   const isActive = activeCommentId === c.id;
                   return (
                     <div key={c.id}>

@@ -36,11 +36,12 @@ export function ProjectHeaderBar({
   if (!project) return null;
 
   const tabs = [
-    { label: "Vue d'ensemble", path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
-    { label: 'Tâches',         path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
-    { label: 'Fichiers',        path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
-    { label: 'Calendrier',     path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
-    { label: 'Équipe',         path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
+    { label: 'Aperçu',     path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
+    { label: 'Tâches',     path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
+    { label: 'Calendrier', path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
+    { label: 'Équipe',     path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
+    { label: 'Activité',   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
+    { label: 'Fichiers',   path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
   ];
 
   return (

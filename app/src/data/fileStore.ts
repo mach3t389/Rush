@@ -78,6 +78,10 @@ const SEED_FILES: FileItem[] = [
   { id: 'fi-ce-06', name: 'V1_Campagne_Été_2025.mp4',     type: 'video', ext: 'mp4',  size: 890000000, parentFolderId: 'f-ce-05a', projectId: 'pj1', createdAt: '2025-05-20', updatedAt: '2025-05-20' },
   { id: 'fi-ce-07', name: 'Musique_theme.wav',            type: 'audio', ext: 'wav',  size: 45000000, parentFolderId: 'f-ce-02', projectId: 'pj1', createdAt: '2025-04-15', updatedAt: '2025-04-15' },
 
+  // Resources (linked to resourceStore entries)
+  { id: 'fi-res-r2', name: 'Rough Cut — Séquence 1', type: 'resource', ext: '', resourceId: 'r2', resourceType: 'video_review', mediaSubtype: 'video', parentFolderId: 'f-ce-04', projectId: 'pj1', createdAt: '2025-05-15', updatedAt: '2025-06-20' },
+  { id: 'fi-res-r1', name: 'Scénario Campagne Été — V3', type: 'resource', ext: '', resourceId: 'r1', resourceType: 'screenplay', parentFolderId: 'f-ce-06', projectId: 'pj1', createdAt: '2025-04-12', updatedAt: '2025-06-22' },
+
   // Les Bâtisseurs (pj2)
   { id: 'fi-lb-01', name: 'Contrat_StudioBleu.pdf',       type: 'pdf',   ext: 'pdf',  size: 198000,  parentFolderId: 'f-lb-04', projectId: 'pj2', createdAt: '2025-05-02', updatedAt: '2025-05-02' },
   { id: 'fi-lb-02', name: 'Script_v2_Les_Bâtisseurs.pdf', type: 'pdf',   ext: 'pdf',  size: 88000,   parentFolderId: 'f-lb-04', projectId: 'pj2', createdAt: '2025-05-08', updatedAt: '2025-05-12' },

@@ -8,6 +8,7 @@ import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, 
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { ProjectsListView } from '../components/ProjectsListView';
 import { ActivityFeed } from '../components/ActivityFeed';
+import { ProjetCalendrier } from './ProjetCalendrier';
 import type { Client, Status } from '../types/index';
 import { FileBrowser } from './FichiersGlobal';
 
@@ -724,7 +725,7 @@ function ActiviteTab({ projects }: { projects: typeof PROJECTS }) {
   return <ActivityFeed activities={getClientActivities(projects)} />;
 }
 
-type ClientTab = 'apercu' | 'projets' | 'equipe' | 'activite' | 'fichiers';
+type ClientTab = 'apercu' | 'projets' | 'calendrier' | 'equipe' | 'activite' | 'fichiers';
 
 const fmtMoney = (n: number) => `${n.toLocaleString('fr-CA')} $`;
 
@@ -1186,6 +1187,7 @@ export function FicheClient() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
   const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
+  const [showCreateProject, setShowCreateProject] = useState(false);
   const [clientArchived, setClientArchived] = useState(false);
   const [clientMenuOpen, setClientMenuOpen] = useState(false);
   const [clientEditOpen, setClientEditOpen] = useState(() => searchParams.get('edit') === 'true');
@@ -1242,13 +1244,13 @@ export function FicheClient() {
               <SFIcon name="square-pen" size={14} color="var(--text-3)" />
               Modifier
             </button>
-            <SFButton variant="primary" icon="plus" onClick={() => setTab('projets')}>Nouveau projet</SFButton>
+            <SFButton variant="primary" icon="plus" onClick={() => { setTab('projets'); setShowCreateProject(true); }}>Nouveau projet</SFButton>
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 20, marginTop: 16 }}>
-          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['fichiers', 'Fichiers']] as const).map(([key, label]) => (
+          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['calendrier', 'Calendrier'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['fichiers', 'Fichiers']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 6, borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent' }}>
               {label}
             </button>
@@ -1257,17 +1259,21 @@ export function FicheClient() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ flex: 1, overflow: tab === 'calendrier' ? 'hidden' : 'auto', padding: tab === 'calendrier' || tab === 'fichiers' ? 0 : 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} />}
 
-        {tab === 'projets' && <ProjectsListView clientId={client.id} />}
+        {tab === 'projets' && <ProjectsListView clientId={client.id} autoOpen={showCreateProject} onModalClose={() => setShowCreateProject(false)} />}
+
+        {tab === 'calendrier' && (
+          <ProjetCalendrier embedded projectIds={projects.map(p => p.id)} />
+        )}
 
         {tab === 'equipe' && <EquipeTab clientId={client.id} />}
 
         {tab === 'activite' && <ActiviteTab projects={projects} />}
 
         {tab === 'fichiers' && (
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', margin: -24 }}>
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <FileBrowser initialNav={{ scope: 'client', scopeId: client.id, folderId: null }} locked key={client.id} />
           </div>
         )}

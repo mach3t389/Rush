@@ -83,10 +83,10 @@ interface CalEvent {
   participantIds?: string[];
 }
 
-function resolveProjectEvents(projectId: string, eventTypes: EventType[]): CalEvent[] {
+function resolveProjectEvents(projectIds: string[], eventTypes: EventType[]): CalEvent[] {
   const typeMap = Object.fromEntries(eventTypes.map(t => [t.id, t]));
   return getEvents()
-    .filter(e => e.projectId === projectId)
+    .filter(e => projectIds.includes(e.projectId ?? ''))
     .map(e => {
       const p = PROJECTS.find(x => x.id === e.projectId);
       const et = typeMap[e.eventTypeId] ?? { color: '#888', label: 'Autre', icon: 'circle' };
@@ -733,14 +733,15 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ProjetCalendrier() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const project = PROJECTS.find(p => p.id === projectId);
+export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedded?: boolean; projectIds?: string[] } = {}) {
+  const params = useParams<{ projectId: string }>();
+  const projectId = embedded ? undefined : params.projectId;
+  const activeProjectIds = overrideIds ?? (projectId ? [projectId] : []);
 
   const [view, setView]             = usePersistedState<CalView>('sf_view_projet_calendrier', 'week');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
-  const [events, setEvents]         = useState<CalEvent[]>(() => resolveProjectEvents(projectId ?? '', getEventTypes()));
+  const [events, setEvents]         = useState<CalEvent[]>(() => resolveProjectEvents(activeProjectIds, getEventTypes()));
   const [showCreate, setShowCreate] = useState(false);
   const [createDate, setCreateDate] = useState(new Date(TODAY));
   const [createStartTime, setCreateStartTime] = useState('09:00');
@@ -748,13 +749,14 @@ export function ProjetCalendrier() {
   const [createAllDay, setCreateAllDay]       = useState(false);
   const [selectedEvent, setSelectedEvent]     = useState<CalEvent|null>(null);
   const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(new Set());
+  const [selectedProjectsFilter, setSelectedProjectsFilter] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const refresh = () => setEvents(resolveProjectEvents(projectId ?? '', getEventTypes()));
+    const refresh = () => setEvents(resolveProjectEvents(activeProjectIds, getEventTypes()));
     const unsub1 = subscribeEvents(refresh);
     const unsub2 = subscribeEventTypes(() => { setEventTypes(getEventTypes()); refresh(); });
     return () => { unsub1(); unsub2(); };
-  }, [projectId]);
+  }, [activeProjectIds.join(',')]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -769,15 +771,21 @@ export function ProjetCalendrier() {
   }, []);
 
   const taskChips = MY_TASKS
-    .filter(t => t.projectId === projectId)
+    .filter(t => activeProjectIds.includes(t.projectId ?? ''))
     .flatMap(t => {
       const d = parseFrDate(t.dueDate);
       return d && !t.checked ? [{ date: d, title: t.title, color: t.projectColor }] : [];
     });
 
-  const visibleEvents = events.filter(ev => selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId));
+  const visibleEvents = events.filter(ev =>
+    (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId)) &&
+    (!embedded || selectedProjectsFilter.size === 0 || selectedProjectsFilter.has(ev.projectId ?? ''))
+  );
 
   const toggleEventType = (id: string) => setSelectedEventTypes(s => {
+    const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  });
+  const toggleProjectFilter = (id: string) => setSelectedProjectsFilter(s => {
     const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
   });
 
@@ -823,12 +831,50 @@ export function ProjetCalendrier() {
 
   return (
     <div style={{ height:'100%',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-      <ProjectHeaderBar projectId={projectId ?? ''}>
-        <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
-      </ProjectHeaderBar>
+      {!embedded && (
+        <ProjectHeaderBar projectId={projectId ?? ''}>
+          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
+        </ProjectHeaderBar>
+      )}
       <div style={{ flex:1,display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
       <div style={{ width:220,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
+        {embedded && (
+          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
+        )}
+
+        {/* Project filter — embedded client view only, with 2+ projects */}
+        {embedded && activeProjectIds.length > 1 && (()=>{
+          const clientProjects = activeProjectIds
+            .map(id => PROJECTS.find(p => p.id === id))
+            .filter(Boolean) as typeof PROJECTS;
+          const hasFilter = selectedProjectsFilter.size > 0;
+          return (
+            <div>
+              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Projets</p>
+                {hasFilter && (
+                  <button onClick={()=>setSelectedProjectsFilter(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
+                    Tout afficher
+                  </button>
+                )}
+              </div>
+              <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
+                {clientProjects.map(p=>{
+                  const active = !hasFilter || selectedProjectsFilter.has(p.id);
+                  return (
+                    <button key={p.id} onClick={()=>toggleProjectFilter(p.id)}
+                      style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}>
+                      <div style={{ width:10,height:10,borderRadius:'50%',background:p.clientColor,flexShrink:0 }} />
+                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{p.name}</span>
+                      {active&&hasFilter&&<SFIcon name="check" size={11} color="var(--text-3)" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Event type filters */}
         {(()=>{
@@ -959,9 +1005,9 @@ export function ProjetCalendrier() {
       </div>
       </div>
 
-      {showCreate && projectId && (
+      {showCreate && activeProjectIds.length > 0 && (
         <CreateEventModal
-          projectId={projectId}
+          projectId={activeProjectIds[0]}
           defaultDate={new Date(createDate.getFullYear(),createDate.getMonth(),createDate.getDate())}
           defaultStartTime={createStartTime}
           defaultEndTime={createEndTime}

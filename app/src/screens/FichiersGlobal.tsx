@@ -17,7 +17,7 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
-import { addResource, getResources, subscribeResources } from '../data/resourceStore';
+import { addResource, getResources, subscribeResources, updateResource } from '../data/resourceStore';
 import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
@@ -243,6 +243,58 @@ function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: F
           <SFIcon name="pencil" size={Math.round(badge * 0.6)} color="var(--on-accent)" />
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Resource status options ────────────────────────────────────────────────────
+
+const RESOURCE_STATUS_OPTIONS: { status: import('../types').Status; label: string }[] = [
+  { status: 'info',    label: 'En cours' },
+  { status: 'review',  label: 'En révision' },
+  { status: 'warn',    label: 'À faire' },
+  { status: 'ok',      label: 'Terminé' },
+  { status: 'danger',  label: 'Bloqué' },
+  { status: 'neutral', label: 'En attente' },
+];
+
+function StatusDropdown({ resourceId, status, statusLabel, onClose }: { resourceId: string; status: string; statusLabel: string; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} style={{ position: 'absolute', zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', padding: '4px 0', minWidth: 160 }}>
+      {RESOURCE_STATUS_OPTIONS.map(opt => (
+        <button key={opt.status} onClick={() => { updateResource(resourceId, { status: opt.status, statusLabel: opt.label }); onClose(); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: opt.status === status ? 'var(--surface-2)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          onMouseEnter={e => { if (opt.status !== status) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+          onMouseLeave={e => { if (opt.status !== status) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[opt.status], flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: opt.status === status ? 'var(--text)' : 'var(--text-2)', fontWeight: opt.status === status ? 600 : 400 }}>{opt.label}</span>
+          {opt.status === status && <span style={{ marginLeft: 'auto' }}><SFIcon name="check" size={11} color="var(--accent)" /></span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function InlineStatusPicker({ resourceId, status, statusLabel }: { resourceId: string; status: string; statusLabel: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--border-2)', borderRadius: 7, padding: '3px 8px', cursor: 'pointer', transition: 'background 0.1s' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[status] ?? 'var(--text-3)', flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>{statusLabel}</span>
+        <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+      </button>
+      {open && <StatusDropdown resourceId={resourceId} status={status} statusLabel={statusLabel} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -1631,6 +1683,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [showAddFile, setShowAddFile]                 = useState(false);
   const [renamingId, setRenamingId]                   = useState<string | null>(null);
   const [previewFile, setPreviewFile]                 = useState<FileItem | null>(null);
+  const [infoFile,    setInfoFile]                    = useState<FileItem | null>(null);
   const [isDraggingOver, setIsDraggingOver]           = useState(false);
   const fileInputRef                                  = useRef<HTMLInputElement>(null);
   const [newBtnOpen, setNewBtnOpen]                   = useState(false);
@@ -1959,6 +2012,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       const isInSelection = selectedIds.has(file.id) && selectedIds.size > 1;
       const allSelectedFileIds = isInSelection ? [...selectedIds].filter(id => allFiles.some(f => f.id === id)) : [file.id];
       items = [
+        { label: 'Obtenir les infos', icon: 'info', action: () => setInfoFile(file) },
+        { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
         ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => openResource(file) }] : []),
         { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal(allSelectedFileIds, []) },
@@ -2148,7 +2203,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
             : <p style={{ fontSize: 11, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p>
           }
-          <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{formatFileSize(file.size)}</p>
+          <p style={{ fontSize: 9, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {rm ? rm.label : (file.ext || formatFileSize(file.size) || '—')}
+          </p>
         </div>
       </div>
     );
@@ -2211,6 +2268,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isSelected = selectedIds.has(file.id);
     const resource = isRes ? allResources.find(r => r.id === file.resourceId) : undefined;
     const commentCount = isRes && file.resourceId ? (commentCounts[file.resourceId] ?? 0) : 0;
+    const [statusDropOpen, setStatusDropOpen] = useState(false);
     return (
       <div
         draggable
@@ -2247,12 +2305,21 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         <span style={{ fontSize: 11, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>
           {rm ? rm.label : file.ext}
         </span>
-        {/* Colonne statut */}
+        {/* Colonne statut — cliquable pour les ressources */}
         {resource ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[resource.status] ?? 'var(--text-3)', flexShrink: 0 }} />
-            <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource.statusLabel}</span>
-          </span>
+          <div style={{ position: 'relative' }}>
+            <button onClick={e => { e.stopPropagation(); setStatusDropOpen(v => !v); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid transparent', borderRadius: 6, padding: '2px 6px', cursor: 'pointer', transition: 'border-color 0.12s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[resource.status] ?? 'var(--text-3)', flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource.statusLabel}</span>
+              <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+            </button>
+            {statusDropOpen && file.resourceId && (
+              <StatusDropdown resourceId={file.resourceId} status={resource.status} statusLabel={resource.statusLabel} onClose={() => setStatusDropOpen(false)} />
+            )}
+          </div>
         ) : (
           <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
         )}
@@ -3372,7 +3439,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                   {/* List header */}
                   <div style={{ ...ROW, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
                     <div />
-                    <span>Nom</span><span>Type</span><span>Taille</span><span>Modifié</span>
+                    <span>Nom</span><span>Type</span><span>Statut</span><span>Taille</span><span>Modifié</span>
                   </div>
                   {filteredFolders.map(f => <FolderRow key={f.id} folder={f} />)}
                   {filteredFiles.map(f => <FileRow key={f.id} file={f} />)}
@@ -3430,6 +3497,55 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           onClose={() => setMoveModal(null)}
         />
       )}
+
+      {/* File info modal */}
+      {infoFile && (() => {
+        const f = infoFile;
+        const isRes = f.type === 'resource' && !!f.resourceId;
+        const rm2 = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
+        const resource = isRes ? allResources.find(r => r.id === f.resourceId) : undefined;
+        const cc = isRes && f.resourceId ? (commentCounts[f.resourceId] ?? 0) : 0;
+        const rows: { label: string; value: string; color?: string }[] = [
+          { label: 'Type', value: rm2 ? rm2.label : (f.ext?.toUpperCase() || 'Fichier'), color: rm2?.color },
+          ...(resource ? [{ label: 'Statut', value: resource.statusLabel, color: STATUS_COLOR[resource.status] ?? undefined }] : []),
+          ...(!isRes && f.size ? [{ label: 'Taille', value: formatFileSize(f.size) }] : []),
+          ...(cc > 0 ? [{ label: 'Commentaires', value: String(cc), color: 'var(--accent)' }] : []),
+          { label: 'Modifié', value: f.updatedAt || '—' },
+          { label: 'Ajouté', value: f.createdAt || '—' },
+        ];
+        return (
+          <div onClick={() => setInfoFile(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, padding: '24px 28px', minWidth: 320, maxWidth: 400, boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+                <FileTypeIcon type={f.type} resourceType={f.resourceType} mediaSubtype={fileMediaSubtype(f)} size={36} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</p>
+                  {rm2 && <p style={{ fontSize: 10, color: rm2.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>{rm2.label}</p>}
+                </div>
+                <button onClick={() => setInfoFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 6, flexShrink: 0 }}>
+                  <SFIcon name="x" size={14} />
+                </button>
+              </div>
+              {/* Info rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                {rows.map((row, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: i % 2 === 0 ? 'var(--surface-2)' : 'transparent', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{row.label}</span>
+                    {row.label === 'Statut' && resource && f.resourceId ? (
+                      <InlineStatusPicker resourceId={f.resourceId} status={resource.status} statusLabel={resource.statusLabel} />
+                    ) : (
+                      <span style={{ fontSize: 11, color: row.color ?? 'var(--text-2)', fontFamily: row.label === 'Taille' || row.label === 'Commentaires' ? 'var(--ff-mono)' : 'var(--ff-text)', fontWeight: row.color ? 500 : 400 }}>
+                        {row.value}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* File preview modal */}
       {previewFile && <FilePreviewModal file={previewFile} files={filteredFiles} onNavigate={setPreviewFile} onClose={() => setPreviewFile(null)} />}

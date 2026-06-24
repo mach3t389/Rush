@@ -6,6 +6,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { markResourceRead } from '../data/notificationStore';
+import { incrementCommentCount } from '../data/commentStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
@@ -240,6 +241,7 @@ export function ImageReview() {
     setComments(prev => [...prev, newComment]);
     setPendingAnno(null);
     setActiveCommentId(newComment.id);
+    if (resourceId) incrementCommentCount(resourceId);
   };
 
   const handleResolve = (id: string) => {
