@@ -2387,8 +2387,6 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const zoomIn  = () => setZoom(z => { const next = ZOOM_STEPS.find(s => s > z); return next ?? z; });
   const zoomOut = () => setZoom(z => { const prev = [...ZOOM_STEPS].reverse().find(s => s < z); return prev ?? z; });
 
-  const SpeechRecognitionAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
-
   const insertTextAtCursor = (text: string) => {
     editorRef.current?.focus();
     const sel = window.getSelection();
