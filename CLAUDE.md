@@ -192,6 +192,16 @@ Panneau flottant connecté à **Ollama** en local (`http://localhost:11434/api/c
 - Rendu markdown dans les réponses assistant (gras, listes, blocs de code)
 - Prérequis : Ollama installé + `ollama pull llama3.2`
 
+### IA dans DocumentView (`app/src/screens/ResourceDetail.tsx`)
+
+Le panneau droit de `DocumentView` (éditeur de texte riche) est tabulé : **Commentaires** / **IA**.
+
+- Onglet IA : chat Ollama contextualisé sur le contenu du document (2000 premiers caractères injectés en system prompt)
+- Actions rapides : Structurer, Continuer, Résumer, Reformuler formellement, Améliorer le style
+- Dictée vocale (Web Speech API, `fr-FR`)
+- Sélecteur de modèle Ollama (même liste que AIChat)
+- État `rightTab` local (non persisté) — réinitialisé à `'comments'` à chaque ouverture
+
 ### Paramètres persistés (`localStorage`)
 
 | Clé | Contenu |

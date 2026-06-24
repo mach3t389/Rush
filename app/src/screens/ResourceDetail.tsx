@@ -2111,7 +2111,19 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const newCommentRef = useRef<HTMLTextAreaElement>(null);
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>(loadCustomStyles);
   const [showStyleForm, setShowStyleForm] = useState(false);
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const styleMenuRef = useRef<HTMLDivElement>(null);
   const [newStyle, setNewStyle] = useState<Omit<CustomStyle,'id'>>({ name:'Mon style', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:'400', fontStyle:'normal', color:'#1a1a1a' });
+  const [rightTab, setRightTab] = useState<'comments' | 'ai'>('comments');
+  type AiMsg = { role: 'user' | 'assistant'; content: string; };
+  const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiListening, setAiListening] = useState(false);
+  const [aiModel, setAiModel] = useState('llama3.2');
+  const aiInputRef = useRef<HTMLInputElement>(null);
+  const aiRecognitionRef = useRef<any>(null);
+  const aiBottomRef = useRef<HTMLDivElement>(null);
   const [comments, setComments] = useState<DocComment[]>(
     persisted?.comments ?? (persistKey ? [] : [
       { id:'dc1', author:USERS.sarah,  text:'La section budget nécessite une mise à jour avec les derniers chiffres.', time:'Il y a 1h' },
@@ -2248,6 +2260,67 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const SpeechRecognitionAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+
+  const getDocContext = () => {
+    const text = editorRef.current?.innerText?.slice(0, 2000) ?? '';
+    return `Tu es un assistant de rédaction intégré dans un éditeur de texte. Le document s'appelle "${resource.title}". Voici le début du contenu actuel :\n\n${text}\n\nAide l'utilisateur à rédiger, structurer ou améliorer ce texte. Réponds en français. Sois concis et directement utile.`;
+  };
+
+  const sendAiMessage = async (userText?: string) => {
+    const text = (userText ?? aiInput).trim();
+    if (!text || aiLoading) return;
+    setAiInput('');
+    const userMsg: AiMsg = { role: 'user', content: text };
+    const newHistory = [...aiMessages, userMsg];
+    setAiMessages(newHistory);
+    setAiLoading(true);
+    try {
+      const resp = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: aiModel,
+          stream: false,
+          messages: [
+            { role: 'system', content: getDocContext() },
+            ...newHistory.map(m => ({ role: m.role, content: m.content })),
+          ],
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      setAiMessages(prev => [...prev, { role: 'assistant', content: data.message?.content ?? '' }]);
+    } catch {
+      setAiMessages(prev => [...prev, { role: 'assistant', content: "⚠️ Impossible de contacter Ollama. Vérifie qu'il tourne (`ollama serve`)." }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const toggleAiListening = () => {
+    if (!SpeechRecognitionAPI) { alert('Reconnaissance vocale non supportée. Utilise Chrome ou Edge.'); return; }
+    if (aiListening) { aiRecognitionRef.current?.stop(); return; }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    let finalTranscript = '';
+    recognition.onstart = () => setAiListening(true);
+    recognition.onresult = (e: any) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t; else interim = t;
+      }
+      setAiInput(finalTranscript + interim);
+    };
+    recognition.onend = () => setAiListening(false);
+    recognition.onerror = () => setAiListening(false);
+    aiRecognitionRef.current = recognition;
+    recognition.start();
+  };
+
   const applyCustomStyle = (style: CustomStyle) => {
     const s = `font-family:${style.fontFamily};font-size:${style.fontSize}px;font-weight:${style.fontWeight};font-style:${style.fontStyle};color:${style.color}`;
     document.execCommand('insertHTML', false, `<span class="doc-cs-${style.id}" style="${s}">${window.getSelection()?.toString() ?? '​'}</span>`);
@@ -2292,8 +2365,25 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const zoomIn  = () => setZoom(z => { const next = ZOOM_STEPS.find(s => s > z); return next ?? z; });
   const zoomOut = () => setZoom(z => { const prev = [...ZOOM_STEPS].reverse().find(s => s < z); return prev ?? z; });
 
+  useEffect(() => { aiBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [aiMessages, aiLoading]);
+  useEffect(() => {
+    if (!showStyleMenu) return;
+    const handler = (e: MouseEvent) => { if (!styleMenuRef.current?.contains(e.target as Node)) setShowStyleMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showStyleMenu]);
+
+  const AI_QUICK_ACTIONS = [
+    { label: 'Structurer le document', icon: 'list', prompt: 'Propose une structure claire en sections pour ce document.' },
+    { label: 'Continuer la rédaction', icon: 'pencil', prompt: 'Continue la rédaction de ce document en proposant le paragraphe suivant.' },
+    { label: 'Résumer', icon: 'align-left', prompt: 'Rédige un résumé concis de ce document en 3-5 phrases.' },
+    { label: 'Reformuler formellement', icon: 'briefcase', prompt: 'Reformule le contenu dans un style formel et professionnel.' },
+    { label: 'Améliorer le style', icon: 'sparkles', prompt: 'Suggère des améliorations de style et de fluidité pour ce texte.' },
+  ];
+
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+      <style>{`@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}`}</style>
 
       {/* ── Table des matières ── */}
       {showToc && (
@@ -2357,34 +2447,54 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
           {[['justifyLeft','align-left'],['justifyCenter','align-center'],['justifyRight','align-right'],['justifyFull','align-justify']].map(([cmd,icon]) => fmtBtn(cmd,icon,cmd))}
 
-          {/* Custom styles */}
-          {customStyles.length > 0 && (
-            <>
-              <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
-              {customStyles.map(s => (
-                <button key={s.id} title={s.name} onMouseDown={e=>{ e.preventDefault(); applyCustomStyle(s); }}
-                  style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', cursor:'pointer', background:'transparent', color: s.color, fontSize:s.fontSize > 16 ? 11 : 10, fontFamily: s.fontFamily, fontWeight: s.fontWeight, fontStyle: s.fontStyle, whiteSpace:'nowrap' }}>
-                  {s.name}
+          {/* Styles dropdown */}
+          <div style={{ position:'relative', marginLeft:6 }} ref={styleMenuRef}>
+            <button
+              onMouseDown={e=>{ e.preventDefault(); setShowStyleMenu(p=>!p); }}
+              style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 8px', borderRadius:6, border:'1px solid var(--border)', cursor:'pointer', background: showStyleMenu ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-text)', whiteSpace:'nowrap' }}>
+              <SFIcon name="paintbrush" size={12} />
+              Styles{customStyles.length > 0 ? ` (${customStyles.length})` : ''}
+              <SFIcon name="chevron-down" size={10} />
+            </button>
+            {showStyleMenu && (
+              <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, minWidth:190, padding:'6px 0', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+                {customStyles.length > 0 && (
+                  <>
+                    <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Appliquer</div>
+                    {customStyles.map(s => (
+                      <button key={s.id}
+                        onMouseDown={e=>{ e.preventDefault(); applyCustomStyle(s); setShowStyleMenu(false); }}
+                        style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', color:'var(--text)', fontSize:11, fontFamily: s.fontFamily, fontWeight: s.fontWeight, fontStyle: s.fontStyle, boxSizing:'border-box' }}
+                        onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
+                        onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                        <div style={{ width:10, height:10, borderRadius:'50%', background:s.color, border:'1px solid rgba(255,255,255,0.15)', flexShrink:0 }} />
+                        {s.name}
+                      </button>
+                    ))}
+                    <div style={{ height:1, background:'var(--border)', margin:'5px 0' }} />
+                  </>
+                )}
+                <button
+                  onMouseDown={e=>{ e.preventDefault(); setShowStyleForm(p=>!p); setShowStyleMenu(false); }}
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
+                  onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
+                  onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                  <SFIcon name="plus" size={12} color="var(--accent)" />
+                  <span style={{ color:'var(--accent)' }}>Créer un style…</span>
                 </button>
-              ))}
-            </>
-          )}
-          <button title="Créer un style" onMouseDown={e=>{ e.preventDefault(); setShowStyleForm(p=>!p); }}
-            style={{ padding:'3px 8px', borderRadius:6, border:'1px dashed var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-3)', fontSize:10, fontFamily:'var(--ff-mono)', whiteSpace:'nowrap', marginLeft: customStyles.length > 0 ? 2 : 6 }}>
-            + Style
-          </button>
+              </div>
+            )}
+          </div>
 
-          {/* Theme picker */}
-          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:3 }}>
-            {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, t]) => (
-              <button key={key} onClick={() => setTheme(key)} title={`Style ${t.label}`}
-                style={{ padding:'3px 9px', borderRadius:6, border:`1px solid ${theme===key ? 'var(--accent)' : 'var(--border)'}`, background: theme===key ? 'rgba(249,255,0,0.07)' : 'transparent', color: theme===key ? 'var(--accent)' : 'var(--text-3)', fontSize:10, fontFamily:'var(--ff-text)', fontWeight: theme===key ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap' }}>
-                <span style={{ fontFamily: key === 'classique' ? 'Georgia,serif' : key === 'moderne' ? "'Montserrat',sans-serif" : key === 'custom' ? 'var(--ff-text)' : "'Montserrat',sans-serif", fontSize: 10 }}>
-                  {t.label}
-                </span>
-              </button>
-            ))}
-            <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
+          {/* Theme picker — dropdown */}
+          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6 }}>
+            <select value={theme} onChange={e => setTheme(e.target.value as DocTheme)}
+              style={{ padding:'3px 24px 3px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-text)', cursor:'pointer', outline:'none', appearance:'none', backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat:'no-repeat', backgroundPosition:'right 6px center', colorScheme:'dark' }}>
+              {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, t]) => (
+                <option key={key} value={key}>{t.label}</option>
+              ))}
+            </select>
+            <div style={{ width:1, height:18, background:'var(--border)' }} />
           </div>
           {/* Zoom controls */}
           <div style={{ display:'flex', alignItems:'center', gap:4 }}>
@@ -2485,44 +2595,141 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
         </div>
       </div>
 
-      {/* ── Comments sidebar ── */}
+      {/* ── Right sidebar (Comments + AI) ── */}
       {showComments && (
-        <div style={{ width:280, flexShrink:0, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column' }}>
-          <div style={{ padding:'12px 14px', borderBottom:'1px solid var(--border)', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
-            Commentaires ({comments.length})
-          </div>
-          <div style={{ flex:1, overflow:'auto', padding:12, display:'flex', flexDirection:'column', gap:10 }}>
-            {comments.map(c => (
-              <div key={c.id} onClick={() => c.anchorId && scrollToAnchor(c.anchorId)}
-                style={{ display:'flex', gap:8, cursor: c.anchorId ? 'pointer' : 'default', opacity: pendingAnchorId && pendingAnchorId !== c.anchorId ? 0.5 : 1 }}>
-                <SFAvatar initials={c.author.initials} bg={c.author.avatarColor} size={24} />
-                <div style={{ flex:1, background: pendingAnchorId === c.anchorId ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', borderRadius:9, padding:'8px 10px', border: pendingAnchorId === c.anchorId ? '1px solid rgba(249,255,0,0.3)' : '1px solid transparent' }}>
-                  {c.excerpt && (
-                    <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', borderLeft:'2px solid rgba(249,255,0,0.4)', paddingLeft:6, marginBottom:5, lineHeight:1.4, fontStyle:'italic' }}>
-                      "{c.excerpt}{c.excerpt.length >= 80 ? '…' : ''}"
-                    </p>
-                  )}
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                    <span style={{ fontSize:11, fontWeight:600 }}>{c.author.name.split(' ')[0]}</span>
-                    <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{c.time}</span>
-                  </div>
-                  <p style={{ fontSize:12, color:'var(--text-2)', lineHeight:1.5 }}>{c.text}</p>
-                </div>
-              </div>
+        <div style={{ width:300, flexShrink:0, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          {/* Tabs */}
+          <div style={{ display:'flex', flexShrink:0, borderBottom:'1px solid var(--border)' }}>
+            {(['comments','ai'] as const).map(tab => (
+              <button key={tab} onClick={() => setRightTab(tab)}
+                style={{ flex:1, padding:'9px 6px', border:'none', background:'transparent', cursor:'pointer', fontSize:11, fontWeight: rightTab===tab ? 700 : 400, color: rightTab===tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab===tab ? '2px solid var(--accent)' : '2px solid transparent', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'var(--ff-text)', transition:'color 0.1s' }}>
+                <SFIcon name={tab==='comments' ? 'message-circle' : 'sparkles'} size={12} color={rightTab===tab ? 'var(--accent)' : 'var(--text-3)'} />
+                {tab==='comments' ? `Commentaires (${comments.length})` : 'IA'}
+              </button>
             ))}
           </div>
-          {/* New inline comment form */}
-          {pendingAnchorId && (
-            <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border)', background:'var(--surface-2)' }}>
-              <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Nouveau commentaire</div>
-              <textarea ref={newCommentRef} value={newCommentText} onChange={e=>setNewCommentText(e.target.value)}
-                onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submitComment(); } if(e.key==='Escape') cancelComment(); }}
-                placeholder="Votre commentaire… (Entrée pour valider)" rows={3}
-                style={{ width:'100%', padding:'7px 10px', borderRadius:9, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', fontFamily:'var(--ff-text)', colorScheme:'dark', resize:'none', boxSizing:'border-box' }}
-              />
-              <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>Valider</button>
-                <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)' }}>Annuler</button>
+
+          {/* Comments tab */}
+          {rightTab==='comments' && (
+            <>
+              <div style={{ flex:1, overflow:'auto', padding:12, display:'flex', flexDirection:'column', gap:10 }}>
+                {comments.map(c => (
+                  <div key={c.id} onClick={() => c.anchorId && scrollToAnchor(c.anchorId)}
+                    style={{ display:'flex', gap:8, cursor: c.anchorId ? 'pointer' : 'default', opacity: pendingAnchorId && pendingAnchorId !== c.anchorId ? 0.5 : 1 }}>
+                    <SFAvatar initials={c.author.initials} bg={c.author.avatarColor} size={24} />
+                    <div style={{ flex:1, background: pendingAnchorId===c.anchorId ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', borderRadius:9, padding:'8px 10px', border: pendingAnchorId===c.anchorId ? '1px solid rgba(249,255,0,0.3)' : '1px solid transparent' }}>
+                      {c.excerpt && (
+                        <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', borderLeft:'2px solid rgba(249,255,0,0.4)', paddingLeft:6, marginBottom:5, lineHeight:1.4, fontStyle:'italic' }}>
+                          "{c.excerpt}{c.excerpt.length >= 80 ? '…' : ''}"
+                        </p>
+                      )}
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                        <span style={{ fontSize:11, fontWeight:600 }}>{c.author.name.split(' ')[0]}</span>
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{c.time}</span>
+                      </div>
+                      <p style={{ fontSize:12, color:'var(--text-2)', lineHeight:1.5 }}>{c.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {pendingAnchorId && (
+                <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border)', background:'var(--surface-2)' }}>
+                  <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Nouveau commentaire</div>
+                  <textarea ref={newCommentRef} value={newCommentText} onChange={e=>setNewCommentText(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submitComment(); } if(e.key==='Escape') cancelComment(); }}
+                    placeholder="Votre commentaire… (Entrée pour valider)" rows={3}
+                    style={{ width:'100%', padding:'7px 10px', borderRadius:9, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', fontFamily:'var(--ff-text)', colorScheme:'dark' as any, resize:'none', boxSizing:'border-box' }}
+                  />
+                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
+                    <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>Valider</button>
+                    <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)' }}>Annuler</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* AI tab */}
+          {rightTab==='ai' && (
+            <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              {/* Model selector */}
+              <div style={{ padding:'6px 10px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                <SFIcon name="cpu" size={11} color="var(--text-3)" />
+                <select value={aiModel} onChange={e => setAiModel(e.target.value)}
+                  style={{ flex:1, fontSize:10, border:'none', background:'transparent', color:'var(--text-2)', cursor:'pointer', outline:'none', fontFamily:'var(--ff-mono)' }}>
+                  {['llama3.2','llama3.1','llama3','mistral','gemma2','phi3','deepseek-r1'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quick actions — only when no messages */}
+              {aiMessages.length === 0 && (
+                <div style={{ padding:'8px', borderBottom:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:3, flexShrink:0 }}>
+                  <p style={{ fontSize:9, color:'var(--text-3)', fontFamily:'var(--ff-mono)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:3, paddingLeft:2 }}>Actions rapides</p>
+                  {AI_QUICK_ACTIONS.map(qa => (
+                    <button key={qa.label} onClick={() => sendAiMessage(qa.prompt)}
+                      style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', textAlign:'left', fontSize:11, color:'var(--text-2)', cursor:'pointer', fontFamily:'var(--ff-text)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background='var(--surface-2)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background='transparent'; }}>
+                      <SFIcon name={qa.icon} size={12} color="var(--text-3)" />
+                      {qa.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Messages */}
+              <div style={{ flex:1, overflowY:'auto', padding:'10px', display:'flex', flexDirection:'column', gap:8 }}>
+                {aiMessages.length === 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:10, padding:'20px 12px', textAlign:'center' }}>
+                    <div style={{ width:34, height:34, borderRadius:'50%', background:'rgba(249,255,0,0.10)', border:'1px solid rgba(249,255,0,0.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <SFIcon name="sparkles" size={15} color="var(--accent)" />
+                    </div>
+                    <p style={{ fontSize:11, color:'var(--text-3)', lineHeight:1.5 }}>Demande-moi de structurer, continuer ou améliorer ce document.</p>
+                  </div>
+                )}
+                {aiMessages.map((m, i) => (
+                  <div key={i} style={{ display:'flex', flexDirection:'column', alignItems: m.role==='user' ? 'flex-end' : 'flex-start' }}>
+                    <div style={{
+                      maxWidth:'92%', padding:'7px 10px',
+                      borderRadius: m.role==='user' ? '10px 10px 2px 10px' : '2px 10px 10px 10px',
+                      background: m.role==='user' ? 'var(--accent)' : 'var(--surface-2)',
+                      border: m.role==='user' ? 'none' : '1px solid var(--border)',
+                      fontSize:11, color: m.role==='user' ? 'var(--on-accent)' : 'var(--text)',
+                      lineHeight:1.55, whiteSpace:'pre-wrap', fontFamily:'var(--ff-text)',
+                    }}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+                {aiLoading && (
+                  <div style={{ display:'flex', alignItems:'flex-start' }}>
+                    <div style={{ padding:'7px 11px', borderRadius:'2px 10px 10px 10px', background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', gap:4, alignItems:'center' }}>
+                      {[0,1,2].map(i => (
+                        <div key={i} style={{ width:5, height:5, borderRadius:'50%', background:'var(--text-3)', animation:`aiDot 1.2s ${i*0.2}s ease-in-out infinite` }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div ref={aiBottomRef} />
+              </div>
+
+              {/* Input row */}
+              <div style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 9px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+                <button onClick={toggleAiListening} title={aiListening ? 'Arrêter' : 'Dicter'}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:'50%', border:'1px solid var(--border)', background: aiListening ? 'rgba(239,68,68,0.15)' : 'transparent', cursor:'pointer', flexShrink:0, color: aiListening ? 'var(--danger)' : 'var(--text-3)' }}>
+                  <SFIcon name={aiListening ? 'mic-off' : 'mic'} size={12} />
+                </button>
+                <input ref={aiInputRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
+                  onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
+                  placeholder="Demande quelque chose…"
+                  style={{ flex:1, padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none' }}
+                />
+                <button onClick={() => sendAiMessage()} disabled={!aiInput.trim() || aiLoading}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:'50%', border:'none', background: aiInput.trim() && !aiLoading ? 'var(--accent)' : 'var(--surface-3)', cursor: aiInput.trim() && !aiLoading ? 'pointer' : 'default', flexShrink:0 }}>
+                  <SFIcon name="send" size={12} color={aiInput.trim() && !aiLoading ? 'var(--on-accent)' : 'var(--text-3)'} />
+                </button>
               </div>
             </div>
           )}

@@ -264,6 +264,7 @@ export function RevisionCommentSidebar({
   drawing,
   onToggleDrawing,
   contextLabel,
+  embedded,
 }: {
   comments: RevisionComment[];
   activeId: string | null;
@@ -277,6 +278,7 @@ export function RevisionCommentSidebar({
   drawing: boolean;
   onToggleDrawing: () => void;
   contextLabel?: string;
+  embedded?: boolean;
 }) {
   const [newText, setNewText] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
@@ -294,7 +296,7 @@ export function RevisionCommentSidebar({
   };
 
   return (
-    <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)', height: '100%', overflow: 'hidden' }}>
+    <div style={{ ...(embedded ? { flex: 1, minHeight: 0 } : { width: 320, flexShrink: 0, borderLeft: '1px solid var(--border)', height: '100%' }), display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Header */}
       <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
@@ -182,6 +182,7 @@ function PageThumb({ page, pageNum, isActive, commentCount, onClick }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function DocumentReview() {
+  const navigate = useNavigate();
   const { resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resource = getResources().find(r => r.id === resourceId);
 
@@ -220,6 +221,17 @@ export function DocumentReview() {
   const [versionDropOpen, setVersionDropOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [rightTab, setRightTab] = useState<'comments' | 'ai'>('comments');
+  interface AiMsg { role: 'user' | 'assistant'; content: string; }
+  const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiListening, setAiListening] = useState(false);
+  const [aiModel, setAiModel] = useState('llama3.2');
+  const aiInputRef = useRef<HTMLInputElement>(null);
+  const aiRecognitionRef = useRef<any>(null);
+  const aiMessagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
 
@@ -340,13 +352,99 @@ export function DocumentReview() {
     return () => container.removeEventListener('scroll', onScroll);
   }, [viewMode]);
 
+  const SpeechRecognitionAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+
+  const getDocContext = () => {
+    return `Tu es un assistant de rédaction intégré dans un outil de révision de documents. Le document en cours s'appelle "${resource?.title ?? 'Document sans titre'}". Aide l'utilisateur à rédiger, structurer ou améliorer son texte. Réponds en français. Sois concis et directement utile.`;
+  };
+
+  const sendAiMessage = async (userText?: string) => {
+    const text = (userText ?? aiInput).trim();
+    if (!text || aiLoading) return;
+    setAiInput('');
+    const userMsg: AiMsg = { role: 'user', content: text };
+    setAiMessages(prev => [...prev, userMsg]);
+    setAiLoading(true);
+    try {
+      const resp = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: aiModel,
+          stream: false,
+          messages: [
+            { role: 'system', content: getDocContext() },
+            ...aiMessages.map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: text },
+          ],
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      setAiMessages(prev => [...prev, { role: 'assistant', content: data.message?.content ?? '' }]);
+    } catch {
+      setAiMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Impossible de contacter Ollama. Vérifie qu\'il tourne (`ollama serve`).' }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const toggleAiListening = () => {
+    if (!SpeechRecognitionAPI) {
+      alert('Reconnaissance vocale non supportée. Utilise Chrome ou Edge.');
+      return;
+    }
+    if (aiListening) { aiRecognitionRef.current?.stop(); return; }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    let finalTranscript = '';
+    recognition.onstart = () => setAiListening(true);
+    recognition.onresult = (e: any) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t;
+        else interim = t;
+      }
+      setAiInput(finalTranscript + interim);
+    };
+    recognition.onend = () => { setAiListening(false); };
+    recognition.onerror = () => setAiListening(false);
+    aiRecognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    aiMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [aiMessages, aiLoading]);
+
+  const QUICK_ACTIONS = [
+    { label: 'Structurer le document', icon: 'list', prompt: 'Propose une structure claire en sections pour ce document.' },
+    { label: 'Continuer la rédaction', icon: 'pencil', prompt: 'Continue la rédaction de ce document en proposant un paragraphe supplémentaire.' },
+    { label: 'Résumer', icon: 'align-left', prompt: 'Rédige un résumé concis de ce document.' },
+    { label: 'Reformuler en formel', icon: 'briefcase', prompt: 'Reformule le contenu de ce document dans un style formel et professionnel.' },
+    { label: 'Améliorer le style', icon: 'sparkles', prompt: 'Améliore le style et la fluidité de ce document.' },
+  ];
+
   if (!resource) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
+      <style>{`@keyframes aiDot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }`}</style>
       {/* ── Single unified header bar ── */}
       <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+
+        {/* Back button */}
+        <button onClick={() => navigate(-1)} title="Retour"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name="arrow-left" size={14} />
+        </button>
 
         {/* Icon */}
         <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -622,30 +720,143 @@ export function DocumentReview() {
           </div>
         )}
 
-        {/* Right: comment sidebar */}
-        <RevisionCommentSidebar
-          comments={visibleComments}
-          activeId={activeCommentId}
-          onActivate={id => {
-            setActiveCommentId(id);
-            if (id) {
-              const c = comments.find(x => x.id === id);
-              if (c?.annotation?.page) {
-                if (viewMode === 'scroll') scrollToPage(c.annotation.page);
-                else goTo(c.annotation.page);
-              }
-            }
-          }}
-          onAdd={handleAddComment}
-          onResolve={handleResolve}
-          onReply={handleReply}
-          onDelete={handleDeleteComment}
-          pendingAnnotation={!!pendingAnno}
-          onCancelPending={() => setPendingAnno(null)}
-          drawing={drawing}
-          onToggleDrawing={() => { setDrawing(d => !d); setPendingAnno(null); }}
-          contextLabel={viewMode === 'scroll' ? 'Tout le document' : `Page ${currentPage}`}
-        />
+        {/* Right: tabbed sidebar */}
+        <div style={{ width: 320, display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)', overflow: 'hidden' }}>
+          {/* Tab headers */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            {(['comments', 'ai'] as const).map(tab => (
+              <button key={tab} onClick={() => setRightTab(tab)}
+                style={{ flex: 1, padding: '10px 8px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: rightTab === tab ? 700 : 400, color: rightTab === tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab === tab ? '2px solid var(--accent)' : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontFamily: 'var(--ff-text)', transition: 'color 0.1s' }}>
+                <SFIcon name={tab === 'comments' ? 'message-circle' : 'sparkles'} size={13} color={rightTab === tab ? 'var(--accent)' : 'var(--text-3)'} />
+                {tab === 'comments' ? `Commentaires${comments.length > 0 ? ` (${comments.length})` : ''}` : 'IA'}
+              </button>
+            ))}
+          </div>
+
+          {/* Comments tab */}
+          {rightTab === 'comments' && (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <RevisionCommentSidebar
+                embedded
+                comments={visibleComments}
+                activeId={activeCommentId}
+                onActivate={id => {
+                  setActiveCommentId(id);
+                  if (id) {
+                    const c = comments.find(x => x.id === id);
+                    if (c?.annotation?.page) {
+                      if (viewMode === 'scroll') scrollToPage(c.annotation.page);
+                      else goTo(c.annotation.page);
+                    }
+                  }
+                }}
+                onAdd={handleAddComment}
+                onResolve={handleResolve}
+                onReply={handleReply}
+                onDelete={handleDeleteComment}
+                pendingAnnotation={!!pendingAnno}
+                onCancelPending={() => setPendingAnno(null)}
+                drawing={drawing}
+                onToggleDrawing={() => { setDrawing(d => !d); setPendingAnno(null); }}
+                contextLabel={viewMode === 'scroll' ? 'Tout le document' : `Page ${currentPage}`}
+              />
+            </div>
+          )}
+
+          {/* AI tab */}
+          {rightTab === 'ai' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Model selector */}
+              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <SFIcon name="cpu" size={11} color="var(--text-3)" />
+                <select value={aiModel} onChange={e => setAiModel(e.target.value)}
+                  style={{ flex: 1, fontSize: 11, border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', outline: 'none', fontFamily: 'var(--ff-mono)' }}>
+                  {['llama3.2','llama3.1','llama3','mistral','gemma2','phi3','deepseek-r1'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quick actions — only show if no messages yet */}
+              {aiMessages.length === 0 && (
+                <div style={{ padding: '10px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 4, paddingLeft: 2 }}>Actions rapides</p>
+                  {QUICK_ACTIONS.map(qa => (
+                    <button key={qa.label} onClick={() => sendAiMessage(qa.prompt)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', textAlign: 'left', fontSize: 11, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)', transition: 'background 0.1s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <SFIcon name={qa.icon} size={13} color="var(--text-3)" />
+                      {qa.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Messages */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {aiMessages.length === 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, padding: '20px 16px', textAlign: 'center' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(249,255,0,0.10)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <SFIcon name="sparkles" size={16} color="var(--accent)" />
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>Demande-moi de structurer, continuer ou améliorer ce document.</p>
+                  </div>
+                )}
+                {aiMessages.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <div style={{
+                      maxWidth: '90%',
+                      padding: '8px 11px',
+                      borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '2px 12px 12px 12px',
+                      background: m.role === 'user' ? 'var(--accent)' : 'var(--surface-2)',
+                      border: m.role === 'user' ? 'none' : '1px solid var(--border)',
+                      fontSize: 12,
+                      color: m.role === 'user' ? 'var(--on-accent)' : 'var(--text)',
+                      lineHeight: 1.55,
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'var(--ff-text)',
+                    }}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+                {aiLoading && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                    <div style={{ padding: '8px 12px', borderRadius: '2px 12px 12px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        {[0,1,2].map(i => (
+                          <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', animation: `aiDot 1.2s ${i * 0.2}s ease-in-out infinite` }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={aiMessagesEndRef} />
+              </div>
+
+              {/* Input row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+                <button onClick={toggleAiListening} title={aiListening ? 'Arrêter la dictée' : 'Dicter'}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: aiListening ? 'rgba(239,68,68,0.15)' : 'transparent', cursor: 'pointer', flexShrink: 0, color: aiListening ? 'var(--danger)' : 'var(--text-3)' }}>
+                  <SFIcon name={aiListening ? 'mic-off' : 'mic'} size={13} />
+                </button>
+                <input
+                  ref={aiInputRef}
+                  value={aiInput}
+                  onChange={e => setAiInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
+                  placeholder="Demande quelque chose…"
+                  style={{ flex: 1, padding: '5px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)', outline: 'none' }}
+                />
+                <button onClick={() => sendAiMessage()} disabled={!aiInput.trim() || aiLoading}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', border: 'none', background: aiInput.trim() && !aiLoading ? 'var(--accent)' : 'var(--surface-3)', cursor: aiInput.trim() && !aiLoading ? 'pointer' : 'default', flexShrink: 0 }}>
+                  <SFIcon name="send" size={13} color={aiInput.trim() && !aiLoading ? 'var(--on-accent)' : 'var(--text-3)'} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Upload modal */}
