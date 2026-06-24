@@ -2448,7 +2448,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
-      <style>{`@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
+      <style>{`@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(249,255,0,0.4)}50%{box-shadow:0 0 0 6px rgba(249,255,0,0)}}`}</style>
 
       {/* ── Table des matières ── */}
       {showToc && (
@@ -2583,9 +2583,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
             <div style={{ width:1, height:18, background:'var(--border)', margin:'0 6px' }} />
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{wordCount} mots</span>
             <button onClick={toggleDictation} title={dictating ? 'Arrêter la dictée' : 'Dicter (voix → texte)'}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${dictating ? 'var(--accent)' : 'var(--border)'}`, background: dictating ? 'rgba(249,255,0,0.10)' : 'transparent', cursor:'pointer', color: dictating ? 'var(--accent)' : 'var(--text-3)', marginLeft:4, position:'relative' }}>
-              <SFIcon name="mic" size={12} />
-              {dictating && <span style={{ position:'absolute', top:2, right:2, width:5, height:5, borderRadius:'50%', background:'var(--accent)', animation:'pulse 1s ease-in-out infinite' }} />}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:9, border: dictating ? '1px solid var(--accent)' : '1px solid transparent', background: dictating ? 'var(--accent)' : 'var(--surface-3)', cursor:'pointer', flexShrink:0, transition:'background 0.15s, border-color 0.15s', animation: dictating ? 'mic-pulse 1.4s ease-in-out infinite' : 'none', marginLeft:4 }}>
+              <SFIcon name="mic" size={13} color={dictating ? 'var(--on-accent)' : 'var(--text-3)'} />
             </button>
             <button onClick={() => setDarkPage(p => !p)} title={darkPage ? 'Mode clair' : 'Mode sombre'}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
@@ -2801,9 +2800,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               {/* Input row */}
               <div style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 9px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <button onClick={toggleAiListening} title={aiListening ? 'Arrêter la dictée' : 'Dicter'}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${aiListening ? 'var(--accent)' : 'var(--border)'}`, background: aiListening ? 'rgba(249,255,0,0.10)' : 'transparent', cursor:'pointer', flexShrink:0, color: aiListening ? 'var(--accent)' : 'var(--text-3)', position:'relative' }}>
-                  <SFIcon name="mic" size={12} />
-                  {aiListening && <span style={{ position:'absolute', top:2, right:2, width:5, height:5, borderRadius:'50%', background:'var(--accent)', animation:'pulse 1s ease-in-out infinite' }} />}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:9, border: aiListening ? '1px solid var(--accent)' : '1px solid transparent', background: aiListening ? 'var(--accent)' : 'var(--surface-3)', cursor:'pointer', flexShrink:0, transition:'background 0.15s, border-color 0.15s', animation: aiListening ? 'mic-pulse 1.4s ease-in-out infinite' : 'none' }}>
+                  <SFIcon name="mic" size={13} color={aiListening ? 'var(--on-accent)' : 'var(--text-3)'} />
                 </button>
                 <input ref={aiInputRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
                   onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
