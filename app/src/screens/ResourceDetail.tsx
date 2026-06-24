@@ -2387,28 +2387,49 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const zoomIn  = () => setZoom(z => { const next = ZOOM_STEPS.find(s => s > z); return next ?? z; });
   const zoomOut = () => setZoom(z => { const prev = [...ZOOM_STEPS].reverse().find(s => s < z); return prev ?? z; });
 
-  const insertTextAtCursor = (text: string) => {
-    editorRef.current?.focus();
-    const sel = window.getSelection();
-    if (sel && savedRangeRef.current) {
-      sel.removeAllRanges();
-      sel.addRange(savedRangeRef.current);
+  const INTERIM_ID = 'dictation-interim-span';
+
+  const getOrCreateInterimSpan = (): HTMLElement => {
+    let span = editorRef.current?.querySelector(`#${INTERIM_ID}`) as HTMLElement | null;
+    if (!span) {
+      editorRef.current?.focus();
+      const sel = window.getSelection();
+      if (sel && savedRangeRef.current) { sel.removeAllRanges(); sel.addRange(savedRangeRef.current); }
+      document.execCommand('insertHTML', false, `<span id="${INTERIM_ID}" style="opacity:0.45;font-style:italic"></span>`);
+      span = editorRef.current?.querySelector(`#${INTERIM_ID}`) as HTMLElement;
+      // Save range right after the span
+      if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
     }
-    document.execCommand('insertText', false, text + ' ');
-    if (sel && sel.rangeCount > 0) {
-      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    return span!;
+  };
+
+  const commitInterimSpan = (finalText: string) => {
+    const span = editorRef.current?.querySelector(`#${INTERIM_ID}`) as HTMLElement | null;
+    if (span) {
+      const textNode = document.createTextNode(finalText + ' ');
+      span.replaceWith(textNode);
+      // Move cursor after inserted text
+      const range = document.createRange();
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      savedRangeRef.current = range;
+    } else {
+      // Fallback: plain insert
+      editorRef.current?.focus();
+      const sel = window.getSelection();
+      if (sel && savedRangeRef.current) { sel.removeAllRanges(); sel.addRange(savedRangeRef.current); }
+      document.execCommand('insertText', false, finalText + ' ');
+      if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
     }
   };
 
   const toggleDictation = () => {
     if (!SpeechRecognitionAPI) { alert('Reconnaissance vocale non supportée. Utilise Chrome ou Edge.'); return; }
     if (dictating) { dictationRef.current?.stop(); return; }
-    // Save cursor position before focus leaves the editor
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
       savedRangeRef.current = sel.getRangeAt(0).cloneRange();
     } else {
-      // Default: end of editor content
       const range = document.createRange();
       range.selectNodeContents(editorRef.current!);
       range.collapse(false);
@@ -2417,14 +2438,32 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'fr-FR';
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.onstart = () => setDictating(true);
     recognition.onresult = (e: any) => {
+      let interimText = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) insertTextAtCursor(e.results[i][0].transcript);
+        if (e.results[i].isFinal) {
+          commitInterimSpan(e.results[i][0].transcript);
+        } else {
+          interimText += e.results[i][0].transcript;
+        }
+      }
+      if (interimText) {
+        const span = getOrCreateInterimSpan();
+        if (span) span.textContent = interimText;
       }
     };
-    recognition.onend = () => setDictating(false);
+    recognition.onend = () => {
+      // Clean up any leftover interim span on stop
+      const span = editorRef.current?.querySelector(`#${INTERIM_ID}`);
+      if (span) {
+        const text = span.textContent ?? '';
+        const textNode = document.createTextNode(text.trim() ? text + ' ' : '');
+        span.replaceWith(textNode);
+      }
+      setDictating(false);
+    };
     recognition.onerror = () => setDictating(false);
     dictationRef.current = recognition;
     recognition.start();
