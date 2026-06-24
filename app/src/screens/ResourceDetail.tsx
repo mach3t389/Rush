@@ -2111,6 +2111,9 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const newCommentRef = useRef<HTMLTextAreaElement>(null);
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>(loadCustomStyles);
   const [darkPage, setDarkPage] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const dictationRef = useRef<any>(null);
+  const savedRangeRef = useRef<Range | null>(null);
   const [showStyleForm, setShowStyleForm] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
@@ -2366,6 +2369,51 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const zoomIn  = () => setZoom(z => { const next = ZOOM_STEPS.find(s => s > z); return next ?? z; });
   const zoomOut = () => setZoom(z => { const prev = [...ZOOM_STEPS].reverse().find(s => s < z); return prev ?? z; });
 
+  const SpeechRecognitionAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+
+  const insertTextAtCursor = (text: string) => {
+    editorRef.current?.focus();
+    const sel = window.getSelection();
+    if (sel && savedRangeRef.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRangeRef.current);
+    }
+    document.execCommand('insertText', false, text + ' ');
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const toggleDictation = () => {
+    if (!SpeechRecognitionAPI) { alert('Reconnaissance vocale non supportée. Utilise Chrome ou Edge.'); return; }
+    if (dictating) { dictationRef.current?.stop(); return; }
+    // Save cursor position before focus leaves the editor
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    } else {
+      // Default: end of editor content
+      const range = document.createRange();
+      range.selectNodeContents(editorRef.current!);
+      range.collapse(false);
+      savedRangeRef.current = range;
+    }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onstart = () => setDictating(true);
+    recognition.onresult = (e: any) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) insertTextAtCursor(e.results[i][0].transcript);
+      }
+    };
+    recognition.onend = () => setDictating(false);
+    recognition.onerror = () => setDictating(false);
+    dictationRef.current = recognition;
+    recognition.start();
+  };
+
   useEffect(() => { aiBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [aiMessages, aiLoading]);
   useEffect(() => {
     if (!showStyleMenu) return;
@@ -2384,7 +2432,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
-      <style>{`@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}`}</style>
+      <style>{`@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
 
       {/* ── Table des matières ── */}
       {showToc && (
@@ -2506,6 +2554,11 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               style={{ padding:'3px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', fontSize:13, lineHeight:1, display:'flex', alignItems:'center' }}>+</button>
             <div style={{ width:1, height:18, background:'var(--border)', margin:'0 6px' }} />
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{wordCount} mots</span>
+            <button onClick={toggleDictation} title={dictating ? 'Arrêter la dictée' : 'Dicter (voix → texte)'}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${dictating ? 'var(--danger)' : 'var(--border)'}`, background: dictating ? 'rgba(239,68,68,0.12)' : 'transparent', cursor:'pointer', color: dictating ? 'var(--danger)' : 'var(--text-3)', marginLeft:4, position:'relative' }}>
+              <SFIcon name={dictating ? 'mic-off' : 'mic'} size={12} />
+              {dictating && <span style={{ position:'absolute', top:2, right:2, width:5, height:5, borderRadius:'50%', background:'var(--danger)', animation:'pulse 1s ease-in-out infinite' }} />}
+            </button>
             <button onClick={() => setDarkPage(p => !p)} title={darkPage ? 'Mode clair' : 'Mode sombre'}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
               <SFIcon name={darkPage ? 'sun' : 'moon'} size={12} />
