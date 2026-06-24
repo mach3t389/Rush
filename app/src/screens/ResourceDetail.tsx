@@ -2801,7 +2801,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               {/* Input row */}
               <div style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 9px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <button onClick={toggleAiListening} title={aiListening ? 'Arrêter la dictée' : 'Dicter'}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:'50%', border:`1px solid ${aiListening ? 'var(--accent)' : 'var(--border)'}`, background: aiListening ? 'rgba(249,255,0,0.10)' : 'transparent', cursor:'pointer', flexShrink:0, color: aiListening ? 'var(--accent)' : 'var(--text-3)', position:'relative' }}>
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${aiListening ? 'var(--accent)' : 'var(--border)'}`, background: aiListening ? 'rgba(249,255,0,0.10)' : 'transparent', cursor:'pointer', flexShrink:0, color: aiListening ? 'var(--accent)' : 'var(--text-3)', position:'relative' }}>
                   <SFIcon name="mic" size={12} />
                   {aiListening && <span style={{ position:'absolute', top:2, right:2, width:5, height:5, borderRadius:'50%', background:'var(--accent)', animation:'pulse 1s ease-in-out infinite' }} />}
                 </button>
