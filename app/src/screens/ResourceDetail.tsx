@@ -2110,6 +2110,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [pendingAnchorId, setPendingAnchorId] = useState<string | null>(null);
   const newCommentRef = useRef<HTMLTextAreaElement>(null);
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>(loadCustomStyles);
+  const [darkPage, setDarkPage] = useState(false);
   const [showStyleForm, setShowStyleForm] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
@@ -2505,6 +2506,10 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               style={{ padding:'3px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', fontSize:13, lineHeight:1, display:'flex', alignItems:'center' }}>+</button>
             <div style={{ width:1, height:18, background:'var(--border)', margin:'0 6px' }} />
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{wordCount} mots</span>
+            <button onClick={() => setDarkPage(p => !p)} title={darkPage ? 'Mode clair' : 'Mode sombre'}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
+              <SFIcon name={darkPage ? 'sun' : 'moon'} size={12} />
+            </button>
             <button onClick={()=>setShowComments(s=>!s)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border)', background: showComments ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, marginLeft:4 }}>
               Commentaires
             </button>
@@ -2581,7 +2586,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               suppressContentEditableWarning
               onInput={handleInput}
               className="doc-editor"
-              style={{ width:595, background:'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow:'0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box' }}
+              style={{ width:595, background: darkPage ? '#1a1a1a' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: darkPage ? '#e8e6e3' : theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow:'0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', transition:'background 0.2s, color 0.2s' }}
             />
           </div>
         </div>
