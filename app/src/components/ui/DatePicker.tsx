@@ -96,9 +96,11 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
     const w = dropRef.current.offsetWidth;
     const vh = window.innerHeight;
     const vw = window.innerWidth;
-    const top = anchorRect.bottom + 6 + h > vh && anchorRect.top >= h + 6
-      ? anchorRect.top - h - 6
-      : anchorRect.bottom + 6;
+    const spaceBelow = vh - anchorRect.bottom - 6;
+    const spaceAbove = anchorRect.top - 6;
+    const top = spaceBelow >= h || spaceBelow >= spaceAbove
+      ? Math.min(anchorRect.bottom + 6, vh - h - 8)
+      : Math.max(8, anchorRect.top - h - 6);
     const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
     setPos({ top, left, visibility: 'visible' });
   }, [anchorRect]);
@@ -364,9 +366,11 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
     const w = dropRef.current.offsetWidth;
     const vh = window.innerHeight;
     const vw = window.innerWidth;
-    const top = anchorRect.bottom + 6 + h > vh && anchorRect.top >= h + 6
-      ? anchorRect.top - h - 6
-      : anchorRect.bottom + 6;
+    const spaceBelow = vh - anchorRect.bottom - 6;
+    const spaceAbove = anchorRect.top - 6;
+    const top = spaceBelow >= h || spaceBelow >= spaceAbove
+      ? Math.min(anchorRect.bottom + 6, vh - h - 8)
+      : Math.max(8, anchorRect.top - h - 6);
     const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
     setPos({ top, left, visibility: 'visible' });
   }, [anchorRect, showTime, mode]);
@@ -417,7 +421,7 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
     } else {                               // postérieur → pose la fin, plage complète
       setLocalEndDate(ymd);
       emit(localDate, ymd, localStart, localEnd);
-      if (!showTime) onClose();
+      // Ne pas fermer : l'utilisateur peut encore vouloir ajouter des heures
     }
   };
 

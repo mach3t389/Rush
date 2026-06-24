@@ -187,15 +187,11 @@ const TYPE_META: Record<FileItemType | 'folder', { icon: string; color: string; 
   other:       { icon: 'file',         color: '#888',    label: 'Fichier'     },
 };
 
+// Derived from RESOURCE_TYPES so colors are always in sync; extras for types not in the creation menu
 const RESOURCE_TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
-  screenplay:   { icon: 'clapperboard',  color: '#f59e0b', label: 'Scénario'     },
-  video_review: { icon: 'film',          color: '#8b5cf6', label: 'Révision'     },
+  ...Object.fromEntries(RESOURCE_TYPES.map(rt => [rt.type, { icon: rt.icon, color: rt.color, label: rt.label }])),
+  screenplay:   { icon: 'clapperboard',  color: '#e85b5b', label: 'Scénario'     },
   web_review:   { icon: 'globe',         color: '#3b82f6', label: 'Site web'     },
-  moodboard:    { icon: 'grid-2x2',      color: '#ec4899', label: 'Moodboard'   },
-  document:     { icon: 'file-text',     color: '#6366f1', label: 'Document'     },
-  checklist:    { icon: 'list-checks',   color: '#10b981', label: 'Checklist'    },
-  inspirations: { icon: 'sparkles',      color: '#f97316', label: 'Inspirations' },
-  form:         { icon: 'clipboard-list',color: '#14b8a6', label: 'Formulaire'   },
   file:         { icon: 'hard-drive',    color: '#6b7280', label: 'Fichier'      },
 };
 
@@ -1429,6 +1425,130 @@ export function StorageView({
   );
 }
 
+// ── Move-to modal ─────────────────────────────────────────────────────────────
+
+function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMove, onClose }: {
+  fileIds: string[];
+  folderIds: string[];
+  allFolders: FileFolder[];
+  projectId?: string;
+  clientId?: string;
+  onMove: (targetFolderId: string) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+
+  const excluded = new Set(folderIds);
+
+  // Build folder path string for display
+  const folderPath = (f: FileFolder): string => {
+    const parts: string[] = [];
+    let cur = f;
+    for (let i = 0; i < 6; i++) {
+      const parent = cur.parentId ? allFolders.find(p => p.id === cur.parentId) : null;
+      if (!parent) break;
+      parts.unshift(parent.name);
+      cur = parent;
+    }
+    return parts.length > 0 ? parts.join(' / ') : (projectId ? 'Racine du projet' : 'Racine');
+  };
+
+  // Split into: same-scope folders first, then "other" folders
+  const inScope = (f: FileFolder) => {
+    if (projectId) return f.projectId === projectId;
+    if (clientId) return f.clientId === clientId;
+    return !f.projectId && !f.clientId; // global
+  };
+
+  const q = search.toLowerCase();
+  const base = allFolders.filter(f => !excluded.has(f.id) && !f.state && (q === '' || f.name.toLowerCase().includes(q)));
+  const scopeFolders = base.filter(f => inScope(f));
+  const otherFolders = (projectId || clientId) ? base.filter(f => !inScope(f)) : [];
+
+  const count = fileIds.length + folderIds.length;
+
+  const FolderRow = ({ f, badge }: { f: FileFolder; badge?: string }) => {
+    const isSelected = selectedTarget === f.id;
+    return (
+      <div
+        onClick={() => setSelectedTarget(isSelected ? null : f.id)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', background: isSelected ? 'rgba(249,255,0,0.08)' : 'transparent', border: isSelected ? '1px solid rgba(249,255,0,0.4)' : '1px solid transparent', marginBottom: 2 }}
+        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+      >
+        <SFIcon name="folder" size={15} color={isSelected ? 'var(--accent)' : 'var(--text-3)'} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 13, color: 'var(--text)', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</p>
+          <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderPath(f)}</p>
+        </div>
+        {badge && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{badge}</span>}
+        {isSelected && <SFIcon name="check" size={14} color="var(--accent)" />}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, width: 'min(520px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>
+            Déplacer {count} élément{count > 1 ? 's' : ''}
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>Choisissez le dossier de destination</p>
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)' }}>
+            <SFIcon name="search" size={13} color="var(--text-3)" />
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Chercher un dossier…"
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+            />
+          </div>
+        </div>
+
+        {/* Folder list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+          {scopeFolders.length === 0 && otherFolders.length === 0 && (
+            <p style={{ padding: '20px 12px', color: 'var(--text-3)', fontSize: 12, textAlign: 'center', fontFamily: 'var(--ff-text)' }}>Aucun dossier trouvé</p>
+          )}
+
+          {/* Same-scope folders (always shown first, no section label if no "other" section) */}
+          {scopeFolders.map(f => <FolderRow key={f.id} f={f} />)}
+
+          {/* Other folders — only shown when there are scoped folders too, or search yields cross-scope results */}
+          {otherFolders.length > 0 && (
+            <>
+              <div style={{ padding: '10px 12px 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0 }}>Autres projets</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+              {otherFolders.map(f => <FolderRow key={f.id} f={f} badge={f.projectId ? 'autre projet' : 'global'} />)}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="primary" onClick={() => selectedTarget && onMove(selectedTarget)} style={{ opacity: selectedTarget ? 1 : 0.4, pointerEvents: selectedTarget ? 'auto' : 'none' }}>
+            Déplacer ici
+          </SFButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main screen ────────────────────────────────────────────────────────────────
 
 export function FileBrowser({ initialNav, embedded = false, locked = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean }) {
@@ -1503,6 +1623,18 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   // Drag-and-drop between folders
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const dragPayload = useRef<{ fileIds: string[]; folderIds: string[] } | null>(null);
+
+  // Move-to modal
+  const [moveModal, setMoveModal] = useState<{ fileIds: string[]; folderIds: string[]; projectId?: string; clientId?: string } | null>(null);
+
+  const openMoveModal = (fileIds: string[], folderIds: string[]) => {
+    setMoveModal({
+      fileIds,
+      folderIds,
+      projectId: location.scope === 'project' ? location.scopeId : undefined,
+      clientId: location.scope === 'client' ? location.scopeId : undefined,
+    });
+  };
 
   const handleFileDragStart = (e: React.DragEvent, fileId: string) => {
     // If the dragged file is part of selection, drag the whole selection; otherwise just this file
@@ -1768,6 +1900,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       items = [
         { label: 'Ouvrir', icon: 'folder-open', action: () => setLocation({ ...location, folderId: folder.id }) },
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(folder.id) },
+        { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal([], [folder.id]) },
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Archiver', icon: 'archive', action: () => archiveFolder(folder.id) },
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFolder(folder.id), danger: true },
@@ -1792,9 +1925,13 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
       ];
     } else {
+      // If multiple items are selected and this file is among them, move the whole selection
+      const isInSelection = selectedIds.has(file.id) && selectedIds.size > 1;
+      const allSelectedFileIds = isInSelection ? [...selectedIds].filter(id => allFiles.some(f => f.id === id)) : [file.id];
       items = [
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
         ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => openResource(file) }] : []),
+        { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal(allSelectedFileIds, []) },
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Archiver', icon: 'archive', action: () => archiveFile(file.id) },
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
@@ -2369,9 +2506,17 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           <p style={{ padding: '12px 12px', fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>Aucun projet</p>
         )}
         {/* Folders */}
-        {folders.map(f => (
+        {folders.map(f => {
+          const isDO = dragOverFolderId === f.id;
+          return (
           <div key={f.id}
-            style={rowStyle(f.id)}
+            draggable
+            onDragStart={e => handleFolderDragStart(e, f.id)}
+            onDragEnd={handleDragEnd}
+            onDragOver={e => handleFolderDragOver(e, f.id)}
+            onDragLeave={() => setDragOverFolderId(null)}
+            onDrop={e => handleFolderDrop(e, f.id)}
+            style={{ ...rowStyle(f.id), ...(isDO ? { background: 'rgba(249,255,0,0.12)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}) }}
             onMouseDown={noSelectOnModifier}
             onClick={e => handleColClick(e, f.id, () => onSelect(
               (!f.projectId && !f.clientId)
@@ -2380,8 +2525,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               f.id,
             ))}
             onContextMenu={e => handleFolderCtx(e, f)}
-            onMouseEnter={e => { if (selectedId !== f.id && !isColSel(f.id)) e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { if (selectedId !== f.id && !isColSel(f.id)) e.currentTarget.style.background = 'transparent'; }}
+            onMouseEnter={e => { if (selectedId !== f.id && !isColSel(f.id) && !isDO) e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (selectedId !== f.id && !isColSel(f.id) && !isDO) e.currentTarget.style.background = 'transparent'; }}
           >
             <SFIcon name="folder" size={14} color={selectedId === f.id ? 'var(--on-accent)' : folderColor(f)} />
             {renamingId === f.id
@@ -2389,7 +2534,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               : <span style={nameStyle(f.id)}>{f.name}</span>}
             <SFIcon name="chevron-right" size={10} color={selectedId === f.id ? 'var(--on-accent)' : 'var(--text-3)'} />
           </div>
-        ))}
+          );
+        })}
         {/* Files — clic simple = sélection locale, double-clic = ouvre la ressource */}
         {files.map(f => {
           const isRes = f.type === 'resource' && !!f.resourceId;
@@ -2405,6 +2551,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           };
           return (
             <div key={f.id}
+              draggable
+              onDragStart={e => handleFileDragStart(e, f.id)}
+              onDragEnd={handleDragEnd}
               style={localRowStyle}
               onMouseDown={noSelectOnModifier}
               onClick={e => {
@@ -3208,6 +3357,24 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
       {/* Context menu */}
       {ctx && <ContextMenu pos={ctx.pos} items={ctx.items} onClose={() => setCtx(null)} />}
+
+      {/* Move-to modal */}
+      {moveModal && (
+        <MoveToModal
+          fileIds={moveModal.fileIds}
+          folderIds={moveModal.folderIds}
+          allFolders={allFolders}
+          projectId={moveModal.projectId}
+          clientId={moveModal.clientId}
+          onMove={(targetFolderId) => {
+            moveModal.fileIds.forEach(id => moveFile(id, targetFolderId));
+            moveModal.folderIds.forEach(id => moveFolder(id, targetFolderId));
+            setMoveModal(null);
+            setSelectedIds(new Set());
+          }}
+          onClose={() => setMoveModal(null)}
+        />
+      )}
 
       {/* File preview modal */}
       {previewFile && <FilePreviewModal file={previewFile} files={filteredFiles} onNavigate={setPreviewFile} onClose={() => setPreviewFile(null)} />}

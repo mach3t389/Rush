@@ -285,13 +285,14 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
 
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
-export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments }: {
+export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, inline }: {
   task: Task;
   onClose: () => void;
   onUpdate?: (patch: Partial<Task>) => void;
   onMove?: (newProjectId: string, newSectionLabel: string) => void;
   sectionLabel?: string;
   autoFocusComments?: boolean;
+  inline?: boolean;
 }) {
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
@@ -467,9 +468,10 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
   const divider = <div style={{ height: 1, background: 'var(--border)' }} />;
 
-  // Close on click outside the panel
+  // Close on click outside the panel (only in overlay/fixed mode)
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (inline) return;
     const handler = (e: MouseEvent) => {
       const t = e.target as Element | null;
       // Ignore clicks inside portaled children (DatePicker, TimePicker dropdowns)
@@ -479,12 +481,20 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     // Delay to avoid closing immediately on the click that opened the panel
     const t = setTimeout(() => document.addEventListener('mousedown', handler), 0);
     return () => { clearTimeout(t); document.removeEventListener('mousedown', handler); };
-  }, [onClose]);
+  }, [onClose, inline]);
 
   return (
     <>
-      {/* Panel — fixed right drawer, no backdrop */}
-      <div ref={panelRef} style={{
+      {/* Panel */}
+      <div ref={panelRef} style={inline ? {
+        width: 760,
+        flexShrink: 0,
+        background: 'var(--surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        borderLeft: '1px solid var(--border)',
+      } : {
         position: 'fixed',
         right: 0,
         top: 0,

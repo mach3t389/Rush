@@ -1899,6 +1899,10 @@ export function Travail() {
       </div>}
       </div>
 
+      {/* Content + inline panel row */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
       {/* Board view */}
       {view === 'board' && (
         <TravailBoard
@@ -1906,6 +1910,12 @@ export function Travail() {
           selectedTask={selectedTask}
           multiSelIds={multiSelIds}
           onSelectTask={handleSelectTask}
+          onUpdateTask={(taskId, patch) => {
+            updateTask(projectId!, taskId, patch);
+            setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t) })));
+            if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+          }}
+          onToggleSectionComplete={label => setSections(prev => prev.map(s => s.label === label ? { ...s, completed: !s.completed } : s))}
           onAddTask={handleAddTask}
           onMoveTask={handleMoveTask}
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
@@ -2002,22 +2012,30 @@ export function Travail() {
         )}
       </div>}
 
-      {selectedTask && (
-        <TaskPanel
-          task={selectedTask}
-          sectionLabel={sections.find(s => s.tasks.some(t => t.id === selectedTask.id))?.label}
-          autoFocusComments={autoFocusComments}
-          onClose={() => { setSelectedTask(null); setAutoFocusComments(false); }}
-          onUpdate={patch => {
-            updateTask(projectId!, selectedTask.id, patch);
-            setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
-          }}
-          onMove={(newProjectId, newSectionLabel) => {
-            moveTask(projectId!, selectedTask.id, newProjectId, newSectionLabel);
-            setSelectedTask(null);
-          }}
-        />
-      )}
+      </div>{/* end inner flex column */}
+
+      {/* Inline task panel — animated width */}
+      <div style={{ width: selectedTask ? 760 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none' }}>
+        {selectedTask && (
+          <TaskPanel
+            inline
+            task={selectedTask}
+            sectionLabel={sections.find(s => s.tasks.some(t => t.id === selectedTask.id))?.label}
+            autoFocusComments={autoFocusComments}
+            onClose={() => { setSelectedTask(null); setAutoFocusComments(false); }}
+            onUpdate={patch => {
+              updateTask(projectId!, selectedTask.id, patch);
+              setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+            }}
+            onMove={(newProjectId, newSectionLabel) => {
+              moveTask(projectId!, selectedTask.id, newProjectId, newSectionLabel);
+              setSelectedTask(null);
+            }}
+          />
+        )}
+      </div>
+
+      </div>{/* end content + panel row */}
 
       {/* Save as template modal */}
       {saveTemplateOpen && (

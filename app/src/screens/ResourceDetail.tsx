@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -2723,6 +2723,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
 // ── Resource topbar ───────────────────────────────────────────────────────────
 
 function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport, onFullscreen, isFullscreen }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: (f: ExportFormat) => void; onFullscreen?: () => void; isFullscreen?: boolean }) {
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -2779,6 +2780,9 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
 
   if (collapsed) return (
     <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', padding:'5px 14px', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+      <button onClick={() => navigate(-1)} title="Retour" style={{ width:28, height:28, borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <SFIcon name="arrow-left" size={14} color="var(--text-2)" />
+      </button>
       <div style={{ width:24, height:24, borderRadius:6, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
         <SFIcon name={TYPE_ICON[resource.type]} size={13} color="var(--accent)" />
       </div>
@@ -2799,6 +2803,16 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
     <div style={{ background:'var(--surface)', flexShrink:0 }}>
       {/* En-tête unifié : titre/description à gauche · actions à droite (1 barre) */}
       <div style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:16 }}>
+        {/* Back button — always present */}
+        <button
+          onClick={() => navigate(-1)}
+          title="Retour"
+          style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.12s, border-color 0.12s' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-3)'; e.currentTarget.style.borderColor = 'var(--border-2)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+        >
+          <SFIcon name="arrow-left" size={15} color="var(--text-2)" />
+        </button>
         {/* Left: icon + title + description */}
         <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
           <div style={{ width:30, height:30, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -3131,8 +3145,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding:'7px 20px', borderRadius:20, border:'none', cursor:'pointer', fontSize:13,
     fontFamily:'var(--ff-text)', fontWeight:500, transition:'all .15s',
-    background: active ? accent : 'transparent',
-    color: active ? '#fff' : 'var(--text-2)',
+    background: active ? 'var(--surface-3)' : 'transparent',
+    color: active ? 'var(--text)' : 'var(--text-2)',
+    outline: active ? '1px solid var(--border-2)' : 'none',
   });
 
   return (
@@ -3141,8 +3156,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
       <style>{`
         .fv-q-card{border-radius:12px;border:1.5px solid var(--border);background:var(--surface);transition:border-color .15s,box-shadow .15s;cursor:pointer}
         .fv-q-card:hover{border-color:var(--border-2)}
-        .fv-q-card.selected{border-color:${accent};box-shadow:0 0 0 3px ${accent}22}
-        .fv-q-card.drag-over{border-color:${accent};border-style:dashed}
+        .fv-q-card.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(249,255,0,0.1)}
+        .fv-q-card.drag-over{border-color:var(--accent);border-style:dashed}
         .fv-option-row:hover .fv-opt-del{opacity:1!important}
         .fv-preview-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid var(--border-2);background:var(--surface-2);color:var(--text);font-size:14px;font-family:var(--ff-text);outline:none;transition:border-color .15s}
         .fv-preview-input:focus{border-color:${accent}}
@@ -3234,7 +3249,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.09em', fontFamily:'var(--ff-text)', marginBottom:12 }}>Identité du répondant</div>
                 <label style={{ display:'flex', alignItems:'flex-start', gap:14, cursor:'pointer' }}>
                   <div onClick={() => setCollectIdentity(v=>!v)}
-                    style={{ width:42, height:24, borderRadius:12, background:collectIdentity?accent:'var(--border-2)', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0, marginTop:2 }}>
+                    style={{ width:42, height:24, borderRadius:12, background:collectIdentity?'var(--ok)':'var(--border-2)', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0, marginTop:2 }}>
                     <div style={{ position:'absolute', top:3, left:collectIdentity?20:3, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 4px rgba(0,0,0,0.3)' }} />
                   </div>
                   <div>
@@ -3283,7 +3298,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             {/* Modal footer */}
             <div style={{ padding:'16px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end' }}>
               <button onClick={() => setShowSettings(false)}
-                style={{ ...btnBase, background:accent, color:'#fff', padding:'9px 24px', fontSize:13 }}>
+                style={{ ...btnBase, background:'var(--surface-3)', color:'var(--text)', border:'1px solid var(--border-2)', padding:'9px 24px', fontSize:13 }}>
                 Fermer
               </button>
             </div>
@@ -3299,8 +3314,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
           <div style={{ width:320, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0 }}>
             {/* Form header card */}
             <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-              <div style={{ borderRadius:12, overflow:'hidden', border:`3px solid ${accent}` }}>
-                <div style={{ height:6, background:accent }} />
+              <div style={{ borderRadius:12, overflow:'hidden', border:'1.5px solid var(--border-2)' }}>
+                <div style={{ height:4, background:'var(--surface-3)' }} />
                 <div style={{ padding:'12px 14px', background:'var(--surface)' }}>
                   <input value={formTitle} onChange={e => setFormTitle(e.target.value)}
                     placeholder="Titre du formulaire"
@@ -3331,7 +3346,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                     </div>
                     <div style={{ fontSize:10, color:'var(--text-3)', marginTop:1, fontFamily:'var(--ff-text)' }}>
                       {FORM_Q_TYPES.find(t=>t.type===q.type)?.label}
-                      {q.required && <span style={{ color:accent, marginLeft:4 }}>*</span>}
+                      {q.required && <span style={{ color:'var(--danger)', marginLeft:4 }}>*</span>}
                     </div>
                   </div>
                 </div>
@@ -3368,8 +3383,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             {selectedQuestion ? (
               <div style={{ maxWidth:720, margin:'0 auto' }}>
                 {/* Question card */}
-                <div style={{ background:'var(--surface)', border:`1.5px solid ${accent}`, borderRadius:16, overflow:'hidden', marginBottom:16 }}>
-                  <div style={{ height:5, background:accent }} />
+                <div style={{ background:'var(--surface)', border:'1.5px solid var(--border-2)', borderRadius:16, overflow:'hidden', marginBottom:16 }}>
+                  <div style={{ height:4, background:'var(--surface-3)' }} />
                   <div style={{ padding:'24px 28px' }}>
 
                     {selectedQuestion.type === 'section' ? (
@@ -3494,7 +3509,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                               </div>
                             ))}
                             <button onClick={() => addOption(selectedQuestion.id)}
-                              style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', cursor:'pointer', color:accent, fontSize:13, fontFamily:'var(--ff-text)', padding:'4px 0', marginTop:4 }}>
+                              style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', fontSize:13, fontFamily:'var(--ff-text)', padding:'4px 0', marginTop:4 }}>
                               <SFIcon name="plus" size={13} />
                               Ajouter une option
                             </button>
@@ -3519,7 +3534,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                     <div style={{ borderTop:'1px solid var(--border)', padding:'10px 28px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--surface-2)' }}>
                       <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>
                         <div onClick={() => updateQ(selectedQuestion.id, { required:!selectedQuestion.required })}
-                          style={{ width:38, height:22, borderRadius:11, background:selectedQuestion.required?accent:'var(--border-2)', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
+                          style={{ width:38, height:22, borderRadius:11, background:selectedQuestion.required?'var(--ok)':'var(--border-2)', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
                           <div style={{ position:'absolute', top:3, left:selectedQuestion.required?18:3, width:16, height:16, borderRadius:'50%', background:'#fff', transition:'left .2s' }} />
                         </div>
                         Réponse requise
