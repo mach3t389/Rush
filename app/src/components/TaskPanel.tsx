@@ -6,6 +6,7 @@ import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
+import { showToast } from '../data/toastStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -488,7 +489,8 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
       {/* Panel */}
       <div ref={panelRef} style={inline ? {
         width: 440,
-        flexShrink: 0,
+        flex: 1,
+        minHeight: 0,
         background: 'var(--surface)',
         display: 'flex',
         flexDirection: 'column',
@@ -1077,7 +1079,11 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             )}
             {localSubtasks.filter(sub => !hideCompletedSubs || !sub.checked).map(sub => (
               <SubTaskRow key={sub.id} sub={sub}
-                onToggle={() => updateSub(sub.id, { checked: !sub.checked })}
+                onToggle={() => {
+                  const next = !sub.checked;
+                  updateSub(sub.id, { checked: next });
+                  if (next) showToast({ type: 'subtask', message: 'Sous-tâche terminée' });
+                }}
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => setLocalSubtasks(prev => prev.filter(s => s.id !== sub.id))}
               />
@@ -1118,6 +1124,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
                       >
                         <SFIcon name="git-branch" size={11} />→ Sous-tâche
+                      </button>
+                      <button onClick={() => { setComments(prev => prev.filter(x => x.id !== c.id)); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
+                      >
+                        <SFIcon name="trash-2" size={11} />Supprimer
                       </button>
                     </div>
                   </div>
@@ -1206,11 +1219,6 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <SFButton variant="secondary" size="sm" icon="square-pen" style={{ flex: 1, justifyContent: 'center' }}>Modifier</SFButton>
-          <SFButton variant="ghost" size="sm" icon="trash-2" style={{ color: 'var(--danger)' }} />
-        </div>
       </div>
 
       {/* Resource fullscreen overlay — uses the same ResourceBody as the full resource page */}

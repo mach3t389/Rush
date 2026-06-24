@@ -101,17 +101,19 @@ const TEAM = Object.values(USERS);
 // ── Annotation SVG overlay ────────────────────────────────────────────────────
 
 function AnnotationLayer({
-  annotations, activeId, pending, drawing, drawTool,
-  onMouseDown, onMouseMove, onMouseUp,
+  annotations, activeId, pending, drawing, drawTool, repositioning,
+  onMouseDown, onMouseMove, onMouseUp, onClick,
 }: {
   annotations: { id: string; annotation: Annotation }[];
   activeId: string | null;
   pending: Annotation | null;
   drawing: Annotation | null;
   drawTool: DrawTool | null;
+  repositioning?: boolean;
   onMouseDown: (e: React.MouseEvent<SVGSVGElement>) => void;
   onMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
   onMouseUp: (e: React.MouseEvent<SVGSVGElement>) => void;
+  onClick?: (e: React.MouseEvent<SVGSVGElement>) => void;
 }) {
   const renderAnnotation = (ann: Annotation, key: string, opacity = 1, dashed = false) => {
     const strokeProps = { stroke: ann.color, strokeWidth: 2.5, fill: 'none', strokeDasharray: dashed ? '6 3' : undefined, opacity };
@@ -150,8 +152,8 @@ function AnnotationLayer({
 
   return (
     <svg
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawTool ? 'crosshair' : 'default', userSelect: 'none', pointerEvents: drawTool ? 'auto' : 'none', zIndex: 2 }}
-      onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: (drawTool || repositioning) ? 'crosshair' : 'default', userSelect: 'none', pointerEvents: (drawTool || repositioning) ? 'auto' : 'none', zIndex: 2 }}
+      onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onClick={onClick}
     >
       {annotations.map(({ id, annotation }) => renderAnnotation(annotation, id, activeId === id ? 1 : 0.65))}
       {pending && renderAnnotation(pending, 'pending', 1)}
@@ -290,6 +292,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [drawTool, setDrawTool]   = useState<DrawTool | null>(null);
   const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
   const [liveAnnotation, setLiveAnnotation]       = useState<Annotation | null>(null);
+  const [repositioningAnnotationId, setRepositioningAnnotationId] = useState<string | null>(null);
   const drawStart = useRef<{ x: number; y: number } | null>(null);
   const videoFrameRef = useRef<HTMLDivElement>(null);
 
@@ -388,6 +391,11 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement;
       const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+      if (e.key === 'Escape') {
+        setRepositioningAnnotationId(null);
+        setDrawTool(null);
+        setPendingAnnotation(null);
+      }
       if (e.code === 'Space' && !typing) {
         e.preventDefault();
         setCurrentTime(t => (t >= TOTAL ? 0 : t));
@@ -493,6 +501,30 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setDrawTool(null);
     setTimeout(() => document.getElementById('vr-comment-input')?.focus(), 50);
   }, [drawTool, getNormPos]);
+
+  const handleSvgClickForReposition = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!repositioningAnnotationId) return;
+    e.stopPropagation();
+    const { x, y } = getNormPos(e);
+    setComments(prev => prev.map(c => {
+      if (c.id !== repositioningAnnotationId || !c.annotation) return c;
+      const ann = c.annotation;
+      const cx = (ann.x1 + ann.x2) / 2;
+      const cy = (ann.y1 + ann.y2) / 2;
+      const dx = x - cx; const dy = y - cy;
+      return { ...c, annotation: { ...ann, x1: ann.x1 + dx, y1: ann.y1 + dy, x2: ann.x2 + dx, y2: ann.y2 + dy } };
+    }));
+    setRepositioningAnnotationId(null);
+  }, [repositioningAnnotationId, getNormPos]);
+
+  const removeAnnotationFromComment = (commentId: string) => {
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, annotation: undefined } : c));
+  };
+
+  const deleteComment = (commentId: string) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    if (activeCommentId === commentId) setActiveCommentId(null);
+  };
 
   const addComment = () => {
     if (!commentText.trim()) return;
@@ -917,21 +949,31 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)' }}>Annotation prête · Rédigez votre commentaire →</span>
               </div>
             )}
+            {repositioningAnnotationId && !drawTool && (
+              <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.8)', border: '1px solid var(--info)', borderRadius: 8, padding: '5px 14px', zIndex: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SFIcon name="move" size={12} color="var(--info)" />
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--info)' }}>Cliquez pour repositionner · Échap pour annuler</span>
+                <button onClick={() => setRepositioningAnnotationId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <SFIcon name="x" size={12} color="var(--text-3)" />
+                </button>
+              </div>
+            )}
             <AnnotationLayer
               annotations={annotatedComments} activeId={activeCommentId}
               pending={pendingAnnotation} drawing={liveAnnotation} drawTool={drawTool}
+              repositioning={!!repositioningAnnotationId}
               onMouseDown={handleSvgMouseDown} onMouseMove={handleSvgMouseMove} onMouseUp={handleSvgMouseUp}
+              onClick={handleSvgClickForReposition}
             />
-          </div>
-          )}
 
-          {/* Timeline + transport controls */}
-          <div
-            onMouseEnter={() => { if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current); setControlsVisible(true); }}
-            onMouseLeave={() => { if (playing) { hideControlsTimer.current = setTimeout(() => setControlsVisible(false), 800); } }}
-            style={{ flexShrink: 0, padding: '8px 0 10px', display: 'flex', flexDirection: 'column', gap: 6, opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.4s', pointerEvents: controlsVisible ? 'auto' : 'none' }}>
+            {/* ── Video controls overlay (inside video frame so they show in fullscreen) ── */}
+            <div
+              onMouseEnter={() => { if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current); setControlsVisible(true); }}
+              onMouseLeave={() => { if (playing) { hideControlsTimer.current = setTimeout(() => setControlsVisible(false), 800); } }}
+              onClick={e => e.stopPropagation()}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 60%, transparent 100%)', padding: '40px 16px 14px', display: 'flex', flexDirection: 'column', gap: 8, opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.4s', pointerEvents: controlsVisible ? 'auto' : 'none', zIndex: 10 }}>
             {/* Scrubber bar */}
-            <div style={{ flex: 1, height: 18, display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}
+            <div style={{ flex: 1, height: 36, display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}
               onClick={e => {
                 const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                 seekTo((e.clientX - rect.left) / rect.width * TOTAL);
@@ -975,20 +1017,22 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   <SFIcon name="chevron-left" size={12} />
                   <SFIcon name="message-circle" size={13} />
                 </button>
-                {/* Rewind -5s */}
-                <button onClick={() => seekBy(-5)} title="Reculer de 5s"
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
-                  <SFIcon name="rewind" size={14} />
+                {/* Rewind -15s */}
+                <button onClick={() => seekBy(-15)} title="Reculer de 15s"
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
+                  <SFIcon name="arrow-left" size={13} />
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, fontWeight: 700 }}>15s</span>
                 </button>
                 {/* Play/Pause — large, centered */}
                 <button onClick={togglePlay} title={playing ? 'Pause (Espace)' : 'Lecture (Espace)'}
                   style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: '0 0 18px rgba(249,255,0,0.25)' }}>
                   <SFIcon name={playing ? 'pause' : currentTime >= TOTAL ? 'rotate-ccw' : 'play'} size={20} color="var(--on-accent)" />
                 </button>
-                {/* Forward +5s */}
-                <button onClick={() => seekBy(5)} title="Avancer de 5s"
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
-                  <SFIcon name="fast-forward" size={14} />
+                {/* Forward +15s */}
+                <button onClick={() => seekBy(15)} title="Avancer de 15s"
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, fontWeight: 700 }}>15s</span>
+                  <SFIcon name="arrow-right" size={13} />
                 </button>
                 {/* Next comment */}
                 <button onClick={goNextComment} title="Commentaire suivant"
@@ -1034,6 +1078,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               </div>
             </div>
           </div>
+          </div>
+          )}
 
         </div>
 
@@ -1136,9 +1182,10 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                     <div key={c.id}>
                       <div
                         onClick={() => jumpToComment(c)}
-                        style={{ display: 'flex', gap: 10, padding: '12px 16px', borderBottom: c.replies.length > 0 || replyingTo === c.id ? 'none' : '1px solid var(--border)', opacity: c.status === 'resolved' ? 0.5 : 1, background: isActive ? 'rgba(249,255,0,0.04)' : 'transparent', borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent', cursor: 'pointer', transition: 'background 0.1s' }}
-                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = isActive ? 'rgba(249,255,0,0.04)' : 'transparent'; }}
+                        className="comment-row"
+                        style={{ display: 'flex', gap: 10, padding: '12px 16px', borderBottom: c.replies.length > 0 || replyingTo === c.id ? 'none' : '1px solid var(--border)', opacity: c.status === 'resolved' ? 0.5 : 1, background: isActive ? 'rgba(249,255,0,0.04)' : 'transparent', borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent', cursor: 'pointer', transition: 'background 0.1s', position: 'relative' }}
+                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).querySelector<HTMLElement>('.comment-delete')!.style.opacity = '1'; }}
+                        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = isActive ? 'rgba(249,255,0,0.04)' : 'transparent'; (e.currentTarget as HTMLElement).querySelector<HTMLElement>('.comment-delete')!.style.opacity = '0'; }}
                       >
                         <SFAvatar initials={c.author.initials} bg={c.author.avatarColor} size={26} />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1150,9 +1197,23 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 5, border: '1px solid var(--border)' }}>Général</span>
                             )}
                             {c.annotation && (
-                              <span title={`Annotation : ${c.annotation.tool}`} style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'var(--ff-mono)', fontSize: 9, color: c.annotation.color, background: `${c.annotation.color}18`, padding: '1px 6px', borderRadius: 5, border: `1px solid ${c.annotation.color}44` }}>
-                                <SFIcon name={c.annotation.tool === 'circle' ? 'circle' : c.annotation.tool === 'arrow' ? 'arrow-up-right' : 'mouse-pointer-2'} size={9} color={c.annotation.color} />
-                                {c.annotation.tool === 'circle' ? 'Cercle' : c.annotation.tool === 'arrow' ? 'Flèche' : 'Point'}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontFamily: 'var(--ff-mono)', fontSize: 9, color: c.annotation.color, background: `${c.annotation.color}18`, borderRadius: 5, border: `1px solid ${c.annotation.color}44`, overflow: 'hidden' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '1px 6px' }}>
+                                  <SFIcon name={c.annotation.tool === 'circle' ? 'circle' : c.annotation.tool === 'arrow' ? 'arrow-up-right' : 'mouse-pointer-2'} size={9} color={c.annotation.color} />
+                                  {c.annotation.tool === 'circle' ? 'Cercle' : c.annotation.tool === 'arrow' ? 'Flèche' : 'Point'}
+                                </span>
+                                <button
+                                  onClick={e => { e.stopPropagation(); setRepositioningAnnotationId(c.id); setActiveCommentId(c.id); }}
+                                  title="Déplacer l'annotation"
+                                  style={{ background: `${c.annotation.color}22`, border: 'none', borderLeft: `1px solid ${c.annotation.color}44`, padding: '2px 5px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: c.annotation.color }}>
+                                  <SFIcon name="move" size={9} color={c.annotation.color} />
+                                </button>
+                                <button
+                                  onClick={e => { e.stopPropagation(); removeAnnotationFromComment(c.id); }}
+                                  title="Supprimer l'annotation (conserver le commentaire)"
+                                  style={{ background: 'rgba(255,80,80,0.12)', border: 'none', borderLeft: `1px solid ${c.annotation.color}44`, padding: '2px 5px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                  <SFIcon name="x" size={9} color="var(--danger)" />
+                                </button>
                               </span>
                             )}
                             {/* Status pill — click to cycle */}
@@ -1165,7 +1226,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                             </button>
                           </div>
                           <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 6 }}>{renderMentions(c.text)}</p>
-                          <div style={{ display: 'flex', gap: 5 }} onClick={e => e.stopPropagation()}>
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
                             <button onClick={() => { setReplyingTo(r => r === c.id ? null : c.id); setReplyText(''); setReplyMentionQuery(null); }}
                               style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
                               Répondre
@@ -1182,6 +1243,17 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                             )}
                           </div>
                         </div>
+                        {/* Trash — apparaît au survol */}
+                        <button
+                          className="comment-delete"
+                          onClick={e => { e.stopPropagation(); deleteComment(c.id); }}
+                          title="Supprimer le commentaire"
+                          style={{ opacity: 0, transition: 'opacity 0.15s', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: 'var(--text-3)', flexShrink: 0, alignSelf: 'flex-start', marginTop: 2 }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                        >
+                          <SFIcon name="trash-2" size={13} />
+                        </button>
                       </div>
 
                       {/* Replies */}

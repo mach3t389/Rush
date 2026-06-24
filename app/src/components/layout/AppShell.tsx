@@ -5,6 +5,7 @@ import { GlobalTopBar } from './GlobalTopBar';
 import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
 import { triggerAIToggle } from '../aiChatBridge';
+import { ToastBar } from '../ToastBar';
 
 export function AppShell() {
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -50,6 +51,7 @@ export function AppShell() {
       </main>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <AIChat />
+      <ToastBar />
     </div>
   );
 }

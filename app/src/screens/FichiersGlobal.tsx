@@ -2563,9 +2563,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         {loc.scope === 'root' && (
           <div
             style={rowStyle('clients-folder')}
-            onClick={() => onSelect({ scope: 'clients', folderId: null })}
-            onMouseEnter={e => { if (selectedId !== 'clients-folder') e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { if (selectedId !== 'clients-folder') e.currentTarget.style.background = 'transparent'; }}
+            onMouseDown={noSelectOnModifier}
+            onClick={e => handleColClick(e, 'clients-folder', () => onSelect({ scope: 'clients', folderId: null }))}
+            onMouseEnter={e => { if (selectedId !== 'clients-folder' && !isColSel('clients-folder')) e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (selectedId !== 'clients-folder' && !isColSel('clients-folder')) e.currentTarget.style.background = 'transparent'; }}
           >
             <SFIcon name="users" size={14} color={selectedId === 'clients-folder' ? 'var(--on-accent)' : 'var(--accent)'} />
             <span style={nameStyle('clients-folder')}>Clients</span>
@@ -2579,9 +2580,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             return (
               <div key={id}
                 style={rowStyle(id)}
-                onClick={() => onSelect({ scope: 'client', scopeId: c.id, folderId: null })}
-                onMouseEnter={e => { if (selectedId !== id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { if (selectedId !== id) e.currentTarget.style.background = 'transparent'; }}
+                onMouseDown={noSelectOnModifier}
+                onClick={e => handleColClick(e, id, () => onSelect({ scope: 'client', scopeId: c.id, folderId: null }))}
+                onMouseEnter={e => { if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'transparent'; }}
               >
                 <SFIcon name="user" size={14} color={selectedId === id ? 'var(--on-accent)' : c.avatarColor} />
                 <span style={nameStyle(id)}>{c.name}</span>
@@ -2599,9 +2601,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             return (
               <div key={id}
                 style={rowStyle(id)}
-                onClick={() => onSelect({ scope: 'project', scopeId: p.id, folderId: null }, id)}
-                onMouseEnter={e => { setHoveredColProjectId(p.id); if (selectedId !== id) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { setHoveredColProjectId(null); if (selectedId !== id) e.currentTarget.style.background = 'transparent'; }}
+                onMouseDown={noSelectOnModifier}
+                onClick={e => handleColClick(e, id, () => onSelect({ scope: 'project', scopeId: p.id, folderId: null }, id))}
+                onMouseEnter={e => { setHoveredColProjectId(p.id); if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { setHoveredColProjectId(null); if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'transparent'; }}
               >
                 <SFIcon name="folder" size={14} color={selectedId === id ? 'var(--on-accent)' : p.clientColor} />
                 <span style={nameStyle(id)}>{p.name}</span>
@@ -2874,6 +2877,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   const selectColumn = (depth: number, loc: NavLocation) => {
     setColumnSelections(prev => [...prev.slice(0, depth), loc]);
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
   };
 
   // Auto-scroll columns container to the right whenever a new column appears
@@ -3177,6 +3182,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
         {/* ── Stockage view ── */}
         {viewMode === 'stockage' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onContextMenu={handleBgCtx}>
           <StorageView
             folders={isTrashView ? scopeFilterFolders(getTrashedFolders()) : isArchivesView ? scopeFilterFolders(getArchivedFolders()) : scopeFilterFolders(allFolders)}
             files={isTrashView ? scopeFilterFiles(getTrashedFiles()) : isArchivesView ? scopeFilterFiles(getArchivedFiles()) : scopeFilterFiles(allFiles)}
@@ -3186,11 +3192,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             location={location}
             onNavigate={setLocation}
           />
+          </div>
         )}
 
         {/* ── Column view (Miller columns) ── */}
         {viewMode === 'columns' && (
-          <div ref={colsContainerRef} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
+          <div ref={colsContainerRef} onContextMenu={handleBgCtx} style={{ flex: 1, display: 'flex', overflowX: 'auto', overflowY: 'hidden', height: '100%' }}>
             {/* Column 0: root (or the locked scope when scoped) */}
             <ColPanel
               loc={lockedScope ?? { scope: 'root', folderId: null }}
@@ -3528,7 +3535,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                 </button>
               </div>
               {/* Info rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 10, border: '1px solid var(--border)' }}>
                 {rows.map((row, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: i % 2 === 0 ? 'var(--surface-2)' : 'transparent', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{row.label}</span>

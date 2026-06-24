@@ -17,6 +17,7 @@ import type { Task, Priority, ResourceType, SectionData, Status } from '../types
 import { TravailBoard } from './TravailBoard';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
+import { showToast } from '../data/toastStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -471,7 +472,16 @@ function TaskRow({
           <SFIcon name="grip-vertical" size={11} />
         </div>
         <button
-          onClick={() => { const next = !checked; setChecked(next); if (rowProjectId) updateTask(rowProjectId, task.id, { checked: next }); }}
+          onClick={() => {
+            const next = !checked;
+            setChecked(next);
+            if (rowProjectId) updateTask(rowProjectId, task.id, { checked: next });
+            if (next) showToast({
+              type: 'task',
+              message: 'Tâche terminée',
+              onUndo: () => { setChecked(false); if (rowProjectId) updateTask(rowProjectId, task.id, { checked: false }); },
+            });
+          }}
           style={{
             width: 16, height: 16, borderRadius: '50%',
             border: checked ? 'none' : '1.5px solid var(--border-2)',
@@ -1747,7 +1757,17 @@ export function Travail() {
   };
 
   const handleToggleComplete = (idx: number) => {
+    const wasCompleted = sections[idx]?.completed;
+    const label = sections[idx]?.label;
     setSections(prev => prev.map((s, i) => i === idx ? { ...s, completed: !s.completed } : s));
+    if (!wasCompleted && label) {
+      showToast({
+        type: 'section',
+        message: `Section « ${label} » terminée !`,
+        subMessage: 'Excellent travail, continuez comme ça !',
+        onUndo: () => setSections(prev => prev.map((s, i) => i === idx ? { ...s, completed: false } : s)),
+      });
+    }
   };
 
   const handleDeleteSection = (idx: number) => {
@@ -1842,7 +1862,8 @@ export function Travail() {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Headers wrapper */}
       <div style={{ flexShrink: 0 }}>
       <ProjectHeaderBar projectId={project.id}>
@@ -1939,9 +1960,8 @@ export function Travail() {
       </div>}
       </div>
 
-      {/* Content + inline panel row */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Content */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Board view */}
       {view === 'board' && (
@@ -2053,9 +2073,10 @@ export function Travail() {
       </div></div>}
 
       </div>
+      </div>{/* end left column */}
 
       {/* Inline task panel — animated width */}
-      <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none' }}>
+      <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column' }}>
         {selectedTask && (
           <TaskPanel
             inline
@@ -2073,8 +2094,6 @@ export function Travail() {
             }}
           />
         )}
-      </div>
-
       </div>
 
       {/* Save as template modal */}

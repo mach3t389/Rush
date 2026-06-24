@@ -254,6 +254,11 @@ export function ImageReview() {
     } : c));
   };
 
+  const handleDelete = (id: string) => {
+    setComments(prev => prev.filter(c => c.id !== id));
+    if (activeCommentId === id) setActiveCommentId(null);
+  };
+
   const addRound = () => {
     const next = `R${rounds.length + 1}`;
     const newRound: LocalRound = {
@@ -495,6 +500,7 @@ export function ImageReview() {
               onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); }}
               onResolve={handleResolve}
               onReply={handleReply}
+              onDelete={handleDelete}
               pendingAnnotation={false}
               onCancelPending={() => {}}
               drawing={false}
@@ -593,6 +599,7 @@ export function ImageReview() {
               onAdd={handleAddComment}
               onResolve={handleResolve}
               onReply={handleReply}
+              onDelete={handleDelete}
               pendingAnnotation={!!pendingAnno}
               onCancelPending={() => setPendingAnno(null)}
               drawing={drawing}

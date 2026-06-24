@@ -18,14 +18,19 @@ import type { Status } from '../types';
 
 interface MockPage { id: string; label: string; bg: string; }
 
-const PAGE_PALETTES = [
+const PAGE_PALETTES_DARK = [
   'linear-gradient(180deg,#1a2030 0%,#1e2840 100%)',
   'linear-gradient(180deg,#1e1a2e 0%,#26203a 100%)',
   'linear-gradient(180deg,#1a2620 0%,#1e3028 100%)',
 ];
+const PAGE_PALETTES_LIGHT = [
+  '#ffffff',
+  '#fafafa',
+  '#f8f8f8',
+];
 const makePage = (n: number): MockPage => ({
   id: `page-${n}`, label: `Page ${n}`,
-  bg: PAGE_PALETTES[(n - 1) % PAGE_PALETTES.length],
+  bg: PAGE_PALETTES_DARK[(n - 1) % PAGE_PALETTES_DARK.length],
 });
 const DOC_PAGES: MockPage[] = Array.from({ length: 8 }, (_, i) => makePage(i + 1));
 
@@ -37,7 +42,7 @@ const LINE_PATTERNS = [
   [65,90,78,0,42,85,70,0,88,60,95,0,50,80,72],
 ];
 
-function MockDocContent({ pageNum }: { pageNum: number }) {
+function MockDocContent({ pageNum, dark }: { pageNum: number; dark?: boolean }) {
   const lines = LINE_PATTERNS[(pageNum - 1) % LINE_PATTERNS.length];
   return (
     <div style={{ padding: '28px 36px', display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -45,7 +50,9 @@ function MockDocContent({ pageNum }: { pageNum: number }) {
         ? <div key={i} style={{ height: 10 }} />
         : <div key={i} style={{
             height: i === 4 || i === 5 ? 5 : 4, width: `${w}%`, borderRadius: 2,
-            background: i === 4 || i === 5 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.09)',
+            background: dark
+              ? (i === 4 || i === 5 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.09)')
+              : (i === 4 || i === 5 ? 'rgba(0,0,0,0.28)' : 'rgba(0,0,0,0.10)'),
             flexShrink: 0,
           }} />
       )}
@@ -209,6 +216,7 @@ export function DocumentReview() {
   const [pendingUpload, setPendingUpload] = useState<UploadedFile | null>(null);
   const [pageInput, setPageInput] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [darkPage, setDarkPage] = useState(false);
   const [versionDropOpen, setVersionDropOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -251,6 +259,7 @@ export function DocumentReview() {
 
   const handleResolve = (id: string) => setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
   const handleReply = (id: string, text: string) => setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text }] } : c));
+  const handleDeleteComment = (id: string) => { setComments(prev => prev.filter(c => c.id !== id)); if (activeCommentId === id) setActiveCommentId(null); };
 
   const goTo = (n: number) => setCurrentPage(Math.max(1, Math.min(totalPages, n)));
 
@@ -450,6 +459,14 @@ export function DocumentReview() {
           ))}
         </div>
 
+        {/* Dark / light page toggle */}
+        <button onClick={() => setDarkPage(d => !d)} title={darkPage ? 'Passer en thème clair' : 'Passer en thème sombre'}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: `1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-2)', flexShrink: 0, transition: 'all 0.15s' }}
+          onMouseEnter={e => { if (!darkPage) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; } }}
+          onMouseLeave={e => { if (!darkPage) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; } }}>
+          <SFIcon name={darkPage ? 'sun' : 'moon'} size={13} />
+        </button>
+
         {/* Upload icon button */}
         <button onClick={() => fileInputRef.current?.click()} title="Téléverser une version"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
@@ -510,7 +527,7 @@ export function DocumentReview() {
                   <img src={roundContent} alt={round?.file?.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6, boxShadow: '0 4px 32px rgba(0,0,0,0.5)' }} />
                 </div>
               ) : roundIsPdf ? (
-                <iframe title={round?.file?.name} src={roundContent} style={{ flex: 1, width: '100%', border: 'none', background: '#fff' }} />
+                <iframe title={round?.file?.name} src={roundContent} style={{ flex: 1, width: '100%', border: 'none', background: darkPage ? '#111' : '#fff', filter: darkPage ? 'invert(1) hue-rotate(180deg)' : 'none' }} />
               ) : (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                   <SFIcon name="file" size={40} color="var(--text-3)" />
@@ -557,8 +574,8 @@ export function DocumentReview() {
 
             {/* Single page */}
             <div style={{ width: '100%', maxWidth: 680, position: 'relative', flexShrink: 0 }}>
-              <div style={{ background: pages[currentPage - 1].bg, borderRadius: 6, boxShadow: '0 4px 32px rgba(0,0,0,0.5)', aspectRatio: '3/4', position: 'relative', overflow: 'hidden' }}>
-                <MockDocContent pageNum={currentPage} />
+              <div style={{ background: darkPage ? PAGE_PALETTES_DARK[(currentPage - 1) % PAGE_PALETTES_DARK.length] : PAGE_PALETTES_LIGHT[(currentPage - 1) % PAGE_PALETTES_LIGHT.length], borderRadius: 6, boxShadow: darkPage ? '0 4px 32px rgba(0,0,0,0.5)' : '0 4px 32px rgba(0,0,0,0.15)', aspectRatio: '3/4', position: 'relative', overflow: 'hidden' }}>
+                <MockDocContent pageNum={currentPage} dark={darkPage} />
                 <AnnotationLayer
                   comments={comments} activeId={activeCommentId}
                   onSelect={setActiveCommentId} drawing={drawing}
@@ -588,8 +605,8 @@ export function DocumentReview() {
                     )}
                   </div>
                   {/* Page */}
-                  <div style={{ background: pg.bg, borderRadius: 6, boxShadow: '0 4px 24px rgba(0,0,0,0.4)', aspectRatio: '3/4', position: 'relative', overflow: 'hidden' }}>
-                    <MockDocContent pageNum={pgNum} />
+                  <div style={{ background: darkPage ? PAGE_PALETTES_DARK[(idx) % PAGE_PALETTES_DARK.length] : PAGE_PALETTES_LIGHT[(idx) % PAGE_PALETTES_LIGHT.length], borderRadius: 6, boxShadow: darkPage ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 24px rgba(0,0,0,0.12)', aspectRatio: '3/4', position: 'relative', overflow: 'hidden' }}>
+                    <MockDocContent pageNum={pgNum} dark={darkPage} />
                     <AnnotationLayer
                       comments={comments} activeId={activeCommentId}
                       onSelect={id => { setActiveCommentId(id); setCurrentPage(pgNum); }}
@@ -622,6 +639,7 @@ export function DocumentReview() {
           onAdd={handleAddComment}
           onResolve={handleResolve}
           onReply={handleReply}
+          onDelete={handleDeleteComment}
           pendingAnnotation={!!pendingAnno}
           onCancelPending={() => setPendingAnno(null)}
           drawing={drawing}

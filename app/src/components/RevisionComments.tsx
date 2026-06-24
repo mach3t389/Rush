@@ -121,6 +121,7 @@ function CommentCard({
   onActivate,
   onResolve,
   onReply,
+  onDelete,
 }: {
   comment: RevisionComment;
   index: number;
@@ -128,6 +129,7 @@ function CommentCard({
   onActivate: () => void;
   onResolve: () => void;
   onReply: (text: string) => void;
+  onDelete?: () => void;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -153,8 +155,25 @@ function CommentCard({
         cursor: 'pointer',
         transition: 'border-color 0.12s, background 0.12s',
         opacity: resolved ? 0.55 : 1,
+        position: 'relative',
       }}
+      onMouseEnter={e => { const btn = e.currentTarget.querySelector<HTMLElement>('.rc-delete'); if (btn) btn.style.opacity = '1'; }}
+      onMouseLeave={e => { const btn = e.currentTarget.querySelector<HTMLElement>('.rc-delete'); if (btn) btn.style.opacity = '0'; }}
     >
+      {/* Trash — apparaît au survol */}
+      {onDelete && (
+        <button
+          className="rc-delete"
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          title="Supprimer le commentaire"
+          style={{ position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.15s', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-3)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+        >
+          <SFIcon name="trash-2" size={13} />
+        </button>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {comment.annotation && (
@@ -239,6 +258,7 @@ export function RevisionCommentSidebar({
   onAdd,
   onResolve,
   onReply,
+  onDelete,
   pendingAnnotation,
   onCancelPending,
   drawing,
@@ -251,6 +271,7 @@ export function RevisionCommentSidebar({
   onAdd: (text: string) => void;
   onResolve: (id: string) => void;
   onReply: (id: string, text: string) => void;
+  onDelete?: (id: string) => void;
   pendingAnnotation: boolean;
   onCancelPending: () => void;
   drawing: boolean;
@@ -363,6 +384,7 @@ export function RevisionCommentSidebar({
                 onActivate={() => onActivate(c.id === activeId ? null : c.id)}
                 onResolve={() => onResolve(c.id)}
                 onReply={text => onReply(c.id, text)}
+                onDelete={onDelete ? () => onDelete(c.id) : undefined}
               />
             ))}
           </div>

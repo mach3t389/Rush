@@ -9,6 +9,7 @@ import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, ResourceType } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
+import { showToast } from '../data/toastStore';
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
@@ -293,6 +294,15 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
     if (completeTimer.current) { clearTimeout(completeTimer.current); completeTimer.current = null; }
     if (next) {
       completeTimer.current = window.setTimeout(() => { updateMyTask(task.id, { checked: true }); }, 1100);
+      showToast({
+        type: 'task',
+        message: 'Tâche terminée',
+        onUndo: () => {
+          if (completeTimer.current) { clearTimeout(completeTimer.current); completeTimer.current = null; }
+          setChecked(false);
+          updateMyTask(task.id, { checked: false });
+        },
+      });
     } else {
       updateMyTask(task.id, { checked: false });
     }
