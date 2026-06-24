@@ -2583,9 +2583,9 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
             <div style={{ width:1, height:18, background:'var(--border)', margin:'0 6px' }} />
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{wordCount} mots</span>
             <button onClick={toggleDictation} title={dictating ? 'Arrêter la dictée' : 'Dicter (voix → texte)'}
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${dictating ? 'var(--danger)' : 'var(--border)'}`, background: dictating ? 'rgba(239,68,68,0.12)' : 'transparent', cursor:'pointer', color: dictating ? 'var(--danger)' : 'var(--text-3)', marginLeft:4, position:'relative' }}>
-              <SFIcon name={dictating ? 'mic-off' : 'mic'} size={12} />
-              {dictating && <span style={{ position:'absolute', top:2, right:2, width:5, height:5, borderRadius:'50%', background:'var(--danger)', animation:'pulse 1s ease-in-out infinite' }} />}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${dictating ? 'var(--accent)' : 'var(--border)'}`, background: dictating ? 'rgba(249,255,0,0.10)' : 'transparent', cursor:'pointer', color: dictating ? 'var(--accent)' : 'var(--text-3)', marginLeft:4, position:'relative' }}>
+              <SFIcon name="mic" size={12} />
+              {dictating && <span style={{ position:'absolute', top:2, right:2, width:5, height:5, borderRadius:'50%', background:'var(--accent)', animation:'pulse 1s ease-in-out infinite' }} />}
             </button>
             <button onClick={() => setDarkPage(p => !p)} title={darkPage ? 'Mode clair' : 'Mode sombre'}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
