@@ -2118,6 +2118,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
   const [newStyle, setNewStyle] = useState<Omit<CustomStyle,'id'>>({ name:'Mon style', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:'400', fontStyle:'normal', color:'#1a1a1a' });
+  const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'comments' | 'ai'>('comments');
   type AiMsg = { role: 'user' | 'assistant'; content: string; };
   const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
@@ -2334,10 +2335,27 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   };
 
   const createStyle = () => {
-    const style: CustomStyle = { ...newStyle, id: `cs${Date.now()}` };
-    const updated = [...customStyles, style];
+    if (editingStyleId !== null) {
+      const updated = customStyles.map(s => s.id === editingStyleId ? { ...s, ...newStyle } : s);
+      setCustomStyles(updated);
+      saveCustomStyles(updated);
+      setEditingStyleId(null);
+    } else {
+      const style: CustomStyle = { ...newStyle, id: `cs${Date.now()}` };
+      const updated = [...customStyles, style];
+      setCustomStyles(updated);
+      saveCustomStyles(updated);
+    }
+    setShowStyleForm(false);
+    setNewStyle({ name:'Mon style', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:'400', fontStyle:'normal', color:'#1a1a1a' });
+  };
+
+  const deleteEditingStyle = () => {
+    if (editingStyleId === null) return;
+    const updated = customStyles.filter(s => s.id !== editingStyleId);
     setCustomStyles(updated);
     saveCustomStyles(updated);
+    setEditingStyleId(null);
     setShowStyleForm(false);
     setNewStyle({ name:'Mon style', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:'400', fontStyle:'normal', color:'#1a1a1a' });
   };
@@ -2496,35 +2514,57 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
           {[['justifyLeft','align-left'],['justifyCenter','align-center'],['justifyRight','align-right'],['justifyFull','align-justify']].map(([cmd,icon]) => fmtBtn(cmd,icon,cmd))}
 
-          {/* Styles dropdown */}
+          {/* Unified Style dropdown */}
           <div style={{ position:'relative', marginLeft:6 }} ref={styleMenuRef}>
             <button
               onMouseDown={e=>{ e.preventDefault(); setShowStyleMenu(p=>!p); }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 8px', borderRadius:6, border:'1px solid var(--border)', cursor:'pointer', background: showStyleMenu ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-text)', whiteSpace:'nowrap' }}>
               <SFIcon name="paintbrush" size={12} />
-              Styles{customStyles.length > 0 ? ` (${customStyles.length})` : ''}
+              Style
               <SFIcon name="chevron-down" size={10} />
             </button>
             {showStyleMenu && (
-              <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, minWidth:190, padding:'6px 0', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+              <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, minWidth:200, padding:'6px 0', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+                {/* Section 1 — Thème */}
+                <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Thème</div>
+                {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, t]) => (
+                  <button key={key}
+                    onMouseDown={e=>{ e.preventDefault(); setTheme(key); setShowStyleMenu(false); }}
+                    style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', color: theme===key ? 'var(--accent)' : 'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
+                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
+                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                    <span style={{ flex:1 }}>{t.label}</span>
+                    {theme===key && <span style={{ fontSize:10, color:'var(--accent)' }}>●</span>}
+                  </button>
+                ))}
+                {/* Section 2 — Styles personnalisés */}
                 {customStyles.length > 0 && (
                   <>
-                    <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Appliquer</div>
-                    {customStyles.map(s => (
-                      <button key={s.id}
-                        onMouseDown={e=>{ e.preventDefault(); applyCustomStyle(s); setShowStyleMenu(false); }}
-                        style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', color:'var(--text)', fontSize:11, fontFamily: s.fontFamily, fontWeight: s.fontWeight, fontStyle: s.fontStyle, boxSizing:'border-box' }}
-                        onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
-                        onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                        <div style={{ width:10, height:10, borderRadius:'50%', background:s.color, border:'1px solid rgba(255,255,255,0.15)', flexShrink:0 }} />
-                        {s.name}
-                      </button>
-                    ))}
                     <div style={{ height:1, background:'var(--border)', margin:'5px 0' }} />
+                    <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Styles personnalisés</div>
+                    {customStyles.map(s => (
+                      <div key={s.id} style={{ display:'flex', alignItems:'center', gap:0, width:'100%', boxSizing:'border-box' }}
+                        onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background='var(--surface-3)'; const btn = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('[data-edit-btn]'); if (btn) btn.style.opacity='1'; }}
+                        onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background='transparent'; const btn = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('[data-edit-btn]'); if (btn) btn.style.opacity='0'; }}>
+                        <button
+                          onMouseDown={e=>{ e.preventDefault(); applyCustomStyle(s); setShowStyleMenu(false); }}
+                          style={{ display:'flex', alignItems:'center', gap:8, flex:1, padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', boxSizing:'border-box' }}>
+                          <div style={{ width:10, height:10, borderRadius:'50%', background:s.color, border:'1px solid rgba(255,255,255,0.15)', flexShrink:0 }} />
+                          <span style={{ color:'var(--text)', fontSize:11, fontFamily: s.fontFamily, fontWeight: s.fontWeight, fontStyle: s.fontStyle }}>{s.name}</span>
+                        </button>
+                        <button data-edit-btn
+                          onMouseDown={e=>{ e.preventDefault(); e.stopPropagation(); setEditingStyleId(s.id); setNewStyle({ name:s.name, fontFamily:s.fontFamily, fontSize:s.fontSize, fontWeight:s.fontWeight, fontStyle:s.fontStyle, color:s.color }); setShowStyleForm(true); setShowStyleMenu(false); }}
+                          style={{ opacity:0, padding:'4px 8px', border:'none', background:'transparent', cursor:'pointer', color:'var(--text-3)', display:'flex', alignItems:'center', transition:'opacity 0.1s', flexShrink:0 }}>
+                          <SFIcon name="pencil" size={11} />
+                        </button>
+                      </div>
+                    ))}
                   </>
                 )}
+                {/* Section 3 — Créer */}
+                <div style={{ height:1, background:'var(--border)', margin:'5px 0' }} />
                 <button
-                  onMouseDown={e=>{ e.preventDefault(); setShowStyleForm(p=>!p); setShowStyleMenu(false); }}
+                  onMouseDown={e=>{ e.preventDefault(); setEditingStyleId(null); setNewStyle({ name:'Mon style', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:'400', fontStyle:'normal', color:'#1a1a1a' }); setShowStyleForm(p=>!p); setShowStyleMenu(false); }}
                   style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
                   onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
                   onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
@@ -2535,18 +2575,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
             )}
           </div>
 
-          {/* Theme picker — dropdown */}
-          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6 }}>
-            <select value={theme} onChange={e => setTheme(e.target.value as DocTheme)}
-              style={{ padding:'3px 24px 3px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-text)', cursor:'pointer', outline:'none', appearance:'none', backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat:'no-repeat', backgroundPosition:'right 6px center', colorScheme:'dark' }}>
-              {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, t]) => (
-                <option key={key} value={key}>{t.label}</option>
-              ))}
-            </select>
-            <div style={{ width:1, height:18, background:'var(--border)' }} />
-          </div>
           {/* Zoom controls */}
-          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:4 }}>
             <button onClick={zoomOut} disabled={zoom<=0.5}
               style={{ padding:'3px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', fontSize:13, lineHeight:1, display:'flex', alignItems:'center' }}>−</button>
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-2)', minWidth:36, textAlign:'center' }}>{Math.round(zoom*100)}%</span>
@@ -2563,8 +2593,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
               <SFIcon name={darkPage ? 'sun' : 'moon'} size={12} />
             </button>
-            <button onClick={()=>setShowComments(s=>!s)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border)', background: showComments ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, marginLeft:4 }}>
-              Commentaires
+            <button onClick={()=>setShowComments(s=>!s)} title="Ouvrir le panneau" style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', background: showComments ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', cursor:'pointer', marginLeft:4 }}>
+              <SFIcon name="panel-right" size={14} />
             </button>
           </div>
         </div>
@@ -2619,8 +2649,11 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               </span>
             </div>
             <div style={{ display:'flex', gap:6 }}>
-              <button onClick={createStyle} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Créer</button>
-              <button onClick={()=>setShowStyleForm(false)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>×</button>
+              <button onClick={createStyle} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>{editingStyleId !== null ? 'Enregistrer' : 'Créer'}</button>
+              {editingStyleId !== null && (
+                <button onClick={deleteEditingStyle} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Supprimer</button>
+              )}
+              <button onClick={()=>{ setShowStyleForm(false); setEditingStyleId(null); }} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>×</button>
             </div>
           </div>
         )}
@@ -2639,7 +2672,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               suppressContentEditableWarning
               onInput={handleInput}
               className="doc-editor"
-              style={{ width:595, background: darkPage ? '#1a1a1a' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: darkPage ? '#e8e6e3' : theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow:'0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', transition:'background 0.2s, color 0.2s' }}
+              style={{ width:595, background: darkPage ? '#1a1a1a' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: darkPage ? '#e8e6e3' : theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? 'none' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', transition:'background 0.2s, color 0.2s' }}
             />
           </div>
         </div>
