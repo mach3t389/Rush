@@ -1,9 +1,10 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { SFButton, SFIcon } from '../components/ui';
-import { PROJECTS, USERS } from '../data/mock';
+import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
+import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
@@ -52,18 +53,18 @@ function MockDocContent({ pageNum }: { pageNum: number }) {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface UploadedFile { name: string; size: number; type: string; }
+interface UploadedFile { name: string; size: number; type: string; fileId?: string; }
 
 interface DocRound {
   v: string; label: string; date: string; status: Status;
   file?: UploadedFile;
 }
 
-const SEED_ROUNDS: DocRound[] = [
-  { v: 'V1', label: 'Version 1', date: '3 juin',  status: 'ok',
-    file: { name: 'brief_v1.pdf', size: 1240000, type: 'application/pdf' } },
-  { v: 'V2', label: 'Version 2', date: '10 juin', status: 'review',
-    file: { name: 'brief_v2_final.pdf', size: 1580000, type: 'application/pdf' } },
+const TODAY_FR = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+
+// On démarre sur une version vide : l'utilisateur glisse son document à l'intérieur.
+const INITIAL_ROUNDS: DocRound[] = [
+  { v: 'V1', label: 'Version initiale', date: TODAY_FR, status: 'review' },
 ];
 
 
@@ -172,9 +173,8 @@ function PageThumb({ page, pageNum, isActive, commentCount, onClick }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function DocumentReview() {
-  const { projectId = '', resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
+  const { resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resource = getResources().find(r => r.id === resourceId);
-  const project = PROJECTS.find(p => p.id === projectId);
 
   const [localTitle, setLocalTitle] = useState(resource?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -194,8 +194,9 @@ export function DocumentReview() {
     setEditingDesc(false);
   };
 
-  const [rounds, setRounds] = useState<DocRound[]>(SEED_ROUNDS);
-  const [activeRound, setActiveRound] = useState(SEED_ROUNDS[SEED_ROUNDS.length - 1].v);
+  const [rounds, setRounds] = useState<DocRound[]>(INITIAL_ROUNDS);
+  const [activeRound, setActiveRound] = useState(INITIAL_ROUNDS[INITIAL_ROUNDS.length - 1].v);
+  const [isDocDragging, setIsDocDragging] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<'page' | 'scroll'>('page');
   const [comments, setComments] = useState<RevisionComment[]>([]);
@@ -215,6 +216,12 @@ export function DocumentReview() {
   const pages = DOC_PAGES;
   const totalPages = pages.length;
   const round = rounds.find(r => r.v === activeRound) ?? rounds[rounds.length - 1];
+  // Contenu réel du document de la version active (PDF/image déposé)
+  const roundContent = round?.file?.fileId ? getFileContent(round.file.fileId) : null;
+  const roundIsImage = !!round?.file?.type?.startsWith('image/');
+  const roundIsPdf = !!round?.file && (round.file.type === 'application/pdf' || round.file.name.toLowerCase().endsWith('.pdf'));
+  // Vue réelle (fichier déposé) ou état vide (version sans fichier) ⇒ on remplace le visualiseur mock
+  const showRealViewer = !!roundContent || !round?.file;
 
   const visibleComments = comments.filter(c =>
     viewMode === 'scroll'
@@ -244,12 +251,34 @@ export function DocumentReview() {
 
   const goTo = (n: number) => setCurrentPage(Math.max(1, Math.min(totalPages, n)));
 
+  // Stocke le contenu réel d'un fichier et renvoie ses métadonnées (avec fileId)
+  const storeUploaded = (f: File): UploadedFile => {
+    const fileId = `doc-${resourceId}-${Date.now()}`;
+    setFileContent(fileId, f);
+    return { name: f.name, size: f.size, type: f.type, fileId };
+  };
+
   // Upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    setPendingUpload({ name: f.name, size: f.size, type: f.type });
+    setPendingUpload(storeUploaded(f));
     e.target.value = '';
+  };
+
+  // Glisser-déposer un document directement dans la version active
+  const dropToActive = (f: File) => {
+    const uploaded = storeUploaded(f);
+    setRounds(prev => prev.map(r => r.v === activeRound ? { ...r, file: uploaded } : r));
+  };
+
+  const nextVersionName = () => `V${rounds.length + 1}`;
+
+  // Crée une nouvelle version VIDE (sans fichier) — on y glissera le document ensuite
+  const addEmptyVersion = () => {
+    const next = nextVersionName();
+    setRounds(prev => [...prev, { v: next, label: `Version ${rounds.length + 1}`, date: TODAY_FR, status: 'review' }]);
+    setActiveRound(next);
   };
 
   const addToCurrentVersion = () => {
@@ -260,9 +289,8 @@ export function DocumentReview() {
 
   const addAsNewVersion = () => {
     if (!pendingUpload) return;
-    const next = `V${rounds.length + 1}`;
-    const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    setRounds(prev => [...prev, { v: next, label: `Version ${rounds.length + 1}`, date: today, status: 'review', file: pendingUpload }]);
+    const next = nextVersionName();
+    setRounds(prev => [...prev, { v: next, label: `Version ${rounds.length + 1}`, date: TODAY_FR, status: 'review', file: pendingUpload }]);
     setActiveRound(next);
     setPendingUpload(null);
   };
@@ -300,7 +328,7 @@ export function DocumentReview() {
     return () => container.removeEventListener('scroll', onScroll);
   }, [viewMode]);
 
-  if (!resource || !project) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
+  if (!resource) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
@@ -376,6 +404,13 @@ export function DocumentReview() {
                   </div>
                 ))}
                 <div style={{ borderTop: '1px solid var(--border)', padding: '4px 0 2px' }}>
+                  <button onClick={() => { addEmptyVersion(); setVersionDropOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                    <SFIcon name="plus" size={12} color="var(--accent)" />
+                    Nouvelle version vide
+                  </button>
                   <button onClick={() => { fileInputRef.current?.click(); setVersionDropOpen(false); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
@@ -430,7 +465,8 @@ export function DocumentReview() {
       {/* Main layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* Left: page thumbnail strip */}
+        {/* Left: page thumbnail strip — masqué quand un fichier réel est affiché */}
+        {!showRealViewer && (
         <div style={{ width: 110, flexShrink: 0, overflowY: 'auto', borderRight: '1px solid var(--border)', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--surface)' }}>
           {pages.map((pg, idx) => {
             const pgNum = idx + 1;
@@ -444,9 +480,52 @@ export function DocumentReview() {
             );
           })}
         </div>
+        )}
 
         {/* Center: document viewer */}
-        {viewMode === 'page' ? (
+        {showRealViewer ? (
+          /* ── Fichier réel déposé ou état vide (glisser-déposer) ── */
+          <div
+            style={{ flex: 1, position: 'relative', background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+            onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsDocDragging(true); } }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDocDragging(false); }}
+            onDrop={e => { e.preventDefault(); setIsDocDragging(false); const f = Array.from(e.dataTransfer.files)[0]; if (f) dropToActive(f); }}
+          >
+            {isDocDragging && (
+              <div style={{ position: 'absolute', inset: 16, zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249,255,0,0.06)', border: '2px dashed var(--accent)', borderRadius: 12, pointerEvents: 'none' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <SFIcon name="upload" size={30} color="var(--accent)" />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>Déposer pour {roundContent ? 'remplacer' : 'ajouter'} le document de {activeRound}</p>
+                </div>
+              </div>
+            )}
+            {roundContent ? (
+              roundIsImage ? (
+                <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                  <img src={roundContent} alt={round?.file?.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6, boxShadow: '0 4px 32px rgba(0,0,0,0.5)' }} />
+                </div>
+              ) : roundIsPdf ? (
+                <iframe title={round?.file?.name} src={roundContent} style={{ flex: 1, width: '100%', border: 'none', background: '#fff' }} />
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                  <SFIcon name="file" size={40} color="var(--text-3)" />
+                  <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{round?.file?.name}</p>
+                  <a href={roundContent} download={round?.file?.name} style={{ fontSize: 12, color: 'var(--accent)' }}>Télécharger</a>
+                </div>
+              )
+            ) : (
+              /* Version vide : invitation à déposer un document */
+              <div onClick={() => fileInputRef.current?.click()}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, cursor: 'pointer' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,255,0,0.12)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SFIcon name="upload" size={28} color="var(--accent)" />
+                </div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{activeRound} — Glissez un document ici</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>PDF, image, ou cliquez pour importer</p>
+              </div>
+            )}
+          </div>
+        ) : viewMode === 'page' ? (
           /* ── Page-by-page view ── */
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 32px', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
             {/* Navigation controls */}

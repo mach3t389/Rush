@@ -1439,8 +1439,6 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         </div>
       )}
     </div>
-    <ScriptCommentSidebar resourceId={resource.id} />
-    </div>
   );
 }
 
@@ -1972,7 +1970,6 @@ export function ChecklistView({ resource, seedItems, contentRef, persistKey }: {
     setNewItem('');
   };
   return (
-    <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
     <div style={{ flex:1, overflow:'auto', padding:24 }}>
       <div style={{ maxWidth:720, margin:'0 auto' }}>
         <div style={{ marginBottom:20, padding:'16px 20px', background:'var(--surface)', borderRadius:'var(--radius)', border:'1px solid var(--border)' }}>
@@ -2012,8 +2009,6 @@ export function ChecklistView({ resource, seedItems, contentRef, persistKey }: {
           </div>
         </div>
       </div>
-    </div>
-    <ScriptCommentSidebar resourceId={resource.id} />
     </div>
   );
 }
@@ -2564,24 +2559,29 @@ function getAutoThumb(url: string): string | null {
 }
 
 function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
-  const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[] }>(persistKey) : undefined;
+  const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[]; notes: string }>(persistKey) : undefined;
   const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? INITIAL_INSPI);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [likesNotes, setLikesNotes] = useState(_inspiPersisted?.notes ?? 'Lumière naturelle diffuse, tons chauds dorés. Compositions épurées avec beaucoup de blanc. Typographie fine et élégante. Regards directs, proximité avec le sujet.');
+  const [avoidsNotes, setAvoidsNotes] = useState('Éclairages trop durs ou flashy. Couleurs saturées ou trop vives. Poses trop construites ou artificielles.');
+  const [themes, setThemes] = useState(['Mode de saison','Éclairage naturel','Luxe accessible','Beauté intemporelle']);
+  const [themeInput, setThemeInput] = useState('');
+  const [direction, setDirection] = useState('Direction artistique : lumière naturelle, tons chauds et froids en contraste. Inspiration années 70 revisitée dans un contexte contemporain parisien.');
+  const palette = ['#1e2d3d','#3d2a1e','#1e3d2d','#3d3d1e','#2d1e3d','#3d2a0e'];
 
+  type InspiContent = { items: InspiItem[]; notes: string };
   const inspiPersistTimer = useRef<number | null>(null);
   useEffect(() => {
     if (!persistKey) return;
     if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current);
     inspiPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { items });
+      setResourceContent(persistKey, { items, notes: likesNotes } as InspiContent);
     }, 400);
-  }, [items, persistKey]);
+  }, [items, likesNotes, persistKey]);
   useEffect(() => () => { if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current); }, []);
 
   const addItem = () => {
-    const id = `in${Date.now()}`;
-    setItems(p => [...p, { id, title:`Référence ${p.length + 1}`, url:'', bg:`#${Math.floor(Math.random()*0x444444+0x111111).toString(16).padStart(6,'0')}`, tags:[], notes:'', likes:'', avoids:'' }]);
+    setItems(p => [...p, { id:`in${Date.now()}`, title:'Nouvelle référence', url:'', bg:`#${Math.floor(Math.random()*0x444444+0x111111).toString(16).padStart(6,'0')}`, tags:[], notes:'' }]);
   };
   const updateItem = (id: string, patch: Partial<InspiItem>) => setItems(p => p.map(i => i.id===id ? {...i,...patch} : i));
   const removeItem = (id: string) => setItems(p => p.filter(i => i.id!==id));
@@ -2596,11 +2596,9 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:14 }}>
-          {items.map((item, idx) => {
+          {items.map(item => {
             const thumbSrc = item.imageUrl || getAutoThumb(item.url);
             const href = item.url ? (item.url.startsWith('http') ? item.url : `https://${item.url}`) : null;
-            const isExpanded = expandedId === item.id;
-            const num = String(idx + 1).padStart(2, '0');
             return (
             <div
               key={item.id}
@@ -2617,9 +2615,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                 {thumbSrc
                   ? <img src={thumbSrc} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
                   : <SFIcon name="image" size={28} color="rgba(255,255,255,0.1)" />}
-                {/* Number badge */}
-                <div style={{ position:'absolute', top:7, left:8, fontFamily:'var(--ff-mono)', fontSize:11, fontWeight:700, color:'white', background:'rgba(0,0,0,0.55)', borderRadius:5, padding:'2px 6px', lineHeight:1.4 }}>{num}</div>
-                {/* Top-right controls */}
+                {/* Top-right controls — visible on card hover */}
                 <div style={{ position:'absolute', top:6, right:6, display:'flex', gap:4, opacity: hoveredId === item.id ? 1 : 0, transition:'opacity 0.15s' }}>
                   {href && (
                     <div style={{ width:24, height:24, borderRadius:6, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -2636,20 +2632,11 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
               </div>
               {/* Content */}
               <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column', gap:4 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <input
-                    value={item.title}
-                    onChange={e => updateItem(item.id, { title: e.target.value })}
-                    style={{ flex:1, background:'transparent', border:'none', color:'var(--text)', fontSize:12, fontWeight:600, outline:'none', fontFamily:'var(--ff-text)', minWidth:0 }}
-                  />
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                    title={isExpanded ? 'Masquer likes/évite' : 'Voir likes/évite'}
-                    style={{ flexShrink:0, padding:'2px 5px', borderRadius:5, border:`1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'}`, background: isExpanded ? 'rgba(249,255,0,0.08)' : 'transparent', color: isExpanded ? 'var(--accent)' : 'var(--text-3)', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:9, fontFamily:'var(--ff-mono)' }}
-                  >
-                    <SFIcon name="thumbs-up" size={10} />
-                  </button>
-                </div>
+                <input
+                  value={item.title}
+                  onChange={e => updateItem(item.id, { title: e.target.value })}
+                  style={{ background:'transparent', border:'none', color:'var(--text)', fontSize:12, fontWeight:600, outline:'none', fontFamily:'var(--ff-text)', width:'100%' }}
+                />
                 <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                   <SFIcon name="link" size={10} color="var(--text-3)" />
                   <input
@@ -2663,40 +2650,9 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                   value={item.notes}
                   onChange={e => updateItem(item.id, { notes: e.target.value })}
                   placeholder="Notes, impressions…"
-                  rows={3}
+                  rows={5}
                   style={{ width:'100%', background:'transparent', border:'none', borderTop:'1px solid var(--border)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', padding:'6px 0 0', outline:'none', resize:'none', lineHeight:1.55, boxSizing:'border-box', colorScheme:'dark', marginTop:4 }}
                 />
-                {/* Per-item likes / avoids */}
-                {isExpanded && (
-                  <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:8 }}>
-                    <div>
-                      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
-                        <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--ok)', flexShrink:0 }} />
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Ce qui nous plaît</span>
-                      </div>
-                      <textarea
-                        value={item.likes ?? ''}
-                        onChange={e => updateItem(item.id, { likes: e.target.value })}
-                        placeholder="Éléments inspirants de cette référence…"
-                        rows={2}
-                        style={{ width:'100%', padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', resize:'none', outline:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark' }}
-                      />
-                    </div>
-                    <div>
-                      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
-                        <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--danger)', flexShrink:0 }} />
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Ce qu'on évite</span>
-                      </div>
-                      <textarea
-                        value={item.avoids ?? ''}
-                        onChange={e => updateItem(item.id, { avoids: e.target.value })}
-                        placeholder="Éléments à ne pas reproduire…"
-                        rows={2}
-                        style={{ width:'100%', padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', resize:'none', outline:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark' }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
             );
@@ -2708,14 +2664,78 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--accent)'; (e.currentTarget as HTMLElement).style.color='var(--accent)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border-2)'; (e.currentTarget as HTMLElement).style.color='var(--text-3)'; }}
           >
-            <SFIcon name="plus" size={20} />
+            <SFIcon name="plus" size={20}  />
             <span style={{ fontSize:11, fontFamily:'var(--ff-text)' }}>Ajouter</span>
           </button>
         </div>
       </div>
 
-      {/* Right: comments */}
-      <ScriptCommentSidebar resourceId={resource.id} />
+      {/* Right: inspiration column */}
+      <div style={{ width:300, flexShrink:0, borderLeft:'1px solid var(--border)', overflow:'auto', padding:'20px 16px', display:'flex', flexDirection:'column', gap:20 }}>
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--ok)', flexShrink:0 }} />
+            <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Ce qui nous plaît</p>
+          </div>
+          <textarea
+            value={likesNotes}
+            onChange={e => setLikesNotes(e.target.value)}
+            placeholder="Éléments visuels, ambiances, techniques qui nous inspirent…"
+            rows={5}
+            style={{ width:'100%', padding:'10px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', resize:'vertical', outline:'none', lineHeight:1.6, boxSizing:'border-box', colorScheme:'dark' }}
+          />
+        </div>
+
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--danger)', flexShrink:0 }} />
+            <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Ce qu'on évite</p>
+          </div>
+          <textarea
+            value={avoidsNotes}
+            onChange={e => setAvoidsNotes(e.target.value)}
+            placeholder="Éléments à ne pas reproduire, styles à éviter…"
+            rows={4}
+            style={{ width:'100%', padding:'10px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', resize:'vertical', outline:'none', lineHeight:1.6, boxSizing:'border-box', colorScheme:'dark' }}
+          />
+        </div>
+
+        <div>
+          <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Palette extraite</p>
+          <div style={{ display:'flex', gap:6 }}>
+            {palette.map((c,i)=>(
+              <div key={i} title={c} style={{ flex:1, height:32, borderRadius:7, background:c, border:'1px solid rgba(255,255,255,0.1)' }} />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Thèmes clés</p>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            {themes.map((t,i)=>(
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:5, height:5, borderRadius:'50%', background:'var(--accent)', flexShrink:0 }} />
+                <input value={t} onChange={e=>setThemes(p=>p.map((x,j)=>j===i?e.target.value:x))}
+                  style={{ flex:1, background:'transparent', border:'none', color:'var(--text-2)', fontSize:12, fontFamily:'var(--ff-text)', outline:'none' }}
+                />
+                <button onClick={()=>setThemes(p=>p.filter((_,j)=>j!==i))} style={{ background:'none', border:'none', color:'var(--text-3)', cursor:'pointer', padding:0 }}>×</button>
+              </div>
+            ))}
+            <input value={themeInput} onChange={e=>setThemeInput(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter'&&themeInput.trim()){ setThemes(p=>[...p,themeInput.trim()]); setThemeInput(''); }}}
+              placeholder="+ Nouveau thème"
+              style={{ padding:'5px 8px', borderRadius:7, border:'1px dashed var(--border-2)', background:'transparent', color:'var(--text-3)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none', colorScheme:'dark' }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Direction générale</p>
+          <textarea value={direction} onChange={e=>setDirection(e.target.value)} rows={5}
+            style={{ width:'100%', padding:'10px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', resize:'vertical', outline:'none', lineHeight:1.6, boxSizing:'border-box', colorScheme:'dark' }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -3136,10 +3156,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   });
 
   return (
-    <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--bg)' }}>
       <style>{`
-        .fv-q-card{border-radius:12px;border:1.5px solid var(--border);background:var(--surface);transition:border-color .15s,box-shadow .15s;cursor:pointer}
+        .fv-q-card{border-radius:12px;border:1.5px solid var(--border-1);background:var(--surface-1);transition:border-color .15s,box-shadow .15s;cursor:pointer}
         .fv-q-card:hover{border-color:var(--border-2)}
         .fv-q-card.selected{border-color:${accent};box-shadow:0 0 0 3px ${accent}22}
         .fv-q-card.drag-over{border-color:${accent};border-style:dashed}
@@ -3151,7 +3170,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
       `}</style>
 
       {/* Top bar */}
-      <div style={{ padding:'12px 24px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, flexShrink:0 }}>
+      <div style={{ padding:'12px 24px', borderBottom:'1px solid var(--border-1)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, flexShrink:0 }}>
         <div style={{ display:'flex', gap:4, background:'var(--surface-2)', borderRadius:24, padding:3 }}>
           {(['build','preview','responses'] as const).map(t => {
             const isResponses = t === 'responses';
@@ -3193,9 +3212,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
         <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center' }}
           onMouseDown={e => { if (e.target === e.currentTarget) setShowSettings(false); }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(4px)' }} />
-          <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:18, width:'min(680px, 92vw)', maxHeight:'86vh', overflowY:'auto', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }}>
+          <div style={{ position:'relative', zIndex:1, background:'var(--surface-1)', border:'1px solid var(--border-2)', borderRadius:18, width:'min(680px, 92vw)', maxHeight:'86vh', overflowY:'auto', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }}>
             {/* Modal header */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px 16px', borderBottom:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px 16px', borderBottom:'1px solid var(--border-1)' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <div style={{ width:32, height:32, borderRadius:8, background:`${accent}22`, display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <SFIcon name="settings-2" size={16} color={accent} />
@@ -3227,7 +3246,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 </div>
               </div>
 
-              <div style={{ height:1, background:'var(--border)', marginBottom:24 }} />
+              <div style={{ height:1, background:'var(--border-1)', marginBottom:24 }} />
 
               {/* Section: Identité */}
               <div style={{ marginBottom:28 }}>
@@ -3246,7 +3265,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 </label>
               </div>
 
-              <div style={{ height:1, background:'var(--border)', marginBottom:24 }} />
+              <div style={{ height:1, background:'var(--border-1)', marginBottom:24 }} />
 
               {/* Section: Partage */}
               <div>
@@ -3281,7 +3300,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             </div>
 
             {/* Modal footer */}
-            <div style={{ padding:'16px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end' }}>
+            <div style={{ padding:'16px 24px', borderTop:'1px solid var(--border-1)', display:'flex', justifyContent:'flex-end' }}>
               <button onClick={() => setShowSettings(false)}
                 style={{ ...btnBase, background:accent, color:'#fff', padding:'9px 24px', fontSize:13 }}>
                 Fermer
@@ -3296,12 +3315,12 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
         <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
           {/* Left: question list */}
-          <div style={{ width:320, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0 }}>
+          <div style={{ width:320, borderRight:'1px solid var(--border-1)', display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0 }}>
             {/* Form header card */}
-            <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+            <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid var(--border-1)', flexShrink:0 }}>
               <div style={{ borderRadius:12, overflow:'hidden', border:`3px solid ${accent}` }}>
                 <div style={{ height:6, background:accent }} />
-                <div style={{ padding:'12px 14px', background:'var(--surface)' }}>
+                <div style={{ padding:'12px 14px', background:'var(--surface-1)' }}>
                   <input value={formTitle} onChange={e => setFormTitle(e.target.value)}
                     placeholder="Titre du formulaire"
                     style={{ width:'100%', background:'transparent', border:'none', outline:'none', fontSize:14, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-display)' }} />
@@ -3368,7 +3387,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             {selectedQuestion ? (
               <div style={{ maxWidth:720, margin:'0 auto' }}>
                 {/* Question card */}
-                <div style={{ background:'var(--surface)', border:`1.5px solid ${accent}`, borderRadius:16, overflow:'hidden', marginBottom:16 }}>
+                <div style={{ background:'var(--surface-1)', border:`1.5px solid ${accent}`, borderRadius:16, overflow:'hidden', marginBottom:16 }}>
                   <div style={{ height:5, background:accent }} />
                   <div style={{ padding:'24px 28px' }}>
 
@@ -3516,7 +3535,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
 
                   {/* Card footer */}
                   {selectedQuestion.type !== 'section' && (
-                    <div style={{ borderTop:'1px solid var(--border)', padding:'10px 28px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--surface-2)' }}>
+                    <div style={{ borderTop:'1px solid var(--border-1)', padding:'10px 28px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--surface-2)' }}>
                       <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>
                         <div onClick={() => updateQ(selectedQuestion.id, { required:!selectedQuestion.required })}
                           style={{ width:38, height:22, borderRadius:11, background:selectedQuestion.required?accent:'var(--border-2)', position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
@@ -3545,7 +3564,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
           </div>
 
           {/* Right: question outline mini-map */}
-          <div style={{ width:200, borderLeft:'1px solid var(--border)', padding:'20px 16px', overflowY:'auto', flexShrink:0 }}>
+          <div style={{ width:200, borderLeft:'1px solid var(--border-1)', padding:'20px 16px', overflowY:'auto', flexShrink:0 }}>
             <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', fontFamily:'var(--ff-text)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Structure</div>
             <div style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)', marginBottom:8 }}>{questions.length} question{questions.length!==1?'s':''}</div>
             {questions.filter(q=>q.required).length > 0 && (
@@ -3578,7 +3597,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 {/* Form header */}
                 <div style={{ borderRadius:16, overflow:'hidden', border:`1.5px solid ${accent}`, marginBottom:24 }}>
                   <div style={{ height:10, background:accent }} />
-                  <div style={{ padding:'28px 32px', background:'var(--surface)' }}>
+                  <div style={{ padding:'28px 32px', background:'var(--surface-1)' }}>
                     <h1 style={{ margin:0, fontSize:24, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', marginBottom:8 }}>{formTitle}</h1>
                     {formDesc && <p style={{ margin:0, fontSize:14, color:'var(--text-2)', fontFamily:'var(--ff-text)', lineHeight:1.6 }}>{formDesc}</p>}
                     <p style={{ margin:'12px 0 0', fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>
@@ -3589,7 +3608,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
 
                 {/* Questions */}
                 {questions.map((q) => (
-                  <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, padding:'24px 28px', marginBottom:16 }}>
+                  <div key={q.id} style={{ background:'var(--surface-1)', border:'1.5px solid var(--border-1)', borderRadius:14, padding:'24px 28px', marginBottom:16 }}>
                     {q.type === 'section' ? (
                       <>
                         {q.title && <h2 style={{ margin:'0 0 6px', fontSize:18, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', borderBottom:`2px solid ${accent}`, paddingBottom:10 }}>{q.title}</h2>}
@@ -3703,7 +3722,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 </div>
               </>
             ) : (
-              <div style={{ textAlign:'center', padding:'80px 40px', background:'var(--surface)', borderRadius:20, border:'1.5px solid var(--border)' }}>
+              <div style={{ textAlign:'center', padding:'80px 40px', background:'var(--surface-1)', borderRadius:20, border:'1.5px solid var(--border-1)' }}>
                 <div style={{ fontSize:56, marginBottom:16 }}>✅</div>
                 <h2 style={{ margin:'0 0 10px', color:'var(--text)', fontFamily:'var(--ff-display)', fontSize:22 }}>Réponse enregistrée</h2>
                 <p style={{ color:'var(--text-2)', fontFamily:'var(--ff-text)', fontSize:14, marginBottom:28 }}>Merci pour vos réponses.</p>
@@ -3720,7 +3739,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
       {tab === 'responses' && (
         <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
           {/* Left: response list */}
-          <div style={{ width:220, borderRight:'1px solid var(--border)', overflowY:'auto', flexShrink:0, padding:'16px 12px' }}>
+          <div style={{ width:220, borderRight:'1px solid var(--border-1)', overflowY:'auto', flexShrink:0, padding:'16px 12px' }}>
             <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'var(--ff-text)', marginBottom:12 }}>
               {responses.length} réponse{responses.length!==1?'s':''}
             </div>
@@ -3747,7 +3766,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 const sourceLabel = r.responder.source === 'platform' ? 'Connecté à la plateforme' : r.responder.source === 'email' ? 'Invitation par email' : 'Lien public';
                 const sourceIcon  = r.responder.source === 'platform' ? 'user-check' : r.responder.source === 'email' ? 'mail' : 'link';
                 return (
-                  <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, padding:'18px 22px', marginBottom:20, display:'flex', alignItems:'center', gap:16 }}>
+                  <div style={{ background:'var(--surface-1)', border:'1.5px solid var(--border-1)', borderRadius:14, padding:'18px 22px', marginBottom:20, display:'flex', alignItems:'center', gap:16 }}>
                     <div style={{ width:48, height:48, borderRadius:'50%', background:r.responder.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'#fff', flexShrink:0 }}>
                       {r.responder.initials}
                     </div>
@@ -3780,7 +3799,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
               {questions.filter(q=>q.type!=='section').map(q => {
                 const ans = responses[responseIdx]?.answers[q.id];
                 return (
-                  <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:12, padding:'18px 22px', marginBottom:12 }}>
+                  <div key={q.id} style={{ background:'var(--surface-1)', border:'1.5px solid var(--border-1)', borderRadius:12, padding:'18px 22px', marginBottom:12 }}>
                     <div style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)', marginBottom:4 }}>
                       {FORM_Q_TYPES.find(t=>t.type===q.type)?.label}
                     </div>
@@ -3804,14 +3823,14 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
               })}
 
               {/* Summary stats */}
-              <div style={{ marginTop:32, paddingTop:24, borderTop:'1px solid var(--border)' }}>
+              <div style={{ marginTop:32, paddingTop:24, borderTop:'1px solid var(--border-1)' }}>
                 <h3 style={{ margin:'0 0 16px', fontSize:15, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)' }}>Résumé des réponses</h3>
                 {questions.filter(q=>q.type==='rating'||q.type==='choice'||q.type==='dropdown').map(q => {
                   const stats = getStats(q.id, q);
                   if (!stats) return null;
                   if (q.type==='rating' && 'avg' in stats) {
                     return (
-                      <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:12, padding:'16px 20px', marginBottom:12, display:'flex', alignItems:'center', gap:16 }}>
+                      <div key={q.id} style={{ background:'var(--surface-1)', border:'1.5px solid var(--border-1)', borderRadius:12, padding:'16px 20px', marginBottom:12, display:'flex', alignItems:'center', gap:16 }}>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-text)', marginBottom:4 }}>{q.title}</div>
                           <div style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{stats.count} réponses</div>
@@ -3826,7 +3845,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                   if ((q.type==='choice'||q.type==='dropdown') && !('avg' in stats)) {
                     const total = Object.values(stats as Record<string,number>).reduce((a,b)=>a+b,0);
                     return (
-                      <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:12, padding:'16px 20px', marginBottom:12 }}>
+                      <div key={q.id} style={{ background:'var(--surface-1)', border:'1.5px solid var(--border-1)', borderRadius:12, padding:'16px 20px', marginBottom:12 }}>
                         <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-text)', marginBottom:12 }}>{q.title}</div>
                         {Object.entries(stats as Record<string,number>).sort((a,b)=>b[1]-a[1]).map(([label,count]) => {
                           const pct = Math.round(count/total*100);
@@ -3852,8 +3871,6 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
           </div>
         </div>
       )}
-    </div>
-    <ScriptCommentSidebar resourceId={resource.id} />
     </div>
   );
 }
@@ -4196,7 +4213,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
         <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center' }}
           onMouseDown={e => { if (e.target === e.currentTarget) setShowSyncModal(false); }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }} />
-          <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:16, width:'min(480px,92vw)', padding:28 }}>
+          <div style={{ position:'relative', zIndex:1, background:'var(--surface-1)', border:'1px solid var(--border-2)', borderRadius:16, width:'min(480px,92vw)', padding:28 }}>
             <h3 style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginBottom:6 }}>Synchroniser avec le script</h3>
             <p style={{ fontSize:13, color:'var(--text-2)', lineHeight:1.6, marginBottom:20 }}>
               Les scènes détectées dans la version active du script seront importées dans la shotlist. Les plans existants seront conservés.
@@ -4549,7 +4566,7 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
         <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', alignItems:'center', justifyContent:'center' }}
           onMouseDown={e => { if (e.target === e.currentTarget && !aiGenerating) setShowAIModal(false); }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(6px)' }} />
-          <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:20, width:'min(560px,92vw)', padding:28 }}>
+          <div style={{ position:'relative', zIndex:1, background:'var(--surface-1)', border:'1px solid var(--border-2)', borderRadius:20, width:'min(560px,92vw)', padding:28 }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
               <div style={{ width:34, height:34, borderRadius:10, background:'linear-gradient(135deg,#7c3aed,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <SFIcon name="sparkles" size={16} color="white" />
@@ -4937,4 +4954,3 @@ export function ResourceDetail() {
     </div>
   );
 }
-

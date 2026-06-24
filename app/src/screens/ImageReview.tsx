@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { SFAvatar, SFButton, SFIcon } from '../components/ui';
-import { PROJECTS, USERS } from '../data/mock';
+import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
@@ -22,15 +22,6 @@ interface MockImage {
   aspect: string; // CSS aspect-ratio
 }
 
-const SEED_IMAGES: MockImage[] = [
-  { id: 'img1', label: 'Plan 001 — Extérieur jour',   bg: 'linear-gradient(135deg,#1a2840 0%,#2d4a6e 100%)', aspect: '16/9' },
-  { id: 'img2', label: 'Plan 002 — Portrait studio',   bg: 'linear-gradient(135deg,#2d1a40 0%,#5c3d8f 100%)', aspect: '3/4' },
-  { id: 'img3', label: 'Plan 003 — Produit table',     bg: 'linear-gradient(135deg,#1a3a2d 0%,#2d6e4a 100%)', aspect: '1/1' },
-  { id: 'img4', label: 'Plan 004 — Ambiance bureau',   bg: 'linear-gradient(135deg,#3a2a1a 0%,#7a5a2d 100%)', aspect: '16/9' },
-  { id: 'img5', label: 'Plan 005 — Gros plan détail',  bg: 'linear-gradient(135deg,#1a1a3a 0%,#3d4a8f 100%)', aspect: '4/3' },
-  { id: 'img6', label: 'Plan 006 — Vue aérienne',      bg: 'linear-gradient(135deg,#2a1a1a 0%,#8f3d3d 100%)', aspect: '16/9' },
-];
-
 interface LocalRound {
   v: string;
   label: string;
@@ -40,9 +31,11 @@ interface LocalRound {
   images: MockImage[];
 }
 
+const TODAY_FR = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+
+// On démarre sur une ronde vide : l'utilisateur glisse ses images à l'intérieur.
 const SEED_ROUNDS: LocalRound[] = [
-  { v: 'R1', label: 'Ronde 1', date: '2 juin', author: USERS.lea,   status: 'ok',     images: SEED_IMAGES.slice(0, 4) },
-  { v: 'R2', label: 'Ronde 2', date: '8 juin', author: USERS.sarah, status: 'review', images: SEED_IMAGES },
+  { v: 'R1', label: 'Ronde initiale', date: TODAY_FR, author: USERS.lea, status: 'review', images: [] },
 ];
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -120,7 +113,6 @@ export function ImageReview() {
   const { projectId = '', resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resources = getResources();
   const resource = resources.find(r => r.id === resourceId);
-  const project = PROJECTS.find(p => p.id === projectId);
 
   const [localTitle, setLocalTitle] = useState(resource?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -154,7 +146,21 @@ export function ImageReview() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [roundDropOpen, setRoundDropOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isImgDragging, setIsImgDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Glisser-déposer : ajoute directement les images déposées à la ronde active
+  const dropImagesToActive = (files: File[]) => {
+    const imgs = files.filter(f => f.type.startsWith('image/'));
+    if (!imgs.length) return;
+    const newImages: MockImage[] = imgs.map((f, i) => ({
+      id: `upload-${Date.now()}-${i}`,
+      label: f.name.replace(/\.[^.]+$/, ''),
+      bg: URL.createObjectURL(f),
+      aspect: '4/3',
+    }));
+    setRounds(prev => prev.map(r => r.v === activeRound ? { ...r, images: [...r.images, ...newImages] } : r));
+  };
 
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
 
@@ -265,7 +271,7 @@ export function ImageReview() {
     setDeleteTarget(null);
   };
 
-  if (!resource || !project) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
+  if (!resource) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
@@ -389,16 +395,32 @@ export function ImageReview() {
       </div>
 
       {/* Main layout */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}
+        onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsImgDragging(true); } }}
+        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsImgDragging(false); }}
+        onDrop={e => { e.preventDefault(); setIsImgDragging(false); dropImagesToActive(Array.from(e.dataTransfer.files)); }}
+      >
+        {isImgDragging && (
+          <div style={{ position: 'absolute', inset: 16, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249,255,0,0.06)', border: '2px dashed var(--accent)', borderRadius: 12, pointerEvents: 'none' }}>
+            <div style={{ textAlign: 'center' }}>
+              <SFIcon name="upload" size={30} color="var(--accent)" />
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>Déposer les images dans {activeRound}</p>
+            </div>
+          </div>
+        )}
 
         {viewMode === 'gallery' ? (
           /* ── Gallery view ── */
           <>
             <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: 'var(--bg)' }}>
               {round.images.length === 0 ? (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-                  <SFIcon name="image" size={40} color="var(--text-3)" />
-                  <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Aucune image dans cette ronde</p>
+                <div onClick={() => fileInputRef.current?.click()}
+                  style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, cursor: 'pointer' }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,255,0,0.12)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <SFIcon name="upload" size={28} color="var(--accent)" />
+                  </div>
+                  <p style={{ color: 'var(--text)', fontSize: 14, fontWeight: 600 }}>{activeRound} — Glissez des images ici</p>
+                  <p style={{ color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-mono)' }}>ou cliquez pour importer</p>
                 </div>
               ) : (
                 <div style={{

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton } from '../components/ui';
 import {
@@ -6,7 +6,7 @@ import {
   addFile, deleteFile, renameFile, subscribeFileStore,
   getChildFolders, getRootFoldersForProject, getRootFoldersForClient,
   getGlobalRootFolders, getFilesInFolder, getFolderPath, formatFileSize,
-  fileTypeFromExt,
+  fileTypeFromExt, moveFile, moveFolder,
   trashFolder, trashFile, archiveFolder, archiveFile,
   restoreFolder, restoreFile, emptyTrash,
   getTrashedFolders, getTrashedFiles, getArchivedFolders, getArchivedFiles,
@@ -25,10 +25,10 @@ import type { Project, ResourceType } from '../types';
 // ── Resource types ─────────────────────────────────────────────────────────────
 
 const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; color: string }[] = [
-  { type: 'screenplay',   label: 'Scénario',     icon: 'file-text',   color: '#e85b5b' },
+  { type: 'document',     label: 'Document',     icon: 'file',        color: '#5bc4e8' },
   { type: 'moodboard',    label: 'Moodboard',    icon: 'image',       color: '#5b8af5' },
   { type: 'video_review', label: 'Révision',     icon: 'film',        color: '#a05be8' },
-  { type: 'document',     label: 'Document',     icon: 'file',        color: '#5bc4e8' },
+  { type: 'screenplay',   label: 'Scénario',     icon: 'file-text',   color: '#e85b5b' },
   { type: 'checklist',    label: 'Checklist',    icon: 'list-checks', color: '#34c98a' },
   { type: 'form',         label: 'Formulaire',   icon: 'clipboard',   color: '#f5d05b' },
   { type: 'inspirations', label: 'Inspirations', icon: 'sparkles',    color: '#c45be8' },
@@ -221,7 +221,7 @@ function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: F
   const iconName = resourceType === 'video_review'
     ? (REVIEW_SUBTYPE_ICON[mediaSubtype ?? ''] ?? 'film')
     : meta.icon;
-  const badge = Math.max(11, Math.round(size * 0.5));
+  const badge = Math.max(13, Math.round(size * 0.6));
   return (
     <div style={{
       position: 'relative',
@@ -242,7 +242,7 @@ function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: F
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          <SFIcon name="message-square" size={Math.round(badge * 0.52)} color="var(--on-accent)" />
+          <SFIcon name="pencil" size={Math.round(badge * 0.6)} color="var(--on-accent)" />
         </div>
       )}
     </div>
@@ -255,18 +255,54 @@ interface CtxMenuItem { label: string; icon: string; action: () => void; danger?
 
 function ContextMenu({ items, pos, onClose }: { items: CtxMenuItem[]; pos: { x: number; y: number }; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Position recalée pour que le menu reste entièrement visible dans la fenêtre
+  const [coords, setCoords] = useState<{ left: number; top: number; maxHeight?: number }>({ left: pos.x, top: pos.y });
+
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
+  // Après rendu, mesurer le menu et le rabattre vers le haut/la gauche s'il déborde
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const margin = 8;
+    const { width, height } = el.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+
+    let left = pos.x;
+    if (left + width + margin > vw) left = Math.max(margin, pos.x - width); // bascule à gauche du curseur
+    left = Math.min(left, vw - width - margin);
+    left = Math.max(margin, left);
+
+    const spaceBelow = vh - pos.y;
+    const spaceAbove = pos.y;
+    let top = pos.y;
+    let maxHeight: number | undefined;
+    if (height + margin > spaceBelow) {
+      // Pas assez de place en dessous : ouvrir vers le haut si plus d'espace, sinon clamp + scroll
+      if (spaceAbove > spaceBelow) {
+        top = Math.max(margin, pos.y - height);
+        maxHeight = pos.y - margin;
+      } else {
+        top = Math.min(pos.y, vh - height - margin);
+        maxHeight = vh - top - margin;
+      }
+    }
+    top = Math.max(margin, top);
+    setCoords({ left, top, maxHeight });
+  }, [pos.x, pos.y, items.length]);
+
   return (
     <div ref={ref} style={{
-      position: 'fixed', left: pos.x, top: pos.y,
+      position: 'fixed', left: coords.left, top: coords.top,
       background: 'var(--surface-2)', border: '1px solid var(--border)',
       borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
-      zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden',
+      zIndex: 500, minWidth: 180, padding: '4px 0',
+      maxHeight: coords.maxHeight, overflowX: 'hidden',
+      overflowY: coords.maxHeight ? 'auto' : 'hidden',
     }}>
       {items.map((item, i) => item.separator
         ? <div key={i} style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -710,7 +746,7 @@ function FileTree({
     return (
       <div key={p.id}>
         <div
-          style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative' }}
+          style={{ ...ITEM_STYLE(projActive), justifyContent: 'flex-start', position: 'relative', paddingRight: collapsed ? undefined : 32 }}
           onMouseEnter={e => { setHoveredProjectId(p.id); if (!projActive) e.currentTarget.style.background = 'var(--surface-2)'; }}
           onMouseLeave={e => { setHoveredProjectId(null); if (!projActive) e.currentTarget.style.background = 'transparent'; }}
         >
@@ -727,15 +763,20 @@ function FileTree({
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
             {!collapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>}
           </div>
-          {!collapsed && isHovered && (
+          {!collapsed && (
             <button
               onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
               title={isPinned ? 'Désépingler' : 'Épingler'}
               style={{
-                flexShrink: 0, width: 20, height: 20, borderRadius: 4,
+                // Positionné en absolu pour ne jamais modifier la hauteur de la ligne
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                width: 20, height: 20, borderRadius: 4,
                 background: isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.1s',
+                transition: 'background 0.1s, opacity 0.1s',
+                // Visible uniquement au survol ; l'espace reste réservé (position absolue) pour une hauteur constante
+                opacity: isHovered ? 1 : 0,
+                pointerEvents: isHovered ? 'auto' : 'none',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = isPinned ? 'rgba(249,255,0,0.8)' : 'rgba(0,0,0,0.4)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = isPinned ? 'var(--accent)' : 'rgba(0,0,0,0.2)'; }}
@@ -1459,6 +1500,51 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [selectedVirtualId, setSelectedVirtualId] = useState<string | null>(null);
 
+  // Drag-and-drop between folders
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const dragPayload = useRef<{ fileIds: string[]; folderIds: string[] } | null>(null);
+
+  const handleFileDragStart = (e: React.DragEvent, fileId: string) => {
+    // If the dragged file is part of selection, drag the whole selection; otherwise just this file
+    const ids = selectedIds.has(fileId) ? [...selectedIds] : [fileId];
+    dragPayload.current = { fileIds: ids, folderIds: [] };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ids.join(','));
+  };
+
+  const handleFolderDragStart = (e: React.DragEvent, folderId: string) => {
+    dragPayload.current = { fileIds: [], folderIds: [folderId] };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', folderId);
+  };
+
+  const handleFolderDragOver = (e: React.DragEvent, folderId: string) => {
+    if (!dragPayload.current) return;
+    // Don't allow dropping a folder into itself
+    if (dragPayload.current.folderIds.includes(folderId)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverFolderId(folderId);
+  };
+
+  const handleFolderDrop = (e: React.DragEvent, targetFolderId: string) => {
+    e.preventDefault();
+    setDragOverFolderId(null);
+    const payload = dragPayload.current;
+    dragPayload.current = null;
+    if (!payload) return;
+    payload.fileIds.forEach(id => moveFile(id, targetFolderId));
+    payload.folderIds.forEach(id => {
+      if (id !== targetFolderId) moveFolder(id, targetFolderId);
+    });
+    setSelectedIds(new Set());
+  };
+
+  const handleDragEnd = () => {
+    setDragOverFolderId(null);
+    dragPayload.current = null;
+  };
+
   // Raccourcis clavier : Enter ouvre la ressource sélectionnée, Escape vide la sélection
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1820,10 +1906,17 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const FolderCard = ({ folder }: { folder: FileFolder }) => {
     const isRenaming = renamingId === folder.id;
     const isSelected = selectedIds.has(folder.id);
+    const isDragOver = dragOverFolderId === folder.id;
     const childCount = allFolders.filter(f => f.parentId === folder.id).length
                      + allFiles.filter(f => f.parentFolderId === folder.id).length;
     return (
       <div
+        draggable
+        onDragStart={e => handleFolderDragStart(e, folder.id)}
+        onDragEnd={handleDragEnd}
+        onDragOver={e => handleFolderDragOver(e, folder.id)}
+        onDragLeave={() => setDragOverFolderId(null)}
+        onDrop={e => handleFolderDrop(e, folder.id)}
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
@@ -1833,12 +1926,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
-          border: isSelected ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
-          background: isSelected ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)',
+          border: isDragOver ? '1.5px solid var(--accent)' : isSelected ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
+          background: isDragOver ? 'rgba(249,255,0,0.1)' : isSelected ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)',
           transition: 'border-color 0.12s, background 0.12s',
         }}
-        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; } }}
-        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; } }}
+        onMouseEnter={e => { if (!isSelected && !isDragOver) { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-3)'; } }}
+        onMouseLeave={e => { if (!isSelected && !isDragOver) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface-2)'; } }}
       >
         <SFIcon name="folder" size={36} color={folder.projectId ? projectColor(folder.projectId) : folder.clientId ? clientColor(folder.clientId) : 'var(--accent)'} />
         <div style={{ textAlign: 'center', width: '100%' }}>
@@ -1861,6 +1954,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const baseBorder = isRes ? `color-mix(in srgb, ${accentColor} 35%, var(--border))` : 'var(--border)';
     return (
       <div
+        draggable
+        onDragStart={e => handleFileDragStart(e, file.id)}
+        onDragEnd={handleDragEnd}
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -1902,19 +1998,26 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const FolderRow = ({ folder }: { folder: FileFolder }) => {
     const isRenaming = renamingId === folder.id;
     const isSelected = selectedIds.has(folder.id);
+    const isDragOver = dragOverFolderId === folder.id;
     const childCount = allFolders.filter(f => f.parentId === folder.id).length
                      + allFiles.filter(f => f.parentFolderId === folder.id).length;
     return (
       <div
+        draggable
+        onDragStart={e => handleFolderDragStart(e, folder.id)}
+        onDragEnd={handleDragEnd}
+        onDragOver={e => handleFolderDragOver(e, folder.id)}
+        onDragLeave={() => setDragOverFolderId(null)}
+        onDrop={e => handleFolderDrop(e, folder.id)}
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
           handleItemClick(e, folder.id);
         }}
         onContextMenu={e => handleFolderCtx(e, folder)}
-        style={{ ...ROW, ...(isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}) }}
-        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+        style={{ ...ROW, ...(isDragOver ? { background: 'rgba(249,255,0,0.1)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}) }}
+        onMouseEnter={e => { if (!isSelected && !isDragOver) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={e => { if (!isSelected && !isDragOver) e.currentTarget.style.background = 'transparent'; }}
       >
         <SFIcon name="folder" size={20} color={folder.projectId ? projectColor(folder.projectId) : 'var(--accent)'} />
         {isRenaming
@@ -1935,6 +2038,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isSelected = selectedIds.has(file.id);
     return (
       <div
+        draggable
+        onDragStart={e => handleFileDragStart(e, file.id)}
+        onDragEnd={handleDragEnd}
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {

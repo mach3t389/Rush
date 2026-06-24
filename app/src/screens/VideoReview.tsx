@@ -5,6 +5,7 @@ import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
+import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { addDeliverable } from '../data/taskStore';
 import { STATUS_COLOR } from '../data/status';
@@ -54,7 +55,10 @@ interface LocalVersion {
   label: string;
   date: string;
   author: typeof USERS.lea;
-  size?: number; // octets — taille simulée du fichier de la version (visible dans la vue Stockage)
+  size?: number; // octets — taille du fichier de la version (visible dans la vue Stockage)
+  mediaFileId?: string; // clé fileContentStore du média réel déposé (vidéo/audio)
+  mediaName?: string;
+  mediaType?: string;   // type MIME du média déposé
 }
 
 // Tailles plausibles par type d'upload + index de version (déterministe → stable).
@@ -74,7 +78,7 @@ function secsToLabel(s: number): string {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-const TOTAL = 208;
+const DEFAULT_TOTAL = 208;
 
 // Plausible upload dates for the seeded versions
 const VERSION_SEED_DATES: Record<string, string> = {
@@ -235,6 +239,32 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const initialActive = persisted?.activeVersion
     ?? (persistKey ? 'V1' : (VIDEO_VERSIONS.find(v => v.active)?.v ?? VIDEO_VERSIONS[VIDEO_VERSIONS.length - 1]?.v ?? 'V1'));
   const [activeVersion, setVersion] = useState(initialActive);
+
+  // ── Média réel déposé (vidéo/audio) par version — session uniquement (blob en mémoire) ──
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
+  const [mediaDuration, setMediaDuration] = useState<number | null>(null);
+  const [isMediaDragging, setIsMediaDragging] = useState(false);
+  const activeVer = versions.find(v => v.v === activeVersion);
+  const mediaUrl = activeVer?.mediaFileId ? getFileContent(activeVer.mediaFileId) : null;
+  // Durée réelle du média si présent, sinon durée simulée par défaut
+  const TOTAL = mediaUrl && mediaDuration ? mediaDuration : DEFAULT_TOTAL;
+
+  // Dépose / remplace le média de la version active
+  const assignMediaToActive = (file: File) => {
+    const fileId = `media-${persistKey ?? resource.id}-${activeVersion}-${Date.now()}`;
+    setFileContent(fileId, file);
+    setVersions(prev => prev.map(v => v.v === activeVersion
+      ? { ...v, mediaFileId: fileId, mediaName: file.name, mediaType: file.type, size: file.size }
+      : v));
+    setMediaDuration(null);
+    setCurrentTime(0);
+    setPlaying(false);
+  };
+
+  // Réinitialise la durée/lecture au changement de version (média différent)
+  useEffect(() => { setMediaDuration(null); setCurrentTime(0); setPlaying(false); }, [activeVersion]);
+
   const [addVersionOpen, setAddVersionOpen] = useState(false);
   const [newVersionNote, setNewVersionNote] = useState('');
   const [versionToDelete, setVersionToDelete] = useState<LocalVersion | null>(null);
@@ -312,7 +342,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   // Uses setInterval with a timestamp delta so playback stays accurate even when the
   // tab is backgrounded (rAF would freeze; intervals keep ticking).
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || mediaUrl) return; // média réel : la lecture est pilotée par l'élément <video>/<audio>
     let last = performance.now();
     const id = window.setInterval(() => {
       const now = performance.now();
@@ -325,7 +355,22 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
       });
     }, 100);
     return () => window.clearInterval(id);
-  }, [playing]);
+  }, [playing, mediaUrl, TOTAL]);
+
+  // Média réel : synchronise l'état `playing` avec l'élément <video>/<audio>
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el || !mediaUrl) return;
+    if (playing) { el.play().catch(() => {}); } else { el.pause(); }
+  }, [playing, mediaUrl]);
+
+  // Positionne le média à `t` (état + élément réel)
+  const seekTo = (t: number) => {
+    const clamped = Math.max(0, Math.min(TOTAL, t));
+    setCurrentTime(clamped);
+    if (mediaRef.current && mediaUrl) mediaRef.current.currentTime = clamped;
+    setActiveCommentId(null);
+  };
 
   // Spacebar toggles play/pause (unless typing in a field)
   useEffect(() => {
@@ -343,12 +388,12 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   }, []);
 
   const togglePlay = () => {
+    if (mediaRef.current && mediaUrl && currentTime >= TOTAL) mediaRef.current.currentTime = 0;
     setCurrentTime(t => (t >= TOTAL ? 0 : t));
     setPlaying(p => !p);
   };
 
-  const seekBy = (delta: number) =>
-    setCurrentTime(t => Math.max(0, Math.min(TOTAL, t + delta)));
+  const seekBy = (delta: number) => seekTo(currentTime + delta);
 
   // ── Version management ──
   const nextVersionName = () => {
@@ -467,7 +512,10 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   };
 
   const jumpToComment = (c: LocalComment) => {
-    if (c.timeSeconds !== null) setCurrentTime(c.timeSeconds);
+    if (c.timeSeconds !== null) {
+      setCurrentTime(c.timeSeconds);
+      if (mediaRef.current && mediaUrl) mediaRef.current.currentTime = c.timeSeconds;
+    }
     setActiveCommentId(c.id);
     setTab('comments');
   };
@@ -629,20 +677,45 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ── Left: player ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 0' }}>
+        <div
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 0', position: 'relative' }}
+          onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsMediaDragging(true); } }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsMediaDragging(false); }}
+          onDrop={e => { e.preventDefault(); setIsMediaDragging(false); const f = Array.from(e.dataTransfer.files)[0]; if (f) assignMediaToActive(f); }}
+        >
+          {/* Overlay de dépôt de fichier */}
+          {isMediaDragging && (
+            <div style={{ position: 'absolute', inset: 12, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249,255,0,0.06)', border: '2px dashed var(--accent)', borderRadius: 12, pointerEvents: 'none' }}>
+              <div style={{ textAlign: 'center' }}>
+                <SFIcon name="upload" size={30} color="var(--accent)" />
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>Déposer pour {mediaUrl ? 'remplacer' : 'ajouter'} le média de {activeVersion}</p>
+              </div>
+            </div>
+          )}
+          {/* Input fichier caché pour le bouton « Importer » */}
+          <input ref={mediaFileInputRef} type="file" accept={isAudio ? 'audio/*' : 'video/*'} style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) assignMediaToActive(f); e.target.value = ''; }} />
 
           {/* Audio player — shown instead of video frame for audio subtypes */}
           {isAudio ? (
-            <div onClick={togglePlay}
+            <div onClick={() => { if (mediaUrl) togglePlay(); else mediaFileInputRef.current?.click(); }}
               style={{ borderRadius: 12, background: '#0c0f0a', border: '1px solid var(--border)', flexShrink: 0, cursor: 'pointer', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 20, userSelect: 'none' }}>
+              {mediaUrl && (
+                <audio ref={mediaRef as React.RefObject<HTMLAudioElement>} src={mediaUrl} style={{ display: 'none' }}
+                  onLoadedMetadata={e => setMediaDuration((e.target as HTMLAudioElement).duration || null)}
+                  onTimeUpdate={e => setCurrentTime((e.target as HTMLAudioElement).currentTime)}
+                  onEnded={() => setPlaying(false)} />
+              )}
               {/* File info row */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 10, background: 'rgba(78,201,148,0.12)', border: '1px solid rgba(78,201,148,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <SFIcon name={playing ? 'pause' : 'music'} size={22} color="#4ec994" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--ff-text)', fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource?.title ?? 'Audio'}</div>
-                  <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', marginTop: 3 }}>{activeVersion} · {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}</div>
+                  <div style={{ fontFamily: 'var(--ff-text)', fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeVer?.mediaName ?? resource?.title ?? 'Audio'}</div>
+                  <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', marginTop: 3 }}>
+                    {mediaUrl ? `${activeVersion} · ${secsToLabel(currentTime)} / ${secsToLabel(TOTAL)}` : `${activeVersion} · Glissez un fichier audio ou cliquez pour importer`}
+                  </div>
                 </div>
                 {playing && (
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 24 }}>
@@ -659,7 +732,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   const h = 20 + Math.abs(Math.sin(i * 0.7 + i * i * 0.02) * 80);
                   const played = i / 80 <= currentTime / TOTAL;
                   return (
-                    <div key={i} onClick={e => { e.stopPropagation(); setCurrentTime(Math.round((i / 80) * TOTAL)); }}
+                    <div key={i} onClick={e => { e.stopPropagation(); seekTo(Math.round((i / 80) * TOTAL)); }}
                       style={{ flex: 1, height: `${h}%`, borderRadius: 2, background: played ? '#4ec994' : 'rgba(255,255,255,0.1)', transition: 'background 0.05s', cursor: 'pointer' }} />
                   );
                 })}
@@ -677,29 +750,47 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           ) : (
           /* Video frame */
           <div ref={videoFrameRef}
-            onClick={() => { if (!drawTool) togglePlay(); }}
+            onClick={() => { if (drawTool) return; if (mediaUrl) togglePlay(); else mediaFileInputRef.current?.click(); }}
             style={{ borderRadius: 12, background: '#0a0a0a', aspectRatio: '16/9', position: 'relative', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, cursor: drawTool ? 'crosshair' : 'pointer' }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 11px)' }} />
+            {mediaUrl ? (
+              <video ref={mediaRef as React.RefObject<HTMLVideoElement>} src={mediaUrl}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#000', zIndex: 0 }}
+                onLoadedMetadata={e => setMediaDuration((e.target as HTMLVideoElement).duration || null)}
+                onTimeUpdate={e => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
+                onEnded={() => setPlaying(false)} />
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 11px)' }} />
+            )}
+            {/* État vide : invitation à déposer une vidéo */}
+            {!mediaUrl && !drawTool && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, zIndex: 2, pointerEvents: 'none' }}>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(249,255,0,0.14)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SFIcon name="upload" size={24} color="var(--accent)" />
+                </div>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: 6, letterSpacing: '0.06em' }}>
+                  {activeVersion} — Glissez une vidéo ici ou cliquez pour importer
+                </span>
+              </div>
+            )}
 
-            {/* Burned-in timecode */}
-            <div style={{ position: 'absolute', top: 10, left: 12, fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'rgba(255,255,255,0.55)', background: 'rgba(0,0,0,0.45)', padding: '2px 7px', borderRadius: 5, letterSpacing: '0.08em', pointerEvents: 'none', zIndex: 4 }}>
-              {activeVersion} · {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
-            </div>
+            {/* Burned-in timecode — uniquement quand un média est présent */}
+            {mediaUrl && (
+              <div style={{ position: 'absolute', top: 10, left: 12, fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'rgba(255,255,255,0.55)', background: 'rgba(0,0,0,0.45)', padding: '2px 7px', borderRadius: 5, letterSpacing: '0.08em', pointerEvents: 'none', zIndex: 4 }}>
+                {activeVersion} · {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
+              </div>
+            )}
 
             {/* Playback scan line (motion cue) */}
-            {playing && (
+            {playing && mediaUrl && (
               <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(currentTime / TOTAL) * 100}%`, width: 2, background: 'rgba(249,255,0,0.45)', boxShadow: '0 0 8px rgba(249,255,0,0.5)', pointerEvents: 'none', zIndex: 3 }} />
             )}
 
-            {/* Center overlay — only when paused & not drawing */}
-            {!drawTool && !playing && (
+            {/* Center overlay — only when media present, paused & not drawing */}
+            {mediaUrl && !drawTool && !playing && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, pointerEvents: 'none', zIndex: 1 }}>
                 <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(249,255,0,0.14)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <SFIcon name="play" size={24} color="var(--accent)" />
                 </div>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: 6, letterSpacing: '0.06em' }}>
-                  {activeVersion} — {resource?.title ?? 'ROUGH CUT'}
-                </span>
               </div>
             )}
             {drawTool && (
@@ -740,8 +831,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}
               onClick={e => {
                 const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                setCurrentTime(Math.max(0, Math.min(TOTAL, (e.clientX - rect.left) / rect.width * TOTAL)));
-                setActiveCommentId(null);
+                seekTo((e.clientX - rect.left) / rect.width * TOTAL);
               }}>
               <div style={{ width: `${(currentTime / TOTAL) * 100}%`, height: '100%', borderRadius: 999, background: 'var(--accent)', position: 'absolute', top: 0, left: 0 }} />
               {comments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (

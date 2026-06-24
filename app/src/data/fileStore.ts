@@ -148,6 +148,12 @@ export function renameFolder(id: string, name: string): void {
   notify();
 }
 
+export function moveFolder(id: string, parentId: string | null): void {
+  folders = folders.map(f => f.id === id ? { ...f, parentId } : f);
+  persist();
+  notify();
+}
+
 export function deleteFolder(id: string): void {
   const toDelete = new Set<string>();
   const collect = (folderId: string) => {
