@@ -1,5 +1,5 @@
 ﻿import { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton, SFPill, SFAvatar } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
@@ -81,6 +81,7 @@ function Pin({
 }
 
 export function WebReview() {
+  const navigate = useNavigate();
   const { projectId, resourceId } = useParams();
   const resource = getResources().find(r => r.id === resourceId);
   const project = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
@@ -221,6 +222,13 @@ export function WebReview() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
+        {/* Back button */}
+        <button onClick={() => navigate(-1)} title="Retour"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0, marginRight: 'auto' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name="arrow-left" size={14} />
+        </button>
         {resource && (
           <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
         )}

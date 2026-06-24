@@ -10,6 +10,7 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, ResourceType } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
@@ -1029,14 +1030,14 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
 // �"?�"? Main screen �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
 export function Taches() {
-  const [filter, setFilter]           = useState<Filter>('all');
+  const [filter, setFilter]           = usePersistedState<Filter>('sf_taches_filter', 'all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
   const [flashId, setFlashId]         = useState<string | null>(null);
-  const [sortCol, setSortCol]         = useState<SortCol | null>(null);
-  const [sortDir, setSortDir]         = useState<SortDir>('asc');
-  const [filterPriorities, setFilterPriorities] = useState<Set<Priority>>(new Set());
-  const [filterStatuses, setFilterStatuses]     = useState<Set<string>>(new Set());
+  const [sortCol, setSortCol]         = usePersistedState<SortCol | null>('sf_taches_sort_col', null);
+  const [sortDir, setSortDir]         = usePersistedState<SortDir>('sf_taches_sort_dir', 'asc');
+  const [filterPriorities, setFilterPriorities] = usePersistedState<Priority[]>('sf_taches_filter_prio', []);
+  const [filterStatuses, setFilterStatuses]     = usePersistedState<string[]>('sf_taches_filter_status', []);
   const [collapsedGroups, setCollapsedGroups]   = useState<Set<string>>(new Set());
   const [mySections, setMySections]   = useState<string[]>(getMyTaskSections);
   const [addingSection, setAddingSection] = useState(false);
@@ -1044,6 +1045,7 @@ export function Taches() {
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
+  const [groupByPriority, setGroupByPriority] = usePersistedState<boolean>('sf_taches_group_prio', false);
 
   React.useEffect(() => subscribeMyTasks(() => { setTasks(getMyTasks()); setMySections(getMyTaskSections()); }), []);
 
@@ -1064,23 +1066,16 @@ export function Taches() {
     });
   }, [sortDir]);
 
-  const togglePriorityFilter = (p: Priority) => {
-    setFilterPriorities(prev => {
-      const next = new Set(prev);
-      if (next.has(p)) next.delete(p); else next.add(p);
-      return next;
-    });
-  };
+  const filterPrioritiesSet = new Set(filterPriorities);
+  const filterStatusesSet   = new Set(filterStatuses);
 
-  const toggleStatusFilter = (s: string) => {
-    setFilterStatuses(prev => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s); else next.add(s);
-      return next;
-    });
-  };
+  const togglePriorityFilter = (p: Priority) =>
+    setFilterPriorities(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
 
-  const clearFilters = () => { setFilterPriorities(new Set()); setFilterStatuses(new Set()); };
+  const toggleStatusFilter = (s: string) =>
+    setFilterStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+
+  const clearFilters = () => { setFilterPriorities([]); setFilterStatuses([]); };
 
   const addTask = useCallback((title: string, opts: AddOpts & { mySection?: string }) => {
     const newTask: Task = {
@@ -1110,14 +1105,14 @@ export function Taches() {
 
   // Apply date filter ↑' priority filter ↑' status filter ↑' sort
   let visible = filterTasks(tasks, filter);
-  if (filterPriorities.size > 0) visible = visible.filter(t => filterPriorities.has(t.priority));
-  if (filterStatuses.size > 0)   visible = visible.filter(t => filterStatuses.has(t.status as string));
+  if (filterPrioritiesSet.size > 0) visible = visible.filter(t => filterPrioritiesSet.has(t.priority));
+  if (filterStatusesSet.size > 0)   visible = visible.filter(t => filterStatusesSet.has(t.status as string));
   // Les tâches terminées disparaissent de Mes tâches (elles restent dans leur projet).
   visible = visible.filter(t => !t.checked);
 
   const activeTasks = tasks.filter(t => !t.checked);
   const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
-  const hasActiveFilters = filterPriorities.size > 0 || filterStatuses.size > 0;
+  const hasActiveFilters = filterPrioritiesSet.size > 0 || filterStatusesSet.size > 0;
 
   // Grouped view (always on — sort applies within each group)
   const sortedVisible = sortCol ? sortTasks(visible, sortCol, sortDir) : visible;
@@ -1126,6 +1121,14 @@ export function Taches() {
     label,
     tasks: sortedVisible.filter(t => t.mySection === label),
   }));
+
+  // Priority groups (used when groupByPriority is on)
+  const priorityGroups = PRIORITY_ORDER.map(p => ({
+    priority: p,
+    label: PRIORITY_LABEL[p],
+    color: PRIORITY_COLOR[p],
+    tasks: sortedVisible.filter(t => (t.priority ?? 'none') === p),
+  })).filter(g => g.tasks.length > 0);
 
   const handleSelectTask = useCallback((task: Task, e?: React.MouseEvent) => {
     if (e && e.shiftKey && anchorTaskId.current) {
@@ -1192,14 +1195,24 @@ export function Taches() {
           <div style={{ display: 'flex', gap: 2 }}>
             {FILTERS.map(filterTabBtn)}
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setGroupByPriority(g => !g)}
+            title={groupByPriority ? 'Désactiver le groupement par priorité' : 'Grouper par priorité'}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${groupByPriority ? 'var(--accent)' : 'var(--border)'}`, background: groupByPriority ? 'rgba(249,255,0,0.08)' : 'transparent', color: groupByPriority ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
+          >
+            <SFIcon name="layers" size={12} color={groupByPriority ? 'var(--accent)' : 'var(--text-3)'} />
+            Priorité
+          </button>
           <FilterBar
-            filterPriorities={filterPriorities}
-            filterStatuses={filterStatuses}
+            filterPriorities={filterPrioritiesSet}
+            filterStatuses={filterStatusesSet}
             onTogglePriority={togglePriorityFilter}
             onToggleStatus={toggleStatusFilter}
             onClearPriority={() => setFilterPriorities(new Set())}
             onClearStatus={() => setFilterStatuses(new Set())}
           />
+          </div>
         </div>
       </div>
 
@@ -1215,8 +1228,44 @@ export function Taches() {
           </div>
         )}
 
-        {/* Grouped by section — sort applies within each group */}
-        <>
+        {/* Grouped by priority OR by section */}
+        {visible.length > 0 && <>
+          {groupByPriority ? (
+            /* ── Priority groups ── */
+            <>
+              {priorityGroups.map(g => {
+                const collapsed = collapsedGroups.has(`prio:${g.priority}`);
+                return (
+                  <div key={g.priority} style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    {/* Priority group header */}
+                    <button
+                      onClick={() => toggleGroup(`prio:${g.priority}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <SFIcon name={collapsed ? 'chevron-right' : 'chevron-down'} size={13} color="var(--text-3)" />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: g.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--ff-text)', letterSpacing: '0.02em' }}>{g.label}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{g.tasks.length}</span>
+                    </button>
+                    {!collapsed && (
+                      <>
+                        <div style={{ padding: '0 0 0', borderTop: '1px solid var(--border)' }}>
+                          <ColHeader {...colHeaderProps} />
+                        </div>
+                        {g.tasks.map(task => (
+                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
+                        ))}
+                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} />
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {priorityGroups.length === 0 && visible.length === 0 && null}
+            </>
+          ) : (
+            /* ── Section groups (default) ── */
+            <>
             {/* Tasks with no section */}
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '8px 0 0' }}>
@@ -1254,9 +1303,11 @@ export function Taches() {
                 </div>
               );
             })}
+            </>
+          )}
 
-            {/* Add section */}
-            {addingSection ? (
+            {/* Add section — masqué en mode priorité */}
+            {!groupByPriority && addingSection ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
                 <input
                   autoFocus
@@ -1278,7 +1329,7 @@ export function Taches() {
                   Annuler
                 </button>
               </div>
-            ) : (
+            ) : !groupByPriority ? (
               <button
                 onClick={() => setAddingSection(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'none', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', width: '100%', transition: 'border-color 0.1s, color 0.1s' }}
@@ -1288,8 +1339,8 @@ export function Taches() {
                 <SFIcon name="plus" size={13} />
                 Nouvelle section
               </button>
-            )}
-          </>
+            ) : null}
+          </>}
       </div>
       </div>
 

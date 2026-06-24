@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -173,6 +173,7 @@ interface VideoReviewContent {
 
 export function VideoReviewBody({ resource, projectId, persistKey }: { resource: Resource; projectId?: string; persistKey?: string }) {
   const persisted = persistKey ? getResourceContent<VideoReviewContent>(persistKey) : undefined;
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [shared, setShared] = useState(false);
 
@@ -672,6 +673,13 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
       {/* ── Versions dropdown + Annotation bar at top ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
+        {/* Back button */}
+        <button onClick={() => navigate(-1)} title="Retour"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name="arrow-left" size={14} />
+        </button>
         {/* Compact version dropdown */}
         <div style={{ position: 'relative' }}>
           <button onClick={() => setVersionDropOpen(v => !v)}

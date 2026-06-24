@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
@@ -111,6 +111,7 @@ function ImageViewer({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function ImageReview() {
+  const navigate = useNavigate();
   const { projectId = '', resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resources = getResources();
   const resource = resources.find(r => r.id === resourceId);
@@ -285,6 +286,14 @@ export function ImageReview() {
       {/* ── Single unified header bar ── */}
       <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+
+        {/* Back button */}
+        <button onClick={() => navigate(-1)} title="Retour"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
+          <SFIcon name="arrow-left" size={14} />
+        </button>
 
         {/* Icon */}
         <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
