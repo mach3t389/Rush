@@ -2114,6 +2114,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [dictating, setDictating] = useState(false);
   const dictationRef = useRef<any>(null);
   const savedRangeRef = useRef<Range | null>(null);
+  const [dictLang, setDictLang] = useState('fr-FR');
   const [showStyleForm, setShowStyleForm] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
@@ -2307,7 +2308,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     if (!SpeechRecognitionAPI) { alert('Reconnaissance vocale non supportée. Utilise Chrome ou Edge.'); return; }
     if (aiListening) { aiRecognitionRef.current?.stop(); return; }
     const recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'fr-FR';
+    recognition.lang = dictLang;
     recognition.continuous = false;
     recognition.interimResults = true;
     let finalTranscript = '';
@@ -2436,7 +2437,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
       savedRangeRef.current = range;
     }
     const recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'fr-FR';
+    recognition.lang = dictLang;
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onstart = () => setDictating(true);
@@ -2773,7 +2774,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
           {/* AI tab */}
           {rightTab==='ai' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-              {/* Model selector */}
+              {/* Model + language selector */}
               <div style={{ padding:'6px 10px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                 <SFIcon name="cpu" size={11} color="var(--text-3)" />
                 <select value={aiModel} onChange={e => setAiModel(e.target.value)}
@@ -2781,6 +2782,20 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
                   {['llama3.2','llama3.1','llama3','mistral','gemma2','phi3','deepseek-r1'].map(m => (
                     <option key={m} value={m}>{m}</option>
                   ))}
+                </select>
+                <div style={{ width:1, height:12, background:'var(--border)', flexShrink:0 }} />
+                <SFIcon name="mic" size={11} color="var(--text-3)" />
+                <select value={dictLang} onChange={e => setDictLang(e.target.value)}
+                  style={{ fontSize:10, border:'none', background:'transparent', color:'var(--text-2)', cursor:'pointer', outline:'none', fontFamily:'var(--ff-mono)' }}>
+                  {[
+                    { id:'fr-FR', label:'FR' },
+                    { id:'en-US', label:'EN (US)' },
+                    { id:'en-GB', label:'EN (UK)' },
+                    { id:'es-ES', label:'ES' },
+                    { id:'de-DE', label:'DE' },
+                    { id:'it-IT', label:'IT' },
+                    { id:'pt-BR', label:'PT' },
+                  ].map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
                 </select>
               </div>
 
