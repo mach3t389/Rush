@@ -223,6 +223,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [versionDropOpen, setVersionDropOpen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [taskCreatedFlash, setTaskCreatedFlash] = useState(false);
   const [playing, setPlaying]     = useState(false);
@@ -399,7 +401,14 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const togglePlay = () => {
     if (mediaRef.current && mediaUrl && currentTime >= TOTAL) mediaRef.current.currentTime = 0;
     setCurrentTime(t => (t >= TOTAL ? 0 : t));
-    setPlaying(p => !p);
+    setPlaying(p => {
+      const next = !p;
+      if (!next) { // pausing → always show controls
+        if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
+        setControlsVisible(true);
+      }
+      return next;
+    });
   };
 
   const seekBy = (delta: number) => seekTo(currentTime + delta);
@@ -554,6 +563,14 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const timedComments = versionComments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').sort((a, b) => a.timeSeconds! - b.timeSeconds!);
   const goNextComment = () => { const next = timedComments.find(c => c.timeSeconds! > currentTime + 0.3); if (next) jumpToComment(next); };
   const goPrevComment = () => { const prev = [...timedComments].reverse().find(c => c.timeSeconds! < currentTime - 0.3); if (prev) jumpToComment(prev); };
+
+  const showControls = () => {
+    setControlsVisible(true);
+    if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
+    hideControlsTimer.current = setTimeout(() => {
+      if (playing) setControlsVisible(false);
+    }, 2500);
+  };
 
   const removeMediaFromVersion = () => {
     setVersions(prev => prev.map(v => v.v === activeVersion ? { ...v, mediaFileId: undefined, mediaName: undefined, mediaType: undefined } : v));
@@ -775,7 +792,9 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
         {/* ── Left: player ── */}
         <div
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 12px', position: 'relative' }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 16px 12px', position: 'relative', cursor: playing && !controlsVisible ? 'none' : 'default' }}
+          onMouseMove={showControls}
+          onMouseLeave={() => { if (playing) setControlsVisible(false); }}
           onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsMediaDragging(true); } }}
           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsMediaDragging(false); }}
           onDrop={e => { e.preventDefault(); setIsMediaDragging(false); const f = Array.from(e.dataTransfer.files)[0]; if (f) assignMediaToActive(f); }}
@@ -907,9 +926,12 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           )}
 
           {/* Timeline + transport controls */}
-          <div style={{ flexShrink: 0, padding: '8px 0 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div
+            onMouseEnter={() => { if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current); setControlsVisible(true); }}
+            onMouseLeave={() => { if (playing) { hideControlsTimer.current = setTimeout(() => setControlsVisible(false), 800); } }}
+            style={{ flexShrink: 0, padding: '8px 0 10px', display: 'flex', flexDirection: 'column', gap: 6, opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.4s', pointerEvents: controlsVisible ? 'auto' : 'none' }}>
             {/* Scrubber bar */}
-            <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}
+            <div style={{ flex: 1, height: 18, display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}
               onClick={e => {
                 const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                 seekTo((e.clientX - rect.left) / rect.width * TOTAL);
@@ -919,20 +941,24 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                 seekTo((e.clientX - rect.left) / rect.width * TOTAL);
               }}>
-              <div style={{ width: `${(currentTime / TOTAL) * 100}%`, height: '100%', borderRadius: 999, background: 'var(--accent)', position: 'absolute', top: 0, left: 0 }} />
-              {comments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (
-                <div key={c.id}
-                  title={`${c.timeLabel} — ${c.author.name}: ${c.text.slice(0, 40)}`}
-                  onClick={e => { e.stopPropagation(); jumpToComment(c); }}
-                  style={{ position: 'absolute', top: '50%', left: `${(c.timeSeconds! / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: activeCommentId === c.id ? 14 : 10, height: activeCommentId === c.id ? 14 : 10, borderRadius: '50%', background: c.annotation ? c.annotation.color : 'var(--accent)', border: `2px solid ${activeCommentId === c.id ? 'white' : 'var(--bg)'}`, zIndex: activeCommentId === c.id ? 3 : 1, transition: 'all 0.15s', cursor: 'pointer' }}
-                />
-              ))}
-              {tasks.filter(t => t.timeLabel && !t.done).map(t => {
-                const [m, s] = (t.timeLabel ?? '0:0').split(':').map(Number);
-                const secs = m * 60 + s;
-                return <div key={t.id} title={t.title} style={{ position: 'absolute', top: '50%', left: `${(secs / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', border: '2px solid var(--bg)', zIndex: 1 }} />;
-              })}
-              <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', zIndex: 2, boxShadow: '0 0 6px rgba(249,255,0,0.4)' }} />
+              {/* Track */}
+              <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }}>
+                <div style={{ width: `${(currentTime / TOTAL) * 100}%`, height: '100%', borderRadius: 999, background: 'var(--accent)' }} />
+                {versionComments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').map(c => (
+                  <div key={c.id}
+                    title={`${c.timeLabel} — ${c.author.name}: ${c.text.slice(0, 40)}`}
+                    onClick={e => { e.stopPropagation(); jumpToComment(c); }}
+                    style={{ position: 'absolute', top: '50%', left: `${(c.timeSeconds! / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: activeCommentId === c.id ? 14 : 10, height: activeCommentId === c.id ? 14 : 10, borderRadius: '50%', background: c.annotation ? c.annotation.color : 'var(--accent)', border: `2px solid ${activeCommentId === c.id ? 'white' : 'var(--bg)'}`, zIndex: activeCommentId === c.id ? 3 : 1, transition: 'all 0.15s', cursor: 'pointer' }}
+                  />
+                ))}
+                {tasks.filter(t => t.timeLabel && !t.done).map(t => {
+                  const [m, s] = (t.timeLabel ?? '0:0').split(':').map(Number);
+                  const secs = m * 60 + s;
+                  return <div key={t.id} title={t.title} style={{ position: 'absolute', top: '50%', left: `${(secs / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', border: '2px solid var(--bg)', zIndex: 1 }} />;
+                })}
+                {/* Playhead thumb */}
+                <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '3px solid var(--bg)', zIndex: 2, boxShadow: '0 0 8px rgba(249,255,0,0.5)' }} />
+              </div>
             </div>
             {/* Transport controls — 3 sections */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -945,8 +971,9 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 {/* Prev comment */}
                 <button onClick={goPrevComment} title="Commentaire précédent"
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 1 : 0.35 }}>
-                  <SFIcon name="skip-back" size={14} />
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="chevron-left" size={12} />
+                  <SFIcon name="message-circle" size={13} />
                 </button>
                 {/* Rewind -5s */}
                 <button onClick={() => seekBy(-5)} title="Reculer de 5s"
@@ -965,8 +992,9 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 </button>
                 {/* Next comment */}
                 <button onClick={goNextComment} title="Commentaire suivant"
-                  style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 1 : 0.35 }}>
-                  <SFIcon name="skip-forward" size={14} />
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="message-circle" size={13} />
+                  <SFIcon name="chevron-right" size={12} />
                 </button>
               </div>
 
