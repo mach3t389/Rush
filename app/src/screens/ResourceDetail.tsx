@@ -2599,60 +2599,54 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
         {/* Custom style creation panel */}
         {showStyleForm && (
-          <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)', background:'var(--surface-2)', display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-end' }}>
-            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Nom</label>
-              <input value={newStyle.name} onChange={e=>setNewStyle(p=>({...p,name:e.target.value}))}
-                style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', outline:'none', width:120 }} />
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Police</label>
-              <select value={newStyle.fontFamily} onChange={e=>setNewStyle(p=>({...p,fontFamily:e.target.value}))}
-                style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', colorScheme:'dark', cursor:'pointer' }}>
-                {[...([{label:'Montserrat',value:"'Montserrat',sans-serif"},{label:'Georgia',value:"Georgia,serif"},{label:'Inter',value:"'Inter',sans-serif"},{label:'Lato',value:"'Lato',sans-serif"},{label:'Playfair Display',value:"'Playfair Display',serif"},{label:'Cormorant Garamond',value:"'Cormorant Garamond',serif"}])].map(f=>(
-                  <option key={f.value} value={f.value}>{f.label}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Taille</label>
-              <input type="number" value={newStyle.fontSize} onChange={e=>setNewStyle(p=>({...p,fontSize:+e.target.value}))} min={8} max={72}
-                style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', width:70 }} />
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Graisse</label>
-              <select value={newStyle.fontWeight} onChange={e=>setNewStyle(p=>({...p,fontWeight:e.target.value}))}
-                style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', colorScheme:'dark', cursor:'pointer' }}>
-                {[['300','Léger'],['400','Normal'],['600','Semi-gras'],['700','Gras'],['900','Extra gras']].map(([v,l])=>(
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display:'flex', gap:6, alignItems:'flex-end' }}>
-              <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Italique</label>
-                <button onClick={()=>setNewStyle(p=>({...p,fontStyle:p.fontStyle==='italic'?'normal':'italic'}))}
-                  style={{ padding:'5px 9px', borderRadius:7, border:`1px solid ${newStyle.fontStyle==='italic'?'var(--accent)':'var(--border-2)'}`, background: newStyle.fontStyle==='italic'?'rgba(249,255,0,0.07)':'var(--surface)', color:newStyle.fontStyle==='italic'?'var(--accent)':'var(--text-2)', fontSize:12, fontStyle:'italic', cursor:'pointer' }}>I</button>
-              </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Couleur</label>
-                <input type="color" value={newStyle.color} onChange={e=>setNewStyle(p=>({...p,color:e.target.value}))}
-                  style={{ width:36, height:32, borderRadius:7, border:'1px solid var(--border-2)', background:'var(--surface)', padding:2, cursor:'pointer' }} />
-              </div>
-            </div>
+          <div style={{ padding:'6px 12px', borderBottom:'1px solid var(--border)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:6, flexShrink:0, flexWrap:'nowrap', overflowX:'auto' }}>
+            <input value={newStyle.name} onChange={e=>setNewStyle(p=>({...p,name:e.target.value}))}
+              placeholder="Nom du style"
+              style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none', width:110, flexShrink:0 }} />
+            <div style={{ width:1, height:16, background:'var(--border)', flexShrink:0 }} />
+            <select value={newStyle.fontFamily} onChange={e=>setNewStyle(p=>({...p,fontFamily:e.target.value}))}
+              style={{ padding:'4px 6px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, outline:'none', colorScheme:'dark', cursor:'pointer', flexShrink:0 }}>
+              {[{label:'Montserrat',value:"'Montserrat',sans-serif"},{label:'Georgia',value:"Georgia,serif"},{label:'Inter',value:"'Inter',sans-serif"},{label:'Lato',value:"'Lato',sans-serif"},{label:'Playfair Display',value:"'Playfair Display',serif"},{label:'Cormorant Garamond',value:"'Cormorant Garamond',serif"}].map(f=>(
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+            <input type="number" value={newStyle.fontSize} onChange={e=>setNewStyle(p=>({...p,fontSize:+e.target.value}))} min={8} max={72}
+              style={{ padding:'4px 6px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, outline:'none', width:52, flexShrink:0, textAlign:'center' }} />
+            <select value={newStyle.fontWeight} onChange={e=>setNewStyle(p=>({...p,fontWeight:e.target.value}))}
+              style={{ padding:'4px 6px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, outline:'none', colorScheme:'dark', cursor:'pointer', flexShrink:0 }}>
+              {[['300','Léger'],['400','Normal'],['600','Semi-gras'],['700','Gras'],['900','Extra gras']].map(([v,l])=>(
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+            <button onClick={()=>setNewStyle(p=>({...p,fontStyle:p.fontStyle==='italic'?'normal':'italic'}))} title="Italique"
+              style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${newStyle.fontStyle==='italic'?'var(--accent)':'var(--border-2)'}`, background: newStyle.fontStyle==='italic'?'rgba(249,255,0,0.07)':'var(--surface)', color:newStyle.fontStyle==='italic'?'var(--accent)':'var(--text-2)', fontSize:12, fontStyle:'italic', cursor:'pointer', flexShrink:0 }}>I</button>
+            <input type="color" value={newStyle.color} onChange={e=>setNewStyle(p=>({...p,color:e.target.value}))} title="Couleur"
+              style={{ width:28, height:26, borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', padding:2, cursor:'pointer', flexShrink:0 }} />
+            <div style={{ width:1, height:16, background:'var(--border)', flexShrink:0 }} />
             {/* Preview */}
-            <div style={{ flexGrow:1, padding:'8px 12px', borderRadius:8, background:'white', border:'1px solid var(--border-2)', minWidth:150 }}>
-              <span style={{ fontFamily:newStyle.fontFamily, fontSize:newStyle.fontSize, fontWeight:newStyle.fontWeight, fontStyle:newStyle.fontStyle, color:newStyle.color }}>
-                {newStyle.name || 'Aperçu du style'}
+            <div style={{ flex:1, padding:'3px 10px', borderRadius:6, background:'white', border:'1px solid var(--border-2)', minWidth:80, overflow:'hidden', whiteSpace:'nowrap' }}>
+              <span style={{ fontFamily:newStyle.fontFamily, fontSize:Math.min(newStyle.fontSize,13), fontWeight:newStyle.fontWeight, fontStyle:newStyle.fontStyle, color:newStyle.color }}>
+                {newStyle.name || 'Aperçu'}
               </span>
             </div>
-            <div style={{ display:'flex', gap:6 }}>
-              <button onClick={createStyle} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>{editingStyleId !== null ? 'Enregistrer' : 'Créer'}</button>
-              {editingStyleId !== null && (
-                <button onClick={deleteEditingStyle} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Supprimer</button>
-              )}
-              <button onClick={()=>{ setShowStyleForm(false); setEditingStyleId(null); }} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>×</button>
-            </div>
+            <div style={{ width:1, height:16, background:'var(--border)', flexShrink:0 }} />
+            {/* Save */}
+            <button onClick={createStyle} title={editingStyleId !== null ? 'Enregistrer les modifications' : 'Créer le style'}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, border:'none', background:'var(--accent)', color:'var(--on-accent)', cursor:'pointer', flexShrink:0 }}>
+              <SFIcon name="check" size={14} />
+            </button>
+            {/* Delete */}
+            {editingStyleId !== null && (
+              <button onClick={deleteEditingStyle} title="Supprimer ce style"
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', cursor:'pointer', flexShrink:0 }}>
+                <SFIcon name="trash-2" size={13} />
+              </button>
+            )}
+            {/* Close */}
+            <button onClick={()=>{ setShowStyleForm(false); setEditingStyleId(null); }} title="Fermer"
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-3)', cursor:'pointer', flexShrink:0 }}>
+              <SFIcon name="x" size={13} />
+            </button>
           </div>
         )}
 
