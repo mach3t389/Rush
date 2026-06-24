@@ -17,7 +17,7 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
-import { addResource } from '../data/resourceStore';
+import { addResource, getResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, removeFileContent, hasFileContent } from '../data/fileContentStore';
 import type { Project, ResourceType } from '../types';
@@ -199,18 +199,52 @@ const RESOURCE_TYPE_META: Record<string, { icon: string; color: string; label: s
   file:         { icon: 'hard-drive',    color: '#6b7280', label: 'Fichier'      },
 };
 
-function FileTypeIcon({ type, resourceType, size = 28 }: { type: FileItemType | 'folder'; resourceType?: ResourceType; size?: number }) {
+// Icône de base d'une révision selon le type de fichier révisé (au lieu d'un « film » générique)
+const REVIEW_SUBTYPE_ICON: Record<string, string> = {
+  video: 'video',      // caméra
+  photo: 'image',      // photo
+  audio: 'music',      // note de musique
+  file:  'file-text',  // document
+};
+
+// Résout le sous-type de média d'un fichier-ressource (stocké sur le fichier, sinon sur la ressource)
+function fileMediaSubtype(file: FileItem): 'video' | 'photo' | 'file' | 'audio' | undefined {
+  return file.mediaSubtype ?? getResources().find(r => r.id === file.resourceId)?.mediaSubtype;
+}
+
+function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: FileItemType | 'folder'; resourceType?: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; size?: number }) {
   const rm = resourceType ? RESOURCE_TYPE_META[resourceType] : undefined;
   const meta = rm ?? TYPE_META[type] ?? TYPE_META.other;
+  // Les ressources de révision (vidéo/photo/audio/document, site web) portent un badge « révision »
+  const isReview = resourceType === 'video_review' || resourceType === 'web_review';
+  // Pour une révision de média, l'icône reflète le fichier révisé, pas un « film » générique
+  const iconName = resourceType === 'video_review'
+    ? (REVIEW_SUBTYPE_ICON[mediaSubtype ?? ''] ?? 'film')
+    : meta.icon;
+  const badge = Math.max(11, Math.round(size * 0.5));
   return (
     <div style={{
+      position: 'relative',
       width: size + 8, height: size + 8,
       borderRadius: 8,
       background: meta.color + '22',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0,
     }}>
-      <SFIcon name={meta.icon} size={size * 0.75} color={meta.color} />
+      <SFIcon name={iconName} size={size * 0.75} color={meta.color} />
+      {isReview && (
+        <div
+          title="Révision"
+          style={{
+            position: 'absolute', right: -3, bottom: -3,
+            width: badge, height: badge, borderRadius: '50%',
+            background: 'var(--accent)', border: '2px solid var(--surface-2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <SFIcon name="message-square" size={Math.round(badge * 0.52)} color="var(--on-accent)" />
+        </div>
+      )}
     </div>
   );
 }
@@ -982,7 +1016,8 @@ export function StorageView({
   const openResource = (file: FileItem) => {
     if (!file.resourceId) return;
     const pid = file.projectId ?? getFiles().find(f => f.resourceId === file.resourceId)?.projectId;
-    if (pid) navigate(`/projets/${pid}/ressources/${file.resourceId}`);
+    // Ressource liée à un projet → route projet ; sinon route ressource globale (sans projectId)
+    navigate(pid ? `/projets/${pid}/ressources/${file.resourceId}` : `/ressources/${file.resourceId}`);
   };
 
   const deleteVersion = (item: StorageItem, versionId: string) => {
@@ -1222,7 +1257,9 @@ export function StorageView({
                     item.onClick?.();
                   }}
                 >
-                  <SFIcon name={item.icon} size={15} color={item.color} />
+                  {item.isFolder || !item.fileItem
+                    ? <SFIcon name={item.icon} size={15} color={item.color} />
+                    : <FileTypeIcon type={item.fileItem.type} resourceType={item.fileItem.resourceType} mediaSubtype={fileMediaSubtype(item.fileItem)} size={15} />}
                   <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: item.isFolder ? 600 : 400 }}>
                     {item.name}
                   </span>
@@ -1394,7 +1431,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const openResource = useCallback((file: FileItem) => {
     if (!file.resourceId) return;
     const pid = file.projectId ?? getFiles().find(f => f.resourceId === file.resourceId)?.projectId;
-    if (pid) navigate(`/projets/${pid}/ressources/${file.resourceId}`);
+    // Ressource liée à un projet → route projet ; sinon route ressource globale (sans projectId)
+    navigate(pid ? `/projets/${pid}/ressources/${file.resourceId}` : `/ressources/${file.resourceId}`);
   }, [navigate]);
 
   // Modals
@@ -1620,7 +1658,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       ...(isRevision && pendingRevision!.mediaSubtype ? { mediaSubtype: pendingRevision!.mediaSubtype } : {}),
       ...(actualType === 'web_review' && webUrl ? { webUrl } : {}),
     });
-    addFile({ name, type: 'resource', ext: 'res', parentFolderId: folderId, projectId, resourceId, resourceType: actualType });
+    addFile({ name, type: 'resource', ext: 'res', parentFolderId: folderId, projectId, resourceId, resourceType: actualType,
+      ...(isRevision && pendingRevision!.mediaSubtype ? { mediaSubtype: pendingRevision!.mediaSubtype } : {}) });
     setPendingRevision(null);
   };
 
@@ -1840,7 +1879,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = isRes ? accentColor : 'var(--border-2)'; }}
         onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = baseBorder; }}
       >
-        <FileTypeIcon type={file.type} resourceType={file.resourceType} size={32} />
+        <FileTypeIcon type={file.type} resourceType={file.resourceType} mediaSubtype={fileMediaSubtype(file)} size={32} />
         <div style={{ textAlign: 'center', width: '100%' }}>
           {isRenaming
             ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
@@ -1912,7 +1951,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
       >
-        <FileTypeIcon type={file.type} resourceType={file.resourceType} size={18} />
+        <FileTypeIcon type={file.type} resourceType={file.resourceType} mediaSubtype={fileMediaSubtype(file)} size={18} />
         {isRenaming
           ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
           : <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
@@ -2062,7 +2101,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     if (scope === 'root') {
       // Root column shows global folders (except Templates, Archives, Trash) and clients as virtual items
       const globalFolders = allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id));
-      return { folders: globalFolders, files: [] };
+      const rootFiles = allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null);
+      return { folders: globalFolders, files: rootFiles };
     }
     if (scope === 'client' && folderId === null) {
       // Client root — show projects belonging to this client
@@ -2272,7 +2312,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               onMouseEnter={e => { if (!isLocSel) e.currentTarget.style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { if (!isLocSel) e.currentTarget.style.background = 'transparent'; }}
             >
-              <SFIcon name={meta.icon} size={14} color={meta.color} />
+              <FileTypeIcon type={f.type} resourceType={f.resourceType} mediaSubtype={fileMediaSubtype(f)} size={14} />
               {renamingId === f.id
                 ? <RenameInput value={f.name} onSave={v => { renameFile(f.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
                 : <span style={{ ...nameStyle(f.id), color: isLocSel ? 'var(--text)' : nameStyle(f.id).color }}>{f.name}</span>}
@@ -2828,16 +2868,18 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                     <div />
                     <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
-                  {/* Global folders */}
+                  {/* Global folders — vrais dossiers : FolderRow donne clic droit (renommer / corbeille) + double-clic pour naviguer */}
                   {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
-                    <VirtualRow key={f.id} id={`gfolder-${f.id}`} label={f.name} icon="folder" color={f.color ?? 'var(--text-3)'}
-                      onClick={() => setLocation({ scope: 'global', folderId: f.id })}
-                      count={allFolders.filter(c => c.parentId === f.id).length} sublabel="Dossier" />
+                    <FolderRow key={f.id} folder={f} />
                   ))}
                   {/* Clients row */}
                   <VirtualRow key="clients-folder" id="vrow-clients" label="Clients" icon="users" color="var(--accent)"
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
                     count={clients.length} sublabel="Dossier" />
+                  {/* Fichiers/ressources créés directement à la racine (sans projet ni client) */}
+                  {allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null).map(f => (
+                    <FileRow key={f.id} file={f} />
+                  ))}
                 </div>
               )}
 
@@ -2858,6 +2900,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
                     count={clients.length}
                   />
+                  {/* Fichiers/ressources créés directement à la racine (sans projet ni client) */}
+                  {allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null).map(f => (
+                    <FileCard key={f.id} file={f} />
+                  ))}
                 </div>
               )}
             </div>

@@ -32,6 +32,7 @@ export interface FileItem {
   clientId?: string;
   resourceId?: string;
   resourceType?: ResourceType;
+  mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; // sous-type du fichier révisé (resourceType === 'video_review')
   createdAt: string;
   updatedAt: string;
   state?: FileState;   // undefined = actif ; 'archived' = archivé ; 'trashed' = corbeille

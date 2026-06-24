@@ -39,6 +39,8 @@ const router = createBrowserRouter([
       { path: 'projets/:projectId/overview', element: <TravailOverview /> },
       { path: 'projets/:projectId/fichiers', element: <Fichiers /> },
       { path: 'projets/:projectId/ressources/:resourceId', element: <ResourceRouter /> },
+      // Ressource hors projet (créée dans Fichiers global / espace client) — pas de projectId dans l'URL
+      { path: 'ressources/:resourceId', element: <ResourceRouter /> },
       { path: 'projets/:projectId/calendrier', element: <ProjetCalendrier /> },
       { path: 'projets/:projectId/membres', element: <ProjectMembres /> },
       { path: 'clients', element: <Clients /> },
