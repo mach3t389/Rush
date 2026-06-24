@@ -17,7 +17,9 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
-import { addResource, getResources } from '../data/resourceStore';
+import { addResource, getResources, subscribeResources } from '../data/resourceStore';
+import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
+import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, removeFileContent, hasFileContent } from '../data/fileContentStore';
 import type { Project, ResourceType } from '../types';
@@ -1560,10 +1562,16 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     ? `sf_nav_${(initialNav as { scope: string; scopeId?: string }).scope}_${'scopeId' in initialNav ? (initialNav as { scopeId: string }).scopeId : 'root'}`
     : 'sf_nav_global';
   const [persistedNav, setPersistedNav] = usePersistedState<NavLocation>(navKey, effectiveNav);
-  const [lockedNav, setLockedNav] = useState<NavLocation>(effectiveNav);
-  // Règle : vue locked → état local (le scope/scopeId ne doit pas dériver) ; vue libre → persisté
+  const [lockedNav, setLockedNav] = useState<NavLocation>(() => persistedNav);
+  // Règle : vue locked → état local synchronisé avec persistance ; vue libre → persisté
   const location: NavLocation = locked ? lockedNav : persistedNav;
-  const setLocation = locked ? setLockedNav : setPersistedNav;
+  const setLocation = locked
+    ? (nav: NavLocation | ((prev: NavLocation) => NavLocation)) => {
+        const resolved = typeof nav === 'function' ? nav(lockedNav) : nav;
+        setLockedNav(resolved);
+        setPersistedNav(resolved);
+      }
+    : setPersistedNav;
   const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortOpen, setSortOpen] = useState(false);
@@ -1577,6 +1585,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [projects, setProjects]     = useState(getProjects);
   const [clients, setClients]       = useState(getClients);
   const [pinnedIds, setPinnedIds]   = useState(getPinnedIds);
+  const [allResources, setAllResources] = useState(getResources);
+  const [commentCounts, setCommentCounts] = useState(getAllCommentCounts);
 
   // Vues normales : on ne montre que les items actifs (ni archivés, ni en corbeille).
   // Les vues Corbeille / Archives lisent directement le store via getTrashed*/getArchived*.
@@ -1587,6 +1597,26 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
+  useEffect(() => subscribeResources(() => setAllResources(getResources())), []);
+  useEffect(() => subscribeCommentCounts(() => setCommentCounts(getAllCommentCounts())), []);
+
+  // Compute which folders have comment notifications (resource files with comments, bubbled up)
+  const foldersWithComments = React.useMemo(() => {
+    const folderSet = new Set<string>();
+    const resourceFiles = allFiles.filter(f => f.type === 'resource' && f.resourceId);
+    for (const file of resourceFiles) {
+      const count = commentCounts[file.resourceId!] ?? 0;
+      if (count === 0) continue;
+      // Bubble up through folder ancestors
+      let folderId = file.parentFolderId;
+      while (folderId) {
+        folderSet.add(folderId);
+        const parent = allFolders.find(f => f.id === folderId);
+        folderId = parent?.parentId ?? null;
+      }
+    }
+    return folderSet;
+  }, [allFiles, allFolders, commentCounts]);
 
   // Ouvre une ressource en naviguant vers sa route, avec fallback si projectId manquant
   const openResource = useCallback((file: FileItem) => {
@@ -2127,7 +2157,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   // ── List row ─────────────────────────────────────────────────────────────────
 
   const ROW: React.CSSProperties = {
-    display: 'grid', gridTemplateColumns: '36px 1fr 100px 120px 90px 32px',
+    display: 'grid', gridTemplateColumns: '36px 1fr 100px 110px 90px 90px 32px',
     alignItems: 'center', gap: 12,
     padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
   };
@@ -2159,9 +2189,15 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         <SFIcon name="folder" size={20} color={folder.projectId ? projectColor(folder.projectId) : 'var(--accent)'} />
         {isRenaming
           ? <RenameInput value={folder.name} onSave={v => { renameFolder(folder.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
-          : <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
+          : <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {folder.name}
+              {foldersWithComments.has(folder.id) && (
+                <span title="Commentaires non lus" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, display: 'inline-block' }} />
+              )}
+            </span>
         }
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Dossier</span>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{childCount > 0 ? `${childCount} élément${childCount > 1 ? 's' : ''}` : '—'}</span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{folder.createdAt}</span>
       </div>
@@ -2173,6 +2209,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const isRes = file.type === 'resource' && !!file.resourceId;
     const rm = file.resourceType ? RESOURCE_TYPE_META[file.resourceType] : undefined;
     const isSelected = selectedIds.has(file.id);
+    const resource = isRes ? allResources.find(r => r.id === file.resourceId) : undefined;
+    const commentCount = isRes && file.resourceId ? (commentCounts[file.resourceId] ?? 0) : 0;
     return (
       <div
         draggable
@@ -2197,11 +2235,27 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         <FileTypeIcon type={file.type} resourceType={file.resourceType} mediaSubtype={fileMediaSubtype(file)} size={18} />
         {isRenaming
           ? <RenameInput value={file.name} onSave={v => { renameFile(file.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
-          : <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+          : <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{file.name}</span>
+              {commentCount > 0 && (
+                <span title={`${commentCount} commentaire${commentCount > 1 ? 's' : ''}`} style={{ flexShrink: 0, minWidth: 18, height: 16, borderRadius: 10, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                  {commentCount}
+                </span>
+              )}
+            </span>
         }
         <span style={{ fontSize: 11, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>
           {rm ? rm.label : file.ext}
         </span>
+        {/* Colonne statut */}
+        {resource ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[resource.status] ?? 'var(--text-3)', flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource.statusLabel}</span>
+          </span>
+        ) : (
+          <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
+        )}
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{isRes ? '—' : formatFileSize(file.size)}</span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{file.updatedAt}</span>
       </div>
@@ -2228,6 +2282,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       </div>
       <span style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{sublabel ?? 'Dossier'}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
       <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{count !== undefined ? `${count} dossier${count !== 1 ? 's' : ''}` : '—'}</span>
       <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
     </div>

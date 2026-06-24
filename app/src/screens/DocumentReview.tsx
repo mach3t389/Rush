@@ -6,6 +6,8 @@ import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { markResourceRead } from '../data/notificationStore';
+import { incrementCommentCount } from '../data/commentStore';
+import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
@@ -244,6 +246,7 @@ export function DocumentReview() {
     setComments(prev => [...prev, nc]);
     setPendingAnno(null);
     setActiveCommentId(nc.id);
+    if (resourceId) incrementCommentCount(resourceId);
   };
 
   const handleResolve = (id: string) => setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
@@ -434,6 +437,8 @@ export function DocumentReview() {
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
+
+        {resource && <RequestApprovalButton resource={resource} size="sm" />}
 
         {/* View toggle — icon only */}
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2, flexShrink: 0 }}>

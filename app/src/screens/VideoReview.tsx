@@ -7,6 +7,7 @@ import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { markResourceRead } from '../data/notificationStore';
+import { incrementCommentCount } from '../data/commentStore';
 import { addDeliverable } from '../data/taskStore';
 import { STATUS_COLOR } from '../data/status';
 import type { Resource, Status } from '../types';
@@ -225,6 +226,9 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [taskCreatedFlash, setTaskCreatedFlash] = useState(false);
   const [playing, setPlaying]     = useState(false);
   const [currentTime, setCurrentTime] = useState(63);
+  const [muted, setMuted]         = useState(false);
+  const [volume, setVolume]       = useState(1);
+  const [showVolume, setShowVolume] = useState(false);
 
   // Versions (local, so they can be added / removed)
   const [versions, setVersions] = useState<LocalVersion[]>(() => {
@@ -395,6 +399,25 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
   const seekBy = (delta: number) => seekTo(currentTime + delta);
 
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    if (mediaRef.current) mediaRef.current.muted = next;
+  };
+
+  const changeVolume = (v: number) => {
+    setVolume(v);
+    if (mediaRef.current) mediaRef.current.volume = v;
+    if (v === 0) { setMuted(true); if (mediaRef.current) mediaRef.current.muted = true; }
+    else if (muted) { setMuted(false); if (mediaRef.current) mediaRef.current.muted = false; }
+  };
+
+  useEffect(() => {
+    if (!mediaRef.current) return;
+    mediaRef.current.muted = muted;
+    mediaRef.current.volume = volume;
+  }, [mediaUrl]);
+
   // ── Version management ──
   const nextVersionName = () => {
     const nums = versions.map(v => parseInt(v.v.replace(/\D/g, ''), 10)).filter(n => !Number.isNaN(n));
@@ -474,6 +497,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setCommentText('');
     setPendingAnnotation(null);
     setActiveCommentId(newC.id);
+    if (resourceId) incrementCommentCount(resourceId);
   };
 
   const cycleCommentStatus = (id: string) =>
@@ -751,7 +775,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           /* Video frame */
           <div ref={videoFrameRef}
             onClick={() => { if (drawTool) return; if (mediaUrl) togglePlay(); else mediaFileInputRef.current?.click(); }}
-            style={{ borderRadius: 12, background: '#0a0a0a', aspectRatio: '16/9', position: 'relative', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, cursor: drawTool ? 'crosshair' : 'pointer' }}>
+            style={{ borderRadius: 12, background: '#0a0a0a', flex: 1, minHeight: 0, position: 'relative', border: '1px solid var(--border)', overflow: 'hidden', cursor: drawTool ? 'crosshair' : 'pointer' }}>
             {mediaUrl ? (
               <video ref={mediaRef as React.RefObject<HTMLVideoElement>} src={mediaUrl}
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#000', zIndex: 0 }}

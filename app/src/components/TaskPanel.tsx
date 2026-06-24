@@ -487,7 +487,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     <>
       {/* Panel */}
       <div ref={panelRef} style={inline ? {
-        width: 760,
+        width: 440,
         flexShrink: 0,
         background: 'var(--surface)',
         display: 'flex',

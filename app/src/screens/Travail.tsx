@@ -409,6 +409,20 @@ function TaskRow({
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const dragHandleActive = React.useRef(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(task.title);
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editingTitle) titleInputRef.current?.select();
+  }, [editingTitle]);
+
+  const commitTitle = () => {
+    const val = titleDraft.trim() || task.title;
+    setTitleDraft(val);
+    setEditingTitle(false);
+    if (rowProjectId && val !== task.title) updateTask(rowProjectId, task.id, { title: val });
+  };
 
   const openDrop = (key: typeof open, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpen(prev => prev === key ? null : key);
@@ -470,12 +484,38 @@ function TaskRow({
         </button>
       </div>
 
-      {/* Title — clicking opens panel */}
-      <div onClick={e => onSelect(task, e)} onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }} style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: 'pointer' }}>
-        {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
-        <span style={{ fontSize: 13, fontWeight: 500, textDecoration: checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {task.title}
-        </span>
+      {/* Title — click opens panel, double-click edits inline */}
+      <div
+        onClick={e => { if (!editingTitle) onSelect(task, e); }}
+        onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
+        onDoubleClick={e => { e.stopPropagation(); setEditingTitle(true); }}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: editingTitle ? 'text' : 'pointer' }}
+      >
+        {task.deliverable && !editingTitle && <SFIcon name="package" size={11} color="var(--accent)" />}
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            value={titleDraft}
+            onChange={e => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
+              if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false); }
+              e.stopPropagation();
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              flex: 1, fontSize: 13, fontWeight: 500, padding: '2px 6px',
+              borderRadius: 6, border: '1px solid var(--accent)',
+              background: 'var(--surface-3)', color: 'var(--text)',
+              fontFamily: 'var(--ff-text)', outline: 'none', width: '100%',
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 500, textDecoration: checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {titleDraft}
+          </span>
+        )}
       </div>
 
       {/* Sous-tâches */}
@@ -1928,7 +1968,7 @@ export function Travail() {
       )}
 
       {/* List view */}
-      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20 }}>
+      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div style={{ minWidth: 900 }}>
         <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {visibleSections.map((section, vIdx) => {
           const globalIdx = sections.findIndex(s => s.label === section.label);
@@ -2010,12 +2050,12 @@ export function Travail() {
             Nouvelle section
           </button>
         )}
-      </div>}
+      </div></div>}
 
-      </div>{/* end inner flex column */}
+      </div>
 
       {/* Inline task panel — animated width */}
-      <div style={{ width: selectedTask ? 760 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none' }}>
+      <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none' }}>
         {selectedTask && (
           <TaskPanel
             inline
@@ -2035,7 +2075,7 @@ export function Travail() {
         )}
       </div>
 
-      </div>{/* end content + panel row */}
+      </div>
 
       {/* Save as template modal */}
       {saveTemplateOpen && (

@@ -2595,7 +2595,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
           <SFButton variant="primary" size="sm" icon="plus" onClick={addItem}>Ajouter</SFButton>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           {items.map((item, idx) => {
             const thumbSrc = item.imageUrl || getAutoThumb(item.url);
             const href = item.url ? (item.url.startsWith('http') ? item.url : `https://${item.url}`) : null;
@@ -2606,36 +2606,34 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
               key={item.id}
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
-              style={{ background:'var(--surface)', borderRadius:12, border:'1px solid var(--border)', overflow:'hidden', display:'flex', flexDirection:'column' }}
+              style={{ background:'var(--surface)', borderRadius:10, border:'1px solid var(--border)', overflow:'hidden', display:'flex', flexDirection:'row', minHeight:80 }}
             >
-              {/* Thumbnail */}
+              {/* Thumbnail — petite vignette fixe à gauche */}
               <div
                 onClick={() => href && window.open(href, '_blank', 'noreferrer')}
                 title={href ? `Ouvrir ${item.url}` : undefined}
-                style={{ width:'100%', aspectRatio:'16/10', background:item.bg, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
+                style={{ width:88, flexShrink:0, background:item.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
               >
                 {thumbSrc
                   ? <img src={thumbSrc} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
-                  : <SFIcon name="image" size={28} color="rgba(255,255,255,0.1)" />}
-                {/* Number badge */}
-                <div style={{ position:'absolute', top:7, left:8, fontFamily:'var(--ff-mono)', fontSize:11, fontWeight:700, color:'white', background:'rgba(0,0,0,0.55)', borderRadius:5, padding:'2px 6px', lineHeight:1.4 }}>{num}</div>
-                {/* Top-right controls */}
-                <div style={{ position:'absolute', top:6, right:6, display:'flex', gap:4, opacity: hoveredId === item.id ? 1 : 0, transition:'opacity 0.15s' }}>
+                  : <SFIcon name="image" size={20} color="rgba(255,255,255,0.15)" />}
+                <div style={{ position:'absolute', top:4, left:4, fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:700, color:'white', background:'rgba(0,0,0,0.55)', borderRadius:4, padding:'1px 5px', lineHeight:1.4 }}>{num}</div>
+                <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:3, opacity: hoveredId === item.id ? 1 : 0, transition:'opacity 0.15s' }}>
                   {href && (
-                    <div style={{ width:24, height:24, borderRadius:6, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <SFIcon name="external-link" size={12} color="white" />
+                    <div style={{ width:20, height:20, borderRadius:5, background:'rgba(0,0,0,0.65)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <SFIcon name="external-link" size={10} color="white" />
                     </div>
                   )}
                   <button
                     onClick={e => { e.stopPropagation(); removeItem(item.id); }}
-                    style={{ width:24, height:24, borderRadius:6, background:'rgba(0,0,0,0.6)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+                    style={{ width:20, height:20, borderRadius:5, background:'rgba(0,0,0,0.65)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
                   >
-                    <SFIcon name="trash-2" size={11} color="white" />
+                    <SFIcon name="trash-2" size={9} color="white" />
                   </button>
                 </div>
               </div>
-              {/* Content */}
-              <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+              {/* Contenu — priorité au texte */}
+              <div style={{ flex:1, padding:'8px 10px', display:'flex', flexDirection:'column', gap:3, minWidth:0, overflow:'hidden' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <input
                     value={item.title}
@@ -2651,7 +2649,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                   </button>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                  <SFIcon name="link" size={10} color="var(--text-3)" />
+                  <SFIcon name="link" size={9} color="var(--text-3)" />
                   <input
                     value={item.url}
                     onChange={e => updateItem(item.id, { url: e.target.value })}
@@ -2663,8 +2661,8 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                   value={item.notes}
                   onChange={e => updateItem(item.id, { notes: e.target.value })}
                   placeholder="Notes, impressions…"
-                  rows={3}
-                  style={{ width:'100%', background:'transparent', border:'none', borderTop:'1px solid var(--border)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', padding:'6px 0 0', outline:'none', resize:'none', lineHeight:1.55, boxSizing:'border-box', colorScheme:'dark', marginTop:4 }}
+                  rows={2}
+                  style={{ width:'100%', background:'transparent', border:'none', borderTop:'1px solid var(--border)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', padding:'5px 0 0', outline:'none', resize:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark', marginTop:2 }}
                 />
                 {/* Per-item likes / avoids */}
                 {isExpanded && (

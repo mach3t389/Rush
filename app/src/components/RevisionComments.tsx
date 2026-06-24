@@ -338,11 +338,19 @@ export function RevisionCommentSidebar({
       {/* Comment list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
         {filtered.length === 0 ? (
-          <div style={{ padding: '32px 0', textAlign: 'center' }}>
+          <div style={{ padding: '28px 0', textAlign: 'center' }}>
             <SFIcon name="message-circle" size={26} color="var(--text-3)" />
-            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10 }}>
-              {filter === 'resolved' ? 'Aucun commentaire résolu' : 'Aucun commentaire — cliquez sur « Annoter » pour commencer'}
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10, marginBottom: filter === 'all' ? 14 : 0 }}>
+              {filter === 'resolved' ? 'Aucun commentaire résolu' : filter === 'open' ? 'Aucun commentaire ouvert' : 'Aucun commentaire pour l\'instant'}
             </p>
+            {filter === 'all' && (
+              <div style={{ margin: '0 16px', padding: '10px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', textAlign: 'left' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  💬 Tapez votre commentaire ci-dessous.<br />
+                  Utilisez <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@prénom</span> pour mentionner un membre de l'équipe.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -369,7 +377,7 @@ export function RevisionCommentSidebar({
               value={newText}
               onChange={e => setNewText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-              placeholder="Ajouter un commentaire général…"
+              placeholder="Ajouter un commentaire… (@ pour mentionner)"
               style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
             />
             <button onClick={submit} disabled={!newText.trim()} style={{ padding: '7px 12px', borderRadius: 7, border: 'none', background: newText.trim() ? 'var(--accent)' : 'var(--surface-3)', color: newText.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 12, cursor: newText.trim() ? 'pointer' : 'default', fontWeight: 600 }}>↵</button>
