@@ -80,18 +80,62 @@ Un unique `useEffect` dans `AppShell` attache un listener `keydown` global (phas
 - La réactivité est manuelle : les composants s'abonnent dans un `useEffect` et appellent `setState` dans le callback.
 
 ```
-persist.ts          → loadPersisted<T>(key, fallback) / savePersisted(key, value)
-mock.ts             → PROJECTS, CLIENTS, USERS, MY_TASKS, … (données de seed statiques)
-projectStore.ts     → getProjects / addProject / subscribeProjects
-eventStore.ts       → getEvents / addEvent / subscribeEvents
-resourceStore.ts    → getResources / addResource / subscribeResources
-taskStore.ts        → store de tâches par projet (get/setSections, moveTask(s), copyTasks, moveSection, copySection, deleteTask)
-myTaskStore.ts      → tâches perso « Mes tâches » + sections perso (getMyTaskSections / add / remove)
-clientStore.ts      → store clients
-status.ts           → utilitaires de mapping Status → couleur/label
+persist.ts            → loadPersisted<T>(key, fallback) / savePersisted(key, value)
+mock.ts               → PROJECTS, CLIENTS, USERS, MY_TASKS, … (données de seed statiques)
+projectStore.ts       → getProjects / addProject / subscribeProjects
+eventStore.ts         → getEvents / addEvent / subscribeEvents
+resourceStore.ts      → getResources / addResource / subscribeResources
+taskStore.ts          → store de tâches par projet (get/setSections, moveTask(s), copyTasks, moveSection, copySection, deleteTask)
+myTaskStore.ts        → tâches perso « Mes tâches » + sections perso (getMyTaskSections / add / remove)
+clientStore.ts        → store clients
+fileStore.ts          → dossiers + fichiers (FileFolder, FileItem) ; soft-delete (trashed/archived) ; addFolderTree
+fileContentStore.ts   → contenu réel des fichiers importés (blob URLs en mémoire + base64 localStorage ≤ 3 Mo)
+status.ts             → utilitaires de mapping Status → couleur/label
 ```
 
 **Tâches — parité des vues.** Les actions tâches/sections (créer, supprimer, déplacer, copier, multi-sélection `Ctrl`/`Shift`+clic, menu clic droit) doivent rester cohérentes entre les 3 surfaces : `Travail.tsx` (liste), `TravailBoard.tsx` (Kanban) et `Taches.tsx` (Mes tâches). Déplacer/copier en masse passe par `BulkMoveModal` (sélecteur projet → section). Toute nouvelle action de tâche doit être ajoutée aux 3 endroits.
+
+### FileBrowser (`app/src/screens/FichiersGlobal.tsx`)
+
+Composant unique partagé entre toutes les surfaces fichiers :
+
+| Surface | Mode | Clé de persistance nav |
+|---------|------|------------------------|
+| `/fichiers` (global) | `locked=false` | `sf_nav_global` |
+| `/global` onglet Fichiers | `locked=false` | `sf_nav_global` |
+| `/projets/:id/fichiers` | `locked=true, scope=project` | `sf_nav_project_<id>` |
+
+**Navigation :** la position de navigation (`location : NavLocation`) est persistée via `usePersistedState` — retourner en arrière depuis une ressource restaure le bon dossier.
+
+**Interactions unifiées (simple clic = sélectionner, double-clic = ouvrir) :**
+- Dossiers (grille, liste, colonnes) → double-clic pour entrer
+- VirtualCard / VirtualRow (racine, clients, projets) → double-clic pour naviguer ; simple clic = sélection avec highlight
+- Ressources → double-clic → route `/projets/:id/ressources/:resourceId`
+- Fichiers réels (non-ressource) → double-clic → `FilePreviewModal`
+- Raccourcis : `Enter` = ouvrir la sélection ; `Escape` = fermer l'aperçu / vider la sélection ; `←`/`→` = nav entre fichiers dans l'aperçu
+
+**Import de fichiers réels :**
+- Drag & drop OS sur la zone de contenu → overlay jaune + import dans le dossier courant
+- "Importer un fichier" dans le menu `+` → sélecteur de fichier natif (multi-sélection)
+- Le contenu est stocké via `fileContentStore` : blob URL en mémoire (toute taille) + base64 localStorage (≤ 3 Mo, survit au rechargement)
+
+**`FilePreviewModal` (double-clic sur un fichier non-ressource) :**
+- PDF → iframe navigateur
+- Image → zoom molette (20–600%), pan, boutons +/−/reset/plein-écran, raccourcis `+`/`-`/`0`
+- Vidéo → lecteur natif, lecture auto
+- Audio → lecteur avec boutons Précédent/Suivant parmi les fichiers audio du dossier
+- Navigation globale `←`/`→` (toutes les vues), compteur `X / N`
+
+**`StorageView` (vue taille des fichiers) :** composant standalone exporté. Les helpers `noSelectOnModifier` et `openResource` doivent être définis localement dans `StorageView` — ils ne sont pas accessibles depuis `FileBrowser`.
+
+### Calendriers
+
+**`CalendrierGlobal`** et **`ProjetCalendrier`** utilisent le même modèle de filtres :
+- Logique d'**inclusion** (`selectedEventTypes`, `selectedProjects`) — par défaut tout est visible
+- Cliquer un élément l'active ; les autres se grisent à 0.35 ; "Tout afficher" n'apparaît que quand un filtre est actif
+- Pas de bouton Solo
+
+**Prochains événements** dans `CalendrierGlobal` : 3 affichés par défaut, bouton "X de plus" / "Réduire" pour étendre.
 
 ### Composants UI (`app/src/components/ui/`)
 
@@ -159,6 +203,9 @@ Panneau flottant connecté à **Ollama** en local (`http://localhost:11434/api/c
 | `sf_ui_fonts` | Polices d'interface choisies |
 | `sf_logo_full` / `sf_logo_square` | Logos studio (base64) |
 | `sf_pinned_projects` | Projets épinglés dans la sidebar |
+| `sf_nav_global` | Dernière position de navigation dans FileBrowser global |
+| `sf_nav_project_<id>` | Dernière position par projet (dossier actif) |
+| `sf_fc_<fileId>` | Contenu base64 des fichiers importés ≤ 3 Mo |
 
 ---
 
