@@ -1,0 +1,32 @@
+{
+  "fr": {
+    "calendar": {
+      "daysShort": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+      "monthsShort": ["jan", "fév", "mar", "avr", "mai", "juin", "juil", "août", "sep", "oct", "nov", "déc"],
+      "monthsFull": ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
+      "createMeeting": "Créer une rencontre en ligne",
+      "onlineMeeting": "Rencontre en ligne",
+      "removeMeeting": "Retirer la rencontre",
+      "meetingLinkPlaceholder": "Coller un lien Meet / Zoom / Teams…",
+      "join": "Rejoindre",
+      "copied": "Copié",
+      "copy": "Copier",
+      "noProject": "— Sans projet —"
+    }
+  },
+  "en": {
+    "calendar": {
+      "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "monthsShort": ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
+      "monthsFull": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      "createMeeting": "Create an online meeting",
+      "onlineMeeting": "Online meeting",
+      "removeMeeting": "Remove meeting",
+      "meetingLinkPlaceholder": "Paste a Meet / Zoom / Teams link…",
+      "join": "Join",
+      "copied": "Copied",
+      "copy": "Copy",
+      "noProject": "— No project —"
+    }
+  }
+}

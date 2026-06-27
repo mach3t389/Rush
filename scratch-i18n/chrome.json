@@ -1,0 +1,44 @@
+{
+  "fr": {
+    "topbar": {
+      "back": "Retour",
+      "forward": "Avancer",
+      "search": "Rechercher…"
+    },
+    "command": {
+      "startTyping": "Commencez à taper pour rechercher…",
+      "noResults": "Aucun résultat pour « {{query}} »",
+      "navigate": "naviguer",
+      "open": "ouvrir",
+      "close": "fermer"
+    },
+    "toast": {
+      "undo": "Annuler"
+    },
+    "global": {
+      "files": "Fichiers",
+      "calendar": "Calendrier"
+    }
+  },
+  "en": {
+    "topbar": {
+      "back": "Back",
+      "forward": "Forward",
+      "search": "Search…"
+    },
+    "command": {
+      "startTyping": "Start typing to search…",
+      "noResults": "No results for “{{query}}”",
+      "navigate": "navigate",
+      "open": "open",
+      "close": "close"
+    },
+    "toast": {
+      "undo": "Undo"
+    },
+    "global": {
+      "files": "Files",
+      "calendar": "Calendar"
+    }
+  }
+}

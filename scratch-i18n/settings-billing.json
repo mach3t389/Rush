@@ -1,0 +1,30 @@
+{
+  "fr": {
+    "settings": {
+      "sectionBilling": "Facturation",
+      "billingTitle": "Paramètres de facturation",
+      "billingDesc": "Valeurs par défaut utilisées lors de la création de chaque nouvelle facture.",
+      "defaultTaxRate": "Taux de taxe par défaut (%)",
+      "defaultPaymentTerms": "Conditions de paiement par défaut",
+      "defaultCurrency": "Devise par défaut",
+      "defaultNotes": "Notes par défaut (visibles par le client)",
+      "defaultNotesPlaceholder": "Ex : Merci pour votre confiance !",
+      "invoicePrefix": "Préfixe des numéros de facture",
+      "invoicePrefixHint": "Ex : INV → INV-2026-001"
+    }
+  },
+  "en": {
+    "settings": {
+      "sectionBilling": "Billing",
+      "billingTitle": "Invoice settings",
+      "billingDesc": "Default values used when creating each new invoice.",
+      "defaultTaxRate": "Default tax rate (%)",
+      "defaultPaymentTerms": "Default payment terms",
+      "defaultCurrency": "Default currency",
+      "defaultNotes": "Default notes (visible to client)",
+      "defaultNotesPlaceholder": "e.g. Thank you for your business!",
+      "invoicePrefix": "Invoice number prefix",
+      "invoicePrefixHint": "e.g. INV → INV-2026-001"
+    }
+  }
+}

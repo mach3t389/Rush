@@ -1,0 +1,48 @@
+{
+  "fr": {
+    "settings": {
+      "sectionPaymentMethods": "Méthodes de paiement",
+      "paymentMethodsTitle": "Méthodes de paiement",
+      "paymentMethodsDesc": "Configurez les méthodes de paiement proposées à vos clients dans le portail et sur les factures. Activez, désactivez ou personnalisez chaque méthode.",
+      "pmRecommended": "Recommandée",
+      "pmFee": "Frais",
+      "pmDetails": "Coordonnées de paiement",
+      "pmStripeLink": "Lien de paiement Stripe",
+      "pmName": "Nom affiché"
+    },
+    "portal": {
+      "invoicesTitle": "Vos factures",
+      "invoiceNone": "Aucune facture en attente.",
+      "invoiceDue": "Échéance :",
+      "payNow": "Payer maintenant",
+      "payWith": "Choisir une méthode de paiement",
+      "openStripe": "Payer par carte",
+      "copyInfo": "Copier les informations",
+      "copied": "Copié !",
+      "noPaymentMethods": "Aucune méthode de paiement disponible."
+    }
+  },
+  "en": {
+    "settings": {
+      "sectionPaymentMethods": "Payment Methods",
+      "paymentMethodsTitle": "Payment Methods",
+      "paymentMethodsDesc": "Configure the payment methods offered to your clients in the portal and on invoices. Enable, disable, or customize each method.",
+      "pmRecommended": "Recommended",
+      "pmFee": "Fee",
+      "pmDetails": "Payment details",
+      "pmStripeLink": "Stripe payment link",
+      "pmName": "Display name"
+    },
+    "portal": {
+      "invoicesTitle": "Your invoices",
+      "invoiceNone": "No pending invoices.",
+      "invoiceDue": "Due:",
+      "payNow": "Pay now",
+      "payWith": "Choose a payment method",
+      "openStripe": "Pay by card",
+      "copyInfo": "Copy information",
+      "copied": "Copied!",
+      "noPaymentMethods": "No payment methods available."
+    }
+  }
+}

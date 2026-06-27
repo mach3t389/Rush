@@ -202,6 +202,66 @@ Le panneau droit de `DocumentView` (éditeur de texte riche) est tabulé : **Com
 - Sélecteur de modèle Ollama (même liste que AIChat)
 - État `rightTab` local (non persisté) — réinitialisé à `'comments'` à chaque ouverture
 
+### Génération IA dans StoryboardView (`app/src/screens/ResourceDetail.tsx`)
+
+Le modal de génération IA du storyboard (`StoryboardView`) supporte trois modes de prompt accessibles depuis un toggle **Texte / Dessin** :
+
+**Mode Texte :**
+- Textarea de description libre avec pré-remplissage depuis le label du plan
+- Bouton dictée vocale (Web Speech API, icône `mic`/`mic-off`) — état `sbListening` + `sbRecognitionRef`
+- Transcription en temps réel ajoutée au prompt
+
+**Mode Dessin (canvas 16:9) :**
+- Canvas HTML5 (`canvasRef`, 544×306 px, ratio 16/9) avec fond noir initialisé via `useEffect` sur `[showAIModal, promptMode]`
+- Palette de 8 couleurs (points colorés), slider de taille de brosse (1–20 px), bouton Gomme (toggle `isErasing`), bouton Effacer (`clearCanvas`)
+- Dessin souris + touch (`startDraw`/`continueDraw`/`endDraw`) via `globalCompositeOperation`: `'source-over'` (pinceau) ou `'destination-out'` (gomme)
+- Champ description optionnel sous le canvas
+- `generateImage()` capture le canvas via `canvas.toDataURL('image/png')` et préfixe le prompt avec `[Croquis]`
+
+**États et refs :**
+```typescript
+const [promptMode, setPromptMode]  = useState<'text' | 'draw'>('text');
+const [sbListening, setSbListening] = useState(false);
+const [drawColor, setDrawColor]    = useState('#ffffff');
+const [brushSize, setBrushSize]    = useState(4);
+const [isErasing, setIsErasing]    = useState(false);
+const canvasRef     = useRef<HTMLCanvasElement>(null);
+const isDrawingRef  = useRef(false);
+const sbRecognitionRef = useRef<any>(null);
+```
+
+`openAI()` remet `promptMode` à `'text'` et `isErasing` à `false` à chaque ouverture. En mode dessin, le bouton Générer est actif même sans texte (le croquis suffit).
+
+### Internationalization (i18n)
+
+L'application supporte **plusieurs langues** via **i18next + react-i18next**. La langue sélectionnée est persistée dans `localStorage` (clé : `language`, défaut : `fr`).
+
+**Structure :**
+- `app/src/i18n/i18n.ts` — configuration i18next (ressources, langue par défaut, persistence)
+- `app/src/i18n/useI18n.ts` — hook personnalisé pour accéder aux traductions
+- `app/src/locales/fr.json` — traductions français
+- `app/src/locales/en.json` — traductions anglais
+- Fichiers organisés par **namespace** : `nav`, `search`, `dashboard`, `tasks`, `activity`, etc.
+
+**Utilisation dans les composants :**
+```tsx
+import { useTranslation } from 'react-i18next';
+
+export function MonComposant() {
+  const { t, i18n } = useTranslation();
+  return <button>{t('nav.dashboard')}</button>;
+}
+```
+
+**Pour changer la langue programmatiquement :**
+```tsx
+i18n.changeLanguage('en'); // Persiste automatiquement dans localStorage
+```
+
+**⚠️ RÈGLE CRITIQUE : Ne JAMAIS hard-coder du texte utilisateur dans le code.** Tous les textes UI doivent passer par `t('namespace.key')`. Voir `app/src/locales/fr.json` et `en.json` pour les clés disponibles. **Ajouter les nouvelles clés d'abord dans les fichiers de traduction, puis utiliser `t()`.**
+
+**Sélecteur de langue :** Paramètres → Personnalisation → Langue
+
 ### Paramètres persistés (`localStorage`)
 
 | Clé | Contenu |

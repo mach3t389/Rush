@@ -1,0 +1,46 @@
+{
+  "fr": {
+    "resourceDetail": {
+      "storyboardView": {
+        "aiPromptPlaceholder": "Plan large depuis le couloir, personnage de dos, lumière tamisée…",
+        "aiTitle": "Génération IA",
+        "aiSubtitle": "Décrivez, dessinez ou dictez le cadre à générer",
+        "promptModeText": "Texte",
+        "promptModeDraw": "Dessin",
+        "promptLabel": "Prompt",
+        "styleLabel": "Style",
+        "dictate": "Dicter",
+        "stopListening": "Arrêter la dictée",
+        "speechUnsupported": "Reconnaissance vocale non disponible sur ce navigateur (Chrome / Edge).",
+        "clearCanvas": "Effacer",
+        "eraser": "Gomme",
+        "sketchDescPlaceholder": "Description optionnelle du croquis…",
+        "cancelButton": "Annuler",
+        "generateButton": "Générer",
+        "generatingLabel": "Génération en cours…"
+      }
+    }
+  },
+  "en": {
+    "resourceDetail": {
+      "storyboardView": {
+        "aiPromptPlaceholder": "Wide shot from the hallway, character from behind, dim light…",
+        "aiTitle": "AI Generation",
+        "aiSubtitle": "Describe, draw or dictate the frame to generate",
+        "promptModeText": "Text",
+        "promptModeDraw": "Draw",
+        "promptLabel": "Prompt",
+        "styleLabel": "Style",
+        "dictate": "Dictate",
+        "stopListening": "Stop",
+        "speechUnsupported": "Voice recognition not available on this browser (Chrome / Edge only).",
+        "clearCanvas": "Clear",
+        "eraser": "Eraser",
+        "sketchDescPlaceholder": "Optional description of the sketch…",
+        "cancelButton": "Cancel",
+        "generateButton": "Generate",
+        "generatingLabel": "Generating…"
+      }
+    }
+  }
+}

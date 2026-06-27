@@ -1,0 +1,30 @@
+{
+  "fr": {
+    "finance": {
+      "dateFrom": "Du",
+      "dateTo": "Au",
+      "dateIssuedDate": "Émission",
+      "dateDueDate": "Échéance",
+      "datePaidDate": "Paiement",
+      "presetThisMonth": "Ce mois",
+      "presetLastMonth": "Mois préc.",
+      "presetThisQuarter": "Trimestre",
+      "presetThisYear": "Cette année",
+      "clearFilters": "Effacer les filtres"
+    }
+  },
+  "en": {
+    "finance": {
+      "dateFrom": "From",
+      "dateTo": "To",
+      "dateIssuedDate": "Issue date",
+      "dateDueDate": "Due date",
+      "datePaidDate": "Payment date",
+      "presetThisMonth": "This month",
+      "presetLastMonth": "Last month",
+      "presetThisQuarter": "This quarter",
+      "presetThisYear": "This year",
+      "clearFilters": "Clear filters"
+    }
+  }
+}

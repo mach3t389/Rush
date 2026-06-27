@@ -1,0 +1,30 @@
+{
+  "fr": {
+    "finance": {
+      "subtotal": "Sous-total",
+      "taxLines": "Taxes",
+      "addTax": "+ Ajouter une taxe",
+      "taxName": "Nom",
+      "taxRate2": "Taux (%)"
+    },
+    "settings": {
+      "taxPreset": "Région / Pays",
+      "taxLinesLabel": "Lignes de taxe",
+      "taxLinesDesc": "Définissez les taxes appliquées par défaut sur chaque facture."
+    }
+  },
+  "en": {
+    "finance": {
+      "subtotal": "Subtotal",
+      "taxLines": "Taxes",
+      "addTax": "+ Add tax line",
+      "taxName": "Name",
+      "taxRate2": "Rate (%)"
+    },
+    "settings": {
+      "taxPreset": "Region / Country",
+      "taxLinesLabel": "Tax lines",
+      "taxLinesDesc": "Define the taxes applied by default on each invoice."
+    }
+  }
+}

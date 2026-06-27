@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
@@ -9,13 +10,13 @@ import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import type { Resource, ResourceType, Status, User } from '../types';
 import { VideoReviewBody } from './VideoReview';
 
-const STATUS_OPTIONS: { status: Status; label: string }[] = [
-  { status: 'ok',      label: 'Terminé' },
-  { status: 'info',    label: 'En cours' },
-  { status: 'warn',    label: 'À faire' },
-  { status: 'review',  label: 'En révision' },
-  { status: 'danger',  label: 'Bloqué' },
-  { status: 'neutral', label: 'En attente' },
+const STATUS_OPTIONS: { status: Status; labelKey: string }[] = [
+  { status: 'ok',      labelKey: 'resources.completed' },
+  { status: 'info',    labelKey: 'resources.inProgress' },
+  { status: 'warn',    labelKey: 'resources.todo' },
+  { status: 'review',  labelKey: 'resources.inReview' },
+  { status: 'danger',  labelKey: 'resources.blocked' },
+  { status: 'neutral', labelKey: 'resources.waiting' },
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -41,19 +42,19 @@ const TYPE_ICON: Record<ResourceType, string> = {
   document: 'file', checklist: 'list-checks', inspirations: 'image', file: 'hard-drive',
   form: 'clipboard-list',
 };
-const TYPE_LABEL: Record<ResourceType, string> = {
-  screenplay: 'Scénarisation', video_review: 'Révision', moodboard: 'Moodboard',
-  document: 'Document', checklist: 'Checklist', inspirations: 'Inspirations', file: 'Fichier',
-  form: 'Formulaire',
+const TYPE_LABEL_KEY: Record<ResourceType, string> = {
+  screenplay: 'resources.scenography', video_review: 'resources.review', moodboard: 'resources.moodboard',
+  document: 'resources.document', checklist: 'resources.checklist', inspirations: 'resources.inspirations', file: 'resources.file',
+  form: 'resources.form',
 };
 
-const EL_CFG: Record<ScriptElType, { label: string; abbr: string; placeholder: string; ml: string; w: string; upper: boolean; right: boolean; italic: boolean; color: string }> = {
-  scene:         { label: 'Scène',      abbr: 'SCN', placeholder: 'INT./EXT. LIEU — MOMENT',   ml: '0',    w: '100%', upper: true,  right: false, italic: false, color: '#f9ff00' },
-  action:        { label: 'Action',     abbr: 'ACT', placeholder: 'Description de la scène...', ml: '0',    w: '100%', upper: false, right: false, italic: false, color: '#94a3b8' },
-  character:     { label: 'Personnage', abbr: 'PNJ', placeholder: 'NOM DU PERSONNAGE',          ml: '37%',  w: '26%',  upper: true,  right: false, italic: false, color: '#7dd3fc' },
-  parenthetical: { label: 'Parenthèse',abbr: 'PAR', placeholder: '(indication de jeu)',         ml: '30%',  w: '40%',  upper: false, right: false, italic: true,  color: '#86efac' },
-  dialogue:      { label: 'Dialogue',   abbr: 'DLG', placeholder: 'Réplique...',                ml: '25%',  w: '50%',  upper: false, right: false, italic: false, color: '#c4b5fd' },
-  transition:    { label: 'Transition', abbr: 'TRS', placeholder: 'FONDU AU NOIR',              ml: '0',    w: '100%', upper: true,  right: true,  italic: false, color: '#fb923c' },
+const EL_CFG: Record<ScriptElType, { labelKey: string; abbr: string; placeholderKey: string; ml: string; w: string; upper: boolean; right: boolean; italic: boolean; color: string }> = {
+  scene:         { labelKey: 'resourceDetail.elScene',         abbr: 'SCN', placeholderKey: 'resourceDetail.elScenePlaceholder',         ml: '0',    w: '100%', upper: true,  right: false, italic: false, color: '#f9ff00' },
+  action:        { labelKey: 'resourceDetail.elAction',        abbr: 'ACT', placeholderKey: 'resourceDetail.elActionPlaceholder',        ml: '0',    w: '100%', upper: false, right: false, italic: false, color: '#94a3b8' },
+  character:     { labelKey: 'resourceDetail.elCharacter',     abbr: 'PNJ', placeholderKey: 'resourceDetail.elCharacterPlaceholder',     ml: '37%',  w: '26%',  upper: true,  right: false, italic: false, color: '#7dd3fc' },
+  parenthetical: { labelKey: 'resourceDetail.elParenthetical', abbr: 'PAR', placeholderKey: 'resourceDetail.elParentheticalPlaceholder', ml: '30%',  w: '40%',  upper: false, right: false, italic: true,  color: '#86efac' },
+  dialogue:      { labelKey: 'resourceDetail.elDialogue',      abbr: 'DLG', placeholderKey: 'resourceDetail.elDialoguePlaceholder',      ml: '25%',  w: '50%',  upper: false, right: false, italic: false, color: '#c4b5fd' },
+  transition:    { labelKey: 'resourceDetail.elTransition',    abbr: 'TRS', placeholderKey: 'resourceDetail.elTransitionPlaceholder',    ml: '0',    w: '100%', upper: true,  right: true,  italic: false, color: '#fb923c' },
 };
 const EL_ORDER: ScriptElType[] = ['scene', 'action', 'character', 'parenthetical', 'dialogue', 'transition'];
 const NEXT_EL: Record<ScriptElType, ScriptElType> = {
@@ -166,18 +167,19 @@ function useAutosave() {
 }
 
 function SaveIndicator({ state, online }: { state: SaveState; online: boolean }) {
+  const { t } = useTranslation();
   const offline = !online || state === 'offline';
   const cfg = offline
-    ? { color: 'var(--danger)', label: 'Hors ligne' }
+    ? { color: 'var(--danger)', label: t('resourceDetail.saveOffline') }
     : state === 'saving'
-      ? { color: 'var(--warn)', label: 'Enregistrement…' }
-      : { color: 'var(--ok)', label: 'Enregistré' };
+      ? { color: 'var(--warn)', label: t('resourceDetail.saveSaving') }
+      : { color: 'var(--ok)', label: t('resourceDetail.saveSaved') };
   return (
     <div
       style={{ display:'flex', alignItems:'center', gap:6 }}
       title={offline
-        ? 'Hors ligne — les modifications seront enregistrées au retour de la connexion'
-        : state === 'saving' ? 'Enregistrement en cours…' : 'Enregistré en temps réel'}
+        ? t('resourceDetail.saveOfflineTooltip')
+        : state === 'saving' ? t('resourceDetail.saveSavingTooltip') : t('resourceDetail.saveSavedTooltip')}
     >
       <style>{'@keyframes rushSavePulse{0%,100%{opacity:1}50%{opacity:0.3}}'}</style>
       <span style={{ width:7, height:7, borderRadius:'50%', background:cfg.color, flexShrink:0, animation: (state === 'saving' && !offline) ? 'rushSavePulse 1s ease-in-out infinite' : undefined }} />
@@ -276,12 +278,13 @@ interface ScriptViewProps extends EditableProps {
 interface ScriptComment { id: string; author: string; text: string; ts: number; resolved: boolean; }
 
 function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
+  const { t } = useTranslation();
   const [comments, setComments] = useState<ScriptComment[]>([]);
   const [draft, setDraft] = useState('');
 
   const addComment = () => {
     if (!draft.trim()) return;
-    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: 'Moi', text: draft.trim(), ts: Date.now(), resolved: false }]);
+    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: t('resourceDetail.me'), text: draft.trim(), ts: Date.now(), resolved: false }]);
     setDraft('');
   };
 
@@ -292,12 +295,12 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
     <div id="rd-comments-panel" style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
       <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', flexShrink:0, display:'flex', alignItems:'center', gap:6 }}>
         <SFIcon name="message-circle" size={12} color="var(--text-3)" />
-        <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Commentaires</p>
+        <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('activity.comments')}</p>
         {openComments.length > 0 && <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', fontWeight:700 }}>{openComments.length}</span>}
       </div>
       <div style={{ flex:1, overflow:'auto', padding:'10px', display:'flex', flexDirection:'column', gap:6 }}>
         {comments.length === 0 && (
-          <p style={{ fontSize:11, color:'var(--text-3)', padding:'4px 2px' }}>Aucun commentaire.</p>
+          <p style={{ fontSize:11, color:'var(--text-3)', padding:'4px 2px' }}>{t('resourceDetail.noComment')}</p>
         )}
         {openComments.map(c => (
           <div key={c.id} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)' }}>
@@ -306,7 +309,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
               <span style={{ fontSize:11, fontWeight:600, color:'var(--text-2)', flex:1 }}>{c.author}</span>
               <button
                 onClick={() => setComments(prev => prev.map(cc => cc.id === c.id ? { ...cc, resolved: true } : cc))}
-                title="Résoudre"
+                title={t('resourceDetail.resolve')}
                 style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', padding:2, borderRadius:4, display:'flex', alignItems:'center' }}
               >
                 <SFIcon name="check" size={11} />
@@ -316,7 +319,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
           </div>
         ))}
         {resolvedComments.length > 0 && (
-          <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginTop:4 }}>Résolus ({resolvedComments.length})</p>
+          <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginTop:4 }}>{t('resourceDetail.resolvedCount', { count: resolvedComments.length })}</p>
         )}
       </div>
       <div style={{ padding:'10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
@@ -324,7 +327,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } }}
-          placeholder="Ajouter un commentaire…"
+          placeholder={t('tasks.addComment')}
           rows={2}
           style={{ width:'100%', resize:'none', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, padding:'7px 9px', fontSize:12, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box', colorScheme:'dark' }}
         />
@@ -333,7 +336,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
           disabled={!draft.trim()}
           style={{ marginTop:6, width:'100%', padding:'6px 0', borderRadius:7, border:'none', background: draft.trim() ? 'var(--accent)' : 'var(--surface-3)', color: draft.trim() ? '#000' : 'var(--text-3)', fontSize:12, fontWeight:600, cursor: draft.trim() ? 'pointer' : 'default', fontFamily:'var(--ff-text)', transition:'background 0.15s' }}
         >
-          Envoyer
+          {t('taskPanel.send')}
         </button>
       </div>
     </div>
@@ -341,6 +344,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
 }
 
 function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId, panelTab, setPanelTab, propItems, setPropItems }: ScriptViewProps) {
+  const { t } = useTranslation();
   const [newProp, setNewProp] = useState('');
   const [propSceneOpen, setPropSceneOpen] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -470,7 +474,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
         {panelTab === 'scenes' && (
           <div style={{ flex:1, overflow:'auto', padding:'10px 10px' }}>
             {scenes.length === 0 && (
-              <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>Aucune scène</p>
+              <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>{t('resourceDetail.noScene')}</p>
             )}
             {scenes.map((scene, i) => {
               const sceneIdx = elements.indexOf(scene);
@@ -513,12 +517,12 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             {/* Stats grid */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:14 }}>
               {[
-                { label:'Scènes',       val: scenes.length },
-                { label:'Personnages',  val: allCharacters.length },
-                { label:'Lieux',        val: allLocations.length },
-                { label:'Mots',         val: wordCount },
-                { label:'Signes',       val: signCount.toLocaleString('fr') },
-                { label:'Pages est.',   val: `~${pageCount}p` },
+                { label:t('resourceDetail.statScenes'),     val: scenes.length },
+                { label:t('resourceDetail.statCharacters'), val: allCharacters.length },
+                { label:t('resourceDetail.statLocations'),  val: allLocations.length },
+                { label:t('resourceDetail.statWords'),      val: wordCount },
+                { label:t('resourceDetail.statSigns'),      val: signCount.toLocaleString('fr') },
+                { label:t('resourceDetail.statPagesEst'),   val: `~${pageCount}p` },
               ].map(s => (
                 <div key={s.label} style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 9px' }}>
                   <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{s.label}</p>
@@ -530,7 +534,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             {/* Characters */}
             {allCharacters.length > 0 && (
               <div style={{ marginBottom:14 }}>
-                <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>Personnages</p>
+                <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>{t('resourceDetail.statCharacters')}</p>
                 {allCharacters.map(c => (
                   <div key={c} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 8px', borderRadius:7, marginBottom:3, background:'var(--surface-2)', border:'1px solid var(--border)' }}>
                     <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'#7dd3fc' }}>{c}</span>
@@ -543,7 +547,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             {/* Locations */}
             {allLocations.length > 0 && (
               <div>
-                <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>Lieux</p>
+                <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>{t('resourceDetail.statLocations')}</p>
                 {allLocations.map(loc => (
                   <div key={loc} style={{ padding:'5px 8px', borderRadius:7, marginBottom:3, background:'var(--surface-2)', border:'1px solid var(--border)' }}>
                     <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'#86efac' }}>{loc}</span>
@@ -567,12 +571,12 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             <div style={{ flex:1, overflow:'auto', padding:'10px 10px', display:'flex', flexDirection:'column' }}>
               {/* Counter */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10, padding:'0 2px' }}>
-                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>À apporter</span>
+                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.toBring')}</span>
                 <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>{propItems.filter(p => p.toBring).length}/{propItems.length}</span>
               </div>
 
               {propItems.length === 0 && (
-                <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>Aucun accessoire</p>
+                <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>{t('resourceDetail.noProp')}</p>
               )}
 
               {propItems.map(p => (
@@ -580,7 +584,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                   <div style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
                     {/* À apporter */}
                     <button onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, toBring: !x.toBring } : x)); onEdit?.(); }}
-                      title={p.toBring ? 'À apporter' : 'Optionnel'}
+                      title={p.toBring ? t('resourceDetail.toBring') : t('resourceDetail.optional')}
                       style={{ width:16, height:16, borderRadius:5, flexShrink:0, marginTop:1, border: p.toBring ? 'none' : '1.5px solid var(--border-2)', background: p.toBring ? 'var(--accent)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                       {p.toBring && <SFIcon name="check" size={10} color="var(--on-accent)" />}
                     </button>
@@ -592,14 +596,14 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                         <button onClick={() => setPropSceneOpen(o => o === p.id ? null : p.id)}
                           style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'1px 6px', borderRadius:5, border:'1px solid var(--border)', background:'var(--surface-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:7, color: p.scene ? '#86efac' : 'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.04em', maxWidth:'100%' }}>
                           <SFIcon name="clapperboard" size={9} color={p.scene ? '#86efac' : 'var(--text-3)'} />
-                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.scene ?? 'Aucune scène'}</span>
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.scene ?? t('resourceDetail.noSceneLinked')}</span>
                         </button>
                         {propSceneOpen === p.id && (
                           <>
                             <div onClick={() => setPropSceneOpen(null)} style={{ position:'fixed', inset:0, zIndex:90 }} />
                             <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:100, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:9, padding:4, minWidth:180, maxHeight:200, overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,0.5)' }}>
                               <button onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, scene: undefined } : x)); setPropSceneOpen(null); onEdit?.(); }}
-                                style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background:'transparent', cursor:'pointer', fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>Aucune scène</button>
+                                style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background:'transparent', cursor:'pointer', fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{t('resourceDetail.noSceneLinked')}</button>
                               {sceneLabels.map((s, si) => (
                                 <button key={si} onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, scene: s } : x)); setPropSceneOpen(null); onEdit?.(); }}
                                   style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background: p.scene === s ? 'var(--surface-2)' : 'transparent', cursor:'pointer', fontSize:11, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{s}</button>
@@ -610,7 +614,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                       </div>
                     </div>
                     {/* Supprimer */}
-                    <button onClick={() => { setPropItems(prev => prev.filter(x => x.id !== p.id)); onEdit?.(); }} title="Supprimer"
+                    <button onClick={() => { setPropItems(prev => prev.filter(x => x.id !== p.id)); onEdit?.(); }} title={t('tasks.delete')}
                       style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:2 }}>
                       <SFIcon name="x" size={11} />
                     </button>
@@ -622,10 +626,10 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
               <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
                 <input value={newProp} onChange={e => setNewProp(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addProp(); }}
-                  placeholder="+ Ajouter un accessoire"
+                  placeholder={t('resourceDetail.addPropPlaceholder')}
                   style={{ flex:1, background:'var(--surface-2)', border:'1px dashed var(--border-2)', borderRadius:7, padding:'6px 8px', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none' }} />
                 {newProp.trim() && (
-                  <button onClick={addProp} style={{ flexShrink:0, background:'var(--accent)', color:'var(--on-accent)', border:'none', borderRadius:7, padding:'6px 9px', cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>Ajouter</button>
+                  <button onClick={addProp} style={{ flexShrink:0, background:'var(--accent)', color:'var(--on-accent)', border:'none', borderRadius:7, padding:'6px 9px', cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.add')}</button>
                 )}
               </div>
             </div>
@@ -638,10 +642,10 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
         {/* Toolbar */}
         <div style={{ padding:'8px 16px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:8, background:'var(--surface)', flexShrink:0 }}>
           <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
-            Tab = type · Enter = nouvel élément · Shift+Enter = saut de ligne
+            {t('resourceDetail.scriptToolbarHint')}
           </span>
           <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{wordCount} mots · {pageCount}p.</span>
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{t('resourceDetail.wordsPages', { words: wordCount, pages: pageCount })}</span>
             <SaveIndicator state={saveState} online={online} />
           </div>
         </div>
@@ -681,14 +685,14 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                       </button>
                       {openTypeId === el.id && (
                         <div style={{ position:'absolute', left:0, top:22, zIndex:50, background:'var(--surface-3)', border:'1px solid var(--border)', borderRadius:10, padding:4, minWidth:130, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
-                          {EL_ORDER.map(t => (
-                            <button key={t} onClick={() => { setElements(p => p.map((e,i) => i===idx ? {...e,type:t} : e)); setOpenTypeId(null); }}
+                          {EL_ORDER.map(elt => (
+                            <button key={elt} onClick={() => { setElements(p => p.map((e,i) => i===idx ? {...e,type:elt} : e)); setOpenTypeId(null); }}
                               style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 10px', border:'none', background:'transparent', cursor:'pointer', borderRadius:7, textAlign:'left' }}
                               onMouseEnter={e => (e.currentTarget.style.background='var(--surface)')}
                               onMouseLeave={e => (e.currentTarget.style.background='transparent')}
                             >
-                              <span style={{ width:28, fontFamily:'var(--ff-mono)', fontSize:8, color:EL_CFG[t].color, textTransform:'uppercase' }}>{EL_CFG[t].abbr}</span>
-                              <span style={{ fontSize:12, color:'var(--text-2)' }}>{EL_CFG[t].label}</span>
+                              <span style={{ width:28, fontFamily:'var(--ff-mono)', fontSize:8, color:EL_CFG[elt].color, textTransform:'uppercase' }}>{EL_CFG[elt].abbr}</span>
+                              <span style={{ fontSize:12, color:'var(--text-2)' }}>{t(EL_CFG[elt].labelKey)}</span>
                             </button>
                           ))}
                         </div>
@@ -700,7 +704,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                         value={el.text}
                         onChange={e => changeEl(el.id, e.target.value)}
                         onKeyDown={e => handleKeyDown(e, idx)}
-                        placeholder={cfg.placeholder}
+                        placeholder={t(cfg.placeholderKey)}
                         rows={1}
                         style={{
                           display:'block', resize:'none', overflow:'hidden', outline:'none', border:'none', background:'transparent',
@@ -754,7 +758,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                       <span
                         onMouseDown={() => { sceneDragArmed.current = true; }}
                         onMouseUp={() => { sceneDragArmed.current = false; }}
-                        title="Maintenir et glisser pour réordonner la scène"
+                        title={t('resourceDetail.dragSceneReorder')}
                         style={{ display:'flex', alignItems:'center', justifyContent:'center', cursor:'grab', color:'var(--text-2)', background:'var(--surface-3)', border:'1px solid var(--border)', borderRadius:5, padding:'3px 2px', flexShrink:0 }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
@@ -764,19 +768,19 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                       <button
                         onClick={() => setCollapsedScenes(prev => { const s = new Set(prev); s.has(sceneEl.id) ? s.delete(sceneEl.id) : s.add(sceneEl.id); return s; })}
                         style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', padding:'2px 4px', borderRadius:4, fontSize:11, lineHeight:1, flexShrink:0 }}
-                        title={collapsed ? 'Développer' : 'Réduire'}
+                        title={collapsed ? t('resourceDetail.expand') : t('resourceDetail.collapse')}
                       >
                         {collapsed ? '▶' : '▼'}
                       </button>
                       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:700, color:'var(--accent)', letterSpacing:'0.08em', textTransform:'uppercase', flexShrink:0 }}>
-                        Scène {sceneNum}
+                        {t('resourceDetail.sceneLabel', { num: sceneNum })}
                       </span>
                       <textarea
                         ref={ta => { if (ta) taRefs.current.set(sceneEl.id, ta); else taRefs.current.delete(sceneEl.id); }}
                         value={sceneEl.text}
                         onChange={e => changeEl(sceneEl.id, e.target.value)}
                         onKeyDown={e => handleKeyDown(e, elements.indexOf(sceneEl))}
-                        placeholder={EL_CFG['scene'].placeholder}
+                        placeholder={t(EL_CFG['scene'].placeholderKey)}
                         rows={1}
                         style={{
                           flex:1, resize:'none', overflow:'hidden', outline:'none', border:'none', background:'transparent',
@@ -785,7 +789,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                         }}
                       />
                       {collapsed && group.bodyEls.length > 0 && (
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', flexShrink:0 }}>{group.bodyEls.length} élément{group.bodyEls.length > 1 ? 's' : ''}</span>
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', flexShrink:0 }}>{t('resourceDetail.elementCount', { count: group.bodyEls.length })}</span>
                       )}
                     </div>
                     {/* Scene body elements */}
@@ -797,15 +801,15 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
 
             {/* Add element button */}
             <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:24, paddingTop:16, borderTop:'1px dashed var(--border)' }}>
-              {EL_ORDER.map(t => (
-                <button key={t} onClick={() => {
+              {EL_ORDER.map(elt => (
+                <button key={elt} onClick={() => {
                   const nid = `e${Date.now()}`;
-                  setElements(p => [...p, { id:nid, type:t, text:'' }]);
+                  setElements(p => [...p, { id:nid, type:elt, text:'' }]);
                   setFocusId(nid);
                 }}
-                  style={{ padding:'4px 10px', borderRadius:7, border:`1px solid ${EL_CFG[t].color}44`, background:`${EL_CFG[t].color}0d`, color:EL_CFG[t].color, fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em', cursor:'pointer' }}
+                  style={{ padding:'4px 10px', borderRadius:7, border:`1px solid ${EL_CFG[elt].color}44`, background:`${EL_CFG[elt].color}0d`, color:EL_CFG[elt].color, fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em', cursor:'pointer' }}
                 >
-                  + {EL_CFG[t].abbr}
+                  + {EL_CFG[elt].abbr}
                 </button>
               ))}
             </div>
@@ -827,6 +831,7 @@ const POSTIT_COLORS = ['#fde68a','#fca5a5','#86efac','#93c5fd','#f9a8d4','#fdba7
 const SHAPE_COLORS  = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#64748b'];
 
 export function MoodboardView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+  const { t } = useTranslation();
   const _mbPersisted = persistKey ? getResourceContent<{ items: MBItem[]; arrows: MBArrow[] }>(persistKey) : undefined;
   const [items, setItems]           = useState<MBItem[]>(_mbPersisted?.items ?? INITIAL_MB_ITEMS);
   const [arrows, setArrows]         = useState<MBArrow[]>(_mbPersisted?.arrows ?? INITIAL_MB_ARROWS);
@@ -1115,9 +1120,9 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     }
   };
 
-  const toolBtn = (t: MBTool, icon: string, label: string, shortcut: string) => (
-    <button key={t} title={`${label} (${shortcut})`} onClick={() => { setTool(t); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }}
-      style={{ padding:'5px 9px', borderRadius:7, border:`1px solid ${tool===t ? 'var(--accent)' : 'var(--border)'}`, background: tool===t ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: tool===t ? 'var(--accent)' : 'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
+  const toolBtn = (tl: MBTool, icon: string, label: string, shortcut: string) => (
+    <button key={tl} title={`${label} (${shortcut})`} onClick={() => { setTool(tl); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }}
+      style={{ padding:'5px 9px', borderRadius:7, border:`1px solid ${tool===tl ? 'var(--accent)' : 'var(--border)'}`, background: tool===tl ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: tool===tl ? 'var(--accent)' : 'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
       <SFIcon name={icon} size={13} />
       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{label}</span>
       <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, opacity:0.55, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:3, padding:'1px 4px', lineHeight:1.4 }}>{shortcut}</span>
@@ -1131,15 +1136,15 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
       <div style={{ padding:'7px 14px', borderBottom:'1px solid var(--border)', display:'flex', gap:6, alignItems:'center', background:'var(--surface)', flexShrink:0, flexWrap:'wrap' }}>
 
         {/* Tools */}
-        {toolBtn('pan',     'hand',          'Déplacer',  'H')}
-        {toolBtn('select',  'mouse-pointer', 'Sélection', 'V')}
-        {toolBtn('arrow',   'arrow-right',   'Flèche',    'A')}
+        {toolBtn('pan',     'hand',          t('resourceDetail.mbToolPan'),    'H')}
+        {toolBtn('select',  'mouse-pointer', t('resourceDetail.mbToolSelect'), 'V')}
+        {toolBtn('arrow',   'arrow-right',   t('resourceDetail.mbToolArrow'),  'A')}
 
         <div style={{ width:1, height:20, background:'var(--border)', margin:'0 2px' }} />
 
         {/* Shapes as tool modes */}
-        {toolBtn('rect',    'square',        'Rect',      'R')}
-        {toolBtn('ellipse', 'circle',        'Cercle',    'E')}
+        {toolBtn('rect',    'square',        t('resourceDetail.mbToolRect'),   'R')}
+        {toolBtn('ellipse', 'circle',        t('resourceDetail.mbToolCircle'), 'E')}
         {/* Shape color picker */}
         <div style={{ display:'flex', gap:3, alignItems:'center' }}>
           {SHAPE_COLORS.map(c => (
@@ -1151,10 +1156,10 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         <div style={{ width:1, height:20, background:'var(--border)', margin:'0 2px' }} />
 
         {/* Post-it */}
-        <button title="Post-it" onClick={() => { const id = addAtCenter({ type:'postit', postitColor, w:180, h:150, text:'' }); setEditingId(id); setSelectedId(id); }}
+        <button title={t('resourceDetail.mbPostit')} onClick={() => { const id = addAtCenter({ type:'postit', postitColor, w:180, h:150, text:'' }); setEditingId(id); setSelectedId(id); }}
           style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
           <SFIcon name="sticky-note" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>Post-it</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbPostit')}</span>
         </button>
         {POSTIT_COLORS.map(c => (
           <div key={c} onClick={() => setPostitColor(c)}
@@ -1167,17 +1172,17 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         <button onClick={() => { const id=addAtCenter({type:'text',w:200,h:90,text:''}); setEditingId(id); setSelectedId(id); }}
           style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
           <SFIcon name="type" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>Texte</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbText')}</span>
         </button>
         <button onClick={() => setShowAddImg(true)}
           style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
           <SFIcon name="image-plus" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>Image</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbImage')}</span>
         </button>
         <button onClick={() => setShowAddVideo(true)}
           style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
           <SFIcon name="play-circle" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>Vidéo</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbVideo')}</span>
         </button>
         {/* Colour swatches */}
         <div style={{ display:'flex', gap:3, alignItems:'center' }}>
@@ -1192,12 +1197,12 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
           <button onClick={() => setZoom(z=>Math.max(0.15,z*0.8))} style={{ padding:'4px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer' }}><SFIcon name="zoom-out" size={12} /></button>
           <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:34, textAlign:'center' }}>{Math.round(zoom*100)}%</span>
           <button onClick={() => setZoom(z=>Math.min(5,z*1.25))} style={{ padding:'4px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer' }}><SFIcon name="zoom-in" size={12} /></button>
-          <button onClick={() => { setPan({x:60,y:40}); setZoom(1); }} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9 }}>Reset</button>
+          <button onClick={() => { setPan({x:60,y:40}); setZoom(1); }} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9 }}>{t('resourceDetail.reset')}</button>
         </div>
 
         {arrowStart && (
           <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'#60a5fa', background:'rgba(96,165,250,0.1)', padding:'4px 10px', borderRadius:6, border:'1px solid rgba(96,165,250,0.3)' }}>
-            Cliquer l'élément cible · ESC pour annuler
+            {t('resourceDetail.mbArrowHint')}
           </span>
         )}
       </div>
@@ -1348,7 +1353,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                       style={{ width:'100%', height:'100%', background:'transparent', border:'none', outline:'none', color:textColor, fontSize:13, fontFamily:'var(--ff-text)', padding:isPostit?10:6, resize:'none', lineHeight:1.55, boxSizing:'border-box', colorScheme: isPostit ? 'light' : 'dark' }}
                     />
                   : <div style={{ width:'100%', height:'100%', background:'transparent', padding:isPostit?10:6, fontSize:13, color:textColor, lineHeight:1.55, overflow:'hidden', whiteSpace:'pre-wrap' }}>
-                      {item.text || (isSel && <span style={{ color: isPostit ? 'rgba(0,0,0,0.35)' : 'var(--text-3)', fontStyle:'italic', fontSize:11 }}>Double-clic pour éditer…</span>)}
+                      {item.text || (isSel && <span style={{ color: isPostit ? 'rgba(0,0,0,0.35)' : 'var(--text-3)', fontStyle:'italic', fontSize:11 }}>{t('resourceDetail.mbDoubleClickEdit')}</span>)}
                     </div>
                 )}
 
@@ -1383,33 +1388,33 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         {isCanvasDragging && (
           <div style={{ position:'absolute', inset:0, background:'rgba(249,255,0,0.05)', border:'2px dashed var(--accent)', pointerEvents:'none', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10 }}>
             <SFIcon name="image-plus" size={40} color="var(--accent)" />
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:12, color:'var(--accent)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em' }}>Déposer les images</span>
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:12, color:'var(--accent)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em' }}>{t('resourceDetail.mbDropImages')}</span>
           </div>
         )}
       </div>
 
       {/* Status bar */}
       <div style={{ padding:'5px 14px', borderTop:'1px solid var(--border)', background:'var(--surface)', display:'flex', gap:16, flexShrink:0 }}>
-        {[['Déplacer','Pan par défaut · Espace+drag aussi'],['Double-clic','Créer un texte'],['Ctrl+V','Coller une image'],['Molette','Zoom vers curseur'],['Suppr','Effacer sélection']].map(([k,v])=>(
+        {[[t('resourceDetail.mbToolPan'),t('resourceDetail.mbHintPan')],[t('resourceDetail.mbDoubleClick'),t('resourceDetail.mbHintCreateText')],['Ctrl+V',t('resourceDetail.mbHintPasteImage')],[t('resourceDetail.mbWheel'),t('resourceDetail.mbHintZoom')],[t('resourceDetail.mbDelete'),t('resourceDetail.mbHintClearSelection')]].map(([k,v])=>(
           <span key={k} style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}><span style={{ color:'var(--text-2)' }}>{k}</span> — {v}</span>
         ))}
-        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', marginLeft:'auto' }}>{items.length} éléments · {arrows.length} flèches</span>
+        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', marginLeft:'auto' }}>{t('resourceDetail.mbItemsArrows', { items: items.length, arrows: arrows.length })}</span>
       </div>
 
       {/* Add image modal */}
       {showAddImg && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}>
           <div style={{ background:'var(--surface)', borderRadius:14, padding:28, width:420, border:'1px solid var(--border)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
-            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>Ajouter une image</h3>
-            <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16 }}>Collez l'URL d'une image ou utilisez Ctrl+V / glissez une image sur le canvas</p>
+            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>{t('resourceDetail.mbAddImageTitle')}</h3>
+            <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16 }}>{t('resourceDetail.mbAddImageDesc')}</p>
             <input value={imgUrl} onChange={e=>setImgUrl(e.target.value)} autoFocus
               onKeyDown={e=>{ if(e.key==='Enter') addImage(); if(e.key==='Escape') setShowAddImg(false); }}
               placeholder="https://example.com/image.jpg"
               style={{ width:'100%', padding:'10px 12px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'var(--ff-text)', colorScheme:'dark' }}
             />
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-              <SFButton variant="ghost" onClick={()=>setShowAddImg(false)}>Annuler</SFButton>
-              <SFButton variant="primary" onClick={addImage}>Ajouter</SFButton>
+              <SFButton variant="ghost" onClick={()=>setShowAddImg(false)}>{t('resourceDetail.cancel')}</SFButton>
+              <SFButton variant="primary" onClick={addImage}>{t('resourceDetail.add')}</SFButton>
             </div>
           </div>
         </div>
@@ -1419,8 +1424,8 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
       {showAddVideo && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}>
           <div style={{ background:'var(--surface)', borderRadius:14, padding:28, width:440, border:'1px solid var(--border)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
-            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>Ajouter une vidéo</h3>
-            <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16 }}>Lien YouTube ou Vimeo — la miniature sera chargée automatiquement. Cliquer la vignette ouvrira la vidéo.</p>
+            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>{t('resourceDetail.mbAddVideoTitle')}</h3>
+            <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16 }}>{t('resourceDetail.mbAddVideoDesc')}</p>
             <input value={videoUrl} onChange={e=>setVideoUrl(e.target.value)} autoFocus
               onKeyDown={e=>{ if(e.key==='Enter') addVideo(); if(e.key==='Escape') setShowAddVideo(false); }}
               placeholder="https://youtube.com/watch?v=…"
@@ -1429,11 +1434,11 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
             {videoUrl.trim() && (() => {
               const thumb = getAutoThumb(videoUrl.trim());
               if (!thumb) return null;
-              return <img src={thumb} alt="Miniature" style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e=>(e.target as HTMLImageElement).style.display='none'} />;
+              return <img src={thumb} alt={t('resourceDetail.thumbnail')} style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e=>(e.target as HTMLImageElement).style.display='none'} />;
             })()}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-              <SFButton variant="ghost" onClick={()=>setShowAddVideo(false)}>Annuler</SFButton>
-              <SFButton variant="primary" onClick={addVideo}>Ajouter</SFButton>
+              <SFButton variant="ghost" onClick={()=>setShowAddVideo(false)}>{t('resourceDetail.cancel')}</SFButton>
+              <SFButton variant="primary" onClick={addVideo}>{t('resourceDetail.add')}</SFButton>
             </div>
           </div>
         </div>
@@ -1509,6 +1514,7 @@ function folderNodesToFsFolders(nodes: { id: string; name: string; children?: { 
 }
 
 export function FileView({ resource, seedFolderStructure }: { resource: Resource; seedFolderStructure?: any[] }) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [folders, setFolders] = useState<FsFolder[]>(seedFolderStructure ? folderNodesToFsFolders(seedFolderStructure) : INIT_FOLDERS);
   const [files,   setFiles]   = useState<FsFile[]>(INIT_FILES);
@@ -1563,8 +1569,8 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
 
   // Actions
   const createFolder = () => {
-    const name = newFolderName.trim() || 'Nouveau dossier';
-    setFolders(p => [...p, { id:`fd${Date.now()}`, name, parentId: curId, createdAt: 'À l\'instant' }]);
+    const name = newFolderName.trim() || t('resourceDetail.newFolder');
+    setFolders(p => [...p, { id:`fd${Date.now()}`, name, parentId: curId, createdAt: t('resourceDetail.justNow') }]);
     setNewFolderName('');
     setNewFolderOpen(false);
   };
@@ -1608,7 +1614,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
       size: fmtSize(f.size),
       type: f.type || 'application/octet-stream',
       folderId: curId,
-      createdAt: 'À l\'instant',
+      createdAt: t('resourceDetail.justNow'),
     }));
     setFiles(p => [...p, ...added]);
   };
@@ -1689,8 +1695,8 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
           ) : (
             <p style={{ fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</p>
           )}
-          {view === 'list' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{childCount} élément{childCount!==1?'s':''} · {folder.createdAt}</p>}
-          {view === 'grid' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{childCount} élément{childCount!==1?'s':''}</p>}
+          {view === 'list' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{t('resourceDetail.itemCount', { count: childCount })} · {folder.createdAt}</p>}
+          {view === 'grid' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{t('resourceDetail.itemCount', { count: childCount })}</p>}
         </div>
         {view === 'list' && (
           <>
@@ -1737,7 +1743,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
           ) : (
             <p style={{ fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{file.name}</p>
           )}
-          {view === 'list' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{file.type.split('/')[1]?.toUpperCase() ?? 'FICHIER'}</p>}
+          {view === 'list' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{file.type.split('/')[1]?.toUpperCase() ?? t('resourceDetail.fileUpper')}</p>}
         </div>
         {view === 'list' && (
           <>
@@ -1770,7 +1776,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
         {/* Breadcrumb */}
         <div style={{ display:'flex', alignItems:'center', gap:4, flex:1, minWidth:0 }}>
           <button onClick={()=>{setPath([]);setSearch('');setSelected(null);}} style={{ background:'none', border:'none', cursor:'pointer', color: path.length===0 ? 'var(--text)' : 'var(--text-3)', fontSize:13, fontWeight: path.length===0 ? 600 : 400, padding:'2px 4px', borderRadius:5, fontFamily:'var(--ff-text)' }}>
-            Mon Drive
+            {t('resourceDetail.myDrive')}
           </button>
           {path.map((folder, i) => (
             <React.Fragment key={folder.id}>
@@ -1786,7 +1792,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
         {/* Search */}
         <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
           <SFIcon name="search" size={13} color="var(--text-3)" style={{ position:'absolute', left:9 } as React.CSSProperties} />
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher…"
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('topbar.search')}
             style={{ padding:'5px 10px 5px 30px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:12, outline:'none', width:180, fontFamily:'var(--ff-text)' }} />
         </div>
 
@@ -1794,20 +1800,20 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <button onClick={()=>setNewFolderOpen(true)} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'var(--ff-text)' }}>
             <SFIcon name="folder-plus" size={14} />
-            Nouveau dossier
+            {t('resourceDetail.newFolder')}
           </button>
           <button onClick={()=>inputRef.current?.click()} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'var(--ff-text)' }}>
             <SFIcon name="upload" size={14} />
-            Importer
+            {t('resourceDetail.import')}
           </button>
           <input ref={inputRef} type="file" multiple style={{ display:'none' }} onChange={e=>{ uploadFiles(e.target.files); e.target.value=''; }} />
           <div style={{ width:1, height:18, background:'var(--border)' }} />
           {/* Sort */}
           <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
             style={{ padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-mono)', outline:'none', cursor:'pointer', colorScheme:'dark' }}>
-            <option value="name">Nom</option>
-            <option value="date">Date</option>
-            <option value="size">Taille</option>
+            <option value="name">{t('resourceDetail.sortName')}</option>
+            <option value="date">{t('resourceDetail.sortDate')}</option>
+            <option value="size">{t('resourceDetail.sortSize')}</option>
           </select>
           {/* View toggle */}
           <div style={{ display:'flex', border:'1px solid var(--border)', borderRadius:7, overflow:'hidden' }}>
@@ -1826,11 +1832,11 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
           <SFIcon name="folder-plus" size={16} color={folderColor} />
           <input ref={newFolderRef} value={newFolderName} onChange={e=>setNewFolderName(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter') createFolder(); if(e.key==='Escape'){setNewFolderOpen(false);setNewFolderName('');} }}
-            placeholder="Nom du dossier"
+            placeholder={t('resourceDetail.folderNamePlaceholder')}
             style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--accent)', background:'var(--surface)', color:'var(--text)', fontSize:13, outline:'none', fontFamily:'var(--ff-text)', width:240 }}
           />
-          <button onClick={createFolder} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Créer</button>
-          <button onClick={()=>{setNewFolderOpen(false);setNewFolderName('');}} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>Annuler</button>
+          <button onClick={createFolder} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>{t('resourceDetail.create')}</button>
+          <button onClick={()=>{setNewFolderOpen(false);setNewFolderName('');}} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>{t('resourceDetail.cancel')}</button>
         </div>
       )}
 
@@ -1838,9 +1844,9 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
       {view === 'list' && totalItems > 0 && (
         <div style={{ padding:'6px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12, background:'var(--surface)', flexShrink:0 }}>
           <div style={{ width:24+8, flexShrink:0 }} />
-          <span style={{ flex:1, fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Nom</span>
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', minWidth:60, textAlign:'right' }}>Taille</span>
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', minWidth:70, textAlign:'right' }}>Date</span>
+          <span style={{ flex:1, fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.sortName')}</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', minWidth:60, textAlign:'right' }}>{t('resourceDetail.sortSize')}</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', minWidth:70, textAlign:'right' }}>{t('resourceDetail.sortDate')}</span>
           <div style={{ width:28 }} />
         </div>
       )}
@@ -1853,13 +1859,13 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
         {totalItems === 0 && !search ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12, minHeight:200 }}>
             <SFIcon name="folder-open" size={48} color="var(--text-3)" />
-            <p style={{ fontSize:14, color:'var(--text-3)', fontWeight:500 }}>Ce dossier est vide</p>
-            <p style={{ fontSize:12, color:'var(--text-3)' }}>Créez un dossier ou importez des fichiers</p>
+            <p style={{ fontSize:14, color:'var(--text-3)', fontWeight:500 }}>{t('resourceDetail.folderEmpty')}</p>
+            <p style={{ fontSize:12, color:'var(--text-3)' }}>{t('resourceDetail.folderEmptyHint')}</p>
           </div>
         ) : totalItems === 0 && search ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:10, minHeight:200 }}>
             <SFIcon name="search" size={32} color="var(--text-3)" />
-            <p style={{ fontSize:13, color:'var(--text-3)' }}>Aucun résultat pour « {search} »</p>
+            <p style={{ fontSize:13, color:'var(--text-3)' }}>{t('resourceDetail.noResultFor', { query: search })}</p>
           </div>
         ) : (
           <div style={view === 'grid'
@@ -1871,7 +1877,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
               <>
                 {view === 'grid' && (
                   <div style={{ gridColumn:'1/-1', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', paddingBottom:4 }}>
-                    Dossiers — {sortedFolders.length}
+                    {t('resourceDetail.foldersSection', { count: sortedFolders.length })}
                   </div>
                 )}
                 {sortedFolders.map(folder => (
@@ -1886,7 +1892,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
               <>
                 {view === 'grid' && (
                   <div style={{ gridColumn:'1/-1', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', paddingTop: sortedFolders.length>0 ? 12 : 0, paddingBottom:4 }}>
-                    Fichiers — {sortedFiles.length}
+                    {t('resourceDetail.filesSection', { count: sortedFiles.length })}
                   </div>
                 )}
                 {sortedFiles.map(file => (
@@ -1905,10 +1911,10 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
       {/* ── Status bar ── */}
       <div style={{ padding:'5px 20px', borderTop:'1px solid var(--border)', background:'var(--surface)', display:'flex', gap:16, alignItems:'center', flexShrink:0 }}>
         <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>
-          {totalItems} élément{totalItems!==1?'s':''}{selected ? ' · 1 sélectionné' : ''}
+          {t('resourceDetail.itemCount', { count: totalItems })}{selected ? t('resourceDetail.oneSelectedSuffix') : ''}
         </span>
         <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', marginLeft:'auto' }}>
-          {path.length > 0 ? path.map(f=>f.name).join(' › ') : 'Racine'}
+          {path.length > 0 ? path.map(f=>f.name).join(' › ') : t('resourceDetail.root')}
         </span>
       </div>
 
@@ -1920,9 +1926,9 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
           boxShadow:'0 8px 32px rgba(0,0,0,0.5)', padding:'4px 0', minWidth:170,
         }}>
           {[
-            { label:'Renommer', icon:'pencil', action:() => { const item = folders.find(f=>f.id===ctx.id) ?? files.find(f=>f.id===ctx.id); if(item) startRename(ctx.id, ctx.kind, item.name); } },
-            ...(ctx.kind==='folder' ? [{ label:'Ouvrir', icon:'folder-open', action:() => { const f = folders.find(f=>f.id===ctx.id); if(f){setPath(p=>[...p,f]);setSelected(null);setSearch('');} setCtx(null); } }] : []),
-            { label:'Supprimer', icon:'trash-2', action:() => deleteItem(ctx.id, ctx.kind), danger:true },
+            { label:t('resourceDetail.rename'), icon:'pencil', action:() => { const item = folders.find(f=>f.id===ctx.id) ?? files.find(f=>f.id===ctx.id); if(item) startRename(ctx.id, ctx.kind, item.name); } },
+            ...(ctx.kind==='folder' ? [{ label:t('resourceDetail.open'), icon:'folder-open', action:() => { const f = folders.find(f=>f.id===ctx.id); if(f){setPath(p=>[...p,f]);setSelected(null);setSearch('');} setCtx(null); } }] : []),
+            { label:t('tasks.delete'), icon:'trash-2', action:() => deleteItem(ctx.id, ctx.kind), danger:true },
           ].map(item => (
             <button key={item.label} onClick={item.action}
               style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 14px', background:'transparent', border:'none', cursor:'pointer', color: (item as any).danger ? 'var(--danger)' : 'var(--text)', fontSize:13, fontFamily:'var(--ff-text)', textAlign:'left' }}
@@ -1942,6 +1948,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
 // ── Checklist View ────────────────────────────────────────────────────────────
 
 export function ChecklistView({ resource, seedItems, contentRef, persistKey }: { resource: Resource; seedItems?: { id: string; text: string }[]; contentRef?: React.MutableRefObject<(() => { id: string; text: string }[]) | null>; persistKey?: string }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState(() => {
     const persisted = persistKey ? getResourceContent<{ items: typeof CHECKLIST_ITEMS_MOCK }>(persistKey) : undefined;
     if (persisted?.items) return persisted.items;
@@ -1977,8 +1984,8 @@ export function ChecklistView({ resource, seedItems, contentRef, persistKey }: {
       <div style={{ maxWidth:720, margin:'0 auto' }}>
         <div style={{ marginBottom:20, padding:'16px 20px', background:'var(--surface)', borderRadius:'var(--radius)', border:'1px solid var(--border)' }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:10 }}>
-            <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Progression</p>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--text-2)' }}>{done}/{items.length} complétés · {progress}%</span>
+            <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.progress')}</p>
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--text-2)' }}>{t('resourceDetail.checklistProgress', { done, total: items.length, progress })}</span>
           </div>
           <SFBar value={progress} height={6} />
         </div>
@@ -2005,10 +2012,10 @@ export function ChecklistView({ resource, seedItems, contentRef, persistKey }: {
           <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', background:'var(--surface)', borderRadius:10, border:'1px dashed var(--border-2)' }}>
             <SFIcon name="plus" size={16} color="var(--text-3)" />
             <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') addItem(); }}
-              placeholder="Ajouter un élément..."
+              placeholder={t('resourceDetail.addItemPlaceholder')}
               style={{ flex:1, background:'transparent', border:'none', color:'var(--text)', fontSize:13, outline:'none', fontFamily:'var(--ff-text)' }}
             />
-            {newItem.trim() && <button onClick={addItem} style={{ padding:'4px 10px', borderRadius:7, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, cursor:'pointer' }}>Ajouter</button>}
+            {newItem.trim() && <button onClick={addItem} style={{ padding:'4px 10px', borderRadius:7, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, cursor:'pointer' }}>{t('resourceDetail.add')}</button>}
           </div>
         </div>
       </div>
@@ -2040,9 +2047,9 @@ function getCustomDocThemeCss(): string {
           .doc-editor strong{font-weight:700}.doc-editor em{font-style:italic}`;
 }
 
-const DOC_THEMES: Record<DocTheme, { label: string; headingFont: string; bodyFont: string; css: string }> = {
+const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; bodyFont: string; css: string }> = {
   standard: {
-    label: 'Standard', headingFont: 'Montserrat', bodyFont: 'Georgia',
+    labelKey: 'resourceDetail.themeStandard', headingFont: 'Montserrat', bodyFont: 'Georgia',
     css: `.doc-editor h1{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:700;color:#111;margin:24px 0 10px;line-height:1.3}
           .doc-editor h2{font-family:'Montserrat',sans-serif;font-size:19px;font-weight:600;color:#222;margin:20px 0 8px;line-height:1.3}
           .doc-editor h3{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:#444;margin:14px 0 5px;text-transform:uppercase;letter-spacing:0.05em}
@@ -2053,7 +2060,7 @@ const DOC_THEMES: Record<DocTheme, { label: string; headingFont: string; bodyFon
           .doc-editor strong{font-weight:700}.doc-editor em{font-style:italic}`,
   },
   moderne: {
-    label: 'Moderne', headingFont: 'Montserrat', bodyFont: 'Montserrat',
+    labelKey: 'resourceDetail.themeModern', headingFont: 'Montserrat', bodyFont: 'Montserrat',
     css: `.doc-editor h1{font-family:'Montserrat',sans-serif;font-size:34px;font-weight:900;color:#000;margin:32px 0 14px;line-height:1.05;letter-spacing:-0.03em}
           .doc-editor h2{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:#000;margin:24px 0 8px;text-transform:uppercase;letter-spacing:0.14em;border-bottom:2px solid #000;padding-bottom:5px}
           .doc-editor h3{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:600;color:#333;margin:16px 0 5px}
@@ -2064,7 +2071,7 @@ const DOC_THEMES: Record<DocTheme, { label: string; headingFont: string; bodyFon
           .doc-editor strong{font-weight:700}.doc-editor em{font-style:italic}`,
   },
   classique: {
-    label: 'Classique', headingFont: 'Georgia', bodyFont: 'Georgia',
+    labelKey: 'resourceDetail.themeClassic', headingFont: 'Georgia', bodyFont: 'Georgia',
     css: `.doc-editor h1{font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:bold;font-style:italic;color:#1c1208;margin:28px 0 6px;line-height:1.25;letter-spacing:0.01em;border-bottom:1px solid #c4aa6e;padding-bottom:10px}
           .doc-editor h2{font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:bold;color:#1c1208;margin:22px 0 8px;line-height:1.3}
           .doc-editor h3{font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;font-style:italic;color:#4a3f20;margin:16px 0 5px}
@@ -2093,6 +2100,7 @@ function saveCustomStyles(styles: CustomStyle[]) {
 }
 
 export function DocumentView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedHTML, contentRef, persistKey }: { resource: Resource; seedHTML?: string; persistKey?: string; contentRef?: React.MutableRefObject<(() => string) | null> } & EditableProps) {
+  const { t } = useTranslation();
   // Contenu persisté par ressource (corps HTML + commentaires). Absent en mode
   // modèle (persistKey non fourni) — on retombe alors sur seedHTML / mock.
   const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[] }>(persistKey) : undefined;
@@ -2494,14 +2502,14 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
       {showToc && (
         <div style={{ width:220, flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', background:'var(--surface)', overflow:'hidden' }}>
           <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Table des matières</span>
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.documentView.tableOfContents')}</span>
             <button onClick={()=>setShowToc(false)} style={{ display:'flex', background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', padding:2 }}>
               <SFIcon name="x" size={12} />
             </button>
           </div>
           <div style={{ flex:1, overflow:'auto', padding:'8px 0' }}>
             {toc.length === 0
-              ? <p style={{ padding:'16px 14px', fontSize:11, color:'var(--text-3)', fontStyle:'italic', lineHeight:1.5 }}>Les titres apparaîtront ici automatiquement.</p>
+              ? <p style={{ padding:'16px 14px', fontSize:11, color:'var(--text-3)', fontStyle:'italic', lineHeight:1.5 }}>{t('resourceDetail.documentView.tocEmpty')}</p>
               : toc.map(entry => (
                 <button key={entry.id} onClick={() => scrollToHeading(entry.id)}
                   style={{
@@ -2536,19 +2544,19 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
             </button>
           )}
           {/* Block format */}
-          {([['p','Paragraphe'],['h1','Titre 1'],['h2','Titre 2'],['h3','Titre 3']] as [string,string][]).map(([tag,label]) => (
-            <button key={tag} title={label} onMouseDown={e=>{ e.preventDefault(); exec('formatBlock',tag); }}
+          {([['p','resourceDetail.documentView.formatParagraph'],['h1','resourceDetail.documentView.formatHeading1'],['h2','resourceDetail.documentView.formatHeading2'],['h3','resourceDetail.documentView.formatHeading3']] as [string,string][]).map(([tag,key]) => (
+            <button key={tag} title={t(key)} onMouseDown={e=>{ e.preventDefault(); exec('formatBlock',tag); }}
               style={{ padding:'4px 9px', borderRadius:6, border:'none', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontWeight: tag!=='p' ? 700 : 400, fontSize: tag==='h1'?15:tag==='h2'?13:tag==='h3'?12:12 }}
-            >{label}</button>
+            >{t(key)}</button>
           ))}
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
-          {fmtBtn('bold','bold','Gras')}
-          {fmtBtn('italic','italic','Italique')}
-          {fmtBtn('underline','underline','Souligné')}
-          {fmtBtn('strikeThrough','strikethrough','Barré')}
+          {fmtBtn('bold','bold','resourceDetail.documentView.formatBold')}
+          {fmtBtn('italic','italic','resourceDetail.documentView.formatItalic')}
+          {fmtBtn('underline','underline','resourceDetail.documentView.formatUnderline')}
+          {fmtBtn('strikeThrough','strikethrough','resourceDetail.documentView.formatStrikethrough')}
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
-          {fmtBtn('insertUnorderedList','list','Liste à puces')}
-          {fmtBtn('insertOrderedList','list-ordered','Liste numérotée')}
+          {fmtBtn('insertUnorderedList','list','resourceDetail.documentView.formatBulletList')}
+          {fmtBtn('insertOrderedList','list-ordered','resourceDetail.documentView.formatNumberedList')}
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 4px' }} />
           {[['justifyLeft','align-left'],['justifyCenter','align-center'],['justifyRight','align-right'],['justifyFull','align-justify']].map(([cmd,icon]) => fmtBtn(cmd,icon,cmd))}
 
@@ -2564,7 +2572,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
             {showStyleMenu && (
               <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, minWidth:200, padding:'6px 0', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
                 {/* Section 1 — Thème */}
-                <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Thème</div>
+                <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{t('resourceDetail.documentView.themeSection')}</div>
                 {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, t]) => (
                   <button key={key}
                     onMouseDown={e=>{ e.preventDefault(); setTheme(key); setShowStyleMenu(false); }}
@@ -2579,7 +2587,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
                 {customStyles.length > 0 && (
                   <>
                     <div style={{ height:1, background:'var(--border)', margin:'5px 0' }} />
-                    <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Styles personnalisés</div>
+                    <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{t('resourceDetail.documentView.customStylesSection')}</div>
                     {customStyles.map(s => (
                       <div key={s.id} style={{ display:'flex', alignItems:'center', gap:0, width:'100%', boxSizing:'border-box' }}
                         onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background='var(--surface-3)'; const btn = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('[data-edit-btn]'); if (btn) btn.style.opacity='1'; }}
@@ -2607,7 +2615,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
                   onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
                   onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
                   <SFIcon name="plus" size={12} color="var(--accent)" />
-                  <span style={{ color:'var(--accent)' }}>Créer un style…</span>
+                  <span style={{ color:'var(--accent)' }}>{t('resourceDetail.documentView.createStyle')}</span>
                 </button>
               </div>
             )}
@@ -2621,16 +2629,16 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
             <button onClick={zoomIn} disabled={zoom>=2}
               style={{ padding:'3px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', fontSize:13, lineHeight:1, display:'flex', alignItems:'center' }}>+</button>
             <div style={{ width:1, height:18, background:'var(--border)', margin:'0 6px' }} />
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{wordCount} mots</span>
-            <button onClick={toggleDictation} title={dictating ? 'Arrêter la dictée' : 'Dicter (voix → texte)'}
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{t('resourceDetail.documentView.wordCount', { count: wordCount })}</span>
+            <button onClick={toggleDictation} title={dictating ? t('resourceDetail.documentView.stopDictation') : t('resourceDetail.documentView.startDictation')}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:9, border: dictating ? '1px solid var(--accent)' : '1px solid transparent', background: dictating ? 'var(--accent)' : 'var(--surface-3)', cursor:'pointer', flexShrink:0, transition:'background 0.15s, border-color 0.15s', animation: dictating ? 'mic-pulse 1.4s ease-in-out infinite' : 'none', marginLeft:4 }}>
               <SFIcon name="mic" size={13} color={dictating ? 'var(--on-accent)' : 'var(--text-3)'} />
             </button>
-            <button onClick={() => setDarkPage(p => !p)} title={darkPage ? 'Mode clair' : 'Mode sombre'}
+            <button onClick={() => setDarkPage(p => !p)} title={darkPage ? t('resourceDetail.documentView.lightMode') : t('resourceDetail.documentView.darkMode')}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
               <SFIcon name={darkPage ? 'sun' : 'moon'} size={12} />
             </button>
-            <button onClick={()=>setShowComments(s=>!s)} title="Ouvrir le panneau" style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', background: showComments ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', cursor:'pointer', marginLeft:4 }}>
+            <button onClick={()=>setShowComments(s=>!s)} title={t('resourceDetail.documentView.openCommentsPanel')} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', background: showComments ? 'var(--surface-2)' : 'transparent', color:'var(--text-2)', cursor:'pointer', marginLeft:4 }}>
               <SFIcon name="panel-right" size={14} />
             </button>
           </div>
@@ -2640,7 +2648,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
         {showStyleForm && (
           <div style={{ padding:'6px 12px', borderBottom:'1px solid var(--border)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:6, flexShrink:0, flexWrap:'nowrap', overflowX:'auto' }}>
             <input value={newStyle.name} onChange={e=>setNewStyle(p=>({...p,name:e.target.value}))}
-              placeholder="Nom du style"
+              placeholder={t('resourceDetail.styleForm.styleName')}
               style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none', width:110, flexShrink:0 }} />
             <div style={{ width:1, height:16, background:'var(--border)', flexShrink:0 }} />
             <select value={newStyle.fontFamily} onChange={e=>setNewStyle(p=>({...p,fontFamily:e.target.value}))}
@@ -2653,36 +2661,36 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               style={{ padding:'4px 6px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, outline:'none', width:52, flexShrink:0, textAlign:'center' }} />
             <select value={newStyle.fontWeight} onChange={e=>setNewStyle(p=>({...p,fontWeight:e.target.value}))}
               style={{ padding:'4px 6px', borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:11, outline:'none', colorScheme:'dark', cursor:'pointer', flexShrink:0 }}>
-              {[['300','Léger'],['400','Normal'],['600','Semi-gras'],['700','Gras'],['900','Extra gras']].map(([v,l])=>(
-                <option key={v} value={v}>{l}</option>
+              {[['300','resourceDetail.styleForm.weightLight'],['400','resourceDetail.styleForm.weightNormal'],['600','resourceDetail.styleForm.weightSemiBold'],['700','resourceDetail.styleForm.weightBold'],['900','resourceDetail.styleForm.weightExtraBold']].map(([v,k])=>(
+                <option key={v} value={v}>{t(k)}</option>
               ))}
             </select>
-            <button onClick={()=>setNewStyle(p=>({...p,fontStyle:p.fontStyle==='italic'?'normal':'italic'}))} title="Italique"
+            <button onClick={()=>setNewStyle(p=>({...p,fontStyle:p.fontStyle==='italic'?'normal':'italic'}))} title={t('resourceDetail.documentView.formatItalic')}
               style={{ padding:'4px 8px', borderRadius:6, border:`1px solid ${newStyle.fontStyle==='italic'?'var(--accent)':'var(--border-2)'}`, background: newStyle.fontStyle==='italic'?'rgba(249,255,0,0.07)':'var(--surface)', color:newStyle.fontStyle==='italic'?'var(--accent)':'var(--text-2)', fontSize:12, fontStyle:'italic', cursor:'pointer', flexShrink:0 }}>I</button>
-            <input type="color" value={newStyle.color} onChange={e=>setNewStyle(p=>({...p,color:e.target.value}))} title="Couleur"
+            <input type="color" value={newStyle.color} onChange={e=>setNewStyle(p=>({...p,color:e.target.value}))} title={t('resourceDetail.styleForm.colorLabel')}
               style={{ width:28, height:26, borderRadius:6, border:'1px solid var(--border-2)', background:'var(--surface)', padding:2, cursor:'pointer', flexShrink:0 }} />
             <div style={{ width:1, height:16, background:'var(--border)', flexShrink:0 }} />
             {/* Preview */}
             <div style={{ flex:1, padding:'3px 10px', borderRadius:6, background:'white', border:'1px solid var(--border-2)', minWidth:80, overflow:'hidden', whiteSpace:'nowrap' }}>
               <span style={{ fontFamily:newStyle.fontFamily, fontSize:Math.min(newStyle.fontSize,13), fontWeight:newStyle.fontWeight, fontStyle:newStyle.fontStyle, color:newStyle.color }}>
-                {newStyle.name || 'Aperçu'}
+                {newStyle.name || t('resourceDetail.styleForm.previewFallback')}
               </span>
             </div>
             <div style={{ width:1, height:16, background:'var(--border)', flexShrink:0 }} />
             {/* Save */}
-            <button onClick={createStyle} title={editingStyleId !== null ? 'Enregistrer les modifications' : 'Créer le style'}
+            <button onClick={createStyle} title={editingStyleId !== null ? t('resourceDetail.styleForm.saveModifications') : t('resourceDetail.styleForm.createNew')}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, border:'none', background:'var(--accent)', color:'var(--on-accent)', cursor:'pointer', flexShrink:0 }}>
               <SFIcon name="check" size={14} />
             </button>
             {/* Delete */}
             {editingStyleId !== null && (
-              <button onClick={deleteEditingStyle} title="Supprimer ce style"
+              <button onClick={deleteEditingStyle} title={t('resourceDetail.styleForm.deleteStyle')}
                 style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', cursor:'pointer', flexShrink:0 }}>
                 <SFIcon name="trash-2" size={13} />
               </button>
             )}
             {/* Close */}
-            <button onClick={()=>{ setShowStyleForm(false); setEditingStyleId(null); }} title="Fermer"
+            <button onClick={()=>{ setShowStyleForm(false); setEditingStyleId(null); }} title={t('resourceDetail.styleForm.closeButton')}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, border:'1px solid var(--border-2)', background:'transparent', color:'var(--text-3)', cursor:'pointer', flexShrink:0 }}>
               <SFIcon name="x" size={13} />
             </button>
@@ -2710,7 +2718,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
         {/* Status bar */}
         <div style={{ padding:'4px 16px', borderTop:'1px solid var(--border)', background:'var(--surface)', display:'flex', gap:16, flexShrink:0 }}>
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>Édition en direct</span>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{t('resourceDetail.documentView.editLiveTitle')}</span>
           <div style={{ marginLeft:'auto' }}>
             <SaveIndicator state={saveState} online={online} />
           </div>
@@ -2726,7 +2734,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               <button key={tab} onClick={() => setRightTab(tab)}
                 style={{ flex:1, padding:'9px 6px', border:'none', background:'transparent', cursor:'pointer', fontSize:11, fontWeight: rightTab===tab ? 700 : 400, color: rightTab===tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab===tab ? '2px solid var(--accent)' : '2px solid transparent', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'var(--ff-text)', transition:'color 0.1s' }}>
                 <SFIcon name={tab==='comments' ? 'message-circle' : 'sparkles'} size={12} color={rightTab===tab ? 'var(--accent)' : 'var(--text-3)'} />
-                {tab==='comments' ? `Commentaires (${comments.length})` : 'IA'}
+                {tab==='comments' ? t('activity.comments') + ` (${comments.length})` : 'IA'}
               </button>
             ))}
           </div>
@@ -2756,15 +2764,15 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               </div>
               {pendingAnchorId && (
                 <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border)', background:'var(--surface-2)' }}>
-                  <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Nouveau commentaire</div>
+                  <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>{t('resourceDetail.commentsPanel.newCommentLabel')}</div>
                   <textarea ref={newCommentRef} value={newCommentText} onChange={e=>setNewCommentText(e.target.value)}
                     onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submitComment(); } if(e.key==='Escape') cancelComment(); }}
-                    placeholder="Votre commentaire… (Entrée pour valider)" rows={3}
+                    placeholder={t('resourceDetail.commentsPanel.commentPlaceholder')} rows={3}
                     style={{ width:'100%', padding:'7px 10px', borderRadius:9, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', fontFamily:'var(--ff-text)', colorScheme:'dark' as any, resize:'none', boxSizing:'border-box' }}
                   />
                   <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                    <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>Valider</button>
-                    <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)' }}>Annuler</button>
+                    <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.commentsPanel.submitButton')}</button>
+                    <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.commentsPanel.cancelButton')}</button>
                   </div>
                 </div>
               )}
@@ -2802,7 +2810,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               {/* Quick actions — only when no messages */}
               {aiMessages.length === 0 && (
                 <div style={{ padding:'8px', borderBottom:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:3, flexShrink:0 }}>
-                  <p style={{ fontSize:9, color:'var(--text-3)', fontFamily:'var(--ff-mono)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:3, paddingLeft:2 }}>Actions rapides</p>
+                  <p style={{ fontSize:9, color:'var(--text-3)', fontFamily:'var(--ff-mono)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:3, paddingLeft:2 }}>{t('resourceDetail.aiPanel.quickActions')}</p>
                   {AI_QUICK_ACTIONS.map(qa => (
                     <button key={qa.label} onClick={() => sendAiMessage(qa.prompt)}
                       style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', textAlign:'left', fontSize:11, color:'var(--text-2)', cursor:'pointer', fontFamily:'var(--ff-text)' }}
@@ -2822,7 +2830,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
                     <div style={{ width:34, height:34, borderRadius:'50%', background:'rgba(249,255,0,0.10)', border:'1px solid rgba(249,255,0,0.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                       <SFIcon name="sparkles" size={15} color="var(--accent)" />
                     </div>
-                    <p style={{ fontSize:11, color:'var(--text-3)', lineHeight:1.5 }}>Demande-moi de structurer, continuer ou améliorer ce document.</p>
+                    <p style={{ fontSize:11, color:'var(--text-3)', lineHeight:1.5 }}>{t('resourceDetail.aiPanel.emptyStateMessage')}</p>
                   </div>
                 )}
                 {aiMessages.map((m, i) => (
@@ -2853,13 +2861,13 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
               {/* Input row */}
               <div style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 9px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
-                <button onClick={toggleAiListening} title={aiListening ? 'Arrêter la dictée' : 'Dicter'}
+                <button onClick={toggleAiListening} title={aiListening ? t('resourceDetail.aiPanel.stopDictationButton') : t('resourceDetail.aiPanel.startDictationButton')}
                   style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:9, border: aiListening ? '1px solid var(--accent)' : '1px solid transparent', background: aiListening ? 'var(--accent)' : 'var(--surface-3)', cursor:'pointer', flexShrink:0, transition:'background 0.15s, border-color 0.15s', animation: aiListening ? 'mic-pulse 1.4s ease-in-out infinite' : 'none' }}>
                   <SFIcon name="mic" size={13} color={aiListening ? 'var(--on-accent)' : 'var(--text-3)'} />
                 </button>
                 <input ref={aiInputRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
                   onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
-                  placeholder="Demande quelque chose…"
+                  placeholder={t('resourceDetail.aiPanel.inputPlaceholder')}
                   style={{ flex:1, padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none' }}
                 />
                 <button onClick={() => sendAiMessage()} disabled={!aiInput.trim() || aiLoading}
@@ -2875,16 +2883,16 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
       {/* Floating format bubble */}
       {selRect && selRect.width > 0 && (
         <div style={{ position:'fixed', top:selRect.top-46, left:Math.max(10,selRect.left+selRect.width/2-105), background:'var(--surface-3)', border:'1px solid var(--border)', borderRadius:10, padding:'5px 8px', display:'flex', gap:2, zIndex:200, boxShadow:'0 6px 24px rgba(0,0,0,0.5)' }}>
-          {fmtBtn('bold','bold','Gras')}
-          {fmtBtn('italic','italic','Italique')}
-          {fmtBtn('underline','underline','Souligné')}
-          {fmtBtn('strikeThrough','strikethrough','Barré')}
+          {fmtBtn('bold','bold','resourceDetail.documentView.formatBold')}
+          {fmtBtn('italic','italic','resourceDetail.documentView.formatItalic')}
+          {fmtBtn('underline','underline','resourceDetail.documentView.formatUnderline')}
+          {fmtBtn('strikeThrough','strikethrough','resourceDetail.documentView.formatStrikethrough')}
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 2px' }} />
           {[['h1','T1'],['h2','T2'],['p','¶']].map(([tag,lbl])=>(
             <button key={tag} onMouseDown={e=>{e.preventDefault();exec('formatBlock',tag);}} style={{ padding:'4px 7px', borderRadius:6, border:'none', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontWeight:600 }}>{lbl}</button>
           ))}
           <div style={{ width:1, height:18, background:'var(--border)', margin:'0 2px' }} />
-          <button title="Commenter" onMouseDown={e=>{e.preventDefault(); addCommentAnchor();}} style={{ padding:'4px 7px', borderRadius:6, border:'none', cursor:'pointer', background:'transparent', color:'var(--accent)', display:'flex' }}>
+          <button title={t('activity.comments')} onMouseDown={e=>{e.preventDefault(); addCommentAnchor();}} style={{ padding:'4px 7px', borderRadius:6, border:'none', cursor:'pointer', background:'transparent', color:'var(--accent)', display:'flex' }}>
             <SFIcon name="message-square" size={14} />
           </button>
         </div>
@@ -2907,6 +2915,7 @@ function getAutoThumb(url: string): string | null {
 }
 
 function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+  const { t } = useTranslation();
   const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[] }>(persistKey) : undefined;
   const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? INITIAL_INSPI);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -2934,8 +2943,8 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
       {/* Left: reference grid */}
       <div style={{ flex:1, overflow:'auto', padding:'20px 24px' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-          <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Références visuelles ({items.length})</p>
-          <SFButton variant="primary" size="sm" icon="plus" onClick={addItem}>Ajouter</SFButton>
+          <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.inspirationsView.referencesHeader', { count: items.length })}</p>
+          <SFButton variant="primary" size="sm" icon="plus" onClick={addItem}>{t('resourceDetail.inspirationsView.addButton')}</SFButton>
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -2954,7 +2963,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
               {/* Thumbnail — petite vignette fixe à gauche */}
               <div
                 onClick={() => href && window.open(href, '_blank', 'noreferrer')}
-                title={href ? `Ouvrir ${item.url}` : undefined}
+                title={href ? t('resourceDetail.inspirationsView.openUrlTitle', { url: item.url }) : undefined}
                 style={{ width:88, flexShrink:0, background:item.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
               >
                 {thumbSrc
@@ -2985,7 +2994,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                   />
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                    title={isExpanded ? 'Masquer likes/évite' : 'Voir likes/évite'}
+                    title={isExpanded ? t('resourceDetail.inspirationsView.hideLikesAvoids') : t('resourceDetail.inspirationsView.showLikesAvoids')}
                     style={{ flexShrink:0, padding:'2px 5px', borderRadius:5, border:`1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'}`, background: isExpanded ? 'rgba(249,255,0,0.08)' : 'transparent', color: isExpanded ? 'var(--accent)' : 'var(--text-3)', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:9, fontFamily:'var(--ff-mono)' }}
                   >
                     <SFIcon name="thumbs-up" size={10} />
@@ -2996,14 +3005,14 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                   <input
                     value={item.url}
                     onChange={e => updateItem(item.id, { url: e.target.value })}
-                    placeholder="URL source…"
+                    placeholder={t('resourceDetail.inspirationsView.urlPlaceholder')}
                     style={{ flex:1, background:'transparent', border:'none', color:'var(--text-3)', fontSize:10, fontFamily:'var(--ff-mono)', outline:'none', minWidth:0 }}
                   />
                 </div>
                 <textarea
                   value={item.notes}
                   onChange={e => updateItem(item.id, { notes: e.target.value })}
-                  placeholder="Notes, impressions…"
+                  placeholder={t('resourceDetail.inspirationsView.notesPlaceholder')}
                   rows={2}
                   style={{ width:'100%', background:'transparent', border:'none', borderTop:'1px solid var(--border)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', padding:'5px 0 0', outline:'none', resize:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark', marginTop:2 }}
                 />
@@ -3013,12 +3022,12 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                     <div>
                       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
                         <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--ok)', flexShrink:0 }} />
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Ce qui nous plaît</span>
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.inspirationsView.likesHeader')}</span>
                       </div>
                       <textarea
                         value={item.likes ?? ''}
                         onChange={e => updateItem(item.id, { likes: e.target.value })}
-                        placeholder="Éléments inspirants de cette référence…"
+                        placeholder={t('resourceDetail.inspirationsView.likesPlaceholder')}
                         rows={2}
                         style={{ width:'100%', padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', resize:'none', outline:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark' }}
                       />
@@ -3026,12 +3035,12 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
                     <div>
                       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
                         <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--danger)', flexShrink:0 }} />
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Ce qu'on évite</span>
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.inspirationsView.avoidsHeader')}</span>
                       </div>
                       <textarea
                         value={item.avoids ?? ''}
                         onChange={e => updateItem(item.id, { avoids: e.target.value })}
-                        placeholder="Éléments à ne pas reproduire…"
+                        placeholder={t('resourceDetail.inspirationsView.avoidsPlaceholder')}
                         rows={2}
                         style={{ width:'100%', padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', resize:'none', outline:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark' }}
                       />
@@ -3050,7 +3059,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border-2)'; (e.currentTarget as HTMLElement).style.color='var(--text-3)'; }}
           >
             <SFIcon name="plus" size={20} />
-            <span style={{ fontSize:11, fontFamily:'var(--ff-text)' }}>Ajouter</span>
+            <span style={{ fontSize:11, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.inspirationsView.addButton')}</span>
           </button>
         </div>
       </div>
@@ -3064,6 +3073,7 @@ function InspirationsView({ resource, persistKey }: { resource: Resource; persis
 // ── Resource topbar ───────────────────────────────────────────────────────────
 
 function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport, onFullscreen, isFullscreen }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: (f: ExportFormat) => void; onFullscreen?: () => void; isFullscreen?: boolean }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
@@ -3121,7 +3131,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
 
   if (collapsed) return (
     <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', padding:'5px 14px', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-      <button onClick={() => navigate(-1)} title="Retour" style={{ width:28, height:28, borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+      <button onClick={() => navigate(-1)} title={t('resourceDetail.header.backButton')} style={{ width:28, height:28, borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
         <SFIcon name="arrow-left" size={14} color="var(--text-2)" />
       </button>
       <div style={{ width:24, height:24, borderRadius:6, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -3130,11 +3140,11 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
       <span style={{ fontFamily:'var(--ff-text)', fontSize:13, fontWeight:600, color:'var(--text)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{resource.title}</span>
       <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
       {onFullscreen && (
-        <button onClick={onFullscreen} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
+        <button onClick={onFullscreen} title={isFullscreen ? t('resourceDetail.header.exitFullscreen') : t('resourceDetail.header.enterFullscreen')} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
           <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={12} />
         </button>
       )}
-      <button onClick={() => setCollapsed(false)} title="Déployer l'en-tête" style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
+      <button onClick={() => setCollapsed(false)} title={t('resourceDetail.header.expandHeader')} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6 }}>
         <SFIcon name="chevron-down" size={12} />
       </button>
     </div>
@@ -3147,7 +3157,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
         {/* Back button — always present */}
         <button
           onClick={() => navigate(-1)}
-          title="Retour"
+          title={t('resourceDetail.header.backButton')}
           style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.12s, border-color 0.12s' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-3)'; e.currentTarget.style.borderColor = 'var(--border-2)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
@@ -3172,7 +3182,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             ) : (
               <h2
                 onClick={() => setEditingTitle(true)}
-                title="Cliquer pour renommer"
+                title={t('resourceDetail.header.clickToRename')}
                 style={{ fontSize:15, fontWeight:700, cursor:'text', display:'inline-flex', alignItems:'center', gap:6, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
               >
                 {resource.title}
@@ -3192,7 +3202,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             ) : (
               <p
                 onClick={() => setEditingDesc(true)}
-                title="Cliquer pour modifier la description"
+                title={t('resourceDetail.header.clickToEditDescription')}
                 style={{ fontSize:11, color: descVal ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:1, fontStyle: descVal ? 'normal' : 'italic', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
               >
                 {descVal || 'Ajouter une description...'}
@@ -3207,13 +3217,13 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
         <div style={{ display:'flex', gap:8, alignItems:'center', position:'relative', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', background:'var(--surface-2)', borderRadius:8, border:'1px solid var(--border)' }}>
             <SFIcon name={TYPE_ICON[resource.type]} size={13} color="var(--text-3)" />
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{TYPE_LABEL[resource.type]}</span>
+            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{t(TYPE_LABEL_KEY[resource.type] ?? '')}</span>
           </div>
           {/* Status — clickable dropdown */}
           <button
             onClick={() => setDropOpen(o => !o)}
             style={{ background:'none', border:'none', padding:0, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}
-            title="Changer le statut"
+            title={t('resourceDetail.header.changeStatus')}
           >
             <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
@@ -3252,7 +3262,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
                     onMouseLeave={e => (e.currentTarget.style.background='transparent')}
                   >
                     <SFIcon name="file-text" size={15} color="var(--text-2)" />
-                    <span style={{ fontSize:12, color:'var(--text)' }}>Exporter en PDF</span>
+                    <span style={{ fontSize:12, color:'var(--text)' }}>{t('resourceDetail.header.exportPDF')}</span>
                   </button>
                   <button
                     disabled={!online}
@@ -3262,8 +3272,8 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
                     onMouseLeave={e => (e.currentTarget.style.background='transparent')}
                   >
                     <SFIcon name="file" size={15} color="var(--text-2)" />
-                    <span style={{ fontSize:12, color:'var(--text)' }}>Exporter vers Google Docs</span>
-                    {!online && <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>hors ligne</span>}
+                    <span style={{ fontSize:12, color:'var(--text)' }}>{t('resourceDetail.header.exportGoogleDocs')}</span>
+                    {!online && <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>{t('resourceDetail.header.offline')}</span>}
                   </button>
                 </div>
               )}
@@ -3271,14 +3281,14 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
           ) : (
             <SFButton variant="ghost" size="sm" icon="download" onClick={() => onExport?.('pdf')}>Exporter</SFButton>
           )}
-          <SFButton variant="ghost" size="sm" icon={linkCopied ? 'check' : 'share-2'} onClick={shareLink}>{linkCopied ? 'Lien copié' : 'Partager'}</SFButton>
+          <SFButton variant="ghost" size="sm" icon={linkCopied ? 'check' : 'share-2'} onClick={shareLink}>{linkCopied ? t('resourceDetail.header.linkCopied') : t('resourceDetail.header.share')}</SFButton>
           <RequestApprovalButton resource={resource} projectId={project?.id} onStatusChange={onStatusChange} />
           {onFullscreen && (
-            <button onClick={onFullscreen} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
+            <button onClick={onFullscreen} title={isFullscreen ? t('resourceDetail.header.exitFullscreen') : t('resourceDetail.header.enterFullscreen')} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
               <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={12} />
             </button>
           )}
-          <button onClick={() => setCollapsed(true)} title="Réduire l'en-tête" style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
+          <button onClick={() => setCollapsed(true)} title={t('resourceDetail.header.collapseHeader')} style={{ background:'none', border:'1px solid var(--border)', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:'3px 6px', borderRadius:6, flexShrink:0 }}>
             <SFIcon name="chevron-up" size={12} />
           </button>
         </div>
@@ -3368,6 +3378,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   onSaveTemplate?: (q: FormQuestion[]) => void;
   persistKey?: string;
 }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'build' | 'preview' | 'responses'>('build');
   const _formPersisted = persistKey ? getResourceContent<{ questions: FormQuestion[] }>(persistKey) : undefined;
   const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? INIT_FORM_QUESTIONS);
@@ -3659,10 +3670,10 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 <div style={{ height:4, background:'var(--surface-3)' }} />
                 <div style={{ padding:'12px 14px', background:'var(--surface)' }}>
                   <input value={formTitle} onChange={e => setFormTitle(e.target.value)}
-                    placeholder="Titre du formulaire"
+                    placeholder={t('resourceDetail.formView.formTitlePlaceholder')}
                     style={{ width:'100%', background:'transparent', border:'none', outline:'none', fontSize:14, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-display)' }} />
                   <input value={formDesc} onChange={e => setFormDesc(e.target.value)}
-                    placeholder="Description (optionnelle)"
+                    placeholder={t('resourceDetail.formView.formDescriptionPlaceholder')}
                     style={{ width:'100%', background:'transparent', border:'none', outline:'none', fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', marginTop:4 }} />
                 </div>
               </div>
@@ -3698,7 +3709,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 <button onClick={() => setShowTypeMenu(showTypeMenu ? null : 'main')}
                   style={{ ...btnBase, width:'100%', background:'var(--surface-2)', color:'var(--text-2)', border:'1.5px dashed var(--border-2)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginTop:4 }}>
                   <SFIcon name="plus" size={13} />
-                  Ajouter une question
+                  {t('resourceDetail.formView.addQuestionButton')}
                 </button>
                 {showTypeMenu && (
                   <div style={{ position:'absolute', left:0, right:0, top:'calc(100% + 4px)', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:10, zIndex:50, boxShadow:'0 8px 24px rgba(0,0,0,0.3)', overflow:'hidden' }}>
@@ -3731,10 +3742,10 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                     {selectedQuestion.type === 'section' ? (
                       <>
                         <input value={selectedQuestion.title} onChange={e => updateQ(selectedQuestion.id, { title: e.target.value })}
-                          placeholder="Titre de la section"
+                          placeholder={t('resourceDetail.formView.sectionTitlePlaceholder')}
                           style={{ width:'100%', background:'transparent', border:'none', borderBottom:'2px solid var(--border-2)', outline:'none', fontSize:22, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', paddingBottom:8, marginBottom:12 }} />
                         <input value={selectedQuestion.description} onChange={e => updateQ(selectedQuestion.id, { description: e.target.value })}
-                          placeholder="Description de la section (optionnelle)"
+                          placeholder={t('resourceDetail.formView.sectionDescriptionPlaceholder')}
                           style={{ width:'100%', background:'transparent', border:'none', outline:'none', fontSize:14, color:'var(--text-2)', fontFamily:'var(--ff-text)' }} />
                       </>
                     ) : (
@@ -3742,7 +3753,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                         {/* Title row */}
                         <div style={{ display:'flex', gap:12, marginBottom:12, alignItems:'flex-start' }}>
                           <input value={selectedQuestion.title} onChange={e => updateQ(selectedQuestion.id, { title: e.target.value })}
-                            placeholder="Intitulé de la question"
+                            placeholder={t('resourceDetail.formView.questionLabelPlaceholder')}
                             style={{ flex:1, background:'transparent', border:'none', borderBottom:'2px solid var(--border-2)', outline:'none', fontSize:18, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-display)', paddingBottom:8 }}
                             onFocus={e => (e.currentTarget.style.borderBottomColor=accent)}
                             onBlur={e => (e.currentTarget.style.borderBottomColor='var(--border-2)')} />
@@ -3774,16 +3785,16 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
 
                         {/* Description */}
                         <input value={selectedQuestion.description} onChange={e => updateQ(selectedQuestion.id, { description: e.target.value })}
-                          placeholder="Description ou aide à la réponse (optionnelle)"
+                          placeholder={t('resourceDetail.formView.questionHelpPlaceholder')}
                           style={{ width:'100%', background:'transparent', border:'none', outline:'none', fontSize:13, color:'var(--text-3)', fontFamily:'var(--ff-text)', marginBottom:20 }} />
 
                         {/* Question-type specific preview/edit */}
                         {(selectedQuestion.type==='short') && (
-                          <input readOnly placeholder={selectedQuestion.placeholder||'Réponse courte…'}
+                          <input readOnly placeholder={selectedQuestion.placeholder||t('resourceDetail.formView.shortAnswerFallback')}
                             style={{ width:'100%', padding:'10px 0', border:'none', borderBottom:'1.5px solid var(--border-2)', background:'transparent', color:'var(--text-3)', fontSize:14, fontFamily:'var(--ff-text)', outline:'none' }} />
                         )}
                         {(selectedQuestion.type==='long') && (
-                          <textarea readOnly placeholder={selectedQuestion.placeholder||'Réponse longue…'}
+                          <textarea readOnly placeholder={selectedQuestion.placeholder||t('resourceDetail.formView.longAnswerFallback')}
                             style={{ width:'100%', padding:'10px 0', border:'none', borderBottom:'1.5px solid var(--border-2)', background:'transparent', color:'var(--text-3)', fontSize:14, fontFamily:'var(--ff-text)', outline:'none', resize:'none', height:72 }} />
                         )}
                         {(selectedQuestion.type==='date') && (
@@ -3819,14 +3830,14 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                           <div style={{ marginBottom:8 }}>
                             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                               <input value={selectedQuestion.scaleMinLabel} onChange={e => updateQ(selectedQuestion.id, { scaleMinLabel:e.target.value })}
-                                placeholder="Étiquette min" style={{ background:'transparent', border:'none', borderBottom:'1px solid var(--border-2)', outline:'none', fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', width:120 }} />
+                                placeholder={t('resourceDetail.formView.scaleMinLabelPlaceholder')} style={{ background:'transparent', border:'none', borderBottom:'1px solid var(--border-2)', outline:'none', fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', width:120 }} />
                               <div style={{ display:'flex', gap:4 }}>
                                 {Array.from({length:selectedQuestion.scaleMax-selectedQuestion.scaleMin+1},(_,i)=>selectedQuestion.scaleMin+i).map(n => (
                                   <div key={n} style={{ width:32, height:32, borderRadius:8, border:`1.5px solid var(--border-2)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{n}</div>
                                 ))}
                               </div>
                               <input value={selectedQuestion.scaleMaxLabel} onChange={e => updateQ(selectedQuestion.id, { scaleMaxLabel:e.target.value })}
-                                placeholder="Étiquette max" style={{ background:'transparent', border:'none', borderBottom:'1px solid var(--border-2)', outline:'none', fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', width:120, textAlign:'right' }} />
+                                placeholder={t('resourceDetail.formView.scaleMaxLabelPlaceholder')} style={{ background:'transparent', border:'none', borderBottom:'1px solid var(--border-2)', outline:'none', fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', width:120, textAlign:'right' }} />
                             </div>
                             <div style={{ display:'flex', gap:12, fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>
                               <label>Min : <select value={selectedQuestion.scaleMin} onChange={e=>updateQ(selectedQuestion.id,{scaleMin:+e.target.value})} style={{background:'var(--surface-2)',border:'1px solid var(--border-2)',borderRadius:6,color:'var(--text)',fontSize:12,padding:'2px 6px'}}>{[0,1,2].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
@@ -3852,7 +3863,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                             <button onClick={() => addOption(selectedQuestion.id)}
                               style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', fontSize:13, fontFamily:'var(--ff-text)', padding:'4px 0', marginTop:4 }}>
                               <SFIcon name="plus" size={13} />
-                              Ajouter une option
+                              {t('resourceDetail.formView.addOption')}
                             </button>
                           </div>
                         )}
@@ -4254,6 +4265,7 @@ const MOCK_SHOTLIST: ShotRow[] = [
 interface ScriptScene { id: string; number: number; label: string; }
 
 function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptScenes: ScriptScene[] }) {
+  const { t } = useTranslation();
   const [shots, setShots] = useState<ShotRow[]>(MOCK_SHOTLIST);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -4492,7 +4504,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
                         onFocus={e => (e.target.style.borderColor='var(--border-2)')} onBlur={e => (e.target.style.borderColor='transparent')} />
                     </td>
                     <td style={{ padding:'8px 6px' }}>
-                      <input value={shot.notes} onChange={e => updateShot(shot.id,'notes',e.target.value)} placeholder="Notes…"
+                      <input value={shot.notes} onChange={e => updateShot(shot.id,'notes',e.target.value)} placeholder={t('resourceDetail.screenplayView.shotNotesPlaceholder')}
                         style={{ width:'100%', background:'transparent', border:'1px solid transparent', borderRadius:5, padding:'3px 5px', fontSize:11, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}
                         onFocus={e => (e.target.style.borderColor='var(--border-2)')} onBlur={e => (e.target.style.borderColor='transparent')} />
                     </td>
@@ -4513,7 +4525,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
                       onMouseEnter={e => (e.currentTarget.style.background='var(--surface-2)')}
                       onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
                       <SFIcon name="plus" size={11} color="var(--text-3)" />
-                      <span style={{ fontFamily:'var(--ff-text)', fontSize:10, color:'var(--text-3)' }}>Ajouter un plan</span>
+                      <span style={{ fontFamily:'var(--ff-text)', fontSize:10, color:'var(--text-3)' }}>{t('resourceDetail.screenplayView.addShotButton')}</span>
                     </button>
                   </td>
                 </tr>,
@@ -4527,9 +4539,9 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
                     <SFIcon name="plus-circle" size={13} color="var(--accent)" />
                     <input autoFocus value={newSceneLabel} onChange={e => setNewSceneLabel(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') addScene(); if (e.key === 'Escape') setAddingScene(false); }}
-                      placeholder="Titre de la nouvelle scène…"
+                      placeholder={t('resourceDetail.screenplayView.newSceneTitlePlaceholder')}
                       style={{ flex:1, padding:'5px 9px', borderRadius:7, border:'1px solid var(--accent)', background:'var(--surface-2)', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', outline:'none' }} />
-                    <button onClick={addScene} style={{ padding:'5px 12px', borderRadius:7, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:11, color:'#000', fontWeight:700 }}>Créer</button>
+                    <button onClick={addScene} style={{ padding:'5px 12px', borderRadius:7, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:11, color:'#000', fontWeight:700 }}>{t('resourceDetail.screenplayView.createButton')}</button>
                     <button onClick={() => { setAddingScene(false); setNewSceneLabel(''); }} style={{ padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', color:'var(--text-3)', fontSize:11 }}>✕</button>
                   </div>
                 ) : (
@@ -4538,7 +4550,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
                     onMouseEnter={e => (e.currentTarget.style.background='var(--surface-2)')}
                     onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
                     <SFIcon name="plus" size={12} color="var(--text-3)" />
-                    <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>Nouvelle scène</span>
+                    <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{t('resourceDetail.screenplayView.addSceneButton')}</span>
                   </button>
                 )}
               </td>
@@ -4553,12 +4565,12 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
           onMouseDown={e => { if (e.target === e.currentTarget) setShowSyncModal(false); }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }} />
           <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:16, width:'min(480px,92vw)', padding:28 }}>
-            <h3 style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginBottom:6 }}>Synchroniser avec le script</h3>
+            <h3 style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginBottom:6 }}>{t('resourceDetail.screenplayView.syncModalTitle')}</h3>
             <p style={{ fontSize:13, color:'var(--text-2)', lineHeight:1.6, marginBottom:20 }}>
-              Les scènes détectées dans la version active du script seront importées dans la shotlist. Les plans existants seront conservés.
+              {t('resourceDetail.screenplayView.syncModalDescription')}
             </p>
             <div style={{ background:'var(--surface-2)', borderRadius:10, padding:'12px 14px', marginBottom:20, border:'1px solid var(--border)' }}>
-              <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginBottom:8 }}>SCÈNES DÉTECTÉES</p>
+              <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginBottom:8 }}>{t('resourceDetail.screenplayView.detectedScenesHeader')}</p>
               {scriptScenes.map(s => (
                 <div key={s.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderBottom:'1px solid var(--border)' }}>
                   <SFIcon name="check-circle" size={12} color="var(--ok)" />
@@ -4567,8 +4579,8 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
               ))}
             </div>
             <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
-              <button onClick={() => setShowSyncModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>Annuler</button>
-              <button onClick={() => { setSynced(true); setShowSyncModal(false); }} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:13, color:'#000', fontWeight:700 }}>Synchroniser</button>
+              <button onClick={() => setShowSyncModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>{t('resourceDetail.screenplayView.cancelButton')}</button>
+              <button onClick={() => { setSynced(true); setShowSyncModal(false); }} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:13, color:'#000', fontWeight:700 }}>{t('resourceDetail.screenplayView.syncButton')}</button>
             </div>
           </div>
         </div>
@@ -4621,6 +4633,7 @@ const MOCK_SB_SCENES: SBScene[] = [
 const SB_ASPECT = 16 / 9;
 
 function StoryboardView({ resource, scriptScenes }: { resource: Resource; scriptScenes: ScriptScene[] }) {
+  const { t } = useTranslation();
   const [scenes, setScenes] = useState<SBScene[]>(MOCK_SB_SCENES);
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string>(MOCK_SB_SCENES[0].id);
@@ -4629,11 +4642,19 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiStyle, setAiStyle] = useState<'cinematic' | 'sketch' | 'storyboard' | 'illustration'>('cinematic');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [promptMode, setPromptMode] = useState<'text' | 'draw'>('text');
+  const [sbListening, setSbListening] = useState(false);
+  const [drawColor, setDrawColor] = useState('#ffffff');
+  const [brushSize, setBrushSize] = useState(4);
+  const [isErasing, setIsErasing] = useState(false);
   const [synced, setSynced] = useState(true);
   const [addingScene, setAddingScene] = useState(false);
   const [newSceneLabel, setNewSceneLabel] = useState('');
   const dragShotRef = useRef<{ sceneId: string; shotId: string } | null>(null);
   const [dragOverShot, setDragOverShot] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const sbRecognitionRef = useRef<any>(null);
 
   const updateShot = (sceneId: string, shotId: string, changes: Partial<SBShot>) => {
     setScenes(prev => prev.map(sc => sc.id !== sceneId ? sc : {
@@ -4699,12 +4720,105 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
     setSelectedSceneId(sceneId);
     setAiShotId(shotId);
     setAiPrompt(shot?.aiPrompt || shot?.description || '');
+    setPromptMode('text');
+    setIsErasing(false);
     setShowAIModal(true);
+  };
+
+  // Init canvas dark background whenever draw mode becomes visible
+  useEffect(() => {
+    if (!showAIModal || promptMode !== 'draw') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, [showAIModal, promptMode]);
+
+  const getCanvasPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width)  * canvas.width,
+      y: ((clientY - rect.top)  / rect.height) * canvas.height,
+    };
+  };
+
+  const startDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    isDrawingRef.current = true;
+    const pos = getCanvasPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  };
+
+  const continueDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getCanvasPos(e);
+    ctx.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = isErasing ? 'rgba(0,0,0,1)' : drawColor;
+    ctx.lineWidth   = isErasing ? brushSize * 3 : brushSize;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  };
+
+  const endDraw = () => { isDrawingRef.current = false; };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const toggleSbListening = () => {
+    const SpeechAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SpeechAPI) { alert(t('resourceDetail.storyboardView.speechUnsupported')); return; }
+    if (sbListening) { sbRecognitionRef.current?.stop(); return; }
+    const recognition = new SpeechAPI();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    let final = '';
+    recognition.onstart  = () => setSbListening(true);
+    recognition.onresult = (e: any) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += r; else interim = r;
+      }
+      setAiPrompt(final + interim);
+    };
+    recognition.onend   = () => setSbListening(false);
+    recognition.onerror = () => setSbListening(false);
+    sbRecognitionRef.current = recognition;
+    recognition.start();
   };
 
   const generateImage = () => {
     if (!aiShotId) return;
     setAiGenerating(true);
+    const sketchUrl = promptMode === 'draw' && canvasRef.current ? canvasRef.current.toDataURL('image/png') : null;
     setTimeout(() => {
       const PLACEHOLDER_IMGS = [
         'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=640&h=360&fit=crop',
@@ -4712,8 +4826,9 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
         'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=640&h=360&fit=crop',
         'https://images.unsplash.com/photo-1431274172761-fca41d930114?w=640&h=360&fit=crop',
       ];
-      const url = PLACEHOLDER_IMGS[Math.floor(Math.random() * PLACEHOLDER_IMGS.length)];
-      updateShot(selectedSceneId, aiShotId, { imageUrl: url, aiPrompt });
+      const url = sketchUrl ?? PLACEHOLDER_IMGS[Math.floor(Math.random() * PLACEHOLDER_IMGS.length)];
+      const savedPrompt = promptMode === 'draw' ? `[Croquis] ${aiPrompt}`.trim() : aiPrompt;
+      updateShot(selectedSceneId, aiShotId, { imageUrl: url, aiPrompt: savedPrompt });
       setAiGenerating(false);
       setShowAIModal(false);
     }, 2200);
@@ -4781,10 +4896,10 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
               <div style={{ display:'flex', gap:2 }}>
                 <button onClick={() => moveScene(scene.id, -1)} disabled={sceneIdx === 0}
                   style={{ background:'transparent', border:'none', cursor: sceneIdx === 0 ? 'default' : 'pointer', color: sceneIdx === 0 ? 'var(--border-2)' : 'var(--text-3)', padding:'2px 5px', borderRadius:4, fontSize:11 }}
-                  title="Monter la scène">↑</button>
+                  title={t('resourceDetail.screenplayView.moveSceneUp')}>↑</button>
                 <button onClick={() => moveScene(scene.id, 1)} disabled={sceneIdx === scenes.length - 1}
                   style={{ background:'transparent', border:'none', cursor: sceneIdx === scenes.length - 1 ? 'default' : 'pointer', color: sceneIdx === scenes.length - 1 ? 'var(--border-2)' : 'var(--text-3)', padding:'2px 5px', borderRadius:4, fontSize:11 }}
-                  title="Descendre la scène">↓</button>
+                  title={t('resourceDetail.screenplayView.moveSceneDown')}>↓</button>
               </div>
               <button onClick={() => addShot(scene.id)} style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'#000', fontWeight:700 }}>
                 <SFIcon name="plus" size={11} />Plan
@@ -4905,33 +5020,113 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
         <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', alignItems:'center', justifyContent:'center' }}
           onMouseDown={e => { if (e.target === e.currentTarget && !aiGenerating) setShowAIModal(false); }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(6px)' }} />
-          <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:20, width:'min(560px,92vw)', padding:28 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-              <div style={{ width:34, height:34, borderRadius:10, background:'linear-gradient(135deg,#7c3aed,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:20, width:'min(600px,94vw)', padding:28 }}>
+
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:'linear-gradient(135deg,#7c3aed,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <SFIcon name="sparkles" size={16} color="white" />
               </div>
               <div>
-                <h3 style={{ fontSize:15, fontWeight:700, color:'var(--text)', marginBottom:2 }}>Génération IA</h3>
-                <p style={{ fontSize:11, color:'var(--text-3)' }}>Décrivez le cadre à générer</p>
+                <h3 style={{ fontSize:15, fontWeight:700, color:'var(--text)', marginBottom:2 }}>{t('resourceDetail.storyboardView.aiTitle')}</h3>
+                <p style={{ fontSize:11, color:'var(--text-3)' }}>{t('resourceDetail.storyboardView.aiSubtitle')}</p>
               </div>
               {!aiGenerating && (
-                <button onClick={() => setShowAIModal(false)} style={{ marginLeft:'auto', background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', padding:6 }}>
+                <button onClick={() => setShowAIModal(false)} style={{ marginLeft:'auto', background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', padding:6, flexShrink:0 }}>
                   <SFIcon name="x" size={16} />
                 </button>
               )}
             </div>
 
-            {/* Prompt */}
-            <div style={{ marginBottom:16 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:6 }}>Prompt</label>
-              <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} rows={4} disabled={aiGenerating}
-                placeholder="Ex: Wide shot of a Parisian loft at golden hour, fashion editorial, cinematic lighting, soft shadows…"
-                style={{ width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:10, padding:'10px 12px', fontSize:13, color:'var(--text)', fontFamily:'var(--ff-text)', resize:'vertical', lineHeight:1.5 }} />
+            {/* Mode toggle: Texte | Dessin */}
+            <div style={{ display:'flex', gap:4, marginBottom:16, background:'var(--surface-2)', borderRadius:10, padding:3 }}>
+              {(['text','draw'] as const).map(mode => (
+                <button key={mode} onClick={() => !aiGenerating && setPromptMode(mode)} disabled={aiGenerating}
+                  style={{ flex:1, padding:'7px 0', borderRadius:8, border:'none', cursor: aiGenerating ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+                    fontFamily:'var(--ff-mono)', fontSize:11, fontWeight:600,
+                    background: promptMode===mode ? 'var(--surface-3)' : 'transparent',
+                    color: promptMode===mode ? 'var(--text)' : 'var(--text-3)',
+                    transition:'background .15s, color .15s' }}>
+                  <SFIcon name={mode==='text' ? 'type' : 'pencil'} size={12} />
+                  {mode==='text' ? t('resourceDetail.storyboardView.promptModeText') : t('resourceDetail.storyboardView.promptModeDraw')}
+                </button>
+              ))}
             </div>
+
+            {/* Text mode */}
+            {promptMode === 'text' && (
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:6 }}>
+                  {t('resourceDetail.storyboardView.promptLabel')}
+                </label>
+                <div style={{ position:'relative' }}>
+                  <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} rows={4} disabled={aiGenerating}
+                    placeholder={t('resourceDetail.storyboardView.aiPromptPlaceholder')}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:10, padding:'10px 46px 10px 12px', fontSize:13, color:'var(--text)', fontFamily:'var(--ff-text)', resize:'vertical', lineHeight:1.5 }} />
+                  {/* Mic button */}
+                  <button onClick={toggleSbListening} disabled={aiGenerating}
+                    style={{ position:'absolute', right:8, bottom:8, width:30, height:30, borderRadius:8, border:'none', cursor: aiGenerating ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                      background: sbListening ? 'var(--accent)' : 'var(--surface-3)',
+                      color: sbListening ? 'var(--on-accent)' : 'var(--text-3)', transition:'background .15s' }}
+                    title={sbListening ? t('resourceDetail.storyboardView.stopListening') : t('resourceDetail.storyboardView.dictate')}>
+                    <SFIcon name={sbListening ? 'mic-off' : 'mic'} size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Draw mode */}
+            {promptMode === 'draw' && (
+              <div style={{ marginBottom:16 }}>
+                {/* Drawing toolbar */}
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+                  {/* Color swatches */}
+                  {['#ffffff','#aaaaaa','#555555','#000000','#ef4444','#3b82f6','#22c55e','#f59e0b'].map(color => (
+                    <button key={color} onClick={() => { setDrawColor(color); setIsErasing(false); }} disabled={aiGenerating}
+                      style={{ width:18, height:18, borderRadius:'50%', background:color, padding:0, flexShrink:0, cursor:'pointer',
+                        border: drawColor===color && !isErasing ? '2.5px solid var(--accent)' : '2px solid var(--border-2)',
+                        boxShadow: drawColor===color && !isErasing ? '0 0 0 1.5px var(--surface)' : 'none' }} />
+                  ))}
+                  <div style={{ width:1, height:14, background:'var(--border)', flexShrink:0 }} />
+                  {/* Brush size */}
+                  <input type="range" min={1} max={20} value={brushSize}
+                    onChange={e => setBrushSize(parseInt(e.target.value))}
+                    disabled={aiGenerating}
+                    style={{ width:64, cursor:'pointer', accentColor:'var(--accent)' }} />
+                  <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', minWidth:16, textAlign:'right' }}>{brushSize}px</span>
+                  <div style={{ flex:1 }} />
+                  {/* Eraser */}
+                  <button onClick={() => setIsErasing(!isErasing)} disabled={aiGenerating}
+                    style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:600,
+                      background: isErasing ? 'var(--accent)' : 'var(--surface-2)',
+                      color: isErasing ? 'var(--on-accent)' : 'var(--text-2)' }}>
+                    {t('resourceDetail.storyboardView.eraser')}
+                  </button>
+                  {/* Clear */}
+                  <button onClick={clearCanvas} disabled={aiGenerating}
+                    style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)' }}>
+                    {t('resourceDetail.storyboardView.clearCanvas')}
+                  </button>
+                </div>
+                {/* Canvas 16:9 */}
+                <div style={{ borderRadius:10, overflow:'hidden', border:'1px solid var(--border-2)', cursor: isErasing ? 'cell' : 'crosshair' }}>
+                  <canvas ref={canvasRef} width={544} height={306}
+                    onMouseDown={startDraw} onMouseMove={continueDraw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                    onTouchStart={startDraw} onTouchMove={continueDraw} onTouchEnd={endDraw}
+                    style={{ display:'block', width:'100%', aspectRatio:'16/9', touchAction:'none' }} />
+                </div>
+                {/* Optional text description */}
+                <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} disabled={aiGenerating}
+                  placeholder={t('resourceDetail.storyboardView.sketchDescPlaceholder')}
+                  style={{ marginTop:8, width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:8, padding:'7px 10px', fontSize:12, color:'var(--text)', fontFamily:'var(--ff-text)', outline:'none' }} />
+              </div>
+            )}
 
             {/* Style */}
             <div style={{ marginBottom:22 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:8 }}>Style</label>
+              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:8 }}>
+                {t('resourceDetail.storyboardView.styleLabel')}
+              </label>
               <div style={{ display:'flex', gap:8 }}>
                 {AI_STYLES.map(s => (
                   <button key={s.key} onClick={() => setAiStyle(s.key)} disabled={aiGenerating}
@@ -4948,14 +5143,19 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
                 <div style={{ width:40, height:40, borderRadius:'50%', border:'3px solid var(--border)', borderTop:'3px solid var(--accent)', animation:'spin 1s linear infinite' }}>
                   <style>{'@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}'}</style>
                 </div>
-                <p style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--text-2)' }}>Génération en cours…</p>
+                <p style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--text-2)' }}>{t('resourceDetail.storyboardView.generatingLabel')}</p>
               </div>
             ) : (
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
-                <button onClick={() => setShowAIModal(false)} style={{ padding:'9px 18px', borderRadius:9, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>Annuler</button>
-                <button onClick={generateImage} disabled={!aiPrompt.trim()}
-                  style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 20px', borderRadius:9, border:'none', background: aiPrompt.trim() ? 'linear-gradient(135deg,#7c3aed,#2563eb)' : 'var(--surface-3)', cursor: aiPrompt.trim() ? 'pointer' : 'default', fontSize:13, color:'white', fontWeight:700 }}>
-                  <SFIcon name="sparkles" size={14} />Générer
+                <button onClick={() => setShowAIModal(false)}
+                  style={{ padding:'9px 18px', borderRadius:9, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>
+                  {t('resourceDetail.storyboardView.cancelButton')}
+                </button>
+                <button onClick={generateImage} disabled={promptMode==='text' && !aiPrompt.trim()}
+                  style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 20px', borderRadius:9, border:'none',
+                    background: (promptMode==='draw' || aiPrompt.trim()) ? 'linear-gradient(135deg,#7c3aed,#2563eb)' : 'var(--surface-3)',
+                    cursor: (promptMode==='draw' || aiPrompt.trim()) ? 'pointer' : 'default', fontSize:13, color:'white', fontWeight:700 }}>
+                  <SFIcon name="sparkles" size={14} />{t('resourceDetail.storyboardView.generateButton')}
                 </button>
               </div>
             )}
@@ -4971,6 +5171,7 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
 type ScreenplayTab = 'script' | 'shotlist' | 'storyboard';
 
 export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef, persistKey }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null>; persistKey?: string } & EditableProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
   const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[] }>(persistKey) : undefined;
   const [versions, setVersions] = useState<ScriptVersion[]>(() => {

@@ -1,0 +1,36 @@
+{
+  "fr": {
+    "finance": {
+      "chartTitle": "Revenus — 6 derniers mois",
+      "tabDetails": "Détails",
+      "tabComments": "Commentaires",
+      "noComments": "Aucun commentaire pour le moment.",
+      "commentPlaceholder": "Ajouter un commentaire… (Entrée pour envoyer)",
+      "sendInvoice": "Envoyer la facture",
+      "sentDate": "Date d'envoi",
+      "paidDate": "Date de paiement",
+      "paymentTerms": "Conditions de paiement",
+      "kpiTotalInvoiced": "Total facturé",
+      "kpiPayRate": "Taux de paiement",
+      "allClients": "Tous les clients",
+      "allProjects": "Tous les projets"
+    }
+  },
+  "en": {
+    "finance": {
+      "chartTitle": "Revenue — last 6 months",
+      "tabDetails": "Details",
+      "tabComments": "Comments",
+      "noComments": "No comments yet.",
+      "commentPlaceholder": "Add a comment… (Enter to send)",
+      "sendInvoice": "Send invoice",
+      "sentDate": "Sent date",
+      "paidDate": "Payment date",
+      "paymentTerms": "Payment terms",
+      "kpiTotalInvoiced": "Total invoiced",
+      "kpiPayRate": "Payment rate",
+      "allClients": "All clients",
+      "allProjects": "All projects"
+    }
+  }
+}
