@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
@@ -14,22 +15,22 @@ const PROJECT_COLORS = [
 ];
 
 
-export const PROJECT_STATUS_OPTIONS: { status: Status; label: string }[] = [
-  { status: 'ok',      label: 'Terminé' },
-  { status: 'info',    label: 'En cours' },
-  { status: 'warn',    label: 'À faire' },
-  { status: 'review',  label: 'En révision' },
-  { status: 'danger',  label: 'Bloqué' },
-  { status: 'neutral', label: 'En attente' },
+export const PROJECT_STATUS_OPTIONS: { status: Status; labelKey: string }[] = [
+  { status: 'ok',      labelKey: 'projects.statusDone' },
+  { status: 'info',    labelKey: 'projects.statusInProgress' },
+  { status: 'warn',    labelKey: 'projects.statusTodo' },
+  { status: 'review',  labelKey: 'projects.statusInReview' },
+  { status: 'danger',  labelKey: 'projects.statusBlocked' },
+  { status: 'neutral', labelKey: 'projects.statusWaiting' },
 ];
 
 // ── Project Edit Panel ─────────────────────────────────────────────────────────
 
-export const PROJECT_PHASE_OPTIONS: { phase: Phase; label: string }[] = [
-  { phase: 'preproduction',  label: 'Préproduction' },
-  { phase: 'production',     label: 'Production' },
-  { phase: 'postproduction', label: 'Postproduction' },
-  { phase: 'livraison',      label: 'Livraison' },
+export const PROJECT_PHASE_OPTIONS: { phase: Phase; labelKey: string }[] = [
+  { phase: 'preproduction',  labelKey: 'projects.phasePreproduction' },
+  { phase: 'production',     labelKey: 'projects.phaseProduction' },
+  { phase: 'postproduction', labelKey: 'projects.phasePostproduction' },
+  { phase: 'livraison',      labelKey: 'projects.phaseDelivery' },
 ];
 
 export interface EditUpdates {
@@ -48,6 +49,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   onClose: () => void;
   onSave: (u: EditUpdates) => void;
 }) {
+  const { t } = useTranslation();
   const [lName, setLName]               = useState(name);
   const [lColor, setLColor]             = useState(color);
   const [lStatus, setLStatus]           = useState<Status>(status);
@@ -110,7 +112,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Nom */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Nom du projet</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.projectNameLabel')}</label>
             <input
               autoFocus
               value={lName}
@@ -122,7 +124,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Couleur */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Couleur de la pastille</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.dotColor')}</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {PROJECT_COLORS.map(c => (
                 <button
@@ -143,12 +145,12 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Statut */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Statut</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.status')}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {PROJECT_STATUS_OPTIONS.map(opt => (
                 <button
                   key={opt.status}
-                  onClick={() => { setLStatus(opt.status); setLStatusLabel(opt.label); }}
+                  onClick={() => { setLStatus(opt.status); setLStatusLabel(t(opt.labelKey)); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 9,
                     border: `1px solid ${lStatus === opt.status ? 'var(--accent)' : 'var(--border)'}`,
@@ -156,7 +158,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                     cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)',
                   }}
                 >
-                  <SFPill status={opt.status} small>{opt.label}</SFPill>
+                  <SFPill status={opt.status} small>{t(opt.labelKey)}</SFPill>
                   {lStatus === opt.status && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                 </button>
               ))}
@@ -166,17 +168,17 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Date de livraison — sélecteur date + heure */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Date de livraison</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')}</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
                 style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 13, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
               >
                 <SFIcon name="calendar" size={14} color="var(--text-3)" />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || 'Choisir une date…'}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || t('projects.chooseDate')}</span>
               </button>
               {lDeliveryYMD && (
-                <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder="Heure" />
+                <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
               )}
             </div>
             {dateOpen && (
@@ -201,11 +203,11 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Budget */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Budget</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')}</label>
             <input
               value={lBudget}
               onChange={e => setLBudget(e.target.value)}
-              placeholder="ex. 9000"
+              placeholder={t('projects.budget')}
               inputMode="numeric"
               style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
             />
@@ -213,11 +215,11 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Description */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')}</label>
             <textarea
               value={lDescription}
               onChange={e => setLDescription(e.target.value)}
-              placeholder="Courte description du projet…"
+              placeholder={t('projects.projectName')}
               rows={3}
               style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
             />
@@ -234,6 +236,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 // ── Project Card ───────────────────────────────────────────────────────────────
 
 export function ProjectCard({ p }: { p: Project }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const notifCount = useProjectTotalNotifCount(p.id);
   const [hovered, setHovered]       = useState(false);
@@ -330,7 +333,7 @@ export function ProjectCard({ p }: { p: Project }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <button
             onClick={e => { e.stopPropagation(); togglePin(p.id); }}
-            title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
+            title={pinned ? t('projects.unpin') : t('projects.pinToSidebar')}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
             onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
             onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
@@ -340,7 +343,7 @@ export function ProjectCard({ p }: { p: Project }) {
 
           <button
             onClick={e => { e.stopPropagation(); setEditOpen(true); }}
-            title="Modifier le projet"
+            title={t('projects.editProject')}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
@@ -353,8 +356,8 @@ export function ProjectCard({ p }: { p: Project }) {
       <SFBar value={p.progress} height={3} />
 
       <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
-        <span>{p.taskCount} tâches</span>
-        <span>Livraison {deliveryDate}</span>
+        <span>{t('projects.taskCount', { count: p.taskCount })}</span>
+        <span>{t('projects.delivery', { date: deliveryDate })}</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -363,10 +366,10 @@ export function ProjectCard({ p }: { p: Project }) {
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Modifié {p.modifiedAt}</span>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.modified', { date: p.modifiedAt })}</span>
         <button
           onClick={openStatusDrop}
-          title="Changer le statut"
+          title={t('projects.changeStatus')}
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
         >
           <SFPill status={status} small>{statusLabel}</SFPill>
@@ -383,12 +386,12 @@ export function ProjectCard({ p }: { p: Project }) {
         >
           {PROJECT_STATUS_OPTIONS.map(opt => (
             <button key={opt.status}
-              onClick={e => pickStatus(e, opt.status, opt.label)}
+              onClick={e => pickStatus(e, opt.status, t(opt.labelKey))}
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 10px', border: 'none', borderRadius: 7, cursor: 'pointer', background: status === opt.status ? 'var(--surface)' : 'transparent' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
               onMouseLeave={e => (e.currentTarget.style.background = status === opt.status ? 'var(--surface)' : 'transparent')}
             >
-              <SFPill status={opt.status} small>{opt.label}</SFPill>
+              <SFPill status={opt.status} small>{t(opt.labelKey)}</SFPill>
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../ui/SFIcon';
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function GlobalTopBar({ onSearch }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,7 +78,7 @@ export function GlobalTopBar({ onSearch }: Props) {
       <button
         onClick={goBack}
         disabled={!canBack}
-        title="Retour"
+        title={t('topbar.back')}
         style={btnStyle(canBack)}
         onMouseEnter={e => { if (canBack) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
@@ -86,7 +88,7 @@ export function GlobalTopBar({ onSearch }: Props) {
       <button
         onClick={goForward}
         disabled={!canForward}
-        title="Avancer"
+        title={t('topbar.forward')}
         style={btnStyle(canForward)}
         onMouseEnter={e => { if (canForward) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
@@ -118,7 +120,7 @@ export function GlobalTopBar({ onSearch }: Props) {
       >
         <SFIcon name="search" size={13} />
         <span style={{ fontSize: 13, fontFamily: 'var(--ff-text)', flex: 1 }}>
-          Rechercher…
+          {t('topbar.search')}
         </span>
         <kbd style={{
           fontSize: 10,

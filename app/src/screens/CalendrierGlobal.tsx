@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
@@ -9,8 +10,6 @@ import { usePersistedState } from '../hooks/usePersistedState';
 // ── Constants & helpers ───────────────────────────────────────────────────────
 
 const TODAY        = new Date();
-const DAYS_FR      = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-const MONTHS_FR    = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const MONTHS_SHORT = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const HOUR_H       = 64;
 const START_HOUR   = 0;
@@ -155,6 +154,7 @@ export function MeetingField({ value, onChange, title }: {
   onChange: (url: string) => void;
   title: string;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   if (!value) {
@@ -165,7 +165,7 @@ export function MeetingField({ value, onChange, title }: {
         onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.borderColor='var(--border)'; }}
       >
         <SFIcon name="video" size={13} color="var(--accent)" />
-        Créer une rencontre en ligne
+        {t('calendar.createMeeting')}
       </button>
     );
   }
@@ -174,22 +174,22 @@ export function MeetingField({ value, onChange, title }: {
     <div style={{ display:'flex',flexDirection:'column',gap:7,marginBottom:8,padding:'9px 11px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)' }}>
       <div style={{ display:'flex',alignItems:'center',gap:7 }}>
         <SFIcon name="video" size={13} color="var(--accent)" />
-        <span style={{ fontSize:9,fontFamily:'var(--ff-mono)',color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Rencontre en ligne</span>
-        <button onClick={()=>onChange('')} title="Retirer la rencontre" style={{ marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2 }}>
+        <span style={{ fontSize:9,fontFamily:'var(--ff-mono)',color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.onlineMeeting')}</span>
+        <button onClick={()=>onChange('')} title={t('calendar.removeMeeting')} style={{ marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2 }}>
           <SFIcon name="x" size={13} />
         </button>
       </div>
-      <input value={value} onChange={e=>onChange(e.target.value)} placeholder="Coller un lien Meet / Zoom / Teams…"
+      <input value={value} onChange={e=>onChange(e.target.value)} placeholder={t('calendar.meetingLinkPlaceholder')}
         style={{ width:'100%',padding:'6px 8px',borderRadius:7,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-mono)',boxSizing:'border-box' }}
       />
       <div style={{ display:'flex',gap:6 }}>
         <a href={value} target="_blank" rel="noopener noreferrer"
           style={{ display:'flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:7,background:'var(--accent)',color:'var(--on-accent)',fontSize:11,fontWeight:600,textDecoration:'none',fontFamily:'var(--ff-text)' }}>
-          <SFIcon name="external-link" size={11} color="var(--on-accent)" /> Rejoindre
+          <SFIcon name="external-link" size={11} color="var(--on-accent)" /> {t('calendar.join')}
         </a>
         <button onClick={()=>{ navigator.clipboard?.writeText(value); setCopied(true); setTimeout(()=>setCopied(false),1500); }}
           style={{ display:'flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:7,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text-2)',fontSize:11,cursor:'pointer',fontFamily:'var(--ff-text)' }}>
-          <SFIcon name={copied?'check':'copy'} size={11} color={copied?'var(--ok)':'var(--text-3)'} /> {copied?'Copié':'Copier'}
+          <SFIcon name={copied?'check':'copy'} size={11} color={copied?'var(--ok)':'var(--text-3)'} /> {copied?t('calendar.copied'):t('calendar.copy')}
         </button>
       </div>
     </div>
@@ -198,9 +198,10 @@ export function MeetingField({ value, onChange, title }: {
 
 // Sélecteur de projet stylé — remplace le <select> natif, cohérent avec les autres menus déroulants
 function ProjectSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const options = [
-    { id: '', label: '— Sans projet —', color: null as string | null, italic: true },
+    { id: '', label: t('calendar.noProject'), color: null as string | null, italic: true },
     ...PROJECTS.map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
   ];
   const sel = options.find(o => o.id === value) ?? options[0];
@@ -241,6 +242,7 @@ function ProjectSelect({ value, onChange }: { value: string; onChange: (id: stri
 }
 
 function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const { t } = useTranslation();
   const [types, setTypes] = useState<EventType[]>(getEventTypes);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
@@ -251,9 +253,9 @@ function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: 
 
   useEffect(() => subscribeEventTypes(() => setTypes(getEventTypes())), []);
 
-  const startEdit = (t: EventType) => { setEditingId(t.id); setEditLabel(t.label); setEditColor(t.color); onChange(t.id); setShowNew(false); };
+  const startEdit = (et: EventType) => { setEditingId(et.id); setEditLabel(et.label); setEditColor(et.color); onChange(et.id); setShowNew(false); };
   const saveEdit = () => { if (!editLabel.trim() || !editingId) return; updateEventType(editingId, { label: editLabel.trim(), color: editColor }); setEditingId(null); };
-  const removeType = (id: string) => { if (value === id) onChange(types.find(t => t.id !== id)?.id ?? 'autre'); deleteEventType(id); setEditingId(null); };
+  const removeType = (id: string) => { if (value === id) onChange(types.find(et => et.id !== id)?.id ?? 'autre'); deleteEventType(id); setEditingId(null); };
   const addNew = () => {
     if (!newLabel.trim()) return;
     const t = addEventType({ label: newLabel.trim(), color: newColor, icon: 'circle' });
@@ -263,20 +265,20 @@ function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: 
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Type d'événement</p>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('calendar.eventType')}</p>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        {types.map(t => (
-          <div key={t.id} style={{ position: 'relative', display: 'inline-flex' }}
+        {types.map(et => (
+          <div key={et.id} style={{ position: 'relative', display: 'inline-flex' }}
             onMouseEnter={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '0')}
           >
-            <button onClick={() => { onChange(t.id); setEditingId(null); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', paddingRight: editingId === t.id ? '10px' : '24px', borderRadius: 8, border: `1px solid ${value === t.id ? t.color : 'var(--border)'}`, background: value === t.id ? `${t.color}22` : 'transparent', color: value === t.id ? t.color : 'var(--text-2)', cursor: 'pointer', fontSize: 11, fontWeight: 500, transition: 'all 0.12s' }}
+            <button onClick={() => { onChange(et.id); setEditingId(null); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', paddingRight: editingId === et.id ? '10px' : '24px', borderRadius: 8, border: `1px solid ${value === et.id ? et.color : 'var(--border)'}`, background: value === et.id ? `${et.color}22` : 'transparent', color: value === et.id ? et.color : 'var(--text-2)', cursor: 'pointer', fontSize: 11, fontWeight: 500, transition: 'all 0.12s' }}
             >
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
-              {t.label}
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: et.color, flexShrink: 0 }} />
+              {et.label}
             </button>
-            <button className="et-edit" onClick={e => { e.stopPropagation(); editingId === t.id ? setEditingId(null) : startEdit(t); }}
+            <button className="et-edit" onClick={e => { e.stopPropagation(); editingId === et.id ? setEditingId(null) : startEdit(et); }}
               style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0, transition: 'opacity 0.12s', padding: 2, display: 'flex', alignItems: 'center' }}
             >
               <SFIcon name="pencil" size={10} />
@@ -285,10 +287,10 @@ function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: 
         ))}
         <button onClick={() => { setShowNew(v => !v); setEditingId(null); }}
           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, transition: 'all 0.12s' }}
-        >+ Nouveau</button>
+        >{t('calendar.newType')}</button>
       </div>
       {editingId && (() => {
-        const t = types.find(x => x.id === editingId);
+        const et = types.find(x => x.id === editingId);
         return (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
             <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)}
@@ -296,8 +298,8 @@ function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: 
             <input value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus
               onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }}
               style={{ flex: 1, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
-            <button onClick={saveEdit} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>Enregistrer</button>
-            {!t?.builtIn && (
+            <button onClick={saveEdit} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>{t('calendar.save')}</button>
+            {!et?.builtIn && (
               <button onClick={() => removeType(editingId)} style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                 <SFIcon name="trash-2" size={12} />
               </button>
@@ -309,10 +311,10 @@ function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: 
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
           <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)}
             style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', padding: 2 }} />
-          <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Nom du type…" autoFocus
+          <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder={t('calendar.typeNamePlaceholder')} autoFocus
             onKeyDown={e => { if (e.key === 'Enter') addNew(); if (e.key === 'Escape') setShowNew(false); }}
             style={{ flex: 1, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
-          <button onClick={addNew} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Ajouter</button>
+          <button onClick={addNew} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>{t('calendar.add')}</button>
         </div>
       )}
     </div>
@@ -326,6 +328,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   defaultAllDay?: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
   const [eventTypeId, setEventTypeId] = useState('reunion');
@@ -373,7 +376,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:16,padding:28,width:460,border:'1px solid var(--border)',boxShadow:'0 20px 60px rgba(0,0,0,0.5)',maxHeight:'90vh',overflow:'auto' }}>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20 }}>
-          <h3 style={{ fontSize:16,fontWeight:700 }}>Nouvel événement</h3>
+          <h3 style={{ fontSize:16,fontWeight:700 }}>{t('calendar.newEvent')}</h3>
           <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',display:'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
@@ -384,12 +387,12 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
         <ProjectSelect value={projectId} onChange={setProjectId} />
 
         {/* Title */}
-        <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder="Titre…"
+        <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder={t('calendar.titlePlaceholder')}
           style={{ width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${selectedType?.color ?? 'var(--border)'}`,background:'var(--surface-2)',color:'var(--text)',fontSize:14,fontWeight:600,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8 }}
         />
 
         {/* Location */}
-        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
+        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder={t('calendar.locationPlaceholder')}
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
 
@@ -397,7 +400,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
         <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
         {/* Description */}
-        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
+        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder={t('calendar.descriptionPlaceholder')} rows={2}
           style={{ width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,resize:'vertical',lineHeight:1.5 }}
         />
 
@@ -406,7 +409,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
           <div onClick={()=>setAllDay(s=>!s)} style={{ width:32,height:18,borderRadius:9,background:allDay?'var(--accent)':'var(--surface-3)',border:`1px solid ${allDay?'var(--accent)':'var(--border)'}`,position:'relative',transition:'background 0.15s',cursor:'pointer' }}>
             <div style={{ position:'absolute',top:2,left:allDay?14:2,width:12,height:12,borderRadius:'50%',background:allDay?'var(--on-accent)':'var(--text-3)',transition:'left 0.15s' }} />
           </div>
-          <span style={{ fontSize:12,color:'var(--text-2)' }}>Toute la journée</span>
+          <span style={{ fontSize:12,color:'var(--text-2)' }}>{t('calendar.allDay')}</span>
         </label>
 
         {/* Date + times */}
@@ -433,10 +436,10 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
           return (
             <div style={{ marginBottom:20 }}>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Participants</p>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.participants')}</p>
                 {team.length > PARTICIPANT_THRESHOLD && (
                   <button onClick={()=>setParticipantsExpanded(v=>!v)} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:10,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0 }}>
-                    {participantsExpanded ? 'Réduire' : `+${hidden} autres`}
+                    {participantsExpanded ? t('calendar.collapse') : t('calendar.moreParticipants', { count: hidden })}
                   </button>
                 )}
               </div>
@@ -455,8 +458,8 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
         })()}
 
         <div style={{ display:'flex',gap:8,justifyContent:'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={save}>Créer</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('calendar.cancel')}</SFButton>
+          <SFButton variant="primary" onClick={save}>{t('calendar.create')}</SFButton>
         </div>
       </div>
     </div>
@@ -466,6 +469,9 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
 // ── Mini calendar (sidebar) ───────────────────────────────────────────────────
 
 function MiniCalendar({ cur, onSelect }: { cur: Date; onSelect: (d: Date) => void }) {
+  const { t } = useTranslation();
+  const months = t('calendar.months', { returnObjects: true }) as string[];
+  const daysShort = t('datepicker.daysShort', { returnObjects: true }) as string[];
   const [mini, setMini] = useState(new Date(TODAY));
   const days = getMonthGrid(mini);
   const prevM = () => setMini(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
@@ -475,11 +481,11 @@ function MiniCalendar({ cur, onSelect }: { cur: Date; onSelect: (d: Date) => voi
     <div>
       <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
         <button onClick={prevM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-left" size={13} /></button>
-        <span style={{ fontFamily:'var(--ff-mono)',fontSize:11,color:'var(--text-2)',fontWeight:600 }}>{MONTHS_FR[mini.getMonth()].slice(0,3)} {mini.getFullYear()}</span>
+        <span style={{ fontFamily:'var(--ff-mono)',fontSize:11,color:'var(--text-2)',fontWeight:600 }}>{months[mini.getMonth()].slice(0,3)} {mini.getFullYear()}</span>
         <button onClick={nextM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-right" size={13} /></button>
       </div>
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1,marginBottom:4 }}>
-        {['L','M','M','J','V','S','D'].map((d,i)=>(
+        {daysShort.map((d,i)=>(
           <div key={i} style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textAlign:'center',padding:'2px 0' }}>{d}</div>
         ))}
       </div>
@@ -538,14 +544,16 @@ function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }
   onEventClick: (ev: CalEvent) => void;
   onCellClick: (d: Date) => void;
 }) {
+  const { t } = useTranslation();
+  const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const days = getMonthGrid(cur);
 
   return (
     <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
       {/* Day headers */}
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',borderBottom:'1px solid var(--border)',flexShrink:0 }}>
-        {DAYS_FR.map(d=>(
-          <div key={d} style={{ padding:'10px 0 8px',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
+        {dayNames.map((d,i)=>(
+          <div key={i} style={{ padding:'10px 0 8px',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
         ))}
       </div>
 
@@ -578,7 +586,7 @@ function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }
               ))}
 
               {showMore && (
-                <div style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',padding:'1px 6px' }}>+{dayEvents.length-2} autres</div>
+                <div style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',padding:'1px 6px' }}>{t('calendar.moreEvents', { count: dayEvents.length-2 })}</div>
               )}
 
             </div>
@@ -600,6 +608,8 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
   onEventClick: (ev: CalEvent) => void;
   onAllDayClick?: (d: Date) => void;
 }) {
+  const { t } = useTranslation();
+  const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const isDay=days.length===1;
   const scrollRef=useRef<HTMLDivElement>(null);
 
@@ -669,7 +679,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
               return (
                 <div key={i} style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 0 6px',minWidth:0 }}>
                   <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:3 }}>
-                    {isDay ? DAYS_FR[dayIdx] : DAYS_FR[i]}
+                    {isDay ? dayNames[dayIdx] : dayNames[i]}
                   </span>
                   <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
                     <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>
@@ -681,7 +691,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
           {/* All-day events row */}
           <div style={{ display:'flex',borderTop:'1px solid var(--border)' }}>
             <div style={{ width:52,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8 }}>
-              <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>Journée</span>
+              <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>{t('calendar.allDayShort')}</span>
             </div>
             {days.map((d,i)=>{
               const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
@@ -775,6 +785,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
 // ── Event detail popover ──────────────────────────────────────────────────────
 
 function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [localEventTypes] = useState<EventType[]>(getEventTypes);
   const toDateStr = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth()+1)}-${fmt2(d.getDate())}`;
@@ -821,7 +832,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:16,padding:28,width:460,border:'1px solid var(--border)',boxShadow:'0 20px 60px rgba(0,0,0,0.5)',maxHeight:'90vh',overflow:'auto' }}>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20 }}>
-          <h3 style={{ fontSize:16,fontWeight:700 }}>Modifier l'événement</h3>
+          <h3 style={{ fontSize:16,fontWeight:700 }}>{t('calendar.editEvent')}</h3>
           <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',display:'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
@@ -832,12 +843,12 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <ProjectSelect value={projectId} onChange={setProjectId} />
 
         {/* Title */}
-        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Titre…"
+        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('calendar.titlePlaceholder')}
           style={{ width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${selectedType?.color ?? 'var(--border)'}`,background:'var(--surface-2)',color:'var(--text)',fontSize:14,fontWeight:600,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8 }}
         />
 
         {/* Location */}
-        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
+        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder={t('calendar.locationPlaceholder')}
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
 
@@ -845,7 +856,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
         {/* Description */}
-        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
+        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder={t('calendar.descriptionPlaceholder')} rows={2}
           style={{ width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,resize:'vertical',lineHeight:1.5 }}
         />
 
@@ -854,7 +865,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
           <div onClick={()=>setAllDay(s=>!s)} style={{ width:32,height:18,borderRadius:9,background:allDay?'var(--accent)':'var(--surface-3)',border:`1px solid ${allDay?'var(--accent)':'var(--border)'}`,position:'relative',transition:'background 0.15s',cursor:'pointer' }}>
             <div style={{ position:'absolute',top:2,left:allDay?14:2,width:12,height:12,borderRadius:'50%',background:allDay?'var(--on-accent)':'var(--text-3)',transition:'left 0.15s' }} />
           </div>
-          <span style={{ fontSize:12,color:'var(--text-2)' }}>Toute la journée</span>
+          <span style={{ fontSize:12,color:'var(--text-2)' }}>{t('calendar.allDay')}</span>
         </label>
 
         {/* Date + times */}
@@ -881,10 +892,10 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
           return (
             <div style={{ marginBottom:20 }}>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Participants</p>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.participants')}</p>
                 {team.length>PARTICIPANT_THRESHOLD && (
                   <button onClick={()=>setParticipantsExpanded(v=>!v)} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:10,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0 }}>
-                    {participantsExpanded?'Réduire':`+${hidden} autres`}
+                    {participantsExpanded?t('calendar.collapse'):t('calendar.moreParticipants', { count: hidden })}
                   </button>
                 )}
               </div>
@@ -909,11 +920,11 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <div style={{ display:'flex',gap:8,borderTop:'1px solid var(--border)',paddingTop:16 }}>
           <button onClick={save} disabled={!title.trim()}
             style={{ flex:1,padding:'9px',borderRadius:9,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',opacity:title.trim()?1:0.5 }}
-          >Enregistrer</button>
+          >{t('calendar.save')}</button>
           {projectId && (
             <button onClick={()=>{navigate(`/projets/${projectId}/calendrier`);onClose();}}
               style={{ padding:'9px 14px',borderRadius:9,border:'1px solid var(--border)',background:'transparent',color:'var(--text-2)',cursor:'pointer',fontSize:12,fontFamily:'var(--ff-text)',whiteSpace:'nowrap' }}
-            >Voir le calendrier</button>
+            >{t('calendar.viewCalendar')}</button>
           )}
           <button onClick={onDelete}
             style={{ padding:'9px 12px',borderRadius:9,border:'1px solid var(--border)',background:'transparent',color:'var(--danger)',cursor:'pointer',display:'flex',alignItems:'center' }}
@@ -927,6 +938,9 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function CalendrierGlobal() {
+  const { t } = useTranslation();
+  const months = t('calendar.months', { returnObjects: true }) as string[];
+  const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const [view, setView]             = usePersistedState<CalView>('sf_view_calendrier', 'month');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
@@ -1015,10 +1029,10 @@ export function CalendrierGlobal() {
 
   // Title
   const title = view==='month'
-    ? `${MONTHS_FR[cur.getMonth()]} ${cur.getFullYear()}`
+    ? `${months[cur.getMonth()]} ${cur.getFullYear()}`
     : view==='week'
-    ? `${MONTHS_FR[startOfWeek(cur).getMonth()]} ${startOfWeek(cur).getFullYear()}`
-    : `${DAYS_FR[(cur.getDay()+6)%7]} ${cur.getDate()} ${MONTHS_FR[cur.getMonth()]}`;
+    ? `${months[startOfWeek(cur).getMonth()]} ${startOfWeek(cur).getFullYear()}`
+    : `${dayNames[(cur.getDay()+6)%7]} ${cur.getDate()} ${months[cur.getMonth()]}`;
 
   const handleDeleteEvent = (id: string) => { deleteEvent(id); setSelectedEvent(null); };
 
@@ -1037,21 +1051,21 @@ export function CalendrierGlobal() {
       <div style={{ width:240,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden' }}>
         {/* Zone scrollable : actions + filtres — indépendante des « Prochains événements » pour que les filtres ne bougent pas */}
         <div style={{ flex:1,minHeight:0,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:20 }}>
-        <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
+        <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
 
         <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
 
         {/* Project filters */}
         {(()=>{
-          const allProjects = [{ id: '', name: 'Sans projet', color: 'var(--text-3)' }, ...PROJECTS.filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
+          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...PROJECTS.filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Mes projets</p>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.myProjects')}</p>
                 {hasFilter && (
                   <button onClick={()=>setSelectedProjects(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                    Tout afficher
+                    {t('calendar.showAll')}
                   </button>
                 )}
               </div>
@@ -1079,22 +1093,22 @@ export function CalendrierGlobal() {
           return (
             <div>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Types d'événements</p>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.eventTypes')}</p>
                 {hasFilter && (
                   <button onClick={()=>setSelectedEventTypes(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                    Tout afficher
+                    {t('calendar.showAll')}
                   </button>
                 )}
               </div>
               <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                {eventTypes.map(t=>{
-                  const active = !hasFilter || selectedEventTypes.has(t.id);
+                {eventTypes.map(et=>{
+                  const active = !hasFilter || selectedEventTypes.has(et.id);
                   return (
-                    <button key={t.id} onClick={()=>toggleEventType(t.id)}
+                    <button key={et.id} onClick={()=>toggleEventType(et.id)}
                       style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}
                     >
-                      <div style={{ width:10,height:10,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1 }}>{t.label}</span>
+                      <div style={{ width:10,height:10,borderRadius:'50%',background:et.color,flexShrink:0 }} />
+                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1 }}>{et.label}</span>
                       {active&&hasFilter&&<SFIcon name="check" size={11} color="var(--text-3)" />}
                     </button>
                   );
@@ -1108,7 +1122,7 @@ export function CalendrierGlobal() {
 
         {/* Prochains événements — panneau ancré au bas */}
         <div style={{ flexShrink:0,borderTop:'1px solid var(--border)',padding:'12px 16px',display:'flex',flexDirection:'column',gap:8 }}>
-          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Prochains événements</p>
+          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.upcomingEvents')}</p>
           <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
             {upcoming.map(ev=>(
               <div key={ev.id} onClick={()=>setSelectedEvent(ev)} style={{ display:'flex',gap:8,cursor:'pointer',padding:'6px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)' }}
@@ -1119,7 +1133,7 @@ export function CalendrierGlobal() {
                 <div style={{ minWidth:0 }}>
                   <p style={{ fontSize:11,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{ev.title}</p>
                   <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',marginTop:1 }}>
-                    {ev.startDate.getDate()} {MONTHS_FR[ev.startDate.getMonth()].slice(0,3).toLowerCase()}
+                    {ev.startDate.getDate()} {months[ev.startDate.getMonth()].slice(0,3).toLowerCase()}
                     {!ev.allDay && ` · ${fmtTime(ev.startDate)}`}
                   </p>
                 </div>
@@ -1132,7 +1146,7 @@ export function CalendrierGlobal() {
                 onMouseLeave={e=>(e.currentTarget.style.color='var(--text-3)')}
               >
                 <SFIcon name={upcomingExpanded?'chevron-up':'chevron-down'} size={11} />
-                {upcomingExpanded ? 'Réduire' : `${allUpcoming.length - UPCOMING_VISIBLE} de plus`}
+                {upcomingExpanded ? t('calendar.collapse') : t('calendar.morePlural', { count: allUpcoming.length - UPCOMING_VISIBLE })}
               </button>
             )}
           </div>
@@ -1146,7 +1160,7 @@ export function CalendrierGlobal() {
           {/* Navigation */}
           <div style={{ display:'flex',alignItems:'center',gap:6 }}>
             <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
-              Aujourd'hui
+              {t('calendar.today')}
             </button>
             <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
               <SFIcon name="chevron-left" size={14} />
@@ -1160,7 +1174,7 @@ export function CalendrierGlobal() {
 
           {/* View switcher */}
           <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
-            {([['month','Mois','M'],['week','Semaine','W'],['day','Jour','J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
+            {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
               <button key={v} onClick={()=>setView(v)}
                 style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
               >

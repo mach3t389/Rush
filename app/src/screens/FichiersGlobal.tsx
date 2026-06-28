@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
 import { SFIcon, SFButton } from '../components/ui';
 import {
   getFolders, getFiles, addFolder, deleteFolder, renameFolder,
@@ -26,14 +27,14 @@ import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
 
-const RESOURCE_TYPES: { type: ResourceType; label: string; icon: string; color: string }[] = [
-  { type: 'document',     label: 'Document',     icon: 'file',        color: '#5bc4e8' },
-  { type: 'moodboard',    label: 'Moodboard',    icon: 'image',       color: '#5b8af5' },
-  { type: 'video_review', label: 'Révision',     icon: 'film',        color: '#a05be8' },
-  { type: 'screenplay',   label: 'Scénario',     icon: 'file-text',   color: '#e85b5b' },
-  { type: 'checklist',    label: 'Checklist',    icon: 'list-checks', color: '#34c98a' },
-  { type: 'form',         label: 'Formulaire',   icon: 'clipboard',   color: '#f5d05b' },
-  { type: 'inspirations', label: 'Inspirations', icon: 'sparkles',    color: '#c45be8' },
+const RESOURCE_TYPES: { type: ResourceType; labelKey: string; icon: string; color: string }[] = [
+  { type: 'document',     labelKey: 'files.resourceDocument',     icon: 'file',        color: '#5bc4e8' },
+  { type: 'moodboard',    labelKey: 'files.resourceMoodboard',    icon: 'image',       color: '#5b8af5' },
+  { type: 'video_review', labelKey: 'files.resourceReview',       icon: 'film',        color: '#a05be8' },
+  { type: 'screenplay',   labelKey: 'files.resourceScreenplay',   icon: 'file-text',   color: '#e85b5b' },
+  { type: 'checklist',    labelKey: 'files.resourceChecklist',    icon: 'list-checks', color: '#34c98a' },
+  { type: 'form',         labelKey: 'files.resourceForm',         icon: 'clipboard',   color: '#f5d05b' },
+  { type: 'inspirations', labelKey: 'files.resourceInspirations', icon: 'sparkles',    color: '#c45be8' },
 ];
 
 interface RevisionSelection {
@@ -43,18 +44,18 @@ interface RevisionSelection {
   eyebrow: string;
 }
 
-const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; label: string; icon: string; color: string; desc: string }[] = [
-  { resourceType: 'video_review', mediaSubtype: 'video', label: 'Vidéo',    icon: 'video',     color: '#a05be8', desc: 'Commentaires horodatés sur une vidéo' },
-  { resourceType: 'video_review', mediaSubtype: 'photo', label: 'Photo',    icon: 'image',     color: '#5b8af5', desc: 'Annotations sur une image ou un visuel' },
-  { resourceType: 'video_review', mediaSubtype: 'audio', label: 'Audio',    icon: 'music',     color: '#4ec994', desc: 'Révision d\'un fichier audio avec commentaires horodatés' },
-  { resourceType: 'video_review', mediaSubtype: 'file',  label: 'Document', icon: 'file-text', color: '#5bc4e8', desc: 'Révision d\'un document ou d\'un fichier' },
-  { resourceType: 'web_review',                          label: 'Site web', icon: 'globe',     color: '#f5975b', desc: 'Annotations sur un site web ou une page en ligne' },
+const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; labelKey: string; subtypeEyebrowKey: string; icon: string; color: string; descKey: string }[] = [
+  { resourceType: 'video_review', mediaSubtype: 'video', labelKey: 'files.subtypeVideo',    subtypeEyebrowKey: 'files.eyebrowVideo',    icon: 'video',     color: '#a05be8', descKey: 'files.subtypeVideoDesc' },
+  { resourceType: 'video_review', mediaSubtype: 'photo', labelKey: 'files.subtypePhoto',    subtypeEyebrowKey: 'files.eyebrowPhoto',    icon: 'image',     color: '#5b8af5', descKey: 'files.subtypePhotoDesc' },
+  { resourceType: 'video_review', mediaSubtype: 'audio', labelKey: 'files.subtypeAudio',    subtypeEyebrowKey: 'files.eyebrowAudio',    icon: 'music',     color: '#4ec994', descKey: 'files.subtypeAudioDesc' },
+  { resourceType: 'video_review', mediaSubtype: 'file',  labelKey: 'files.subtypeDocument', subtypeEyebrowKey: 'files.eyebrowDocument', icon: 'file-text', color: '#5bc4e8', descKey: 'files.subtypeDocumentDesc' },
+  { resourceType: 'web_review',                          labelKey: 'files.subtypeWebsite',  subtypeEyebrowKey: 'files.eyebrowWebsite',  icon: 'globe',     color: '#f5975b', descKey: 'files.subtypeWebsiteDesc' },
 ];
 
 const RESOURCE_EYEBROW: Partial<Record<ResourceType, string>> = {
-  screenplay: 'SCÉNARIO', moodboard: 'MOODBOARD', video_review: 'RÉVISION',
-  document: 'DOCUMENT', checklist: 'CHECKLIST', web_review: 'WEB REVIEW',
-  form: 'FORMULAIRE', inspirations: 'INSPIRATIONS',
+  screenplay: 'files.eyebrowScreenplay', moodboard: 'files.eyebrowMoodboard', video_review: 'files.eyebrowReview',
+  document: 'files.eyebrowDocument', checklist: 'files.eyebrowChecklist', web_review: 'files.eyebrowWebReview',
+  form: 'files.eyebrowForm', inspirations: 'files.eyebrowInspirations',
 };
 
 // ── Revision subtype picker ────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ function RevisionPickerModal({ onSelect, onClose }: {
   onSelect: (sel: RevisionSelection) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -72,14 +74,14 @@ function RevisionPickerModal({ onSelect, onClose }: {
             <SFIcon name="film" size={18} color="#a05be8" />
           </div>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Nouvelle révision</h3>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>Quel type de contenu souhaitez-vous réviser ?</p>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('files.newRevision')}</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{t('files.newRevisionQuestion')}</p>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 20 }}>
           {REVISION_SUBTYPES.map(s => (
-            <button key={s.label} onClick={() => {
-              onSelect({ resourceType: s.resourceType, mediaSubtype: s.mediaSubtype, subtypeLabel: s.label, eyebrow: `RÉVISION ${s.label.toUpperCase()}` });
+            <button key={s.labelKey} onClick={() => {
+              onSelect({ resourceType: s.resourceType, mediaSubtype: s.mediaSubtype, subtypeLabel: t(s.labelKey), eyebrow: t('files.revisionEyebrow', { subtype: t(s.subtypeEyebrowKey) }) });
               onClose();
             }}
               style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.12s, background 0.12s' }}
@@ -90,15 +92,15 @@ function RevisionPickerModal({ onSelect, onClose }: {
                 <SFIcon name={s.icon} size={19} color={s.color} />
               </div>
               <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{s.label}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{s.desc}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{t(s.labelKey)}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(s.descKey)}</p>
               </div>
               <SFIcon name="chevron-right" size={14} color="var(--text-3)" style={{ marginLeft: 'auto', flexShrink: 0 }} />
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('files.cancel')}</SFButton>
         </div>
       </div>
     </div>
@@ -108,6 +110,7 @@ function RevisionPickerModal({ onSelect, onClose }: {
 // ── New resource modal ────────────────────────────────────────────────────────
 
 function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof RESOURCE_TYPES[number]; isWebReview?: boolean; onSave: (name: string, webUrl?: string) => void; onClose: () => void }) {
+  const { t } = useTranslation();
   const [step, setStep] = React.useState<'url' | 'name'>(isWebReview ? 'url' : 'name');
   const [webUrl, setWebUrl] = React.useState('');
   const [name, setName] = React.useState('');
@@ -123,8 +126,8 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
             <SFIcon name={def.icon} size={20} color={def.color} />
           </div>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>{isWebReview ? 'Révision — Site web' : `Nouveau ${def.label}`}</h3>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{step === 'url' ? 'Entrez l\'URL du site à réviser' : 'Donnez un nom à cette ressource'}</p>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>{isWebReview ? t('files.webReviewTitle') : t('files.newResourceTitle', { label: t(def.labelKey) })}</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{step === 'url' ? t('files.enterUrlToReview') : t('files.nameThisResource')}</p>
           </div>
         </div>
         {step === 'url' && (
@@ -135,13 +138,13 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
               </span>
               <input ref={ref} value={webUrl} onChange={e => setWebUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && webUrl.trim()) setStep('name'); if (e.key === 'Escape') onClose(); }}
-                placeholder="https://monsite.com"
+                placeholder={t('files.urlPlaceholder')}
                 style={{ width: '100%', padding: '10px 14px 10px 36px', borderRadius: 9, border: '1.5px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-mono)', boxSizing: 'border-box' }}
               />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-              <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-              <SFButton variant="primary" onClick={() => { if (webUrl.trim()) setStep('name'); }} disabled={!webUrl.trim()}>Continuer</SFButton>
+              <SFButton variant="ghost" onClick={onClose}>{t('files.cancel')}</SFButton>
+              <SFButton variant="primary" onClick={() => { if (webUrl.trim()) setStep('name'); }} disabled={!webUrl.trim()}>{t('files.continueAction')}</SFButton>
             </div>
           </>
         )}
@@ -149,12 +152,12 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
           <>
             <input ref={ref} value={name} onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handle(); if (e.key === 'Escape') onClose(); }}
-              placeholder="Nom de la ressource…"
+              placeholder={t('files.resourceNamePlaceholder')}
               style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1.5px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-              <SFButton variant="ghost" onClick={isWebReview ? () => setStep('url') : onClose}>{isWebReview ? 'Retour' : 'Annuler'}</SFButton>
-              <SFButton variant="primary" onClick={handle} disabled={!name.trim()}>Créer</SFButton>
+              <SFButton variant="ghost" onClick={isWebReview ? () => setStep('url') : onClose}>{isWebReview ? t('files.back') : t('files.cancel')}</SFButton>
+              <SFButton variant="primary" onClick={handle} disabled={!name.trim()}>{t('files.create')}</SFButton>
             </div>
           </>
         )}
@@ -176,25 +179,25 @@ export interface NavLocation {
 
 // ── File type icons + colors ───────────────────────────────────────────────────
 
-const TYPE_META: Record<FileItemType | 'folder', { icon: string; color: string; label: string }> = {
-  folder:      { icon: 'folder',       color: '#f5c842', label: 'Dossier'     },
-  pdf:         { icon: 'file-text',    color: '#e85b5b', label: 'PDF'         },
-  image:       { icon: 'image',        color: '#5b8af5', label: 'Image'       },
-  video:       { icon: 'video',        color: '#a05be8', label: 'Vidéo'       },
-  audio:       { icon: 'music',        color: '#34c98a', label: 'Audio'       },
-  zip:         { icon: 'archive',      color: '#f5975b', label: 'Archive'     },
-  doc:         { icon: 'file-text',    color: '#5bc4e8', label: 'Document'    },
-  spreadsheet: { icon: 'table',        color: '#34c98a', label: 'Tableur'     },
-  resource:    { icon: 'layers',       color: '#c45be8', label: 'Ressource'   },
-  other:       { icon: 'file',         color: '#888',    label: 'Fichier'     },
+const TYPE_META: Record<FileItemType | 'folder', { icon: string; color: string; labelKey: string }> = {
+  folder:      { icon: 'folder',       color: '#f5c842', labelKey: 'files.typeFolder'      },
+  pdf:         { icon: 'file-text',    color: '#e85b5b', labelKey: 'files.typePdf'         },
+  image:       { icon: 'image',        color: '#5b8af5', labelKey: 'files.typeImage'       },
+  video:       { icon: 'video',        color: '#a05be8', labelKey: 'files.typeVideo'       },
+  audio:       { icon: 'music',        color: '#34c98a', labelKey: 'files.typeAudio'       },
+  zip:         { icon: 'archive',      color: '#f5975b', labelKey: 'files.typeArchive'     },
+  doc:         { icon: 'file-text',    color: '#5bc4e8', labelKey: 'files.typeDocument'    },
+  spreadsheet: { icon: 'table',        color: '#34c98a', labelKey: 'files.typeSpreadsheet' },
+  resource:    { icon: 'layers',       color: '#c45be8', labelKey: 'files.typeResource'    },
+  other:       { icon: 'file',         color: '#888',    labelKey: 'files.typeFile'        },
 };
 
 // Derived from RESOURCE_TYPES so colors are always in sync; extras for types not in the creation menu
-const RESOURCE_TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
-  ...Object.fromEntries(RESOURCE_TYPES.map(rt => [rt.type, { icon: rt.icon, color: rt.color, label: rt.label }])),
-  screenplay:   { icon: 'clapperboard',  color: '#e85b5b', label: 'Scénario'     },
-  web_review:   { icon: 'globe',         color: '#3b82f6', label: 'Site web'     },
-  file:         { icon: 'hard-drive',    color: '#6b7280', label: 'Fichier'      },
+const RESOURCE_TYPE_META: Record<string, { icon: string; color: string; labelKey: string }> = {
+  ...Object.fromEntries(RESOURCE_TYPES.map(rt => [rt.type, { icon: rt.icon, color: rt.color, labelKey: rt.labelKey }])),
+  screenplay:   { icon: 'clapperboard',  color: '#e85b5b', labelKey: 'files.metaScreenplay' },
+  web_review:   { icon: 'globe',         color: '#3b82f6', labelKey: 'files.metaWebsite'    },
+  file:         { icon: 'hard-drive',    color: '#6b7280', labelKey: 'files.metaFile'       },
 };
 
 // Icône de base d'une révision selon le type de fichier révisé (au lieu d'un « film » générique)
@@ -211,6 +214,7 @@ function fileMediaSubtype(file: FileItem): 'video' | 'photo' | 'file' | 'audio' 
 }
 
 function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: FileItemType | 'folder'; resourceType?: ResourceType; mediaSubtype?: 'video' | 'photo' | 'file' | 'audio'; size?: number }) {
+  const { t } = useTranslation();
   const rm = resourceType ? RESOURCE_TYPE_META[resourceType] : undefined;
   const meta = rm ?? TYPE_META[type] ?? TYPE_META.other;
   // Les ressources de révision (vidéo/photo/audio/document, site web) portent un badge « révision »
@@ -232,7 +236,7 @@ function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: F
       <SFIcon name={iconName} size={size * 0.75} color={meta.color} />
       {isReview && (
         <div
-          title="Révision"
+          title={t('files.reviewBadge')}
           style={{
             position: 'absolute', right: -3, bottom: -3,
             width: badge, height: badge, borderRadius: '50%',
@@ -249,16 +253,17 @@ function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: F
 
 // ── Resource status options ────────────────────────────────────────────────────
 
-const RESOURCE_STATUS_OPTIONS: { status: import('../types').Status; label: string }[] = [
-  { status: 'info',    label: 'En cours' },
-  { status: 'review',  label: 'En révision' },
-  { status: 'warn',    label: 'À faire' },
-  { status: 'ok',      label: 'Terminé' },
-  { status: 'danger',  label: 'Bloqué' },
-  { status: 'neutral', label: 'En attente' },
+const RESOURCE_STATUS_OPTIONS: { status: import('../types').Status; labelKey: string }[] = [
+  { status: 'info',    labelKey: 'files.statusInProgress' },
+  { status: 'review',  labelKey: 'files.statusInReview' },
+  { status: 'warn',    labelKey: 'files.statusTodo' },
+  { status: 'ok',      labelKey: 'files.statusDone' },
+  { status: 'danger',  labelKey: 'files.statusBlocked' },
+  { status: 'neutral', labelKey: 'files.statusWaiting' },
 ];
 
 function StatusDropdown({ resourceId, status, statusLabel, onClose }: { resourceId: string; status: string; statusLabel: string; onClose: () => void }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -269,12 +274,12 @@ function StatusDropdown({ resourceId, status, statusLabel, onClose }: { resource
   return (
     <div ref={ref} style={{ position: 'absolute', zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', padding: '4px 0', minWidth: 160 }}>
       {RESOURCE_STATUS_OPTIONS.map(opt => (
-        <button key={opt.status} onClick={() => { updateResource(resourceId, { status: opt.status, statusLabel: opt.label }); onClose(); }}
+        <button key={opt.status} onClick={() => { updateResource(resourceId, { status: opt.status, statusLabel: t(opt.labelKey) }); onClose(); }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: opt.status === status ? 'var(--surface-2)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
           onMouseEnter={e => { if (opt.status !== status) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
           onMouseLeave={e => { if (opt.status !== status) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[opt.status], flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: opt.status === status ? 'var(--text)' : 'var(--text-2)', fontWeight: opt.status === status ? 600 : 400 }}>{opt.label}</span>
+          <span style={{ fontSize: 11, color: opt.status === status ? 'var(--text)' : 'var(--text-2)', fontWeight: opt.status === status ? 600 : 400 }}>{t(opt.labelKey)}</span>
           {opt.status === status && <span style={{ marginLeft: 'auto' }}><SFIcon name="check" size={11} color="var(--accent)" /></span>}
         </button>
       ))}
@@ -407,19 +412,20 @@ function RenameInput({ value, onSave, onCancel }: { value: string; onSave: (v: s
 // ── New folder modal ───────────────────────────────────────────────────────────
 
 function NewFolderModal({ onSave, onClose }: { onSave: (name: string) => void; onClose: () => void }) {
-  const [name, setName] = useState('Nouveau dossier');
+  const { t } = useTranslation();
+  const [name, setName] = useState(t('files.newFolderDefault'));
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.select(); }, []);
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Nouveau dossier</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{t('files.newFolder')}</h3>
         <input
           ref={ref}
           value={name}
           onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { onSave(name.trim() || 'Nouveau dossier'); onClose(); } if (e.key === 'Escape') onClose(); }}
+          onKeyDown={e => { if (e.key === 'Enter') { onSave(name.trim() || t('files.newFolderDefault')); onClose(); } if (e.key === 'Escape') onClose(); }}
           style={{
             width: '100%', padding: '10px 14px', borderRadius: 9,
             border: '1.5px solid var(--accent)', background: 'var(--surface-2)',
@@ -428,8 +434,8 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string) => void; o
           }}
         />
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={() => { onSave(name.trim() || 'Nouveau dossier'); onClose(); }}>Créer</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('files.cancel')}</SFButton>
+          <SFButton variant="primary" onClick={() => { onSave(name.trim() || t('files.newFolderDefault')); onClose(); }}>{t('files.create')}</SFButton>
         </div>
       </div>
     </div>
@@ -469,6 +475,7 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
   onNavigate: (f: FileItem) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const url = getFileContent(file.id);
   const icon = PREVIEW_ICONS[file.type] ?? 'file';
 
@@ -555,7 +562,7 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
 
         {url && (
           <a href={url} download={file.name} style={{ ...BTN_STYLE, textDecoration: 'none' }}>
-            <SFIcon name="download" size={13} /><span>Télécharger</span>
+            <SFIcon name="download" size={13} /><span>{t('files.download')}</span>
           </a>
         )}
         <button onClick={onClose} style={{ ...BTN_STYLE, border: 'none' }}
@@ -570,8 +577,8 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
         {!url ? (
           <div style={{ textAlign: 'center' }}>
             <SFIcon name={icon} size={52} color="var(--text-3)" />
-            <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>Aucun contenu disponible</p>
-            <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Glissez ce fichier depuis votre ordinateur pour le charger.</p>
+            <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{t('files.noContentAvailable')}</p>
+            <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('files.dragFileToLoad')}</p>
           </div>
 
         ) : file.type === 'pdf' ? (
@@ -620,7 +627,7 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
             <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginTop: 4 }}>{formatFileSize(file.size)}</p>
             <a href={url} download={file.name}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 20, padding: '10px 20px', borderRadius: 10, background: 'var(--accent)', color: 'var(--on-accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>
-              <SFIcon name="download" size={14} /> Télécharger
+              <SFIcon name="download" size={14} /> {t('files.download')}
             </a>
           </div>
         )}
@@ -631,17 +638,18 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
 
 // ── Add file modal (simulated — no actual upload backend) ──────────────────────
 
-const FILE_TYPE_OPTIONS: { type: FileItemType; label: string; ext: string }[] = [
-  { type: 'pdf',    label: 'Document PDF',       ext: 'pdf'  },
-  { type: 'image',  label: 'Image',              ext: 'jpg'  },
-  { type: 'video',  label: 'Vidéo',              ext: 'mp4'  },
-  { type: 'audio',  label: 'Audio',              ext: 'mp3'  },
-  { type: 'doc',    label: 'Document texte',     ext: 'docx' },
-  { type: 'zip',    label: 'Archive ZIP',        ext: 'zip'  },
-  { type: 'other',  label: 'Autre',              ext: 'bin'  },
+const FILE_TYPE_OPTIONS: { type: FileItemType; labelKey: string; ext: string }[] = [
+  { type: 'pdf',    labelKey: 'files.fileTypePdf',   ext: 'pdf'  },
+  { type: 'image',  labelKey: 'files.fileTypeImage', ext: 'jpg'  },
+  { type: 'video',  labelKey: 'files.fileTypeVideo', ext: 'mp4'  },
+  { type: 'audio',  labelKey: 'files.fileTypeAudio', ext: 'mp3'  },
+  { type: 'doc',    labelKey: 'files.fileTypeDoc',   ext: 'docx' },
+  { type: 'zip',    labelKey: 'files.fileTypeZip',   ext: 'zip'  },
+  { type: 'other',  labelKey: 'files.fileTypeOther', ext: 'bin'  },
 ];
 
 function AddFileModal({ onSave, onClose }: { onSave: (name: string, type: FileItemType, ext: string) => void; onClose: () => void }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [selectedType, setSelectedType] = useState<typeof FILE_TYPE_OPTIONS[0]>(FILE_TYPE_OPTIONS[0]);
   const ref = useRef<HTMLInputElement>(null);
@@ -659,21 +667,21 @@ function AddFileModal({ onSave, onClose }: { onSave: (name: string, type: FileIt
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 420, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Ajouter un fichier</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{t('files.addFile')}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Nom du fichier</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('files.fileName')}</label>
             <input
               ref={ref}
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
-              placeholder={`ex. Contrat_client.${selectedType.ext}`}
+              placeholder={t('files.fileNamePlaceholder', { ext: selectedType.ext })}
               style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
             />
           </div>
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Type de fichier</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('files.fileType')}</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
               {FILE_TYPE_OPTIONS.map(opt => {
                 const meta = TYPE_META[opt.type];
@@ -686,7 +694,7 @@ function AddFileModal({ onSave, onClose }: { onSave: (name: string, type: FileIt
                     background: sel ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
                   }}>
                     <SFIcon name={meta.icon} size={16} color={meta.color} />
-                    <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>{opt.label}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>{t(opt.labelKey)}</span>
                   </button>
                 );
               })}
@@ -694,8 +702,8 @@ function AddFileModal({ onSave, onClose }: { onSave: (name: string, type: FileIt
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={handleSave} disabled={!name.trim()}>Ajouter</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('files.cancel')}</SFButton>
+          <SFButton variant="primary" onClick={handleSave} disabled={!name.trim()}>{t('files.add')}</SFButton>
         </div>
       </div>
     </div>
@@ -756,6 +764,7 @@ function FileTree({
   collapsed: boolean;
   lockedScope?: NavLocation;
 }) {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState(getProjects);
   const [folders, setFolders] = useState(getFolders);
   const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
@@ -816,7 +825,7 @@ function FileTree({
           {!collapsed && (
             <button
               onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
-              title={isPinned ? 'Désépingler' : 'Épingler'}
+              title={isPinned ? t('files.unpin') : t('files.pin')}
               style={{
                 // Positionné en absolu pour ne jamais modifier la hauteur de la ligne
                 position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
@@ -874,7 +883,7 @@ function FileTree({
           onMouseLeave={e => { if (!isRootActive) e.currentTarget.style.background = 'transparent'; }}
         >
           <SFIcon name="hard-drive" size={13} color={isRootActive ? 'var(--accent)' : 'var(--text-3)'} />
-          {!collapsed && <span>Tous les fichiers</span>}
+          {!collapsed && <span>{t('files.allFiles')}</span>}
         </div>}
 
         {/* Clients link - child of root (rendu avant les dossiers globaux pour cohérence avec la vue colonnes) */}
@@ -886,7 +895,7 @@ function FileTree({
             onMouseLeave={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'transparent'; }}
           >
             <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--accent)' : 'var(--text-3)'} />
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>Clients</span>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{t('files.clients')}</span>
           </div>
         )}
 
@@ -909,7 +918,7 @@ function FileTree({
         {/* All Projects — hidden when locked (the scoped subtree is rendered at the top instead) */}
         {!lockedScope && projects.length > 0 && (
           <>
-            <SectionLabel>Projets</SectionLabel>
+            <SectionLabel>{t('files.projectsSection')}</SectionLabel>
             {projects.map(p => renderProjectRow(p))}
           </>
         )}
@@ -919,8 +928,8 @@ function FileTree({
 
         {/* Archives & Trash */}
         {[
-          { id: 'folder-archives', name: 'Archives', icon: 'archive' },
-          { id: 'folder-trash', name: 'Corbeille', icon: 'trash-2' },
+          { id: 'folder-archives', nameKey: 'files.archives', icon: 'archive' },
+          { id: 'folder-trash', nameKey: 'files.trash', icon: 'trash-2' },
         ].map(item => {
           const active = location.scope === 'global' && location.folderId === item.id;
           return (
@@ -931,7 +940,7 @@ function FileTree({
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
             >
               <SFIcon name={item.icon} size={13} color={active ? 'var(--accent)' : 'var(--text-3)'} />
-              {!collapsed && <span>{item.name}</span>}
+              {!collapsed && <span>{t(item.nameKey)}</span>}
             </div>
           );
         })}
@@ -961,14 +970,14 @@ interface StorageItem {
 
 // Versions (avec tailles) d'une ressource à upload (révision vidéo/photo/audio/fichier), lues sans entrer dans la ressource.
 const FALLBACK_VERSION_BYTES = [1_600_000_000, 1_900_000_000, 2_150_000_000]; // V1·V2·V3 simulées si la ressource n'a jamais été ouverte
-function resourceVersionSizes(file: FileItem): StorageVersion[] | undefined {
+function resourceVersionSizes(file: FileItem, t: (key: string) => string): StorageVersion[] | undefined {
   if (file.type !== 'resource' || !file.resourceId || file.resourceType !== 'video_review') return undefined;
   const content = getResourceContent<{ versions?: { v: string; label?: string; size?: number }[] }>(file.resourceId);
   if (content?.versions?.length) {
     return content.versions.map(v => ({ id: `${file.id}-${v.v}`, name: v.v, subtitle: v.label, size: v.size ?? 0 }));
   }
   // Repli : versions simulées stables (la persistance réelle prend le relais dès que la ressource est ouverte).
-  return FALLBACK_VERSION_BYTES.map((sz, i) => ({ id: `${file.id}-V${i + 1}`, name: `V${i + 1}`, subtitle: i === 0 ? 'Version initiale' : 'Révision', size: sz }));
+  return FALLBACK_VERSION_BYTES.map((sz, i) => ({ id: `${file.id}-V${i + 1}`, name: `V${i + 1}`, subtitle: i === 0 ? t('files.versionInitial') : t('files.versionRevision'), size: sz }));
 }
 
 function buildSizeMap(folders: FileFolder[], files: FileItem[]): Map<string, { size: number; count: number }> {
@@ -1008,6 +1017,7 @@ const fmtSz = (n: number): string => {
 function VersionRow({ v, vpct, canDelete, onDelete }: {
   v: StorageVersion; vpct: number; canDelete: boolean; onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [hov, setHov] = React.useState(false);
   return (
     <div
@@ -1032,7 +1042,7 @@ function VersionRow({ v, vpct, canDelete, onDelete }: {
         {canDelete && (
           <button
             onClick={onDelete}
-            title="Supprimer cette version"
+            title={t('files.deleteVersionTooltip')}
             style={{ opacity: hov ? 1 : 0, width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.1s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
@@ -1056,6 +1066,7 @@ export function StorageView({
   onNavigate: (loc: NavLocation) => void;
   context?: 'active' | 'trashed' | 'archived';
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
@@ -1124,18 +1135,18 @@ export function StorageView({
     e.preventDefault();
     const menuItems: CtxMenuItem[] = [];
     if (item.fileItem?.resourceId) {
-      menuItems.push({ label: 'Ouvrir la ressource', icon: 'external-link', action: () => item.fileItem && openResource(item.fileItem) });
+      menuItems.push({ label: t('files.openResource'), icon: 'external-link', action: () => item.fileItem && openResource(item.fileItem) });
       menuItems.push({ label: '', icon: '', action: () => {}, separator: true });
     } else if (item.isFolder && item.onClick) {
-      menuItems.push({ label: 'Ouvrir', icon: 'folder-open', action: item.onClick });
+      menuItems.push({ label: t('files.open'), icon: 'folder-open', action: item.onClick });
       menuItems.push({ label: '', icon: '', action: () => {}, separator: true });
     }
     if (context !== 'active') {
-      if (item.isFolder && item.folderItem) menuItems.push({ label: 'Restaurer', icon: 'rotate-ccw', action: () => { restoreFolder(item.folderItem!.id); } });
-      else if (item.fileItem) menuItems.push({ label: 'Restaurer', icon: 'rotate-ccw', action: () => { restoreFile(item.fileItem!.id); } });
+      if (item.isFolder && item.folderItem) menuItems.push({ label: t('files.restore'), icon: 'rotate-ccw', action: () => { restoreFolder(item.folderItem!.id); } });
+      else if (item.fileItem) menuItems.push({ label: t('files.restore'), icon: 'rotate-ccw', action: () => { restoreFile(item.fileItem!.id); } });
     } else {
-      if (item.isFolder && item.folderItem) menuItems.push({ label: 'Mettre à la corbeille', icon: 'trash-2', danger: true, action: () => { trashFolder(item.folderItem!.id); } });
-      else if (item.fileItem) menuItems.push({ label: 'Mettre à la corbeille', icon: 'trash-2', danger: true, action: () => { trashFile(item.fileItem!.id); } });
+      if (item.isFolder && item.folderItem) menuItems.push({ label: t('files.moveToTrash'), icon: 'trash-2', danger: true, action: () => { trashFolder(item.folderItem!.id); } });
+      else if (item.fileItem) menuItems.push({ label: t('files.moveToTrash'), icon: 'trash-2', danger: true, action: () => { trashFile(item.fileItem!.id); } });
     }
     if (menuItems.length > 0) setCtx({ pos: { x: e.clientX, y: e.clientY }, items: menuItems });
   };
@@ -1214,7 +1225,7 @@ export function StorageView({
     const fileItems: StorageItem[] = currentFiles.map(f => {
       const rm = f.resourceType ? RESOURCE_TYPE_META[f.resourceType] : undefined;
       const meta = rm ?? TYPE_META[f.type] ?? TYPE_META.other;
-      const versions = resourceVersionSizes(f);
+      const versions = resourceVersionSizes(f, t);
       const size = versions ? versions.reduce((s, v) => s + v.size, 0) : (f.size ?? 0);
       return {
         id: f.id, name: f.name, isFolder: false,
@@ -1226,7 +1237,7 @@ export function StorageView({
     });
 
     return [...folderItems, ...fileItems].sort((a, b) => b.size - a.size);
-  }, [location, folders, files, projects, clients, sizeMap, projectSizeMap, onNavigate]);
+  }, [location, folders, files, projects, clients, sizeMap, projectSizeMap, onNavigate, t]);
 
   const storageOrderedIds = React.useMemo(() => items.map(i => i.id), [items]);
 
@@ -1256,7 +1267,7 @@ export function StorageView({
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <SFIcon name={context === 'trashed' ? 'trash-2' : 'archive'} size={13} color="var(--text-2)" />
           <span style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>
-            Vue stockage &mdash; <strong>{context === 'trashed' ? 'Corbeille' : 'Archives'}</strong>
+            {t('files.storageView')} &mdash; <strong>{context === 'trashed' ? t('files.trash') : t('files.archives')}</strong>
           </span>
         </div>
       )}
@@ -1264,15 +1275,15 @@ export function StorageView({
       {/* Summary strip */}
       <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 16, padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <span style={{ fontSize: 20, fontWeight: 700, color: totalSize > 0 ? 'var(--text)' : 'var(--text-3)' }}>
-          {totalSize > 0 ? fmtSz(totalSize) : 'Vide'}
+          {totalSize > 0 ? fmtSz(totalSize) : t('files.empty')}
         </span>
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>
-          {items.length} {items.length !== 1 ? 'éléments' : 'élément'} &bull; {totalCount} {totalCount !== 1 ? 'fichiers' : 'fichier'}
+          {t('files.itemsCount', { count: items.length })} &bull; {t('files.filesCount', { count: totalCount })}
         </span>
         {storageSelIds.size > 0 && (
           <button
             onClick={trashStorageSelected}
-            title={`${context !== 'active' ? 'Restaurer' : 'Mettre à la corbeille'} (${storageSelIds.size})`}
+            title={context !== 'active' ? t('files.restoreCountTooltip', { count: storageSelIds.size }) : t('files.trashCountTooltip', { count: storageSelIds.size })}
             style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', marginLeft: 'auto' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = context !== 'active' ? 'var(--ok)' : 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = context !== 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
@@ -1289,8 +1300,8 @@ export function StorageView({
 
       {/* Column headers */}
       <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px', gap: 8, padding: '6px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-        {['Nom', 'Taille', 'Éléments', '%', ''].map(h => (
-          <span key={h} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
+        {[t('files.colName'), t('files.colSize'), t('files.colItems'), '%', ''].map((h, hi) => (
+          <span key={hi} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</span>
         ))}
       </div>
 
@@ -1299,7 +1310,7 @@ export function StorageView({
         {items.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
             <SFIcon name="chart-bar" size={36} color="var(--text-2)" />
-            <p style={{ fontSize: 13, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>Aucun fichier dans cet emplacement</p>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{t('files.noFileInLocation')}</p>
           </div>
         ) : items.map(item => {
           const pct = totalSize > 0 ? item.size / totalSize * 100 : 0;
@@ -1332,7 +1343,7 @@ export function StorageView({
                 {item.versions ? (
                   <button
                     onClick={() => setExpandedIds(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })}
-                    title={isExpanded ? 'Replier les versions' : 'Voir les versions'}
+                    title={isExpanded ? t('files.collapseVersions') : t('files.viewVersions')}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: 'var(--text-3)', flexShrink: 0 }}
                   >
                     <SFIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={13} />
@@ -1361,7 +1372,7 @@ export function StorageView({
                   )}
                   {item.versions && (
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 5, padding: '1px 6px', flexShrink: 0 }}>
-                      {item.versions.length} version{item.versions.length > 1 ? 's' : ''}
+                      {t('files.versionsCount', { count: item.versions.length })}
                     </span>
                   )}
                 </div>
@@ -1395,7 +1406,7 @@ export function StorageView({
                       onClick={() => handleAction(item)}
                       style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid ${actionColor}`, background: 'transparent', color: actionColor, fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 600 }}
                     >
-                      {context !== 'active' ? 'Restaurer' : 'Ok'}
+                      {context !== 'active' ? t('files.restore') : t('files.ok')}
                     </button>
                     <button
                       onClick={() => setConfirmingId(null)}
@@ -1469,7 +1480,7 @@ export function StorageView({
         })}
         {items.filter(i => i.size > 0).length === 0 && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>Aucune donnée</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{t('files.noData')}</span>
           </div>
         )}
       </div>
@@ -1490,6 +1501,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
   onMove: (targetFolderId: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
 
@@ -1505,7 +1517,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
       parts.unshift(parent.name);
       cur = parent;
     }
-    return parts.length > 0 ? parts.join(' / ') : (projectId ? 'Racine du projet' : 'Racine');
+    return parts.length > 0 ? parts.join(' / ') : (projectId ? t('files.rootProject') : t('files.root'));
   };
 
   // Split into: same-scope folders first, then "other" folders
@@ -1554,16 +1566,16 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
         {/* Header */}
         <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>
-            Déplacer {count} élément{count > 1 ? 's' : ''}
+            {t('files.moveItemsCount', { count })}
           </p>
-          <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>Choisissez le dossier de destination</p>
+          <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{t('files.chooseDestinationFolder')}</p>
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)' }}>
             <SFIcon name="search" size={13} color="var(--text-3)" />
             <input
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Chercher un dossier…"
+              placeholder={t('files.searchFolderPlaceholder')}
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
             />
           </div>
@@ -1572,7 +1584,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
         {/* Folder list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
           {scopeFolders.length === 0 && otherFolders.length === 0 && (
-            <p style={{ padding: '20px 12px', color: 'var(--text-3)', fontSize: 12, textAlign: 'center', fontFamily: 'var(--ff-text)' }}>Aucun dossier trouvé</p>
+            <p style={{ padding: '20px 12px', color: 'var(--text-3)', fontSize: 12, textAlign: 'center', fontFamily: 'var(--ff-text)' }}>{t('files.noFolderFound')}</p>
           )}
 
           {/* Same-scope folders (always shown first, no section label if no "other" section) */}
@@ -1583,19 +1595,19 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
             <>
               <div style={{ padding: '10px 12px 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0 }}>Autres projets</span>
+                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0 }}>{t('files.otherProjects')}</span>
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
-              {otherFolders.map(f => <FolderRow key={f.id} f={f} badge={f.projectId ? 'autre projet' : 'global'} />)}
+              {otherFolders.map(f => <FolderRow key={f.id} f={f} badge={f.projectId ? t('files.badgeOtherProject') : t('files.badgeGlobal')} />)}
             </>
           )}
         </div>
 
         {/* Footer */}
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('files.cancel')}</SFButton>
           <SFButton variant="primary" onClick={() => selectedTarget && onMove(selectedTarget)} style={{ opacity: selectedTarget ? 1 : 0.4, pointerEvents: selectedTarget ? 'auto' : 'none' }}>
-            Déplacer ici
+            {t('files.moveHere')}
           </SFButton>
         </div>
       </div>

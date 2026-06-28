@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getToast, subscribeToast, dismissToast } from '../data/toastStore';
 import { SFIcon } from './ui';
 
 export function ToastBar() {
+  const { t } = useTranslation();
   const [toast, setToast] = useState(getToast);
   const [visible, setVisible] = useState(false);
   const prevId = useRef<string | null>(null);
@@ -108,7 +110,7 @@ export function ToastBar() {
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}
           >
-            Annuler
+            {t('toast.undo')}
           </button>
         )}
 

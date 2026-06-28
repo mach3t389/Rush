@@ -1,6 +1,7 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
@@ -21,17 +22,17 @@ type Filter = 'today' | 'week' | 'late' | 'all';
 type SortCol = 'title' | 'priority' | 'status' | 'dueDate';
 type SortDir = 'asc' | 'desc';
 
-const PRIORITY_LABEL: Record<Priority, string> = { high: 'Élevée', normal: 'Moyenne', low: 'Basse', none: 'Aucune' };
+const PRIORITY_LABEL_KEY: Record<Priority, string> = { high: 'priority.high', normal: 'priority.medium', low: 'priority.low', none: 'priority.none' };
 const PRIORITY_COLOR: Record<Priority, string> = { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' };
 const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 const PRIORITY_ORDER: Priority[] = ['high', 'normal', 'low', 'none'];
 
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all',   label: 'Tout' },
-  { key: 'today', label: "Aujourd'hui" },
-  { key: 'week',  label: 'Cette semaine' },
-  { key: 'late',  label: 'En retard' },
+const FILTERS: { key: Filter; labelKey: string }[] = [
+  { key: 'all',   labelKey: 'tasks.filterAll' },
+  { key: 'today', labelKey: 'tasks.filterToday' },
+  { key: 'week',  labelKey: 'tasks.filterThisWeek' },
+  { key: 'late',  labelKey: 'tasks.filterOverdue' },
 ];
 
 function filterTasks(tasks: Task[], filter: Filter): Task[] {
@@ -71,6 +72,7 @@ function sortTasks(tasks: Task[], col: SortCol, dir: SortDir): Task[] {
 // �"?�"? Col header �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
 function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir }; onSort: (col: SortCol) => void }) {
+  const { t } = useTranslation();
   const plain = (label: string) => (
     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
       {label}
@@ -90,14 +92,14 @@ function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir
   return (
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
-      {sortable('Tâche', 'title')}
-      {plain('Sous-tâches')}
-      {plain('Activité')}
-      {plain('Projet')}
-      {plain('Assigné')}
-      {sortable('Priorité', 'priority')}
-      {sortable('Statut', 'status')}
-      {sortable('Date', 'dueDate')}
+      {sortable(t('tasks.task'), 'title')}
+      {plain(t('tasks.subtasks'))}
+      {plain(t('tasks.activity'))}
+      {plain(t('tasks.project'))}
+      {plain(t('tasks.assigned'))}
+      {sortable(t('tasks.priority'), 'priority')}
+      {sortable(t('tasks.status'), 'status')}
+      {sortable(t('tasks.date'), 'dueDate')}
       <span />
     </div>
   );
@@ -107,13 +109,13 @@ function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir
 
 const TEAM = Object.values(USERS);
 
-const STATUS_OPTIONS = [
-  { value: '',       label: 'Aucun statut' },
-  { value: 'warn',   label: 'À faire'      },
-  { value: 'info',   label: 'En cours'     },
-  { value: 'ok',     label: 'Complété'     },
-  { value: 'danger', label: 'En retard'    },
-  { value: 'review', label: 'En révision'  },
+const STATUS_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: '',       labelKey: 'tasks.noStatus'   },
+  { value: 'warn',   labelKey: 'tasks.todo'       },
+  { value: 'info',   labelKey: 'tasks.inProgress' },
+  { value: 'ok',     labelKey: 'tasks.completed'  },
+  { value: 'danger', labelKey: 'tasks.overdue'    },
+  { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
 
@@ -177,6 +179,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
   onMove: (projectId: string, projectName: string, projectColor: string, sectionLabel: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState(() => getProjects());
   const [targetProjectId, setTargetProjectId] = useState('');
   const [targetSection, setTargetSection] = useState('');
@@ -190,11 +193,11 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 420, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? 'Copier' : 'Déplacer'} {count} tâche{count > 1 ? 's' : ''}</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? t('taskPanel.bulkCopyTitle', { count }) : t('taskPanel.bulkMoveTitle', { count })}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Projet destination</p>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('taskPanel.destinationProject')}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
           {projects.map(p => (
             <button key={p.id} onClick={() => { setTargetProjectId(p.id); setTargetSection(''); setNewSection(''); }}
@@ -206,7 +209,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
 
         {targetProjectId && (
           <>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Section destination</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('taskPanel.destinationSection')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10, maxHeight: 150, overflowY: 'auto' }}>
               {targetSections.map(s => (
                 <button key={s.label} onClick={() => { setTargetSection(s.label); setNewSection(''); }}
@@ -216,19 +219,19 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
               ))}
             </div>
             <input value={newSection} onChange={e => { setNewSection(e.target.value); if (e.target.value) setTargetSection(e.target.value); }}
-              placeholder="Ou créer une nouvelle section…"
+              placeholder={t('taskPanel.orCreateSection')}
               style={{ width: '100%', padding: '7px 12px', borderRadius: 9, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box', marginBottom: 16 }}
             />
           </>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.cancel')}</button>
           <button
             onClick={() => { if (proj && targetSection) { onMove(proj.id, proj.name, (proj as { clientColor?: string }).clientColor ?? 'var(--text-3)', targetSection); onClose(); } }}
             disabled={!targetProjectId || !targetSection}
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
-          >{mode === 'copy' ? 'Copier' : 'Déplacer'}</button>
+          >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
         </div>
       </div>
     </div>,
@@ -237,6 +240,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
 }
 
 function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onDelete: () => void; onClose: () => void }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -252,15 +256,16 @@ function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number;
   );
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
-      {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>Ouvrir le détail</span></>, onOpen)}
+      {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
     </div>,
     document.body,
   );
 }
 
 function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
@@ -297,7 +302,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
       completeTimer.current = window.setTimeout(() => { updateMyTask(task.id, { checked: true }); }, 1100);
       showToast({
         type: 'task',
-        message: 'Tâche terminée',
+        message: t('taskPanel.taskCompleted'),
         onUndo: () => {
           if (completeTimer.current) { clearTimeout(completeTimer.current); completeTimer.current = null; }
           setChecked(false);
@@ -445,10 +450,10 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
                 >
                   <SFIcon name="chevron-left" size={11} />
-                  <span>Retour aux projets</span>
+                  <span>{t('taskPanel.backToProjects')}</span>
                 </button>
                 <div style={{ height: 1, background: 'var(--border)', margin: '2px 8px 4px' }} />
-                <p style={{ padding: '2px 10px 4px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Section</p>
+                <p style={{ padding: '2px 10px 4px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.section')}</p>
                 {(() => {
                   const secs = getSections(pendingProjId);
                   const closeAll = () => { setOpen(null); setProjSearch(''); setPendingProjId(null); };
@@ -456,7 +461,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                     <>
                       <button onClick={() => { setSectionLabel(''); updateMyTask(task.id, { sectionLabel: '' }); closeAll(); }}
                         style={{ display: 'block', width: '100%', padding: '5px 10px', background: !sectionLabel ? 'var(--surface-3)' : 'none', border: 'none', borderRadius: 7, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
-                        Aucune section
+                        {t('taskPanel.noSection')}
                       </button>
                       {secs.map(s => (
                         <button key={s.label} onClick={() => { setSectionLabel(s.label); updateMyTask(task.id, { sectionLabel: s.label }); closeAll(); }}
@@ -465,7 +470,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                         </button>
                       ))}
                       {secs.length === 0 && (
-                        <p style={{ padding: '4px 10px 6px', fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce projet</p>
+                        <p style={{ padding: '4px 10px 6px', fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('taskPanel.noSectionInProject')}</p>
                       )}
                     </>
                   );
@@ -481,7 +486,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                       autoFocus
                       value={projSearch}
                       onChange={e => setProjSearch(e.target.value)}
-                      placeholder="Rechercher un projet…"
+                      placeholder={t('taskPanel.searchProject')}
                       style={{ width: '100%', boxSizing: 'border-box', padding: '5px 8px 5px 24px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)', outline: 'none' }}
                     />
                   </div>
@@ -516,19 +521,19 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                     <div style={{ maxHeight: 270, overflowY: 'auto' }}>
                       {!q && current && (
                         <>
-                          <p style={{ padding: '2px 10px 2px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Actuel</p>
+                          <p style={{ padding: '2px 10px 2px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.current')}</p>
                           {projBtn(current)}
                           {recentOthers.length > 0 && (
                             <>
                               <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
-                              <p style={{ padding: '2px 10px 2px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Récents</p>
+                              <p style={{ padding: '2px 10px 2px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.recent')}</p>
                               {recentOthers.map(projBtn)}
                             </>
                           )}
                           {moreOthers.length > 0 && (
                             <>
                               <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
-                              <p style={{ padding: '2px 10px 2px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tous les projets</p>
+                              <p style={{ padding: '2px 10px 2px', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.allProjects')}</p>
                               {moreOthers.map(projBtn)}
                             </>
                           )}
@@ -536,7 +541,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                       )}
                       {(q || !current) && all.map(projBtn)}
                       {all.length === 0 && (
-                        <p style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucun résultat</p>
+                        <p style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('taskPanel.noResults')}</p>
                       )}
                     </div>
                   );
@@ -552,7 +557,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         <button
           ref={assigneeBtnRef}
           onClick={() => setOpen(open === 'assignee' ? null : 'assignee')}
-          title={assignee?.name ?? 'Non assigné'}
+          title={assignee?.name ?? t('tasks.unassigned')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
         >
           {assignee
@@ -563,7 +568,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         {open === 'assignee' && (
           <InlineDropdown anchorRef={assigneeBtnRef} onClose={() => setOpen(null)}>
             {ddItem(() => { setAssignee(null); setOpen(null); },
-              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>,
+              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee === null
             )}
             {TEAM.map(u => ddItem(() => { setAssignee(u); setOpen(null); },
@@ -586,14 +591,14 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         >
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
           <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {PRIORITY_LABEL[priority]}
+            {t(PRIORITY_LABEL_KEY[priority])}
           </span>
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
         {open === 'priority' && (
           <InlineDropdown anchorRef={priorityBtnRef} onClose={() => setOpen(null)}>
             {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); },
-              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
               priority === p
             ))}
           </InlineDropdown>
@@ -615,8 +620,8 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         </button>
         {open === 'status' && (
           <InlineDropdown anchorRef={statusBtnRef} onClose={() => setOpen(null)}>
-            {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(o.label); setOpen(null); },
-              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{o.label}</>,
+            {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(t(o.labelKey)); setOpen(null); },
+              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
               status === o.value
             ))}
           </InlineDropdown>
@@ -659,7 +664,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
       {onDelete && (
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          title="Supprimer la tâche"
+          title={t('taskPanel.deleteTask')}
           style={{ visibility: hovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 3, display: 'flex', borderRadius: 5, flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -697,6 +702,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
 function FilterDropdown({ label, count, onClear, children, anchorRef }: {
   label: string; count: number; onClear: () => void; children: React.ReactNode; anchorRef: React.RefObject<HTMLButtonElement | null>;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = React.useState<React.CSSProperties>({ visibility: 'hidden' });
   const dropRef = React.useRef<HTMLDivElement>(null);
@@ -744,7 +750,7 @@ function FilterDropdown({ label, count, onClear, children, anchorRef }: {
         {active && (
           <button
             onClick={e => { e.stopPropagation(); onClear(); }}
-            title="Effacer"
+            title={t('taskPanel.clear')}
             style={{ display: 'flex', alignItems: 'center', padding: '5px 7px 5px 2px', border: 'none', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--accent)')}
@@ -770,6 +776,7 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
   onTogglePriority: (p: Priority) => void; onToggleStatus: (s: string) => void;
   onClearPriority: () => void; onClearStatus: () => void;
 }) {
+  const { t } = useTranslation();
   const prioRef = useRef<HTMLButtonElement>(null);
   const statRef = useRef<HTMLButtonElement>(null);
 
@@ -790,12 +797,12 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <SFIcon name="sliders" size={12} color="var(--text-3)" />
 
-      <FilterDropdown label="Priorité" count={filterPriorities.size} onClear={onClearPriority} anchorRef={prioRef}>
-        {PRIORITY_OPTIONS.map(p => checkRow(PRIORITY_LABEL[p], PRIORITY_COLOR[p], filterPriorities.has(p), () => onTogglePriority(p)))}
+      <FilterDropdown label={t('tasks.priority')} count={filterPriorities.size} onClear={onClearPriority} anchorRef={prioRef}>
+        {PRIORITY_OPTIONS.map(p => checkRow(t(PRIORITY_LABEL_KEY[p]), PRIORITY_COLOR[p], filterPriorities.has(p), () => onTogglePriority(p)))}
       </FilterDropdown>
 
-      <FilterDropdown label="Statut" count={filterStatuses.size} onClear={onClearStatus} anchorRef={statRef}>
-        {STATUS_OPTIONS.map(o => checkRow(o.label, STATUS_COLOR[o.value], filterStatuses.has(o.value), () => onToggleStatus(o.value)))}
+      <FilterDropdown label={t('tasks.status')} count={filterStatuses.size} onClear={onClearStatus} anchorRef={statRef}>
+        {STATUS_OPTIONS.map(o => checkRow(t(o.labelKey), STATUS_COLOR[o.value], filterStatuses.has(o.value), () => onToggleStatus(o.value)))}
       </FilterDropdown>
     </div>
   );
@@ -808,6 +815,7 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 type AddOpts = { priority: Priority; assignee: typeof TEAM[0] | null; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
 
 function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [confirm, setConfirm] = useState(false);
   return (
@@ -822,7 +830,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label:
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({count})</span>
       </button>
       {hovered && !confirm && (
-        <button onClick={() => setConfirm(true)} title="Supprimer la section"
+        <button onClick={() => setConfirm(true)} title={t('taskPanel.deleteSection')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2, borderRadius: 5 }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
@@ -831,9 +839,9 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label:
       )}
       {confirm && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>Supprimer ?</span>
-          <button onClick={onDelete} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Oui</button>
-          <button onClick={() => setConfirm(false)} style={{ padding: '2px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Non</button>
+          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('tasks.deleteConfirm')}</span>
+          <button onClick={onDelete} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.yes')}</button>
+          <button onClick={() => setConfirm(false)} style={{ padding: '2px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
         </div>
       )}
     </div>
@@ -841,6 +849,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label:
 }
 
 function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void }) {
+  const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(false);
   const [assignee, setAssignee] = useState<typeof TEAM[0] | null>(TEAM[0]);
@@ -892,7 +901,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
         <SFIcon name="plus" size={13}  />
-        Ajouter une tâche
+        {t('taskPanel.addTask')}
       </button>
     );
   }
@@ -911,7 +920,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') reset(); }}
           onBlur={() => { if (title.trim()) submit(); }}
-          placeholder="Nom de la tâche..."
+          placeholder={t('taskPanel.taskNamePlaceholder')}
           style={{ width: '100%', padding: '4px 0', background: 'transparent', border: 'none', borderBottom: '1px solid var(--accent)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
         />
 
@@ -924,14 +933,14 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
             style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0, maxWidth: '100%' }}>
             {project
               ? <><i style={{ width: 7, height: 7, borderRadius: '50%', background: project.clientColor, display: 'block', flexShrink: 0 }} /><span style={{ fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span></>
-              : <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontStyle: 'italic' }}>Projet—</span>
+              : <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontStyle: 'italic' }}>{t('taskPanel.projectPlaceholder')}</span>
             }
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
           </button>
           {openField === 'project' && (
             <PanelDropdown onClose={() => setOpenField(null)} anchorRect={dropRect} minWidth={220}>
               {ddItem(() => { setProject(null); setOpenField(null); },
-                <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Aucun projet</span>,
+                <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{t('tasks.noProject')}</span>,
                 project === null
               )}
               {PROJECTS.map(p => ddItem(() => { setProject(p); setOpenField(null); },
@@ -945,7 +954,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
         {/* Assigné — avatar only */}
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openDrop('assignee', e)}
-            title={assignee?.name ?? 'Non assigné'}
+            title={assignee?.name ?? t('tasks.unassigned')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
             {assignee
               ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={22} />
@@ -955,7 +964,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
           {openField === 'assignee' && (
             <PanelDropdown onClose={() => setOpenField(null)} anchorRect={dropRect} minWidth={180}>
               {ddItem(() => { setAssignee(null); setOpenField(null); },
-                <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>,
+                <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
                 assignee === null)}
               {TEAM.map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
                 <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
@@ -970,13 +979,13 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
           <button onMouseDown={e => e.preventDefault()} onClick={e => openDrop('priority', e)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{PRIORITY_LABEL[priority]}</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
           </button>
           {openField === 'priority' && (
             <PanelDropdown onClose={() => setOpenField(null)} anchorRect={dropRect}>
               {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpenField(null); },
-                <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+                <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
                 priority === p
               ))}
             </PanelDropdown>
@@ -989,14 +998,14 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
             {status
               ? <SFPill status={status as Task['status']} small>{statusLabel}</SFPill>
-              : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Aucun</span>
+              : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('taskPanel.none')}</span>
             }
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
           </button>
           {openField === 'status' && (
             <PanelDropdown onClose={() => setOpenField(null)} anchorRect={dropRect}>
-              {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(o.label); setOpenField(null); },
-                <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{o.label}</>,
+              {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(t(o.labelKey)); setOpenField(null); },
+                <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
                 status === o.value
               ))}
             </PanelDropdown>
@@ -1007,7 +1016,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openDrop('dueDate', e)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
-            {dueDate || 'Échéance'}
+            {dueDate || t('tasks.dueDate')}
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
           </button>
           {openField === 'dueDate' && (
@@ -1030,6 +1039,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
 // �"?�"? Main screen �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
 export function Taches() {
+  const { t } = useTranslation();
   const [filter, setFilter]           = usePersistedState<Filter>('sf_taches_filter', 'all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
@@ -1088,7 +1098,7 @@ export function Taches() {
       status: opts.status as Task['status'],
       statusLabel: opts.statusLabel,
       priority: opts.priority,
-      priorityLabel: PRIORITY_LABEL[opts.priority],
+      priorityLabel: t(PRIORITY_LABEL_KEY[opts.priority]),
       dueDate: opts.dueDate,
       dueDateRed: false,
       checked: false,
@@ -1125,9 +1135,9 @@ export function Taches() {
   // Priority groups (used when groupByPriority is on)
   const priorityGroups = PRIORITY_ORDER.map(p => ({
     priority: p,
-    label: PRIORITY_LABEL[p],
+    label: t(PRIORITY_LABEL_KEY[p]),
     color: PRIORITY_COLOR[p],
-    tasks: sortedVisible.filter(t => (t.priority ?? 'none') === p),
+    tasks: sortedVisible.filter(tk => (tk.priority ?? 'none') === p),
   })).filter(g => g.tasks.length > 0);
 
   const handleSelectTask = useCallback((task: Task, e?: React.MouseEvent) => {
@@ -1156,7 +1166,7 @@ export function Taches() {
 
   const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort };
 
-  const filterTabBtn = (f: { key: Filter; label: string }) => (
+  const filterTabBtn = (f: { key: Filter; labelKey: string }) => (
     <button
       key={f.key}
       onClick={() => setFilter(f.key)}
@@ -1170,7 +1180,7 @@ export function Taches() {
         transition: 'all 0.12s',
       }}
     >
-      {f.label}
+      {t(f.labelKey)}
     </button>
   );
 
@@ -1182,10 +1192,10 @@ export function Taches() {
         {/* Topbar */}
         <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>Mes tâches</h1>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('tasks.myTasksTitle')}</h1>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
-              {visible.length}/{activeTasks.length} tâches
-              {lateCount > 0 && <> · <span style={{ color: 'var(--danger)' }}>{lateCount} en retard</span></>}
+              {t('tasks.taskCountSummary', { visible: visible.length, total: activeTasks.length })}
+              {lateCount > 0 && <> · <span style={{ color: 'var(--danger)' }}>{t('tasks.overdueCount', { count: lateCount })}</span></>}
             </p>
           </div>
         </div>
@@ -1198,11 +1208,11 @@ export function Taches() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             onClick={() => setGroupByPriority(g => !g)}
-            title={groupByPriority ? 'Désactiver le groupement par priorité' : 'Grouper par priorité'}
+            title={groupByPriority ? t('taskPanel.ungroupByPriority') : t('taskPanel.groupByPriority')}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${groupByPriority ? 'var(--accent)' : 'var(--border)'}`, background: groupByPriority ? 'rgba(249,255,0,0.08)' : 'transparent', color: groupByPriority ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
           >
             <SFIcon name="layers" size={12} color={groupByPriority ? 'var(--accent)' : 'var(--text-3)'} />
-            Priorité
+            {t('tasks.priority')}
           </button>
           <FilterBar
             filterPriorities={filterPrioritiesSet}
@@ -1223,8 +1233,8 @@ export function Taches() {
         {visible.length === 0 && (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <SFIcon name="check-circle" size={32} color="var(--text-3)" />
-            <p style={{ fontSize: 13, color: 'var(--text-3)' }}>Aucune tâche pour ces filtres</p>
-            {hasActiveFilters && <button onClick={clearFilters} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--ff-text)' }}>Effacer les filtres</button>}
+            <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('taskPanel.noTasksForFilters')}</p>
+            {hasActiveFilters && <button onClick={clearFilters} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--ff-text)' }}>{t('taskPanel.clearFilters')}</button>}
           </div>
         )}
 
@@ -1321,12 +1331,12 @@ export function Taches() {
                     }
                     if (e.key === 'Escape') { setAddingSection(false); setNewSectionLabel(''); }
                   }}
-                  placeholder="Nom de la section…"
+                  placeholder={t('taskPanel.sectionNamePlaceholder')}
                   style={{ flex: 1, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
                 />
                 <button onClick={() => { setAddingSection(false); setNewSectionLabel(''); }}
                   style={{ padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  Annuler
+                  {t('tasks.cancel')}
                 </button>
               </div>
             ) : !groupByPriority ? (
@@ -1337,7 +1347,7 @@ export function Taches() {
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
               >
                 <SFIcon name="plus" size={13} />
-                Nouvelle section
+                {t('taskPanel.newSection')}
               </button>
             ) : null}
           </>}
@@ -1347,22 +1357,22 @@ export function Taches() {
       {/* Multi-select floating action bar */}
       {multiSelIds.size > 0 && createPortal(
         <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
-          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{multiSelIds.size} tâche{multiSelIds.size > 1 ? 's' : ''}</span>
+          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('taskPanel.taskCount', { count: multiSelIds.size })}</span>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
           <button onClick={() => setBulkMoveOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="move-right" size={13} />
-            Déplacer
+            {t('taskPanel.move')}
           </button>
           <button onClick={() => setBulkCopyOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="copy" size={13} />
-            Copier
+            {t('taskPanel.copy')}
           </button>
           <button onClick={() => {
             [...multiSelIds].forEach(id => removeMyTask(id));
             setMultiSelIds(new Set());
           }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="trash-2" size={13} />
-            Supprimer
+            {t('tasks.delete')}
           </button>
           <button onClick={() => setMultiSelIds(new Set())} style={{ display: 'flex', padding: 4, borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
             <SFIcon name="x" size={14} />

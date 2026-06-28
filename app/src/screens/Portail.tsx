@@ -1,15 +1,18 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VIDEO_CORRECTIONS } from '../data/mock';
 import { findProject } from '../data/projectStore';
 import { addNotif } from '../data/notificationStore';
 import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
+import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoice } from '../data/financeStore';
 
 const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
 
 // ── Message modal ─────────────────────────────────────────────────────────────
 
 function MessageModal({ projectId, clientName, onClose }: { projectId: string; clientName: string; onClose: () => void }) {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [sent, setSent] = useState(false);
 
@@ -39,19 +42,19 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <SFIcon name="check-circle" size={28} color="var(--ok)" />
               <div>
-                <p style={{ fontWeight: 600, fontSize: 14 }}>Message envoyé</p>
-                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>L'équipe studio a été notifiée.</p>
+                <p style={{ fontWeight: 600, fontSize: 14 }}>{t('portal.messageSent')}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('portal.studioTeamNotified')}</p>
               </div>
             </div>
-            <SFButton variant="secondary" onClick={onClose} style={{ alignSelf: 'flex-end' }}>Fermer</SFButton>
+            <SFButton variant="secondary" onClick={onClose} style={{ alignSelf: 'flex-end' }}>{t('portal.close')}</SFButton>
           </>
         ) : (
           <>
-            <p style={{ fontWeight: 600, fontSize: 15 }}>Envoyer un message au studio</p>
+            <p style={{ fontWeight: 600, fontSize: 15 }}>{t('portal.sendMessageToStudio')}</p>
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}
-              placeholder="Votre message…"
+              placeholder={t('portal.yourMessagePlaceholder')}
               rows={4}
               style={{
                 width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--border)',
@@ -61,8 +64,8 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
               }}
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <SFButton variant="secondary" onClick={onClose}>Annuler</SFButton>
-              <SFButton variant="primary" icon="send" onClick={send} disabled={!text.trim()}>Envoyer</SFButton>
+              <SFButton variant="secondary" onClick={onClose}>{t('portal.cancel')}</SFButton>
+              <SFButton variant="primary" icon="send" onClick={send} disabled={!text.trim()}>{t('portal.send')}</SFButton>
             </div>
           </>
         )}
@@ -74,6 +77,7 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
 // ── Portail ───────────────────────────────────────────────────────────────────
 
 export function Portail() {
+  const { t } = useTranslation();
   const { projectId } = useParams();
   const navigate = useNavigate();
   const project = findProject(projectId ?? '') ?? findProject('pj1')!;
@@ -81,20 +85,25 @@ export function Portail() {
   const [approved, setApproved] = useState(false);
   const [requestedCorrections, setRequestedCorrections] = useState(false);
   const [showMessage, setShowMessage] = useState(false);
+  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [copied, setCopied]         = useState<string | null>(null);
+
+  const openInvoices = getInvoicesByProject(project.id).filter(i => ['sent', 'viewed', 'overdue'].includes(i.status));
+  const paymentMethods = getEnabledPaymentMethods();
 
   const currentPhaseIdx = PHASE_ORDER.indexOf(project.phase);
   const phases = [
-    { label: 'Préproduction',  done: currentPhaseIdx >= 0 },
-    { label: 'Production',     done: currentPhaseIdx >= 1 },
-    { label: 'Postproduction', done: currentPhaseIdx >= 2 },
-    { label: 'Livraison',      done: currentPhaseIdx >= 3 },
+    { label: t('portal.phasePreproduction'),  done: currentPhaseIdx >= 0 },
+    { label: t('portal.phaseProduction'),     done: currentPhaseIdx >= 1 },
+    { label: t('portal.phasePostproduction'), done: currentPhaseIdx >= 2 },
+    { label: t('portal.phaseDelivery'),       done: currentPhaseIdx >= 3 },
   ];
 
   const LIVRABLES = [
-    { name: 'Rough Cut Final — V4', version: 'V4', type: 'Vidéo', status: 'review' as const, label: 'En révision',  date: '8 juin 2025',  pending: true  },
-    { name: 'Scénario V3',          version: 'V3', type: 'Script', status: 'ok'     as const, label: 'Approuvé',    date: '1 juin 2025',  pending: false },
-    { name: 'Rough Cut V3',         version: 'V3', type: 'Vidéo', status: 'danger'  as const, label: 'Corrections', date: '28 mai 2025',  pending: false },
-    { name: 'Rough Cut V2',         version: 'V2', type: 'Vidéo', status: 'ok'      as const, label: 'Approuvé',    date: '20 mai 2025',  pending: false },
+    { name: 'Rough Cut Final — V4', version: 'V4', type: t('portal.deliverableTypeVideo'),  status: 'review' as const, label: t('portal.statusInReview'),    date: '8 juin 2025',  pending: true  },
+    { name: 'Scénario V3',          version: 'V3', type: t('portal.deliverableTypeScript'), status: 'ok'     as const, label: t('portal.statusApproved'),    date: '1 juin 2025',  pending: false },
+    { name: 'Rough Cut V3',         version: 'V3', type: t('portal.deliverableTypeVideo'),  status: 'danger'  as const, label: t('portal.statusCorrections'), date: '28 mai 2025',  pending: false },
+    { name: 'Rough Cut V2',         version: 'V2', type: t('portal.deliverableTypeVideo'),  status: 'ok'      as const, label: t('portal.statusApproved'),    date: '20 mai 2025',  pending: false },
   ];
   const pendingLivrable = LIVRABLES[0];
 
@@ -150,7 +159,7 @@ export function Portail() {
             onClick={() => navigate(`/projets/${project.id}`)}
             style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}
           >
-            ← Vue studio
+            ← {t('portal.studioView')}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{project.clientName}</span>
@@ -179,7 +188,7 @@ export function Portail() {
               border: '1px solid var(--accent)', padding: 24,
             }}>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
-                EN ATTENTE DE VOTRE APPROBATION
+                {t('portal.awaitingYourApproval')}
               </p>
 
               <div style={{
@@ -201,7 +210,7 @@ export function Portail() {
                 <div>
                   <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{pendingLivrable.name}</p>
                   <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-                    {pendingLivrable.type} · {pendingLivrable.version} · Partagé le {pendingLivrable.date}
+                    {pendingLivrable.type} · {pendingLivrable.version} · {t('portal.sharedOn', { date: pendingLivrable.date })}
                   </p>
                 </div>
                 <SFPill status={pendingLivrable.status} small>{pendingLivrable.label}</SFPill>
@@ -209,10 +218,10 @@ export function Portail() {
 
               <div style={{ display: 'flex', gap: 10 }}>
                 <SFButton variant="primary" icon="check" onClick={handleApprove} style={{ flex: 1, justifyContent: 'center' }}>
-                  Approuver
+                  {t('portal.approve')}
                 </SFButton>
                 <SFButton variant="secondary" icon="message-circle" onClick={handleCorrections} style={{ flex: 1, justifyContent: 'center' }}>
-                  Demander des corrections
+                  {t('portal.requestCorrections')}
                 </SFButton>
               </div>
             </div>
@@ -228,12 +237,12 @@ export function Portail() {
               <SFIcon name={approved ? 'check-circle' : 'message-circle'} size={28} color={approved ? 'var(--ok)' : 'var(--warn)'} />
               <div>
                 <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                  {approved ? 'Livrable approuvé' : 'Corrections demandées'}
+                  {approved ? t('portal.deliverableApproved') : t('portal.correctionsRequested')}
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-2)' }}>
                   {approved
-                    ? "L'équipe a été notifiée. Merci !"
-                    : "L'équipe a été notifiée et prendra en compte vos demandes."
+                    ? t('portal.teamNotifiedThanks')
+                    : t('portal.teamNotifiedCorrections')
                   }
                 </p>
               </div>
@@ -242,7 +251,7 @@ export function Portail() {
 
           {/* Historique des livrables */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20 }}>
-            <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Historique des livrables</p>
+            <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>{t('portal.deliverableHistory')}</p>
             {LIVRABLES.slice(1).map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < LIVRABLES.length - 2 ? '1px solid var(--border)' : 'none' }}>
                 <div style={{
@@ -266,7 +275,7 @@ export function Portail() {
           {/* Avancement */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <p style={{ fontWeight: 600, fontSize: 14 }}>Avancement du projet</p>
+              <p style={{ fontWeight: 600, fontSize: 14 }}>{t('portal.projectProgress')}</p>
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-2)' }}>{project.progress}%</span>
             </div>
             <SFBar value={project.progress} height={6} />
@@ -288,7 +297,7 @@ export function Portail() {
 
           {/* Corrections en cours */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 16 }}>
-            <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Corrections en cours</p>
+            <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>{t('portal.correctionsInProgress')}</p>
             {VIDEO_CORRECTIONS.map(c => (
               <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', width: 20, flexShrink: 0, marginTop: 2 }}>{c.num}</span>
@@ -300,14 +309,14 @@ export function Portail() {
 
           {/* Contact studio */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 16 }}>
-            <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Contact studio</p>
+            <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>{t('portal.studioContact')}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b4f8f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#fff', flexShrink: 0 }}>
                 SM
               </div>
               <div>
                 <p style={{ fontSize: 12, fontWeight: 500 }}>Sarah Martin</p>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Directrice créative</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('portal.creativeDirector')}</p>
               </div>
             </div>
             <SFButton
@@ -316,23 +325,98 @@ export function Portail() {
               onClick={() => setShowMessage(true)}
               style={{ width: '100%', justifyContent: 'center' }}
             >
-              Envoyer un message
+              {t('portal.sendMessage')}
             </SFButton>
           </div>
 
           {/* Livraison prévue */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 16 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Livraison prévue</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('portal.expectedDelivery')}</p>
             <p style={{ fontWeight: 700, fontSize: 18, fontFamily: 'var(--ff-display)' }}>{project.deliveryDate}</p>
           </div>
 
           {/* Statut */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 16 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Statut du projet</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('portal.projectStatus')}</p>
             <SFPill status={project.status}>{project.statusLabel}</SFPill>
+          </div>
+
+          {/* Factures */}
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 16 }}>
+            <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>{t('portal.invoicesTitle')}</p>
+            {openInvoices.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '12px 0' }}>{t('portal.invoiceNone')}</p>
+            ) : openInvoices.map(inv => (
+              <div key={inv.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 600 }}>{inv.title}</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: inv.status === 'overdue' ? 'var(--danger)' : 'var(--text-3)', marginTop: 2 }}>
+                      {t('portal.invoiceDue')} {inv.dueDate}
+                    </p>
+                  </div>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{formatMoney(inv.total, inv.currency)}</span>
+                </div>
+                <SFButton variant="primary" onClick={() => setPayInvoice(inv)} style={{ width: '100%', justifyContent: 'center' }}>
+                  {t('portal.payNow')}
+                </SFButton>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {/* Payment modal */}
+      {payInvoice && (
+        <>
+          <div onClick={() => setPayInvoice(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 'min(420px, 94vw)', zIndex: 201, background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+            <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 15 }}>{t('portal.payWith')}</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{payInvoice.title} · {formatMoney(payInvoice.total, payInvoice.currency)}</p>
+              </div>
+              <button onClick={() => setPayInvoice(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 4 }}>
+                <SFIcon name="x" size={18} />
+              </button>
+            </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {paymentMethods.length === 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '16px 0' }}>{t('portal.noPaymentMethods')}</p>
+              ) : paymentMethods.map(pm => (
+                <div key={pm.id} style={{ background: 'var(--surface-2)', borderRadius: 11, border: `1px solid ${pm.isRecommended ? 'var(--accent)' : 'var(--border)'}`, padding: '13px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                    <SFIcon name={pm.icon} size={15} color="var(--text-2)" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{pm.name}</span>
+                      {pm.isRecommended && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'rgba(249,255,0,0.15)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 20, padding: '1px 7px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{t('settings.pmRecommended')}</span>}
+                      {(pm.feePercent ?? 0) > 0 && <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{pm.feeLabel}</span>}
+                    </div>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{pm.details}</p>
+                    <div style={{ marginTop: 10 }}>
+                      {pm.type === 'stripe' && pm.stripeLink ? (
+                        <a href={pm.stripeLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent)', textDecoration: 'none' }}>
+                          <SFIcon name="credit-card" size={13} color="var(--on-accent)" />
+                          {t('portal.openStripe')}
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(pm.details).then(() => { setCopied(pm.id); setTimeout(() => setCopied(null), 2000); }); }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '5px 11px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                          <SFIcon name={copied === pm.id ? 'check' : 'copy'} size={12} color={copied === pm.id ? 'var(--ok)' : 'var(--text-3)'} />
+                          {copied === pm.id ? t('portal.copied') : t('portal.copyInfo')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {showMessage && (
         <MessageModal

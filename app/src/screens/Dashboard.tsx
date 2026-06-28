@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
 import { TODAY_TASKS, ACTIVITY, PROJECTS, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, type CalendarEvent } from '../data/eventStore';
@@ -59,8 +60,8 @@ const PRIORITY_COLOR: Record<string, string> = {
   low:    'var(--info)',
   none:   'var(--border-2)',
 };
-const PRIORITY_LABEL: Record<string, string> = {
-  urgent: 'Urgente', high: 'Élevée', normal: 'Moyenne', low: 'Basse', none: 'Aucune',
+const PRIORITY_LABEL_KEY: Record<string, string> = {
+  urgent: 'priority.urgent', high: 'priority.high', normal: 'priority.medium', low: 'priority.low', none: 'priority.none',
 };
 const STATUS_BG: Record<string, string> = {
   danger: '#3a1515', warn: '#3a2f10', info: '#102a3a', ok: '#0f2f1a', review: '#2a1a3a', neutral: 'var(--surface-3)',
@@ -68,6 +69,18 @@ const STATUS_BG: Record<string, string> = {
 const STATUS_COLOR: Record<string, string> = {
   danger: 'var(--danger)', warn: 'var(--warn)', info: 'var(--info)', ok: 'var(--ok)', review: 'var(--review)', neutral: 'var(--text-3)',
 };
+
+// Icône + couleurs par type d'activité — même langage visuel que le flux d'activité (/activite)
+const ACTIVITY_ICON: Record<string, { icon: string; color: string; bg: string }> = {
+  task:    { icon: 'check-circle',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)'  },
+  upload:  { icon: 'cloud-upload',   color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)'  },
+  comment: { icon: 'message-circle', color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)'  },
+  approve: { icon: 'check-circle',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)'  },
+  client:  { icon: 'user',           color: '#7d4e57', bg: 'rgba(125,78,87,0.15)'  },
+  invoice: { icon: 'file-text',      color: '#a85f3e', bg: 'rgba(168,95,62,0.15)'  },
+  member:  { icon: 'user-plus',      color: '#2a7a8a', bg: 'rgba(42,122,138,0.15)' },
+};
+const ACTIVITY_FALLBACK = { icon: 'activity', color: 'var(--text-3)', bg: 'var(--surface-3)' };
 
 // ── Collapsible section card ──────────────────────────────────────────────────
 
@@ -85,7 +98,7 @@ function CollapsibleCard({
         onClick={() => setOpen(v => !v)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-          padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer',
+          padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer',
           borderBottom: open ? '1px solid var(--border)' : 'none',
         }}
       >
@@ -110,14 +123,15 @@ function CollapsibleCard({
 // ── Compact task row — same look as Taches.tsx TaskRow ───────────────────────
 
 function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () => void }) {
+  const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked ?? false);
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '28px 1fr 130px 110px 90px',
+        gridTemplateColumns: '28px 1fr 150px 120px 92px',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
         padding: '8px 16px',
         borderBottom: '1px solid var(--border)',
         cursor: 'pointer',
@@ -144,34 +158,46 @@ function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClic
       </button>
 
       {/* Titre */}
-      <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>
+      <span style={{
+        fontSize: 13, fontWeight: 500,
+        textDecoration: checked ? 'line-through' : 'none',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)',
+      }}>
         {task.title}
       </span>
 
-      {/* Projet */}
-      <span style={{
-        fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 600,
-        color: 'white', background: task.projectColor ?? 'var(--surface-3)',
-        borderRadius: 5, padding: '2px 7px', overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>{task.projectName}</span>
+      {/* Projet — pastille bordée (même look que Taches.tsx) */}
+      <div style={{ minWidth: 0 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%', overflow: 'hidden',
+          padding: '3px 7px', borderRadius: 7, border: '1px solid var(--border)',
+        }}>
+          {task.projectId !== 'int' && (
+            <i style={{ width: 6, height: 6, borderRadius: '50%', background: task.projectColor, display: 'block', flexShrink: 0 }} />
+          )}
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {task.projectName}
+          </span>
+        </span>
+      </div>
 
-      {/* Priorité */}
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)', flexShrink: 0 }} />
-        <span style={{ fontSize: 11, color: PRIORITY_COLOR[task.priority] ?? 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-          {PRIORITY_LABEL[task.priority] ?? '—'}
+      {/* Priorité — point + label mono majuscule (même look que Taches.tsx) */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)', flexShrink: 0, display: 'block' }} />
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[task.priority] ?? 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {PRIORITY_LABEL_KEY[task.priority] ? t(PRIORITY_LABEL_KEY[task.priority]) : '—'}
         </span>
       </span>
 
-      {/* Échéance */}
-      {task.dueDate && task.dueDate !== '—' ? (
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)', flexShrink: 0 }}>
-          {fmtTaskDate(task.dueDate ?? '')}
-        </span>
-      ) : (
-        <span style={{ fontSize: 11, color: 'var(--text-3)' }}>—</span>
-      )}
+      {/* Échéance — icône calendrier + date mono (même look que Taches.tsx) */}
+      <span style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        fontFamily: 'var(--ff-mono)', fontSize: 11, whiteSpace: 'nowrap',
+        color: isOverdue(task.dueDate ?? '') ? 'var(--danger)' : (task.dueDate && task.dueDate !== '—') ? 'var(--text-2)' : 'var(--text-3)',
+      }}>
+        <SFIcon name="calendar" size={10} color={isOverdue(task.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)'} />
+        {(task.dueDate && task.dueDate !== '—') ? fmtTaskDate(task.dueDate ?? '') : '—'}
+      </span>
     </div>
   );
 }
@@ -179,6 +205,7 @@ function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClic
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const activeProjects = PROJECTS.filter(p => p.status !== 'neutral');
   const lateProjects   = PROJECTS.filter(p => p.status === 'danger').length;
@@ -226,7 +253,7 @@ export function Dashboard() {
       {/* Header compact */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>Bonjour, {firstName} 👋</h1>
+          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>{t('dashboard.greeting', { firstName })}</h1>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
             {dayLabel}
           </p>
@@ -234,10 +261,10 @@ export function Dashboard() {
         {/* Inline mini-stats */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginRight: 'auto', marginLeft: 24 }}>
           {[
-            { value: activeProjects.length, label: 'projets actifs',     color: 'var(--text-2)' },
-            { value: TODAY_TASKS.length,    label: 'tâches cette semaine', color: 'var(--text-2)' },
-            ...(lateProjects > 0  ? [{ value: lateProjects,             label: 'en retard',      color: 'var(--danger)' }] : []),
-            ...(urgentToday > 0   ? [{ value: urgentToday,              label: 'urgentes auj.',  color: 'var(--warn)'   }] : []),
+            { value: activeProjects.length, label: t('dashboard.activeProjects'),     color: 'var(--text-2)' },
+            { value: TODAY_TASKS.length,    label: t('dashboard.tasksThisWeek'), color: 'var(--text-2)' },
+            ...(lateProjects > 0  ? [{ value: lateProjects,             label: t('dashboard.overdue'),      color: 'var(--danger)' }] : []),
+            ...(urgentToday > 0   ? [{ value: urgentToday,              label: t('dashboard.urgentToday'),  color: 'var(--warn)'   }] : []),
           ].map(s => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
               <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: 20, color: s.color, lineHeight: 1 }}>{s.value}</span>
@@ -245,7 +272,7 @@ export function Dashboard() {
             </div>
           ))}
         </div>
-        <SFButton variant="primary" icon="plus" onClick={() => navigate('/projets')}>Nouveau projet</SFButton>
+        <SFButton variant="primary" icon="plus" onClick={() => navigate('/projets')}>{t('dashboard.newProject')}</SFButton>
       </div>
 
       {/* Main body: 2 columns */}
@@ -256,8 +283,8 @@ export function Dashboard() {
 
           {/* Mes tâches — collapsible compact */}
           <CollapsibleCard
-            icon="check-square" title="Mes tâches" badge={TODAY_TASKS.length}
-            linkLabel="Voir toutes" onLink={() => navigate('/taches')}
+            icon="check-square" title={t('nav.myTasks')} badge={TODAY_TASKS.length}
+            linkLabel={t('dashboard.viewAllFem')} onLink={() => navigate('/taches')}
           >
             {TODAY_TASKS.slice(0, 5).map(t => (
               <CompactTaskRow key={t.id} task={t} onClick={() => navigate('/taches')} />
@@ -267,13 +294,13 @@ export function Dashboard() {
                 width: '100%', padding: '8px 16px', background: 'none', border: 'none',
                 cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', textAlign: 'left',
               }}>
-                +{TODAY_TASKS.length - 5} tâches → Voir toutes
+                {t('dashboard.moreTasksViewAll', { count: TODAY_TASKS.length - 5 })}
               </button>
             )}
           </CollapsibleCard>
 
           {/* Prochaines échéances — compact */}
-          <CollapsibleCard icon="calendar-days" title="Prochaines échéances" defaultOpen={false}>
+          <CollapsibleCard icon="calendar-days" title={t('dashboard.upcomingDeadlines')} defaultOpen={false}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '10px 16px', gap: 4 }}>
               {tasksByDay.map(({ day, tasks: dayTasks }, i) => {
                 const isToday = i === 0;
@@ -299,28 +326,28 @@ export function Dashboard() {
               })}
             </div>
             <div style={{ borderTop: '1px solid var(--border)' }}>
-              {tasksByDay.flatMap(({ day, tasks: dTasks }) => dTasks.map(t => ({ t, day }))).slice(0, 3).map(({ t, day }, i, arr) => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 18px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ width: 3, height: 26, borderRadius: 99, background: PRIORITY_COLOR[t.priority] ?? 'var(--border-2)', flexShrink: 0 }} />
-                  <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+              {tasksByDay.flatMap(({ day, tasks: dTasks }) => dTasks.map(task => ({ task, day }))).slice(0, 3).map(({ task, day }, i, arr) => (
+                <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ width: 3, height: 26, borderRadius: 99, background: PRIORITY_COLOR[task.priority] ?? 'var(--border-2)', flexShrink: 0 }} />
+                  <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</p>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: isSameDay(day, TODAY) ? 'var(--accent)' : 'var(--text-3)', flexShrink: 0 }}>
-                    {isSameDay(day, TODAY) ? "Auj." : `${DAYS_FR[day.getDay()]} ${day.getDate()}`}
+                    {isSameDay(day, TODAY) ? t('dashboard.todayShort') : `${DAYS_FR[day.getDay()]} ${day.getDate()}`}
                   </span>
                 </div>
               ))}
               {tasksByDay.flatMap(({ tasks: dTasks }) => dTasks).length === 0 && (
-                <p style={{ padding: '12px 18px', color: 'var(--text-3)', fontSize: 13 }}>Aucune échéance cette semaine</p>
+                <p style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noDeadlineThisWeek')}</p>
               )}
             </div>
           </CollapsibleCard>
 
           {/* Prochains événements */}
           <CollapsibleCard
-            icon="calendar-clock" title="Prochains événements"
-            linkLabel="Calendrier" onLink={() => navigate('/calendrier')}
+            icon="calendar-clock" title={t('dashboard.upcomingEvents')}
+            linkLabel={t('dashboard.calendar')} onLink={() => navigate('/calendrier')}
           >
             {upcomingEvents.length === 0 && (
-              <p style={{ padding: '16px 18px', color: 'var(--text-3)', fontSize: 13 }}>Aucun événement dans les 14 prochains jours</p>
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noEventNext14Days')}</p>
             )}
             {upcomingEvents.map((ev, i) => {
               const type = getEventTypeById(ev.eventTypeId);
@@ -332,7 +359,7 @@ export function Dashboard() {
                   onClick={() => navigate('/calendrier')}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '9px 18px',
+                    padding: '9px 16px',
                     borderBottom: i < upcomingEvents.length - 1 ? '1px solid var(--border)' : 'none',
                     cursor: 'pointer',
                     background: inProgress ? 'rgba(249,255,0,0.03)' : 'transparent',
@@ -356,7 +383,7 @@ export function Dashboard() {
                           flexShrink: 0, fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700,
                           color: 'var(--on-accent)', background: 'var(--accent)',
                           borderRadius: 4, padding: '1px 5px', letterSpacing: '0.05em',
-                        }}>EN COURS</span>
+                        }}>{t('dashboard.status')}</span>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
@@ -393,8 +420,8 @@ export function Dashboard() {
 
           {/* Projets actifs — collapsible compact */}
           <CollapsibleCard
-            icon="folder" title="Projets actifs" badge={activeProjects.length}
-            linkLabel="Voir tous" onLink={() => navigate('/projets')}
+            icon="folder" title={t('dashboard.activeProjectsTitle')} badge={activeProjects.length}
+            linkLabel={t('dashboard.viewAllMasc')} onLink={() => navigate('/projets')}
           >
             {PROJECTS.slice(0, 6).map((p, i) => (
               <div
@@ -402,7 +429,7 @@ export function Dashboard() {
                 onClick={() => navigate(`/projets/${p.id}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 18px',
+                  padding: '9px 16px',
                   borderBottom: i < Math.min(PROJECTS.length, 6) - 1 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer',
                 }}
@@ -421,14 +448,14 @@ export function Dashboard() {
           </CollapsibleCard>
 
           {/* En attente d'approbation */}
-          <CollapsibleCard icon="shield" title="En attente d'approbation" badge={PENDING_APPROVALS.length}>
+          <CollapsibleCard icon="shield" title={t('dashboard.pendingApproval')} badge={PENDING_APPROVALS.length}>
             {PENDING_APPROVALS.map((item, i) => (
               <div
                 key={item.name}
                 onClick={() => navigate(`/projets/${item.projectId}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 18px',
+                  padding: '10px 16px',
                   borderBottom: i < PENDING_APPROVALS.length - 1 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer',
                 }}
@@ -440,7 +467,7 @@ export function Dashboard() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: `var(--${item.status})`, marginTop: 2 }}>En attente depuis {item.delay}</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: `var(--${item.status})`, marginTop: 2 }}>{t('dashboard.pendingSince', { delay: item.delay })}</p>
                 </div>
                 <SFIcon name="chevron-right" size={13} color="var(--text-3)" />
               </div>
@@ -449,23 +476,29 @@ export function Dashboard() {
 
           {/* Activité récente */}
           <CollapsibleCard
-            icon="activity" title="Activité récente"
-            linkLabel="Tout voir" onLink={() => navigate('/activite')}
+            icon="activity" title={t('dashboard.recentActivity')}
+            linkLabel={t('dashboard.viewAll')} onLink={() => navigate('/activite')}
             defaultOpen={false}
           >
-            {ACTIVITY.slice(0, 5).map((item, i) => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 18px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
-                <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={24} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 600 }}>{item.actor.name.split(' ')[0]}</span>
-                    {' '}<span style={{ color: 'var(--text-3)' }}>{item.action}</span>{' '}
-                    <span style={{ color: 'var(--text-2)' }}>{item.target}</span>
-                  </p>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{item.time}</p>
+            {ACTIVITY.slice(0, 5).map((item, i) => {
+              const meta = ACTIVITY_ICON[item.type ?? ''] ?? ACTIVITY_FALLBACK;
+              return (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 16px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: meta.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                    <SFIcon name={meta.icon} size={14} color={meta.color} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <SFAvatar initials={item.actor.initials} bg={item.actor.avatarColor} size={18} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{item.actor.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{item.action}</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.target}</span>
+                    </div>
+                  </div>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}>{item.time}</span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </CollapsibleCard>
 
         </div>

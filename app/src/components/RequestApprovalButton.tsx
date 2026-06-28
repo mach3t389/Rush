@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFButton } from './ui';
 import { addNotif } from '../data/notificationStore';
 import { updateResource } from '../data/resourceStore';
@@ -20,6 +21,7 @@ export function RequestApprovalButton({
   onStatusChange?: (status: Status, label: string) => void;
   size?: 'sm' | 'md';
 }) {
+  const { t } = useTranslation();
   const [sent, setSent] = useState(false);
 
   const handle = () => {
@@ -45,7 +47,7 @@ export function RequestApprovalButton({
       onClick={handle}
       style={{ flexShrink: 0, whiteSpace: 'nowrap', ...(sent ? { background: 'var(--ok)', borderColor: 'var(--ok)', color: '#fff' } : {}) }}
     >
-      {sent ? 'Demande envoyée' : 'Demander approbation'}
+      {sent ? t('approval.requestSent') : t('approval.requestApproval')}
     </SFButton>
   );
 }

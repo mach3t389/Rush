@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
@@ -162,12 +163,14 @@ function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }
   onEventClick: (ev: CalEvent) => void;
   onCellClick: (d: Date) => void;
 }) {
+  const { t } = useTranslation();
+  const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const days = getMonthGrid(cur);
   return (
     <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',borderBottom:'1px solid var(--border)',flexShrink:0 }}>
-        {DAYS_FR.map(d=>(
-          <div key={d} style={{ padding:'8px 0',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
+        {dayNames.map((d,i)=>(
+          <div key={i} style={{ padding:'8px 0',textAlign:'center',fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em' }}>{d}</div>
         ))}
       </div>
       <div style={{ flex:1,display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:`repeat(${days.length/7},1fr)`,overflow:'auto' }}>
@@ -192,7 +195,7 @@ function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick }
                 </div>
               ))}
               {dayEvents.length>2 && (
-                <div style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',padding:'1px 6px' }}>+{dayEvents.length-2} autres</div>
+                <div style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',padding:'1px 6px' }}>{t('calendar.moreEvents', { count: dayEvents.length-2 })}</div>
               )}
               {dayTasks.map((t,ti)=>(
                 <div key={ti} title={t.title}
@@ -220,6 +223,8 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
   onEventClick: (ev: CalEvent) => void;
   onAllDayClick?: (d: Date) => void;
 }) {
+  const { t } = useTranslation();
+  const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
@@ -277,7 +282,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
               return (
                 <div key={i} style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 0 6px',minWidth:0 }}>
                   <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:3 }}>
-                    {DAYS_FR[dayIdx]}
+                    {dayNames[dayIdx]}
                   </span>
                   <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
                     <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>
@@ -288,7 +293,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
           </div>
           <div style={{ display:'flex',borderTop:'1px solid var(--border)' }}>
             <div style={{ width:52,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8 }}>
-              <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>Journée</span>
+              <span style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)' }}>{t('calendar.allDayShort')}</span>
             </div>
             {days.map((d,i)=>{
               const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
@@ -380,6 +385,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
   defaultAllDay?: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
   const [eventTypeId, setEventTypeId] = useState('reunion');
@@ -400,9 +406,9 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
 
   useEffect(() => subscribeEventTypes(() => setLocalEventTypes(getEventTypes())), []);
 
-  const startEdit = (t: EventType) => {
-    setEditingTypeId(t.id); setEditLabel(t.label); setEditColor(t.color);
-    setEventTypeId(t.id);
+  const startEdit = (et: EventType) => {
+    setEditingTypeId(et.id); setEditLabel(et.label); setEditColor(et.color);
+    setEventTypeId(et.id);
     setShowNewType(false);
   };
   const saveEdit = () => {
@@ -454,25 +460,25 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:16,padding:28,width:440,border:'1px solid var(--border)',boxShadow:'0 20px 60px rgba(0,0,0,0.5)',maxHeight:'90vh',overflow:'auto' }}>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20 }}>
-          <h3 style={{ fontSize:16,fontWeight:700 }}>Nouvel événement</h3>
+          <h3 style={{ fontSize:16,fontWeight:700 }}>{t('calendar.newEvent')}</h3>
           <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',display:'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
         <div style={{ marginBottom:16 }}>
-          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Type d'événement</p>
+          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>{t('calendar.eventType')}</p>
           <div style={{ display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
-            {localEventTypes.map(t=>(
-              <div key={t.id} style={{ position:'relative',display:'inline-flex' }}
+            {localEventTypes.map(et=>(
+              <div key={et.id} style={{ position:'relative',display:'inline-flex' }}
                 onMouseEnter={e=>(e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity='1')}
                 onMouseLeave={e=>(e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity='0')}
               >
-                <button onClick={()=>{ setEventTypeId(t.id); setEditingTypeId(null); }}
-                  style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',paddingRight:'24px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
+                <button onClick={()=>{ setEventTypeId(et.id); setEditingTypeId(null); }}
+                  style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',paddingRight:'24px',borderRadius:8,border:`1px solid ${eventTypeId===et.id?et.color:'var(--border)'}`,background:eventTypeId===et.id?`${et.color}22`:'transparent',color:eventTypeId===et.id?et.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
                 >
-                  <div style={{ width:8,height:8,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                  {t.label}
+                  <div style={{ width:8,height:8,borderRadius:'50%',background:et.color,flexShrink:0 }} />
+                  {et.label}
                 </button>
-                <button className="et-edit" onClick={e=>{ e.stopPropagation(); editingTypeId===t.id ? setEditingTypeId(null) : startEdit(t); }}
+                <button className="et-edit" onClick={e=>{ e.stopPropagation(); editingTypeId===et.id ? setEditingTypeId(null) : startEdit(et); }}
                   style={{ position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',opacity:0,transition:'opacity 0.12s',padding:2,display:'flex',alignItems:'center' }}
                 >
                   <SFIcon name="pencil" size={10} />
@@ -481,10 +487,10 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
             ))}
             <button onClick={()=>{ setShowNewType(v=>!v); setEditingTypeId(null); }}
               style={{ display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:8,border:'1px dashed var(--border)',background:'transparent',color:'var(--text-3)',cursor:'pointer',fontSize:11,transition:'all 0.12s' }}
-            >+ Nouveau</button>
+            >{t('calendar.newType')}</button>
           </div>
           {editingTypeId && (() => {
-            const t = localEventTypes.find(x => x.id === editingTypeId);
+            const et = localEventTypes.find(x => x.id === editingTypeId);
             return (
               <div style={{ display:'flex',gap:6,alignItems:'center',marginTop:8,padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)' }}>
                 <input type="color" value={editColor} onChange={e=>setEditColor(e.target.value)}
@@ -492,8 +498,8 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
                 <input value={editLabel} onChange={e=>setEditLabel(e.target.value)} autoFocus
                   onKeyDown={e=>{ if(e.key==='Enter') saveEdit(); if(e.key==='Escape') setEditingTypeId(null); }}
                   style={{ flex:1,padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-3)',color:'var(--text)',fontSize:11,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark' }} />
-                <button onClick={saveEdit} style={{ padding:'5px 10px',borderRadius:8,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:11,cursor:'pointer',fontWeight:600,flexShrink:0 }}>Enregistrer</button>
-                {!t?.builtIn && (
+                <button onClick={saveEdit} style={{ padding:'5px 10px',borderRadius:8,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:11,cursor:'pointer',fontWeight:600,flexShrink:0 }}>{t('calendar.save')}</button>
+                {!et?.builtIn && (
                   <button onClick={()=>removeType(editingTypeId)} style={{ padding:'5px 8px',borderRadius:8,border:'1px solid var(--danger)',background:'transparent',color:'var(--danger)',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0 }}>
                     <SFIcon name="trash-2" size={12} />
                   </button>
@@ -505,25 +511,25 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
             <div style={{ display:'flex',gap:6,alignItems:'center',marginTop:8 }}>
               <input type="color" value={newTypeColor} onChange={e=>setNewTypeColor(e.target.value)}
                 style={{ width:28,height:28,borderRadius:6,border:'1px solid var(--border)',background:'none',cursor:'pointer',padding:2 }} />
-              <input value={newTypeLabel} onChange={e=>setNewTypeLabel(e.target.value)} placeholder="Nom du type…" autoFocus
+              <input value={newTypeLabel} onChange={e=>setNewTypeLabel(e.target.value)} placeholder={t('calendar.typeNamePlaceholder')} autoFocus
                 onKeyDown={e=>{ if(e.key==='Enter') addNewType(); if(e.key==='Escape') setShowNewType(false); }}
                 style={{ flex:1,padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:11,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark' }} />
-              <button onClick={addNewType} style={{ padding:'5px 10px',borderRadius:8,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:11,cursor:'pointer',fontWeight:600 }}>Ajouter</button>
+              <button onClick={addNewType} style={{ padding:'5px 10px',borderRadius:8,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:11,cursor:'pointer',fontWeight:600 }}>{t('calendar.add')}</button>
             </div>
           )}
         </div>
 
-        <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder="Titre…"
+        <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder={t('calendar.titlePlaceholder')}
           style={{ width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${selectedType?.color ?? 'var(--border)'}`,background:'var(--surface-2)',color:'var(--text)',fontSize:14,fontWeight:600,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8 }}
         />
 
-        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
+        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder={t('calendar.locationPlaceholder')}
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
 
         <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
-        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
+        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder={t('calendar.descriptionPlaceholder')} rows={2}
           style={{ width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,resize:'vertical',lineHeight:1.5 }}
         />
 
@@ -531,7 +537,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
           <div onClick={()=>setAllDay(s=>!s)} style={{ width:32,height:18,borderRadius:9,background:allDay?'var(--accent)':'var(--surface-3)',border:`1px solid ${allDay?'var(--accent)':'var(--border)'}`,position:'relative',transition:'background 0.15s',cursor:'pointer' }}>
             <div style={{ position:'absolute',top:2,left:allDay?14:2,width:12,height:12,borderRadius:'50%',background:allDay?'var(--on-accent)':'var(--text-3)',transition:'left 0.15s' }} />
           </div>
-          <span style={{ fontSize:12,color:'var(--text-2)' }}>Toute la journée</span>
+          <span style={{ fontSize:12,color:'var(--text-2)' }}>{t('calendar.allDay')}</span>
         </label>
 
         <div style={{ display:'flex',gap:8,marginBottom:12 }}>
@@ -553,7 +559,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
           const team = Object.values(USERS).filter(u=>u.role!=='Cliente');
           return (
             <div style={{ marginBottom:20 }}>
-              <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Participants</p>
+              <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>{t('calendar.participants')}</p>
               <div style={{ display:'flex',gap:6,flexWrap:'wrap' }}>
                 {team.map(u=>(
                   <button key={u.id} onClick={()=>togglePart(u.id)}
@@ -569,8 +575,8 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
         })()}
 
         <div style={{ display:'flex',gap:8,justifyContent:'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={save}>Créer</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('calendar.cancel')}</SFButton>
+          <SFButton variant="primary" onClick={save}>{t('calendar.create')}</SFButton>
         </div>
       </div>
     </div>
@@ -580,6 +586,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
 // ── Event detail ──────────────────────────────────────────────────────────────
 
 function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
   const toDateStr = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth()+1)}-${fmt2(d.getDate())}`;
   const toTimeStr = (d: Date) => `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
@@ -624,32 +631,32 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:16,padding:28,width:460,border:'1px solid var(--border)',boxShadow:'0 20px 60px rgba(0,0,0,0.5)',maxHeight:'90vh',overflow:'auto' }}>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20 }}>
-          <h3 style={{ fontSize:16,fontWeight:700 }}>Modifier l'événement</h3>
+          <h3 style={{ fontSize:16,fontWeight:700 }}>{t('calendar.editEvent')}</h3>
           <button onClick={onClose} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',display:'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
         {/* Event type */}
         <div style={{ marginBottom:16 }}>
-          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>Type d'événement</p>
+          <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>{t('calendar.eventType')}</p>
           <div style={{ display:'flex',gap:6,flexWrap:'wrap' }}>
-            {localEventTypes.map(t=>(
-              <button key={t.id} onClick={()=>setEventTypeId(t.id)}
-                style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${eventTypeId===t.id?t.color:'var(--border)'}`,background:eventTypeId===t.id?`${t.color}22`:'transparent',color:eventTypeId===t.id?t.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
+            {localEventTypes.map(et=>(
+              <button key={et.id} onClick={()=>setEventTypeId(et.id)}
+                style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${eventTypeId===et.id?et.color:'var(--border)'}`,background:eventTypeId===et.id?`${et.color}22`:'transparent',color:eventTypeId===et.id?et.color:'var(--text-2)',cursor:'pointer',fontSize:11,fontWeight:500,transition:'all 0.12s' }}
               >
-                <div style={{ width:8,height:8,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                {t.label}
+                <div style={{ width:8,height:8,borderRadius:'50%',background:et.color,flexShrink:0 }} />
+                {et.label}
               </button>
             ))}
           </div>
         </div>
 
         {/* Title */}
-        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Titre…"
+        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('calendar.titlePlaceholder')}
           style={{ width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${selectedType?.color ?? 'var(--border)'}`,background:'var(--surface-2)',color:'var(--text)',fontSize:14,fontWeight:600,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8 }}
         />
 
         {/* Location */}
-        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Lieu (optionnel)"
+        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder={t('calendar.locationPlaceholder')}
           style={{ width:'100%',padding:'8px 10px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:12,outline:'none',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8,boxSizing:'border-box' }}
         />
 
@@ -657,7 +664,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <MeetingField value={meetingUrl} onChange={setMeetingUrl} title={title} />
 
         {/* Description */}
-        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description (optionnel)…" rows={2}
+        <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder={t('calendar.descriptionPlaceholder')} rows={2}
           style={{ width:'100%',padding:'8px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:12,resize:'vertical',lineHeight:1.5 }}
         />
 
@@ -666,7 +673,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
           <div onClick={()=>setAllDay(s=>!s)} style={{ width:32,height:18,borderRadius:9,background:allDay?'var(--accent)':'var(--surface-3)',border:`1px solid ${allDay?'var(--accent)':'var(--border)'}`,position:'relative',transition:'background 0.15s',cursor:'pointer' }}>
             <div style={{ position:'absolute',top:2,left:allDay?14:2,width:12,height:12,borderRadius:'50%',background:allDay?'var(--on-accent)':'var(--text-3)',transition:'left 0.15s' }} />
           </div>
-          <span style={{ fontSize:12,color:'var(--text-2)' }}>Toute la journée</span>
+          <span style={{ fontSize:12,color:'var(--text-2)' }}>{t('calendar.allDay')}</span>
         </label>
 
         {/* Date + times */}
@@ -693,10 +700,10 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
           return (
             <div style={{ marginBottom:20 }}>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Participants</p>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.participants')}</p>
                 {team.length>PARTICIPANT_THRESHOLD && (
                   <button onClick={()=>setParticipantsExpanded(v=>!v)} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:10,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0 }}>
-                    {participantsExpanded?'Réduire':`+${hidden} autres`}
+                    {participantsExpanded?t('calendar.collapse'):t('calendar.moreParticipants', { count: hidden })}
                   </button>
                 )}
               </div>
@@ -721,7 +728,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
         <div style={{ display:'flex',gap:8,borderTop:'1px solid var(--border)',paddingTop:16 }}>
           <button onClick={save} disabled={!title.trim()}
             style={{ flex:1,padding:'9px',borderRadius:9,border:'none',background:'var(--accent)',color:'var(--on-accent)',fontSize:13,fontWeight:600,cursor:'pointer',opacity:title.trim()?1:0.5 }}
-          >Enregistrer</button>
+          >{t('calendar.save')}</button>
           <button onClick={onDelete}
             style={{ padding:'9px 12px',borderRadius:9,border:'1px solid var(--border)',background:'transparent',color:'var(--danger)',cursor:'pointer',display:'flex',alignItems:'center' }}
           ><SFIcon name="trash-2" size={14} /></button>
@@ -734,6 +741,9 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedded?: boolean; projectIds?: string[] } = {}) {
+  const { t } = useTranslation();
+  const months = t('calendar.months', { returnObjects: true }) as string[];
+  const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const params = useParams<{ projectId: string }>();
   const projectId = embedded ? undefined : params.projectId;
   const activeProjectIds = overrideIds ?? (projectId ? [projectId] : []);
@@ -824,23 +834,23 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
   const handleCellClick = (d: Date) => { setCur(d); setView('day'); };
 
   const title = view==='month'
-    ? `${MONTHS_FR[cur.getMonth()]} ${cur.getFullYear()}`
+    ? `${months[cur.getMonth()]} ${cur.getFullYear()}`
     : view==='week'
-    ? `${MONTHS_FR[startOfWeek(cur).getMonth()]} ${startOfWeek(cur).getFullYear()}`
-    : `${DAYS_FR[(cur.getDay()+6)%7]} ${cur.getDate()} ${MONTHS_FR[cur.getMonth()]}`;
+    ? `${months[startOfWeek(cur).getMonth()]} ${startOfWeek(cur).getFullYear()}`
+    : `${dayNames[(cur.getDay()+6)%7]} ${cur.getDate()} ${months[cur.getMonth()]}`;
 
   return (
     <div style={{ height:'100%',display:'flex',flexDirection:'column',overflow:'hidden' }}>
       {!embedded && (
         <ProjectHeaderBar projectId={projectId ?? ''}>
-          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
+          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
         </ProjectHeaderBar>
       )}
       <div style={{ flex:1,display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
       <div style={{ width:220,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
         {embedded && (
-          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>Nouvel événement</SFButton>
+          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
         )}
 
         {/* Project filter — embedded client view only, with 2+ projects */}
@@ -852,10 +862,10 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
           return (
             <div>
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Projets</p>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.projects')}</p>
                 {hasFilter && (
                   <button onClick={()=>setSelectedProjectsFilter(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                    Tout afficher
+                    {t('calendar.showAll')}
                   </button>
                 )}
               </div>

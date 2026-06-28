@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { triggerAIToggle } from '../aiChatBridge';
 import { NavLink } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
@@ -44,17 +45,7 @@ const PROJECT_COLOR_PRESETS = [
   '#F5D05B', '#5BE8C4', '#E87A5B', '#A05BE8', '#5BE870', '#E85BB8',
 ];
 
-const NAV_MAIN = [
-  { to: '/',          icon: 'house',         label: 'Accueil',    exact: true  },
-  { to: '/taches',    icon: 'square-check',  label: 'Mes tâches', exact: false },
-];
-
-const NAV_BOTTOM_MAIN = [
-  { to: '/clients',    icon: 'users',        label: 'Clients',       exact: true  },
-  { to: '/projets',    icon: 'folder',       label: 'Projets',       exact: true  },
-  { to: '/global',     icon: 'layers',       label: 'Vue globale',   exact: false },
-  { to: '/activite',   icon: 'bell',         label: 'Notifications', exact: false },
-];
+// These will be populated inside the Sidebar component using i18n
 
 const me = USERS.lea;
 
@@ -107,6 +98,7 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
 }
 
 export function Sidebar({ onSearch }: { onSearch?: () => void }) {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
@@ -238,7 +230,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
         {!collapsed && (
           <button
             onClick={() => setCollapsed(true)}
-            title="Réduire le menu"
+            title={t('nav.collapseMenu')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22, borderRadius: 6, border: 'none',
@@ -256,7 +248,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
       {collapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          title="Développer le menu"
+          title={t('nav.expandMenu')}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 26, height: 26, borderRadius: 6, border: 'none',
@@ -274,20 +266,29 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Main nav */}
         <nav style={{ padding: collapsed ? '0 6px' : '0 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {NAV_MAIN.map(item => (
-            <NavItem key={item.to} {...item} collapsed={collapsed} />
+          {[
+            { to: '/',          icon: 'house',         labelKey: 'nav.dashboard',    exact: true  },
+            { to: '/taches',    icon: 'square-check',  labelKey: 'nav.myTasks', exact: false },
+          ].map(item => (
+            <NavItem key={item.to} to={item.to} icon={item.icon} label={t(item.labelKey)} exact={item.exact} collapsed={collapsed} />
           ))}
-          {NAV_BOTTOM_MAIN.map(item => (
+          {[
+            { to: '/clients',    icon: 'users',        labelKey: 'nav.clients',       exact: true  },
+            { to: '/projets',    icon: 'folder',       labelKey: 'nav.projects',       exact: true  },
+            { to: '/global',     icon: 'layers',       labelKey: 'nav.globalView',   exact: false },
+            { to: '/activite',   icon: 'bell',         labelKey: 'nav.notifications', exact: false },
+          ].map(item => (
             <NavItem
               key={item.to}
-              icon={item.icon} label={item.label} to={item.to} exact={item.exact}
+              icon={item.icon} label={t(item.labelKey)} to={item.to} exact={item.exact}
               collapsed={collapsed}
               badge={item.to === '/activite' ? unreadCount : undefined}
             />
           ))}
           {/* Separator */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
-          <NavItem to="/modeles" icon="library" label="Modèles" exact={false} collapsed={collapsed} />
+          <NavItem to="/finances" icon="receipt"  label={t('nav.finances')} exact={false} collapsed={collapsed} />
+          <NavItem to="/modeles"  icon="library"  label={t('nav.models')}   exact={false} collapsed={collapsed} />
         </nav>
 
         {/* Projets épinglés */}
@@ -298,7 +299,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
               textTransform: 'uppercase', letterSpacing: '0.1em',
               padding: '0 12px', marginBottom: 4,
             }}>
-              Projets épinglés
+              {t('nav.pinnedProjects')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {pinnedProjects.map((p, idx) => {
@@ -333,13 +334,13 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
                         onMouseDown={() => { dragHandleActive.current = true; }}
                         onMouseUp={() => { dragHandleActive.current = false; }}
                         style={{ position: 'absolute', left: 1, top: '50%', transform: 'translateY(-50%)', cursor: 'grab', color: 'var(--border-2)', opacity: 0.6, lineHeight: 1, fontSize: 10 }}
-                        title="Réordonner"
+                        title={t('nav.reorder')}
                       >⠿</span>
 
                       {/* Color dot — click to open color picker */}
                       <span
                         onClick={e => { e.preventDefault(); e.stopPropagation(); setColorPickerId(prev => prev === p.id ? null : p.id); }}
-                        title="Changer la couleur"
+                        title={t('nav.changeColor')}
                         style={{ width: 7, height: 7, borderRadius: 999, background: dotColor, flexShrink: 0, display: 'block', cursor: 'pointer', outline: colorPickerId === p.id ? `2px solid ${dotColor}` : 'none', outlineOffset: 2 }}
                       />
 
@@ -378,7 +379,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
                     {hoveredPinId === p.id && (
                       <button
                         onClick={e => { e.preventDefault(); e.stopPropagation(); togglePin(p.id); }}
-                        title="Désépingler"
+                        title={t('nav.unpin')}
                         style={{
                           position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -406,7 +407,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
               textTransform: 'uppercase', letterSpacing: '0.1em',
               padding: '0 12px', marginBottom: 4,
             }}>
-              Clients épinglés
+              {t('nav.pinnedClients')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {pinnedClients.map((c, idx) => (
@@ -439,7 +440,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
                       onMouseDown={() => { dragClientHandleActive.current = true; }}
                       onMouseUp={() => { dragClientHandleActive.current = false; }}
                       style={{ position: 'absolute', left: 1, top: '50%', transform: 'translateY(-50%)', cursor: 'grab', color: 'var(--border-2)', opacity: 0.6, lineHeight: 1, fontSize: 10 }}
-                      title="Réordonner"
+                      title={t('nav.reorder')}
                     >⠿</span>
                     {/* Client avatar dot */}
                     <div style={{
@@ -458,7 +459,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
                   {hoveredClientId === c.id && (
                     <button
                       onClick={e => { e.preventDefault(); e.stopPropagation(); togglePinClient(c.id); }}
-                      title="Désépingler"
+                      title={t('nav.unpin')}
                       style={{
                         position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -529,7 +530,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
         {/* AI assistant button */}
         <button
           onClick={() => triggerAIToggle()}
-          title={collapsed ? 'Assistant IA' : undefined}
+          title={collapsed ? t('nav.aiAssistant') : undefined}
           style={{
             display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
             padding: collapsed ? '8px 0' : '8px 12px',
@@ -544,7 +545,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           <SFIcon name="sparkles" size={16} color="var(--accent)" />
           {!collapsed && (
             <>
-              <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Assistant IA</span>
+              <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{t('nav.aiAssistant')}</span>
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', opacity: 0.55, background: 'rgba(249,255,0,0.08)', border: '1px solid rgba(249,255,0,0.2)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em', flexShrink: 0 }}>I</span>
             </>
           )}
@@ -552,7 +553,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
         <NavLink
           to="/parametres"
-          title={collapsed ? 'Paramètres' : undefined}
+          title={collapsed ? t('nav.settings') : undefined}
           style={({ isActive }) => ({
             display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
             padding: collapsed ? '8px 0' : '8px 12px',
@@ -566,7 +567,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           })}
         >
           <SFIcon name="settings" size={16} />
-          {!collapsed && 'Paramètres'}
+          {!collapsed && t('nav.settings')}
         </NavLink>
 
         {/* User */}

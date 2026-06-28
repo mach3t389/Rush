@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { registerAIToggle } from './aiChatBridge';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
@@ -282,15 +283,6 @@ function executeTool(
   }
 }
 
-// ── Composant ─────────────────────────────────────────────────────────────────
-
-const SUGGESTIONS = [
-  'Quels projets sont en retard ?',
-  'Crée un tournage le 25 juin 2026',
-  'Liste mes clients actifs',
-  'Crée un projet pour Nova Films',
-];
-
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -372,6 +364,7 @@ const SpeechRecognitionAPI =
 // ── Composant principal ───────────────────────────────────────────────────────
 
 export function AIChat() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -403,6 +396,13 @@ export function AIChat() {
     { id: 'es-ES', label: 'Español' },
   ];
 
+  const SUGGESTIONS = [
+    t('ai.suggestionOverdueProjects'),
+    t('ai.suggestionCreateShoot'),
+    t('ai.suggestionListClients'),
+    t('ai.suggestionCreateProject'),
+  ];
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
@@ -417,7 +417,7 @@ export function AIChat() {
 
   const toggleListening = () => {
     if (!SpeechRecognitionAPI) {
-      alert('La reconnaissance vocale n\'est pas supportée par ce navigateur. Utilise Chrome ou Edge.');
+      alert(t('ai.speechUnsupported'));
       return;
     }
 
@@ -535,7 +535,7 @@ export function AIChat() {
     } catch (e: any) {
       const errMsg: ChatMessage = {
         role: 'assistant',
-        content: `⚠️ Impossible de contacter Ollama. Vérifie qu'il tourne (\`ollama serve\`) et que le modèle llama3.2 est installé (\`ollama pull llama3.2\`).`,
+        content: t('ai.ollamaError'),
       };
       setMessages(prev => [...prev, errMsg]);
     } finally {
@@ -576,7 +576,7 @@ export function AIChat() {
               <SFIcon name="sparkles" size={14} color="var(--accent)" />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Assistant Rush</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('ai.title')}</p>
               <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em' }}>
                 {MODELS.find(m => m.id === model)?.label.toUpperCase()} · LOCAL
               </p>
@@ -584,7 +584,7 @@ export function AIChat() {
             {messages.length > 0 && (
               <button
                 onClick={() => setMessages([])}
-                title="Effacer la conversation"
+                title={t('ai.clearConversation')}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 6, display: 'flex' }}
               >
                 <SFIcon name="trash-2" size={13} />
@@ -592,7 +592,7 @@ export function AIChat() {
             )}
             <button
               onClick={() => setShowSettings(s => !s)}
-              title="Paramètres"
+              title={t('ai.settings')}
               style={{
                 background: showSettings ? 'var(--surface-3)' : 'none',
                 border: 'none', cursor: 'pointer',
@@ -605,7 +605,7 @@ export function AIChat() {
             </button>
             <button
               onClick={() => setOpen(false)}
-              title="Fermer"
+              title={t('ai.close')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 6, display: 'flex', transition: 'color 0.12s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -625,7 +625,7 @@ export function AIChat() {
             }}>
               {/* Model */}
               <div>
-                <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 8 }}>MODÈLE OLLAMA</p>
+                <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 8 }}>{t('ai.ollamaModel')}</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {MODELS.map(m => (
                     <button
@@ -649,7 +649,7 @@ export function AIChat() {
 
               {/* Voice language */}
               <div>
-                <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 8 }}>LANGUE VOCALE</p>
+                <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 8 }}>{t('ai.voiceLanguage')}</p>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {LANGS.map(l => (
                     <button
@@ -674,8 +674,8 @@ export function AIChat() {
               {/* Auto-send */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Envoi automatique après dictée</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Envoie le message dès que tu t'arrêtes de parler</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{t('ai.autoSend')}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t('ai.autoSendDesc')}</p>
                 </div>
                 <button
                   onClick={() => setAutoSend(a => !a)}
@@ -711,9 +711,9 @@ export function AIChat() {
                 }}>
                   <SFIcon name="sparkles" size={22} color="var(--accent)" />
                 </div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>Comment puis-je t'aider ?</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>{t('ai.emptyTitle')}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 20 }}>
-                  Je peux créer des projets, des événements, des ressources et répondre à tes questions sur la plateforme.
+                  {t('ai.emptyDesc')}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {SUGGESTIONS.map(s => (
@@ -745,7 +745,7 @@ export function AIChat() {
                     }}>
                       <SFIcon name="zap" size={10} color="var(--accent)" />
                       <span style={{ color: 'var(--accent)' }}>{msg._toolLabel}</span>
-                      <span>→ exécuté</span>
+                      <span>{t('ai.toolExecuted')}</span>
                     </div>
                   );
                 }
@@ -803,7 +803,7 @@ export function AIChat() {
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
                 }}
-                placeholder="Pose une question ou donne une instruction…"
+                placeholder={t('ai.placeholder')}
                 rows={1}
                 style={{
                   flex: 1, border: 'none', background: 'none', resize: 'none',
@@ -813,7 +813,7 @@ export function AIChat() {
               />
               <button
                 onClick={toggleListening}
-                title={listening ? 'Arrêter l\'écoute' : 'Dicter un message'}
+                title={listening ? t('ai.stopListening') : t('ai.dictate')}
                 style={{
                   width: 30, height: 30, borderRadius: 9, flexShrink: 0,
                   background: listening ? 'var(--accent)' : 'var(--surface-3)',
@@ -844,7 +844,7 @@ export function AIChat() {
               </button>
             </div>
             <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6, fontFamily: 'var(--ff-mono)', textAlign: 'center' }}>
-              Entrée pour envoyer · Shift+Entrée pour saut de ligne
+              {t('ai.inputHint')}
             </p>
           </div>
         </div>

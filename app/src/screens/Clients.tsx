@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
@@ -33,10 +34,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── New client modal ──────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
-const SECTORS = ['Publicité', 'Clip musical', 'Documentaire', 'Institutionnel', 'Motion design', 'Social', 'Autre'];
+const SECTOR_KEYS = ['advertising', 'musicClip', 'documentary', 'corporate', 'motionDesign', 'social', 'other'] as const;
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const SECTORS = SECTOR_KEYS.map(k => t(`clients.${k}`));
   const [name,   setName]   = useState('');
   const [sector, setSector] = useState(SECTORS[0]);
   const [city,   setCity]   = useState('');
@@ -60,8 +63,8 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
       since: String(new Date().getFullYear()),
       progress: 0,
       status: 'ok',
-      statusLabel: 'Actif',
-      lastActivity: 'À l\'instant',
+      statusLabel: t('clients.statusActive'),
+      lastActivity: t('clients.justNow'),
     };
     addClient(client);
     onClose();
@@ -76,7 +79,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
       <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', boxShadow: '0 24px 72px rgba(0,0,0,0.6)', width: 480, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700 }}>Nouveau client</h2>
+          <h2 style={{ fontSize: 17, fontWeight: 700 }}>{t('clients.newClient')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={17} />
           </button>
@@ -86,42 +89,42 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Name */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Nom *</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('clients.name')} {t('common.required')}</label>
             <input
               autoFocus
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && canCreate) handleCreate(); }}
-              placeholder="Ex: Studio Lumière..."
+              placeholder={t('clients.placeholder')}
               style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
             />
           </div>
 
           {/* Sous-titre */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Sous-titre</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('clients.subtitle')}</label>
             <input
               value={sector}
               onChange={e => setSector(e.target.value)}
-              placeholder="Ex: Agence créative, Startup IA…"
+              placeholder={t('clients.subtitlePlaceholder')}
               style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
             />
           </div>
 
           {/* City */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Ville</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('clients.city')}</label>
             <input
               value={city}
               onChange={e => setCity(e.target.value)}
-              placeholder="Ex: Paris..."
+              placeholder={t('clients.cityPlaceholder')}
               style={{ width: '100%', padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
             />
           </div>
 
           {/* Color */}
           <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Couleur avatar</label>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('clients.avatarColor')}</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {AVATAR_COLORS.map(c => (
                 <button
@@ -144,10 +147,10 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 18px', cursor: 'pointer', fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
           >
-            Annuler
+            {t('clients.cancel')}
           </button>
           <SFButton variant="primary" onClick={handleCreate} disabled={!canCreate}>
-            Créer le client →
+            {t('clients.createClient')}
           </SFButton>
         </div>
       </div>
@@ -158,6 +161,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
 // ── Client Edit Panel ─────────────────────────────────────────────────────────
 
 function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => void }) {
+  const { t } = useTranslation();
   const [name,        setName]        = useState(client.name);
   const [sector,      setSector]      = useState(client.sector);
   const [city,        setCity]        = useState(client.city === '—' ? '' : client.city);
@@ -214,20 +218,20 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
         <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── Identité ── */}
-          <Section label="Identité">
-            <Field label="Nom du client">
+          <Section label={t('clients.identity')}>
+            <Field label={t('clients.clientName')}>
               <input autoFocus value={name} onChange={e => setName(e.target.value)}
                 onBlur={e => commit({ name: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 style={inputStyle} />
             </Field>
-            <Field label="Sous-titre">
+            <Field label={t('clients.subtitle')}>
               <input value={sector} onChange={e => setSector(e.target.value)}
                 onBlur={e => commit({ sector: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: Agence créative, Startup IA…" style={inputStyle} />
+                placeholder={t('clients.subtitlePlaceholder')} style={inputStyle} />
             </Field>
-            <Field label="Couleur avatar">
+            <Field label={t('clients.avatarColor')}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {AVATAR_COLORS.map(c => (
                   <button key={c} onClick={() => { setColor(c); commit({ avatarColor: c }); }}
@@ -239,54 +243,54 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
           </Section>
 
           {/* ── Coordonnées ── */}
-          <Section label="Coordonnées">
-            <Field label="Adresse">
+          <Section label={t('clients.contactInfo')}>
+            <Field label={t('clients.address')}>
               <input value={address} onChange={e => setAddress(e.target.value)}
                 onBlur={e => commit({ address: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: 123 rue Saint-Denis, Montréal" style={inputStyle} />
+                placeholder={t('clients.addressPlaceholder')} style={inputStyle} />
             </Field>
-            <Field label="Ville">
+            <Field label={t('clients.city')}>
               <input value={city} onChange={e => setCity(e.target.value)}
                 onBlur={e => commit({ city: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: Montréal" style={inputStyle} />
+                placeholder={t('clients.cityShortPlaceholder')} style={inputStyle} />
             </Field>
-            <Field label="Site web">
+            <Field label={t('clients.website')}>
               <input value={website} onChange={e => setWebsite(e.target.value)}
                 onBlur={e => commit({ website: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: https://acme.com" style={inputStyle} />
+                placeholder={t('clients.websitePlaceholder')} style={inputStyle} />
             </Field>
           </Section>
 
           {/* ── Contact principal ── */}
-          <Section label="Contact principal">
-            <Field label="Téléphone">
+          <Section label={t('clients.mainContact')}>
+            <Field label={t('clients.phone')}>
               <input value={phone} onChange={e => setPhone(e.target.value)}
                 onBlur={e => commit({ phone: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: +1 514 555-0100" style={inputStyle} type="tel" />
+                placeholder={t('clients.phonePlaceholder')} style={inputStyle} type="tel" />
             </Field>
-            <Field label="Courriel">
+            <Field label={t('clients.email')}>
               <input value={email} onChange={e => setEmail(e.target.value)}
                 onBlur={e => commit({ email: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: contact@acme.com" style={inputStyle} type="email" />
+                placeholder={t('clients.emailPlaceholder')} style={inputStyle} type="email" />
             </Field>
-            <Field label="Courriel comptabilité">
+            <Field label={t('clients.accountingEmail')}>
               <input value={emailCompta} onChange={e => setEmailCompta(e.target.value)}
                 onBlur={e => commit({ emailCompta: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: compta@acme.com" style={inputStyle} type="email" />
+                placeholder={t('clients.accountingEmailPlaceholder')} style={inputStyle} type="email" />
             </Field>
           </Section>
 
           {/* ── Notes ── */}
-          <Section label="Notes internes">
+          <Section label={t('clients.internalNotes')}>
             <textarea value={notes} onChange={e => setNotes(e.target.value)}
               onBlur={e => commit({ notes: e.target.value })}
-              placeholder="Contexte, préférences, informations importantes…"
+              placeholder={t('clients.notesPlaceholder')}
               rows={4}
               style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, colorScheme: 'dark' } as React.CSSProperties} />
           </Section>
@@ -301,11 +305,12 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
 // ── Shared row actions (star + edit) ──────────────────────────────────────────
 
 function ClientActions({ clientId, pinned, onEdit }: { clientId: string; pinned: boolean; onEdit: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
       <button
         onClick={e => { e.stopPropagation(); togglePinClient(clientId); }}
-        title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
+        title={pinned ? t('clients.unpin') : t('clients.pinSidebar')}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
         onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
         onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
@@ -314,7 +319,7 @@ function ClientActions({ clientId, pinned, onEdit }: { clientId: string; pinned:
       </button>
       <button
         onClick={e => { e.stopPropagation(); onEdit(); }}
-        title="Modifier le client"
+        title={t('clients.editClient')}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
         onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
         onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
@@ -338,18 +343,19 @@ function ColHead({ children, style }: { children: React.ReactNode; style?: React
 }
 
 function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Client) => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflowX: 'auto', overflowY: 'hidden', background: 'var(--surface)' }}>
       <div style={{ minWidth: 820 }}>
       {/* Header */}
       <div style={{ display: 'grid', gridTemplateColumns: LIST_COLS, gap: 16, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-        <ColHead>Client</ColHead>
-        <ColHead>Localisation</ColHead>
-        <ColHead>Contact</ColHead>
-        <ColHead>Activité</ColHead>
-        <ColHead>Progression</ColHead>
-        <ColHead>Statut</ColHead>
+        <ColHead>{t('clients.colClient')}</ColHead>
+        <ColHead>{t('clients.colLocation')}</ColHead>
+        <ColHead>{t('clients.colContact')}</ColHead>
+        <ColHead>{t('clients.colActivity')}</ColHead>
+        <ColHead>{t('clients.colProgress')}</ColHead>
+        <ColHead>{t('clients.colStatus')}</ColHead>
         <div />
       </div>
 
@@ -402,8 +408,8 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
 
             {/* Activité */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{client.activeProjects} projets actifs</span>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{client.pendingDeliverables} livrables · depuis {client.since}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t('clients.activeProjects', { count: client.activeProjects })}</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{t('clients.deliverablesSince', { count: client.pendingDeliverables, year: client.since })}</span>
             </div>
 
             {/* Progression */}
@@ -434,6 +440,7 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
 const VIEW_KEY = 'sf_clients_view';
 
 export function Clients() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [search, setSearch]         = useState('');
   const [filter, setFilter]         = useState<'all' | 'active' | 'archived'>('all');
@@ -462,12 +469,12 @@ export function Clients() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Clients</h1>
+          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('clients.title')}</h1>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {clients.length} clients
+            {t('clients.count', { count: clients.length })}
           </p>
         </div>
-        <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>Nouveau client</SFButton>
+        <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
       </div>
 
       {/* Search + filters */}
@@ -479,12 +486,12 @@ export function Clients() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher un client..."
+            placeholder={t('clients.searchPlaceholder')}
             style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none' }}
           />
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {([['all', 'Tous'], ['active', 'Actifs'], ['archived', 'Archivés']] as const).map(([val, label]) => (
+          {([['all', t('clients.filterAll')], ['active', t('clients.filterActive')], ['archived', t('clients.filterArchived')]] as const).map(([val, label]) => (
             <button key={val} onClick={() => setFilter(val)} style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
               {label}
             </button>
@@ -493,7 +500,7 @@ export function Clients() {
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, marginLeft: 'auto', background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>
-          {([['grid', 'layout-grid', 'Grille'], ['list', 'list', 'Liste']] as const).map(([val, icon, label]) => (
+          {([['grid', 'layout-grid', t('clients.viewGrid')], ['list', 'list', t('clients.viewList')]] as const).map(([val, icon, label]) => (
             <button
               key={val}
               onClick={() => changeView(val)}
@@ -530,7 +537,7 @@ export function Clients() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, alignSelf: 'flex-start' }}>
                   <button
                     onClick={e => { e.stopPropagation(); togglePinClient(client.id); }}
-                    title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
+                    title={pinned ? t('clients.unpin') : t('clients.pinSidebar')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
                     onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
                     onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
@@ -540,7 +547,7 @@ export function Clients() {
 
                   <button
                     onClick={e => { e.stopPropagation(); setEditingClient(client); }}
-                    title="Modifier le client"
+                    title={t('clients.editClient')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
@@ -551,9 +558,9 @@ export function Clients() {
               </div>
 
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
-                <span>{client.activeProjects} projets actifs</span>
-                <span>{client.pendingDeliverables} livrables</span>
-                <span>Depuis {client.since}</span>
+                <span>{t('clients.activeProjects', { count: client.activeProjects })}</span>
+                <span>{t('clients.deliverables', { count: client.pendingDeliverables })}</span>
+                <span>{t('clients.since', { year: client.since })}</span>
               </div>
 
               <SFBar value={client.progress} height={3} />

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
@@ -89,11 +90,11 @@ const VERSION_SEED_DATES: Record<string, string> = {
 
 const TODAY_LABEL = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 
-const REVIEW_STATUSES: { key: ReviewStatus; label: string; status: 'review' | 'ok' | 'warn' | 'neutral' }[] = [
-  { key: 'open',     label: 'Ouvert',      status: 'neutral' },
-  { key: 'review',   label: 'En révision', status: 'review'  },
-  { key: 'approved', label: 'Approuvé',    status: 'ok'      },
-  { key: 'closed',   label: 'Fermé',       status: 'warn'    },
+const REVIEW_STATUSES: { key: ReviewStatus; labelKey: string; status: 'review' | 'ok' | 'warn' | 'neutral' }[] = [
+  { key: 'open',     labelKey: 'review.statusOpen',     status: 'neutral' },
+  { key: 'review',   labelKey: 'review.statusInReview', status: 'review'  },
+  { key: 'approved', labelKey: 'review.statusApproved', status: 'ok'      },
+  { key: 'closed',   labelKey: 'review.statusClosed',   status: 'warn'    },
 ];
 
 const TEAM = Object.values(USERS);
@@ -172,6 +173,7 @@ interface VideoReviewContent {
 }
 
 export function VideoReviewBody({ resource, projectId, persistKey }: { resource: Resource; projectId?: string; persistKey?: string }) {
+  const { t } = useTranslation();
   const persisted = persistKey ? getResourceContent<VideoReviewContent>(persistKey) : undefined;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -450,7 +452,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const addVersion = () => {
     const name = nextVersionName();
     const newV: LocalVersion = {
-      v: name, status: 'review', label: newVersionNote.trim() || 'En révision',
+      v: name, status: 'review', label: newVersionNote.trim() || t('review.statusInReview'),
       date: TODAY_LABEL, author: USERS.lea,
       size: mockVersionSize(resource.mediaSubtype, versions.length),
     };
@@ -674,7 +676,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
       {/* ── Versions dropdown + Annotation bar at top ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
         {/* Back button */}
-        <button onClick={() => navigate(-1)} title="Retour"
+        <button onClick={() => navigate(-1)} title={t('review.back')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
@@ -700,32 +702,32 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                       <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--surface-2)' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <div style={{ flex: '0 0 60px' }}>
-                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 3 }}>N° version</p>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 3 }}>{t('review.versionNumber')}</p>
                             <input value={editVersionKey} onChange={e => setEditVersionKey(e.target.value)}
                               style={{ width: '100%', padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 700, outline: 'none', colorScheme: 'dark', boxSizing: 'border-box' }} />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 3 }}>Notes / label</p>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 3 }}>{t('review.notesLabel')}</p>
                             <input autoFocus value={editVersionLabel} onChange={e => setEditVersionLabel(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') saveVersionEdit(); if (e.key === 'Escape') setEditingVersionId(null); }}
-                              placeholder="ex. Corrections son…"
+                              placeholder={t('review.notesPlaceholder')}
                               style={{ width: '100%', padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 11, outline: 'none', colorScheme: 'dark', boxSizing: 'border-box' }} />
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
-                          <button onClick={() => setEditingVersionId(null)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer' }}>Annuler</button>
-                          <button onClick={saveVersionEdit} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Enregistrer</button>
+                          <button onClick={() => setEditingVersionId(null)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer' }}>{t('review.cancel')}</button>
+                          <button onClick={saveVersionEdit} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{t('review.save')}</button>
                         </div>
                         {/* Video actions for this version */}
                         {v.mediaFileId && (
                           <div style={{ display: 'flex', gap: 6, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
                             <button onClick={() => { mediaFileInputRef.current?.click(); setEditingVersionId(null); }}
                               style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                              <SFIcon name="refresh-cw" size={10} />Remplacer la vidéo
+                              <SFIcon name="refresh-cw" size={10} />{t('review.replaceVideo')}
                             </button>
                             <button onClick={() => { removeMediaFromVersion(); setEditingVersionId(null); }}
                               style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(229,72,77,0.3)', background: 'transparent', color: 'var(--danger)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <SFIcon name="trash-2" size={10} />Supprimer
+                              <SFIcon name="trash-2" size={10} />{t('review.delete')}
                             </button>
                           </div>
                         )}
@@ -744,14 +746,14 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                         </button>
                         {/* Edit button */}
                         <button className="vrd-action" onClick={e => { e.stopPropagation(); setEditingVersionId(v.v); setEditVersionKey(v.v); setEditVersionLabel(v.label || ''); }}
-                          title="Modifier"
+                          title={t('review.edit')}
                           style={{ position: 'absolute', right: versions.length > 1 ? 28 : 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
                           <SFIcon name="pencil" size={11} />
                         </button>
                         {/* Delete version button */}
                         {versions.length > 1 && (
                           <button className="vrd-action" onClick={e => { e.stopPropagation(); setVersionToDelete(v); setVersionDropOpen(false); }}
-                            title="Supprimer la version"
+                            title={t('review.deleteVersion')}
                             style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 3, borderRadius: 4, opacity: 0, transition: 'opacity 0.12s' }}>
                             <SFIcon name="x" size={11} />
                           </button>
@@ -766,7 +768,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                     <SFIcon name="upload" size={12} color="var(--accent)" />
-                    Téléverser une version
+                    {t('review.uploadVersion')}
                   </button>
                 </div>
               </div>
@@ -780,11 +782,11 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
         {/* Annotation tools — video/photo only */}
         {!isAudio && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 2 }}>Annoter</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 2 }}>{t('review.annotate')}</span>
             {([
-              { tool: 'point' as DrawTool,  icon: 'mouse-pointer-2', label: 'Pointer',  color: TOOL_COLORS.point  },
-              { tool: 'circle' as DrawTool, icon: 'circle',          label: 'Entourer', color: TOOL_COLORS.circle },
-              { tool: 'arrow' as DrawTool,  icon: 'arrow-up-right',  label: 'Flèche',   color: TOOL_COLORS.arrow  },
+              { tool: 'point' as DrawTool,  icon: 'mouse-pointer-2', label: t('review.toolPoint'),  color: TOOL_COLORS.point  },
+              { tool: 'circle' as DrawTool, icon: 'circle',          label: t('review.toolCircle'), color: TOOL_COLORS.circle },
+              { tool: 'arrow' as DrawTool,  icon: 'arrow-up-right',  label: t('review.toolArrow'),  color: TOOL_COLORS.arrow  },
             ] as const).map(({ tool, icon, label, color }) => (
               <button key={tool} onClick={() => setDrawTool(t => t === tool ? null : tool)}
                 title={label}
@@ -796,7 +798,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             {pendingAnnotation && (
               <button onClick={() => setPendingAnnotation(null)}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer' }}>
-                <SFIcon name="trash-2" size={11} />Effacer
+                <SFIcon name="trash-2" size={11} />{t('review.clear')}
               </button>
             )}
           </div>
@@ -808,7 +810,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
 
         {/* Share */}
-        <button onClick={handleShare} title={shared ? 'Lien copié !' : 'Copier le lien'}
+        <button onClick={handleShare} title={shared ? t('review.linkCopied') : t('review.copyLink')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: `1px solid ${shared ? 'var(--ok)' : 'var(--border)'}`, background: shared ? 'rgba(78,201,148,0.12)' : 'var(--surface-2)', cursor: 'pointer', color: shared ? 'var(--ok)' : 'var(--text-2)', flexShrink: 0, transition: 'all 0.15s' }}
           onMouseEnter={e => { if (!shared) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; } }}
           onMouseLeave={e => { if (!shared) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; } }}>
@@ -819,7 +821,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
         <RequestApprovalButton resource={resource} projectId={projectId} />
 
         {/* Fullscreen */}
-        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? t('review.exitFullscreen') : t('review.fullscreen')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
@@ -844,7 +846,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             <div style={{ position: 'absolute', inset: 12, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249,255,0,0.06)', border: '2px dashed var(--accent)', borderRadius: 12, pointerEvents: 'none' }}>
               <div style={{ textAlign: 'center' }}>
                 <SFIcon name="upload" size={30} color="var(--accent)" />
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>Déposer pour {mediaUrl ? 'remplacer' : 'ajouter'} le média de {activeVersion}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>{mediaUrl ? t('review.dropToReplaceMedia', { version: activeVersion }) : t('review.dropToAddMedia', { version: activeVersion })}</p>
               </div>
             </div>
           )}
@@ -870,7 +872,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: 'var(--ff-text)', fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeVer?.mediaName ?? resource?.title ?? 'Audio'}</div>
                   <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', marginTop: 3 }}>
-                    {mediaUrl ? `${activeVersion} · ${secsToLabel(currentTime)} / ${secsToLabel(TOTAL)}` : `${activeVersion} · Glissez un fichier audio ou cliquez pour importer`}
+                    {mediaUrl ? `${activeVersion} · ${secsToLabel(currentTime)} / ${secsToLabel(TOTAL)}` : `${activeVersion} · ${t('review.dropAudioHint')}`}
                   </div>
                 </div>
                 {playing && (
@@ -924,7 +926,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   <SFIcon name="upload" size={24} color="var(--accent)" />
                 </div>
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: 6, letterSpacing: '0.06em' }}>
-                  {activeVersion} — Glissez une vidéo ici ou cliquez pour importer
+                  {activeVersion} — {t('review.dropVideoHint')}
                 </span>
               </div>
             )}
@@ -948,19 +950,19 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             {drawTool && (
               <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', border: `1px solid ${TOOL_COLORS[drawTool]}`, borderRadius: 8, padding: '5px 14px', pointerEvents: 'none', zIndex: 5 }}>
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: TOOL_COLORS[drawTool] }}>
-                  {drawTool === 'point' ? 'Cliquez pour marquer un point' : drawTool === 'circle' ? 'Glissez pour entourer une zone' : 'Glissez pour tracer une flèche'}
+                  {drawTool === 'point' ? t('review.drawPointHint') : drawTool === 'circle' ? t('review.drawCircleHint') : t('review.drawArrowHint')}
                 </span>
               </div>
             )}
             {pendingAnnotation && !drawTool && (
               <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', border: '1px solid var(--accent)', borderRadius: 8, padding: '5px 14px', pointerEvents: 'none', zIndex: 5 }}>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)' }}>Annotation prête · Rédigez votre commentaire →</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--accent)' }}>{t('review.annotationReady')}</span>
               </div>
             )}
             {repositioningAnnotationId && !drawTool && (
               <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.8)', border: '1px solid var(--info)', borderRadius: 8, padding: '5px 14px', zIndex: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <SFIcon name="move" size={12} color="var(--info)" />
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--info)' }}>Cliquez pour repositionner · Échap pour annuler</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--info)' }}>{t('review.repositionHint')}</span>
                 <button onClick={() => setRepositioningAnnotationId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
                   <SFIcon name="x" size={12} color="var(--text-3)" />
                 </button>
@@ -1020,30 +1022,30 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               {/* Center: transport controls */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 {/* Prev comment */}
-                <button onClick={goPrevComment} title="Commentaire précédent"
+                <button onClick={goPrevComment} title={t('review.prevComment')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 1 : 0.35 }}>
                   <SFIcon name="chevron-left" size={12} />
                   <SFIcon name="message-circle" size={13} />
                 </button>
                 {/* Rewind -15s */}
-                <button onClick={() => seekBy(-15)} title="Reculer de 15s"
+                <button onClick={() => seekBy(-15)} title={t('review.rewind15')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
                   <SFIcon name="arrow-left" size={13} />
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, fontWeight: 700 }}>15s</span>
                 </button>
                 {/* Play/Pause — large, centered */}
-                <button onClick={togglePlay} title={playing ? 'Pause (Espace)' : 'Lecture (Espace)'}
+                <button onClick={togglePlay} title={playing ? t('review.pauseSpace') : t('review.playSpace')}
                   style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: '0 0 18px rgba(249,255,0,0.25)' }}>
                   <SFIcon name={playing ? 'pause' : currentTime >= TOTAL ? 'rotate-ccw' : 'play'} size={20} color="var(--on-accent)" />
                 </button>
                 {/* Forward +15s */}
-                <button onClick={() => seekBy(15)} title="Avancer de 15s"
+                <button onClick={() => seekBy(15)} title={t('review.forward15')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: 'none', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0, color: 'var(--text-2)' }}>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, fontWeight: 700 }}>15s</span>
                   <SFIcon name="arrow-right" size={13} />
                 </button>
                 {/* Next comment */}
-                <button onClick={goNextComment} title="Commentaire suivant"
+                <button onClick={goNextComment} title={t('review.nextComment')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 1 : 0.35 }}>
                   <SFIcon name="message-circle" size={13} />
                   <SFIcon name="chevron-right" size={12} />
@@ -1056,7 +1058,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
                   onMouseEnter={() => setShowVolume(true)}
                   onMouseLeave={() => setShowVolume(false)}>
-                  <button onClick={toggleMute} title={muted ? 'Activer le son' : 'Couper le son'}
+                  <button onClick={toggleMute} title={muted ? t('review.unmute') : t('review.mute')}
                     style={{ width: 32, height: 32, borderRadius: 8, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: muted ? 'var(--text-3)' : 'var(--text-2)', flexShrink: 0 }}>
                     <SFIcon name={muted || volume === 0 ? 'volume-x' : volume < 0.5 ? 'volume-1' : 'volume-2'} size={16} />
                   </button>
@@ -1079,7 +1081,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                     if (!document.fullscreenElement) el.requestFullscreen().catch(() => setIsFullscreen(f => !f));
                     else document.exitFullscreen().catch(() => setIsFullscreen(f => !f));
                   }}
-                  title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+                  title={isFullscreen ? t('review.exitFullscreen') : t('review.fullscreen')}
                   style={{ width: 32, height: 32, borderRadius: 8, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}>
                   <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={15} />
                 </button>
@@ -1098,7 +1100,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>VIDÉO · {activeVersion}</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('review.videoLabel')} · {activeVersion}</p>
                 {editingTitle ? (
                   <input
                     autoFocus
@@ -1109,7 +1111,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                     style={{ fontSize:13, fontWeight:600, background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'1px 6px', outline:'none', color:'var(--text)', width:'100%', marginTop:2 }}
                   />
                 ) : (
-                  <p onClick={() => setEditingTitle(true)} title="Cliquer pour renommer" style={{ fontWeight: 600, fontSize: 13, marginTop: 2, cursor:'text', display:'inline-flex', alignItems:'center', gap:5 }}>
+                  <p onClick={() => setEditingTitle(true)} title={t('review.clickToRename')} style={{ fontWeight: 600, fontSize: 13, marginTop: 2, cursor:'text', display:'inline-flex', alignItems:'center', gap:5 }}>
                     {localTitle}
                     <SFIcon name="pencil" size={10} color="var(--text-3)" />
                   </p>
@@ -1125,8 +1127,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                     rows={2}
                   />
                 ) : (
-                  <p onClick={() => setEditingDesc(true)} title="Cliquer pour modifier la description" style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:3, fontStyle: localDesc ? 'normal' : 'italic' }}>
-                    {localDesc || 'Ajouter une description...'}
+                  <p onClick={() => setEditingDesc(true)} title={t('review.clickToEditDescription')} style={{ fontSize:11, color: localDesc ? 'var(--text-2)' : 'var(--text-3)', cursor:'text', marginTop:3, fontStyle: localDesc ? 'normal' : 'italic' }}>
+                    {localDesc || t('review.addDescription')}
                   </p>
                 )}
               </div>
@@ -1136,16 +1138,16 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   ref={statusDropRef}
                   onClick={openStatusDrop}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <SFPill status={currentStatusMeta.status} small>{currentStatusMeta.label}</SFPill>
+                  <SFPill status={currentStatusMeta.status} small>{t(currentStatusMeta.labelKey)}</SFPill>
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               {[
-                { label: 'Commentaires', value: versionComments.length },
-                { label: 'Ouverts', value: unresolvedCount, color: 'var(--warn)' },
-                { label: 'Tâches', value: openTaskCount, color: 'var(--info)' },
+                { label: t('review.comments'), value: versionComments.length },
+                { label: t('review.open'), value: unresolvedCount, color: 'var(--warn)' },
+                { label: t('review.tasks'), value: openTaskCount, color: 'var(--info)' },
               ].map(s => (
                 <div key={s.label} style={{ flex: 1, textAlign: 'center', padding: '6px 0', borderRadius: 8, background: 'var(--surface-2)' }}>
                   <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: s.color ?? 'var(--text)' }}>{s.value}</p>
@@ -1158,8 +1160,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           {/* Tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
-              ['comments', `Commentaires (${unresolvedCount})`],
-              ['tasks',    `Tâches (${openTaskCount})`],
+              ['comments', `${t('review.comments')} (${unresolvedCount})`],
+              ['tasks',    `${t('review.tasks')} (${openTaskCount})`],
             ] as const).map(([key, label]) => (
               <button key={key} onClick={() => setTab(key)}
                 style={{ flex: 1, padding: '10px 4px', fontSize: 11, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
@@ -1175,11 +1177,11 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {versionComments.length === 0 && (
                   <div style={{ padding: '28px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 14 }}>Aucun commentaire pour le moment.</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 14 }}>{t('review.noCommentsYet')}</div>
                     <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', textAlign: 'left' }}>
                       <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.55 }}>
-                        💬 Cliquez sur la vidéo pour placer une annotation, puis rédigez votre commentaire.<br />
-                        Utilisez <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@prénom</span> pour mentionner un membre de l'équipe.
+                        💬 {t('review.videoCommentHint')}<br />
+                        {t('review.mentionHintBefore')} <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@{t('review.firstNameToken')}</span> {t('review.mentionHintAfter')}
                       </p>
                     </div>
                   </div>
@@ -1202,23 +1204,23 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                             {c.timeLabel !== null ? (
                               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', background: 'rgba(249,255,0,0.1)', padding: '1px 6px', borderRadius: 5 }}>{c.timeLabel}</span>
                             ) : (
-                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 5, border: '1px solid var(--border)' }}>Général</span>
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 5, border: '1px solid var(--border)' }}>{t('review.general')}</span>
                             )}
                             {c.annotation && (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontFamily: 'var(--ff-mono)', fontSize: 9, color: c.annotation.color, background: `${c.annotation.color}18`, borderRadius: 5, border: `1px solid ${c.annotation.color}44`, overflow: 'hidden' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '1px 6px' }}>
                                   <SFIcon name={c.annotation.tool === 'circle' ? 'circle' : c.annotation.tool === 'arrow' ? 'arrow-up-right' : 'mouse-pointer-2'} size={9} color={c.annotation.color} />
-                                  {c.annotation.tool === 'circle' ? 'Cercle' : c.annotation.tool === 'arrow' ? 'Flèche' : 'Point'}
+                                  {c.annotation.tool === 'circle' ? t('review.shapeCircle') : c.annotation.tool === 'arrow' ? t('review.shapeArrow') : t('review.shapePoint')}
                                 </span>
                                 <button
                                   onClick={e => { e.stopPropagation(); setRepositioningAnnotationId(c.id); setActiveCommentId(c.id); }}
-                                  title="Déplacer l'annotation"
+                                  title={t('review.moveAnnotation')}
                                   style={{ background: `${c.annotation.color}22`, border: 'none', borderLeft: `1px solid ${c.annotation.color}44`, padding: '2px 5px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: c.annotation.color }}>
                                   <SFIcon name="move" size={9} color={c.annotation.color} />
                                 </button>
                                 <button
                                   onClick={e => { e.stopPropagation(); removeAnnotationFromComment(c.id); }}
-                                  title="Supprimer l'annotation (conserver le commentaire)"
+                                  title={t('review.removeAnnotation')}
                                   style={{ background: 'rgba(255,80,80,0.12)', border: 'none', borderLeft: `1px solid ${c.annotation.color}44`, padding: '2px 5px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                                   <SFIcon name="x" size={9} color="var(--danger)" />
                                 </button>
@@ -1227,26 +1229,26 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                             {/* Status pill — click to cycle */}
                             <button
                               onClick={e => { e.stopPropagation(); cycleCommentStatus(c.id); }}
-                              title={c.status === 'resolved' ? 'Marquer comme ouvert' : 'Marquer comme résolu'}
+                              title={c.status === 'resolved' ? t('review.markAsOpen') : t('review.markAsResolved')}
                               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 5, border: `1px solid ${c.status === 'resolved' ? 'var(--ok)' : 'var(--border-2)'}`, background: c.status === 'resolved' ? 'rgba(72,199,142,0.12)' : 'var(--surface-3)', color: c.status === 'resolved' ? 'var(--ok)' : 'var(--text-3)', fontSize: 9, fontFamily: 'var(--ff-mono)', cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                               {c.status === 'resolved' ? <SFIcon name="check-circle" size={9} color="var(--ok)" /> : <SFIcon name="circle-dot" size={9} color="var(--text-3)" />}
-                              {c.status === 'resolved' ? 'Résolu' : 'Ouvert'}
+                              {c.status === 'resolved' ? t('review.resolved') : t('review.openStatus')}
                             </button>
                           </div>
                           <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 6 }}>{renderMentions(c.text)}</p>
                           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
                             <button onClick={() => { setReplyingTo(r => r === c.id ? null : c.id); setReplyText(''); setReplyMentionQuery(null); }}
                               style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
-                              Répondre
+                              {t('review.reply')}
                             </button>
                             {taskCreatedFlash ? (
                               <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--ok)', background: 'rgba(72,199,142,0.10)', border: '1px solid rgba(72,199,142,0.3)', borderRadius: 6, padding: '2px 8px' }}>
-                                <SFIcon name="check" size={10} color="var(--ok)" />Tâche créée
+                                <SFIcon name="check" size={10} color="var(--ok)" />{t('review.taskCreated')}
                               </span>
                             ) : (
                               <button onClick={() => convertToTask(c)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--info)', background: 'rgba(100,160,255,0.07)', border: '1px solid rgba(100,160,255,0.25)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
-                                <SFIcon name="plus" size={10} color="var(--info)" /><SFIcon name="check-square" size={10} color="var(--info)" />Tâche
+                                <SFIcon name="plus" size={10} color="var(--info)" /><SFIcon name="check-square" size={10} color="var(--info)" />{t('review.task')}
                               </button>
                             )}
                           </div>
@@ -1255,7 +1257,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                         <button
                           className="comment-delete"
                           onClick={e => { e.stopPropagation(); deleteComment(c.id); }}
-                          title="Supprimer le commentaire"
+                          title={t('review.deleteComment')}
                           style={{ opacity: 0, transition: 'opacity 0.15s', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: 'var(--text-3)', flexShrink: 0, alignSelf: 'flex-start', marginTop: 2 }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -1296,7 +1298,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                                 value={replyText}
                                 onChange={e => handleReplyChange(e.target.value, e.target)}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addReply(c.id); } if (e.key === 'Escape') { setReplyingTo(null); setReplyMentionQuery(null); } }}
-                                placeholder="Répondre… (@ pour mentionner)"
+                                placeholder={t('review.replyPlaceholder')}
                                 style={{ flex: 1, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
                               />
                               <button onClick={() => addReply(c.id)}
@@ -1339,7 +1341,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   </div>
                 ))}
                 {tasks.length === 0 && (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>Convertissez des commentaires en tâches.</div>
+                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>{t('review.convertCommentsToTasks')}</div>
                 )}
               </div>
             )}
@@ -1352,7 +1354,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
               {pendingAnnotation && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '5px 10px', borderRadius: 8, border: `1px solid ${pendingAnnotation.color}55`, background: `${pendingAnnotation.color}0d` }}>
                   <SFIcon name={pendingAnnotation.tool === 'circle' ? 'circle' : pendingAnnotation.tool === 'arrow' ? 'arrow-up-right' : 'mouse-pointer-2'} size={13} color={pendingAnnotation.color} />
-                  <span style={{ flex: 1, fontFamily: 'var(--ff-mono)', fontSize: 10, color: pendingAnnotation.color }}>Annotation jointe au prochain commentaire</span>
+                  <span style={{ flex: 1, fontFamily: 'var(--ff-mono)', fontSize: 10, color: pendingAnnotation.color }}>{t('review.annotationAttached')}</span>
                   <button onClick={() => setPendingAnnotation(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}>
                     <SFIcon name="x" size={11} />
                   </button>
@@ -1362,7 +1364,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <button onClick={() => setWithTimestamp(v => !v)}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, border: `1px solid ${withTimestamp ? 'var(--accent)' : 'var(--border)'}`, background: withTimestamp ? 'rgba(249,255,0,0.07)' : 'transparent', color: withTimestamp ? 'var(--accent)' : 'var(--text-3)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
                   <SFIcon name="clock" size={10}  />
-                  {withTimestamp ? secsToLabel(currentTime) : 'Général'}
+                  {withTimestamp ? secsToLabel(currentTime) : t('review.general')}
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
@@ -1384,7 +1386,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   value={commentText}
                   onChange={e => handleCommentChange(e.target.value, e.target)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } if (e.key === 'Escape') setCommentMentionQuery(null); }}
-                  placeholder={withTimestamp ? `Commenter à ${secsToLabel(currentTime)}… (@ pour mentionner)` : 'Commentaire général… (@ pour mentionner)'}
+                  placeholder={withTimestamp ? t('review.commentAtTime', { time: secsToLabel(currentTime) }) : t('review.commentGeneral')}
                   style={{ flex: 1, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
                 />
                 <button onClick={addComment}
@@ -1405,7 +1407,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             {REVIEW_STATUSES.map(s => (
               <button key={s.key} onClick={() => { setReviewStatus(s.key); setStatusDropOpen(false); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px', background: s.key === reviewStatus ? 'var(--surface-3)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                <SFPill status={s.status} small>{s.label}</SFPill>
+                <SFPill status={s.status} small>{t(s.labelKey)}</SFPill>
                 {s.key === reviewStatus && <SFIcon name="check" size={11} color="var(--accent)" />}
               </button>
             ))}
@@ -1420,8 +1422,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 420, zIndex: 1201, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,0.7)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginBottom: 2 }}>{resource?.title ?? 'Rough Cut'}</p>
-                <h2 style={{ fontSize: 15, fontWeight: 700 }}>Téléverser une version</h2>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginBottom: 2 }}>{resource?.title ?? t('review.untitledResource')}</p>
+                <h2 style={{ fontSize: 15, fontWeight: 700 }}>{t('review.uploadVersion')}</h2>
               </div>
               <button onClick={() => setAddVersionOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
             </div>
@@ -1431,24 +1433,24 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <SFIcon name="cloud-upload" size={20} color="var(--accent)" />
                 </div>
-                <p style={{ fontSize: 12, color: 'var(--text-2)', textAlign: 'center' }}>Glissez un fichier vidéo ici</p>
-                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Sera enregistré comme <span style={{ color: 'var(--accent)' }}>{nextVersionName()}</span></p>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', textAlign: 'center' }}>{t('review.dropVideoFile')}</p>
+                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('review.willBeSavedAs')} <span style={{ color: 'var(--accent)' }}>{nextVersionName()}</span></p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Note de version (optionnelle)</label>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('review.versionNoteOptional')}</label>
                 <input
                   autoFocus
                   value={newVersionNote}
                   onChange={e => setNewVersionNote(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addVersion(); if (e.key === 'Escape') setAddVersionOpen(false); }}
-                  placeholder="ex. Corrections son + color grading"
+                  placeholder={t('review.versionNotePlaceholder')}
                   style={{ width: '100%', padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box' }}
                 />
               </div>
             </div>
             <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="ghost" size="sm" onClick={() => setAddVersionOpen(false)}>Annuler</SFButton>
-              <SFButton variant="primary" size="sm" icon="plus" onClick={addVersion}>Créer {nextVersionName()}</SFButton>
+              <SFButton variant="ghost" size="sm" onClick={() => setAddVersionOpen(false)}>{t('review.cancel')}</SFButton>
+              <SFButton variant="primary" size="sm" icon="plus" onClick={addVersion}>{t('review.createNamed', { name: nextVersionName() })}</SFButton>
             </div>
           </div>
         </>
@@ -1462,13 +1464,13 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(229,72,77,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <SFIcon name="trash-2" size={20} color="var(--danger)" />
             </div>
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Supprimer {versionToDelete.v} ?</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{t('review.deleteVersionConfirm', { version: versionToDelete.v })}</h2>
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
-              La version « {versionToDelete.label} » sera retirée de l'historique. Cette action est définitive.
+              {t('review.deleteVersionDesc', { label: versionToDelete.label })}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <SFButton variant="ghost" size="sm" onClick={() => setVersionToDelete(null)}>Annuler</SFButton>
-              <SFButton variant="primary" size="sm" icon="trash-2" onClick={confirmDeleteVersion} style={{ background: 'var(--danger)', color: 'white' }}>Supprimer</SFButton>
+              <SFButton variant="ghost" size="sm" onClick={() => setVersionToDelete(null)}>{t('review.cancel')}</SFButton>
+              <SFButton variant="primary" size="sm" icon="trash-2" onClick={confirmDeleteVersion} style={{ background: 'var(--danger)', color: 'white' }}>{t('review.delete')}</SFButton>
             </div>
           </div>
         </>
@@ -1480,6 +1482,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 // ── Page wrapper with topbar + routing ────────────────────────────────────────
 
 export function VideoReview() {
+  const { t } = useTranslation();
   const { projectId, resourceId } = useParams();
   const [, setTick] = useState(0);
   useEffect(() => subscribeResources(() => setTick(t => t + 1)), []);
@@ -1493,8 +1496,8 @@ export function VideoReview() {
   if (!resource) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)' }}>
       <SFIcon name="film" size={36} color="var(--text-3)" />
-      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>Ressource introuvable</p>
-      <p style={{ fontSize: 12 }}>L'identifiant <code style={{ background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--ff-mono)' }}>{resourceId}</code> ne correspond à aucune révision.</p>
+      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>{t('review.resourceNotFound')}</p>
+      <p style={{ fontSize: 12 }}>{t('review.idNoMatchBefore')} <code style={{ background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--ff-mono)' }}>{resourceId}</code> {t('review.idNoMatchAfter')}</p>
     </div>
   );
 

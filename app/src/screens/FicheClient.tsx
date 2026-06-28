@@ -1,5 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
@@ -16,6 +17,9 @@ import { FileBrowser } from './FichiersGlobal';
 
 import { getClientContacts, type ClientContact as ClientMember } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
+import { getInvoicesByClient, subscribeInvoices, updateInvoice, removeInvoice, sendInvoice as doSendInvoice, formatMoney, type Invoice } from '../data/financeStore';
+import { getProjects } from '../data/projectStore';
+import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 
 function getStoredApprover(clientId: string): string | null {
   try { return localStorage.getItem(`sf_approver_id_${clientId}`); } catch { return null; }
@@ -44,6 +48,7 @@ const INTERNAL_TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
 function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m: ClientMember) => void }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
@@ -51,7 +56,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
   const submit = () => {
     if (!name.trim() || !email.trim()) return;
     const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    onInvite({ id: `ext${Date.now()}`, name: name.trim(), role: role.trim() || 'Contact client', email: email.trim(), status: 'invited', initials, color: '#3b4f8f' });
+    onInvite({ id: `ext${Date.now()}`, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f' });
     onClose();
   };
 
@@ -60,13 +65,13 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Inviter une personne</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.invitePerson')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
         {[
-          { label: 'Nom complet *', val: name, set: setName, placeholder: 'Ex: Sophie Martin' },
-          { label: 'Adresse courriel *', val: email, set: setEmail, placeholder: 'sophie@client.fr' },
-          { label: 'Rôle / poste', val: role, set: setRole, placeholder: 'Ex: Directrice marketing' },
+          { label: t('client.fullNameRequired'), val: name, set: setName, placeholder: t('client.fullNamePlaceholder') },
+          { label: t('client.emailRequired'), val: email, set: setEmail, placeholder: t('client.emailContactPlaceholder') },
+          { label: t('client.rolePosition'), val: role, set: setRole, placeholder: t('client.rolePositionPlaceholder') },
         ].map(f => (
           <div key={f.label} style={{ marginBottom: 14 }}>
             <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
@@ -75,11 +80,11 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
           </div>
         ))}
         <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
-          Un courriel d'invitation sera envoyé avec un lien pour rejoindre le portail client.
+          {t('client.inviteHint')}
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>Envoyer l'invitation</SFButton>
+          <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+          <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>{t('client.sendInvitation')}</SFButton>
         </div>
       </div>
     </div>
@@ -89,6 +94,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
 // ── Assign internal member modal ──────────────────────────────────────────────
 
 function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: string[]; onClose: () => void; onAssign: (members: ClientMember[]) => void }) {
+  const { t } = useTranslation();
   const available = INTERNAL_TEAM.filter(u => !existingIds.includes(u.id));
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -114,17 +120,17 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 400, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Assigner des membres internes</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.assignInternalMembers')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
         {available.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>Tous les membres internes sont déjà assignés.</p>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('client.allInternalAssigned')}</p>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Sélectionnez un ou plusieurs membres.</p>
+              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('client.selectOneOrMore')}</p>
               <button onClick={toggleAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 500 }}>
-                {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+                {allSelected ? t('client.deselectAll') : t('client.selectAll')}
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', flex: 1 }}>
@@ -147,9 +153,9 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
               })}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-              <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
+              <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
               <SFButton variant="primary" onClick={handleConfirm} disabled={selected.size === 0}>
-                {selected.size > 0 ? `Assigner (${selected.size})` : 'Assigner'}
+                {selected.size > 0 ? t('client.assignCount', { count: selected.size }) : t('client.assign')}
               </SFButton>
             </div>
           </>
@@ -162,6 +168,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
 // ── Équipe tab ────────────────────────────────────────────────────────────────
 
 function EquipeTab({ clientId }: { clientId: string }) {
+  const { t } = useTranslation();
   const [members, setMembers] = useState<ClientMember[]>(() => getClientTeam(clientId));
   const [showInvite, setShowInvite] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
@@ -192,7 +199,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
   const internalIds = internalMembers.map(m => m.userId ?? '').filter(Boolean);
 
   const statusBadge = (status: ClientMember['status']) => {
-    const cfg = { active: { label: 'Actif', color: 'var(--ok)' }, invited: { label: 'Invitation envoyée', color: 'var(--warn)' }, pending: { label: 'En attente', color: 'var(--text-3)' } }[status];
+    const cfg = { active: { label: t('client.statusActive'), color: 'var(--ok)' }, invited: { label: t('client.statusInvited'), color: 'var(--warn)' }, pending: { label: t('client.statusPending'), color: 'var(--text-3)' } }[status];
     return (
       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: cfg.color, background: cfg.color + '18', padding: '2px 7px', borderRadius: 5 }}>
         {cfg.label}
@@ -238,7 +245,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
             {isApprover && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--on-accent)', background: 'var(--accent)', padding: '2px 7px', borderRadius: 5 }}>
                 <SFIcon name="shield-check" size={9} color="var(--on-accent)" />
-                APPROBATEUR FINAL
+                {t('client.finalApprover')}
               </span>
             )}
           </div>
@@ -310,7 +317,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
           {/* Header */}
           <div style={{ padding: '20px 20px 0', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>Fiche membre</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.memberCard')}</h3>
               <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
             </div>
             {/* Avatar */}
@@ -336,7 +343,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                   {isApprover && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--on-accent)', background: 'var(--accent)', padding: '2px 7px', borderRadius: 5 }}>
                       <SFIcon name="shield-check" size={9} color="var(--on-accent)" />
-                      APPROBATEUR FINAL
+                      {t('client.finalApprover')}
                     </span>
                   )}
                 </div>
@@ -344,9 +351,9 @@ function EquipeTab({ clientId }: { clientId: string }) {
             </div>
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 16 }}>
-              {(['profil', 'permissions'] as const).map(t => (
-                <button key={t} onClick={() => setActiveTab(t)} style={{ fontSize: 13, fontWeight: 500, color: activeTab === t ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 8, borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent', textTransform: 'capitalize' }}>
-                  {t === 'profil' ? 'Profil' : 'Autorisations'}
+              {(['profil', 'permissions'] as const).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)} style={{ fontSize: 13, fontWeight: 500, color: activeTab === tab ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 8, borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent', textTransform: 'capitalize' }}>
+                  {tab === 'profil' ? t('client.tabProfile') : t('client.tabPermissions')}
                 </button>
               ))}
             </div>
@@ -357,9 +364,9 @@ function EquipeTab({ clientId }: { clientId: string }) {
             {activeTab === 'profil' ? (
               <>
                 {[
-                  { label: 'Nom complet', val: name, set: setName },
-                  { label: 'Adresse courriel', val: email, set: setEmail },
-                  { label: 'Rôle / fonction', val: role, set: setRole },
+                  { label: t('client.fullName'), val: name, set: setName },
+                  { label: t('client.emailAddress'), val: email, set: setEmail },
+                  { label: t('client.roleFunction'), val: role, set: setRole },
                 ].map(f => (
                   <div key={f.label}>
                     <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
@@ -375,8 +382,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
                       <SFIcon name="shield-check" size={15} color={isApprover ? 'var(--on-accent)' : 'var(--text-3)'} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: isApprover ? 'var(--accent)' : 'var(--text)' }}>Approbateur final</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{isApprover ? 'Retirer comme approbateur final' : 'Désigner comme approbateur final'}</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: isApprover ? 'var(--accent)' : 'var(--text)' }}>{t('client.finalApproverTitle')}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{isApprover ? t('client.removeApprover') : t('client.designateApprover')}</p>
                     </div>
                     <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${isApprover ? 'var(--accent)' : 'var(--border)'}`, background: isApprover ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {isApprover && <SFIcon name="check" size={11} color="var(--on-accent)" />}
@@ -389,7 +396,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                     onClick={() => { resendInvite(m.id); setResent(true); setTimeout(() => setResent(false), 2000); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: resent ? 'rgba(0,200,100,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: resent ? 'var(--ok)' : 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)', transition: 'all 0.2s', width: '100%', textAlign: 'left' }}>
                     <SFIcon name={resent ? 'check' : 'send'} size={15} color={resent ? 'var(--ok)' : 'var(--text-3)'} />
-                    {resent ? 'Invitation renvoyée !' : "Renvoyer l'invitation"}
+                    {resent ? t('client.invitationResent') : t('client.resendInvitation')}
                   </button>
                 )}
               </>
@@ -400,7 +407,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                   const activePreset = matchPreset(perms);
                   return (
                     <div>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Presets</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('client.presets')}</p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {PERMISSION_PRESETS.map(preset => {
                           const active = activePreset === preset.key;
@@ -411,8 +418,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
                               onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
                             >
                               <div style={{ flex: 1 }}>
-                                <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{preset.label}</p>
-                                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{preset.desc}</p>
+                                <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{t(preset.labelKey)}</p>
+                                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(preset.descKey)}</p>
                               </div>
                               <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.12s' }}>
                                 {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
@@ -423,18 +430,18 @@ function EquipeTab({ clientId }: { clientId: string }) {
                         {!activePreset && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
                             <SFIcon name="sliders" size={13} color="var(--accent)" />
-                            <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>Personnalisé</p>
+                            <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>{t('client.custom')}</p>
                           </div>
                         )}
                       </div>
                       <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Détail des autorisations</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('client.permissionDetails')}</p>
                     </div>
                   );
                 })()}
                 {Object.entries(permGroups).map(([group, items]) => (
                   <div key={group}>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{group}</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t(items[0].groupKey)}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {items.map(p => {
                         const on = perms.includes(p.key);
@@ -442,8 +449,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
                           <div key={p.key} onClick={() => togglePerm(p.key)}
                             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 9, border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
                             <div style={{ flex: 1 }}>
-                              <p style={{ fontSize: 13, fontWeight: 600 }}>{p.label}</p>
-                              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{p.desc}</p>
+                              <p style={{ fontSize: 13, fontWeight: 600 }}>{t(p.labelKey)}</p>
+                              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(p.descKey)}</p>
                             </div>
                             <div style={{ width: 36, height: 20, borderRadius: 10, background: on ? 'var(--accent)' : 'var(--surface-3)', border: `1px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`, position: 'relative', transition: 'all 0.15s', flexShrink: 0 }}>
                               <div style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: on ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
@@ -463,10 +470,10 @@ function EquipeTab({ clientId }: { clientId: string }) {
             {confirmDelete ? (
               <>
                 <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1 }}>
-                  {m.internal ? "Retirer de l'équipe du client ? Le membre reste assigné à ses projets." : 'Retirer ce contact du client ?'}
+                  {m.internal ? t('client.removeInternalConfirm') : t('client.removeContactConfirm')}
                 </span>
-                <SFButton variant="ghost" onClick={() => setConfirmDelete(false)}>Annuler</SFButton>
-                <SFButton variant="ghost" onClick={() => { removeMember(m.id); onClose(); }} style={{ color: 'var(--danger)' }}>Retirer</SFButton>
+                <SFButton variant="ghost" onClick={() => setConfirmDelete(false)}>{t('client.cancel')}</SFButton>
+                <SFButton variant="ghost" onClick={() => { removeMember(m.id); onClose(); }} style={{ color: 'var(--danger)' }}>{t('client.remove')}</SFButton>
               </>
             ) : (
               <>
@@ -474,11 +481,11 @@ function EquipeTab({ clientId }: { clientId: string }) {
                   onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,60,60,0.08)'; el.style.borderColor = 'var(--danger)'; }}
                   onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.borderColor = 'var(--border)'; }}>
                   <SFIcon name="user-minus" size={13} color="var(--danger)" />
-                  {m.internal ? "Retirer du client" : 'Retirer le contact'}
+                  {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
                 </button>
                 <div style={{ flex: 1 }} />
-                <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-                <SFButton variant="primary" onClick={save}>Enregistrer</SFButton>
+                <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+                <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
               </>
             )}
           </div>
@@ -495,17 +502,17 @@ function EquipeTab({ clientId }: { clientId: string }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contacts client</p>
-              <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>Personnes côté client avec accès au portail.</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('client.clientContacts')}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('client.clientContactsPortalDesc')}</p>
             </div>
-            <SFButton variant="secondary" icon="user-plus" onClick={() => setShowInvite(true)}>Inviter</SFButton>
+            <SFButton variant="secondary" icon="user-plus" onClick={() => setShowInvite(true)}>{t('client.invite')}</SFButton>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {clientMembers.length === 0 ? (
               <div style={{ padding: '24px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <SFIcon name="user-plus" size={22} color="var(--text-3)" />
-                <p style={{ fontSize: 13, color: 'var(--text-3)' }}>Aucun contact client — invitez des personnes</p>
-                <SFButton variant="ghost" icon="send" onClick={() => setShowInvite(true)}>Envoyer une invitation</SFButton>
+                <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('client.noClientContactsInvite')}</p>
+                <SFButton variant="ghost" icon="send" onClick={() => setShowInvite(true)}>{t('client.sendAnInvitation')}</SFButton>
               </div>
             ) : clientMembers.map(m => <MemberRow key={m.id} m={m} canBeApprover />)}
           </div>
@@ -516,18 +523,18 @@ function EquipeTab({ clientId }: { clientId: string }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Équipe interne</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('client.internalTeam')}</p>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', display: 'block' }} />
               </div>
-              <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>Membres de votre studio travaillant sur ce client.</p>
+              <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('client.internalTeamClientDesc')}</p>
             </div>
-            <SFButton variant="secondary" icon="users" onClick={() => setShowAssign(true)}>Assigner</SFButton>
+            <SFButton variant="secondary" icon="users" onClick={() => setShowAssign(true)}>{t('client.assign')}</SFButton>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {internalMembers.length === 0 ? (
               <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
                 <SFIcon name="users" size={18} color="var(--text-3)" />
-                <p style={{ fontSize: 13 }}>Aucun membre interne assigné</p>
+                <p style={{ fontSize: 13 }}>{t('client.noInternalAssigned')}</p>
               </div>
             ) : internalMembers.map(m => <MemberRow key={m.id} m={m} />)}
           </div>
@@ -550,12 +557,12 @@ function EquipeTab({ clientId }: { clientId: string }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 const PROJECT_STATUS_OPTIONS = [
-  { value: 'info',    label: 'En cours'          },
-  { value: 'ok',      label: 'En avance'         },
-  { value: 'warn',    label: 'En attente client' },
-  { value: 'danger',  label: 'En retard'         },
-  { value: 'review',  label: 'En révision'       },
-  { value: 'neutral', label: 'Complété'          },
+  { value: 'info',    labelKey: 'statusInProgress'    },
+  { value: 'ok',      labelKey: 'statusAhead'         },
+  { value: 'warn',    labelKey: 'statusWaitingClient' },
+  { value: 'danger',  labelKey: 'statusLate'          },
+  { value: 'review',  labelKey: 'statusInReview'      },
+  { value: 'neutral', labelKey: 'statusCompleted'     },
 ] as const;
 
 const PROJECT_STATUS_COLOR: Record<string, string> = {
@@ -570,6 +577,7 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
   onStatusChange: (status: string, label: string) => void;
   onArchive: () => void;
 }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(() => isPinned(p.id));
   const [menuOpen, setMenuOpen] = useState(false);
@@ -615,7 +623,7 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
       {/* Star pin button */}
       <button
         onClick={e => { e.stopPropagation(); togglePin(p.id); }}
-        title={pinned ? 'Désépingler' : 'Épingler dans la barre latérale'}
+        title={pinned ? t('client.unpin') : t('client.pinSidebar')}
         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, color: pinned ? 'var(--accent)' : 'var(--text-3)', opacity: pinned || hovered ? 1 : 0, transition: 'opacity 0.15s, color 0.15s', display: 'flex', flexShrink: 0 }}
       >
         <SFIcon name="star" size={15} fill={pinned ? 'currentColor' : 'none'} />
@@ -640,20 +648,20 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <SFIcon name="circle" size={13} color="var(--text-3)" />
-                  Changer le statut
+                  {t('client.changeStatus')}
                 </div>
                 <SFIcon name="chevron-right" size={11} color="var(--text-3)" />
               </button>
               {statusSubOpen && (
                 <div style={{ position: 'absolute', top: 0, right: 'calc(100% + 4px)', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 170, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', zIndex: 201 }}>
                   {PROJECT_STATUS_OPTIONS.map(o => (
-                    <button key={o.value} onClick={() => { onStatusChange(o.value, o.label); setMenuOpen(false); }}
+                    <button key={o.value} onClick={() => { onStatusChange(o.value, t(`client.${o.labelKey}`)); setMenuOpen(false); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: status === o.value ? 'var(--surface-2)' : 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = status === o.value ? 'var(--surface-2)' : 'transparent'; }}
                     >
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: PROJECT_STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />
-                      {o.label}
+                      {t(`client.${o.labelKey}`)}
                     </button>
                   ))}
                 </div>
@@ -667,7 +675,7 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
               <SFIcon name="archive" size={13} />
-              Archiver le projet
+              {t('client.archiveProject')}
             </button>
           </div>
         )}
@@ -725,7 +733,145 @@ function ActiviteTab({ projects }: { projects: typeof PROJECTS }) {
   return <ActivityFeed activities={getClientActivities(projects)} />;
 }
 
-type ClientTab = 'apercu' | 'projets' | 'calendrier' | 'equipe' | 'activite' | 'fichiers';
+// ── Finances tab ──────────────────────────────────────────────────────────────
+
+function FinancesTab({ clientId }: { clientId: string }) {
+  const { t } = useTranslation();
+  const [invoices,      setInvoices]      = useState<Invoice[]>(() => getInvoicesByClient(clientId));
+  const [panelOpen,     setPanelOpen]     = useState(false);
+  const [editInvoice,   setEditInvoice]   = useState<Invoice | null>(null);
+  const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
+  const [deleteId,      setDeleteId]      = useState<string | null>(null);
+
+  useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByClient(clientId))), [clientId]);
+
+  const allProjects = getProjects();
+  const projectMap  = Object.fromEntries(allProjects.map(p => [p.id, p]));
+
+  const revenue     = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
+  const outstanding = invoices.filter(i => i.status === 'sent' || i.status === 'viewed').reduce((s, i) => s + i.total, 0);
+  const overdue     = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
+  const today       = () => new Date().toISOString().slice(0, 10);
+
+  const openAdd    = () => { setEditInvoice(null); setPanelOpen(true); };
+  const openEdit   = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
+  const openDetail = (inv: Invoice) => setDetailInvoice(inv);
+
+  const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
+  const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('finance.clientFinances')}</p>
+        <SFButton variant="secondary" icon="plus" onClick={openAdd}>{t('finance.newInvoice')}</SFButton>
+      </div>
+
+      {/* KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        {[
+          { labelKey: 'finance.kpiRevenue',    value: formatMoney(revenue),     icon: 'trending-up',  iconColor: 'var(--ok)',    valueColor: 'var(--ok)' },
+          { labelKey: 'finance.kpiOutstanding', value: formatMoney(outstanding), icon: 'clock',        iconColor: 'var(--warn)',  valueColor: 'var(--text)' },
+          { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),     icon: 'alert-circle', iconColor: 'var(--danger)',valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
+        ].map(k => (
+          <div key={k.labelKey} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+              <SFIcon name={k.icon} size={13} color={k.iconColor} />
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t(k.labelKey)}</span>
+            </div>
+            <p style={{ fontSize: 20, fontWeight: 700, color: k.valueColor, fontFamily: 'var(--ff-mono)' }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Invoice list */}
+      {invoices.length === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: 'var(--text-3)', gap: 10 }}>
+          <SFIcon name="receipt" size={28} color="var(--text-3)" />
+          <p style={{ fontSize: 13 }}>{t('finance.noInvoicesClient')}</p>
+          <SFButton variant="secondary" icon="plus" onClick={openAdd}>{t('finance.addInvoice')}</SFButton>
+        </div>
+      ) : (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '140px 140px 1fr 120px 100px 100px 80px', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+            <span style={thStyle}>{t('finance.colNumber')}</span>
+            <span style={thStyle}>{t('finance.colProject')}</span>
+            <span style={thStyle}>{t('finance.colTitle')}</span>
+            <span style={{ ...thStyle, textAlign: 'right' }}>{t('finance.colAmount')}</span>
+            <span style={thStyle}>{t('finance.colStatus')}</span>
+            <span style={thStyle}>{t('finance.colDue')}</span>
+            <span />
+          </div>
+          {invoices.map((inv, i) => {
+            const isLate       = inv.status === 'overdue';
+            const confirming   = deleteId === inv.id;
+            const projectName  = inv.projectId ? (projectMap[inv.projectId]?.name ?? inv.projectId) : '—';
+            const commentCount = inv.comments?.length ?? 0;
+            return (
+              <div key={inv.id}
+                style={{ display: 'grid', gridTemplateColumns: '140px 140px 1fr 120px 100px 100px 90px', padding: '11px 16px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border)' : 'none', background: isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
+                onMouseEnter={e => { if (!isLate) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)'; }}
+                onClick={() => openDetail(inv)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>{inv.number}</span>
+                  {commentCount > 0 && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', borderRadius: 20, padding: '0 4px', color: 'var(--text-3)' }}>{commentCount}</span>}
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{projectName}</span>
+                <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{inv.title}</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, fontWeight: 600, textAlign: 'right', paddingRight: 12 }}>{formatMoney(inv.total, inv.currency)}</span>
+                <span><StatusPill status={inv.status} /></span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
+                <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                  {inv.status === 'draft' && (
+                    <button title={t('finance.sendInvoice')} onClick={() => doSendInvoice(inv.id)} style={actionBtn}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--info)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
+                      <SFIcon name="send" size={13} />
+                    </button>
+                  )}
+                  {inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft' && (
+                    <button title={t('finance.markPaid')} onClick={() => updateInvoice(inv.id, { status: 'paid', paidDate: today(), paidAmount: inv.total })} style={actionBtn}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ok)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
+                      <SFIcon name="check-circle" size={13} />
+                    </button>
+                  )}
+                  {confirming ? (
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button onClick={() => { removeInvoice(inv.id); setDeleteId(null); }} style={{ ...actionBtn, color: 'var(--danger)', fontSize: 10, fontWeight: 600, padding: '2px 6px', background: 'rgba(239,68,68,0.1)', borderRadius: 6 }}>
+                        {t('finance.confirmDeleteShort')}
+                      </button>
+                      <button onClick={() => setDeleteId(null)} style={{ ...actionBtn, fontSize: 10, padding: '2px 6px' }}>{t('finance.cancel')}</button>
+                    </div>
+                  ) : (
+                    <button title={t('finance.deleteInvoice')} onClick={() => setDeleteId(inv.id)} style={actionBtn}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
+                      <SFIcon name="trash-2" size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <InvoiceFormPanel open={panelOpen} invoice={editInvoice} lockedClientId={clientId} onClose={() => setPanelOpen(false)} />
+      <InvoiceDetailPanel
+        open={detailInvoice !== null}
+        invoice={detailInvoice}
+        onClose={() => setDetailInvoice(null)}
+        onEdit={() => { openEdit(detailInvoice!); setDetailInvoice(null); }}
+      />
+    </div>
+  );
+}
+
+type ClientTab = 'apercu' | 'projets' | 'calendrier' | 'equipe' | 'activite' | 'fichiers' | 'finances';
 
 const fmtMoney = (n: number) => `${n.toLocaleString('fr-CA')} $`;
 
@@ -777,6 +923,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
   clientId: string;
   onGoTab: (t: ClientTab) => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const contacts = getClientContacts(clientId);
   const finance = getClientFinance(clientId, client.activeProjects);
@@ -792,10 +939,10 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
   const paidPct = finance.billed ? (finance.paid / finance.billed) * 100 : 0;
 
   const KPIS = [
-    { label: 'Projets',     value: String(projects.length), sub: `${activeCount} actifs`,  icon: 'folder',        onClick: () => onGoTab('projets') },
-    { label: 'Livrables',   value: String(deliverables),    sub: 'au total',               icon: 'package',       onClick: () => onGoTab('projets') },
-    { label: 'Progression', value: `${avgProgress}%`,       sub: 'moyenne',                icon: 'trending-up',   onClick: undefined },
-    { label: 'À encaisser', value: fmtMoney(finance.pending), sub: 'en attente',           icon: 'wallet',        onClick: undefined },
+    { label: t('client.kpiProjects'),     value: String(projects.length), sub: t('client.kpiActiveCount', { count: activeCount }),  icon: 'folder',        onClick: () => onGoTab('projets') },
+    { label: t('client.kpiDeliverables'), value: String(deliverables),    sub: t('client.kpiTotal'),               icon: 'package',       onClick: () => onGoTab('projets') },
+    { label: t('client.kpiProgress'),     value: `${avgProgress}%`,       sub: t('client.kpiAverage'),                icon: 'trending-up',   onClick: undefined },
+    { label: t('client.kpiToCollect'),    value: fmtMoney(finance.pending), sub: t('client.kpiPending'),           icon: 'wallet',        onClick: undefined },
   ];
 
   const SectionHeader = ({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) => (
@@ -836,9 +983,9 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Projects */}
           <div style={cardStyle}>
-            <SectionHeader title="Projets" action="Voir tout" onAction={() => onGoTab('projets')} />
+            <SectionHeader title={t('client.projects')} action={t('client.seeAll')} onAction={() => onGoTab('projets')} />
             {projects.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Aucun projet pour ce client.</p>
+              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('client.noProjectsForClient')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {projects.slice(0, 4).map(p => (
@@ -865,12 +1012,12 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
 
           {/* Finances */}
           <div style={cardStyle}>
-            <SectionHeader title="Finances" action="Factures" onAction={() => onGoTab('fichiers')} />
+            <SectionHeader title={t('client.finances')} action={t('client.invoices')} onAction={() => onGoTab('finances')} />
             <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
               {[
-                { label: 'Facturé',    value: finance.billed,  color: 'var(--text)' },
-                { label: 'Payé',       value: finance.paid,    color: 'var(--ok)' },
-                { label: 'En attente', value: finance.pending, color: 'var(--warn)' },
+                { label: t('client.billed'),    value: finance.billed,  color: 'var(--text)' },
+                { label: t('client.paid'),       value: finance.paid,    color: 'var(--ok)' },
+                { label: t('client.pending'), value: finance.pending, color: 'var(--warn)' },
               ].map(s => (
                 <div key={s.label} style={{ flex: 1 }}>
                   <p style={{ fontSize: 17, fontWeight: 700, color: s.color }}>{fmtMoney(s.value)}</p>
@@ -904,19 +1051,19 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Coordonnées — ce qui n'est pas déjà dans l'en-tête. Édition via le bouton de l'en-tête. */}
           <div style={cardStyle}>
-            <SectionHeader title="Coordonnées" />
+            <SectionHeader title={t('client.contactInfo')} />
             {([
-              { icon: 'home',    label: 'Adresse',         value: client.address     ?? null },
-              { icon: 'phone',   label: 'Téléphone',       value: client.phone       ?? null },
-              { icon: 'mail',    label: 'Courriel',        value: client.email       ?? null },
-              { icon: 'receipt', label: 'Courriel compta', value: client.emailCompta ?? null },
-              { icon: 'globe',   label: 'Site web',        value: client.website     ?? null },
+              { icon: 'home',    label: t('client.address'),         value: client.address     ?? null },
+              { icon: 'phone',   label: t('client.phone'),       value: client.phone       ?? null },
+              { icon: 'mail',    label: t('client.email'),        value: client.email       ?? null },
+              { icon: 'receipt', label: t('client.accountingEmailShort'), value: client.emailCompta ?? null },
+              { icon: 'globe',   label: t('client.website'),        value: client.website     ?? null },
             ] as { icon: string; label: string; value: string | null }[]).map((row, i, arr) => (
               <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <SFIcon name={row.icon} size={13} color="var(--text-3)" />
                 <span style={{ fontSize: 11, color: 'var(--text-3)', width: 100, flexShrink: 0 }}>{row.label}</span>
                 <span style={{ fontSize: 12, color: row.value ? 'var(--text-2)' : 'var(--text-3)', fontStyle: row.value ? 'normal' : 'italic', flex: 1, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {row.value ?? 'Non renseigné'}
+                  {row.value ?? t('client.notProvided')}
                 </span>
               </div>
             ))}
@@ -924,7 +1071,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
 
           {/* Team snapshot */}
           <div style={cardStyle}>
-            <SectionHeader title="Équipe" action="Gérer" onAction={() => onGoTab('equipe')} />
+            <SectionHeader title={t('client.team')} action={t('client.manage')} onAction={() => onGoTab('equipe')} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {contacts.slice(0, 4).map(m => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -933,18 +1080,18 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
                     <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
                     <p style={{ fontSize: 10, color: 'var(--text-3)' }}>{m.role}</p>
                   </div>
-                  {m.internal && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--accent)', background: 'rgba(249,255,0,0.1)', padding: '2px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>STUDIO</span>}
+                  {m.internal && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--accent)', background: 'rgba(249,255,0,0.1)', padding: '2px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>{t('client.studio')}</span>}
                 </div>
               ))}
               {contacts.length > 4 && (
-                <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>+{contacts.length - 4} autres</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('client.othersCount', { count: contacts.length - 4 })}</p>
               )}
             </div>
           </div>
 
           {/* Recent activity */}
           <div style={cardStyle}>
-            <SectionHeader title="Activité récente" action="Voir tout" onAction={() => onGoTab('activite')} />
+            <SectionHeader title={t('client.recentActivity')} action={t('client.seeAll')} onAction={() => onGoTab('activite')} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {recentActivity.map(a => {
                 const meta = ACTIVITY_ICON[a.type];
@@ -967,11 +1114,11 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
 
           {/* Notes */}
           <div style={cardStyle}>
-            <p style={{ ...cardTitleStyle, marginBottom: 10 }}>Notes internes</p>
+            <p style={{ ...cardTitleStyle, marginBottom: 10 }}>{t('client.internalNotes')}</p>
             <textarea
               value={notes}
               onChange={e => saveNotes(e.target.value)}
-              placeholder="Préférences du client, historique, points d'attention…"
+              placeholder={t('client.notesApercuPlaceholder')}
               rows={4}
               style={{ width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', resize: 'vertical', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box', lineHeight: 1.5 }}
             />
@@ -1009,6 +1156,7 @@ function ClientEditPanel({ client, onClose }: {
   client: Client;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [lName,        setLName]        = useState(client.name);
   const [lSector,      setLSector]      = useState(client.sector);
   const [lCity,        setLCity]        = useState(client.city === '—' ? '' : client.city);
@@ -1056,7 +1204,7 @@ function ClientEditPanel({ client, onClose }: {
             </div>
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 700 }}>{lName || client.name}</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>Modifier le client</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{t('client.editClient')}</p>
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
@@ -1068,24 +1216,24 @@ function ClientEditPanel({ client, onClose }: {
         <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── Identité ── */}
-          <SectionFC label="Identité">
-            <FieldFC label="Nom du client">
+          <SectionFC label={t('client.identity')}>
+            <FieldFC label={t('client.clientName')}>
               <input autoFocus value={lName} onChange={e => setLName(e.target.value)}
                 onBlur={e => commit({ name: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 style={{ ...inputStyleFC, fontWeight: 600 }} />
             </FieldFC>
-            <FieldFC label="Sous-titre">
+            <FieldFC label={t('client.subtitle')}>
               <input value={lSector} onChange={e => setLSector(e.target.value)}
                 onBlur={e => commit({ sector: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: Agence créative, Startup IA…" style={inputStyleFC} />
+                placeholder={t('client.subtitlePlaceholder')} style={inputStyleFC} />
             </FieldFC>
-            <FieldFC label="Relation">
+            <FieldFC label={t('client.relation')}>
               <div style={{ display: 'flex', gap: 6 }}>
                 {([
-                  { value: 'ok' as Status,      label: 'Actif',   color: 'var(--ok)' },
-                  { value: 'neutral' as Status, label: 'Archivé', color: 'var(--text-3)' },
+                  { value: 'ok' as Status,      label: t('client.relationActive'),   color: 'var(--ok)' },
+                  { value: 'neutral' as Status, label: t('client.relationArchived'), color: 'var(--text-3)' },
                 ]).map(opt => {
                   const active = lStatus === opt.value;
                   return (
@@ -1100,7 +1248,7 @@ function ClientEditPanel({ client, onClose }: {
                 })}
               </div>
             </FieldFC>
-            <FieldFC label="Couleur avatar">
+            <FieldFC label={t('client.avatarColor')}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {AVATAR_COLORS_FC.map(c => (
                   <button key={c} onClick={() => { setLColor(c); commit({ avatarColor: c }); }}
@@ -1112,54 +1260,54 @@ function ClientEditPanel({ client, onClose }: {
           </SectionFC>
 
           {/* ── Coordonnées ── */}
-          <SectionFC label="Coordonnées">
-            <FieldFC label="Adresse">
+          <SectionFC label={t('client.contactInfo')}>
+            <FieldFC label={t('client.address')}>
               <input value={lAddress} onChange={e => setLAddress(e.target.value)}
                 onBlur={e => commit({ address: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: 123 rue Saint-Denis, Montréal" style={inputStyleFC} />
+                placeholder={t('client.addressPlaceholder')} style={inputStyleFC} />
             </FieldFC>
-            <FieldFC label="Ville">
+            <FieldFC label={t('client.city')}>
               <input value={lCity} onChange={e => setLCity(e.target.value)}
                 onBlur={e => commit({ city: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: Montréal" style={inputStyleFC} />
+                placeholder={t('client.cityShortPlaceholder')} style={inputStyleFC} />
             </FieldFC>
-            <FieldFC label="Site web">
+            <FieldFC label={t('client.website')}>
               <input value={lWebsite} onChange={e => setLWebsite(e.target.value)}
                 onBlur={e => commit({ website: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: https://acme.com" style={inputStyleFC} />
+                placeholder={t('client.websitePlaceholder')} style={inputStyleFC} />
             </FieldFC>
           </SectionFC>
 
           {/* ── Contact principal ── */}
-          <SectionFC label="Contact principal">
-            <FieldFC label="Téléphone">
+          <SectionFC label={t('client.mainContact')}>
+            <FieldFC label={t('client.phone')}>
               <input value={lPhone} onChange={e => setLPhone(e.target.value)}
                 onBlur={e => commit({ phone: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: +1 514 555-0100" style={inputStyleFC} type="tel" />
+                placeholder={t('client.phonePlaceholder')} style={inputStyleFC} type="tel" />
             </FieldFC>
-            <FieldFC label="Courriel">
+            <FieldFC label={t('client.email')}>
               <input value={lEmail} onChange={e => setLEmail(e.target.value)}
                 onBlur={e => commit({ email: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: contact@acme.com" style={inputStyleFC} type="email" />
+                placeholder={t('client.emailBusinessPlaceholder')} style={inputStyleFC} type="email" />
             </FieldFC>
-            <FieldFC label="Courriel comptabilité">
+            <FieldFC label={t('client.accountingEmail')}>
               <input value={lEmailCompta} onChange={e => setLEmailCompta(e.target.value)}
                 onBlur={e => commit({ emailCompta: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder="Ex: compta@acme.com" style={inputStyleFC} type="email" />
+                placeholder={t('client.accountingEmailPlaceholder')} style={inputStyleFC} type="email" />
             </FieldFC>
           </SectionFC>
 
           {/* ── Notes ── */}
-          <SectionFC label="Notes internes">
+          <SectionFC label={t('client.internalNotes')}>
             <textarea value={lNotes} onChange={e => setLNotes(e.target.value)}
               onBlur={e => commit({ notes: e.target.value })}
-              placeholder="Contexte, préférences, informations importantes…"
+              placeholder={t('client.notesPlaceholder')}
               rows={4}
               style={{ ...inputStyleFC, resize: 'vertical', lineHeight: 1.6, colorScheme: 'dark' } as React.CSSProperties} />
           </SectionFC>
@@ -1172,6 +1320,7 @@ function ClientEditPanel({ client, onClose }: {
 }
 
 export function FicheClient() {
+  const { t } = useTranslation();
   const { clientId } = useParams();
   const navigate = useNavigate();
   const [clientData, setClientData] = useState(() => findClient(clientId ?? '') ?? findClient('c1')!);
@@ -1206,7 +1355,7 @@ export function FicheClient() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Breadcrumb */}
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-        <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>Clients</button>
+        <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('client.breadcrumbClients')}</button>
         <span>/</span>
         <span style={{ color: 'var(--text-2)' }}>{client.name}</span>
       </div>
@@ -1220,37 +1369,37 @@ export function FicheClient() {
             </div>
             <div>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
-                CLIENT · {client.sector} · {client.city}
+                {t('client.clientLabel')} · {client.sector} · {client.city}
               </p>
               <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{client.name}</h1>
               <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12, color: 'var(--text-2)' }}>
-                <span>{projects.length} projet{projects.length !== 1 ? 's' : ''}</span>
-                <span>{projects.filter(p => p.status !== 'neutral').length} actif{projects.filter(p => p.status !== 'neutral').length !== 1 ? 's' : ''}</span>
-                <span>Client depuis {client.since}</span>
+                <span>{t('client.projectCount', { count: projects.length })}</span>
+                <span>{t('client.activeCount', { count: projects.filter(p => p.status !== 'neutral').length })}</span>
+                <span>{t('client.clientSince', { year: client.since })}</span>
               </div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {clientArchived && (
               <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', letterSpacing: '0.05em' }}>
-                ARCHIVÉ
+                {t('client.archived')}
               </span>
             )}
-            <button onClick={() => setClientEditOpen(true)} title="Modifier le client"
+            <button onClick={() => setClientEditOpen(true)} title={t('client.editClient')}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
             >
               <SFIcon name="square-pen" size={14} color="var(--text-3)" />
-              Modifier
+              {t('client.edit')}
             </button>
-            <SFButton variant="primary" icon="plus" onClick={() => { setTab('projets'); setShowCreateProject(true); }}>Nouveau projet</SFButton>
+            <SFButton variant="primary" icon="plus" onClick={() => { setTab('projets'); setShowCreateProject(true); }}>{t('client.newProject')}</SFButton>
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 20, marginTop: 16 }}>
-          {([['apercu', 'Aperçu'], ['projets', 'Projets'], ['calendrier', 'Calendrier'], ['equipe', 'Équipe'], ['activite', 'Activité'], ['fichiers', 'Fichiers']] as const).map(([key, label]) => (
+          {([['apercu', t('client.tabOverview')], ['projets', t('client.tabProjects')], ['calendrier', t('client.tabCalendar')], ['equipe', t('client.tabTeam')], ['activite', t('client.tabActivity')], ['fichiers', t('client.tabFiles')], ['finances', t('nav.finances')]] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 6, borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent' }}>
               {label}
             </button>
@@ -1259,7 +1408,7 @@ export function FicheClient() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: tab === 'calendrier' ? 'hidden' : 'auto', padding: tab === 'calendrier' || tab === 'fichiers' ? 0 : 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ flex: 1, overflow: tab === 'calendrier' ? 'hidden' : 'auto', padding: tab === 'calendrier' || tab === 'fichiers' ? 0 : 24, display: 'flex', flexDirection: 'column', gap: tab === 'finances' ? 0 : 14 }}>
         {tab === 'apercu' && <ApercuTab client={client} projects={projects} clientId={client.id} onGoTab={setTab} />}
 
         {tab === 'projets' && <ProjectsListView clientId={client.id} autoOpen={showCreateProject} onModalClose={() => setShowCreateProject(false)} />}
@@ -1277,6 +1426,8 @@ export function FicheClient() {
             <FileBrowser initialNav={{ scope: 'client', scopeId: client.id, folderId: null }} locked key={client.id} />
           </div>
         )}
+
+        {tab === 'finances' && <FinancesTab clientId={client.id} />}
       </div>
 
       {clientEditOpen && (

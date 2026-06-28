@@ -1,7 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { I18nextProvider } from 'react-i18next';
 import './index.css';
+import i18n from './i18n/i18n';
 
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './screens/Dashboard';
@@ -24,6 +26,8 @@ import { FichiersGlobal } from './screens/FichiersGlobal';
 import { Fichiers } from './screens/Fichiers';
 import { VueGlobale } from './screens/VueGlobale';
 import { ProjectActivite } from './screens/ProjectActivite';
+import { Finances } from './screens/Finances';
+import { ProjetFinances } from './screens/ProjetFinances';
 
 const router = createBrowserRouter([
   // Portail client — sans sidebar (route standalone)
@@ -45,6 +49,8 @@ const router = createBrowserRouter([
       { path: 'projets/:projectId/calendrier', element: <ProjetCalendrier /> },
       { path: 'projets/:projectId/membres', element: <ProjectMembres /> },
       { path: 'projets/:projectId/activite', element: <ProjectActivite /> },
+      { path: 'projets/:projectId/finances', element: <ProjetFinances /> },
+      { path: 'finances', element: <Finances /> },
       { path: 'clients', element: <Clients /> },
       { path: 'clients/:clientId', element: <FicheClient /> },
       { path: 'parametres', element: <Parametres /> },
@@ -59,6 +65,8 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <I18nextProvider i18n={i18n}>
+      <RouterProvider router={router} />
+    </I18nextProvider>
   </StrictMode>
 );

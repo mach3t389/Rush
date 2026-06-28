@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFIcon } from './ui';
 import { findProject, subscribeProjects } from '../data/projectStore';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
@@ -21,6 +22,7 @@ export function ProjectHeaderBar({
   projectId: string;
   children?: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const project = findProject(projectId);
 
@@ -36,12 +38,13 @@ export function ProjectHeaderBar({
   if (!project) return null;
 
   const tabs = [
-    { label: 'Aperçu',     path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
-    { label: 'Tâches',     path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
-    { label: 'Calendrier', path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
-    { label: 'Équipe',     path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
-    { label: 'Activité',   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
-    { label: 'Fichiers',   path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
+    { label: t('projects.tabOverview'),   path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
+    { label: t('projects.tabTasks'),      path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
+    { label: t('projects.tabCalendar'),   path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
+    { label: t('projects.tabTeam'),       path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
+    { label: t('projects.tabFiles'),      path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
+    { label: t('projects.tabFinance'),    path: `/projets/${projectId}/finances`,   end: false, badge: 0 },
+    { label: t('projects.tabActivity'),   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
   ];
 
   return (
@@ -63,7 +66,7 @@ export function ProjectHeaderBar({
           </button>
           <span>/</span>
           <button onClick={() => navigate(`/clients/${project.clientId}?tab=projets`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            Projets
+            {t('projects.title')}
           </button>
           <span>/</span>
 
@@ -71,7 +74,7 @@ export function ProjectHeaderBar({
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span
               onClick={() => setColorOpen(v => !v)}
-              title="Changer la couleur du projet"
+              title={t('projects.changeProjectColor')}
               style={{
                 width: 9, height: 9, borderRadius: '50%',
                 background: dotColor, flexShrink: 0, display: 'block',
@@ -95,7 +98,7 @@ export function ProjectHeaderBar({
                   display: 'flex', flexDirection: 'column', gap: 8,
                 }}>
                   <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>
-                    Couleur du projet
+                    {t('projects.projectColor')}
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 20px)', gap: 6 }}>
                     {DOT_COLORS.map(color => (

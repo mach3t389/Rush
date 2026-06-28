@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getClientExternalTeam } from '../data/clientTeamStore';
@@ -52,6 +53,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   onAdd: (users: User[]) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const q = search.toLowerCase();
@@ -101,7 +103,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
         boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700 }}>Ajouter à l'équipe</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700 }}>{t('members.addToTeam')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
             <SFIcon name="x" size={15} />
           </button>
@@ -113,7 +115,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
             autoFocus
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher..."
+            placeholder={t('members.searchPlaceholder')}
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '7px 10px 7px 30px', borderRadius: 8,
@@ -128,7 +130,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
           {internalPool.length > 0 && (
             <>
               <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 6px 6px', marginTop: 4 }}>
-                Équipe interne
+                {t('members.internalTeam')}
               </p>
               {internalPool.map(u => (
                 <button key={u.id} onClick={() => toggle(u.id)} style={rowStyle(u.id)}>
@@ -159,7 +161,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
             <>
               <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
               <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 6px 6px' }}>
-                Contacts client
+                {t('members.clientContacts')}
               </p>
               {externalPool.map(u => (
                 <button key={u.id} onClick={() => toggle(u.id)} style={rowStyle(u.id)}>
@@ -190,10 +192,10 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <p style={{ fontSize: 12, color: 'var(--text-3)' }}>
                 {search
-                  ? 'Aucun résultat'
+                  ? t('members.noResults')
                   : clientExternals.length === 0
-                    ? 'Aucun contact client dans l\'équipe de ce client. Ajoutez-en depuis la fiche client.'
-                    : 'Tous les membres disponibles sont déjà dans ce projet.'}
+                    ? t('members.noClientContacts')
+                    : t('members.allMembersAdded')}
               </p>
             </div>
           )}
@@ -202,7 +204,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
         {/* Footer confirm */}
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}>
-            Annuler
+            {t('members.cancel')}
           </button>
           <button
             onClick={handleConfirm}
@@ -214,7 +216,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
               fontSize: 12, fontWeight: 600, fontFamily: 'var(--ff-text)', transition: 'background 0.1s',
             }}
           >
-            {picked.size > 1 ? `Ajouter (${picked.size})` : 'Ajouter'}
+            {picked.size > 1 ? t('members.addCount', { count: picked.size }) : t('members.add')}
           </button>
         </div>
       </div>
@@ -228,6 +230,7 @@ function MemberCard({ user, onRemove, isOwner, selected, onToggleSelect }: {
   user: User; onRemove: () => void; isOwner: boolean;
   selected: boolean; onToggleSelect: () => void;
 }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const showCheckbox = hovered || selected;
 
@@ -268,7 +271,7 @@ function MemberCard({ user, onRemove, isOwner, selected, onToggleSelect }: {
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{user.name}</span>
           {isOwner && (
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-3)', background: 'var(--surface-3)', padding: '2px 7px', borderRadius: 5 }}>
-              ADMIN
+              {t('members.admin')}
             </span>
           )}
         </div>
@@ -280,7 +283,7 @@ function MemberCard({ user, onRemove, isOwner, selected, onToggleSelect }: {
       {!isOwner && !selected && (
         <button
           onClick={e => { e.stopPropagation(); onRemove(); }}
-          title="Retirer du projet"
+          title={t('members.removeFromProject')}
           style={{
             opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer',
             color: 'var(--text-3)', padding: 5, borderRadius: 6, display: 'flex',
@@ -305,6 +308,7 @@ const sectionLabel = (text: string) => (
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function ProjectMembres() {
+  const { t } = useTranslation();
   const { projectId = '' } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
@@ -317,9 +321,9 @@ export function ProjectMembres() {
   if (!project) {
     return (
       <div style={{ padding: 40, color: 'var(--text-3)' }}>
-        Projet introuvable.{' '}
+        {t('members.projectNotFound')}{' '}
         <button onClick={() => navigate('/projets')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
-          Retour
+          {t('members.back')}
         </button>
       </div>
     );
@@ -368,7 +372,7 @@ export function ProjectMembres() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Topbar */}
       <ProjectHeaderBar projectId={projectId}>
-        <SFButton variant="primary" icon="user-plus" onClick={() => setShowAdd(true)}>Ajouter à l'équipe</SFButton>
+        <SFButton variant="primary" icon="user-plus" onClick={() => setShowAdd(true)}>{t('members.addToTeam')}</SFButton>
       </ProjectHeaderBar>
 
       {/* Body */}
@@ -377,7 +381,7 @@ export function ProjectMembres() {
           {/* Stats row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
-              {members.length} membre{members.length !== 1 ? 's' : ''}
+              {t('members.memberCount', { count: members.length })}
             </span>
             <span style={{ color: 'var(--border-2)', fontSize: 13 }}>·</span>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -395,7 +399,7 @@ export function ProjectMembres() {
                   onClick={toggleSelectAll}
                   style={{ fontSize: 12, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--ff-text)' }}
                 >
-                  {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+                  {allSelected ? t('members.deselectAll') : t('members.selectAll')}
                 </button>
               </>
             )}
@@ -405,9 +409,9 @@ export function ProjectMembres() {
           {members.length === 0 ? (
             <div style={{ padding: '48px 20px', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
               <SFIcon name="users" size={28} style={{ color: 'var(--text-3)', marginBottom: 10 }} />
-              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Aucun membre dans ce projet</p>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>{t('members.noMembers')}</p>
               <button onClick={() => setShowAdd(true)} style={{ marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
-                Ajouter à l'équipe
+                {t('members.addToTeam')}
               </button>
             </div>
           ) : (
@@ -418,10 +422,10 @@ export function ProjectMembres() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Équipe interne</p>
+                        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('members.internalTeam')}</p>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', display: 'block' }} />
                       </div>
-                      <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>Membres de votre studio travaillant sur ce projet.</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('members.internalTeamDesc')}</p>
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -435,8 +439,8 @@ export function ProjectMembres() {
               {members.filter(m => m.role === 'Cliente').length > 0 && (
                 <div>
                   <div style={{ marginBottom: 12 }}>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contacts client</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>Personnes côté client avec accès au projet.</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('members.clientContacts')}</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('members.clientContactsDesc')}</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {members.filter(m => m.role === 'Cliente').map(m => (
@@ -462,7 +466,7 @@ export function ProjectMembres() {
           animation: 'fadeSlideUp 0.15s ease',
         }}>
           <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
-            {selected.size} sélectionné{selected.size > 1 ? 's' : ''}
+            {t('members.selectedCount', { count: selected.size })}
           </span>
           <div style={{ width: 1, height: 18, background: 'var(--border-2)' }} />
           <button
@@ -477,12 +481,12 @@ export function ProjectMembres() {
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--danger) 12%, transparent)'; }}
           >
             <SFIcon name="user-minus" size={13} />
-            Retirer du projet
+            {t('members.removeFromProject')}
           </button>
           <button
             onClick={() => setSelected(new Set())}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 6, display: 'flex' }}
-            title="Annuler la sélection"
+            title={t('members.clearSelection')}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
           >

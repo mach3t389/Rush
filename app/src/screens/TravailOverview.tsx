@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -36,23 +37,23 @@ const MOCK_INVOICES = [
   { id:'f3', num:'FAC-2025-071', label:'Extras montage',amount:800, due:'15 juil. 2025',status:'draft' },
 ];
 
-const INVOICE_STATUS: Record<string, { label:string; color:string; bg:string }> = {
-  draft:   { label:'Brouillon', color:'var(--text-3)',  bg:'var(--surface-3)' },
-  sent:    { label:'Envoyée',   color:'var(--info)',    bg:'rgba(100,160,255,0.1)' },
-  paid:    { label:'Payée',     color:'var(--ok)',      bg:'rgba(0,200,100,0.1)' },
-  overdue: { label:'En retard', color:'var(--danger)',  bg:'rgba(255,60,60,0.1)' },
+const INVOICE_STATUS: Record<string, { labelKey:string; color:string; bg:string }> = {
+  draft:   { labelKey:'overview.invoiceDraft',   color:'var(--text-3)',  bg:'var(--surface-3)' },
+  sent:    { labelKey:'overview.invoiceSent',    color:'var(--info)',    bg:'rgba(100,160,255,0.1)' },
+  paid:    { labelKey:'overview.invoicePaid',    color:'var(--ok)',      bg:'rgba(0,200,100,0.1)' },
+  overdue: { labelKey:'overview.invoiceOverdue', color:'var(--danger)',  bg:'rgba(255,60,60,0.1)' },
 };
 
-const DELIVERABLE_TYPES: { value: DeliverableType; label: string; icon: string }[] = [
-  { value: 'video',     label: 'Vidéo',     icon: 'video'        },
-  { value: 'photo',     label: 'Photo',     icon: 'image'        },
-  { value: 'audio',     label: 'Audio',     icon: 'music'        },
-  { value: 'document',  label: 'Document',  icon: 'file-text'    },
-  { value: 'web',       label: 'Site web',  icon: 'globe'        },
-  { value: 'graphique', label: 'Graphique', icon: 'pen-tool'     },
-  { value: 'service',   label: 'Service',   icon: 'briefcase'    },
-  { value: 'produit',   label: 'Produit',   icon: 'package-2'    },
-  { value: 'autre',     label: 'Autre',     icon: 'circle-dashed'},
+const DELIVERABLE_TYPES: { value: DeliverableType; labelKey: string; icon: string }[] = [
+  { value: 'video',     labelKey: 'overview.delivVideo',    icon: 'video'        },
+  { value: 'photo',     labelKey: 'overview.delivPhoto',    icon: 'image'        },
+  { value: 'audio',     labelKey: 'overview.delivAudio',    icon: 'music'        },
+  { value: 'document',  labelKey: 'overview.delivDocument', icon: 'file-text'    },
+  { value: 'web',       labelKey: 'overview.delivWeb',      icon: 'globe'        },
+  { value: 'graphique', labelKey: 'overview.delivGraphic',  icon: 'pen-tool'     },
+  { value: 'service',   labelKey: 'overview.delivService',  icon: 'briefcase'    },
+  { value: 'produit',   labelKey: 'overview.delivProduct',  icon: 'package-2'    },
+  { value: 'autre',     labelKey: 'overview.delivOther',    icon: 'circle-dashed'},
 ];
 
 const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }[] = [
@@ -64,12 +65,12 @@ const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }
   { value: 'custom', label: 'Perso.',      ratio: '4/3'    },
 ];
 
-const DELIVERABLE_STATUS: Record<string, { label:string; color:string; icon:string }> = {
-  warn:   { label:'À livrer',  color:'var(--text-3)', icon:'clock'        },
-  info:   { label:'En cours',  color:'var(--info)',   icon:'loader'       },
-  ok:     { label:'Approuvé',  color:'var(--ok)',     icon:'check-circle' },
-  review: { label:'En révision', color:'var(--review)', icon:'eye'        },
-  danger: { label:'En retard', color:'var(--danger)', icon:'alert-circle' },
+const DELIVERABLE_STATUS: Record<string, { labelKey:string; color:string; icon:string }> = {
+  warn:   { labelKey:'overview.deliverableToDeliver', color:'var(--text-3)', icon:'clock'        },
+  info:   { labelKey:'overview.deliverableInProgress', color:'var(--info)',  icon:'loader'       },
+  ok:     { labelKey:'overview.deliverableApproved',  color:'var(--ok)',     icon:'check-circle' },
+  review: { labelKey:'overview.deliverableInReview',  color:'var(--review)', icon:'eye'          },
+  danger: { labelKey:'overview.deliverableOverdue',   color:'var(--danger)', icon:'alert-circle' },
 };
 
 const MOCK_DOCS = [
@@ -141,16 +142,17 @@ const MOCK_FORMS: ProjectForm[] = [
   },
 ];
 
-const FIELD_TYPE_OPTIONS: { type: FormFieldType; label: string; icon: string }[] = [
-  { type: 'text',     label: 'Texte court',    icon: 'type' },
-  { type: 'textarea', label: 'Texte long',     icon: 'align-left' },
-  { type: 'choice',   label: 'Choix multiple', icon: 'list' },
-  { type: 'yesno',    label: 'Oui / Non',      icon: 'toggle-left' },
-  { type: 'date',     label: 'Date',           icon: 'calendar' },
-  { type: 'file',     label: 'Fichier',        icon: 'upload' },
+const FIELD_TYPE_OPTIONS: { type: FormFieldType; labelKey: string; icon: string }[] = [
+  { type: 'text',     labelKey: 'overview.fieldShortText',  icon: 'type' },
+  { type: 'textarea', labelKey: 'overview.fieldLongText',   icon: 'align-left' },
+  { type: 'choice',   labelKey: 'overview.fieldChoice',     icon: 'list' },
+  { type: 'yesno',    labelKey: 'overview.fieldYesNo',      icon: 'toggle-left' },
+  { type: 'date',     labelKey: 'overview.fieldDate',       icon: 'calendar' },
+  { type: 'file',     labelKey: 'overview.fieldFile',       icon: 'upload' },
 ];
 
 function FormBuilderModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('Nouveau formulaire');
   const [fields, setFields] = useState<FormField[]>([
     { id: 'f0', type: 'text', label: '', required: false },
@@ -185,15 +187,15 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
             style={{ flex: 1, background: 'transparent', border: 'none', fontSize: 16, fontWeight: 700, color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)' }}
           />
           <div style={{ display: 'flex', gap: 8 }}>
-            <SFButton variant="secondary" size="sm" icon="send">Envoyer au client</SFButton>
-            <SFButton variant="primary" size="sm" icon="save">Sauvegarder</SFButton>
+            <SFButton variant="secondary" size="sm" icon="send">{t('overview.sendToClient')}</SFButton>
+            <SFButton variant="primary" size="sm" icon="save">{t('overview.save')}</SFButton>
           </div>
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Fields list */}
           <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Questions ({fields.length})</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{t('overview.questionsCount', { count: fields.length })}</p>
             {fields.map((f, i) => (
               <div
                 key={f.id}
@@ -209,13 +211,13 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
                       value={f.label}
                       onChange={e => updateField(f.id, { label: e.target.value })}
                       onClick={e => e.stopPropagation()}
-                      placeholder="Question..."
+                      placeholder={t('overview.questionPlaceholder')}
                       style={{ flex: 1, background: 'transparent', border: 'none', fontSize: 13, fontWeight: 500, color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)' }}
                     />
                   ) : (
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: f.label ? 'var(--text)' : 'var(--text-3)', fontStyle: f.label ? 'normal' : 'italic' }}>{f.label || 'Question sans titre'}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: f.label ? 'var(--text)' : 'var(--text-3)', fontStyle: f.label ? 'normal' : 'italic' }}>{f.label || t('overview.untitledQuestion')}</span>
                   )}
-                  {f.required && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--danger)', background: 'rgba(255,60,60,0.1)', borderRadius: 5, padding: '2px 6px' }}>REQUIS</span>}
+                  {f.required && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--danger)', background: 'rgba(255,60,60,0.1)', borderRadius: 5, padding: '2px 6px' }}>{t('overview.required')}</span>}
                   <button onClick={e => { e.stopPropagation(); removeField(f.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3, borderRadius: 5, flexShrink: 0 }}
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
@@ -231,7 +233,7 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
                       {FIELD_TYPE_OPTIONS.map(opt => (
                         <button key={opt.type} onClick={() => updateField(f.id, { type: opt.type })}
                           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${f.type === opt.type ? 'var(--accent)' : 'var(--border)'}`, background: f.type === opt.type ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', color: f.type === opt.type ? 'var(--text)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                          <SFIcon name={opt.icon} size={11} />{opt.label}
+                          <SFIcon name={opt.icon} size={11} />{t(opt.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -250,7 +252,7 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
                         ))}
                         <button onClick={() => updateField(f.id, { options: [...(f.options ?? []), `Option ${(f.options?.length ?? 0) + 1}`] })}
                           style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', padding: '3px 0', marginLeft: 22 }}>
-                          <SFIcon name="plus" size={12} /> Ajouter une option
+                          <SFIcon name="plus" size={12} /> {t('overview.addOption')}
                         </button>
                       </div>
                     )}
@@ -260,7 +262,7 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
                         style={{ width: 32, height: 18, borderRadius: 999, background: f.required ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.15s', flexShrink: 0 }}>
                         <div style={{ position: 'absolute', top: 2, left: f.required ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: f.required ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
                       </div>
-                      <span style={{ fontSize: 12, color: 'var(--text-2)' }}>Réponse requise</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.requiredAnswer')}</span>
                     </label>
                   </div>
                 )}
@@ -274,7 +276,7 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}>
-                  <SFIcon name="plus" size={11} /><SFIcon name={opt.icon} size={11} />{opt.label}
+                  <SFIcon name="plus" size={11} /><SFIcon name={opt.icon} size={11} />{t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -282,21 +284,21 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
 
           {/* Preview panel */}
           <div style={{ width: 260, borderLeft: '1px solid var(--border)', overflow: 'auto', padding: 20, background: 'var(--surface-2)', flexShrink: 0 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>Aperçu client</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>{t('overview.clientPreview')}</p>
             <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(249,255,0,0.04)' }}>
-                <p style={{ fontSize: 14, fontWeight: 700 }}>{title || 'Titre du formulaire'}</p>
+                <p style={{ fontSize: 14, fontWeight: 700 }}>{title || t('overview.formTitlePlaceholder')}</p>
               </div>
               <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {fields.map((f, i) => (
                   <div key={f.id}>
                     <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 6, color: 'var(--text)' }}>
-                      {i + 1}. {f.label || 'Question'}{f.required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
+                      {i + 1}. {f.label || t('overview.question')}{f.required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
                     </p>
                     {f.type === 'text' && <div style={{ height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)' }} />}
                     {f.type === 'textarea' && <div style={{ height: 60, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)' }} />}
                     {f.type === 'date' && <div style={{ height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', width: 120 }} />}
-                    {f.type === 'yesno' && <div style={{ display: 'flex', gap: 8 }}>{['Oui','Non'].map(v => <div key={v} style={{ padding: '4px 12px', borderRadius: 7, border: '1px solid var(--border)', fontSize: 11, color: 'var(--text-3)' }}>{v}</div>)}</div>}
+                    {f.type === 'yesno' && <div style={{ display: 'flex', gap: 8 }}>{[t('overview.yes'), t('overview.no')].map(v => <div key={v} style={{ padding: '4px 12px', borderRadius: 7, border: '1px solid var(--border)', fontSize: 11, color: 'var(--text-3)' }}>{v}</div>)}</div>}
                     {f.type === 'file' && <div style={{ height: 40, borderRadius: 7, border: '1px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SFIcon name="upload" size={13} color="var(--text-3)" /></div>}
                     {f.type === 'choice' && (f.options ?? []).map(opt => <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}><div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} /><span style={{ fontSize: 11, color: 'var(--text-2)' }}>{opt}</span></div>)}
                   </div>
@@ -311,6 +313,7 @@ function FormBuilderModal({ onClose }: { onClose: () => void }) {
 }
 
 function FormResponseModal({ form, onClose }: { form: ProjectForm; onClose: () => void }) {
+  const { t } = useTranslation();
   const [activeResponse, setActiveResponse] = useState(0);
   const resp = form.responses[activeResponse];
   return (
@@ -320,12 +323,12 @@ function FormResponseModal({ form, onClose }: { form: ProjectForm; onClose: () =
         <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 700 }}>{form.title}</h3>
-            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{form.responses.length} réponse{form.responses.length !== 1 ? 's' : ''}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('overview.responseCount', { count: form.responses.length })}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 6 }}><SFIcon name="x" size={16} /></button>
         </div>
         {form.responses.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Aucune réponse reçue pour le moment.</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('overview.noResponsesYet')}</div>
         ) : (
           <>
             {form.responses.length > 1 && (
@@ -343,14 +346,14 @@ function FormResponseModal({ form, onClose }: { form: ProjectForm; onClose: () =
                 <SFIcon name="user" size={14} color="var(--text-3)" />
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>{resp.respondent}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Soumis le {resp.submittedAt}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.submittedOn', { date: resp.submittedAt })}</p>
                 </div>
               </div>
               {form.fields.map(field => (
                 <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{field.label}</span>
                   <div style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: resp.answers[field.id] ? 'var(--text)' : 'var(--text-3)', fontStyle: resp.answers[field.id] ? 'normal' : 'italic' }}>
-                    {resp.answers[field.id] || 'Pas de réponse'}
+                    {resp.answers[field.id] || t('overview.noAnswer')}
                   </div>
                 </div>
               ))}
@@ -433,6 +436,7 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true }
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export function TravailOverview() {
+  const { t } = useTranslation();
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [, forceUpdate] = useState(0);
@@ -482,10 +486,10 @@ export function TravailOverview() {
   const projectSections = getSections(project.id);
   const firstOpenIdx = projectSections.findIndex(s => !s.completed);
   const currentPhaseLabel = completed
-    ? 'Terminé'
+    ? t('overview.done')
     : firstOpenIdx >= 0
       ? projectSections[firstOpenIdx].label
-      : projectSections.length > 0 ? 'Terminé' : '—';
+      : projectSections.length > 0 ? t('overview.done') : '—';
 
   const totalInvoiced = MOCK_INVOICES.reduce((s, f) => s + f.amount, 0);
   const totalPaid     = MOCK_INVOICES.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
@@ -504,7 +508,7 @@ export function TravailOverview() {
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
               >
                 <SFIcon name="shield-check" size={15} color="var(--accent)" />
-                Demander approbation
+                {t('approval.requestApproval')}
               </button>
             );
             return null;
@@ -512,10 +516,10 @@ export function TravailOverview() {
           {completed ? (
             <button onClick={toggleCompleted} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(0,200,100,0.3)', background: 'rgba(0,200,100,0.1)', color: 'var(--ok)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
               <SFIcon name="check-circle" size={15} color="var(--ok)" />
-              Projet terminé
+              {t('overview.projectDone')}
             </button>
           ) : (
-            <SFButton variant="secondary" icon="check-circle" onClick={toggleCompleted}>Marquer comme terminé</SFButton>
+            <SFButton variant="secondary" icon="check-circle" onClick={toggleCompleted}>{t('overview.markAsDone')}</SFButton>
           )}
         </ProjectHeaderBar>
       </div>
@@ -531,8 +535,8 @@ export function TravailOverview() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(0,200,100,0.25)', background: 'rgba(0,200,100,0.06)' }}>
               <SFIcon name="check-circle" size={18} color="var(--ok)" />
               <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ok)' }}>Projet marqué comme terminé</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Les livrables ont été remis au client. Le projet est archivé.</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ok)' }}>{t('overview.projectMarkedDone')}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('overview.projectArchivedDesc')}</p>
               </div>
               <button onClick={toggleCompleted} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}>
                 <SFIcon name="x" size={14} />
@@ -541,28 +545,28 @@ export function TravailOverview() {
           )}
 
           {/* ── Vision & positionnement ── */}
-          <Card title="Vision & positionnement" icon="compass" collapsible defaultOpen={false}>
+          <Card title={t('overview.visionTitle')} icon="compass" collapsible defaultOpen={false}>
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <VisionField label="Concept" placeholder="Quelle est l'idée centrale du projet ?" value={vision.concept} onChange={v => setVision(p => ({ ...p, concept: v }))} multiline />
-                <VisionField label="Tonalité" placeholder="ex. Épuré, dynamique, émotionnel…" value={vision.tonalite} onChange={v => setVision(p => ({ ...p, tonalite: v }))} multiline />
+                <VisionField label={t('overview.visionConcept')} placeholder={t('overview.visionConceptPlaceholder')} value={vision.concept} onChange={v => setVision(p => ({ ...p, concept: v }))} multiline />
+                <VisionField label={t('overview.visionTone')} placeholder={t('overview.visionTonePlaceholder')} value={vision.tonalite} onChange={v => setVision(p => ({ ...p, tonalite: v }))} multiline />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <VisionField label="Public cible" placeholder="À qui s'adresse ce contenu ?" value={vision.publicCible} onChange={v => setVision(p => ({ ...p, publicCible: v }))} multiline />
-                <VisionField label="Objectifs" placeholder="Notoriété, conversion, engagement…" value={vision.objectifs} onChange={v => setVision(p => ({ ...p, objectifs: v }))} multiline />
+                <VisionField label={t('overview.visionAudience')} placeholder={t('overview.visionAudiencePlaceholder')} value={vision.publicCible} onChange={v => setVision(p => ({ ...p, publicCible: v }))} multiline />
+                <VisionField label={t('overview.visionGoals')} placeholder={t('overview.visionGoalsPlaceholder')} value={vision.objectifs} onChange={v => setVision(p => ({ ...p, objectifs: v }))} multiline />
               </div>
-              <VisionField label="Références & inspirations" placeholder="Liens, projets similaires, notes de direction artistique…" value={vision.references} onChange={v => setVision(p => ({ ...p, references: v }))} multiline />
+              <VisionField label={t('overview.visionReferences')} placeholder={t('overview.visionReferencesPlaceholder')} value={vision.references} onChange={v => setVision(p => ({ ...p, references: v }))} multiline />
             </div>
           </Card>
 
           {/* ── Factures ── */}
-          <Card title="Factures" icon="receipt" action={<SFButton variant="ghost" size="sm" icon="plus">Nouvelle facture</SFButton>}>
+          <Card title={t('overview.invoicesTitle')} icon="receipt" action={<SFButton variant="ghost" size="sm" icon="plus">{t('overview.newInvoice')}</SFButton>}>
             {/* Summary strip */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
               {[
-                { label: 'Total facturé', value: `${totalInvoiced.toLocaleString('fr-CA')} $`, color: 'var(--text)' },
-                { label: 'Reçu',          value: `${totalPaid.toLocaleString('fr-CA')} $`,     color: 'var(--ok)' },
-                { label: 'En attente',    value: `${(totalInvoiced - totalPaid).toLocaleString('fr-CA')} $`, color: 'var(--warn)' },
+                { label: t('overview.totalInvoiced'), value: `${totalInvoiced.toLocaleString('fr-CA')} $`, color: 'var(--text)' },
+                { label: t('overview.received'),      value: `${totalPaid.toLocaleString('fr-CA')} $`,     color: 'var(--ok)' },
+                { label: t('overview.pending'),       value: `${(totalInvoiced - totalPaid).toLocaleString('fr-CA')} $`, color: 'var(--warn)' },
               ].map(s => (
                 <div key={s.label} style={{ padding: '12px 18px', borderRight: '1px solid var(--border)' }}>
                   <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
@@ -585,10 +589,10 @@ export function TravailOverview() {
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{inv.num}</span>
                       <span style={{ fontSize: 13, fontWeight: 500 }}>{inv.label}</span>
                     </div>
-                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Échéance : {inv.due}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.dueDate', { date: inv.due })}</p>
                   </div>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{inv.amount.toLocaleString('fr-CA')} $</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color, background: st.bg, borderRadius: 7, padding: '3px 9px', flexShrink: 0 }}>{st.label}</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color, background: st.bg, borderRadius: 7, padding: '3px 9px', flexShrink: 0 }}>{t(st.labelKey)}</span>
                   <button style={{ display: 'flex', padding: 5, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', flexShrink: 0 }}>
                     <SFIcon name="more-horizontal" size={14} />
                   </button>
@@ -598,16 +602,16 @@ export function TravailOverview() {
           </Card>
 
           {/* ── Livrables client ── */}
-          <Card title={`Livrables client${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
+          <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
             action={
               <SFButton variant="ghost" size="sm" icon="plus" onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9'); }}>
-                Ajouter
+                {t('overview.add')}
               </SFButton>
             }
           >
             {/* Column headers */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-              {['Livrable', 'Type', 'Format', '', 'Statut', ''].map((h, i) => (
+              {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), '', t('overview.colStatus'), ''].map((h, i) => (
                 <span key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
               ))}
             </div>
@@ -615,10 +619,10 @@ export function TravailOverview() {
             {deliverables.length === 0 && !addingDeliverable && (
               <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
                 <SFIcon name="package" size={24} color="var(--border-2)" />
-                <p style={{ marginTop: 10, marginBottom: 10 }}>Aucun livrable — marquez des tâches comme livrables dans la vue Tâches</p>
+                <p style={{ marginTop: 10, marginBottom: 10 }}>{t('overview.noDeliverables')}</p>
                 <button onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  <SFIcon name="plus" size={12} /> Créer un livrable
+                  <SFIcon name="plus" size={12} /> {t('overview.createDeliverable')}
                 </button>
               </div>
             )}
@@ -626,7 +630,7 @@ export function TravailOverview() {
             {deliverables.map((dl) => {
               const st = DELIVERABLE_STATUS[dl.status] ?? DELIVERABLE_STATUS['warn'];
               const fmt = FORMAT_OPTIONS.find(f => f.value === dl.format);
-              const dlType = DELIVERABLE_TYPES.find(t => t.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
+              const dlType = DELIVERABLE_TYPES.find(dt => dt.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
               const isPickerOpen = formatPickerOpen === dl.id;
               const isTypeOpen = typePickerOpen === dl.id;
               const linkedIds = dl.linkedResources ?? [];
@@ -651,7 +655,7 @@ export function TravailOverview() {
                         <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.title}</p>
                         {dl.subtasks && dl.subtasks.length > 0 && (
                           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 1 }}>
-                            {dl.subtasks.filter(s => s.checked).length}/{dl.subtasks.length} sous-tâches
+                            {t('overview.subtasksCount', { done: dl.subtasks.filter(s => s.checked).length, total: dl.subtasks.length })}
                           </p>
                         )}
                         {/* Chips ressources liées */}
@@ -660,12 +664,12 @@ export function TravailOverview() {
                             {linkedRes.map(r => (
                               <span key={r.id}
                                 onClick={e => { e.stopPropagation(); navigate(`/projets/${project.id}/ressources/${r.id}`); }}
-                                title={`Ouvrir « ${r.title} »`}
+                                title={t('overview.openResource', { title: r.title })}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 160, padding: '2px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer' }}>
                                 <SFIcon name={RES_ICON[r.type] ?? 'file'} size={10} color="var(--text-3)" />
                                 <span style={{ fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
                                 <span onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleResource(r.id); }}
-                                  title="Retirer" style={{ display: 'inline-flex', flexShrink: 0 }}>
+                                  title={t('overview.remove')} style={{ display: 'inline-flex', flexShrink: 0 }}>
                                   <SFIcon name="x" size={9} color="var(--text-3)" />
                                 </span>
                               </span>
@@ -678,7 +682,7 @@ export function TravailOverview() {
                     {/* Bouton lier une ressource existante */}
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                       <button onClick={e => { e.stopPropagation(); setLinkPickerOpen(isLinkOpen ? null : dl.id); setTypePickerOpen(null); setFormatPickerOpen(null); }}
-                        title="Lier une ressource existante"
+                        title={t('overview.linkExistingResource')}
                         style={{ display: 'flex', alignItems: 'center', gap: 4, background: isLinkOpen ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${isLinkOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: linkedRes.length ? 'var(--accent)' : 'var(--text-3)' }}>
                         <SFIcon name="paperclip" size={12} color={linkedRes.length ? 'var(--accent)' : 'var(--text-3)'} />
                         {linkedRes.length > 0 && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10 }}>{linkedRes.length}</span>}
@@ -687,9 +691,9 @@ export function TravailOverview() {
                         <>
                           <div onClick={() => setLinkPickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
                           <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 6, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', width: 280, maxHeight: 320, overflowY: 'auto' }}>
-                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 8px 4px' }}>Ressources existantes</p>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 8px 4px' }}>{t('overview.existingResources')}</p>
                             {resources.length === 0 && (
-                              <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>Aucune ressource — créez-en dans l'onglet Ressources.</p>
+                              <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>{t('overview.noResourcesHint')}</p>
                             )}
                             {resources.map(r => {
                               const on = linkedIds.includes(r.id);
@@ -720,21 +724,21 @@ export function TravailOverview() {
                     <button onClick={e => { e.stopPropagation(); setTypePickerOpen(isTypeOpen ? null : dl.id); setFormatPickerOpen(null); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isTypeOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
                       <SFIcon name={dlType.icon} size={12} color="var(--text-3)" />
-                      {dlType.label}
+                      {t(dlType.labelKey)}
                       <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
                     </button>
                     {isTypeOpen && (
                       <>
                         <div onClick={() => setTypePickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
                         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 11, padding: 5, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', minWidth: 150 }}>
-                          {DELIVERABLE_TYPES.map(t => (
-                            <button key={t.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: t.value }); setTypePickerOpen(null); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === t.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === t.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-                              onMouseEnter={e => { if (dl.deliverableType !== t.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                              onMouseLeave={e => { if (dl.deliverableType !== t.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                              <SFIcon name={t.icon} size={13} color={dl.deliverableType === t.value ? 'var(--accent)' : 'var(--text-3)'} />
-                              {t.label}
-                              {dl.deliverableType === t.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                          {DELIVERABLE_TYPES.map(dt => (
+                            <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setTypePickerOpen(null); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                              onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                              onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                              <SFIcon name={dt.icon} size={13} color={dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text-3)'} />
+                              {t(dt.labelKey)}
+                              {dl.deliverableType === dt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                             </button>
                           ))}
                         </div>
@@ -749,7 +753,7 @@ export function TravailOverview() {
                       {fmt ? (
                         <>
                           <div style={{ width: 14, aspectRatio: fmt.ratio, border: '1.5px solid var(--text-3)', borderRadius: 2, flexShrink: 0 }} />
-                          {fmt.label}
+                          {fmt.value === 'custom' ? t('overview.formatCustom') : fmt.label}
                         </>
                       ) : <span style={{ color: 'var(--text-3)' }}>—</span>}
                       <SFIcon name="chevron-down" size={9} color="var(--text-3)" />

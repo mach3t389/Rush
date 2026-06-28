@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { SFIcon } from './SFIcon';
 
@@ -6,7 +7,6 @@ import { SFIcon } from './SFIcon';
 
 export const FR_MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const FR_MONTHS_SHORT = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
-const FR_DAYS = ['L','M','M','J','V','S','D'];
 export const TODAY_DP = new Date();
 
 export function toYMD(d: Date) {
@@ -84,6 +84,9 @@ interface DatePickerDropdownProps {
 }
 
 export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zIndex = 200 }: DatePickerDropdownProps) {
+  const { t } = useTranslation();
+  const months = t('datepicker.months', { returnObjects: true }) as string[];
+  const days = t('datepicker.daysShort', { returnObjects: true }) as string[];
   const initial = parseYMD(value) ?? TODAY_DP;
   const [view, setView] = useState(new Date(initial.getFullYear(), initial.getMonth(), 1));
   const [text, setText] = useState(value ? formatDisplay(value) : '');
@@ -145,7 +148,7 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') onClose(); }}
           onBlur={commitText}
-          placeholder="jj/mm/aaaa"
+          placeholder={t('upload.dateFormat')}
           autoFocus
           style={{
             width: '100%', padding: '7px 10px', borderRadius: 9,
@@ -161,7 +164,7 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
             <SFIcon name="chevron-left" size={14} />
           </button>
           <span style={{ fontSize: 13, fontWeight: 600 }}>
-            {FR_MONTHS[view.getMonth()]} {view.getFullYear()}
+            {months[view.getMonth()]} {view.getFullYear()}
           </span>
           <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 6, display: 'flex' }}>
             <SFIcon name="chevron-right" size={14} />
@@ -170,7 +173,7 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
 
         {/* Day headers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
-          {FR_DAYS.map((d, i) => (
+          {days.map((d, i) => (
             <div key={i} style={{ textAlign: 'center', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '3px 0' }}>{d}</div>
           ))}
         </div>
@@ -204,11 +207,11 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
         {/* Shortcuts */}
         <div style={{ display: 'flex', gap: 6, marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
           {[
-            { label: "Aujourd'hui", d: TODAY_DP },
-            { label: 'Demain',      d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+1) },
-            { label: 'Dans 1 sem.', d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+7) },
+            { key: 'today',     label: t('datepicker.today'),       d: TODAY_DP },
+            { key: 'tomorrow',  label: t('datepicker.tomorrow'),    d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+1) },
+            { key: 'inOneWeek', label: t('datepicker.inOneWeek'),   d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+7) },
           ].map(s => (
-            <button key={s.label} onClick={() => pick(s.d)}
+            <button key={s.key} onClick={() => pick(s.d)}
               style={{ flex: 1, padding: '5px 4px', borderRadius: 7, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
               {s.label}
             </button>
@@ -235,6 +238,7 @@ interface TimePickerDropdownProps {
 }
 
 export function TimePickerDropdown({ value, onChange, onClose, anchorRect, placeholder = '—', zIndex = 300 }: TimePickerDropdownProps) {
+  const { t } = useTranslation();
   const [h, setH] = useState(() => value ? parseInt(value.split(':')[0]) : -1);
   const [m, setM] = useState(() => value ? parseInt(value.split(':')[1]) : -1);
   const ref = useRef<HTMLDivElement>(null);
@@ -289,7 +293,7 @@ export function TimePickerDropdown({ value, onChange, onClose, anchorRect, place
       <div ref={ref} data-panel-child="true" style={{ position: 'fixed', ...smartPos, zIndex, display: 'flex', gap: 0, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
         {/* Hours */}
         <div ref={hourRef} style={{ width: 60, maxHeight: 220, overflowY: 'auto', borderRight: '1px solid var(--border)', padding: '4px 4px' }}>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', padding: '4px 0 6px' }}>h</p>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', padding: '4px 0 6px' }}>{t('datepicker.hourAbbr')}</p>
           {HOURS.map(hv => (
             <button key={hv} onClick={() => { setH(hv); pick(hv, m); }}
               style={{ ...btnBase, background: h === hv ? 'var(--accent)' : 'transparent', color: h === hv ? 'var(--on-accent)' : 'var(--text-2)', fontWeight: h === hv ? 700 : 400 }}
@@ -302,7 +306,7 @@ export function TimePickerDropdown({ value, onChange, onClose, anchorRect, place
         </div>
         {/* Minutes */}
         <div style={{ width: 60, padding: '4px 4px' }}>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', padding: '4px 0 6px' }}>min</p>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', padding: '4px 0 6px' }}>{t('datepicker.minuteAbbr')}</p>
           {MINUTES.map(mv => (
             <button key={mv} onClick={() => { setM(mv); pick(h, mv); }}
               style={{ ...btnBase, background: m === mv ? 'var(--accent)' : 'transparent', color: m === mv ? 'var(--on-accent)' : 'var(--text-2)', fontWeight: m === mv ? 700 : 400 }}
@@ -331,8 +335,6 @@ export function TimeButton({ value, onClick, placeholder = '—' }: { value: str
 
 // ── TaskDatePopover — date + optional start/end times ─────────────────────────
 
-const FR_DAYS_LONG = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-
 interface TaskDatePopoverProps {
   date: string;           // YYYY-MM-DD or '' — date de début / unique
   endDate?: string;       // YYYY-MM-DD or '' — date de fin (plage)
@@ -345,6 +347,11 @@ interface TaskDatePopoverProps {
 }
 
 export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = '', onChange, onClose, anchorRect, zIndex = 200 }: TaskDatePopoverProps) {
+  const { t } = useTranslation();
+  const months = t('datepicker.months', { returnObjects: true }) as string[];
+  const monthsShort = t('datepicker.monthsShort', { returnObjects: true }) as string[];
+  const daysShort = t('datepicker.daysShort', { returnObjects: true }) as string[];
+  const daysLong = t('datepicker.daysLong', { returnObjects: true }) as string[];
   const initial = parseYMD(date) ?? TODAY_DP;
   const [view, setView] = useState(new Date(initial.getFullYear(), initial.getMonth(), 1));
   const [localDate, setLocalDate] = useState(parseYMD(date) ? date : '');
@@ -481,9 +488,9 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
   // Libellé du récapitulatif (jour unique ou plage)
   const recap = (() => {
     if (!start) return null;
-    const sh = (x: Date) => `${x.getDate()} ${FR_MONTHS[x.getMonth()].slice(0,4)}`;
+    const sh = (x: Date) => `${x.getDate()} ${monthsShort[x.getMonth()]}`;
     if (mode === 'range' && end && localEndDate !== localDate) return `${sh(start)} → ${sh(end)} ${end.getFullYear()}`;
-    return `${FR_DAYS_LONG[start.getDay()]} · ${sh(start)} ${start.getFullYear()}`;
+    return `${daysLong[start.getDay()]} · ${sh(start)} ${start.getFullYear()}`;
   })();
 
   const segBtn = (m: 'single' | 'range', label: string): React.ReactNode => (
@@ -511,8 +518,8 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
 
         {/* ── Bascule Jour / Plage ── */}
         <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 9, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 10 }}>
-          {segBtn('single', 'Jour')}
-          {segBtn('range', 'Plage')}
+          {segBtn('single', t('datepicker.single'))}
+          {segBtn('range', t('datepicker.range'))}
         </div>
 
         {/* ── Récapitulatif ── */}
@@ -528,7 +535,7 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
             <SFIcon name="chevron-left" size={14} />
           </button>
           <span style={{ fontSize: 13, fontWeight: 600 }}>
-            {FR_MONTHS[view.getMonth()]} {view.getFullYear()}
+            {months[view.getMonth()]} {view.getFullYear()}
           </span>
           <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 6, display: 'flex' }}>
             <SFIcon name="chevron-right" size={14} />
@@ -536,7 +543,7 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
-          {FR_DAYS.map((d, i) => (
+          {daysShort.map((d, i) => (
             <div key={i} style={{ textAlign: 'center', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '3px 0' }}>{d}</div>
           ))}
         </div>
@@ -575,13 +582,13 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
           {!showTime ? (
             <button onClick={() => setShowTime(true)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <SFIcon name="plus" size={10} /> Ajouter une heure
+              <SFIcon name="plus" size={10} /> {t('datepicker.addTime')}
             </button>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {timeTrigger('De', localStart, 'start', startBtnRef)}
+              {timeTrigger(t('datepicker.from'), localStart, 'start', startBtnRef)}
               <span style={{ color: 'var(--text-3)', fontSize: 14, flexShrink: 0 }}>→</span>
-              {timeTrigger('À', localEnd, 'end', endBtnRef)}
+              {timeTrigger(t('datepicker.to'), localEnd, 'end', endBtnRef)}
               {(localStart || localEnd) && (
                 <button onClick={clearTimes} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex', borderRadius: 6, flexShrink: 0 }}>
                   <SFIcon name="x" size={12} />
@@ -594,11 +601,11 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
         {/* ── Raccourcis + effacer ── */}
         <div style={{ display: 'flex', gap: 5, marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
           {[
-            { label: "Auj.", d: TODAY_DP },
-            { label: 'Dem.', d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+1) },
-            { label: '+1 sem.', d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+7) },
+            { key: 'today',     label: t('datepicker.todayShort'),    d: TODAY_DP },
+            { key: 'tomorrow',  label: t('datepicker.tomorrowShort'), d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+1) },
+            { key: 'inOneWeek', label: t('datepicker.inOneWeekShort'), d: new Date(TODAY_DP.getFullYear(), TODAY_DP.getMonth(), TODAY_DP.getDate()+7) },
           ].map(s => (
-            <button key={s.label} onClick={() => commitSingle(s.d)}
+            <button key={s.key} onClick={() => commitSingle(s.d)}
               style={{ flex: 1, padding: '5px 2px', borderRadius: 7, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
               {s.label}
             </button>

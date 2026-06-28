@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { MY_TASKS } from '../data/mock';
@@ -43,7 +44,7 @@ function search(q: string): Result[] {
 }
 
 const KIND_ICON: Record<ResultKind, string> = { project: 'folder', client: 'users', task: 'square-check' };
-const KIND_LABEL: Record<ResultKind, string> = { project: 'Projet', client: 'Client', task: 'Tâche' };
+const KIND_LABEL_KEY: Record<ResultKind, string> = { project: 'search.typeProject', client: 'search.typeClient', task: 'search.typeTask' };
 
 interface Props {
   open: boolean;
@@ -51,6 +52,7 @@ interface Props {
 }
 
 export function CommandPalette({ open, onClose }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -112,7 +114,7 @@ export function CommandPalette({ open, onClose }: Props) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Rechercher un projet, client, tâche…"
+            placeholder={t('search.placeholder')}
             style={{
               flex: 1, border: 'none', background: 'transparent',
               fontSize: 14, color: 'var(--text)', outline: 'none',
@@ -126,12 +128,12 @@ export function CommandPalette({ open, onClose }: Props) {
         <div style={{ maxHeight: 400, overflowY: 'auto' }}>
           {query.trim() === '' && (
             <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-              Commencez à taper pour rechercher…
+              {t('command.startTyping')}
             </div>
           )}
           {query.trim() !== '' && results.length === 0 && (
             <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-              Aucun résultat pour « {query} »
+              {t('command.noResults', { query })}
             </div>
           )}
           {results.map((r, i) => (
@@ -165,7 +167,7 @@ export function CommandPalette({ open, onClose }: Props) {
                 background: 'var(--surface-2)', borderRadius: 5, padding: '2px 6px',
                 border: '1px solid var(--border-2)', flexShrink: 0,
               }}>
-                {KIND_LABEL[r.kind]}
+                {t(KIND_LABEL_KEY[r.kind])}
               </span>
             </button>
           ))}
@@ -173,9 +175,9 @@ export function CommandPalette({ open, onClose }: Props) {
 
         {/* Footer hints */}
         <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>↑↓ naviguer</span>
-          <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>↵ ouvrir</span>
-          <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>ESC fermer</span>
+          <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>↑↓ {t('command.navigate')}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>↵ {t('command.open')}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>ESC {t('command.close')}</span>
         </div>
       </div>
     </div>,

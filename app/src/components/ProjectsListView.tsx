@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, DatePickerDropdown, formatDisplay } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates } from '../data/templates';
@@ -16,18 +17,18 @@ const TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
 type Step = 'start' | 'info' | 'fichiers' | 'team';
 type SortKey = 'recent' | 'alpha' | 'alpha-desc' | 'delivery' | 'client' | 'progress';
 
-const ALL_SORT_OPTIONS: { value: SortKey; label: string; icon: string }[] = [
-  { value: 'recent',     label: 'Récent',      icon: 'clock' },
-  { value: 'alpha',      label: 'A → Z',       icon: 'arrow-down-a-z' },
-  { value: 'alpha-desc', label: 'Z → A',       icon: 'arrow-up-a-z' },
-  { value: 'delivery',   label: 'Livraison',   icon: 'calendar' },
-  { value: 'client',     label: 'Client',      icon: 'users' },
-  { value: 'progress',   label: 'Avancement',  icon: 'bar-chart-2' },
+const ALL_SORT_OPTIONS: { value: SortKey; labelKey: string; icon: string }[] = [
+  { value: 'recent',     labelKey: 'projects.sortRecent',    icon: 'clock' },
+  { value: 'alpha',      labelKey: 'projects.sortAlphaAsc',  icon: 'arrow-down-a-z' },
+  { value: 'alpha-desc', labelKey: 'projects.sortAlphaDesc', icon: 'arrow-up-a-z' },
+  { value: 'delivery',   labelKey: 'projects.sortDelivery',  icon: 'calendar' },
+  { value: 'client',     labelKey: 'projects.sortClient',    icon: 'users' },
+  { value: 'progress',   labelKey: 'projects.sortProgress',  icon: 'bar-chart-2' },
 ];
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 
-function StepDot({ label, active, done }: { label: string; active: boolean; done: boolean }) {
+function StepDot({ label, num, active, done }: { label: string; num: number; active: boolean; done: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{
@@ -39,7 +40,7 @@ function StepDot({ label, active, done }: { label: string; active: boolean; done
         {done
           ? <SFIcon name="check" size={12} color="#000" />
           : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 700, color: active ? 'var(--on-accent)' : 'var(--text-3)' }}>
-              {label === 'Départ' ? '1' : label === 'Infos' ? '2' : label === 'Fichiers' ? '3' : '4'}
+              {num}
             </span>
         }
       </div>
@@ -55,6 +56,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   onCreate: (p: Project) => void;
   defaultClientId?: string;
 }) {
+  const { t } = useTranslation();
   const [step, setStep]                 = useState<Step>('start');
   const [templateId, setTemplateId]     = useState<string | null>(null);
   const clients = getClients();
@@ -163,19 +165,19 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div>
-            <h2 style={{ fontSize: 17, fontWeight: 700 }}>Nouveau projet</h2>
+            <h2 style={{ fontSize: 17, fontWeight: 700 }}>{t('projects.newProject')}</h2>
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              {step === 'start' ? 'Choisissez un point de départ' : step === 'info' ? 'Informations du projet' : step === 'fichiers' ? 'Structure de dossiers' : 'Assigner une équipe'}
+              {step === 'start' ? t('projects.stepStartSubtitle') : step === 'info' ? t('projects.stepInfoSubtitle') : step === 'fichiers' ? t('projects.stepFilesSubtitle') : t('projects.stepTeamSubtitle')}
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <StepDot label="Départ" active={step === 'start'} done={stepDone('start')} />
+            <StepDot label={t('projects.stepStart')} num={1} active={step === 'start'} done={stepDone('start')} />
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label="Infos" active={step === 'info'} done={stepDone('info')} />
+            <StepDot label={t('projects.stepInfo')} num={2} active={step === 'info'} done={stepDone('info')} />
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label="Fichiers" active={step === 'fichiers'} done={stepDone('fichiers')} />
+            <StepDot label={t('projects.stepFiles')} num={3} active={step === 'fichiers'} done={stepDone('fichiers')} />
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label="Équipe" active={step === 'team'} done={stepDone('team')} />
+            <StepDot label={t('projects.stepTeam')} num={4} active={step === 'team'} done={stepDone('team')} />
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={17} />
@@ -189,7 +191,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'start' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Canevas vide</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.blankCanvas')}</p>
                 <div
                   onClick={() => setTemplateId(null)}
                   style={{
@@ -204,22 +206,22 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     <SFIcon name="plus" size={20} color="var(--text-3)" />
                   </div>
                   <div>
-                    <p style={{ fontWeight: 600, fontSize: 13 }}>Projet vide</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Commencez avec une ardoise blanche et ajoutez vos propres sections et tâches.</p>
+                    <p style={{ fontWeight: 600, fontSize: 13 }}>{t('projects.emptyProject')}</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('projects.emptyProjectDesc')}</p>
                   </div>
                   {templateId === null && <SFIcon name="circle-check" size={18} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                 </div>
               </div>
 
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Partir d'un modèle</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                  {templates.map(t => {
-                    const isSelected = templateId === t.id;
+                  {templates.map(tpl => {
+                    const isSelected = templateId === tpl.id;
                     return (
                       <div
-                        key={t.id}
-                        onClick={() => setTemplateId(t.id)}
+                        key={tpl.id}
+                        onClick={() => setTemplateId(tpl.id)}
                         style={{
                           padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
                           border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
@@ -228,24 +230,24 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 9, background: t.color + '33', border: `1.5px solid ${t.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <SFIcon name={t.icon} size={17} color={t.color} />
+                          <div style={{ width: 36, height: 36, borderRadius: 9, background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <SFIcon name={tpl.icon} size={17} color={tpl.color} />
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <p style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</p>
-                              {t.builtIn && (
-                                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>OFFICIEL</span>
+                              <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
+                              {tpl.builtIn && (
+                                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>{t('projects.official')}</span>
                               )}
                             </div>
-                            <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{t.description}</p>
+                            <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{tpl.description}</p>
                             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                              {t.tags.slice(0, 3).map(tag => (
+                              {tpl.tags.slice(0, 3).map(tag => (
                                 <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>{tag}</span>
                               ))}
                             </div>
                             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
-                              {t.sections.length} sections · {t.sections.reduce((n, s) => n + s.tasks.length, 0)} tâches
+                              {t('projects.sectionsTasksCount', { sections: tpl.sections.length, tasks: tpl.sections.reduce((n, s) => n + s.tasks.length, 0) })}
                             </p>
                           </div>
                         </div>
@@ -266,18 +268,18 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'info' && (
             <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Nom du projet *</label>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.projectNameLabel')} {t('common.required')}</label>
                 <input
                   autoFocus
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Campagne Automne 2026…"
+                  placeholder={t('projects.projectNamePlaceholder')}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Client</label>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   {clients.map(c => (
                     <button
@@ -300,7 +302,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
               </div>
 
               <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Couleur du projet</label>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.projectColor')}</label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {PROJECT_COLORS.map(c => (
                     <button
@@ -318,7 +320,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
               </div>
 
               <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Date de livraison <span style={{ fontWeight: 400, opacity: 0.6 }}>(optionnel)</span></label>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
                     onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
@@ -331,12 +333,12 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     }}
                   >
                     <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                    {deliveryDate ? formatDisplay(deliveryDate) : 'Choisir une date…'}
+                    {deliveryDate ? formatDisplay(deliveryDate) : t('projects.chooseDate')}
                   </button>
                   {deliveryDate && (
                     <button
                       onClick={() => setDeliveryDate('')}
-                      title="Supprimer la date"
+                      title={t('projects.removeDate')}
                       style={{ width: 26, height: 26, borderRadius: 7, border: 'none', background: 'var(--surface-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', flexShrink: 0 }}
                     >
                       <SFIcon name="x" size={12} />
@@ -360,9 +362,9 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     <SFIcon name={selectedTemplate.icon} size={14} color={selectedTemplate.color} />
                   </div>
                   <div>
-                    <p style={{ fontSize: 11, fontWeight: 600 }}>Modèle : {selectedTemplate.name}</p>
+                    <p style={{ fontSize: 11, fontWeight: 600 }}>{t('projects.templateLabel', { name: selectedTemplate.name })}</p>
                     <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-                      {selectedTemplate.sections.length} sections · {selectedTemplate.sections.reduce((n, s) => n + s.tasks.length, 0)} tâches pré-configurées
+                      {t('projects.sectionsTasksPreconfigured', { sections: selectedTemplate.sections.length, tasks: selectedTemplate.sections.reduce((n, s) => n + s.tasks.length, 0) })}
                     </p>
                   </div>
                   <button onClick={() => { setTemplateId(null); setStep('start'); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
@@ -377,7 +379,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'fichiers' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                Choisissez une structure de dossiers pour organiser les fichiers du projet. Vous pouvez l'ignorer ou la personnaliser ensuite.
+                {t('projects.folderStructureIntro')}
               </p>
 
               <div
@@ -394,20 +396,20 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   <SFIcon name="folder-open" size={18} color="var(--text-3)" />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: 13 }}>Aucune structure</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Créez vos dossiers manuellement dans l'onglet Fichiers du projet.</p>
+                  <p style={{ fontWeight: 600, fontSize: 13 }}>{t('projects.noStructure')}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t('projects.noStructureDesc')}</p>
                 </div>
                 {folderStructTplId === null && <SFIcon name="circle-check" size={18} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                {folderStructTemplates.map(t => {
-                  const isSelected = folderStructTplId === t.id;
-                  const folders = t.folderStructure ?? [];
+                {folderStructTemplates.map(tpl => {
+                  const isSelected = folderStructTplId === tpl.id;
+                  const folders = tpl.folderStructure ?? [];
                   return (
                     <div
-                      key={t.id}
-                      onClick={() => setFolderStructTplId(t.id)}
+                      key={tpl.id}
+                      onClick={() => setFolderStructTplId(tpl.id)}
                       style={{
                         padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
                         border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
@@ -416,19 +418,19 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 9, background: t.color + '33', border: `1.5px solid ${t.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <SFIcon name={t.icon} size={17} color={t.color} />
+                        <div style={{ width: 36, height: 36, borderRadius: 9, background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <SFIcon name={tpl.icon} size={17} color={tpl.color} />
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <p style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</p>
-                            {t.builtIn && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>OFFICIEL</span>}
+                            <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
+                            {tpl.builtIn && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>{t('projects.official')}</span>}
                           </div>
-                          <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 8 }}>{t.description}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 8 }}>{tpl.description}</p>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {folders.slice(0, 4).map(f => (
                               <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <SFIcon name="folder" size={10} color={t.color} />
+                                <SFIcon name="folder" size={10} color={tpl.color} />
                                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>{f.name}</span>
                                 {f.children && f.children.length > 0 && (
                                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', opacity: 0.6 }}>({f.children.length})</span>
@@ -436,7 +438,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                               </div>
                             ))}
                             {folders.length > 4 && (
-                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', opacity: 0.6, paddingLeft: 15 }}>+{folders.length - 4} dossiers…</span>
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', opacity: 0.6, paddingLeft: 15 }}>{t('projects.moreFolders', { count: folders.length - 4 })}</span>
                             )}
                           </div>
                         </div>
@@ -456,7 +458,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {/* Step 4: Team */}
           {step === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <p style={{ fontSize: 13, color: 'var(--text-2)' }}>Sélectionnez les membres qui participeront à ce projet.</p>
+              <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('projects.selectMembers')}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {TEAM.map(u => {
                   const on = memberIds.includes(u.id);
@@ -492,7 +494,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 })}
               </div>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-                {memberIds.length} membre{memberIds.length > 1 ? 's' : ''} sélectionné{memberIds.length > 1 ? 's' : ''}
+                {t('projects.membersSelected', { count: memberIds.length })}
               </p>
             </div>
           )}
@@ -504,7 +506,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             onClick={step === 'start' ? onClose : back}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 18px', cursor: 'pointer', fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
           >
-            {step === 'start' ? 'Annuler' : '← Retour'}
+            {step === 'start' ? t('projects.cancel') : t('projects.back')}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {name && (
@@ -514,7 +516,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
               </div>
             )}
             <SFButton variant="primary" onClick={next} disabled={!canNext}>
-              {step === 'team' ? '✓ Créer le projet' : 'Continuer →'}
+              {step === 'team' ? t('projects.createProject') : t('projects.continue')}
             </SFButton>
           </div>
         </div>
@@ -526,6 +528,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 // ── Shared project list view ──────────────────────────────────────────────────
 
 export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | Status>('all');
   const [clientFilter, setClientFilter] = useState<string | null>(null);
@@ -579,12 +582,12 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
       {!clientId && (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Projets</h1>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('projects.title')}</h1>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-              {projects.length} projets · {projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length} actifs · {projects.filter(p => p.status === 'danger').length} en retard
+              {t('projects.countsSummary', { total: projects.length, active: projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length, late: projects.filter(p => p.status === 'danger').length })}
             </p>
           </div>
-          <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>Nouveau projet</SFButton>
+          <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
         </div>
       )}
 
@@ -598,14 +601,14 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher un projet..."
+            placeholder={t('projects.searchPlaceholder')}
             style={{ width: '100%', height: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
 
         {/* Filter chips */}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {([['all', 'Tous'], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, o.label])] as [string, string][]).map(([val, label]) => (
+          {([['all', t('projects.filterAll')], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, t(o.labelKey)])] as [string, string][]).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setFilter(val as 'all' | Status)}
@@ -632,7 +635,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
                   {selected ? (
                     <><i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
                   ) : (
-                    <><SFIcon name="users" size={13} color="var(--text-3)" />Tous les clients</>
+                    <><SFIcon name="users" size={13} color="var(--text-3)" />{t('projects.allClients')}</>
                   )}
                   <SFIcon name="chevron-down" size={12} color={clientFilter ? 'var(--accent)' : 'var(--text-3)'} />
                 </button>
@@ -645,7 +648,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
                         style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === null ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === null ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === null ? 600 : 400, fontFamily: 'var(--ff-text)' }}
                       >
                         <SFIcon name="layers" size={13} color={clientFilter === null ? 'var(--accent)' : 'var(--text-3)'} />
-                        Tous les clients
+                        {t('projects.allClients')}
                         {clientFilter === null && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                       </button>
                       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -683,7 +686,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
             }}
           >
             <SFIcon name={SORT_OPTIONS.find(o => o.value === sortBy)?.icon ?? 'arrow-up-down'} size={13} />
-            <span>{SORT_OPTIONS.find(o => o.value === sortBy)?.label}</span>
+            <span>{(() => { const k = SORT_OPTIONS.find(o => o.value === sortBy)?.labelKey; return k ? t(k) : ''; })()}</span>
             <SFIcon name={sortOpen ? 'chevron-up' : 'chevron-down'} size={12} />
           </button>
 
@@ -704,7 +707,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
                   minWidth: 190,
                   padding: 5,
                 }}>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px 4px' }}>Trier par</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px 4px' }}>{t('projects.sortBy')}</p>
                   {SORT_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
@@ -721,7 +724,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
                       onMouseLeave={e => { if (sortBy !== opt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
                       <SFIcon name={opt.icon} size={13} color={sortBy === opt.value ? 'var(--accent)' : 'var(--text-3)'} />
-                      {opt.label}
+                      {t(opt.labelKey)}
                       {sortBy === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                     </button>
                   ))}
@@ -732,7 +735,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
 
           {/* New project button — in client context, sits in the controls row */}
           {clientId && (
-            <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>Nouveau projet</SFButton>
+            <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
           )}
         </div>
       </div>
@@ -746,8 +749,8 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
             <SFIcon name="folder-open" size={36} color="var(--text-3)" />
-            <p style={{ fontSize: 14 }}>Aucun projet trouvé</p>
-            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>Nouveau projet</SFButton>
+            <p style={{ fontSize: 14 }}>{t('projects.noProjectsFound')}</p>
+            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
           </div>
         )}
       </div>

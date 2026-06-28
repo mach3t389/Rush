@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { USERS } from '../data/mock';
@@ -111,6 +112,7 @@ function ImageViewer({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function ImageReview() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { projectId = '', resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resources = getResources();
@@ -279,7 +281,7 @@ export function ImageReview() {
     setDeleteTarget(null);
   };
 
-  if (!resource) return <div style={{ padding: 32, color: 'var(--text-3)' }}>Ressource introuvable.</div>;
+  if (!resource) return <div style={{ padding: 32, color: 'var(--text-3)' }}>{t('review.resourceNotFoundShort')}</div>;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)' } : {}) }}>
@@ -288,7 +290,7 @@ export function ImageReview() {
         <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
 
         {/* Back button */}
-        <button onClick={() => navigate(-1)} title="Retour"
+        <button onClick={() => navigate(-1)} title={t('review.back')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
@@ -308,7 +310,7 @@ export function ImageReview() {
                 onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(localTitle); setEditingTitle(false); } }}
                 style={{ fontSize: 13, fontWeight: 700, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 8px', outline: 'none', color: 'var(--text)', fontFamily: 'var(--ff-display)', width: '100%' }} />
             ) : (
-              <p onClick={() => setEditingTitle(true)} title="Renommer"
+              <p onClick={() => setEditingTitle(true)} title={t('review.rename')}
                 style={{ fontSize: 13, fontWeight: 700, cursor: 'text', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{localTitle || resource.title}</span>
                 <SFIcon name="pencil" size={10} color="var(--text-3)" />
@@ -319,9 +321,9 @@ export function ImageReview() {
                 onKeyDown={e => { if (e.key === 'Escape') { setDescVal(localDesc); setEditingDesc(false); } }}
                 style={{ fontSize: 10, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 4, padding: '1px 6px', outline: 'none', resize: 'none', width: '100%', fontFamily: 'var(--ff-text)', display: 'block' }} rows={1} />
             ) : (
-              <p onClick={() => setEditingDesc(true)} title="Modifier la description"
+              <p onClick={() => setEditingDesc(true)} title={t('review.editDescription')}
                 style={{ fontSize: 10, color: 'var(--text-3)', cursor: 'text', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {localDesc || 'Ajouter une description…'}
+                {localDesc || t('review.addDescriptionShort')}
               </p>
             )}
           </div>
@@ -368,7 +370,7 @@ export function ImageReview() {
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                     <SFIcon name="plus" size={12} color="var(--accent)" />
-                    Nouvelle ronde
+                    {t('review.newRound')}
                   </button>
                 </div>
               </div>
@@ -383,7 +385,7 @@ export function ImageReview() {
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2, flexShrink: 0 }}>
           {(['gallery', 'single'] as const).map(mode => (
             <button key={mode} onClick={() => setViewMode(mode)}
-              title={mode === 'gallery' ? 'Vue galerie' : 'Vue individuelle'}
+              title={mode === 'gallery' ? t('review.galleryView') : t('review.singleView')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer', background: viewMode === mode ? 'var(--surface)' : 'transparent', color: viewMode === mode ? 'var(--text)' : 'var(--text-3)', boxShadow: viewMode === mode ? '0 1px 3px rgba(0,0,0,0.3)' : 'none', transition: 'all 0.12s' }}>
               <SFIcon name={mode === 'gallery' ? 'layout-grid' : 'square'} size={12}  />
             </button>
@@ -391,7 +393,7 @@ export function ImageReview() {
         </div>
 
         {/* Add images icon button */}
-        <button onClick={() => fileInputRef.current?.click()} title="Ajouter des images"
+        <button onClick={() => fileInputRef.current?.click()} title={t('review.addImages')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
@@ -402,7 +404,7 @@ export function ImageReview() {
         <RequestApprovalButton resource={resource} projectId={projectId} />
 
         {/* Fullscreen button */}
-        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+        <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? t('review.exitFullscreen') : t('review.fullscreen')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}>
@@ -420,7 +422,7 @@ export function ImageReview() {
           <div style={{ position: 'absolute', inset: 16, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249,255,0,0.06)', border: '2px dashed var(--accent)', borderRadius: 12, pointerEvents: 'none' }}>
             <div style={{ textAlign: 'center' }}>
               <SFIcon name="upload" size={30} color="var(--accent)" />
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>Déposer les images dans {activeRound}</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', marginTop: 8 }}>{t('review.dropImagesInto', { round: activeRound })}</p>
             </div>
           </div>
         )}
@@ -435,8 +437,8 @@ export function ImageReview() {
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,255,0,0.12)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <SFIcon name="upload" size={28} color="var(--accent)" />
                   </div>
-                  <p style={{ color: 'var(--text)', fontSize: 14, fontWeight: 600 }}>{activeRound} — Glissez des images ici</p>
-                  <p style={{ color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-mono)' }}>ou cliquez pour importer</p>
+                  <p style={{ color: 'var(--text)', fontSize: 14, fontWeight: 600 }}>{activeRound} — {t('review.dropImagesHere')}</p>
+                  <p style={{ color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-mono)' }}>{t('review.orClickToImport')}</p>
                 </div>
               ) : (
                 <div style={{
@@ -527,7 +529,7 @@ export function ImageReview() {
                 {round.images.length === 0 && (
                   <div style={{ padding: '20px 6px', textAlign: 'center' }}>
                     <SFIcon name="image" size={20} color="var(--text-3)" />
-                    <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>Aucune image</p>
+                    <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>{t('review.noImage')}</p>
                   </div>
                 )}
                 {round.images.map(img => {
@@ -560,7 +562,7 @@ export function ImageReview() {
                 {!selectedImage ? (
                   <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
                     <SFIcon name="image" size={40} color="var(--text-3)" />
-                    <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Sélectionnez une image à gauche</p>
+                    <p style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('review.selectImageLeft')}</p>
                   </div>
                 ) : (
                   <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -568,7 +570,7 @@ export function ImageReview() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <button onClick={() => setViewMode('gallery')} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 0, fontSize: 11, fontFamily: 'var(--ff-text)' }}>
                           <SFIcon name="arrow-left" size={12} />
-                          Galerie
+                          {t('review.gallery')}
                         </button>
                         <span style={{ color: 'var(--border-2)' }}>·</span>
                         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{selectedImage.label}</p>
@@ -624,13 +626,13 @@ export function ImageReview() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={() => setAddRoundOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
           <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Nouvelle ronde de révision</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t('review.newReviewRound')}</h3>
             <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
-              Une nouvelle ronde sera créée ({`R${rounds.length + 1}`}). Vous pourrez y téléverser de nouvelles images.
+              {t('review.newRoundDesc', { round: `R${rounds.length + 1}` })}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="secondary" onClick={() => setAddRoundOpen(false)}>Annuler</SFButton>
-              <SFButton variant="primary" icon="plus" onClick={addRound}>Créer la ronde</SFButton>
+              <SFButton variant="secondary" onClick={() => setAddRoundOpen(false)}>{t('review.cancel')}</SFButton>
+              <SFButton variant="primary" icon="plus" onClick={addRound}>{t('review.createRound')}</SFButton>
             </div>
           </div>
         </div>
@@ -642,7 +644,7 @@ export function ImageReview() {
           <div onClick={() => { setUploadModalOpen(false); setPendingFiles([]); }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
           <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.65)' }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>
-              {pendingFiles.length} image{pendingFiles.length > 1 ? 's' : ''} à ajouter
+              {t('review.imagesToAdd', { count: pendingFiles.length })}
             </h3>
             {/* File list preview */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 160, overflowY: 'auto' }}>
@@ -660,15 +662,15 @@ export function ImageReview() {
                 </div>
               ))}
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12 }}>Où ajouter ces images ?</p>
+            <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12 }}>{t('review.whereToAddImages')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button onClick={() => addFilesToRound(activeRound)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
                 <SFIcon name="layers" size={18} color="var(--text-2)" />
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Ronde actuelle ({round.label})</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Ajoute les images à cette ronde</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('review.currentRound', { label: round.label })}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('review.addImagesToThisRound')}</p>
                 </div>
               </button>
               <button onClick={addFilesAsNewRound} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}

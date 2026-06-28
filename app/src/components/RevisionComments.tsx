@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFButton, SFIcon } from './ui';
 import { USERS } from '../data/mock';
 
@@ -131,6 +132,7 @@ function CommentCard({
   onReply: (text: string) => void;
   onDelete?: () => void;
 }) {
+  const { t } = useTranslation();
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
   const color = comment.annotation ? annoColor(index) : 'var(--text-3)';
@@ -165,7 +167,7 @@ function CommentCard({
         <button
           className="rc-delete"
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          title="Supprimer le commentaire"
+          title={t('review.deleteComment')}
           style={{ position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.15s', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-3)' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.opacity = '1'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -221,14 +223,14 @@ function CommentCard({
           onClick={e => { e.stopPropagation(); setShowReply(v => !v); }}
           style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--ff-text)' }}
         >
-          Répondre
+          {t('review.reply')}
         </button>
         <span style={{ color: 'var(--border-2)', fontSize: 11 }}>·</span>
         <button
           onClick={e => { e.stopPropagation(); onResolve(); }}
           style={{ fontSize: 11, color: resolved ? 'var(--text-3)' : 'var(--ok)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--ff-text)' }}
         >
-          {resolved ? 'Rouvrir' : 'Résoudre'}
+          {resolved ? t('review.reopen') : t('review.resolve')}
         </button>
       </div>
 
@@ -239,7 +241,7 @@ function CommentCard({
             value={replyText}
             onChange={e => setReplyText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') submitReply(); if (e.key === 'Escape') setShowReply(false); }}
-            placeholder="Répondre…"
+            placeholder={t('review.replyShort')}
             style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
           />
           <button onClick={submitReply} style={{ padding: '6px 10px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>↵</button>
@@ -280,6 +282,7 @@ export function RevisionCommentSidebar({
   contextLabel?: string;
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   const [newText, setNewText] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
 
@@ -302,14 +305,14 @@ export function RevisionCommentSidebar({
       <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Commentaires</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{t('review.comments')}</span>
             {openCount > 0 && (
               <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', background: 'var(--accent)', color: 'var(--on-accent)', padding: '2px 6px', borderRadius: 10 }}>{openCount}</span>
             )}
           </div>
           <button
             onClick={onToggleDrawing}
-            title={drawing ? 'Annuler annotation' : 'Placer une annotation'}
+            title={drawing ? t('review.cancelAnnotation') : t('review.placeAnnotation')}
             style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7,
               border: `1px solid ${drawing ? 'var(--accent)' : 'var(--border-2)'}`,
@@ -320,13 +323,13 @@ export function RevisionCommentSidebar({
             }}
           >
             <SFIcon name="map-pin" size={12}  />
-            {drawing ? 'Cliquer sur le média…' : 'Annoter'}
+            {drawing ? t('review.clickOnMedia') : t('review.annotate')}
           </button>
         </div>
 
         {/* Filter pills */}
         <div style={{ display: 'flex', gap: 4 }}>
-          {([['all', 'Tous'], ['open', 'Ouverts'], ['resolved', 'Résolus']] as const).map(([k, l]) => (
+          {([['all', t('review.filterAll')], ['open', t('review.filterOpen')], ['resolved', t('review.filterResolved')]] as const).map(([k, l]) => (
             <button key={k} onClick={() => setFilter(k)} style={{
               padding: '3px 9px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11,
               background: filter === k ? 'var(--surface-3)' : 'transparent',
@@ -341,7 +344,7 @@ export function RevisionCommentSidebar({
       {pendingAnnotation && (
         <div style={{ padding: '10px 16px', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <p style={{ fontSize: 12, color: 'var(--accent)', marginBottom: 8, fontWeight: 500 }}>
-            Annotation placée {contextLabel ? `sur ${contextLabel}` : ''} — ajoutez votre commentaire :
+            {contextLabel ? t('review.annotationPlacedOn', { context: contextLabel }) : t('review.annotationPlaced')}
           </p>
           <div style={{ display: 'flex', gap: 6 }}>
             <input
@@ -349,12 +352,12 @@ export function RevisionCommentSidebar({
               value={newText}
               onChange={e => setNewText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') { onCancelPending(); setNewText(''); } }}
-              placeholder="Décrivez le problème…"
+              placeholder={t('review.describeIssue')}
               style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
             />
-            <button onClick={submit} style={{ padding: '7px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ajouter</button>
+            <button onClick={submit} style={{ padding: '7px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>{t('review.add')}</button>
           </div>
-          <button onClick={() => { onCancelPending(); setNewText(''); }} style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button onClick={() => { onCancelPending(); setNewText(''); }} style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--ff-text)' }}>{t('review.cancel')}</button>
         </div>
       )}
 
@@ -364,13 +367,13 @@ export function RevisionCommentSidebar({
           <div style={{ padding: '28px 0', textAlign: 'center' }}>
             <SFIcon name="message-circle" size={26} color="var(--text-3)" />
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10, marginBottom: filter === 'all' ? 14 : 0 }}>
-              {filter === 'resolved' ? 'Aucun commentaire résolu' : filter === 'open' ? 'Aucun commentaire ouvert' : 'Aucun commentaire pour l\'instant'}
+              {filter === 'resolved' ? t('review.noResolvedComments') : filter === 'open' ? t('review.noOpenComments') : t('review.noCommentsForNow')}
             </p>
             {filter === 'all' && (
               <div style={{ margin: '0 16px', padding: '10px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', textAlign: 'left' }}>
                 <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                  💬 Tapez votre commentaire ci-dessous.<br />
-                  Utilisez <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@prénom</span> pour mentionner un membre de l'équipe.
+                  💬 {t('review.typeCommentBelow')}<br />
+                  {t('review.mentionHintBefore')} <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@{t('review.firstNameToken')}</span> {t('review.mentionHintAfter')}
                 </p>
               </div>
             )}
@@ -401,7 +404,7 @@ export function RevisionCommentSidebar({
               value={newText}
               onChange={e => setNewText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-              placeholder="Ajouter un commentaire… (@ pour mentionner)"
+              placeholder={t('review.addCommentMention')}
               style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
             />
             <button onClick={submit} disabled={!newText.trim()} style={{ padding: '7px 12px', borderRadius: 7, border: 'none', background: newText.trim() ? 'var(--accent)' : 'var(--surface-3)', color: newText.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 12, cursor: newText.trim() ? 'pointer' : 'default', fontWeight: 600 }}>↵</button>

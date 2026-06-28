@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate, isOverdue } from './ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
@@ -16,63 +17,63 @@ const PRIORITY_COLOR: Record<Priority, string> = {
   low:    'var(--info)',
   none:   'var(--border-2)',
 };
-const PRIORITY_LABEL: Record<Priority, string> = {
-  high:   'Élevée',
-  normal: 'Moyenne',
-  low:    'Basse',
-  none:   'Aucune',
+const PRIORITY_LABEL_KEY: Record<Priority, string> = {
+  high:   'priority.high',
+  normal: 'priority.medium',
+  low:    'priority.low',
+  none:   'priority.none',
 };
 const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 
 
-const PANEL_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: '',       label: 'Aucun statut' },
-  { value: 'warn',   label: 'À faire'      },
-  { value: 'info',   label: 'En cours'     },
-  { value: 'ok',     label: 'Complété'     },
-  { value: 'danger', label: 'En retard'    },
-  { value: 'review', label: 'En révision'  },
+const PANEL_STATUS_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: '',       labelKey: 'tasks.noStatus'   },
+  { value: 'warn',   labelKey: 'tasks.todo'       },
+  { value: 'info',   labelKey: 'tasks.inProgress' },
+  { value: 'ok',     labelKey: 'tasks.completed'  },
+  { value: 'danger', labelKey: 'tasks.overdue'    },
+  { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
-const RESOURCE_STATUS_OPTIONS: { status: Status; label: string }[] = [
-  { status: 'ok',      label: 'Terminé'     },
-  { status: 'info',    label: 'En cours'    },
-  { status: 'warn',    label: 'À faire'     },
-  { status: 'review',  label: 'En révision' },
-  { status: 'danger',  label: 'Bloqué'      },
-  { status: 'neutral', label: 'En attente'  },
+const RESOURCE_STATUS_OPTIONS: { status: Status; labelKey: string }[] = [
+  { status: 'ok',      labelKey: 'resources.completed'  },
+  { status: 'info',    labelKey: 'resources.inProgress' },
+  { status: 'warn',    labelKey: 'resources.todo'       },
+  { status: 'review',  labelKey: 'resources.inReview'   },
+  { status: 'danger',  labelKey: 'resources.blocked'    },
+  { status: 'neutral', labelKey: 'resources.waiting'    },
 ];
 
-const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }[] = [
+const FORMAT_OPTIONS: { value: DeliverableFormat; labelKey?: string; label?: string; ratio: string }[] = [
   { value: '16:9',    label: '16:9',    ratio: '16/9' },
   { value: '9:16',    label: '9:16',    ratio: '9/16' },
   { value: '1:1',     label: '1:1',     ratio: '1/1' },
   { value: '4:3',     label: '4:3',     ratio: '4/3' },
   { value: '2.35:1',  label: '2.35:1',  ratio: '2.35/1' },
-  { value: 'custom',  label: 'Personnalisé', ratio: '4/3' },
+  { value: 'custom',  labelKey: 'taskPanel.formatCustom', ratio: '4/3' },
 ];
 
-const DELIVERABLE_TYPE_OPTIONS: { value: DeliverableType; label: string; icon: string }[] = [
-  { value: 'video',     label: 'Vidéo',     icon: 'video'       },
-  { value: 'photo',     label: 'Photo',     icon: 'image'       },
-  { value: 'audio',     label: 'Audio',     icon: 'music'       },
-  { value: 'document',  label: 'Document',  icon: 'file-text'   },
-  { value: 'web',       label: 'Site web',  icon: 'globe'       },
-  { value: 'graphique', label: 'Graphique', icon: 'pen-tool'    },
-  { value: 'service',   label: 'Service',   icon: 'briefcase'   },
-  { value: 'produit',   label: 'Produit',   icon: 'package-2'   },
-  { value: 'autre',     label: 'Autre',     icon: 'circle-dashed'},
+const DELIVERABLE_TYPE_OPTIONS: { value: DeliverableType; labelKey: string; icon: string }[] = [
+  { value: 'video',     labelKey: 'taskPanel.delivVideo',      icon: 'video'       },
+  { value: 'photo',     labelKey: 'taskPanel.delivPhoto',      icon: 'image'       },
+  { value: 'audio',     labelKey: 'taskPanel.delivAudio',      icon: 'music'       },
+  { value: 'document',  labelKey: 'taskPanel.delivDocument',   icon: 'file-text'   },
+  { value: 'web',       labelKey: 'taskPanel.delivWeb',        icon: 'globe'       },
+  { value: 'graphique', labelKey: 'taskPanel.delivGraphic',    icon: 'pen-tool'    },
+  { value: 'service',   labelKey: 'taskPanel.delivService',    icon: 'briefcase'   },
+  { value: 'produit',   labelKey: 'taskPanel.delivProduct',    icon: 'package-2'   },
+  { value: 'autre',     labelKey: 'taskPanel.delivOther',      icon: 'circle-dashed'},
 ];
 
-const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
-  screenplay:   'Scénarisation',
-  video_review: 'Révision',
-  moodboard:    'Moodboard',
-  document:     'Document',
-  checklist:    'Checklist',
-  inspirations: 'Inspirations',
-  file:         'Fichier',
-  form:         'Formulaire',
+const RESOURCE_TYPE_LABEL_KEY: Record<ResourceType, string> = {
+  screenplay:   'resources.scenography',
+  video_review: 'resources.review',
+  moodboard:    'resources.moodboard',
+  document:     'resources.document',
+  checklist:    'resources.checklist',
+  inspirations: 'resources.inspirations',
+  file:         'resources.file',
+  form:         'resources.form',
 };
 
 const TYPE_ICON: Record<ResourceType, string> = {
@@ -177,6 +178,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(sub.title === '');
   const [editTitle, setEditTitle] = useState(sub.title);
   const [hovered, setHovered] = useState(false);
@@ -213,26 +215,26 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
           onChange={e => setEditTitle(e.target.value)}
           onBlur={() => { onUpdate({ title: editTitle }); setEditing(false); }}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { onUpdate({ title: editTitle }); setEditing(false); } }}
-          placeholder="Nouvelle sous-tâche"
+          placeholder={t('tasks.newSubtask')}
           style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%' }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
           style={{ fontSize: 12, textDecoration: sub.checked ? 'line-through' : 'none', color: sub.title ? (sub.checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
-          {sub.title || 'Nouvelle sous-tâche'}
+          {sub.title || t('tasks.newSubtask')}
         </span>
       )}
 
       {/* Priority */}
       <div style={{ position: 'relative' }}>
-        <button onClick={e => openDrop('priority', e)} title={`Priorité : ${PRIORITY_LABEL[sub.priority]}`}
+        <button onClick={e => openDrop('priority', e)} title={`${t('tasks.priority')} : ${t(PRIORITY_LABEL_KEY[sub.priority])}`}
           style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%' }}>
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: PRIORITY_COLOR[sub.priority], flexShrink: 0, display: 'block' }} />
         </button>
         {dropOpen === 'priority' && (
           <InlineDropdown onClose={() => setDropOpen(null)} anchorRect={dropRect} zIndex={600}>
             {PRIORITY_OPTIONS.map(p => ddItem(() => { onUpdate({ priority: p }); setDropOpen(null); },
-              <><span style={{ width: 8, height: 8, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+              <><span style={{ width: 8, height: 8, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
               sub.priority === p
             ))}
           </InlineDropdown>
@@ -250,7 +252,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
         {dropOpen === 'assignee' && (
           <InlineDropdown onClose={() => setDropOpen(null)} anchorRect={dropRect} minWidth={180} zIndex={600}>
             {ddItem(() => { onUpdate({ assignee: null }); setDropOpen(null); },
-              <><span style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={9} color="var(--text-3)" /></span>Non assigné</>,
+              <><span style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={9} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               sub.assignee === null
             )}
             {TEAM.map(u => ddItem(() => { onUpdate({ assignee: u }); setDropOpen(null); },
@@ -274,7 +276,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
       </div>
 
       {/* Delete */}
-      <button onClick={e => { e.stopPropagation(); onDelete(); }} title="Supprimer"
+      <button onClick={e => { e.stopPropagation(); onDelete(); }} title={t('tasks.delete')}
         style={{ visibility: hovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, justifySelf: 'center' }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
@@ -295,6 +297,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   autoFocusComments?: boolean;
   inline?: boolean;
 }) {
+  const { t } = useTranslation();
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
   const [description, setDescription] = useState('');
@@ -555,13 +558,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
                 >
-                  {breadSection || 'Section'}
+                  {breadSection || t('taskPanel.section')}
                   <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
                 </button>
                 {breadSectionOpen && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 400, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 4, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginTop: 4 }}>
                     {breadSections.length === 0
-                      ? <span style={{ display: 'block', padding: '6px 10px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>Aucune section</span>
+                      ? <span style={{ display: 'block', padding: '6px 10px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.noSection')}</span>
                       : breadSections.map(s => (
                         <button key={s.label} onClick={() => {
                           setBreadSection(s.label);
@@ -579,7 +582,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <button
                 onClick={() => commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                title="Aller aux commentaires"
+                title={t('taskPanel.goToComments')}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -618,7 +621,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           ) : (
             <h3
               onClick={() => { setTitleValue(titleValue); setEditingTitle(true); }}
-              title="Cliquer pour modifier"
+              title={t('taskPanel.clickToEdit')}
               style={{
                 fontSize: 16, fontWeight: 700, lineHeight: 1.4, marginBottom: 10,
                 cursor: 'text', borderRadius: 8, padding: '4px 8px', margin: '0 -8px 10px',
@@ -634,7 +637,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             {/* Assigné */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Assigné à</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.assignedTo')}</span>
               <div style={{ position: 'relative' }}>
                 <button onClick={e => openPanelDrop('assignee', e)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -642,13 +645,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     ? <SFAvatar initials={editAssignee.initials} bg={editAssignee.avatarColor} size={20} />
                     : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
                   }
-                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{editAssignee?.name ?? 'Non assigné'}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{editAssignee?.name ?? t('tasks.unassigned')}</span>
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
                 {panelOpen === 'assignee' && (
                   <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} minWidth={180} zIndex={300}>
                     {ddItem(() => { setEditAssignee(null); setPanelOpen(null); onUpdate?.({ assignee: undefined }); },
-                      <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>,
+                      <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
                       editAssignee === null
                     )}
                     {TEAM.map(u => ddItem(() => { setEditAssignee(u); setPanelOpen(null); onUpdate?.({ assignee: u }); },
@@ -661,18 +664,18 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             </div>
             {/* Priorité */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Priorité</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('tasks.priority')}</span>
               <div style={{ position: 'relative' }}>
                 <button onClick={e => openPanelDrop('priority', e)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[editPriority], flexShrink: 0, display: 'block' }} />
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[editPriority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{PRIORITY_LABEL[editPriority]}</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[editPriority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[editPriority])}</span>
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
                 {panelOpen === 'priority' && (
                   <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
-                    {PRIORITY_OPTIONS.map(p => ddItem(() => { setEditPriority(p); setPanelOpen(null); onUpdate?.({ priority: p, priorityLabel: PRIORITY_LABEL[p] }); },
-                      <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+                    {PRIORITY_OPTIONS.map(p => ddItem(() => { setEditPriority(p); setPanelOpen(null); onUpdate?.({ priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); },
+                      <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
                       editPriority === p
                     ))}
                   </InlineDropdown>
@@ -681,20 +684,20 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             </div>
             {/* Statut */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Statut</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('tasks.status')}</span>
               <div style={{ position: 'relative' }}>
                 <button onClick={e => openPanelDrop('status', e)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                   {editStatus
                     ? <SFPill status={editStatus as Task['status']} small>{editStatusLabel}</SFPill>
-                    : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Aucun</span>
+                    : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('taskPanel.none')}</span>
                   }
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
                 {panelOpen === 'status' && (
                   <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
-                    {PANEL_STATUS_OPTIONS.map(o => ddItem(() => { setEditStatus(o.value); setEditStatusLabel(o.label); setPanelOpen(null); onUpdate?.({ status: o.value as Task['status'], statusLabel: o.label }); },
-                      <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{o.label}</>,
+                    {PANEL_STATUS_OPTIONS.map(o => ddItem(() => { setEditStatus(o.value); setEditStatusLabel(t(o.labelKey)); setPanelOpen(null); onUpdate?.({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); },
+                      <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
                       editStatus === o.value
                     ))}
                   </InlineDropdown>
@@ -710,7 +713,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               onClick={e => { setDatePickerOpen(o => o === 'debut' ? null : 'debut'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateDebut ? (isOverdue(dateDebut) ? 'var(--danger)' : 'var(--text)') : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
             >
-              {dateDebut ? formatDisplay(dateDebut) : 'Début'}
+              {dateDebut ? formatDisplay(dateDebut) : t('taskPanel.start')}
             </button>
             {dateDebut && (
               <button onClick={e => openPanelDrop('heureDebut', e)}
@@ -722,7 +725,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               onClick={e => { setDatePickerOpen(o => o === 'fin' ? null : 'fin'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
             >
-              {dateFin ? formatDisplay(dateFin) : 'Fin'}
+              {dateFin ? formatDisplay(dateFin) : t('taskPanel.end')}
             </button>
             {dateFin && (
               <button onClick={e => openPanelDrop('heureFin', e)}
@@ -752,14 +755,14 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           {/* Livrable toggle + format */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              {secLabel('Livrable client')}
+              {secLabel(t('taskPanel.clientDeliverable'))}
               {!isDeliverable ? (
                 <button
                   onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                 >
                   <SFIcon name="package" size={12} />
-                  Marquer comme livrable
+                  {t('taskPanel.markAsDeliverable')}
                 </button>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -768,8 +771,8 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     onClick={() => setDeliverableExpanded(v => !v)}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)', letterSpacing: '0.03em' }}
                   >
-                    <SFIcon name={DELIVERABLE_TYPE_OPTIONS.find(t => t.value === deliverableType)?.icon ?? 'package'} size={11} color="var(--accent)" />
-                    {DELIVERABLE_TYPE_OPTIONS.find(t => t.value === deliverableType)?.label}
+                    <SFIcon name={DELIVERABLE_TYPE_OPTIONS.find(opt => opt.value === deliverableType)?.icon ?? 'package'} size={11} color="var(--accent)" />
+                    {(() => { const opt = DELIVERABLE_TYPE_OPTIONS.find(o => o.value === deliverableType); return opt ? t(opt.labelKey) : ''; })()}
                     {(deliverableType === 'video' || deliverableType === 'photo') && (
                       <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
                       <span style={{ color: 'rgba(249,255,0,0.7)' }}>{format === 'custom' ? `${customW}×${customH}` : format}</span></>
@@ -780,7 +783,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     )}
                     {deliverableType === 'photo' && deliverableQuantity > 1 && (
                       <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
-                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{deliverableQuantity} photos</span></>
+                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{t('taskPanel.photosCount', { count: deliverableQuantity })}</span></>
                     )}
                     {deliverableNote && (
                       <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
@@ -791,7 +794,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   {/* Disable button */}
                   <button
                     onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); }}
-                    title="Désactiver le livrable"
+                    title={t('taskPanel.disableDeliverable')}
                     style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
@@ -807,11 +810,11 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
                 {/* Type pills */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {DELIVERABLE_TYPE_OPTIONS.map(t => (
-                    <button key={t.value} onClick={() => setDeliverableType(t.value)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${deliverableType === t.value ? 'var(--accent)' : 'var(--border)'}`, background: deliverableType === t.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
-                      <SFIcon name={t.icon} size={11} color={deliverableType === t.value ? 'var(--accent)' : 'var(--text-3)'} />
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: deliverableType === t.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{t.label}</span>
+                  {DELIVERABLE_TYPE_OPTIONS.map(opt => (
+                    <button key={opt.value} onClick={() => setDeliverableType(opt.value)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${deliverableType === opt.value ? 'var(--accent)' : 'var(--border)'}`, background: deliverableType === opt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
+                      <SFIcon name={opt.icon} size={11} color={deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)'} />
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{t(opt.labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -821,7 +824,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     {FORMAT_OPTIONS.map(f => (
                       <button key={f.value} onClick={() => setFormat(f.value)}
                         style={{ padding: '3px 9px', borderRadius: 7, border: `1px solid ${format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', fontSize: 9, color: format === f.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em' }}>
-                        {f.label}
+                        {f.labelKey ? t(f.labelKey) : f.label}
                       </button>
                     ))}
                     {format === 'custom' && (
@@ -840,19 +843,19 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
                   {(deliverableType === 'video' || deliverableType === 'audio') && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>Durée</span>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>{t('taskPanel.duration')}</span>
                       <input
                         type="text"
                         value={deliverableDuration}
                         onChange={e => setDeliverableDuration(e.target.value)}
-                        placeholder="ex : 1:30"
+                        placeholder={t('taskPanel.durationPlaceholder')}
                         style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
                     </div>
                   )}
                   {deliverableType === 'photo' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>Quantité</span>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>{t('taskPanel.quantity')}</span>
                       <input
                         type="number"
                         min={1}
@@ -860,15 +863,15 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         onChange={e => setDeliverableQuantity(Number(e.target.value))}
                         style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
-                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>photos</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.photos')}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68, paddingTop: 5 }}>Note</span>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68, paddingTop: 5 }}>{t('taskPanel.note')}</span>
                     <textarea
                       value={deliverableNote}
                       onChange={e => setDeliverableNote(e.target.value)}
-                      placeholder={deliverableType === 'document' || deliverableType === 'web' ? 'ex : 5 pages de destination' : 'Note personnalisée…'}
+                      placeholder={deliverableType === 'document' || deliverableType === 'web' ? t('taskPanel.notePlaceholderPages') : t('taskPanel.notePlaceholderCustom')}
                       rows={2}
                       style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5 }}
                     />
@@ -881,7 +884,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                   >
                     <SFIcon name="check" size={11} color="var(--on-accent)" />
-                    Confirmer
+                    {t('taskPanel.confirm')}
                   </button>
                 </div>
               </div>
@@ -892,12 +895,12 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
           {/* Description */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {secLabel('Description')}
+            {secLabel(t('taskPanel.description'))}
             <textarea
               ref={descRef}
               value={description}
               onChange={e => { setDescription(e.target.value); }}
-              placeholder="Ajouter une description..."
+              placeholder={t('tasks.addDescription')}
               rows={2}
               style={{
                 width: '100%', padding: '8px 12px', borderRadius: 10,
@@ -914,7 +917,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           {/* Ressources liées — toujours visible */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              {panelSectionLabel(`Ressources liées${linkedResources.length ? ` (${linkedResources.length})` : ''}`)}
+              {panelSectionLabel(`${t('taskPanel.linkedResources')}${linkedResources.length ? ` (${linkedResources.length})` : ''}`)}
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={e => { setResourcePickerOpen(o => !o); setResPickerRect((e.currentTarget as HTMLButtonElement).getBoundingClientRect()); }}
@@ -926,7 +929,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   }}
                 >
                   <SFIcon name="plus" size={11} />
-                  Lier
+                  {t('taskPanel.link')}
                 </button>
 
                 {/* Resource picker dropdown */}
@@ -943,7 +946,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                       <div style={{ position: 'fixed', top: Math.max(8, topPos), right: resPickerRect ? window.innerWidth - resPickerRect.right : 20, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.6)', minWidth: 300, maxWidth: 340, display: 'flex', flexDirection: 'column', maxHeight: Math.min(dropH, window.innerHeight - 24) }}>
                         {/* Scrollable resource list */}
                         <div style={{ overflowY: 'auto', flex: 1, padding: 6 }}>
-                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 10px 4px' }}>Ressources existantes</p>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 10px 4px' }}>{t('taskPanel.existingResources')}</p>
                           {resources.map(r => {
                             const linked = linkedResources.includes(r.id);
                             return (
@@ -966,13 +969,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         </div>
                         {/* Sticky "Créer" section at bottom */}
                         <div style={{ borderTop: '1px solid var(--border)', padding: '10px 10px 12px', flexShrink: 0, background: 'var(--surface)' }}>
-                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Créer une nouvelle ressource</p>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('taskPanel.createNewResource')}</p>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                            {(Object.keys(RESOURCE_TYPE_LABELS) as ResourceType[]).map(type => (
+                            {(Object.keys(RESOURCE_TYPE_LABEL_KEY) as ResourceType[]).map(type => (
                               <button key={type} onClick={() => setResourcePickerOpen(false)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
                                 <SFIcon name={TYPE_ICON[type]} size={11} />
-                                {RESOURCE_TYPE_LABELS[type]}
+                                {t(RESOURCE_TYPE_LABEL_KEY[type])}
                               </button>
                             ))}
                           </div>
@@ -1010,7 +1013,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     <button
                       onClick={e => { e.stopPropagation(); setResStatusDrop(prev => prev === r.id ? null : r.id); setResStatusRect(e.currentTarget.getBoundingClientRect()); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}
-                      title="Changer le statut"
+                      title={t('taskPanel.changeStatus')}
                     >
                       <SFPill status={r.status} small>{r.statusLabel}</SFPill>
                       <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
@@ -1018,7 +1021,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
                       <button
                         onClick={e => { e.stopPropagation(); setFullscreenResource(r.id); }}
-                        title="Ouvrir en plein écran"
+                        title={t('taskPanel.openFullscreen')}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -1027,7 +1030,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); setLinkedResources(prev => prev.filter(id => id !== r.id)); }}
-                        title="Retirer la ressource"
+                        title={t('taskPanel.removeResource')}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,60,60,0.08)'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
@@ -1040,19 +1043,19 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     <InlineDropdown onClose={() => setResStatusDrop(null)} anchorRect={resStatusRect} minWidth={160} zIndex={700}>
                       {RESOURCE_STATUS_OPTIONS.map(opt => (
                         <button key={opt.status}
-                          onClick={() => { updateResource(r.id, { status: opt.status, statusLabel: opt.label }); setResStatusDrop(null); }}
+                          onClick={() => { updateResource(r.id, { status: opt.status, statusLabel: t(opt.labelKey) }); setResStatusDrop(null); }}
                           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 10px', border: 'none', background: r.status === opt.status ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', borderRadius: 7 }}
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                           onMouseLeave={e => (e.currentTarget.style.background = r.status === opt.status ? 'var(--surface-2)' : 'transparent')}
                         >
-                          <SFPill status={opt.status} small>{opt.label}</SFPill>
+                          <SFPill status={opt.status} small>{t(opt.labelKey)}</SFPill>
                         </button>
                       ))}
                     </InlineDropdown>
                   )}
                 </div>
               ))
-              : <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune ressource liée</p>
+              : <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('taskPanel.noLinkedResources')}</p>
             }
           </div>
 
@@ -1060,21 +1063,21 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
           {divider}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              {panelSectionLabel(`Sous-tâches${localSubtasks.length ? ` (${localSubtasks.filter(s => s.checked).length}/${localSubtasks.length})` : ''}`)}
+              {panelSectionLabel(`${t('tasks.subtasks')}${localSubtasks.length ? ` (${localSubtasks.filter(s => s.checked).length}/${localSubtasks.length})` : ''}`)}
               {localSubtasks.some(s => s.checked) && (
                 <button
                   onClick={() => setHideCompletedSubs(v => !v)}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, border: '1px solid var(--border)', background: hideCompletedSubs ? 'rgba(249,255,0,0.07)' : 'transparent', color: hideCompletedSubs ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}
-                  title={hideCompletedSubs ? 'Afficher les sous-tâches terminées' : 'Masquer les sous-tâches terminées'}
+                  title={hideCompletedSubs ? t('taskPanel.showCompletedSubtasks') : t('taskPanel.hideCompletedSubtasks')}
                 >
                   <SFIcon name={hideCompletedSubs ? 'eye-off' : 'eye'} size={12}  />
-                  {hideCompletedSubs ? 'Terminées masquées' : 'Masquer terminées'}
+                  {hideCompletedSubs ? t('taskPanel.completedHidden') : t('taskPanel.hideCompleted')}
                 </button>
               )}
             </div>
             {localSubtasks.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: SUB_GRID, gap: 16, padding: '4px 8px 6px', marginBottom: 4, borderBottom: '1px solid var(--border)' }}>
-                <span />{subColLabel('Titre')}{subColLabel('Prio')}{subColLabel('Assigné')}{subColLabel('Échéance')}<span />
+                <span />{subColLabel(t('tasks.title'))}{subColLabel(t('taskPanel.prio'))}{subColLabel(t('tasks.assigned'))}{subColLabel(t('tasks.dueDate'))}<span />
               </div>
             )}
             {localSubtasks.filter(sub => !hideCompletedSubs || !sub.checked).map(sub => (
@@ -1082,7 +1085,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 onToggle={() => {
                   const next = !sub.checked;
                   updateSub(sub.id, { checked: next });
-                  if (next) showToast({ type: 'subtask', message: 'Sous-tâche terminée' });
+                  if (next) showToast({ type: 'subtask', message: t('taskPanel.subtaskCompleted') });
                 }}
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => setLocalSubtasks(prev => prev.filter(s => s.id !== sub.id))}
@@ -1093,7 +1096,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
-              <SFIcon name="plus" size={12} />Ajouter une sous-tâche
+              <SFIcon name="plus" size={12} />{t('taskPanel.addSubtask')}
             </button>
           </div>
 
@@ -1101,7 +1104,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
           {/* Commentaires */}
           <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 9 }}>
-            {panelSectionLabel(`Commentaires${comments.length ? ` (${comments.length})` : ''}`)}
+            {panelSectionLabel(`${t('activity.comments')}${comments.length ? ` (${comments.length})` : ''}`)}
 
             {comments.map(c => (
               <div key={c.id}>
@@ -1117,20 +1120,20 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
-                      >Répondre</button>
+                      >{t('taskPanel.replyAction')}</button>
                       <button onClick={() => convertToSubtask(c)}
                         style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
                       >
-                        <SFIcon name="git-branch" size={11} />→ Sous-tâche
+                        <SFIcon name="git-branch" size={11} />{t('taskPanel.toSubtask')}
                       </button>
                       <button onClick={() => { setComments(prev => prev.filter(x => x.id !== c.id)); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
                       >
-                        <SFIcon name="trash-2" size={11} />Supprimer
+                        <SFIcon name="trash-2" size={11} />{t('tasks.delete')}
                       </button>
                     </div>
                   </div>
@@ -1156,16 +1159,16 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         value={replyText}
                         onChange={e => setReplyText(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') submitReply(c.id); if (e.key === 'Escape') setReplyingTo(null); }}
-                        placeholder="Répondre…"
+                        placeholder={t('tasks.reply')}
                         style={{ flex: 1, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
                       />
                       <button onClick={() => submitReply(c.id)}
                         style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: replyText.trim() ? 'var(--accent)' : 'var(--surface-3)', color: replyText.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 11, fontWeight: 600, cursor: replyText.trim() ? 'pointer' : 'default', fontFamily: 'var(--ff-text)' }}>
-                        Envoyer
+                        {t('taskPanel.send')}
                       </button>
                       <button onClick={() => setReplyingTo(null)}
                         style={{ padding: '5px 8px', borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                        Annuler
+                        {t('tasks.cancel')}
                       </button>
                     </div>
                   </div>
@@ -1182,12 +1185,12 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   value={comment}
                   onChange={e => handleCommentChange(e.target.value, e.currentTarget)}
                   onKeyDown={e => { if (e.key === 'Enter' && !mentionQuery) submitComment(); }}
-                  placeholder="Ajouter un commentaire… (@ pour mentionner)"
+                  placeholder={t('taskPanel.addCommentMention')}
                   style={{ flex: 1, padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
                 />
                 <button onClick={submitComment}
                   style={{ padding: '7px 14px', borderRadius: 9, border: 'none', background: comment.trim() ? 'var(--accent)' : 'var(--surface-3)', color: comment.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: comment.trim() ? 'pointer' : 'default', transition: 'all 0.12s', fontFamily: 'var(--ff-text)' }}>
-                  Envoyer
+                  {t('taskPanel.send')}
                 </button>
               </div>
 
@@ -1199,7 +1202,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   <>
                     <div onClick={() => setMentionQuery(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
                     <div style={{ position: 'fixed', bottom: mentionRect ? window.innerHeight - mentionRect.top + 6 : 80, left: mentionRect?.left ?? 100, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 200, padding: 4 }}>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 8px 2px' }}>Mentionner</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 8px 2px' }}>{t('taskPanel.mention')}</p>
                       {filtered.map(u => (
                         <button key={u.id} onClick={() => pickMention(u.name)}
                           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
@@ -1240,7 +1243,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 <button
                   onClick={e => { setFsStatusDropOpen(o => !o); setFsStatusRect(e.currentTarget.getBoundingClientRect()); }}
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                  title="Changer le statut"
+                  title={t('taskPanel.changeStatus')}
                 >
                   <SFPill status={res.status} small>{res.statusLabel}</SFPill>
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
@@ -1249,12 +1252,12 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   <InlineDropdown onClose={() => setFsStatusDropOpen(false)} anchorRect={fsStatusRect} minWidth={160} zIndex={700}>
                     {RESOURCE_STATUS_OPTIONS.map(opt => (
                       <button key={opt.status}
-                        onClick={() => { updateResource(res.id, { status: opt.status, statusLabel: opt.label }); setFsStatusDropOpen(false); }}
+                        onClick={() => { updateResource(res.id, { status: opt.status, statusLabel: t(opt.labelKey) }); setFsStatusDropOpen(false); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 10px', border: 'none', background: res.status === opt.status ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', borderRadius: 7 }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                         onMouseLeave={e => (e.currentTarget.style.background = res.status === opt.status ? 'var(--surface-2)' : 'transparent')}
                       >
-                        <SFPill status={opt.status} small>{opt.label}</SFPill>
+                        <SFPill status={opt.status} small>{t(opt.labelKey)}</SFPill>
                       </button>
                     ))}
                   </InlineDropdown>
@@ -1265,7 +1268,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}
-                title="Fermer (revenir à la tâche)"
+                title={t('taskPanel.closeToTask')}
               >
                 <SFIcon name="x" size={16} />
               </button>

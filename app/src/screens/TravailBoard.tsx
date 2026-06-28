@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate, TaskDatePopover } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
@@ -9,19 +10,19 @@ const PRIORITY_COLOR: Record<Priority, string> = {
   high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)',
 };
 
-const PRIORITY_LABEL: Record<Priority, string> = {
-  high: 'Élevée', normal: 'Moyenne', low: 'Basse', none: 'Aucune',
+const PRIORITY_LABEL_KEY: Record<Priority, string> = {
+  high: 'priority.high', normal: 'priority.medium', low: 'priority.low', none: 'priority.none',
 };
 
 const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 
 const STATUS_OPTIONS = [
-  { value: '',       label: 'Aucun statut' },
-  { value: 'warn',   label: 'À faire'      },
-  { value: 'info',   label: 'En cours'     },
-  { value: 'ok',     label: 'Complété'     },
-  { value: 'danger', label: 'En retard'    },
-  { value: 'review', label: 'En révision'  },
+  { value: '',       labelKey: 'tasks.noStatus'  },
+  { value: 'warn',   labelKey: 'tasks.todo'      },
+  { value: 'info',   labelKey: 'tasks.inProgress'},
+  { value: 'ok',     labelKey: 'tasks.completed' },
+  { value: 'danger', labelKey: 'tasks.overdue'   },
+  { value: 'review', labelKey: 'tasks.inReview'  },
 ];
 
 const TEAM = Object.values(USERS);
@@ -67,6 +68,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onClose, sections, currentSect
   currentSectionIdx: number;
   onMoveToSection: (toIdx: number) => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [showMove, setShowMove] = useState(false);
   useEffect(() => {
@@ -87,7 +89,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onClose, sections, currentSect
 
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
-      {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>Ouvrir le détail</span></>, onOpen)}
+      {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
 
       {otherSections.length > 0 && !showMove && (
         <button
@@ -98,7 +100,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onClose, sections, currentSect
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <SFIcon name="move-right" size={13} color="var(--text-3)" />
-            <span>Déplacer vers…</span>
+            <span>{t('board.moveTo')}</span>
           </div>
           <SFIcon name="chevron-right" size={11} color="var(--text-3)" />
         </button>
@@ -121,7 +123,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onClose, sections, currentSect
       })}
 
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
     </div>,
     document.body,
   );
@@ -155,6 +157,7 @@ export function TravailBoard({
   onDeleteTask, onDeleteSection,
   projectId, projectName, projectColor,
 }: Props) {
+  const { t } = useTranslation();
   const [dragTask, setDragTask] = useState<{ task: Task; sectionIdx: number } | null>(null);
   const [dragOverSection, setDragOverSection] = useState<number | null>(null);
   const [addingSection, setAddingSection] = useState(false);
@@ -229,7 +232,7 @@ export function TravailBoard({
               >
                 <button
                   onClick={() => toggleCollapse(section.label)}
-                  title="Développer"
+                  title={t('board.expand')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex', borderRadius: 5, transform: 'rotate(-90deg)' }}
                   onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
                   onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -251,7 +254,7 @@ export function TravailBoard({
                   {/* Section complete toggle */}
                   <button
                     onClick={() => onToggleSectionComplete(section.label)}
-                    title={section.completed ? 'Marquer non terminée' : 'Marquer terminée'}
+                    title={section.completed ? t('board.markSectionIncomplete') : t('board.markSectionComplete')}
                     style={{ width: 14, height: 14, borderRadius: '50%', background: section.completed ? 'var(--ok)' : 'transparent', border: `1.5px solid ${section.completed ? 'var(--ok)' : 'var(--border-2)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, transition: 'all 0.15s' }}
                     onMouseEnter={e => { if (!section.completed) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ok)'; } }}
                     onMouseLeave={e => { if (!section.completed) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; } }}
@@ -266,9 +269,9 @@ export function TravailBoard({
                   {confirmDeleteSection === section.label ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <button onClick={() => { onDeleteSection(section.label); setConfirmDeleteSection(null); }}
-                        style={{ padding: '2px 7px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Suppr.</button>
+                        style={{ padding: '2px 7px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('board.deleteShort')}</button>
                       <button onClick={() => setConfirmDeleteSection(null)}
-                        style={{ padding: '2px 7px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Non</button>
+                        style={{ padding: '2px 7px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -277,7 +280,7 @@ export function TravailBoard({
                         <>
                           <button
                             onClick={() => toggleCollapse(section.label)}
-                            title="Réduire"
+                            title={t('board.collapse')}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5 }}
                             onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
                             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -286,7 +289,7 @@ export function TravailBoard({
                           </button>
                           <button
                             onClick={() => { if (total > 0) setConfirmDeleteSection(section.label); else onDeleteSection(section.label); }}
-                            title="Supprimer la section"
+                            title={t('board.deleteSection')}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5 }}
                             onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
                             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -305,7 +308,7 @@ export function TravailBoard({
                 </div>
                 {total > 0 && (
                   <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>
-                    {done}/{total} complétée{done > 1 ? 's' : ''}
+                    {t('board.completedCount', { done, total })}
                   </p>
                 )}
               </div>
@@ -320,7 +323,7 @@ export function TravailBoard({
                   {section.tasks.length === 0 && (
                     <div style={{ padding: '20px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--text-3)' }}>
                       <SFIcon name="inbox" size={22} color="var(--border-2)" />
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, textAlign: 'center' }}>Aucune tâche</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, textAlign: 'center' }}>{t('board.noTasks')}</p>
                     </div>
                   )}
                   {section.tasks.map(task => {
@@ -357,7 +360,7 @@ export function TravailBoard({
                         <button
                           onClick={e => { e.stopPropagation(); onDeleteTask(task); }}
                           onMouseDown={e => e.stopPropagation()}
-                          title="Supprimer la tâche"
+                          title={t('board.deleteTask')}
                           style={{ position: 'absolute', top: 8, right: 8, visibility: isHovered ? 'visible' : 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-3)', padding: 3, display: 'flex', borderRadius: 6 }}
                           onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
                           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -371,7 +374,7 @@ export function TravailBoard({
                           <button
                             onClick={e => { e.stopPropagation(); onUpdateTask(task.id, { checked: !task.checked }); }}
                             onMouseDown={e => e.stopPropagation()}
-                            title={task.checked ? 'Marquer non complétée' : 'Marquer complétée'}
+                            title={task.checked ? t('board.markIncomplete') : t('board.markComplete')}
                             style={{
                               width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
                               border: task.checked ? 'none' : '1.5px solid var(--border-2)',
@@ -389,14 +392,14 @@ export function TravailBoard({
                           <button
                             onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'priority', rect: e.currentTarget.getBoundingClientRect() }); }}
                             onMouseDown={e => e.stopPropagation()}
-                            title="Changer la priorité"
+                            title={t('board.changePriority')}
                             style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', borderRadius: 6 }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: PRIORITY_COLOR[task.priority], flexShrink: 0, display: 'block' }} />
                             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: PRIORITY_COLOR[task.priority], letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                              {PRIORITY_LABEL[task.priority]}
+                              {t(PRIORITY_LABEL_KEY[task.priority])}
                             </span>
                           </button>
                         </div>
@@ -412,10 +415,10 @@ export function TravailBoard({
                           <button
                             onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'status', rect: e.currentTarget.getBoundingClientRect() }); }}
                             onMouseDown={e => e.stopPropagation()}
-                            title="Changer le statut"
+                            title={t('board.changeStatus')}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, borderRadius: 6 }}
                           >
-                            <SFPill status={task.status} small>{task.statusLabel || 'Aucun'}</SFPill>
+                            <SFPill status={task.status} small>{task.statusLabel || t('board.statusNone')}</SFPill>
                           </button>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -432,7 +435,7 @@ export function TravailBoard({
                             <button
                               onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'date', rect: e.currentTarget.getBoundingClientRect() }); }}
                               onMouseDown={e => e.stopPropagation()}
-                              title="Changer la date"
+                              title={t('board.changeDate')}
                               style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 5 }}
                               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
@@ -451,7 +454,7 @@ export function TravailBoard({
                             <button
                               onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'assignee', rect: e.currentTarget.getBoundingClientRect() }); }}
                               onMouseDown={e => e.stopPropagation()}
-                              title="Changer l'assigné"
+                              title={t('board.changeAssignee')}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, borderRadius: '50%', display: 'flex' }}
                             >
                               <SFAvatar initials={task.assignee.initials} bg={task.assignee.avatarColor} size={20} />
@@ -483,7 +486,7 @@ export function TravailBoard({
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
                 >
                   <SFIcon name="plus" size={13} />
-                  Ajouter une tâche
+                  {t('board.addTask')}
                 </button>
               </>
             )}
@@ -500,17 +503,17 @@ export function TravailBoard({
             onChange={e => setNewLabel(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') commitSection(); if (e.key === 'Escape') { setAddingSection(false); setNewLabel(''); } }}
             onBlur={commitSection}
-            placeholder="Nom de la section..."
+            placeholder={t('board.sectionNamePlaceholder')}
             style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box' }}
           />
           <div style={{ display: 'flex', gap: 6 }}>
             <button onMouseDown={e => e.preventDefault()} onClick={commitSection}
               style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-              Ajouter
+              {t('board.add')}
             </button>
             <button onMouseDown={e => e.preventDefault()} onClick={() => { setAddingSection(false); setNewLabel(''); }}
               style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-              Annuler
+              {t('board.cancel')}
             </button>
           </div>
         </div>
@@ -522,7 +525,7 @@ export function TravailBoard({
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
         >
           <SFIcon name="plus" size={14} />
-          Nouvelle section
+          {t('board.newSection')}
         </button>
       )}
 
@@ -546,8 +549,8 @@ export function TravailBoard({
             <DItem
               key={o.value}
               active={dropTask.status === o.value || (!dropTask.status && !o.value)}
-              label={<><span style={{ width: 7, height: 7, borderRadius: '50%', background: o.value ? STATUS_COLOR[o.value] : 'var(--border-2)', display: 'block', flexShrink: 0 }} />{o.label}</>}
-              onClick={() => { onUpdateTask(dropTask.id, { status: o.value as Task['status'], statusLabel: o.label }); closeDrop(); }}
+              label={<><span style={{ width: 7, height: 7, borderRadius: '50%', background: o.value ? STATUS_COLOR[o.value] : 'var(--border-2)', display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>}
+              onClick={() => { onUpdateTask(dropTask.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); closeDrop(); }}
             />
           ))}
         </DropMenu>
@@ -559,8 +562,8 @@ export function TravailBoard({
             <DItem
               key={p}
               active={dropTask.priority === p}
-              label={<><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>}
-              onClick={() => { onUpdateTask(dropTask.id, { priority: p, priorityLabel: PRIORITY_LABEL[p] }); closeDrop(); }}
+              label={<><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>}
+              onClick={() => { onUpdateTask(dropTask.id, { priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); closeDrop(); }}
             />
           ))}
         </DropMenu>
@@ -582,7 +585,7 @@ export function TravailBoard({
       {openDrop && dropTask && openDrop.type === 'assignee' && (
         <DropMenu rect={openDrop.rect} onClose={closeDrop}>
           <DItem
-            label={<><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>}
+            label={<><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>}
             active={!dropTask.assignee}
             onClick={() => { onUpdateTask(dropTask.id, { assignee: firstUser }); closeDrop(); }}
           />

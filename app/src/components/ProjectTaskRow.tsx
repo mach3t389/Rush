@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
@@ -12,21 +13,21 @@ export const PRIORITY_COLOR: Record<Priority, string> = {
   low:    'var(--info)',
   none:   'var(--border-2)',
 };
-export const PRIORITY_LABEL: Record<Priority, string> = {
-  high:   'Élevée',
-  normal: 'Moyenne',
-  low:    'Basse',
-  none:   'Aucune',
+export const PRIORITY_LABEL_KEY: Record<Priority, string> = {
+  high:   'priority.high',
+  normal: 'priority.medium',
+  low:    'priority.low',
+  none:   'priority.none',
 };
 export const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 
-export const STATUS_OPTIONS = [
-  { value: '',       label: 'Aucun statut' },
-  { value: 'warn',   label: 'À faire'      },
-  { value: 'info',   label: 'En cours'     },
-  { value: 'ok',     label: 'Complété'     },
-  { value: 'danger', label: 'En retard'    },
-  { value: 'review', label: 'En révision'  },
+export const STATUS_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: '',       labelKey: 'tasks.noStatus'   },
+  { value: 'warn',   labelKey: 'tasks.todo'       },
+  { value: 'info',   labelKey: 'tasks.inProgress' },
+  { value: 'ok',     labelKey: 'tasks.completed'  },
+  { value: 'danger', labelKey: 'tasks.overdue'    },
+  { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
 
@@ -42,16 +43,17 @@ const COL_STYLE: React.CSSProperties = {
 // ── Column header ──────────────────────────────────────────────────────────────
 
 export function ColHeader() {
+  const { t } = useTranslation();
   return (
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
-      <span style={COL_STYLE}>Titre</span>
-      <span style={COL_STYLE}>Sous-tâches</span>
-      <span style={COL_STYLE}>Activité</span>
-      <span style={COL_STYLE}>Assigné à</span>
-      <span style={COL_STYLE}>Priorité</span>
-      <span style={COL_STYLE}>Statut</span>
-      <span style={COL_STYLE}>Échéance</span>
+      <span style={COL_STYLE}>{t('tasks.title')}</span>
+      <span style={COL_STYLE}>{t('tasks.subtasks')}</span>
+      <span style={COL_STYLE}>{t('tasks.activity')}</span>
+      <span style={COL_STYLE}>{t('taskPanel.assignedTo')}</span>
+      <span style={COL_STYLE}>{t('tasks.priority')}</span>
+      <span style={COL_STYLE}>{t('tasks.status')}</span>
+      <span style={COL_STYLE}>{t('tasks.dueDate')}</span>
       <span />
     </div>
   );
@@ -115,18 +117,19 @@ export function MoveTaskModal({ task, sections, onMove, onClose }: {
   onMove: (toSectionLabel: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, padding: '20px', minWidth: 320, maxWidth: 400, boxShadow: '0 16px 48px rgba(0,0,0,0.7)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700 }}>Déplacer la tâche</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700 }}>{t('taskPanel.moveTask')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={15} />
           </button>
         </div>
-        <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Tâche : {task.title}</p>
-        <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>Sections disponibles</div>
+        <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('taskPanel.taskLabel', { title: task.title })}</p>
+        <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>{t('taskPanel.availableSections')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {sections.map(s => (
             <button
@@ -139,7 +142,7 @@ export function MoveTaskModal({ task, sections, onMove, onClose }: {
               <SFIcon name="layers" size={13} color="var(--text-3)" />
               <div>
                 <p style={{ fontSize: 13, fontWeight: 500 }}>{s.label}</p>
-                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{s.tasks.length} tâche{s.tasks.length !== 1 ? 's' : ''}</p>
+                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('taskPanel.taskCount', { count: s.tasks.length })}</p>
               </div>
             </button>
           ))}
@@ -172,6 +175,7 @@ export function ProjectTaskRow({
   onMoveToSection?: (toSectionLabel: string) => void;
   onDelete?: () => void;
 }) {
+  const { t } = useTranslation();
   const checked = task.checked;
   const priority = task.priority;
   const assignee = task.assignee;
@@ -222,7 +226,7 @@ export function ProjectTaskRow({
           onMouseDown={() => { dragHandleActive.current = true; }}
           onMouseUp={() => { dragHandleActive.current = false; }}
           style={{ cursor: 'grab', color: 'var(--border-2)', display: 'flex', opacity: hovered ? 1 : 0, transition: 'opacity 0.1s', position: 'absolute', left: -16, paddingRight: 2 }}
-          title="Réordonner"
+          title={t('taskPanel.reorder')}
         >
           <SFIcon name="grip-vertical" size={11} />
         </div>
@@ -296,13 +300,13 @@ export function ProjectTaskRow({
             ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={20} />
             : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
           }
-          <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee?.name ?? 'Non assigné'}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee?.name ?? t('tasks.unassigned')}</span>
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
         {open === 'assignee' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
             {ddItem(() => { onUpdate({ assignee: null as unknown as Task['assignee'] }); setOpen(null); },
-              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>,
+              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee == null
             )}
             {TEAM.map(u => ddItem(() => { onUpdate({ assignee: u }); setOpen(null); },
@@ -320,13 +324,13 @@ export function ProjectTaskRow({
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{PRIORITY_LABEL[priority]}</span>
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
         {open === 'priority' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect}>
-            {PRIORITY_OPTIONS.map(p => ddItem(() => { onUpdate({ priority: p, priorityLabel: PRIORITY_LABEL[p] }); setOpen(null); },
-              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+            {PRIORITY_OPTIONS.map(p => ddItem(() => { onUpdate({ priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); setOpen(null); },
+              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
               priority === p
             ))}
           </InlineDropdown>
@@ -347,8 +351,8 @@ export function ProjectTaskRow({
         </button>
         {open === 'status' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect}>
-            {STATUS_OPTIONS.map(o => ddItem(() => { onUpdate({ status: o.value as Task['status'], statusLabel: o.label }); setOpen(null); },
-              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{o.label}</>,
+            {STATUS_OPTIONS.map(o => ddItem(() => { onUpdate({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setOpen(null); },
+              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
               status === o.value
             ))}
           </InlineDropdown>
@@ -386,10 +390,10 @@ export function ProjectTaskRow({
         </button>
         {open === 'context' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
-            {ddItem(() => { onSelect(task); setOpen(null); }, <><SFIcon name="maximize-2" size={13} color="var(--text-3)" />Ouvrir le détail</>)}
-            {allSections && allSections.length > 1 && ddItem(() => { setOpen(null); setShowMoveModal(true); }, <><SFIcon name="move-right" size={13} color="var(--text-3)" />Déplacer vers...</>)}
+            {ddItem(() => { onSelect(task); setOpen(null); }, <><SFIcon name="maximize-2" size={13} color="var(--text-3)" />{t('tasks.openDetail')}</>)}
+            {allSections && allSections.length > 1 && ddItem(() => { setOpen(null); setShowMoveModal(true); }, <><SFIcon name="move-right" size={13} color="var(--text-3)" />{t('taskPanel.moveTo')}</>)}
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-            {ddItem(() => { onDelete?.(); setOpen(null); }, <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}><SFIcon name="trash-2" size={13} color="var(--danger)" />Supprimer</span>)}
+            {ddItem(() => { onDelete?.(); setOpen(null); }, <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}><SFIcon name="trash-2" size={13} color="var(--danger)" />{t('tasks.delete')}</span>)}
           </InlineDropdown>
         )}
       </div>

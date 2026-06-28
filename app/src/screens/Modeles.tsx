@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { USERS } from '../data/mock';
@@ -97,6 +98,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
   onClose: () => void;
   onSave: (updated: ResourceTemplate) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(tpl.name);
   const [editingName, setEditingName] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -108,7 +110,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
   const fakeResource: Resource = {
     id: tpl.id, type: tpl.type as ResourceType,
     eyebrow: tpl.type, title: name,
-    status: 'neutral', statusLabel: 'Modèle', meta: '',
+    status: 'neutral', statusLabel: t('models.templateBadge'), meta: '',
   };
 
   const handleSave = () => {
@@ -138,12 +140,12 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
       <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
           <SFIcon name="arrow-left" size={13} />
-          Modèles
+          {t('nav.models')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: `${tpl.color}22`, color: tpl.color, fontSize: 10, fontFamily: 'var(--ff-mono)', border: `1px solid ${tpl.color}44`, flexShrink: 0 }}>
           <SFIcon name={tpl.icon} size={10} />
-          {RES_TYPE_LABELS[tpl.type]}
+          {t(RES_TYPE_LABEL_KEYS[tpl.type])}
         </span>
         {editingName ? (
           <input autoFocus value={name}
@@ -155,7 +157,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         ) : (
           <span onClick={() => { if (!tpl.builtIn) setEditingName(true); }}
             style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: tpl.builtIn ? 'default' : 'text', padding: '4px 6px', borderRadius: 7, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            title={tpl.builtIn ? undefined : 'Cliquer pour renommer'}
+            title={tpl.builtIn ? undefined : t('models.clickToRename')}
           >
             {name}
           </span>
@@ -165,10 +167,10 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
             <SFButton variant="secondary" icon="copy" onClick={() => {
               const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML };
               onSave(copy);
-            }}>Enregistrer une copie</SFButton>
+            }}>{t('models.saveCopy')}</SFButton>
           ) : (
             <SFButton variant={dirty ? 'primary' : 'secondary'} icon="save" onClick={handleSave}>
-              {dirty ? 'Sauvegarder *' : 'Sauvegarder'}
+              {dirty ? t('models.saveDirty') : t('models.save')}
             </SFButton>
           )}
           <button onClick={onClose} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center' }}>
@@ -191,21 +193,21 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 
 // ── Shared constants ───────────────────────────────────────────────────────────
 
-const PRIORITY_LABEL: Record<Priority, string> = { high: 'Élevée', normal: 'Normale', low: 'Basse', none: 'Aucune' };
+const PRIORITY_LABEL_KEY: Record<Priority, string> = { high: 'models.priorityHigh', normal: 'models.priorityNormal', low: 'models.priorityLow', none: 'models.priorityNone' };
 const PRIORITY_COLOR: Record<Priority, string> = { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' };
-const STATUS_OPTIONS = [
-  { value: '', label: 'Aucun statut', color: 'var(--text-3)' },
-  { value: 'info', label: 'En cours', color: 'var(--info)' },
-  { value: 'warn', label: 'En attente', color: 'var(--warn)' },
-  { value: 'ok', label: 'Complété', color: 'var(--ok)' },
-  { value: 'danger', label: 'En retard', color: 'var(--danger)' },
-  { value: 'review', label: 'En révision', color: 'var(--text-2)' },
+const STATUS_OPTIONS: { value: string; labelKey: string; color: string }[] = [
+  { value: '', labelKey: 'models.statusNone', color: 'var(--text-3)' },
+  { value: 'info', labelKey: 'models.statusInProgress', color: 'var(--info)' },
+  { value: 'warn', labelKey: 'models.statusWaiting', color: 'var(--warn)' },
+  { value: 'ok', labelKey: 'models.statusCompleted', color: 'var(--ok)' },
+  { value: 'danger', labelKey: 'models.statusOverdue', color: 'var(--danger)' },
+  { value: 'review', labelKey: 'models.statusInReview', color: 'var(--text-2)' },
 ];
 const USERS_LIST = Object.values(USERS);
 
-const RESOURCE_LABELS: Record<ResourceType, string> = {
-  screenplay: 'Script', video_review: 'Révision', moodboard: 'Moodboard',
-  document: 'Document', checklist: 'Checklist', inspirations: 'Inspirations', file: 'Fichier', form: 'Formulaire',
+const RESOURCE_LABEL_KEYS: Record<ResourceType, string> = {
+  screenplay: 'models.resScript', video_review: 'models.resReviewShort', moodboard: 'models.resMoodboard',
+  document: 'models.resDocument', checklist: 'models.resChecklist', inspirations: 'models.resInspirations', file: 'models.resFile', form: 'models.resForm',
 };
 const RESOURCE_ICON: Record<ResourceType, string> = {
   screenplay: 'file-text', video_review: 'video', moodboard: 'grid-2x2',
@@ -224,9 +226,9 @@ const TAG_COLORS: Record<string, string> = {
   'Révision': '#2a7a8a', 'Livrable': '#1a6b4a', 'Branding': '#4a3428', 'Design': '#5b3ea8', 'Identité': '#7d4e57',
 };
 
-const FORM_FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
-  text: 'Texte court', textarea: 'Texte long', choice: 'Choix unique',
-  multi: 'Choix multiple', rating: 'Évaluation', date: 'Date', number: 'Nombre', file: 'Fichier',
+const FORM_FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
+  text: 'models.fieldTypeText', textarea: 'models.fieldTypeTextarea', choice: 'models.fieldTypeChoice',
+  multi: 'models.fieldTypeMulti', rating: 'models.fieldTypeRating', date: 'models.fieldTypeDate', number: 'models.fieldTypeNumber', file: 'models.fieldTypeFile',
 };
 
 const FORM_FIELD_TYPE_ICONS: Record<FormFieldType, string> = {
@@ -299,6 +301,7 @@ function TemplateEditor({ template, onSave, onClose }: {
   onSave: (t: ProjectTemplate) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(template.name ?? '');
   const [description, setDescription] = useState(template.description ?? '');
   const [color, setColor] = useState(template.color ?? '#3b4f8f');
@@ -356,11 +359,11 @@ function TemplateEditor({ template, onSave, onClose }: {
       {/* Topbar */}
       <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-          <SFIcon name="arrow-left" size={13} />Modèles
+          <SFIcon name="arrow-left" size={13} />{t('nav.models')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: 'var(--surface-3)', color: 'var(--text-2)', fontSize: 10, fontFamily: 'var(--ff-mono)', border: '1px solid var(--border-2)', flexShrink: 0 }}>
-          <SFIcon name="layout-template" size={10} />Projet
+          <SFIcon name="layout-template" size={10} />{t('models.badgeProject')}
         </span>
         {editingName ? (
           <input autoFocus value={name} onChange={e => setName(e.target.value)}
@@ -371,23 +374,23 @@ function TemplateEditor({ template, onSave, onClose }: {
         ) : (
           <span onClick={() => setEditingName(true)}
             style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: 'text', padding: '4px 6px', borderRadius: 7, color: name ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >{name || 'Nom du modèle…'}</span>
+          >{name || t('models.templateNamePlaceholder')}</span>
         )}
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" size="sm" icon="check" onClick={handleSave} style={{ opacity: name.trim() ? 1 : 0.5 }}>{template.id ? 'Enregistrer' : 'Créer le modèle'}</SFButton>
+          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('models.cancel')}</SFButton>
+          <SFButton variant="primary" size="sm" icon="check" onClick={handleSave} style={{ opacity: name.trim() ? 1 : 0.5 }}>{template.id ? t('models.saveAction') : t('models.createTemplate')}</SFButton>
         </div>
       </div>
       {/* Body */}
       <div style={{ flex: 1, overflow: 'auto', padding: '28px 0' }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle()}>Description</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Décrivez brièvement ce modèle…" style={fieldStyle({ resize: 'none' })} />
+            <label style={labelStyle()}>{t('models.description')}</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('models.describeTemplateShort')} style={fieldStyle({ resize: 'none' })} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={labelStyle()}>Couleur</label>
+              <label style={labelStyle()}>{t('models.color')}</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {COLORS.map(c => (
                   <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none', flexShrink: 0 }} />
@@ -395,14 +398,14 @@ function TemplateEditor({ template, onSave, onClose }: {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle()}>Tags (séparés par virgule)</label>
-              <input value={tags} onChange={e => setTags(e.target.value)} placeholder="ex. Vidéo, Social media" style={fieldStyle()} />
+              <label style={labelStyle()}>{t('models.tagsComma')}</label>
+              <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('models.tagsPlaceholderVideo')} style={fieldStyle()} />
             </div>
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <label style={labelStyle()}>Sections & tâches</label>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{sections.reduce((s, sec) => s + sec.tasks.length, 0)} tâches · {sections.length} sections</span>
+              <label style={labelStyle()}>{t('models.sectionsAndTasks')}</label>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('models.tasksDotSections', { tasks: sections.reduce((s, sec) => s + sec.tasks.length, 0), sections: sections.length })}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {sections.map((sec, sIdx) => (
@@ -410,39 +413,39 @@ function TemplateEditor({ template, onSave, onClose }: {
                   <div onClick={() => setExpandedSection(expandedSection === sIdx ? null : sIdx)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--surface-2)', cursor: 'pointer' }}>
                     <SFIcon name={expandedSection === sIdx ? 'chevron-down' : 'chevron-right'} size={13} color="var(--text-3)" />
                     <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{sec.label}</span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{sec.tasks.length} tâches</span>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('models.tasksCount', { count: sec.tasks.length })}</span>
                     <button onClick={e => { e.stopPropagation(); removeSection(sIdx); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
                       <SFIcon name="x" size={13} />
                     </button>
                   </div>
                   {expandedSection === sIdx && (
                     <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {sec.tasks.map((t, tIdx) => {
+                      {sec.tasks.map((tk, tIdx) => {
                         const taskKey = `${sIdx}-${tIdx}`;
                         const isExp = !!expandedTask[taskKey];
-                        const statusOpt = STATUS_OPTIONS.find(o => o.value === (t.status ?? '')) ?? STATUS_OPTIONS[0];
+                        const statusOpt = STATUS_OPTIONS.find(o => o.value === (tk.status ?? '')) ?? STATUS_OPTIONS[0];
                         const selStyle: React.CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '3px 5px', colorScheme: 'dark', cursor: 'pointer', fontFamily: 'var(--ff-text)' };
                         return (
                           <div key={tIdx} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: isExp ? 'var(--surface-2)' : 'transparent' }}>
                             {/* Row header */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px' }}>
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[t.priority], flexShrink: 0, display: 'block' }} />
+                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[tk.priority], flexShrink: 0, display: 'block' }} />
                               <input
-                                value={t.title}
+                                value={tk.title}
                                 onChange={e => updateTask(sIdx, tIdx, { title: e.target.value })}
                                 style={{ flex: 1, fontSize: 12, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontFamily: 'var(--ff-text)' }}
-                                placeholder="Titre de la tâche…"
+                                placeholder={t('models.taskTitlePlaceholder')}
                               />
-                              {t.assignee && (
-                                <span title={t.assignee.name} style={{ width: 18, height: 18, borderRadius: '50%', background: t.assignee.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700, flexShrink: 0 }}>
-                                  {t.assignee.initials}
+                              {tk.assignee && (
+                                <span title={tk.assignee.name} style={{ width: 18, height: 18, borderRadius: '50%', background: tk.assignee.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700, flexShrink: 0 }}>
+                                  {tk.assignee.initials}
                                 </span>
                               )}
-                              {t.status && (
-                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusOpt.color, flexShrink: 0, display: 'block' }} title={statusOpt.label} />
+                              {tk.status && (
+                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusOpt.color, flexShrink: 0, display: 'block' }} title={t(statusOpt.labelKey)} />
                               )}
-                              {t.dueDate && (
-                                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{t.dueDate}</span>
+                              {tk.dueDate && (
+                                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{tk.dueDate}</span>
                               )}
                               <button onClick={() => toggleTask(sIdx, tIdx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2, transition: 'transform 0.15s', transform: isExp ? 'rotate(180deg)' : 'none' }}>
                                 <SFIcon name="chevron-down" size={11} />
@@ -457,51 +460,51 @@ function TemplateEditor({ template, onSave, onClose }: {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, paddingTop: 8 }}>
                                   {/* Priority */}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Priorité</span>
-                                    <select value={t.priority} onChange={e => updateTask(sIdx, tIdx, { priority: e.target.value as Priority })} style={selStyle}>
-                                      {(['high', 'normal', 'low'] as Priority[]).map(p => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
+                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.priorityLabel')}</span>
+                                    <select value={tk.priority} onChange={e => updateTask(sIdx, tIdx, { priority: e.target.value as Priority })} style={selStyle}>
+                                      {(['high', 'normal', 'low'] as Priority[]).map(p => <option key={p} value={p}>{t(PRIORITY_LABEL_KEY[p])}</option>)}
                                     </select>
                                   </div>
                                   {/* Status */}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Statut</span>
-                                    <select value={t.status ?? ''} onChange={e => {
+                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.statusLabel')}</span>
+                                    <select value={tk.status ?? ''} onChange={e => {
                                       const opt = STATUS_OPTIONS.find(o => o.value === e.target.value);
-                                      updateTask(sIdx, tIdx, { status: opt?.value || undefined, statusLabel: opt?.label || undefined });
+                                      updateTask(sIdx, tIdx, { status: opt?.value || undefined, statusLabel: opt ? t(opt.labelKey) : undefined });
                                     }} style={selStyle}>
-                                      {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                      {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
                                     </select>
                                   </div>
                                   {/* Assignee */}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Assigné</span>
-                                    <select value={t.assignee?.id ?? ''} onChange={e => {
+                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.assigneeLabel')}</span>
+                                    <select value={tk.assignee?.id ?? ''} onChange={e => {
                                       const u = USERS_LIST.find(u => u.id === e.target.value);
                                       updateTask(sIdx, tIdx, { assignee: u ? { id: u.id, name: u.name, initials: u.initials, avatarColor: u.avatarColor } : undefined });
                                     }} style={selStyle}>
-                                      <option value="">— Aucun</option>
+                                      <option value="">{t('models.assigneeNone')}</option>
                                       {USERS_LIST.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                     </select>
                                   </div>
                                   {/* Due date */}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Échéance</span>
+                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.dueDateLabel')}</span>
                                     <input
-                                      value={t.dueDate ?? ''}
+                                      value={tk.dueDate ?? ''}
                                       onChange={e => updateTask(sIdx, tIdx, { dueDate: e.target.value || undefined })}
-                                      placeholder="ex. 15 juin"
+                                      placeholder={t('models.dueDatePlaceholder')}
                                       style={{ ...selStyle, border: '1px solid var(--border)', borderRadius: 6 }}
                                     />
                                   </div>
                                 </div>
                                 {/* Description */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description</span>
+                                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.description')}</span>
                                   <textarea
-                                    value={t.description ?? ''}
+                                    value={tk.description ?? ''}
                                     onChange={e => updateTask(sIdx, tIdx, { description: e.target.value || undefined })}
                                     rows={2}
-                                    placeholder="Notes ou instructions pour cette tâche…"
+                                    placeholder={t('models.taskNotesPlaceholder')}
                                     style={{ width: '100%', padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'vertical', colorScheme: 'dark', boxSizing: 'border-box' }}
                                   />
                                 </div>
@@ -511,7 +514,7 @@ function TemplateEditor({ template, onSave, onClose }: {
                         );
                       })}
                       <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                        <input value={newTaskTitle[sIdx] ?? ''} onChange={e => setNewTaskTitle(p => ({ ...p, [sIdx]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addTask(sIdx); }} placeholder="Ajouter une tâche…" style={{ flex: 1, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
+                        <input value={newTaskTitle[sIdx] ?? ''} onChange={e => setNewTaskTitle(p => ({ ...p, [sIdx]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addTask(sIdx); }} placeholder={t('models.addTaskPlaceholder')} style={{ flex: 1, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
                         <button onClick={() => addTask(sIdx)} style={{ padding: '5px 10px', borderRadius: 7, border: 'none', background: 'var(--surface-3)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}><SFIcon name="plus" size={12} /></button>
                       </div>
                     </div>
@@ -519,8 +522,8 @@ function TemplateEditor({ template, onSave, onClose }: {
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 6 }}>
-                <input value={newSectionLabel} onChange={e => setNewSectionLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addSection(); }} placeholder="Nouvelle section…" style={{ flex: 1, padding: '7px 10px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
-                <SFButton variant="secondary" size="sm" icon="plus" onClick={addSection}>Section</SFButton>
+                <input value={newSectionLabel} onChange={e => setNewSectionLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addSection(); }} placeholder={t('models.newSectionPlaceholder')} style={{ flex: 1, padding: '7px 10px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
+                <SFButton variant="secondary" size="sm" icon="plus" onClick={addSection}>{t('models.section')}</SFButton>
               </div>
             </div>
           </div>
@@ -541,6 +544,7 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
   onPreview: () => void;
   onRename?: (name: string, description: string) => void;
 }) {
+  const { t } = useTranslation();
   const totalTasks = tpl.sections.reduce((s, sec) => s + sec.tasks.length, 0);
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
@@ -553,19 +557,19 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         </div>
         {tpl.builtIn
           ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{tpl.name}</h2>
-          : <div style={{ marginBottom: 6 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder="Nom du modèle…" /></div>}
+          : <div style={{ marginBottom: 6 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>}
         {tpl.builtIn
           ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 10 }}>{tpl.description}</p>
-          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder="Description du modèle…" /></div>}
+          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {tpl.tags.map(tag => (
             <span key={tag} style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44` }}>{tag}</span>
           ))}
-          {tpl.builtIn && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)' }}>Intégré</span>}
+          {tpl.builtIn && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)' }}>{t('models.builtIn')}</span>}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
-        {[{ label: 'Sections', value: tpl.sections.length }, { label: 'Tâches', value: totalTasks }].map((s, i) => (
+        {[{ label: t('models.sections'), value: tpl.sections.length }, { label: t('models.tasks'), value: totalTasks }].map((s, i) => (
           <div key={s.label} style={{ padding: '10px 20px', borderRight: i === 0 ? '1px solid var(--border)' : 'none' }}>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
             <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value || '—'}</p>
@@ -573,7 +577,7 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         ))}
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {tpl.sections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>Aucune section — projet vierge</p>}
+        {tpl.sections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>{t('models.noSectionBlank')}</p>}
         {tpl.sections.map((sec, i) => (
           <div key={i}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
@@ -588,19 +592,19 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
                   <span style={{ fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                 </div>
               ))}
-              {sec.tasks.length > 4 && <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', paddingLeft: 11 }}>+{sec.tasks.length - 4} autres</span>}
+              {sec.tasks.length > 4 && <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', paddingLeft: 11 }}>{t('models.moreOthers', { count: sec.tasks.length - 4 })}</span>}
             </div>
           </div>
         ))}
         {tpl.resources.length > 0 && (
           <div style={{ marginTop: 6 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Ressources incluses</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('models.includedResources')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {tpl.resources.map((r, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <SFIcon name={RESOURCE_ICON[r.type]} size={12} color="var(--text-3)" />
                   <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{r.title}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>({RESOURCE_LABELS[r.type]})</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>({t(RESOURCE_LABEL_KEYS[r.type])})</span>
                 </div>
               ))}
             </div>
@@ -608,13 +612,13 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         )}
       </div>
       <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-        <SFButton variant="primary" icon="plus" onClick={onCreateProject} style={{ width: '100%', justifyContent: 'center' }}>Créer un projet depuis ce modèle</SFButton>
-        <SFButton variant="secondary" icon="eye" onClick={onPreview} style={{ width: '100%', justifyContent: 'center' }}>Visualiser comme projet</SFButton>
+        <SFButton variant="primary" icon="plus" onClick={onCreateProject} style={{ width: '100%', justifyContent: 'center' }}>{t('models.createProjectFromTemplate')}</SFButton>
+        <SFButton variant="secondary" icon="eye" onClick={onPreview} style={{ width: '100%', justifyContent: 'center' }}>{t('models.viewAsProject')}</SFButton>
         <div style={{ display: 'flex', gap: 6 }}>
           <SFButton variant="secondary" size="sm" icon="square-pen" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
-            {tpl.builtIn ? 'Modifier une copie' : 'Modifier'}
+            {tpl.builtIn ? t('models.editCopy') : t('models.edit')}
           </SFButton>
-          <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>Dupliquer</SFButton>
+          <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>{t('models.duplicate')}</SFButton>
           {!tpl.builtIn && <SFButton variant="ghost" size="sm" icon="trash-2" onClick={onDelete} style={{ color: 'var(--danger)' }} />}
         </div>
       </div>
@@ -625,6 +629,7 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
 // ── Create Project Modal ───────────────────────────────────────────────────────
 
 function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; onClose: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const clients = getClients();
   const [name, setName] = useState('');
@@ -642,18 +647,18 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       id: projectId,
       name: name.trim(),
       clientId: client?.id ?? '',
-      clientName: client?.name ?? 'Sans client',
+      clientName: client?.name ?? t('models.noClient'),
       clientColor: color,
       phase: 'preproduction',
-      phaseLabel: 'Préproduction',
+      phaseLabel: t('projects.phasePreproduction'),
       progress: 0,
       taskCount: template.sections.reduce((n, s) => n + s.tasks.length, 0),
       deliverableCount: 0,
       members,
       deliveryDate: '—',
       status: 'info',
-      statusLabel: 'En cours',
-      modifiedAt: "À l'instant",
+      statusLabel: t('projects.statusInProgress'),
+      modifiedAt: t('clients.justNow'),
       folderStructureTemplateId: template.defaultFolderStructureId ?? undefined,
     };
 
@@ -669,9 +674,9 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
         projectColor: color,
         assignee: owner,
         status: 'warn',
-        statusLabel: 'En attente',
+        statusLabel: t('models.statusWaiting'),
         priority: tt.priority ?? 'normal',
-        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+        priorityLabel: tt.priority === 'high' ? t('models.priorityHigh') : tt.priority === 'low' ? t('models.priorityLow') : t('models.priorityNormal'),
         dueDate: '',
         checked: false,
         subtasks: [],
@@ -695,26 +700,26 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 460, zIndex: 201, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,0.7)', overflow: 'hidden' }}>
         <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginBottom: 2 }}>Modèle : {template.name}</p>
-            <h2 style={{ fontSize: 15, fontWeight: 700 }}>Créer un nouveau projet</h2>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginBottom: 2 }}>{t('projects.templateLabel', { name: template.name })}</p>
+            <h2 style={{ fontSize: 15, fontWeight: 700 }}>{t('models.createNewProject')}</h2>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
         <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle()}>Nom du projet</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="ex. Campagne été 2026" autoFocus style={fieldStyle()} />
+            <label style={labelStyle()}>{t('projects.projectNameLabel')}</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={t('models.projectNameExample')} autoFocus style={fieldStyle()} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle()}>Client</label>
+            <label style={labelStyle()}>{t('projects.client')}</label>
             <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...fieldStyle(), colorScheme: 'dark', cursor: 'pointer' }}>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Ce projet inclura</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{t('models.projectWillInclude')}</p>
             <div style={{ display: 'flex', gap: 14 }}>
-              {[{ icon: 'layers', val: `${template.sections.length} sections` }, { icon: 'check-square', val: `${template.sections.reduce((s, sec) => s + sec.tasks.length, 0)} tâches` }, { icon: 'file', val: `${template.resources.length} ressources` }].map(s => (
+              {[{ icon: 'layers', val: t('models.sectionsCount', { count: template.sections.length }) }, { icon: 'check-square', val: t('models.tasksCount', { count: template.sections.reduce((s, sec) => s + sec.tasks.length, 0) }) }, { icon: 'file', val: t('models.resourcesCount', { count: template.resources.length }) }].map(s => (
                 <div key={s.val} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <SFIcon name={s.icon} size={12} color="var(--text-3)" />
                   <span style={{ fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>{s.val}</span>
@@ -724,8 +729,8 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
           </div>
         </div>
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" size="sm" icon="plus" onClick={handleCreate} style={{ opacity: name.trim() ? 1 : 0.5 }}>Créer le projet</SFButton>
+          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('models.cancel')}</SFButton>
+          <SFButton variant="primary" size="sm" icon="plus" onClick={handleCreate} style={{ opacity: name.trim() ? 1 : 0.5 }}>{t('models.createProject')}</SFButton>
         </div>
       </div>
     </>
@@ -742,6 +747,7 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
   onFill: () => void;
   onRename?: (name: string, description: string) => void;
 }) {
+  const { t } = useTranslation();
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
@@ -753,21 +759,21 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
         </div>
         {tpl.builtIn
           ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{tpl.name}</h2>
-          : <div style={{ marginBottom: 6 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder="Nom du formulaire…" /></div>}
+          : <div style={{ marginBottom: 6 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.formNamePlaceholder')} /></div>}
         {tpl.builtIn
           ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 10 }}>{tpl.description}</p>
-          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder="Description du formulaire…" /></div>}
+          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.formDescPlaceholder')} /></div>}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {tpl.tags.map(tag => (
             <span key={tag} style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44` }}>{tag}</span>
           ))}
-          {tpl.builtIn && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)' }}>Intégré</span>}
+          {tpl.builtIn && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)' }}>{t('models.builtIn')}</span>}
         </div>
       </div>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
-        {[{ label: 'Champs', value: tpl.fields.length }, { label: 'Requis', value: tpl.fields.filter(f => f.required).length }].map((s, i) => (
+        {[{ label: t('models.fields'), value: tpl.fields.length }, { label: t('models.required'), value: tpl.fields.filter(f => f.required).length }].map((s, i) => (
           <div key={s.label} style={{ padding: '10px 20px', borderRight: i === 0 ? '1px solid var(--border)' : 'none' }}>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
             <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value}</p>
@@ -777,7 +783,7 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
 
       {/* Fields preview */}
       <div style={{ flex: 1, overflow: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Aperçu des champs</p>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{t('models.fieldsPreview')}</p>
         {tpl.fields.map((field, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
             <div style={{ width: 24, height: 24, borderRadius: 7, background: `${tpl.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -785,19 +791,19 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.label}</p>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{FORM_FIELD_TYPE_LABELS[field.type]}{field.required ? ' · Requis' : ''}{field.aiKey ? ' · IA' : ''}</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t(FORM_FIELD_TYPE_LABEL_KEYS[field.type])}{field.required ? ` · ${t('models.requiredSuffix')}` : ''}{field.aiKey ? ' · IA' : ''}</p>
             </div>
           </div>
         ))}
       </div>
 
       <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-        <SFButton variant="primary" icon="clipboard-list" onClick={onFill} style={{ width: '100%', justifyContent: 'center' }}>Remplir ce formulaire</SFButton>
+        <SFButton variant="primary" icon="clipboard-list" onClick={onFill} style={{ width: '100%', justifyContent: 'center' }}>{t('models.fillForm')}</SFButton>
         <div style={{ display: 'flex', gap: 6 }}>
           <SFButton variant="secondary" size="sm" icon="square-pen" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
-            {tpl.builtIn ? 'Modifier une copie' : 'Modifier'}
+            {tpl.builtIn ? t('models.editCopy') : t('models.edit')}
           </SFButton>
-          <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>Dupliquer</SFButton>
+          <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>{t('models.duplicate')}</SFButton>
           {!tpl.builtIn && <SFButton variant="ghost" size="sm" icon="trash-2" onClick={onDelete} style={{ color: 'var(--danger)' }} />}
         </div>
       </div>
@@ -812,6 +818,7 @@ function FormTemplateEditor({ template, onSave, onClose }: {
   onSave: (t: FormTemplate) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(template.name ?? '');
   const [description, setDescription] = useState(template.description ?? '');
   const [color, setColor] = useState(template.color ?? '#3b4f8f');
@@ -871,11 +878,11 @@ function FormTemplateEditor({ template, onSave, onClose }: {
       {/* Topbar */}
       <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-          <SFIcon name="arrow-left" size={13} />Modèles
+          <SFIcon name="arrow-left" size={13} />{t('nav.models')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: 'var(--surface-3)', color: 'var(--text-2)', fontSize: 10, fontFamily: 'var(--ff-mono)', border: '1px solid var(--border-2)', flexShrink: 0 }}>
-          <SFIcon name="clipboard-list" size={10} />Formulaire
+          <SFIcon name="clipboard-list" size={10} />{t('models.resForm')}
         </span>
         {editingName ? (
           <input autoFocus value={name} onChange={e => setName(e.target.value)}
@@ -886,11 +893,11 @@ function FormTemplateEditor({ template, onSave, onClose }: {
         ) : (
           <span onClick={() => setEditingName(true)}
             style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: 'text', padding: '4px 6px', borderRadius: 7, color: name ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >{name || 'Nom du formulaire…'}</span>
+          >{name || t('models.formNamePlaceholder')}</span>
         )}
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>Annuler</SFButton>
-          <SFButton variant="primary" size="sm" icon="check" onClick={handleSave} style={{ opacity: name.trim() ? 1 : 0.5 }}>{template.id ? 'Enregistrer' : 'Créer le formulaire'}</SFButton>
+          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('models.cancel')}</SFButton>
+          <SFButton variant="primary" size="sm" icon="check" onClick={handleSave} style={{ opacity: name.trim() ? 1 : 0.5 }}>{template.id ? t('models.saveAction') : t('models.createForm')}</SFButton>
         </div>
       </div>
 
@@ -898,26 +905,26 @@ function FormTemplateEditor({ template, onSave, onClose }: {
       <div style={{ flex: 1, overflow: 'auto', padding: '28px 0' }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle()}>Description</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Décrivez l'usage de ce formulaire…" style={fieldStyle({ resize: 'none' })} />
+            <label style={labelStyle()}>{t('models.description')}</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('models.describeFormUsage')} style={fieldStyle({ resize: 'none' })} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={labelStyle()}>Couleur</label>
+              <label style={labelStyle()}>{t('models.color')}</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {COLORS.map(c => <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none', flexShrink: 0 }} />)}
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle()}>Tags (séparés par virgule)</label>
-              <input value={tags} onChange={e => setTags(e.target.value)} placeholder="ex. Client, Brief" style={fieldStyle()} />
+              <label style={labelStyle()}>{t('models.tagsComma')}</label>
+              <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('models.tagsPlaceholderClient')} style={fieldStyle()} />
             </div>
           </div>
 
           {/* Fields list */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <label style={labelStyle()}>Champs ({fields.length})</label>
+              <label style={labelStyle()}>{t('models.fieldsCount', { count: fields.length })}</label>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {fields.map((f, i) => (
@@ -926,8 +933,8 @@ function FormTemplateEditor({ template, onSave, onClose }: {
                     <SFIcon name={FORM_FIELD_TYPE_ICONS[f.type]} size={11} color={color} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label || <em style={{ color: 'var(--text-3)' }}>Sans titre</em>}</p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{FORM_FIELD_TYPE_LABELS[f.type]}{f.required ? ' · Requis' : ''}</p>
+                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label || <em style={{ color: 'var(--text-3)' }}>{t('models.untitled')}</em>}</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t(FORM_FIELD_TYPE_LABEL_KEYS[f.type])}{f.required ? ` · ${t('models.requiredSuffix')}` : ''}</p>
                   </div>
                   <div style={{ display: 'flex', gap: 2 }}>
                     <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'var(--border-2)' : 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="chevron-up" size={12} /></button>
@@ -940,11 +947,11 @@ function FormTemplateEditor({ template, onSave, onClose }: {
               {/* Add field row */}
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                 <select value={addType} onChange={e => setAddType(e.target.value as FormFieldType)} style={{ flex: 1, padding: '7px 10px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text)', fontSize: 12, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}>
-                  {(Object.keys(FORM_FIELD_TYPE_LABELS) as FormFieldType[]).map(t => (
-                    <option key={t} value={t}>{FORM_FIELD_TYPE_LABELS[t]}</option>
+                  {(Object.keys(FORM_FIELD_TYPE_LABEL_KEYS) as FormFieldType[]).map(ft => (
+                    <option key={ft} value={ft}>{t(FORM_FIELD_TYPE_LABEL_KEYS[ft])}</option>
                   ))}
                 </select>
-                <SFButton variant="secondary" size="sm" icon="plus" onClick={openNewField}>Ajouter un champ</SFButton>
+                <SFButton variant="secondary" size="sm" icon="plus" onClick={openNewField}>{t('models.addField')}</SFButton>
               </div>
             </div>
           </div>
@@ -957,50 +964,50 @@ function FormTemplateEditor({ template, onSave, onClose }: {
           <div onClick={() => setEditingField(null)} style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)' }} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 460, zIndex: 211, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 16px 60px rgba(0,0,0,0.8)', overflow: 'hidden' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700 }}>{editingIdx !== null ? 'Modifier le champ' : 'Nouveau champ'}</h3>
+              <h3 style={{ fontSize: 14, fontWeight: 700 }}>{editingIdx !== null ? t('models.editField') : t('models.newField')}</h3>
               <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={15} /></button>
             </div>
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle()}>Type</label>
+                <label style={labelStyle()}>{t('models.typeLabel')}</label>
                 <select value={editingField.type} onChange={e => setEditingField(f => f ? { ...f, type: e.target.value as FormFieldType, options: undefined } : f)} style={fieldStyle({ cursor: 'pointer' })}>
-                  {(Object.keys(FORM_FIELD_TYPE_LABELS) as FormFieldType[]).map(t => <option key={t} value={t}>{FORM_FIELD_TYPE_LABELS[t]}</option>)}
+                  {(Object.keys(FORM_FIELD_TYPE_LABEL_KEYS) as FormFieldType[]).map(ft => <option key={ft} value={ft}>{t(FORM_FIELD_TYPE_LABEL_KEYS[ft])}</option>)}
                 </select>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle()}>Libellé de la question *</label>
-                <input value={editingField.label} onChange={e => setEditingField(f => f ? { ...f, label: e.target.value } : f)} placeholder="ex. Quel est votre objectif principal ?" style={fieldStyle()} autoFocus />
+                <label style={labelStyle()}>{t('models.questionLabelRequired')}</label>
+                <input value={editingField.label} onChange={e => setEditingField(f => f ? { ...f, label: e.target.value } : f)} placeholder={t('models.questionLabelPlaceholder')} style={fieldStyle()} autoFocus />
               </div>
               {(editingField.type === 'text' || editingField.type === 'textarea' || editingField.type === 'number') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle()}>Texte indicatif (placeholder)</label>
-                  <input value={editingField.placeholder ?? ''} onChange={e => setEditingField(f => f ? { ...f, placeholder: e.target.value } : f)} placeholder="ex. Décrivez en quelques mots…" style={fieldStyle()} />
+                  <label style={labelStyle()}>{t('models.placeholderLabel')}</label>
+                  <input value={editingField.placeholder ?? ''} onChange={e => setEditingField(f => f ? { ...f, placeholder: e.target.value } : f)} placeholder={t('models.placeholderFieldPlaceholder')} style={fieldStyle()} />
                 </div>
               )}
               {(editingField.type === 'choice' || editingField.type === 'multi') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle()}>Options (une par ligne)</label>
+                  <label style={labelStyle()}>{t('models.optionsOnePerLine')}</label>
                   <textarea value={(editingField.options ?? []).join('\n')} onChange={e => setEditingField(f => f ? { ...f, options: e.target.value.split('\n') } : f)} rows={5} placeholder={'Option A\nOption B\nOption C'} style={fieldStyle({ resize: 'vertical' })} />
                 </div>
               )}
               {editingField.type === 'rating' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle()}>Maximum</label>
+                  <label style={labelStyle()}>{t('models.maximum')}</label>
                   <select value={editingField.ratingMax ?? 5} onChange={e => setEditingField(f => f ? { ...f, ratingMax: Number(e.target.value) } : f)} style={fieldStyle({ cursor: 'pointer' })}>
-                    {[3, 4, 5, 7, 10].map(n => <option key={n} value={n}>{n} étoiles</option>)}
+                    {[3, 4, 5, 7, 10].map(n => <option key={n} value={n}>{t('models.starsCount', { count: n })}</option>)}
                   </select>
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                   <input type="checkbox" checked={!!editingField.required} onChange={e => setEditingField(f => f ? { ...f, required: e.target.checked } : f)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-2)' }}>Champ obligatoire</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('models.requiredField')}</span>
                 </label>
               </div>
             </div>
             <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="ghost" size="sm" onClick={() => setEditingField(null)}>Annuler</SFButton>
-              <SFButton variant="primary" size="sm" icon="check" onClick={saveField} style={{ opacity: editingField.label.trim() ? 1 : 0.5 }}>Enregistrer</SFButton>
+              <SFButton variant="ghost" size="sm" onClick={() => setEditingField(null)}>{t('models.cancel')}</SFButton>
+              <SFButton variant="primary" size="sm" icon="check" onClick={saveField} style={{ opacity: editingField.label.trim() ? 1 : 0.5 }}>{t('models.saveAction')}</SFButton>
             </div>
           </div>
         </>
@@ -1016,6 +1023,7 @@ function FormFiller({ template, instance, onClose }: {
   instance?: FormInstance;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const initResponses = useCallback((): FormResponse[] => {
     if (instance) return instance.responses;
     return template.fields.map(f => ({ fieldId: f.id, value: f.type === 'multi' ? [] : f.type === 'rating' ? 0 : '', aiSuggested: false }));
@@ -1067,7 +1075,7 @@ function FormFiller({ template, instance, onClose }: {
         updatedAt: new Date().toISOString(),
       });
     }
-    setSavedMsg(s === 'completed' ? 'Formulaire soumis !' : 'Brouillon enregistré');
+    setSavedMsg(s === 'completed' ? t('models.formSubmitted') : t('models.draftSaved'));
     setTimeout(() => setSavedMsg(''), 2000);
     if (s === 'completed') setTimeout(() => onClose(), 600);
   };
@@ -1077,23 +1085,23 @@ function FormFiller({ template, instance, onClose }: {
       {/* Topbar */}
       <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-          <SFIcon name="arrow-left" size={13} />Modèles
+          <SFIcon name="arrow-left" size={13} />{t('nav.models')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: `${template.color}22`, color: template.color, fontSize: 10, fontFamily: 'var(--ff-mono)', border: `1px solid ${template.color}44`, flexShrink: 0 }}>
-          <SFIcon name={template.icon} size={10} />Formulaire
+          <SFIcon name={template.icon} size={10} />{t('models.resForm')}
         </span>
         <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '4px 6px' }}>{template.name}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
           {aiMatchCount > 0 && !aiApplied && (
             <button onClick={applyAI} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(249,255,0,0.3)', background: 'rgba(249,255,0,0.07)', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-              <SFIcon name="sparkles" size={13} />Pré-remplir IA ({aiMatchCount - alreadyAnswered})
+              <SFIcon name="sparkles" size={13} />{t('models.aiPrefill', { count: aiMatchCount - alreadyAnswered })}
             </button>
           )}
-          {aiApplied && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--ff-mono)' }}><SFIcon name="check" size={11} />IA appliquée</span>}
+          {aiApplied && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--ff-mono)' }}><SFIcon name="check" size={11} />{t('models.aiApplied')}</span>}
           {savedMsg && <span style={{ fontSize: 11, color: 'var(--ok)', fontFamily: 'var(--ff-mono)' }}>{savedMsg}</span>}
-          <SFButton variant="secondary" size="sm" icon="save" onClick={() => handleSave('draft')}>Brouillon</SFButton>
-          <SFButton variant="primary" size="sm" icon="send" onClick={() => handleSave('completed')}>Soumettre</SFButton>
+          <SFButton variant="secondary" size="sm" icon="save" onClick={() => handleSave('draft')}>{t('models.draft')}</SFButton>
+          <SFButton variant="primary" size="sm" icon="send" onClick={() => handleSave('completed')}>{t('models.submit')}</SFButton>
           <button onClick={onClose} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center' }}>
             <SFIcon name="x" size={15} />
           </button>
@@ -1150,7 +1158,7 @@ function FormFiller({ template, instance, onClose }: {
                   {field.type === 'file' && (
                     <div style={{ padding: '14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', color: 'var(--text-3)', fontSize: 12 }}>
                       <SFIcon name="upload" size={14} />
-                      Cliquez pour sélectionner un fichier
+                      {t('models.clickToSelectFile')}
                     </div>
                   )}
 
@@ -1453,10 +1461,10 @@ const RESOURCE_TYPE_ICONS_TPV: Record<ResourceType, string> = {
   document: 'file-text', checklist: 'list-checks', inspirations: 'lightbulb',
   file: 'folder', form: 'clipboard-list',
 };
-const RESOURCE_TYPE_LABELS_TPV: Record<ResourceType, string> = {
-  screenplay: 'Scénario', video_review: 'Révision vidéo', moodboard: 'Moodboard',
-  document: 'Document', checklist: 'Checklist', inspirations: 'Inspirations',
-  file: 'Fichiers', form: 'Formulaire',
+const RESOURCE_TYPE_LABEL_KEYS_TPV: Record<ResourceType, string> = {
+  screenplay: 'models.resTypeScreenplay', video_review: 'models.resTypeVideoReview', moodboard: 'models.resMoodboard',
+  document: 'models.resDocument', checklist: 'models.resChecklist', inspirations: 'models.resInspirations',
+  file: 'models.resTypeFile', form: 'models.resForm',
 };
 
 // Priority badge for board cards
@@ -2041,9 +2049,9 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
 
 // ── Resource template constants ───────────────────────────────────────────────
 
-const RES_TYPE_LABELS: Record<ResourceTemplateType, string> = {
-  checklist: 'Checklist', document: 'Document', screenplay: 'Scénario',
-  video_review: 'Révision vidéo', file: 'Fichiers', moodboard: 'Moodboard',
+const RES_TYPE_LABEL_KEYS: Record<ResourceTemplateType, string> = {
+  checklist: 'models.resChecklist', document: 'models.resDocument', screenplay: 'models.resTypeScreenplay',
+  video_review: 'models.resTypeVideoReview', file: 'models.resTypeFile', moodboard: 'models.resMoodboard',
 };
 const RES_TYPE_ICONS: Record<ResourceTemplateType, string> = {
   checklist: 'list-checks', document: 'file-text', screenplay: 'clapperboard',
@@ -2403,15 +2411,15 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
 
 type UnifiedTypeFilter = 'projets' | 'formulaires' | ResourceTemplateType;
 
-const TYPE_PILLS: { key: UnifiedTypeFilter; label: string; icon: string }[] = [
-  { key: 'projets', label: 'Projets', icon: 'layout-template' },
-  { key: 'formulaires', label: 'Formulaires', icon: 'clipboard-list' },
-  { key: 'checklist', label: 'Checklist', icon: 'list-checks' },
-  { key: 'document', label: 'Document', icon: 'file-text' },
-  { key: 'screenplay', label: 'Scénario', icon: 'clapperboard' },
-  { key: 'video_review', label: 'Révision', icon: 'video' },
-  { key: 'file', label: 'Fichiers', icon: 'folder' },
-  { key: 'moodboard', label: 'Moodboard', icon: 'grid-2x2' },
+const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] = [
+  { key: 'projets', labelKey: 'models.navProjects', icon: 'layout-template' },
+  { key: 'formulaires', labelKey: 'models.navForms', icon: 'clipboard-list' },
+  { key: 'checklist', labelKey: 'models.resChecklist', icon: 'list-checks' },
+  { key: 'document', labelKey: 'models.resDocument', icon: 'file-text' },
+  { key: 'screenplay', labelKey: 'models.resTypeScreenplay', icon: 'clapperboard' },
+  { key: 'video_review', labelKey: 'models.resReviewShort', icon: 'video' },
+  { key: 'file', labelKey: 'models.resTypeFile', icon: 'folder' },
+  { key: 'moodboard', labelKey: 'models.resMoodboard', icon: 'grid-2x2' },
 ];
 
 export function Modeles() {

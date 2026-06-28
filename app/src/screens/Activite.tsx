@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFIcon } from '../components/ui';
 import { ACTIVITY } from '../data/mock';
 import { ActivityFeed } from '../components/ActivityFeed';
@@ -8,24 +9,26 @@ import { subscribeNotifs, getNotifHistory, markAllRead } from '../data/notificat
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function timeAgo(ts: number): string {
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+function timeAgo(ts: number, t: TFunc): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
-  if (mins < 1)   return "À l'instant";
-  if (mins < 60)  return `Il y a ${mins} min`;
+  if (mins < 1)   return t('activity.now');
+  if (mins < 60)  return t('activity.minutesAgo', { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `Il y a ${hours}h`;
-  if (hours < 48) return 'Hier';
-  return `Il y a ${Math.floor(hours / 24)} jours`;
+  if (hours < 24) return t('activity.hoursAgo', { count: hours });
+  if (hours < 48) return t('activity.yesterday');
+  return t('activity.daysAgo', { count: Math.floor(hours / 24) });
 }
 
-const KIND_LABEL: Record<NotifKind, string> = {
-  comment:    'COMMENTAIRE',
-  mention:    'MENTION',
-  status:     'STATUT',
-  annotation: 'ANNOTATION',
-  version:    'NOUVELLE VERSION',
-  approval:   'APPROBATION',
+const KIND_LABEL_KEY: Record<NotifKind, string> = {
+  comment:    'activity.comment',
+  mention:    'activity.mention',
+  status:     'activity.statusChanged',
+  annotation: 'activity.annotation',
+  version:    'activity.newVersion',
+  approval:   'activity.approval',
 };
 
 import type { Status } from '../types';
@@ -91,27 +94,34 @@ function groupNotifs(notifs: AppNotif[]): NotifGroup[] {
   }).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 }
 
-function groupDayLabel(ts: number): string {
+function groupDayKey(ts: number): string {
   const h = (Date.now() - ts) / 3600000;
-  if (h < 24)  return "Aujourd'hui";
-  if (h < 48)  return 'Hier';
-  if (h < 168) return 'Cette semaine';
-  return 'Plus tôt';
+  if (h < 24)  return 'today';
+  if (h < 48)  return 'yesterday';
+  if (h < 168) return 'thisWeek';
+  return 'earlier';
 }
 
-function actorSummary(actors: string[], count: number, kind: NotifKind): string {
+const DAY_KEY_LABEL: Record<string, string> = {
+  today:     'activity.today',
+  yesterday: 'activity.yesterday',
+  thisWeek:  'activity.thisWeek',
+  earlier:   'activity.earlier',
+};
+
+function actorSummary(actors: string[], count: number, kind: NotifKind, t: TFunc): string {
   const verbMap: Record<NotifKind, string> = {
-    comment:    count > 1 ? `ont laissé ${count} commentaires` : 'a commenté',
-    mention:    'vous a mentionné',
-    status:     'a mis à jour le statut',
-    annotation: count > 1 ? `ont ajouté ${count} annotations` : 'a annoté',
-    version:    'a uploadé une nouvelle version',
-    approval:   'a demandé une approbation',
+    comment:    count > 1 ? t('activity.verbCommentPlural', { count }) : t('activity.verbComment'),
+    mention:    t('activity.verbMention'),
+    status:     t('activity.verbStatus'),
+    annotation: count > 1 ? t('activity.verbAnnotationPlural', { count }) : t('activity.verbAnnotation'),
+    version:    t('activity.verbVersion'),
+    approval:   t('activity.verbApproval'),
   };
   const verb = verbMap[kind];
-  if (actors.length === 1) return `${actors[0]} ${verb}`;
-  if (actors.length === 2) return `${actors[0]} et ${actors[1]} ${verb}`;
-  return `${actors[0]}, ${actors[1]} +${actors.length - 2} ${verb}`;
+  if (actors.length === 1) return t('activity.actorSummaryOne', { actor: actors[0], verb });
+  if (actors.length === 2) return t('activity.actorSummaryTwo', { actor1: actors[0], actor2: actors[1], verb });
+  return t('activity.actorSummaryMany', { actor1: actors[0], actor2: actors[1], more: actors.length - 2, verb });
 }
 
 // ── Notification group row ────────────────────────────────────────────────────
@@ -127,6 +137,7 @@ const NOTIF_ICON: Record<NotifKind, { icon: string; color: string; bg: string }>
 };
 
 function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {
+  const { t } = useTranslation();
   const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
   const meta = NOTIF_ICON[kind] ?? NOTIF_ICON.comment;
   const clickable = !!(taskId || resourceId);
@@ -156,18 +167,18 @@ function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <SFAvatar initials={initials(actors[0])} bg={ACTOR_COLOR[actors[0]] ?? '#5c3d8f'} size={18} />
           <span style={{ fontSize: 12, color: unread ? 'var(--text)' : 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {actorSummary(actors, count, kind)}
+            {actorSummary(actors, count, kind, t)}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-          <SFPill status={KIND_STATUS[kind]} small>{KIND_LABEL[kind]}</SFPill>
+          <SFPill status={KIND_STATUS[kind]} small>{t(KIND_LABEL_KEY[kind])}</SFPill>
           {count > 1 && (
             <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{count}×</span>
           )}
         </div>
       </div>
       {/* Temps */}
-      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}>{timeAgo(latestTimestamp)}</span>
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}>{timeAgo(latestTimestamp, t)}</span>
     </div>
   );
 }
@@ -178,6 +189,7 @@ type Tab = 'personal' | 'studio';
 type FilterKey = 'all' | 'unread' | 'mentions' | 'comments';
 
 export function Activite() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -196,10 +208,10 @@ export function Activite() {
   const unreadCount = notifs.filter(n => !n.read).length;
 
   const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'all',      label: `Toutes` },
-    { key: 'unread',   label: `Non lues (${unreadCount})` },
-    { key: 'mentions', label: 'Mentions' },
-    { key: 'comments', label: 'Commentaires' },
+    { key: 'all',      label: t('activity.allNotifications') },
+    { key: 'unread',   label: t('activity.unreadCount', { count: unreadCount }) },
+    { key: 'mentions', label: t('activity.mentions') },
+    { key: 'comments', label: t('activity.comments') },
   ];
 
   const filtered = notifs.filter(n => {
@@ -211,10 +223,10 @@ export function Activite() {
 
   // Group by context (task or resource) + kind, then split by day
   const groups = groupNotifs(filtered);
-  const days = Array.from(new Set(groups.map(g => groupDayLabel(g.latestTimestamp))));
+  const days = Array.from(new Set(groups.map(g => groupDayKey(g.latestTimestamp))));
   const grouped = days.map(day => ({
     day,
-    groups: groups.filter(g => groupDayLabel(g.latestTimestamp) === day),
+    groups: groups.filter(g => groupDayKey(g.latestTimestamp) === day),
   }));
 
   // Stats for the sidebar panel
@@ -229,13 +241,13 @@ export function Activite() {
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Notifications</h1>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('nav.notifications')}</h1>
             {tab === 'personal' && unreadCount > 0 && (
               <button
                 onClick={() => markAllRead()}
                 style={{ fontSize: 12, color: 'var(--text-2)', background: 'none', border: '1px solid var(--border-2)', borderRadius: 9, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
               >
-                Tout marquer comme lu
+                {t('activity.markAllRead')}
               </button>
             )}
           </div>
@@ -243,8 +255,8 @@ export function Activite() {
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
             {([
-              { key: 'personal' as Tab, label: 'Pour toi', badge: unreadCount },
-              { key: 'studio'   as Tab, label: 'Studio',   badge: 0 },
+              { key: 'personal' as Tab, label: t('activity.forMe'), badge: unreadCount },
+              { key: 'studio'   as Tab, label: t('activity.studio'),   badge: 0 },
             ]).map(({ key, label, badge }) => (
               <button
                 key={key}
@@ -293,14 +305,14 @@ export function Activite() {
 
                 {groups.length === 0 && (
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13, paddingTop: 48 }}>
-                    Aucune notification
+                    {t('activity.noNotifications')}
                   </div>
                 )}
 
                 {grouped.map(({ day, groups: dayGroups }) => (
                   <div key={day} style={{ marginBottom: 8 }}>
                     <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>
-                      {day}
+                      {t(DAY_KEY_LABEL[day])}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {dayGroups.map(g => (
@@ -314,24 +326,27 @@ export function Activite() {
               {/* Panneau latéral (notifications) — même position que celui de Studio */}
               <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0, alignSelf: 'flex-start' }}>
                 <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Résumé</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>{t('activity.summary')}</p>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
                     <span style={{ fontFamily: 'var(--ff-display)', fontSize: 32, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : 'var(--text-3)', lineHeight: 1 }}>{unreadCount}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>non {unreadCount === 1 ? 'lue' : 'lues'}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{unreadCount === 1 ? t('activity.unreadLabelOne') : t('activity.unreadLabelMany')}</span>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{notifs.length} au total</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('activity.totalCount', { count: notifs.length })}</p>
                 </div>
 
                 {notifs.length > 0 && (
                   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>Par type</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 12 }}>{t('activity.byType')}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {(Object.entries(KIND_LABEL) as [NotifKind, string][]).filter(([k]) => kindCounts[k]).map(([k, label]) => (
+                      {(Object.entries(KIND_LABEL_KEY) as [NotifKind, string][]).filter(([k]) => kindCounts[k]).map(([k, labelKey]) => {
+                        const label = t(labelKey);
+                        return (
                         <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.charAt(0) + label.slice(1).toLowerCase()}</span>
                           <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 5, padding: '1px 6px', flexShrink: 0 }}>{kindCounts[k]}</span>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

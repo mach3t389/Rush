@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto } from '../components/profile/ProfileEditPanel';
@@ -52,6 +53,7 @@ const INTERNAL_TEAM: TeamMember[] = Object.values(USERS)
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
 function InviteTeamModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
@@ -68,7 +70,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Inviter un membre</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('team.inviteMember')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
         {sent ? (
@@ -76,15 +78,15 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,200,100,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <SFIcon name="check" size={24} color="var(--ok)" />
             </div>
-            <p style={{ fontSize: 14, fontWeight: 600 }}>Invitation envoyée !</p>
+            <p style={{ fontSize: 14, fontWeight: 600 }}>{t('team.invitationSent')}</p>
             <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{email}</p>
           </div>
         ) : (
           <>
             {[
-              { label: 'Nom complet *', val: name, set: setName, placeholder: 'Ex: Camille Dupont' },
-              { label: 'Adresse courriel *', val: email, set: setEmail, placeholder: 'camille@studioflow.fr' },
-              { label: 'Rôle', val: role, set: setRole, placeholder: 'Ex: Motion designer' },
+              { label: t('team.fullNameRequired'), val: name, set: setName, placeholder: t('team.fullNamePlaceholder') },
+              { label: t('team.emailRequired'), val: email, set: setEmail, placeholder: t('team.emailPlaceholder') },
+              { label: t('team.role'), val: role, set: setRole, placeholder: t('team.rolePlaceholder') },
             ].map(f => (
               <div key={f.label} style={{ marginBottom: 14 }}>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
@@ -93,11 +95,11 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
               </div>
             ))}
             <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
-              La personne recevra un courriel pour créer son compte et rejoindre votre espace studio.
+              {t('team.inviteHint')}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="ghost" onClick={onClose}>Annuler</SFButton>
-              <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>Envoyer l'invitation</SFButton>
+              <SFButton variant="ghost" onClick={onClose}>{t('team.cancel')}</SFButton>
+              <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>{t('team.sendInvitation')}</SFButton>
             </div>
           </>
         )}
@@ -109,6 +111,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
 // ── Member detail panel ───────────────────────────────────────────────────────
 
 function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
+  const { t } = useTranslation();
   const memberProjects = PROJECTS.filter(p => p.members.some(m => m.id === member.id));
   const [showEdit, setShowEdit] = useState(false);
   const photoUrl = loadPhoto(member.id);
@@ -138,11 +141,11 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
         <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Contact info */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contact</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('team.contact')}</p>
             {[
               { icon: 'mail', value: member.email },
               { icon: 'phone', value: member.phone },
-              { icon: 'calendar', value: `Membre depuis ${member.since}` },
+              { icon: 'calendar', value: t('team.memberSince', { date: member.since }) },
             ].map(row => (
               <div key={row.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <SFIcon name={row.icon} size={13} color="var(--text-3)" />
@@ -153,9 +156,9 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
 
           {/* Active projects */}
           <div>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Projets actifs ({memberProjects.length})</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('team.activeProjectsCount', { count: memberProjects.length })}</p>
             {memberProjects.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Aucun projet actif</p>
+              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('team.noActiveProjects')}</p>
             ) : memberProjects.map(p => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 6 }}>
                 <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
@@ -171,10 +174,10 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
 
         {/* Footer actions */}
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <SFButton variant="ghost" icon="mail">Contacter</SFButton>
-          <SFButton variant="ghost" icon="send">Renvoyer invitation</SFButton>
+          <SFButton variant="ghost" icon="mail">{t('team.contactAction')}</SFButton>
+          <SFButton variant="ghost" icon="send">{t('team.resendInvitation')}</SFButton>
           <div style={{ marginLeft: 'auto' }}>
-            <SFButton variant="primary" icon="pencil" onClick={() => setShowEdit(true)}>Modifier le profil</SFButton>
+            <SFButton variant="primary" icon="pencil" onClick={() => setShowEdit(true)}>{t('team.editProfile')}</SFButton>
           </div>
         </div>
       </div>
@@ -206,6 +209,7 @@ function SFPillSmall({ status, children }: { status: string; children: React.Rea
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function MonEquipe() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showInvite, setShowInvite] = useState(false);
@@ -220,12 +224,12 @@ export function MonEquipe() {
       {/* Header */}
       <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>Équipe interne</h1>
+          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('team.title')}</h1>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {INTERNAL_TEAM.length} membres internes · Studio StudioFlow
+            {t('team.subtitle', { count: INTERNAL_TEAM.length })} · Studio StudioFlow
           </p>
         </div>
-        <SFButton variant="primary" icon="user-plus" onClick={() => setShowInvite(true)}>Inviter un membre</SFButton>
+        <SFButton variant="primary" icon="user-plus" onClick={() => setShowInvite(true)}>{t('team.inviteMember')}</SFButton>
       </div>
 
       {/* Search */}
@@ -234,7 +238,7 @@ export function MonEquipe() {
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <SFIcon name="search" size={14} color="var(--text-3)" />
           </div>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un membre..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('team.searchPlaceholder')}
             style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
         </div>
       </div>
@@ -259,7 +263,7 @@ export function MonEquipe() {
                   <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <SFIcon name="folder" size={10} color="var(--text-3)" />
-                      {member.activeProjects} projet{member.activeProjects !== 1 ? 's' : ''}
+                      {t('team.projectCount', { count: member.activeProjects })}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <SFIcon name="calendar" size={10} color="var(--text-3)" />
@@ -283,7 +287,7 @@ export function MonEquipe() {
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
           >
             <SFIcon name="user-plus" size={18}  />
-            <span style={{ fontSize: 13, fontFamily: 'var(--ff-text)' }}>Inviter un membre</span>
+            <span style={{ fontSize: 13, fontFamily: 'var(--ff-text)' }}>{t('team.inviteMember')}</span>
           </div>
         </div>
       </div>

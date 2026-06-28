@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon } from './ui';
 
 // Flux d'activité réutilisable — même interface pour le global ("Studio") et la fiche client.
@@ -30,9 +31,9 @@ const ACTIVITY_ICON: Record<string, { icon: string; color: string; bg: string }>
 };
 const FALLBACK_META = { icon: 'activity', color: 'var(--text-3)', bg: 'var(--surface-3)' };
 
-const ACTIVITY_TYPE_LABEL: Record<string, string> = {
-  task: 'Tâches', upload: 'Fichiers', comment: 'Commentaires', approve: 'Approbations',
-  client: 'Portail', invoice: 'Facturation', member: 'Équipe',
+const ACTIVITY_TYPE_LABEL_KEY: Record<string, string> = {
+  task: 'activityFeed.typeTask', upload: 'activityFeed.typeUpload', comment: 'activityFeed.typeComment', approve: 'activityFeed.typeApprove',
+  client: 'activityFeed.typeClient', invoice: 'activityFeed.typeInvoice', member: 'activityFeed.typeMember',
 };
 
 // Ordre canonique des filtres ; on n'affiche que les types présents dans les données.
@@ -40,6 +41,7 @@ const TYPE_ORDER = ['task', 'upload', 'comment', 'approve', 'invoice', 'client',
 const WEEK_DAYS = ["Aujourd'hui", 'Hier', 'Il y a 3 j'];
 
 export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<string>('all');
 
   const filtered = filter === 'all' ? activities : activities.filter(a => a.type === filter);
@@ -63,8 +65,8 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
 
   const presentTypes = TYPE_ORDER.filter(t => typeCounts[t]);
   const filterOptions: { key: string; label: string }[] = [
-    { key: 'all', label: 'Tout' },
-    ...presentTypes.map(t => ({ key: t, label: ACTIVITY_TYPE_LABEL[t] ?? t })),
+    { key: 'all', label: t('activityFeed.all') },
+    ...presentTypes.map(type => ({ key: type, label: ACTIVITY_TYPE_LABEL_KEY[type] ? t(ACTIVITY_TYPE_LABEL_KEY[type]) : type })),
   ];
 
   return (
@@ -86,7 +88,7 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
 
         {/* Activity feed */}
         {days.length === 0 && (
-          <p style={{ color: 'var(--text-3)', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>Aucune activité pour ce filtre.</p>
+          <p style={{ color: 'var(--text-3)', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>{t('activityFeed.noActivityForFilter')}</p>
         )}
         {days.map(day => (
           <div key={day} style={{ marginBottom: 24 }}>
@@ -133,15 +135,15 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
       <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0, alignSelf: 'flex-start' }}>
         {/* Activity volume */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Résumé d'activité</p>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>{t('activityFeed.activitySummary')}</p>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 9, background: 'var(--surface-2)' }}>
               <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{weekCount}</p>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5 }}>Cette semaine</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5 }}>{t('activityFeed.thisWeek')}</p>
             </div>
             <div style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 9, background: 'var(--surface-2)' }}>
               <p style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{activities.length}</p>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5 }}>Total</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5 }}>{t('activityFeed.total')}</p>
             </div>
           </div>
         </div>
@@ -149,7 +151,7 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
         {/* Breakdown by type */}
         {presentTypes.length > 0 && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Répartition</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>{t('activityFeed.breakdown')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {presentTypes
                 .sort((a, b) => typeCounts[b] - typeCounts[a])
@@ -159,7 +161,7 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
                     <button key={type} onClick={() => setFilter(f => f === type ? 'all' : type)}
                       style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', width: '100%', opacity: filter === 'all' || filter === type ? 1 : 0.4 }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color, flexShrink: 0, display: 'block' }} />
-                      <span style={{ fontSize: 11, color: 'var(--text-2)', width: 88, flexShrink: 0 }}>{ACTIVITY_TYPE_LABEL[type] ?? type}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', width: 88, flexShrink: 0 }}>{ACTIVITY_TYPE_LABEL_KEY[type] ? t(ACTIVITY_TYPE_LABEL_KEY[type]) : type}</span>
                       <span style={{ flex: 1, height: 5, borderRadius: 3, background: 'var(--surface-3)', position: 'relative', overflow: 'hidden' }}>
                         <span style={{ position: 'absolute', inset: 0, width: `${(typeCounts[type] / maxTypeCount) * 100}%`, background: meta.color, borderRadius: 3 }} />
                       </span>
@@ -174,7 +176,7 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
         {/* Top contributors */}
         {contributors.length > 0 && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Contributeurs</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>{t('activityFeed.contributors')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contributors.map(c => (
                 <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

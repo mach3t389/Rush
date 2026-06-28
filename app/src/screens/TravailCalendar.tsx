@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { USERS } from '../data/mock';
 import type { Task, SectionData } from '../types';
@@ -69,6 +70,7 @@ interface Props {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TravailCalendar({ sections, onAddTask, projectId, projectName, projectColor }: Props) {
+  const { t } = useTranslation();
   const [sub, setSub]         = useState<SubView>('week');
   const [cur, setCur]         = useState(new Date(TODAY));
   const [draft, setDraft]       = useState<Draft | null>(null);
@@ -320,7 +322,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
                 </div>
                 {/* Quick-add button */}
                 <button
-                  title="Nouvelle tâche"
+                  title={t('workCalendar.newTask')}
                   onClick={_e => {
                     setDraft({ date: day, startH: 9, startM: 0, endH: 10, endM: 0 });
                     setNewTitle(''); setNewDesc(''); setNewType('task'); setNewAllDay(false);
@@ -461,11 +463,11 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
     return (
       <div style={{ width: 210, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '12px 14px 8px', fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          Événements
+          {t('workCalendar.events')}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
           {groups.length === 0 && (
-            <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '12px 14px' }}>Aucun événement</p>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '12px 14px' }}>{t('workCalendar.noEvents')}</p>
           )}
           {groups.map(({ label, date, tasks: gTasks }) => (
             <div key={label} style={{ marginBottom: 4 }}>
@@ -517,7 +519,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
             onClick={() => setCur(new Date(TODAY))}
             style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
           >
-            Aujourd'hui
+            {t('workCalendar.today')}
           </button>
           <button onClick={() => nav(-1)} style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', cursor: 'pointer' }}>
             <SFIcon name="chevron-left" size={14} />
@@ -530,7 +532,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
 
         {/* Right: sub-view switcher */}
         <div style={{ display: 'flex', background: 'var(--surface-2)', borderRadius: 10, padding: 3, gap: 2 }}>
-          {([['month', 'Mois'], ['week', 'Semaine'], ['day', 'Jour']] as [SubView, string][]).map(([key, label]) => (
+          {([['month', t('workCalendar.viewMonth')], ['week', t('workCalendar.viewWeek')], ['day', t('workCalendar.viewDay')]] as [SubView, string][]).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setSub(key)}
@@ -579,7 +581,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
             onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
           >
             <SFIcon name="plus" size={15} color="var(--on-accent)" />
-            Nouvelle tâche
+            {t('workCalendar.newTask')}
           </button>
         )}
         </div>{/* end inner flex column */}
@@ -599,26 +601,26 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={closeModal}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 28, width: 460, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', maxHeight: '90vh', overflow: 'auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700 }}>Nouvel élément</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700 }}>{t('workCalendar.newItem')}</h3>
                 <button onClick={closeModal} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex' }}><SFIcon name="x" size={16} /></button>
               </div>
 
               {/* Type toggle */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-                {(['event', 'task'] as const).map(t => (
-                  <button key={t} onClick={() => setNewType(t)} style={{ flex: 1, padding: '8px', borderRadius: 9, border: `1px solid ${newType === t ? 'var(--accent)' : 'var(--border)'}`, background: newType === t ? 'rgba(249,255,0,0.06)' : 'transparent', color: newType === t ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
-                    {t === 'event' ? '📅 Événement' : '✅ Tâche'}
+                {(['event', 'task'] as const).map(tp => (
+                  <button key={tp} onClick={() => setNewType(tp)} style={{ flex: 1, padding: '8px', borderRadius: 9, border: `1px solid ${newType === tp ? 'var(--accent)' : 'var(--border)'}`, background: newType === tp ? 'rgba(249,255,0,0.06)' : 'transparent', color: newType === tp ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                    {tp === 'event' ? `📅 ${t('workCalendar.event')}` : `✅ ${t('workCalendar.task')}`}
                   </button>
                 ))}
               </div>
 
               {/* Title */}
-              <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') createTask(); if (e.key === 'Escape') closeModal(); }} placeholder="Titre…"
+              <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') createTask(); if (e.key === 'Escape') closeModal(); }} placeholder={t('workCalendar.titlePlaceholder')}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', colorScheme: 'dark', marginBottom: 8 }}
               />
 
               {/* Description */}
-              <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Description (optionnel)…" rows={2}
+              <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder={t('workCalendar.descriptionPlaceholder')} rows={2}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', colorScheme: 'dark', marginBottom: 12, resize: 'vertical', lineHeight: 1.5 }}
               />
 
@@ -627,7 +629,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
                 <div onClick={() => setNewAllDay(s => !s)} style={{ width: 32, height: 18, borderRadius: 9, background: newAllDay ? 'var(--accent)' : 'var(--surface-3)', border: `1px solid ${newAllDay ? 'var(--accent)' : 'var(--border)'}`, position: 'relative', transition: 'background 0.15s', cursor: 'pointer' }}>
                   <div style={{ position: 'absolute', top: 2, left: newAllDay ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: newAllDay ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text-2)' }}>Toute la journée</span>
+                <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('workCalendar.allDay')}</span>
               </label>
 
               {/* Date + times */}
@@ -657,17 +659,17 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
               {sections.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Section du projet (optionnel)</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('workCalendar.projectSection')}</p>
                     {sections.length > SECTION_THRESHOLD && (
                       <button onClick={() => setSectionsExp(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', padding: 0 }}>
-                        {sectionsExp ? 'Réduire' : `+${sections.length - SECTION_THRESHOLD} autres`}
+                        {sectionsExp ? t('workCalendar.collapse') : t('workCalendar.moreOthers', { count: sections.length - SECTION_THRESHOLD })}
                       </button>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     <button onClick={() => setNewSection(-1)}
                       style={{ padding: '4px 10px', borderRadius: 7, border: `1px solid ${newSection === -1 ? 'var(--border-2)' : 'var(--border)'}`, background: newSection === -1 ? 'var(--surface-3)' : 'transparent', color: newSection === -1 ? 'var(--text)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      Aucune
+                      {t('workCalendar.none')}
                     </button>
                     {visibleSections.map((s, i) => (
                       <button key={i} onClick={() => setNewSection(i)}
@@ -681,7 +683,7 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
 
               {/* Location (event only) */}
               {newType === 'event' && (
-                <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Lieu (optionnel)"
+                <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder={t('workCalendar.locationPlaceholder')}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', marginBottom: 12, boxSizing: 'border-box' }}
                 />
               )}
@@ -689,10 +691,10 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
               {/* Participants */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Participants</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('workCalendar.participants')}</p>
                   {team.length > PARTICIPANT_THRESHOLD && (
                     <button onClick={() => setParticipantsExp(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', padding: 0 }}>
-                      {participantsExp ? 'Réduire' : `+${team.length - PARTICIPANT_THRESHOLD} autres`}
+                      {participantsExp ? t('workCalendar.collapse') : t('workCalendar.moreOthers', { count: team.length - PARTICIPANT_THRESHOLD })}
                     </button>
                   )}
                 </div>
@@ -709,8 +711,8 @@ export function TravailCalendar({ sections, onAddTask, projectId, projectName, p
               </div>
 
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <SFButton variant="ghost" onClick={closeModal}>Annuler</SFButton>
-                <SFButton variant="primary" onClick={createTask}>Créer</SFButton>
+                <SFButton variant="ghost" onClick={closeModal}>{t('workCalendar.cancel')}</SFButton>
+                <SFButton variant="primary" onClick={createTask}>{t('workCalendar.create')}</SFButton>
               </div>
             </div>
           </div>
