@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton } from '../components/ui';
+import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, parseYMD, toYMD } from '../components/ui';
 import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
@@ -519,6 +519,8 @@ export function InvoiceFormPanel({
   const [projectId,     setProjectId]     = useState('');
   const [issuedDate,    setIssuedDate]    = useState('');
   const [dueDate,       setDueDate]       = useState('');
+  const [issuedAnchor,  setIssuedAnchor]  = useState<DOMRect | null>(null);
+  const [dueAnchor,     setDueAnchor]     = useState<DOMRect | null>(null);
   const [amount,        setAmount]        = useState('');
   const [taxLines,      setTaxLines]      = useState<TaxLine[]>([]);
   const [currency,      setCurrency]      = useState('CAD');
@@ -695,11 +697,35 @@ export function InvoiceFormPanel({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <label style={labelStyle}>{t('finance.issuedDate')}</label>
-              <input type="date" value={issuedDate} onChange={e => { setIssuedDate(e.target.value); if (!customDue && payTermsDays > 0) setDueDate(addDays(e.target.value, payTermsDays)); }} style={inputStyle} />
+              <button onClick={e => setIssuedAnchor(issuedAnchor ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-mono)', background: issuedAnchor ? 'var(--surface-3)' : undefined }}>
+                {issuedDate ? formatDisplay(issuedDate) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+              </button>
+              {issuedAnchor && (
+                <DatePickerDropdown
+                  value={issuedDate}
+                  onChange={v => { setIssuedDate(v); setIssuedAnchor(null); if (!customDue && payTermsDays > 0) setDueDate(addDays(v, payTermsDays)); }}
+                  onClose={() => setIssuedAnchor(null)}
+                  anchorRect={issuedAnchor}
+                  zIndex={400}
+                />
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <label style={labelStyle}>{t('finance.dueDate')}</label>
-              <input type="date" value={dueDate} onChange={e => { setDueDate(e.target.value); setCustomDue(true); }} style={inputStyle} />
+              <button onClick={e => setDueAnchor(dueAnchor ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-mono)', background: dueAnchor ? 'var(--surface-3)' : undefined }}>
+                {dueDate ? formatDisplay(dueDate) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+              </button>
+              {dueAnchor && (
+                <DatePickerDropdown
+                  value={dueDate}
+                  onChange={v => { setDueDate(v); setDueAnchor(null); setCustomDue(true); }}
+                  onClose={() => setDueAnchor(null)}
+                  anchorRect={dueAnchor}
+                  zIndex={400}
+                />
+              )}
             </div>
           </div>
 
@@ -871,6 +897,8 @@ export function Finances() {
   const [projectFilter, setProjectFilter] = useState('');
   const [dateFrom,      setDateFrom]      = useState('');
   const [dateTo,        setDateTo]        = useState('');
+  const [dateFromAnchor, setDateFromAnchor] = useState<DOMRect | null>(null);
+  const [dateToAnchor,   setDateToAnchor]   = useState<DOMRect | null>(null);
   const [dateField,     setDateField]     = useState<'issuedDate' | 'dueDate' | 'paidDate'>('issuedDate');
   const [panelOpen,     setPanelOpen]     = useState(false);
   const [editInvoice,   setEditInvoice]   = useState<Invoice | null>(null);
@@ -1047,11 +1075,19 @@ export function Finances() {
           {/* From / To inputs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('finance.dateFrom')}</span>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ fontSize: 11, padding: '5px 8px', borderRadius: 8, border: `1px solid ${dateFrom ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-mono)' }} />
+            <button onClick={e => setDateFromAnchor(dateFromAnchor ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
+              style={{ fontSize: 11, padding: '5px 8px', borderRadius: 8, border: `1px solid ${dateFrom ? 'var(--accent)' : 'var(--border)'}`, background: dateFromAnchor ? 'var(--surface-3)' : 'var(--surface-2)', color: dateFrom ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', minWidth: 80 }}>
+              {dateFrom ? formatDisplay(dateFrom) : '—'}
+            </button>
+            {dateFromAnchor && <DatePickerDropdown value={dateFrom} onChange={v => { setDateFrom(v); setDateFromAnchor(null); }} onClose={() => setDateFromAnchor(null)} anchorRect={dateFromAnchor} zIndex={500} />}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('finance.dateTo')}</span>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ fontSize: 11, padding: '5px 8px', borderRadius: 8, border: `1px solid ${dateTo ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-mono)' }} />
+            <button onClick={e => setDateToAnchor(dateToAnchor ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
+              style={{ fontSize: 11, padding: '5px 8px', borderRadius: 8, border: `1px solid ${dateTo ? 'var(--accent)' : 'var(--border)'}`, background: dateToAnchor ? 'var(--surface-3)' : 'var(--surface-2)', color: dateTo ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', minWidth: 80 }}>
+              {dateTo ? formatDisplay(dateTo) : '—'}
+            </button>
+            {dateToAnchor && <DatePickerDropdown value={dateTo} onChange={v => { setDateTo(v); setDateToAnchor(null); }} onClose={() => setDateToAnchor(null)} anchorRect={dateToAnchor} zIndex={500} />}
           </div>
           {hasDateFilter && (
             <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ display: 'flex', alignItems: 'center', padding: '5px 7px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}>

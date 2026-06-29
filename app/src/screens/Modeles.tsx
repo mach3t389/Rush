@@ -2084,7 +2084,7 @@ function ResourceTemplateListItem({ tpl, selected, onClick, canDrag, isDragging,
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</p>
-          <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{RES_TYPE_LABELS[tpl.type]}</p>
+          <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t(RES_TYPE_LABEL_KEYS[tpl.type])}</p>
         </div>
       </button>
       <button onClick={e => { e.stopPropagation(); onToggleFavorite?.(); }} title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
@@ -2125,7 +2125,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
                 : <InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={15} fontWeight={700} placeholder="Nom du modèle…" />}
               {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)', flexShrink: 0 }}>Intégré</span>}
             </div>
-            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 7px', borderRadius: 5, background: `${tpl.color}22`, color: tpl.color, border: `1px solid ${tpl.color}44` }}>{RES_TYPE_LABELS[tpl.type]}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 7px', borderRadius: 5, background: `${tpl.color}22`, color: tpl.color, border: `1px solid ${tpl.color}44` }}>{t(RES_TYPE_LABEL_KEYS[tpl.type])}</span>
           </div>
         </div>
         {tpl.builtIn
@@ -2365,7 +2365,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: `${typeBadgeColor}22`, color: typeBadgeColor, fontSize: 10, fontFamily: 'var(--ff-mono)', border: `1px solid ${typeBadgeColor}44`, flexShrink: 0 }}>
-          <SFIcon name={RES_TYPE_ICONS[type]} size={10} />{RES_TYPE_LABELS[type]}
+          <SFIcon name={RES_TYPE_ICONS[type]} size={10} />{t(RES_TYPE_LABEL_KEYS[type])}
         </span>
         {editingName ? (
           <input autoFocus value={name} onChange={e => setName(e.target.value)}
