@@ -1373,7 +1373,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                 {/* Delete on selected */}
                 {isSel && tool === 'select' && (
                   <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setItems(p=>p.filter(i=>i.id!==item.id)); setArrows(p=>p.filter(a=>a.from!==item.id&&a.to!==item.id)); setSelectedId(null); }}
-                    style={{ position:'absolute', top:-10, right:-10, width:20, height:20, borderRadius:'50%', background:'var(--danger)', border:'none', color:'white', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:20, lineHeight:1 }}>
+                    style={{ position:'absolute', top:6, right:6, width:20, height:20, borderRadius:'50%', background:'var(--danger)', border:'none', color:'white', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:20, lineHeight:1 }}>
                     ×
                   </button>
                 )}
