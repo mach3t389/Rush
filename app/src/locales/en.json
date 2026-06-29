@@ -1338,6 +1338,8 @@
     "invoiceCount_one": "{{count}} invoice",
     "invoiceCount_other": "{{count}} invoices",
     "chartTitle": "Revenue — last 6 months",
+    "chart6months": "6 months",
+    "chart12months": "Year",
     "chartByIssuedDate": "Issue date",
     "chartBySentDate": "Sent date",
     "chartByPaidDate": "Payment date",

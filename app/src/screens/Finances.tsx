@@ -44,10 +44,10 @@ function timeAgo(ts: number): string {
   return `Il y a ${Math.floor(h / 24)} j`;
 }
 
-function getLast6Months(): { label: string; year: number; month: number }[] {
+function getLastNMonths(n: number): { label: string; year: number; month: number }[] {
   const now = new Date();
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (n - 1 - i), 1);
     return { label: d.toLocaleDateString('fr-CA', { month: 'short' }), year: d.getFullYear(), month: d.getMonth() };
   });
 }
@@ -76,8 +76,9 @@ const CHART_MODES: Array<{ key: ChartMode; labelKey: string }> = [
 
 function RevenueChart({ invoices }: { invoices: Invoice[] }) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<ChartMode>('issuedDate');
-  const months = getLast6Months();
+  const [mode,   setMode]   = useState<ChartMode>('issuedDate');
+  const [period, setPeriod] = useState<6 | 12>(6);
+  const months = getLastNMonths(period);
 
   const data = months.map(m => {
     const mi = invoices.filter(i => {
@@ -94,32 +95,43 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
   });
 
   const maxVal = Math.max(1, ...data.map(d => d.total));
-  const W = 480; const H = 96;
-  const PAD = { t: 6, r: 8, b: 22, l: 46 };
+  const W = 480; const H = 80;
+  const PAD = { t: 4, r: 8, b: 20, l: 44 };
   const chartW = W - PAD.l - PAD.r;
   const chartH = H - PAD.t - PAD.b;
-  const slotW = chartW / 6;
-  const barW = slotW * 0.52;
+  const slotW  = chartW / period;
+  const barW   = slotW * 0.52;
 
   const yTicks = [0, 0.5, 1].map(p => ({ pct: p, val: maxVal * p, y: PAD.t + chartH * (1 - p) }));
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', flex: 1, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('finance.chartTitle')}</p>
-        <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border)' }}>
-          {CHART_MODES.map(m => (
-            <button key={m.key} onClick={() => setMode(m.key)} style={{ fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', background: mode === m.key ? 'var(--surface-3)' : 'var(--surface-2)', color: mode === m.key ? 'var(--text)' : 'var(--text-3)', fontWeight: mode === m.key ? 600 : 400 }}>
-              {t(m.labelKey)}
-            </button>
-          ))}
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', flex: 2, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, flexShrink: 0 }}>{t('finance.chartTitle')}</p>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* Période */}
+          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            {([6, 12] as const).map(p => (
+              <button key={p} onClick={() => setPeriod(p)} style={{ fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', background: period === p ? 'var(--surface-3)' : 'var(--surface-2)', color: period === p ? 'var(--text)' : 'var(--text-3)', fontWeight: period === p ? 600 : 400 }}>
+                {p === 6 ? t('finance.chart6months') : t('finance.chart12months')}
+              </button>
+            ))}
+          </div>
+          {/* Mode date */}
+          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            {CHART_MODES.map(m => (
+              <button key={m.key} onClick={() => setMode(m.key)} style={{ fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', background: mode === m.key ? 'var(--surface-3)' : 'var(--surface-2)', color: mode === m.key ? 'var(--text)' : 'var(--text-3)', fontWeight: mode === m.key ? 600 : 400 }}>
+                {t(m.labelKey)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         {yTicks.map(({ val, y, pct }) => (
           <g key={pct}>
             <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="var(--border)" strokeWidth={0.5} />
-            <text x={PAD.l - 5} y={y + 3} textAnchor="end" style={{ fontSize: '7px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
+            <text x={PAD.l - 4} y={y + 3} textAnchor="end" style={{ fontSize: '7px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
               {val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0)}
             </text>
           </g>
@@ -134,19 +146,19 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
           const dh = (d.draft / maxVal) * chartH;
           return (
             <g key={i}>
-              {dh > 0 && <rect x={bx} y={base - dh - ph - oh - rh} width={barW} height={dh} fill="var(--border-2)" rx={2} />}
-              {rh > 0 && <rect x={bx} y={base - rh - ph - oh} width={barW} height={rh} fill="var(--danger)" opacity={0.75} rx={2} />}
-              {oh > 0 && <rect x={bx} y={base - oh - ph} width={barW} height={oh} fill="var(--warn)" opacity={0.75} rx={2} />}
-              {ph > 0 && <rect x={bx} y={base - ph} width={barW} height={ph} fill="var(--ok)" opacity={0.85} rx={2} />}
-              <text x={cx} y={H - 4} textAnchor="middle" style={{ fontSize: '7px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{d.label}</text>
+              {dh > 0 && <rect x={bx} y={base - dh - ph - oh - rh} width={barW} height={dh} fill="var(--border-2)" rx={1} />}
+              {rh > 0 && <rect x={bx} y={base - rh - ph - oh} width={barW} height={rh} fill="var(--danger)" opacity={0.75} rx={1} />}
+              {oh > 0 && <rect x={bx} y={base - oh - ph} width={barW} height={oh} fill="var(--warn)" opacity={0.75} rx={1} />}
+              {ph > 0 && <rect x={bx} y={base - ph} width={barW} height={ph} fill="var(--ok)" opacity={0.85} rx={1} />}
+              <text x={cx} y={H - 3} textAnchor="middle" style={{ fontSize: '6px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
         {([['var(--ok)', t('finance.statusPaid')], ['var(--warn)', t('finance.statusSent')], ['var(--danger)', t('finance.statusOverdue')], ['var(--border-2)', t('finance.statusDraft')]] as [string, string][]).map(([color, label]) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: 2, background: color, display: 'block', flexShrink: 0 }} />
+            <span style={{ width: 6, height: 6, borderRadius: 1, background: color, display: 'block', flexShrink: 0 }} />
             <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{label}</span>
           </div>
         ))}
@@ -184,7 +196,7 @@ function StatusDonut({ invoices }: { invoices: Invoice[] }) {
 
   const total = segments.reduce((s, seg) => s + seg.value, 0);
 
-  const cx = 52, cy = 52, R = 44, r = 26;
+  const cx = 70, cy = 70, R = 60, r = 36;
   const GAP = 0.025;
   let angle = -Math.PI / 2;
   const paths = segments.map(seg => {
@@ -196,25 +208,23 @@ function StatusDonut({ invoices }: { invoices: Invoice[] }) {
   });
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', width: 210, flexShrink: 0 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', flex: 1, minWidth: 0 }}>
       <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>{t('finance.donutTitle')}</p>
       {total === 0 ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 104, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 11 }}>—</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 11 }}>—</div>
       ) : (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <svg viewBox="0 0 104 104" style={{ width: 92, height: 92, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <svg viewBox="0 0 140 140" style={{ width: '100%', maxWidth: 140, height: 'auto' }}>
             {paths.map((p, i) => <path key={i} d={p.d} fill={p.color} opacity={0.88} />)}
-            <text x={cx} y={cy - 3} textAnchor="middle" style={{ fontFamily: 'var(--ff-mono)', fontSize: '7px', fill: 'var(--text-3)' }}>{t('finance.statusPaid')}</text>
-            <text x={cx} y={cy + 8} textAnchor="middle" style={{ fontFamily: 'var(--ff-mono)', fontSize: '9px', fontWeight: 700, fill: 'var(--ok)' }}>{Math.round(paid / total * 100)}%</text>
+            <text x={cx} y={cy - 5} textAnchor="middle" style={{ fontFamily: 'var(--ff-mono)', fontSize: '8px', fill: 'var(--text-3)' }}>{t('finance.statusPaid')}</text>
+            <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontFamily: 'var(--ff-mono)', fontSize: '13px', fontWeight: 700, fill: 'var(--ok)' }}>{Math.round(paid / total * 100)}%</text>
           </svg>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', justifyContent: 'center' }}>
             {paths.map((p, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 7, height: 7, borderRadius: 2, background: p.color, flexShrink: 0, display: 'block' }} />
-                <div>
-                  <div style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', lineHeight: 1 }}>{p.label}</div>
-                  <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{p.pct}%</div>
-                </div>
+                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{p.label}</span>
+                <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{p.pct}%</span>
               </div>
             ))}
           </div>
@@ -966,8 +976,8 @@ export function Finances() {
           ))}
         </div>
 
-        {/* Charts row */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'stretch' }}>
+        {/* Charts row — 2/3 barres + 1/3 donut */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 20 }}>
           <RevenueChart invoices={invoices} />
           <StatusDonut invoices={invoices} />
         </div>
