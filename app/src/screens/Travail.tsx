@@ -1705,6 +1705,18 @@ export function Travail() {
   const [showCompletedTasks, setShowCompletedTasks] = useState(() => loadViewPref('sf_showCompletedTasks', true));
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
+  // Escape — ferme le panneau de détail de tâche
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedTask) {
+        setSelectedTask(null);
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [selectedTask]);
+
   const togglePref = (key: string, value: boolean) => localStorage.setItem(key, JSON.stringify(value));
 
   const baseSections = activeSection

@@ -4,41 +4,52 @@ import { Sidebar } from './Sidebar';
 import { GlobalTopBar } from './GlobalTopBar';
 import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
-import { triggerAIToggle } from '../aiChatBridge';
+import { triggerAIToggle, triggerAIClose } from '../aiChatBridge';
 import { ToastBar } from '../ToastBar';
+import { getShortcuts, subscribeShortcuts, matchesShortcut } from '../../data/shortcutsStore';
 
 export function AppShell() {
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [shortcuts, setShortcuts] = useState(getShortcuts);
+
+  useEffect(() => subscribeShortcuts(() => setShortcuts(getShortcuts())), []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Escape — ferme le panneau IA ou la palette de recherche ouverts
+      if (e.key === 'Escape') {
+        if (cmdOpen) { setCmdOpen(false); e.preventDefault(); return; }
+        triggerAIClose();
+        return;
+      }
+
+      // Ctrl+K — toujours actif (convention universelle)
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setCmdOpen(prev => !prev);
+        return;
       }
-      // Touche R seule — ouvre la recherche ; ignorée si focus dans un champ de texte
-      if ((e.key === 'r' || e.key === 'R' || e.code === 'KeyR') && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-        const t = e.target as HTMLElement;
-        const inTextField = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
-        if (!inTextField) {
-          e.preventDefault();
-          setCmdOpen(true);
-        }
+
+      const t = e.target as HTMLElement;
+      const inTextField = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+      const inAIPanel = !!t.closest?.('[data-ai-panel]');
+
+      // Raccourci Recherche
+      if (matchesShortcut(e, shortcuts.search) && !inTextField) {
+        e.preventDefault();
+        setCmdOpen(true);
+        return;
       }
-      // Touche I seule — ignorée si focus dans un champ de texte hors du panneau IA
-      if ((e.key === 'i' || e.key === 'I' || e.code === 'KeyI') && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-        const t = e.target as HTMLElement;
-        const inAIPanel = !!t.closest?.('[data-ai-panel]');
-        const inTextField = (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) && !inAIPanel;
-        if (!inTextField) {
-          e.preventDefault();
-          triggerAIToggle();
-        }
+
+      // Raccourci IA toggle
+      if (matchesShortcut(e, shortcuts.ai_toggle) && (!inTextField || inAIPanel)) {
+        e.preventDefault();
+        triggerAIToggle();
       }
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, []);
+  }, [shortcuts, cmdOpen]);
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--bg)' }}>

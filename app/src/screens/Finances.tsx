@@ -8,7 +8,7 @@ import {
   getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices,
   sendInvoice as doSendInvoice, addInvoiceComment,
   savePdf, loadPdf, formatMoney, nextInvoiceNumber, addDays,
-  getInvoiceDefaults, computeTaxLines,
+  getInvoiceDefaults, computeTaxLines, TAX_PRESETS,
   type Invoice, type InvoiceStatus, type InvoiceComment, type TaxLine,
 } from '../data/financeStore';
 
@@ -719,7 +719,24 @@ export function InvoiceFormPanel({
 
           {/* Lignes de taxe */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle}>{t('finance.taxLines')}</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <label style={labelStyle}>{t('finance.taxLines')}</label>
+              <select
+                defaultValue=""
+                onChange={e => {
+                  const key = e.target.value;
+                  const preset = TAX_PRESETS[key as keyof typeof TAX_PRESETS];
+                  if (preset) setTaxLines(preset.lines.map(l => ({ ...l })));
+                  e.target.value = '';
+                }}
+                style={{ fontSize: 11, padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)', maxWidth: 200 }}
+              >
+                <option value="" disabled>{t('finance.applyPreset')}</option>
+                {Object.entries(TAX_PRESETS).map(([key, preset]) => (
+                  <option key={key} value={key}>{preset.label}</option>
+                ))}
+              </select>
+            </div>
             {taxLines.map((line, idx) => (
               <div key={line.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {/* Toggle actif */}

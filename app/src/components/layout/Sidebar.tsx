@@ -1,20 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { triggerAIToggle } from '../aiChatBridge';
 import { NavLink } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
-import { USERS } from '../../data/mock';
 import { getProjects, subscribeProjects } from '../../data/projectStore';
 import { getClients, subscribeClients } from '../../data/clientStore';
 import { useProjectTotalNotifCount, useClientTotalNotifCount } from '../../hooks/useNotifs';
-import { ProfileEditPanel, loadProfile, loadPhoto } from '../profile/ProfileEditPanel';
 import {
   getPinnedIds, subscribePinned, movePinned, togglePin,
   getPinnedClientIds, subscribePinnedClients, movePinnedClient, togglePinClient,
   getProjectColor, setProjectColor,
 } from '../../data/pinnedStore';
 import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
-import { subscribeNotifs, getNotifHistory } from '../../data/notificationStore';
 
 function PinnedBadge({ count }: { count: number }) {
   if (count === 0) return null;
@@ -46,8 +42,6 @@ const PROJECT_COLOR_PRESETS = [
 ];
 
 // These will be populated inside the Sidebar component using i18n
-
-const me = USERS.lea;
 
 function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; icon: string; label: string; exact?: boolean; collapsed: boolean; badge?: number }) {
   return (
@@ -100,7 +94,6 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
 export function Sidebar({ onSearch }: { onSearch?: () => void }) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
   const [pinnedClientIds, setPinnedClientIds] = useState(getPinnedClientIds);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -114,13 +107,10 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
   const dragHandleActive = useRef(false);
   const dragClientHandleActive = useRef(false);
 
-  const [unreadCount, setUnreadCount] = useState(() => getNotifHistory().filter(n => !n.read).length);
-
   useEffect(() => subscribePinned(() => setPinnedIds(getPinnedIds())), []);
   useEffect(() => subscribePinnedClients(() => setPinnedClientIds(getPinnedClientIds())), []);
   useEffect(() => subscribeProjects(() => setPinnedIds(prev => [...prev])), []);
   useEffect(() => subscribeClients(() => setPinnedClientIds(prev => [...prev])), []);
-  useEffect(() => subscribeNotifs(() => setUnreadCount(getNotifHistory().filter(n => !n.read).length)), []);
 
   // Close color picker on outside click
   useEffect(() => {
@@ -137,11 +127,6 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
     setLogoFullState(getLogoFull());
     setLogoSquareState(getLogoSquare());
   }), []);
-
-  const profileOverrides = loadProfile(me.id);
-  const photoUrl = loadPhoto(me.id);
-  const displayName = profileOverrides.name ?? me.name;
-  const displayRole = profileOverrides.role ?? me.role;
 
   const pinnedProjects = pinnedIds
     .map(id => getProjects().find(p => p.id === id))
@@ -281,10 +266,9 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
 
           {/* Outils transversaux */}
-          <NavItem to="/calendrier" icon="calendar"     label={t('nav.calendar')}      exact={false} collapsed={collapsed} />
-          <NavItem to="/fichiers"   icon="folder-open"  label={t('nav.files')}         exact={false} collapsed={collapsed} />
-          <NavItem to="/finances"   icon="receipt"      label={t('nav.finances')}      exact={false} collapsed={collapsed} />
-          <NavItem to="/activite"   icon="bell"         label={t('nav.notifications')} exact={false} collapsed={collapsed} badge={unreadCount} />
+          <NavItem to="/calendrier" icon="calendar"    label={t('nav.calendar')} exact={false} collapsed={collapsed} />
+          <NavItem to="/fichiers"   icon="folder-open" label={t('nav.files')}    exact={false} collapsed={collapsed} />
+          <NavItem to="/finances"   icon="receipt"     label={t('nav.finances')} exact={false} collapsed={collapsed} />
         </nav>
 
         {/* Projets épinglés */}
@@ -523,30 +507,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
       {/* Bottom */}
       <div style={{ padding: collapsed ? '0 6px 12px' : '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {/* AI assistant button */}
-        <button
-          onClick={() => triggerAIToggle()}
-          title={collapsed ? t('nav.aiAssistant') : undefined}
-          style={{
-            display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
-            padding: collapsed ? '8px 0' : '8px 12px',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            borderRadius: 9, border: 'none', cursor: 'pointer',
-            background: 'transparent', width: '100%', textAlign: 'left',
-            color: 'var(--accent)', marginBottom: 2,
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-        >
-          <SFIcon name="sparkles" size={16} color="var(--accent)" />
-          {!collapsed && (
-            <>
-              <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{t('nav.aiAssistant')}</span>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--accent)', opacity: 0.55, background: 'rgba(249,255,0,0.08)', border: '1px solid rgba(249,255,0,0.2)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.04em', flexShrink: 0 }}>I</span>
-            </>
-          )}
-        </button>
-
+        <NavItem to="/modeles" icon="layout-template" label={t('nav.models')} exact={false} collapsed={collapsed} />
         <NavLink
           to="/parametres"
           title={collapsed ? t('nav.settings') : undefined}
@@ -566,54 +527,7 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           {!collapsed && t('nav.settings')}
         </NavLink>
 
-        {/* User */}
-        <button
-          onClick={() => setShowProfile(true)}
-          title={collapsed ? displayName : undefined}
-          style={{
-            display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
-            padding: collapsed ? '8px 0' : '8px 12px',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            marginTop: 4, background: 'none', border: 'none', cursor: 'pointer',
-            borderRadius: 9, width: '100%', textAlign: 'left',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
-        >
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: me.avatarColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 600, color: '#fff', flexShrink: 0,
-            overflow: 'hidden',
-          }}>
-            {photoUrl
-              ? <img src={photoUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : me.initials}
-          </div>
-          {!collapsed && (
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</p>
-              <p style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayRole}</p>
-            </div>
-          )}
-        </button>
       </div>
-
-      {showProfile && (
-        <ProfileEditPanel
-          userId={me.id}
-          initialName={me.name}
-          initialRole={me.role}
-          initialEmail="lea.marchand@studioflow.fr"
-          initialPhone="+1 514 555-0101"
-          initialInitials={me.initials}
-          initialColor={me.avatarColor}
-          isSelf
-          isAdmin
-          onClose={() => setShowProfile(false)}
-        />
-      )}
     </aside>
   );
 }

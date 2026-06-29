@@ -3,12 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon } from '../components/ui';
 import { MonEquipe } from './MonEquipe';
 import { Modeles } from './Modeles';
+import {
+  getShortcuts, setShortcut, resetAllShortcuts, subscribeShortcuts,
+  formatCombo, DEFAULT_SHORTCUTS,
+  type ShortcutAction, type ShortcutCombo,
+} from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
 import {
-  getPaymentMethods, updatePaymentMethod, subscribePaymentMethods, type PaymentMethod,
+  getPaymentMethods, updatePaymentMethod, addPaymentMethod, removePaymentMethod, subscribePaymentMethods, type PaymentMethod, type PaymentMethodType,
   getInvoiceDefaults, setInvoiceDefaults, subscribeInvoiceDefaults, type InvoiceDefaults,
   TAX_PRESETS, type TaxLine,
 } from '../data/financeStore';
@@ -77,123 +82,222 @@ function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, se
   );
 }
 
+const PM_TYPE_OPTIONS: Array<{ value: PaymentMethodType; label: string; icon: string }> = [
+  { value: 'bank_transfer', label: 'Virement bancaire',  icon: 'landmark'     },
+  { value: 'interac',       label: 'Interac e-Transfer', icon: 'mail'         },
+  { value: 'stripe',        label: 'Carte de crédit (Stripe)', icon: 'credit-card' },
+  { value: 'paypal',        label: 'PayPal',             icon: 'wallet'       },
+  { value: 'cheque',        label: 'Chèque',             icon: 'file-text'    },
+  { value: 'cash',          label: 'Comptant',           icon: 'banknote'     },
+  { value: 'custom',        label: 'Personnalisée',      icon: 'circle-plus'  },
+];
+
 function PaymentMethodsSettings() {
   const { t } = useTranslation();
   const [methods, setMethods] = useState<PaymentMethod[]>(getPaymentMethods);
-  const [editId, setEditId] = useState<string | null>(null);
+  const [editId,      setEditId]      = useState<string | null>(null);
+  const [editName,    setEditName]    = useState('');
   const [editDetails, setEditDetails] = useState('');
-  const [editFee, setEditFee] = useState('');
-  const [editStripe, setEditStripe] = useState('');
-  const [editName, setEditName] = useState('');
+  const [editFee,     setEditFee]     = useState('');
+  const [editStripe,  setEditStripe]  = useState('');
+  const [deleteId,    setDeleteId]    = useState<string | null>(null);
+  const [showAdd,     setShowAdd]     = useState(false);
+  const [newType,     setNewType]     = useState<PaymentMethodType>('custom');
+  const [newName,     setNewName]     = useState('');
+  const [newDetails,  setNewDetails]  = useState('');
+  const [newFee,      setNewFee]      = useState('');
+  const [newStripe,   setNewStripe]   = useState('');
 
   useEffect(() => subscribePaymentMethods(() => setMethods(getPaymentMethods())), []);
 
   const startEdit = (m: PaymentMethod) => {
-    setEditId(m.id);
-    setEditName(m.name);
-    setEditDetails(m.details);
-    setEditFee(String(m.feePercent ?? 0));
-    setEditStripe(m.stripeLink ?? '');
+    setEditId(m.id); setEditName(m.name); setEditDetails(m.details);
+    setEditFee(String(m.feePercent ?? 0)); setEditStripe(m.stripeLink ?? '');
+    setShowAdd(false);
   };
   const saveEdit = (id: string) => {
-    updatePaymentMethod(id, { name: editName, details: editDetails, feePercent: parseFloat(editFee) || 0, feeLabel: parseFloat(editFee) > 0 ? `+${editFee}% de frais` : undefined, stripeLink: editStripe || undefined });
+    const fee = parseFloat(editFee) || 0;
+    updatePaymentMethod(id, { name: editName, details: editDetails, feePercent: fee, feeLabel: fee > 0 ? `+${editFee}%` : undefined, stripeLink: editStripe || undefined });
     setEditId(null);
   };
+  const saveNew = () => {
+    if (!newName.trim()) return;
+    const fee = parseFloat(newFee) || 0;
+    const opt = PM_TYPE_OPTIONS.find(o => o.value === newType)!;
+    addPaymentMethod({
+      id: `pm_${Date.now()}`, type: newType, name: newName.trim(), icon: opt.icon,
+      details: newDetails, feePercent: fee, feeLabel: fee > 0 ? `+${newFee}%` : undefined,
+      stripeLink: newType === 'stripe' ? (newStripe || undefined) : undefined,
+      isRecommended: false, isEnabled: true,
+      sortOrder: Math.max(0, ...methods.map(m => m.sortOrder)) + 1,
+    });
+    setShowAdd(false); setNewName(''); setNewDetails(''); setNewFee(''); setNewStripe(''); setNewType('custom');
+  };
 
-  const inputStyle: React.CSSProperties = { width: '100%', fontSize: 12, padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
+  const inp: React.CSSProperties = { width: '100%', fontSize: 12, padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
+  const lbl: React.CSSProperties = { fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 };
+  const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600 }}>
+
+      {/* Header — toujours visible */}
       <div>
         <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.paymentMethodsTitle')}</h2>
         <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('settings.paymentMethodsDesc')}</p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {[...methods].sort((a, b) => a.sortOrder - b.sortOrder).map(m => (
-          <div key={m.id} style={{ background: 'var(--surface)', border: `1px solid ${editId === m.id ? 'var(--border-2)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden' }}>
-            {/* Row */}
-            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Toggle */}
-              <button
-                onClick={() => updatePaymentMethod(m.id, { isEnabled: !m.isEnabled })}
-                style={{ width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', flexShrink: 0, position: 'relative', transition: 'background 0.2s', background: m.isEnabled ? 'var(--ok)' : 'var(--surface-3)' }}
-              >
-                <span style={{ position: 'absolute', top: 2, left: m.isEnabled ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', display: 'block' }} />
-              </button>
-
-              {/* Icon */}
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <SFIcon name={m.icon} size={15} color="var(--text-2)" />
-              </div>
-
-              {/* Name + badges */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</span>
-                  {m.isRecommended && (
-                    <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'rgba(249,255,0,0.15)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 20, padding: '1px 7px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                      {t('settings.pmRecommended')}
-                    </span>
-                  )}
-                  {(m.feePercent ?? 0) > 0 && (
-                    <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 20, padding: '1px 7px' }}>
-                      +{m.feePercent}%
-                    </span>
-                  )}
-                </div>
-                {!editId && <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.details.split('\n')[0]}</p>}
-              </div>
-
-              {/* Recommended toggle */}
-              <button
-                onClick={() => updatePaymentMethod(m.id, { isRecommended: !m.isRecommended })}
-                title={t('settings.pmRecommended')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: m.isRecommended ? 'var(--accent)' : 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 4 }}
-              >
-                <SFIcon name="star" size={14} color={m.isRecommended ? 'var(--accent)' : 'var(--text-3)'} />
-              </button>
-
-              {/* Edit toggle */}
-              <button
-                onClick={() => editId === m.id ? setEditId(null) : startEdit(m)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 4 }}
-              >
-                <SFIcon name={editId === m.id ? 'chevron-up' : 'settings-2'} size={14} />
-              </button>
+      {/* Stripe integration card */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: '#635bff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--ff-mono)', fontWeight: 900, fontSize: 14, color: '#fff', letterSpacing: '-1px' }}>S</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Stripe</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.25)', color: 'var(--accent)', letterSpacing: '0.06em' }}>{t('settings.comingSoon')}</span>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 10 }}>Connectez votre compte Stripe pour accepter les paiements par carte directement depuis le portail client. Les fonds sont virés automatiquement dans vos délais habituels.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button disabled style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 12, cursor: 'not-allowed', opacity: 0.6, fontFamily: 'var(--ff-text)', fontWeight: 500 }}>
+              <SFIcon name="link" size={13} color="var(--text-3)" />
+              Connecter Stripe
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>Clé API :</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.05em' }}>pk_••••••••••••</span>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Edit panel */}
-            {editId === m.id && (
-              <div style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--surface-2)' }}>
-                <div>
-                  <label style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.pmName')}</label>
-                  <input value={editName} onChange={e => setEditName(e.target.value)} style={inputStyle} />
+      {/* Liste des méthodes */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[...methods].sort((a, b) => a.sortOrder - b.sortOrder).map(m => {
+          const isEdit = editId === m.id;
+          const isDeleting = deleteId === m.id;
+          return (
+            <div key={m.id} style={{ background: 'var(--surface)', border: `1px solid ${isEdit ? 'var(--border-2)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden' }}>
+              {/* Row — toujours visible */}
+              <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button onClick={() => updatePaymentMethod(m.id, { isEnabled: !m.isEnabled })}
+                  style={{ width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', flexShrink: 0, position: 'relative', background: m.isEnabled ? 'var(--ok)' : 'var(--surface-3)' }}>
+                  <span style={{ position: 'absolute', top: 2, left: m.isEnabled ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', display: 'block', transition: 'left 0.15s' }} />
+                </button>
+                <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <SFIcon name={m.icon} size={14} color="var(--text-2)" />
                 </div>
-                <div>
-                  <label style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.pmDetails')}</label>
-                  <textarea value={editDetails} onChange={e => setEditDetails(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</span>
+                    {m.isRecommended && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'rgba(249,255,0,0.15)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 20, padding: '1px 7px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{t('settings.pmRecommended')}</span>}
+                    {(m.feePercent ?? 0) > 0 && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 20, padding: '1px 7px' }}>+{m.feePercent}%</span>}
+                  </div>
+                  {/* Description — toujours visible */}
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.details.split('\n')[0]}</p>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button onClick={() => updatePaymentMethod(m.id, { isRecommended: !m.isRecommended })} style={iconBtn}>
+                  <SFIcon name="star" size={13} color={m.isRecommended ? 'var(--accent)' : 'var(--text-3)'} />
+                </button>
+                {isDeleting ? (
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <button onClick={() => { removePaymentMethod(m.id); setDeleteId(null); }} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 600 }}>Supprimer</button>
+                    <button onClick={() => setDeleteId(null)} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => setDeleteId(m.id)} style={iconBtn} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
+                      <SFIcon name="trash-2" size={13} />
+                    </button>
+                    <button onClick={() => isEdit ? setEditId(null) : startEdit(m)} style={iconBtn}>
+                      <SFIcon name={isEdit ? 'chevron-up' : 'square-pen'} size={13} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Panneau d'édition */}
+              {isEdit && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--surface-2)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={lbl}>{t('settings.pmName')}</label>
+                      <input value={editName} onChange={e => setEditName(e.target.value)} style={inp} />
+                    </div>
+                    <div>
+                      <label style={lbl}>{t('settings.pmFee')} (%)</label>
+                      <input type="number" min="0" step="0.1" value={editFee} onChange={e => setEditFee(e.target.value)} style={inp} />
+                    </div>
+                  </div>
                   <div>
-                    <label style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.pmFee')} (%)</label>
-                    <input type="number" min="0" step="0.1" value={editFee} onChange={e => setEditFee(e.target.value)} style={inputStyle} />
+                    <label style={lbl}>{t('settings.pmDetails')}</label>
+                    <textarea value={editDetails} onChange={e => setEditDetails(e.target.value)} rows={3} style={{ ...inp, resize: 'vertical', minHeight: 56 }} />
                   </div>
                   {m.type === 'stripe' && (
                     <div>
-                      <label style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.pmStripeLink')}</label>
-                      <input value={editStripe} onChange={e => setEditStripe(e.target.value)} placeholder="https://buy.stripe.com/..." style={inputStyle} />
+                      <label style={lbl}>{t('settings.pmStripeLink')}</label>
+                      <input value={editStripe} onChange={e => setEditStripe(e.target.value)} placeholder="https://buy.stripe.com/..." style={inp} />
                     </div>
                   )}
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setEditId(null)} style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('finance.cancel')}</button>
+                    <button onClick={() => saveEdit(m.id)} style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}>{t('finance.save')}</button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button onClick={() => setEditId(null)} style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('finance.cancel')}</button>
-                  <button onClick={() => saveEdit(m.id)} style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}>{t('finance.save')}</button>
-                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Formulaire ajout */}
+        {showAdd && (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={lbl}>Type</label>
+                <select value={newType} onChange={e => { const t = e.target.value as PaymentMethodType; setNewType(t); if (!newName) setNewName(PM_TYPE_OPTIONS.find(o => o.value === t)?.label ?? ''); }} style={{ ...inp, cursor: 'pointer' }}>
+                  {PM_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               </div>
-            )}
+              <div>
+                <label style={lbl}>{t('settings.pmName')}</label>
+                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: Virement RBC" style={inp} />
+              </div>
+            </div>
+            <div>
+              <label style={lbl}>{t('settings.pmDetails')}</label>
+              <textarea value={newDetails} onChange={e => setNewDetails(e.target.value)} rows={2} placeholder="Coordonnées affichées au client…" style={{ ...inp, resize: 'vertical', minHeight: 48 }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={lbl}>{t('settings.pmFee')} (%)</label>
+                <input type="number" min="0" step="0.1" value={newFee} onChange={e => setNewFee(e.target.value)} placeholder="0" style={inp} />
+              </div>
+              {newType === 'stripe' && (
+                <div>
+                  <label style={lbl}>{t('settings.pmStripeLink')}</label>
+                  <input value={newStripe} onChange={e => setNewStripe(e.target.value)} placeholder="https://buy.stripe.com/..." style={inp} />
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowAdd(false)} style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('finance.cancel')}</button>
+              <button onClick={saveNew} disabled={!newName.trim()} style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, border: 'none', background: newName.trim() ? 'var(--accent)' : 'var(--surface-3)', color: newName.trim() ? 'var(--on-accent)' : 'var(--text-3)', cursor: newName.trim() ? 'pointer' : 'default', fontWeight: 600, fontFamily: 'var(--ff-text)' }}>Ajouter</button>
+            </div>
           </div>
-        ))}
+        )}
+
+        {/* Bouton ajouter */}
+        {!showAdd && (
+          <button onClick={() => { setShowAdd(true); setEditId(null); setDeleteId(null); }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', width: '100%' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+          >
+            <SFIcon name="plus" size={14} />
+            Ajouter une méthode de paiement
+          </button>
+        )}
       </div>
     </div>
   );
@@ -367,10 +471,139 @@ function InvoiceDefaultsSettings() {
   );
 }
 
+const SHORTCUT_ACTIONS: Array<{ action: ShortcutAction; labelKey: string; description: string }> = [
+  { action: 'search',    labelKey: 'settings.shortcutSearch',    description: 'Ouvre la palette de recherche' },
+  { action: 'ai_toggle', labelKey: 'settings.shortcutAiToggle',  description: 'Affiche ou masque le panneau IA' },
+  { action: 'ai_mic',    labelKey: 'settings.shortcutAiMic',     description: 'Active le micro dans l\'assistant IA (panneau ouvert)' },
+];
+
+function KeyboardShortcutsSettings() {
+  const { t } = useTranslation();
+  const [shortcuts, setShortcuts] = useState(getShortcuts);
+  const [recording, setRecording]   = useState<ShortcutAction | null>(null);
+  const [conflict, setConflict]     = useState<ShortcutAction | null>(null);
+  const recordingRef = useRef<ShortcutAction | null>(null);
+
+  useEffect(() => subscribeShortcuts(() => setShortcuts(getShortcuts())), []);
+
+  const startRecording = (action: ShortcutAction) => {
+    setRecording(action);
+    setConflict(null);
+    recordingRef.current = action;
+  };
+
+  useEffect(() => {
+    if (!recording) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') { setRecording(null); recordingRef.current = null; return; }
+      // Ignore modifier-only keys
+      if (['Control', 'Meta', 'Shift', 'Alt'].includes(e.key)) return;
+
+      const combo: ShortcutCombo = {
+        key: e.key.toLowerCase(),
+        ctrl: e.ctrlKey || e.metaKey,
+        shift: e.shiftKey,
+        alt: e.altKey,
+      };
+
+      // Check for conflicts with other actions
+      const conflicting = (Object.keys(shortcuts) as ShortcutAction[]).find(a =>
+        a !== recording && formatCombo(shortcuts[a]) === formatCombo(combo)
+      );
+      if (conflicting) { setConflict(conflicting); setRecording(null); recordingRef.current = null; return; }
+
+      setShortcut(recording, combo);
+      setConflict(null);
+      setRecording(null);
+      recordingRef.current = null;
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [recording, shortcuts]);
+
+  const inp: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 12, padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', letterSpacing: '0.04em', fontWeight: 600 };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 }}>
+      <div>
+        <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.shortcutsTitle')}</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('settings.shortcutsDesc')}</p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {SHORTCUT_ACTIONS.map(({ action, labelKey, description }) => {
+          const combo = shortcuts[action];
+          const isDefault = formatCombo(combo) === formatCombo(DEFAULT_SHORTCUTS[action]);
+          const isRecording = recording === action;
+          const hasConflict = conflict === action;
+
+          return (
+            <div key={action} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 16px', borderRadius: 10,
+              background: 'var(--surface)',
+              border: `1px solid ${isRecording ? 'var(--accent)' : hasConflict ? 'var(--danger)' : 'var(--border)'}`,
+              transition: 'border-color 0.15s',
+            }}>
+              {/* Infos */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{t(labelKey)}</span>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{description}</p>
+                {hasConflict && <p style={{ fontSize: 11, color: 'var(--danger)', marginTop: 2 }}>{t('settings.shortcutConflict')}</p>}
+              </div>
+
+              {/* Badge raccourci / enregistrement */}
+              <button
+                onClick={() => isRecording ? setRecording(null) : startRecording(action)}
+                style={{
+                  ...inp,
+                  cursor: 'pointer', border: `1px solid ${isRecording ? 'var(--accent)' : 'var(--border-2)'}`,
+                  background: isRecording ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--surface-2)',
+                  color: isRecording ? 'var(--accent)' : 'var(--text)',
+                  minWidth: 80, textAlign: 'center',
+                  animation: isRecording ? 'mic-pulse 1.2s ease-in-out infinite' : 'none',
+                }}
+              >
+                {isRecording ? t('settings.shortcutRecording') : formatCombo(combo)}
+              </button>
+
+              {/* Reset individuel */}
+              {!isDefault && !isRecording && (
+                <button
+                  onClick={() => setShortcut(action, { ...DEFAULT_SHORTCUTS[action] })}
+                  title={t('settings.shortcutReset')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                >
+                  <SFIcon name="rotate-ccw" size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={resetAllShortcuts}
+        style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+      >
+        <SFIcon name="rotate-ccw" size={13} />
+        {t('settings.shortcutResetAll')}
+      </button>
+    </div>
+  );
+}
+
 const SECTIONS = [
   { groupKey: 'settings.groupStudio', items: [{ key: 'infos', labelKey: 'settings.sectionStudioInfo' }, { key: 'team', labelKey: 'settings.sectionInternalTeam' }, { key: 'portail', labelKey: 'settings.sectionClientPortal' }, { key: 'paiements', labelKey: 'settings.sectionPaymentMethods' }, { key: 'facturation', labelKey: 'settings.sectionBilling' }, { key: 'modeles', labelKey: 'settings.sectionModels' }] },
   { groupKey: 'settings.groupAccount', items: [{ key: 'profil', labelKey: 'settings.sectionProfile' }, { key: 'notifs', labelKey: 'settings.sectionNotifications' }, { key: 'securite', labelKey: 'settings.sectionSecurity' }] },
-  { groupKey: 'settings.groupCustomization', items: [{ key: 'polices', labelKey: 'settings.sectionFonts' }, { key: 'langue', labelKey: 'settings.sectionLanguage' }] },
+  { groupKey: 'settings.groupCustomization', items: [{ key: 'polices', labelKey: 'settings.sectionFonts' }, { key: 'langue', labelKey: 'settings.sectionLanguage' }, { key: 'raccourcis', labelKey: 'settings.sectionShortcuts' }] },
   { groupKey: 'settings.groupIntegrations', items: [{ key: 'integrations', labelKey: 'settings.sectionConnectionsSync' }, { key: 'plugins', labelKey: 'settings.sectionPluginsTools' }] },
   { groupKey: 'settings.groupBilling', items: [{ key: 'plan', labelKey: 'settings.sectionPlanSubscription' }, { key: 'historique', labelKey: 'settings.sectionHistory' }] },
 ];
@@ -1016,6 +1249,7 @@ export function Parametres() {
           </div>
         )}
         {activeSection === 'langue' && <LanguageSettings />}
+        {activeSection === 'raccourcis' && <KeyboardShortcutsSettings />}
         {activeSection === 'integrations' && (
           <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
@@ -1192,7 +1426,7 @@ export function Parametres() {
             <Modeles />
           </div>
         )}
-        {!['infos', 'team', 'portail', 'paiements', 'facturation', 'modeles', 'profil', 'notifs', 'securite', 'polices', 'integrations', 'plugins'].includes(activeSection) && (
+        {!['infos', 'team', 'portail', 'paiements', 'facturation', 'modeles', 'profil', 'notifs', 'securite', 'polices', 'langue', 'raccourcis', 'integrations', 'plugins'].includes(activeSection) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
             <SFIcon name="clock" size={24} color="var(--border-2)" />
             <p style={{ color: 'var(--text-3)', fontSize: 14 }}>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { registerAIToggle } from './aiChatBridge';
+import { registerAIToggle, registerAIClose } from './aiChatBridge';
+import { getShortcuts as getShortcutsFn, matchesShortcut as matchesShortcutFn } from '../data/shortcutsStore';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
 import { getProjects, addProject } from '../data/projectStore';
@@ -411,6 +412,19 @@ export function AIChat() {
     if (open && textareaRef.current) textareaRef.current.focus();
   }, [open]);
 
+  // Raccourci micro — lu depuis shortcutsStore
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (matchesShortcutFn(e, getShortcutsFn().ai_mic)) {
+        e.preventDefault();
+        toggleListening();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [open, listening, speechLang]);
+
   useEffect(() => {
     autoResize();
   }, [input]);
@@ -428,32 +442,38 @@ export function AIChat() {
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = speechLang;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
 
-    let finalTranscript = '';
+    // Preserve text already in the input before dictation starts
+    const baseText = (textareaRef.current?.value ?? '').trimEnd();
+    let spokenFinal = '';
 
     recognition.onstart = () => setListening(true);
 
     recognition.onresult = (e: any) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalTranscript += t;
-        else interim = t;
+        const chunk = e.results[i][0].transcript;
+        if (e.results[i].isFinal) spokenFinal += chunk;
+        else interim = chunk;
       }
-      setInput(finalTranscript + interim);
+      const prefix = baseText ? baseText + ' ' : '';
+      setInput(prefix + spokenFinal + interim);
       setTimeout(autoResize, 0);
     };
 
     recognition.onend = () => {
       setListening(false);
-      if (finalTranscript.trim() && autoSend) {
-        setTimeout(() => send(finalTranscript.trim()), 400);
+      if (spokenFinal.trim() && autoSend) {
+        const prefix = baseText ? baseText + ' ' : '';
+        setTimeout(() => send((prefix + spokenFinal).trim()), 400);
       }
     };
 
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = (e: any) => {
+      if (e.error !== 'no-speech') setListening(false);
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
@@ -544,10 +564,15 @@ export function AIChat() {
   };
 
   const toggle = useCallback(() => setOpen(o => !o), []);
+  const close  = useCallback(() => setOpen(false), []);
   useEffect(() => {
     registerAIToggle(toggle);
     return () => registerAIToggle(() => {});
   }, [toggle]);
+  useEffect(() => {
+    registerAIClose(close);
+    return () => registerAIClose(() => {});
+  }, [close]);
 
   return (
     <>
@@ -811,23 +836,32 @@ export function AIChat() {
                   outline: 'none', lineHeight: 1.5, minHeight: 22,
                 }}
               />
-              <button
-                onClick={toggleListening}
-                title={listening ? t('ai.stopListening') : t('ai.dictate')}
-                style={{
-                  width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-                  background: listening ? 'var(--accent)' : 'var(--surface-3)',
-                  border: listening
-                    ? '1px solid var(--accent)'
-                    : '1px solid transparent',
-                  cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'background 0.15s, border-color 0.15s',
-                  animation: listening ? 'mic-pulse 1.4s ease-in-out infinite' : 'none',
-                }}
-              >
-                <SFIcon name="mic" size={13} color={listening ? 'var(--on-accent)' : 'var(--text-3)'} />
-              </button>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button
+                  onClick={toggleListening}
+                  title={listening ? t('ai.stopListening') : t('ai.dictate')}
+                  style={{
+                    width: 30, height: 30, borderRadius: 9,
+                    background: listening ? 'var(--accent)' : 'var(--surface-3)',
+                    border: listening ? '1px solid var(--accent)' : '1px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background 0.15s, border-color 0.15s',
+                    animation: listening ? 'mic-pulse 1.4s ease-in-out infinite' : 'none',
+                  }}
+                >
+                  <SFIcon name="mic" size={13} color={listening ? 'var(--on-accent)' : 'var(--text-3)'} />
+                </button>
+                <kbd style={{
+                  position: 'absolute', bottom: -5, right: -5,
+                  fontSize: 8, lineHeight: 1.3, padding: '0 3px',
+                  borderRadius: 3, fontFamily: 'var(--ff-mono)', fontWeight: 700,
+                  background: listening ? 'var(--on-accent)' : 'var(--surface-2)',
+                  color: listening ? 'var(--accent)' : 'var(--text-3)',
+                  border: `1px solid ${listening ? 'var(--accent)' : 'var(--border)'}`,
+                  pointerEvents: 'none',
+                }}>⌃M</kbd>
+              </div>
               <button
                 onClick={() => send()}
                 disabled={!input.trim() || loading}
