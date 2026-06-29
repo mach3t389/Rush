@@ -1181,7 +1181,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         </button>
         <button title={t('resourceDetail.mbVideo')} onClick={() => setShowAddVideo(true)}
           style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
-          <SFIcon name="play-circle" size={12} />
+          <SFIcon name="circle-play" size={12} />
         </button>
         {/* Palette couleur fond */}
         <div style={{ display:'flex', gap:2, alignItems:'center' }}>
@@ -1325,7 +1325,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                     onClick={e => { e.stopPropagation(); if (item.videoUrl) window.open(item.videoUrl, '_blank', 'noreferrer'); }}>
                     {item.thumbnailUrl
                       ? <img src={item.thumbnailUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
-                      : <SFIcon name="play-circle" size={36} color="rgba(255,255,255,0.3)" />}
+                      : <SFIcon name="circle-play" size={36} color="rgba(255,255,255,0.3)" />}
                     <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.25)' }}>
                       <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(0,0,0,0.65)', border:'1.5px solid rgba(255,255,255,0.5)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <SFIcon name="play" size={16} color="white" />
