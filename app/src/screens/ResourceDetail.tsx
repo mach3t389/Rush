@@ -1075,12 +1075,8 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
       return;
     }
     if (tool === 'arrow') {
-      if (!arrowAnchorRef.current) {
-        arrowAnchorRef.current = { kind:'item', id:item.id };
-        setArrowAnchor({ kind:'item', id:item.id });
-        setSelectedId(item.id);
-        arrowJustStarted.current = true;
-      }
+      // Les ancres se posent uniquement via les handles de port (SVG)
+      // — le clic sur le corps de l'item ne démarre ni ne termine une flèche
       return;
     }
     // select mode — drag item
@@ -1419,19 +1415,8 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                 onMouseLeave={() => setMbHoverItemId(null)}
                 onMouseDown={e => handleItemMouseDown(e, item)}
                 onMouseUp={e => {
-                  if (tool === 'arrow' && arrowAnchorRef.current) {
-                    const anchor = arrowAnchorRef.current;
-                    const isSelf = anchor.kind === 'item' && anchor.id === item.id;
-                    if (!isSelf) {
-                      e.stopPropagation();
-                      const newArrow: MBArrow = { id:`ar${Date.now()}` };
-                      if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
-                      else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
-                      newArrow.to = item.id;
-                      setArrows(p => [...p, newArrow]);
-                      arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
-                    }
-                  }
+                  // Complétion de flèche uniquement via les handles de port (SVG)
+                  void e;
                 }}
                 onDoubleClick={e => {
                   e.stopPropagation();
