@@ -1122,10 +1122,10 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
 
   const toolBtn = (tl: MBTool, icon: string, label: string, shortcut: string) => (
     <button key={tl} title={`${label} (${shortcut})`} onClick={() => { setTool(tl); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }}
-      style={{ padding:'5px 9px', borderRadius:7, border:`1px solid ${tool===tl ? 'var(--accent)' : 'var(--border)'}`, background: tool===tl ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: tool===tl ? 'var(--accent)' : 'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
-      <SFIcon name={icon} size={13} />
-      <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{label}</span>
-      <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, opacity:0.55, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:3, padding:'1px 4px', lineHeight:1.4 }}>{shortcut}</span>
+      title={`${label} (${shortcut})`}
+      style={{ padding:'4px 8px', borderRadius:7, border:`1px solid ${tool===tl ? 'var(--accent)' : 'var(--border)'}`, background: tool===tl ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: tool===tl ? 'var(--accent)' : 'var(--text-2)', cursor:'pointer', display:'flex', gap:4, alignItems:'center' }}>
+      <SFIcon name={icon} size={12} />
+      <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</span>
     </button>
   );
 
@@ -1133,7 +1133,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
       {/* Toolbar */}
-      <div style={{ padding:'7px 14px', borderBottom:'1px solid var(--border)', display:'flex', gap:6, alignItems:'center', background:'var(--surface)', flexShrink:0, flexWrap:'wrap' }}>
+      <div style={{ padding:'6px 12px', borderBottom:'1px solid var(--border)', display:'flex', gap:4, alignItems:'center', background:'var(--surface)', flexShrink:0, overflow:'hidden' }}>
 
         {/* Tools */}
         {toolBtn('pan',     'hand',          t('resourceDetail.mbToolPan'),    'H')}
@@ -1146,10 +1146,10 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         {toolBtn('rect',    'square',        t('resourceDetail.mbToolRect'),   'R')}
         {toolBtn('ellipse', 'circle',        t('resourceDetail.mbToolCircle'), 'E')}
         {/* Shape color picker */}
-        <div style={{ display:'flex', gap:3, alignItems:'center' }}>
+        <div style={{ display:'flex', gap:2, alignItems:'center' }}>
           {SHAPE_COLORS.map(c => (
             <div key={c} onClick={() => setShapeColor(c)}
-              style={{ width:14, height:14, borderRadius:3, background:c, border: shapeColor===c ? '2px solid white' : '1px solid rgba(255,255,255,0.2)', cursor:'pointer', flexShrink:0 }} />
+              style={{ width:12, height:12, borderRadius:3, background:c, border: shapeColor===c ? '2px solid white' : '1px solid rgba(255,255,255,0.2)', cursor:'pointer', flexShrink:0 }} />
           ))}
         </div>
 
@@ -1157,47 +1157,46 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
 
         {/* Post-it */}
         <button title={t('resourceDetail.mbPostit')} onClick={() => { const id = addAtCenter({ type:'postit', postitColor, w:180, h:150, text:'' }); setEditingId(id); setSelectedId(id); }}
-          style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
-          <SFIcon name="sticky-note" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbPostit')}</span>
+          style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:4, alignItems:'center', flexShrink:0 }}>
+          <SFIcon name="sticky-note" size={12} />
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.04em' }}>{t('resourceDetail.mbPostit')}</span>
         </button>
-        {POSTIT_COLORS.map(c => (
-          <div key={c} onClick={() => setPostitColor(c)}
-            style={{ width:14, height:14, borderRadius:3, background:c, border: postitColor===c ? '2px solid white' : '1px solid rgba(255,255,255,0.2)', cursor:'pointer', flexShrink:0 }} />
-        ))}
+        <div style={{ display:'flex', gap:2, alignItems:'center' }}>
+          {POSTIT_COLORS.map(c => (
+            <div key={c} onClick={() => setPostitColor(c)}
+              style={{ width:12, height:12, borderRadius:3, background:c, border: postitColor===c ? '2px solid white' : '1px solid rgba(255,255,255,0.2)', cursor:'pointer', flexShrink:0 }} />
+          ))}
+        </div>
 
-        <div style={{ width:1, height:20, background:'var(--border)', margin:'0 2px' }} />
+        <div style={{ width:1, height:18, background:'var(--border)', margin:'0 2px', flexShrink:0 }} />
 
-        {/* Text & Image */}
-        <button onClick={() => { const id=addAtCenter({type:'text',w:200,h:90,text:''}); setEditingId(id); setSelectedId(id); }}
-          style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
-          <SFIcon name="type" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbText')}</span>
+        {/* Text, Image, Vidéo — icônes seules */}
+        <button title={t('resourceDetail.mbText')} onClick={() => { const id=addAtCenter({type:'text',w:200,h:90,text:''}); setEditingId(id); setSelectedId(id); }}
+          style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
+          <SFIcon name="type" size={12} />
         </button>
-        <button onClick={() => setShowAddImg(true)}
-          style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
-          <SFIcon name="image-plus" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbImage')}</span>
+        <button title={t('resourceDetail.mbImage')} onClick={() => setShowAddImg(true)}
+          style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
+          <SFIcon name="image-plus" size={12} />
         </button>
-        <button onClick={() => setShowAddVideo(true)}
-          style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:5, alignItems:'center' }}>
-          <SFIcon name="play-circle" size={13} />
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('resourceDetail.mbVideo')}</span>
+        <button title={t('resourceDetail.mbVideo')} onClick={() => setShowAddVideo(true)}
+          style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
+          <SFIcon name="play-circle" size={12} />
         </button>
-        {/* Colour swatches */}
-        <div style={{ display:'flex', gap:3, alignItems:'center' }}>
+        {/* Palette couleur fond */}
+        <div style={{ display:'flex', gap:2, alignItems:'center' }}>
           {PALETTE.map(c => (
             <div key={c} onClick={() => addAtCenter({type:'color',w:160,h:110,bg:c})}
-              style={{ width:14, height:14, borderRadius:3, background:c, border:'1px solid rgba(255,255,255,0.15)', cursor:'pointer', flexShrink:0 }} />
+              style={{ width:12, height:12, borderRadius:3, background:c, border:'1px solid rgba(255,255,255,0.15)', cursor:'pointer', flexShrink:0 }} />
           ))}
         </div>
 
         {/* Zoom */}
-        <div style={{ marginLeft:'auto', display:'flex', gap:5, alignItems:'center' }}>
-          <button onClick={() => setZoom(z=>Math.max(0.15,z*0.8))} style={{ padding:'4px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer' }}><SFIcon name="zoom-out" size={12} /></button>
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:34, textAlign:'center' }}>{Math.round(zoom*100)}%</span>
-          <button onClick={() => setZoom(z=>Math.min(5,z*1.25))} style={{ padding:'4px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer' }}><SFIcon name="zoom-in" size={12} /></button>
-          <button onClick={() => { setPan({x:60,y:40}); setZoom(1); }} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9 }}>{t('resourceDetail.reset')}</button>
+        <div style={{ marginLeft:'auto', display:'flex', gap:3, alignItems:'center', flexShrink:0 }}>
+          <button onClick={() => setZoom(z=>Math.max(0.15,z*0.8))} title="Zoom -" style={{ padding:'3px 6px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer' }}><SFIcon name="zoom-out" size={11} /></button>
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:32, textAlign:'center' }}>{Math.round(zoom*100)}%</span>
+          <button onClick={() => setZoom(z=>Math.min(5,z*1.25))} title="Zoom +" style={{ padding:'3px 6px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer' }}><SFIcon name="zoom-in" size={11} /></button>
+          <button onClick={() => { setPan({x:60,y:40}); setZoom(1); }} style={{ padding:'3px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9 }}>{t('resourceDetail.reset')}</button>
         </div>
 
         {arrowStart && (
