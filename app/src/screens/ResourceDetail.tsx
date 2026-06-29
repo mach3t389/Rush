@@ -1322,7 +1322,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
 
                 {item.type==='video' && (
                   <div style={{ width:'100%', height:'100%', position:'relative', background:'#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center' }}
-                    onClick={e => { e.stopPropagation(); if (item.videoUrl) window.open(item.videoUrl, '_blank', 'noreferrer'); }}>
+                    onClick={e => { if (didDrag.current) return; e.stopPropagation(); if (item.videoUrl) window.open(item.videoUrl, '_blank', 'noreferrer'); }}>
                     {item.thumbnailUrl
                       ? <img src={item.thumbnailUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
                       : <SFIcon name="circle-play" size={36} color="rgba(255,255,255,0.3)" />}
@@ -1330,6 +1330,13 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                       <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(0,0,0,0.65)', border:'1.5px solid rgba(255,255,255,0.5)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <SFIcon name="play" size={16} color="white" />
                       </div>
+                    </div>
+                    {/* Poignée de déplacement */}
+                    <div
+                      onMouseDown={e => e.stopPropagation()}
+                      style={{ position:'absolute', top:6, left:6, width:22, height:22, borderRadius:5, background:'rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'move', zIndex:2 }}
+                      onMouseDownCapture={e => { e.stopPropagation(); handleItemMouseDown(e as unknown as React.MouseEvent<HTMLDivElement>, item); }}>
+                      <SFIcon name="grip" size={11} color="rgba(255,255,255,0.7)" />
                     </div>
                   </div>
                 )}
