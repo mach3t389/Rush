@@ -3341,9 +3341,6 @@ const FORM_Q_TYPES: { type: FormQType; label: string; icon: string }[] = [
   { type: 'section',  label: 'Section',           icon: 'separator-horizontal' },
 ];
 
-const FORM_ACCENT_COLORS = [
-  '#6366f1','#8b5cf6','#ec4899','#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#06b6d4',
-];
 
 export function mkQ(type: FormQType): FormQuestion {
   return {
@@ -3383,7 +3380,6 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   const _formPersisted = persistKey ? getResourceContent<{ questions: FormQuestion[] }>(persistKey) : undefined;
   const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? INIT_FORM_QUESTIONS);
   const [responses] = useState<FormResponse[]>(MOCK_RESPONSES);
-  const [accent, setAccent] = useState(FORM_ACCENT_COLORS[0]);
   const [formTitle, setFormTitle] = useState(resource.title);
   const [formDesc, setFormDesc] = useState('Merci de remplir ce formulaire. Vos réponses nous aident à améliorer nos services.');
   const [selectedQ, setSelectedQ] = useState<string | null>('fq1');
@@ -3512,7 +3508,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
         .fv-q-card.drag-over{border-color:var(--accent);border-style:dashed}
         .fv-option-row:hover .fv-opt-del{opacity:1!important}
         .fv-preview-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid var(--border-2);background:var(--surface-2);color:var(--text);font-size:14px;font-family:var(--ff-text);outline:none;transition:border-color .15s}
-        .fv-preview-input:focus{border-color:${accent}}
+        .fv-preview-input:focus{border-color:var(--accent)}
         .fv-star:hover~.fv-star,.fv-star-group:hover .fv-star{color:#d1d5db}
         .fv-resp-row:hover{background:var(--surface-2)}
       `}</style>
@@ -3541,13 +3537,13 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
           </button>
           {templateMode && onSaveTemplate ? (
             <button onClick={() => onSaveTemplate(questions)}
-              style={{ ...btnBase, background:accent, color:'#fff', display:'flex', alignItems:'center', gap:6 }}>
+              style={{ ...btnBase, background:'var(--accent)', color:'var(--on-accent)', display:'flex', alignItems:'center', gap:6 }}>
               <SFIcon name="save" size={13} />
               Sauvegarder le modèle
             </button>
           ) : !templateMode ? (
             <button onClick={() => { navigator.clipboard?.writeText(shareLink); setLinkCopied(true); setTimeout(()=>setLinkCopied(false),2000); }}
-              style={{ ...btnBase, background:accent, color:'#fff', display:'flex', alignItems:'center', gap:6 }}>
+              style={{ ...btnBase, background:'var(--accent)', color:'var(--on-accent)', display:'flex', alignItems:'center', gap:6 }}>
               <SFIcon name={linkCopied?'check':'send'} size={13} />
               {linkCopied ? 'Lien copié !' : 'Partager'}
             </button>
@@ -3564,8 +3560,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             {/* Modal header */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px 16px', borderBottom:'1px solid var(--border)' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:32, height:32, borderRadius:8, background:`${accent}22`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <SFIcon name="settings-2" size={16} color={accent} />
+                <div style={{ width:32, height:32, borderRadius:8, background:'color-mix(in srgb, var(--accent) 13%, transparent)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <SFIcon name="settings-2" size={16} color="var(--accent)" />
                 </div>
                 <div>
                   <div style={{ fontSize:15, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)' }}>Paramètres du formulaire</div>
@@ -3579,23 +3575,6 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             </div>
 
             <div style={{ padding:'24px' }}>
-              {/* Section: Couleur d'accent */}
-              <div style={{ marginBottom:28 }}>
-                <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.09em', fontFamily:'var(--ff-text)', marginBottom:12 }}>Couleur d'accent</div>
-                <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                  {FORM_ACCENT_COLORS.map(c => (
-                    <button key={c} onClick={() => setAccent(c)}
-                      style={{ width:36, height:36, borderRadius:10, background:c, border: accent===c ? `3px solid var(--text)` : '3px solid transparent', cursor:'pointer', padding:0, outline:'none', flexShrink:0, transition:'transform .12s, border-color .12s', transform:accent===c?'scale(1.18)':'scale(1)', boxShadow:accent===c?`0 0 0 2px ${c}55`:'none' }} />
-                  ))}
-                </div>
-                <div style={{ marginTop:12, display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ width:18, height:18, borderRadius:4, background:accent }} />
-                  <span style={{ fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-mono)' }}>{accent}</span>
-                </div>
-              </div>
-
-              <div style={{ height:1, background:'var(--border)', marginBottom:24 }} />
-
               {/* Section: Identité */}
               <div style={{ marginBottom:28 }}>
                 <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.09em', fontFamily:'var(--ff-text)', marginBottom:12 }}>Identité du répondant</div>
@@ -3621,7 +3600,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
 
                 <div style={{ display:'flex', gap:8, marginBottom:12 }}>
                   {(['Lien public','Lien privé','Invitation par email'] as const).map((opt, i) => (
-                    <button key={opt} style={{ ...btnBase, background: i===0?`${accent}22`:'var(--surface-2)', color: i===0?accent:'var(--text-3)', border:`1.5px solid ${i===0?accent:'var(--border-2)'}`, fontSize:12, padding:'8px 16px' }}>
+                    <button key={opt} style={{ ...btnBase, background: i===0?'color-mix(in srgb, var(--accent) 13%, transparent)':'var(--surface-2)', color: i===0?'var(--accent)':'var(--text-3)', border:`1.5px solid ${i===0?'var(--accent)':'var(--border-2)'}`, fontSize:12, padding:'8px 16px' }}>
                       {opt}
                     </button>
                   ))}
@@ -3632,14 +3611,14 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                     {shareLink}
                   </div>
                   <button onClick={() => { navigator.clipboard?.writeText(shareLink); setLinkCopied(true); setTimeout(()=>setLinkCopied(false),2000); }}
-                    style={{ ...btnBase, background:linkCopied?`${accent}22`:'var(--surface-2)', color:linkCopied?accent:'var(--text-2)', border:`1px solid ${linkCopied?accent:'var(--border-2)'}`, display:'flex', alignItems:'center', gap:6, flexShrink:0, transition:'all .2s' }}>
+                    style={{ ...btnBase, background:linkCopied?'color-mix(in srgb, var(--accent) 13%, transparent)':'var(--surface-2)', color:linkCopied?'var(--accent)':'var(--text-2)', border:`1px solid ${linkCopied?'var(--accent)':'var(--border-2)'}`, display:'flex', alignItems:'center', gap:6, flexShrink:0, transition:'all .2s' }}>
                     <SFIcon name={linkCopied?'check':'copy'} size={13} />
                     {linkCopied?'Copié !':'Copier le lien'}
                   </button>
                 </div>
 
-                <div style={{ background:`${accent}0d`, border:`1px solid ${accent}33`, borderRadius:10, padding:'12px 14px', display:'flex', gap:10 }}>
-                  <SFIcon name="info" size={14} color={accent} style={{ flexShrink:0, marginTop:1 }} />
+                <div style={{ background:'color-mix(in srgb, var(--accent) 5%, transparent)', border:'1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderRadius:10, padding:'12px 14px', display:'flex', gap:10 }}>
+                  <SFIcon name="info" size={14} color="var(--accent)" style={{ flexShrink:0, marginTop:1 }} />
                   <p style={{ margin:0, fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', lineHeight:1.6 }}>
                     Envoyez ce lien à vos clients avant qu'ils rejoignent la plateforme. Lorsqu'ils créeront leur compte, leurs réponses seront automatiquement liées à leur profil.
                   </p>
@@ -3755,7 +3734,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                           <input value={selectedQuestion.title} onChange={e => updateQ(selectedQuestion.id, { title: e.target.value })}
                             placeholder={t('resourceDetail.formView.questionLabelPlaceholder')}
                             style={{ flex:1, background:'transparent', border:'none', borderBottom:'2px solid var(--border-2)', outline:'none', fontSize:18, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-display)', paddingBottom:8 }}
-                            onFocus={e => (e.currentTarget.style.borderBottomColor=accent)}
+                            onFocus={e => (e.currentTarget.style.borderBottomColor='var(--accent)')}
                             onBlur={e => (e.currentTarget.style.borderBottomColor='var(--border-2)')} />
                           {/* Type selector */}
                           <div style={{ position:'relative', flexShrink:0 }}>
@@ -3770,9 +3749,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                                 {FORM_Q_TYPES.map(t => (
                                   <button key={t.type}
                                     onClick={() => { updateQ(selectedQuestion.id, { type:t.type, options: (t.type==='choice'||t.type==='checkbox'||t.type==='dropdown')&&selectedQuestion.options.length===0 ? [{id:`o1-${Date.now()}`,label:'Option 1'},{id:`o2-${Date.now()}`,label:'Option 2'}] : selectedQuestion.options }); setShowTypeMenu(null); }}
-                                    style={{ width:'100%', padding:'9px 14px', background:selectedQuestion.type===t.type?`${accent}22`:'transparent', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, fontSize:12, color: selectedQuestion.type===t.type?accent:'var(--text)', fontFamily:'var(--ff-text)', textAlign:'left' }}
+                                    style={{ width:'100%', padding:'9px 14px', background:selectedQuestion.type===t.type?'color-mix(in srgb, var(--accent) 13%, transparent)':'transparent', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, fontSize:12, color: selectedQuestion.type===t.type?'var(--accent)':'var(--text)', fontFamily:'var(--ff-text)', textAlign:'left' }}
                                     onMouseEnter={e => { if(selectedQuestion.type!==t.type) e.currentTarget.style.background='var(--surface-3)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background=selectedQuestion.type===t.type?`${accent}22`:'transparent'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background=selectedQuestion.type===t.type?'color-mix(in srgb, var(--accent) 13%, transparent)':'transparent'; }}
                                   >
                                     <SFIcon name={t.icon} size={13} />
                                     {t.label}
@@ -3819,7 +3798,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                               <span style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>Max :</span>
                               {[3,4,5,6,7,8,9,10].map(n => (
                                 <button key={n} onClick={() => updateQ(selectedQuestion.id, { ratingMax:n })}
-                                  style={{ width:24, height:24, borderRadius:6, border:'1px solid var(--border-2)', background:selectedQuestion.ratingMax===n?accent:'var(--surface-2)', color:selectedQuestion.ratingMax===n?'#fff':'var(--text-2)', cursor:'pointer', fontSize:11, fontFamily:'var(--ff-text)', padding:0 }}>
+                                  style={{ width:24, height:24, borderRadius:6, border:'1px solid var(--border-2)', background:selectedQuestion.ratingMax===n?'var(--accent)':'var(--surface-2)', color:selectedQuestion.ratingMax===n?'var(--on-accent)':'var(--text-2)', cursor:'pointer', fontSize:11, fontFamily:'var(--ff-text)', padding:0 }}>
                                   {n}
                                 </button>
                               ))}
@@ -3916,18 +3895,18 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', fontFamily:'var(--ff-text)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Structure</div>
             <div style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)', marginBottom:8 }}>{questions.length} question{questions.length!==1?'s':''}</div>
             {questions.filter(q=>q.required).length > 0 && (
-              <div style={{ fontSize:11, color:accent, fontFamily:'var(--ff-text)', marginBottom:16 }}>
+              <div style={{ fontSize:11, color:'var(--accent)', fontFamily:'var(--ff-text)', marginBottom:16 }}>
                 {questions.filter(q=>q.required).length} requise{questions.filter(q=>q.required).length!==1?'s':''}
               </div>
             )}
             <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
               {questions.map((q,i) => (
                 <button key={q.id} onClick={() => setSelectedQ(q.id)}
-                  style={{ padding:'6px 10px', borderRadius:8, border:'none', cursor:'pointer', textAlign:'left', background:selectedQ===q.id?`${accent}22`:'transparent', color:selectedQ===q.id?accent:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', display:'flex', alignItems:'center', gap:6 }}>
+                  style={{ padding:'6px 10px', borderRadius:8, border:'none', cursor:'pointer', textAlign:'left', background:selectedQ===q.id?'color-mix(in srgb, var(--accent) 13%, transparent)':'transparent', color:selectedQ===q.id?'var(--accent)':'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', display:'flex', alignItems:'center', gap:6 }}>
                   <SFIcon name={FORM_Q_TYPES.find(t=>t.type===q.type)?.icon||'minus'} size={10} style={{ flexShrink:0 }} />
                   <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {q.title || (q.type==='section'?'— Section —':`Q${i+1}`)}
-                    {q.required && <span style={{ color:accent }}> *</span>}
+                    {q.required && <span style={{ color:'var(--accent)' }}> *</span>}
                   </span>
                 </button>
               ))}
@@ -3943,8 +3922,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             {!previewSubmitted ? (
               <>
                 {/* Form header */}
-                <div style={{ borderRadius:16, overflow:'hidden', border:`1.5px solid ${accent}`, marginBottom:24 }}>
-                  <div style={{ height:10, background:accent }} />
+                <div style={{ borderRadius:16, overflow:'hidden', border:'1.5px solid var(--accent)', marginBottom:24 }}>
+                  <div style={{ height:10, background:'var(--accent)' }} />
                   <div style={{ padding:'28px 32px', background:'var(--surface)' }}>
                     <h1 style={{ margin:0, fontSize:24, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', marginBottom:8 }}>{formTitle}</h1>
                     {formDesc && <p style={{ margin:0, fontSize:14, color:'var(--text-2)', fontFamily:'var(--ff-text)', lineHeight:1.6 }}>{formDesc}</p>}
@@ -3959,7 +3938,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                   <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, padding:'24px 28px', marginBottom:16 }}>
                     {q.type === 'section' ? (
                       <>
-                        {q.title && <h2 style={{ margin:'0 0 6px', fontSize:18, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', borderBottom:`2px solid ${accent}`, paddingBottom:10 }}>{q.title}</h2>}
+                        {q.title && <h2 style={{ margin:'0 0 6px', fontSize:18, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', borderBottom:'2px solid var(--accent)', paddingBottom:10 }}>{q.title}</h2>}
                         {q.description && <p style={{ margin:0, fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{q.description}</p>}
                       </>
                     ) : (
@@ -3983,9 +3962,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                         {q.type==='upload' && (
                           <label style={{ display:'block', cursor:'pointer' }}>
                             <input type="file" style={{ display:'none' }} onChange={e => { if(e.target.files?.[0]) setPreviewAnswers(p=>({...p,[q.id]:e.target.files![0].name})); }} />
-                            <div style={{ border:`2px dashed ${previewAnswers[q.id]?accent:'var(--border-2)'}`, borderRadius:10, padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'border-color .15s', background: previewAnswers[q.id]?`${accent}11`:'transparent' }}>
-                              <SFIcon name={previewAnswers[q.id]?'file-check':'upload'} size={22} style={{ color: previewAnswers[q.id]?accent:'var(--text-3)' }} />
-                              <span style={{ fontSize:13, fontFamily:'var(--ff-text)', color:previewAnswers[q.id]?accent:'var(--text-2)' }}>
+                            <div style={{ border:`2px dashed ${previewAnswers[q.id]?'var(--accent)':'var(--border-2)'}`, borderRadius:10, padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'border-color .15s', background: previewAnswers[q.id]?'color-mix(in srgb, var(--accent) 7%, transparent)':'transparent' }}>
+                              <SFIcon name={previewAnswers[q.id]?'file-check':'upload'} size={22} style={{ color: previewAnswers[q.id]?'var(--accent)':'var(--text-3)' }} />
+                              <span style={{ fontSize:13, fontFamily:'var(--ff-text)', color:previewAnswers[q.id]?'var(--accent)':'var(--text-2)' }}>
                                 {previewAnswers[q.id] ? String(previewAnswers[q.id]) : 'Cliquer ou glisser un fichier ici'}
                               </span>
                               {!previewAnswers[q.id] && <span style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>PDF, images, vidéos… (10 Mo max)</span>}
@@ -3996,9 +3975,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                             {q.options.map(opt => (
                               <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
-                                <div style={{ width:18, height:18, borderRadius:'50%', border:`2px solid ${previewAnswers[q.id]===opt.label?accent:'var(--border-2)'}`, background:previewAnswers[q.id]===opt.label?accent:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
+                                <div style={{ width:18, height:18, borderRadius:'50%', border:`2px solid ${previewAnswers[q.id]===opt.label?'var(--accent)':'var(--border-2)'}`, background:previewAnswers[q.id]===opt.label?'var(--accent)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
                                   onClick={() => setPreviewAnswers(p=>({...p,[q.id]:opt.label}))}>
-                                  {previewAnswers[q.id]===opt.label && <div style={{ width:8, height:8, borderRadius:'50%', background:'#fff' }} />}
+                                  {previewAnswers[q.id]===opt.label && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--on-accent)' }} />}
                                 </div>
                                 {opt.label}
                               </label>
@@ -4011,9 +3990,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                               const checked = ((previewAnswers[q.id] as string[]|undefined)??[]).includes(opt.label);
                               return (
                                 <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
-                                  <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${checked?accent:'var(--border-2)'}`, background:checked?accent:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
+                                  <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${checked?'var(--accent)':'var(--border-2)'}`, background:checked?'var(--accent)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
                                     onClick={() => previewToggleCheck(q.id, opt.label)}>
-                                    {checked && <SFIcon name="check" size={11} style={{ color:'#fff' }} />}
+                                    {checked && <SFIcon name="check" size={11} style={{ color:'var(--on-accent)' }} />}
                                   </div>
                                   {opt.label}
                                 </label>
@@ -4050,7 +4029,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                                 const sel = previewAnswers[q.id]===String(n);
                                 return (
                                   <button key={n} onClick={() => setPreviewAnswers(p=>({...p,[q.id]:String(n)}))}
-                                    style={{ flex:1, height:40, borderRadius:10, border:`2px solid ${sel?accent:'var(--border-2)'}`, background:sel?accent:'transparent', color:sel?'#fff':'var(--text-2)', cursor:'pointer', fontSize:14, fontFamily:'var(--ff-text)', transition:'all .15s' }}>
+                                    style={{ flex:1, height:40, borderRadius:10, border:`2px solid ${sel?'var(--accent)':'var(--border-2)'}`, background:sel?'var(--accent)':'transparent', color:sel?'var(--on-accent)':'var(--text-2)', cursor:'pointer', fontSize:14, fontFamily:'var(--ff-text)', transition:'all .15s' }}>
                                     {n}
                                   </button>
                                 );
@@ -4064,7 +4043,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 ))}
 
                 <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8, marginBottom:40 }}>
-                  <button onClick={() => setPreviewSubmitted(true)} style={{ ...btnBase, background:accent, color:'#fff', fontSize:14, padding:'12px 32px', borderRadius:10 }}>
+                  <button onClick={() => setPreviewSubmitted(true)} style={{ ...btnBase, background:'var(--accent)', color:'var(--on-accent)', fontSize:14, padding:'12px 32px', borderRadius:10 }}>
                     Soumettre
                   </button>
                 </div>
@@ -4074,7 +4053,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 <div style={{ fontSize:56, marginBottom:16 }}>✅</div>
                 <h2 style={{ margin:'0 0 10px', color:'var(--text)', fontFamily:'var(--ff-display)', fontSize:22 }}>Réponse enregistrée</h2>
                 <p style={{ color:'var(--text-2)', fontFamily:'var(--ff-text)', fontSize:14, marginBottom:28 }}>Merci pour vos réponses.</p>
-                <button onClick={() => { setPreviewSubmitted(false); setPreviewAnswers({}); }} style={{ ...btnBase, background:accent, color:'#fff' }}>
+                <button onClick={() => { setPreviewSubmitted(false); setPreviewAnswers({}); }} style={{ ...btnBase, background:'var(--accent)', color:'var(--on-accent)' }}>
                   Soumettre une autre réponse
                 </button>
               </div>
@@ -4093,12 +4072,12 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
             </div>
             {responses.map((r,i) => (
               <button key={r.id} onClick={() => setResponseIdx(i)}
-                style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'none', cursor:'pointer', textAlign:'left', background:responseIdx===i?`${accent}22`:'transparent', marginBottom:4, display:'flex', alignItems:'center', gap:9 }}>
+                style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'none', cursor:'pointer', textAlign:'left', background:responseIdx===i?'color-mix(in srgb, var(--accent) 13%, transparent)':'transparent', marginBottom:4, display:'flex', alignItems:'center', gap:9 }}>
                 <div style={{ width:30, height:30, borderRadius:'50%', background:r.responder.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0 }}>
                   {r.responder.initials}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, fontWeight:500, color:responseIdx===i?accent:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontFamily:'var(--ff-text)' }}>{r.responder.name}</div>
+                  <div style={{ fontSize:12, fontWeight:500, color:responseIdx===i?'var(--accent)':'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontFamily:'var(--ff-text)' }}>{r.responder.name}</div>
                   <div style={{ fontSize:10, color:'var(--text-3)', marginTop:1, fontFamily:'var(--ff-text)' }}>{r.submittedAt}</div>
                 </div>
               </button>
@@ -4122,7 +4101,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                       <div style={{ fontSize:16, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', marginBottom:2 }}>{r.responder.name}</div>
                       <div style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)', display:'flex', alignItems:'center', gap:12 }}>
                         <span><SFIcon name="mail" size={11} style={{ marginRight:4, verticalAlign:'middle' }} />{r.responder.email}</span>
-                        <span style={{ display:'flex', alignItems:'center', gap:4, background:`${accent}18`, color:accent, padding:'2px 8px', borderRadius:20, fontSize:11 }}>
+                        <span style={{ display:'flex', alignItems:'center', gap:4, background:'color-mix(in srgb, var(--accent) 9%, transparent)', color:'var(--accent)', padding:'2px 8px', borderRadius:20, fontSize:11 }}>
                           <SFIcon name={sourceIcon} size={10} />{sourceLabel}
                         </span>
                       </div>
@@ -4184,7 +4163,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                           <div style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{stats.count} réponses</div>
                         </div>
                         <div style={{ textAlign:'right' }}>
-                          <div style={{ fontSize:28, fontWeight:700, color:accent, fontFamily:'var(--ff-display)' }}>{stats.avg}</div>
+                          <div style={{ fontSize:28, fontWeight:700, color:'var(--accent)', fontFamily:'var(--ff-display)' }}>{stats.avg}</div>
                           <div style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>/ {q.ratingMax} ★</div>
                         </div>
                       </div>
@@ -4204,7 +4183,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                                 <span>{count} ({pct}%)</span>
                               </div>
                               <div style={{ height:6, borderRadius:3, background:'var(--surface-3)', overflow:'hidden' }}>
-                                <div style={{ height:'100%', width:`${pct}%`, background:accent, borderRadius:3, transition:'width .4s' }} />
+                                <div style={{ height:'100%', width:`${pct}%`, background:'var(--accent)', borderRadius:3, transition:'width .4s' }} />
                               </div>
                             </div>
                           );
