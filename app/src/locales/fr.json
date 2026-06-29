@@ -1286,7 +1286,14 @@
     "versionNoteOptional": "Note de version (optionnel)",
     "versionNotePlaceholder": "Décrivez les modifications apportées…",
     "whereToAddImages": "Où ajouter les images",
-    "willBeSavedAs": "sera enregistrée sous"
+    "willBeSavedAs": "sera enregistrée sous",
+    "filterAll": "Tous",
+    "filterOpen": "Ouverts",
+    "filterResolved": "Résolus",
+    "noResolvedComments": "Aucun commentaire résolu",
+    "noOpenComments": "Aucun commentaire ouvert",
+    "noCommentsForNow": "Pas encore de commentaires",
+    "typeCommentBelow": "Cliquez ci-dessous pour ajouter un commentaire"
   },
   "work": {
     "preproduction": "Préproduction",

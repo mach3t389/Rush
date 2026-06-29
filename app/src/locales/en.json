@@ -1272,7 +1272,14 @@
     "versionNoteOptional": "Version note (optional)",
     "versionNotePlaceholder": "Describe the changes you made…",
     "whereToAddImages": "Where to add images",
-    "willBeSavedAs": "will be saved as"
+    "willBeSavedAs": "will be saved as",
+    "filterAll": "All",
+    "filterOpen": "Open",
+    "filterResolved": "Resolved",
+    "noResolvedComments": "No resolved comments",
+    "noOpenComments": "No open comments",
+    "noCommentsForNow": "No comments yet",
+    "typeCommentBelow": "Click below to add a comment"
   },
   "work": {
     "preproduction": "Pre-production",
