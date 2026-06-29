@@ -26,7 +26,14 @@ export interface ScriptEl { id: string; type: ScriptElType; text: string; }
 
 type MBTool = 'select' | 'pan' | 'arrow' | 'rect' | 'ellipse';
 interface MBItem { id: string; type: 'image' | 'text' | 'color' | 'postit' | 'shape' | 'video' | 'web'; x: number; y: number; w: number; h: number; text?: string; imageUrl?: string; bg?: string; shapeType?: 'rect' | 'ellipse'; shapeColor?: string; postitColor?: string; videoUrl?: string; thumbnailUrl?: string; webUrl?: string; }
-interface MBArrow { id: string; from: string; to: string; label?: string; }
+type ArrowPort = 'top' | 'right' | 'bottom' | 'left';
+interface MBArrow {
+  id: string;
+  // endpoint = attached item OR free canvas coords
+  from?: string; fromPort?: ArrowPort; fromX?: number; fromY?: number;
+  to?:   string; toPort?:   ArrowPort; toX?:   number; toY?:   number;
+  label?: string;
+}
 type DragState =
   | { type: 'pan'; startX: number; startY: number; startPan: { x: number; y: number } }
   | { type: 'item'; startX: number; startY: number; itemId: string; startItemX: number; startItemY: number }
@@ -841,7 +848,9 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
   const [pan, setPan]               = useState({ x: 60, y: 40 });
   const [zoom, setZoom]             = useState(1);
   const [tool, setTool]             = useState<MBTool>('pan');
-  const [arrowStart, setArrowStart] = useState<string | null>(null);
+  type ArrowAnchor = { kind:'item'; id:string; port?:ArrowPort } | { kind:'free'; x:number; y:number };
+  const [arrowAnchor, setArrowAnchor] = useState<ArrowAnchor | null>(null);
+  const [mbHoverItemId, setMbHoverItemId] = useState<string | null>(null);
   const [showAddMedia, setShowAddMedia] = useState(false);
   const [mediaUrl, setMediaUrl]         = useState('');
   const [postitColor, setPostitColor] = useState(POSTIT_COLORS[0]);
@@ -857,7 +866,9 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
   const zoomRef          = useRef(zoom);
   const panRef           = useRef(pan);
   const didDrag          = useRef(false);
-  const arrowStartRef    = useRef<string | null>(null);
+  type ArrowAnchor2 = { kind:'item'; id:string; port?:ArrowPort } | { kind:'free'; x:number; y:number };
+  const arrowAnchorRef   = useRef<ArrowAnchor2 | null>(null);
+  const arrowJustStarted = useRef(false);
   const shapePreviewRef  = useRef<{x:number,y:number,w:number,h:number}|null>(null);
   const shapeColorRef    = useRef(shapeColor);
 
@@ -892,15 +903,15 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         }
       }
       if (e.code === 'Escape') {
-        arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null);
+        arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
         setEditingId(null);
       }
       if (!inInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.key === 'h' || e.key === 'H') { setTool('pan'); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }
-        if (e.key === 'v' || e.key === 'V') { setTool('select'); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }
-        if (e.key === 'a' || e.key === 'A') { setTool('arrow'); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }
-        if (e.key === 'r' || e.key === 'R') { setTool('rect'); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }
-        if (e.key === 'e' || e.key === 'E') { setTool('ellipse'); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }
+        if (e.key === 'h' || e.key === 'H') { setTool('pan'); arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null); }
+        if (e.key === 'v' || e.key === 'V') { setTool('select'); arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null); }
+        if (e.key === 'a' || e.key === 'A') { setTool('arrow'); arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null); }
+        if (e.key === 'r' || e.key === 'R') { setTool('rect'); arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null); }
+        if (e.key === 'e' || e.key === 'E') { setTool('ellipse'); arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null); }
       }
     };
     const onUp = (e: KeyboardEvent) => { if (e.code === 'Space') spaceHeld.current = false; };
@@ -912,7 +923,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       // Arrow preview
-      if (arrowStartRef.current && canvasRef.current) {
+      if (arrowAnchorRef.current && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         setArrowPreviewPos({
           x: (e.clientX - rect.left - panRef.current.x) / zoomRef.current,
@@ -992,7 +1003,16 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     if (spaceHeld.current || tool === 'pan') {
       dragState.current = { type:'pan', startX:e.clientX, startY:e.clientY, startPan:{...panRef.current} };
       e.preventDefault();
-    } else if (tool === 'select' || tool === 'arrow') {
+    } else if (tool === 'arrow') {
+      if (!arrowAnchorRef.current) {
+        // Démarrer une flèche libre depuis le canvas
+        const { x, y } = canvasCoords(e);
+        arrowAnchorRef.current = { kind:'free', x, y };
+        setArrowAnchor({ kind:'free', x, y });
+        arrowJustStarted.current = true;
+      }
+      setSelectedId(null); setSelectedArrow(null); setEditingId(null);
+    } else if (tool === 'select') {
       setSelectedId(null); setSelectedArrow(null); setEditingId(null);
     } else if (tool === 'rect' || tool === 'ellipse') {
       const { x, y } = canvasCoords(e);
@@ -1004,7 +1024,21 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (didDrag.current) return;
     if ((e.target as HTMLElement) !== canvasRef.current) return;
-    if (tool === 'arrow') { setArrowStart(null); return; }
+    if (tool === 'arrow') {
+      if (arrowJustStarted.current) { arrowJustStarted.current = false; return; }
+      if (arrowAnchorRef.current) {
+        // Terminer la flèche sur le canvas (endpoint libre)
+        const { x, y } = canvasCoords(e);
+        const anchor = arrowAnchorRef.current;
+        const newArrow: MBArrow = { id:`ar${Date.now()}` };
+        if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+        else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+        newArrow.toX = x; newArrow.toY = y;
+        setArrows(p => [...p, newArrow]);
+      }
+      arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+      return;
+    }
   };
 
   const handleCanvasDblClick = (e: React.MouseEvent) => {
@@ -1041,10 +1075,11 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
       return;
     }
     if (tool === 'arrow') {
-      if (!arrowStartRef.current) {
-        arrowStartRef.current = item.id;
-        setArrowStart(item.id);
+      if (!arrowAnchorRef.current) {
+        arrowAnchorRef.current = { kind:'item', id:item.id };
+        setArrowAnchor({ kind:'item', id:item.id });
         setSelectedId(item.id);
+        arrowJustStarted.current = true;
       }
       return;
     }
@@ -1117,10 +1152,22 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
     const px = (e.clientX - rect.left) / zoomRef.current;
     const py = (e.clientY - rect.top)  / zoomRef.current;
+    const portPos = (item: MBItem, port?: ArrowPort) => {
+      switch (port) {
+        case 'top':    return { x: item.x + item.w/2, y: item.y };
+        case 'bottom': return { x: item.x + item.w/2, y: item.y + item.h };
+        case 'left':   return { x: item.x,            y: item.y + item.h/2 };
+        case 'right':  return { x: item.x + item.w,   y: item.y + item.h/2 };
+        default:       return { x: item.x + item.w/2, y: item.y + item.h/2 };
+      }
+    };
     for (const arrow of arrows) {
-      const f = items.find(i=>i.id===arrow.from), t = items.find(i=>i.id===arrow.to);
-      if (!f || !t) continue;
-      if (pointToSegDist(px, py, f.x+f.w/2, f.y+f.h/2, t.x+t.w/2, t.y+t.h/2) < 8 / zoomRef.current) {
+      const ep1 = arrow.from ? (() => { const it=items.find(i=>i.id===arrow.from); return it ? portPos(it,arrow.fromPort) : null; })()
+                             : (arrow.fromX !== undefined ? { x:arrow.fromX, y:arrow.fromY! } : null);
+      const ep2 = arrow.to   ? (() => { const it=items.find(i=>i.id===arrow.to);   return it ? portPos(it,arrow.toPort)   : null; })()
+                             : (arrow.toX   !== undefined ? { x:arrow.toX,   y:arrow.toY!   } : null);
+      if (!ep1 || !ep2) continue;
+      if (pointToSegDist(px, py, ep1.x, ep1.y, ep2.x, ep2.y) < 8 / zoomRef.current) {
         setSelectedArrow(arrow.id); setSelectedId(null);
         e.stopPropagation();
         return;
@@ -1129,7 +1176,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
   };
 
   const toolBtn = (tl: MBTool, icon: string, label: string, shortcut: string) => (
-    <button key={tl} title={`${label} (${shortcut})`} onClick={() => { setTool(tl); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }}
+    <button key={tl} title={`${label} (${shortcut})`} onClick={() => { setTool(tl); arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null); }}
       style={{ padding:'4px 8px', borderRadius:7, border:`1px solid ${tool===tl ? 'var(--accent)' : 'var(--border)'}`, background: tool===tl ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: tool===tl ? 'var(--accent)' : 'var(--text-2)', cursor:'pointer', display:'flex', gap:4, alignItems:'center' }}>
       <SFIcon name={icon} size={12} />
       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</span>
@@ -1204,7 +1251,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
           <button onClick={() => { setPan({x:60,y:40}); setZoom(1); }} style={{ padding:'3px 7px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9 }}>{t('resourceDetail.reset')}</button>
         </div>
 
-        {arrowStart && (
+        {arrowAnchor && (
           <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'#60a5fa', background:'rgba(96,165,250,0.1)', padding:'4px 10px', borderRadius:6, border:'1px solid rgba(96,165,250,0.3)' }}>
             {t('resourceDetail.mbArrowHint')}
           </span>
@@ -1225,77 +1272,116 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         <div style={{ position:'absolute', left:0, top:0, transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`, transformOrigin:'0 0' }}>
 
           {/* Arrow SVG — rendered below items */}
-          <svg
-            onClick={handleArrowSvgClick}
-            style={{ position:'absolute', width:10000, height:10000, top:0, left:0, pointerEvents: tool==='select' ? 'all' : 'none', overflow:'visible', zIndex:0 }}>
-            <defs>
-              <marker id="arrowhead-mb" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="#60a5fa" />
-              </marker>
-              <marker id="arrowhead-mb-sel" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="var(--accent)" />
-              </marker>
-            </defs>
-            {arrows.map(arrow => {
-              const f = items.find(i=>i.id===arrow.from), t = items.find(i=>i.id===arrow.to);
-              if (!f || !t) return null;
-              const isSel = selectedArrow === arrow.id;
-              // midpoint for hit area
-              const mx = (f.x+f.w/2 + t.x+t.w/2) / 2;
-              const my = (f.y+f.h/2 + t.y+t.h/2) / 2;
-              return (
-                <g key={arrow.id}>
-                  {/* invisible thick hit area */}
-                  <line x1={f.x+f.w/2} y1={f.y+f.h/2} x2={t.x+t.w/2} y2={t.y+t.h/2}
-                    stroke="transparent" strokeWidth={16} style={{ cursor:'pointer' }} />
-                  <line
-                    x1={f.x+f.w/2} y1={f.y+f.h/2}
-                    x2={t.x+t.w/2} y2={t.y+t.h/2}
-                    stroke={isSel ? 'var(--accent)' : '#60a5fa'}
-                    strokeWidth={isSel ? 2.5 : 1.8}
-                    markerEnd={isSel ? 'url(#arrowhead-mb-sel)' : 'url(#arrowhead-mb)'}
-                    strokeDasharray={isSel ? undefined : '6 4'}
-                    opacity={0.85}
-                  />
-                  {/* delete button on selected arrow */}
-                  {isSel && (
-                    <g onClick={e => { e.stopPropagation(); setArrows(p=>p.filter(a=>a.id!==arrow.id)); setSelectedArrow(null); }} style={{ cursor:'pointer' }}>
-                      <circle cx={mx} cy={my} r={9} fill="var(--danger)" opacity={0.9} />
-                      <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={11} fontWeight="bold">×</text>
+          {(() => {
+            // helpers pour résoudre les endpoints
+            const portPos = (item: MBItem, port?: ArrowPort) => {
+              switch (port) {
+                case 'top':    return { x: item.x + item.w/2, y: item.y };
+                case 'bottom': return { x: item.x + item.w/2, y: item.y + item.h };
+                case 'left':   return { x: item.x,            y: item.y + item.h/2 };
+                case 'right':  return { x: item.x + item.w,   y: item.y + item.h/2 };
+                default:       return { x: item.x + item.w/2, y: item.y + item.h/2 };
+              }
+            };
+            const resolveEp = (arrow: MBArrow, which: 'from'|'to') => {
+              const id = which === 'from' ? arrow.from : arrow.to;
+              const port = which === 'from' ? arrow.fromPort : arrow.toPort;
+              const fx = which === 'from' ? arrow.fromX : arrow.toX;
+              const fy = which === 'from' ? arrow.fromY : arrow.toY;
+              if (id) { const it = items.find(i=>i.id===id); return it ? portPos(it, port) : null; }
+              return (fx !== undefined && fy !== undefined) ? { x: fx, y: fy } : null;
+            };
+
+            // point source pour la preview
+            const previewSrc = arrowAnchor
+              ? arrowAnchor.kind === 'item'
+                ? (() => { const it = items.find(i=>i.id===arrowAnchor.id); return it ? portPos(it, arrowAnchor.port) : null; })()
+                : { x: arrowAnchor.x, y: arrowAnchor.y }
+              : null;
+
+            return (
+              <svg onClick={handleArrowSvgClick}
+                style={{ position:'absolute', width:10000, height:10000, top:0, left:0, pointerEvents: tool==='select' ? 'all' : 'none', overflow:'visible', zIndex:0 }}>
+                <defs>
+                  <marker id="arrowhead-mb" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#60a5fa" />
+                  </marker>
+                  <marker id="arrowhead-mb-sel" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="var(--accent)" />
+                  </marker>
+                  <marker id="arrowhead-mb-free" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#60a5fa" />
+                  </marker>
+                </defs>
+                {arrows.map(arrow => {
+                  const ep1 = resolveEp(arrow, 'from');
+                  const ep2 = resolveEp(arrow, 'to');
+                  if (!ep1 || !ep2) return null;
+                  const isSel = selectedArrow === arrow.id;
+                  const mx = (ep1.x + ep2.x) / 2;
+                  const my = (ep1.y + ep2.y) / 2;
+                  // Petits ronds aux endpoints libres (non attachés)
+                  const showDot1 = !arrow.from;
+                  const showDot2 = !arrow.to;
+                  return (
+                    <g key={arrow.id}>
+                      <line x1={ep1.x} y1={ep1.y} x2={ep2.x} y2={ep2.y}
+                        stroke="transparent" strokeWidth={16} style={{ cursor:'pointer' }} />
+                      <line x1={ep1.x} y1={ep1.y} x2={ep2.x} y2={ep2.y}
+                        stroke={isSel ? 'var(--accent)' : '#60a5fa'}
+                        strokeWidth={isSel ? 2.5 : 1.8}
+                        markerEnd={isSel ? 'url(#arrowhead-mb-sel)' : 'url(#arrowhead-mb)'}
+                        strokeDasharray={isSel ? undefined : '6 4'}
+                        opacity={0.85}
+                      />
+                      {showDot1 && <circle cx={ep1.x} cy={ep1.y} r={3.5} fill={isSel ? 'var(--accent)' : '#60a5fa'} opacity={0.7} />}
+                      {showDot2 && <circle cx={ep2.x} cy={ep2.y} r={3.5} fill={isSel ? 'var(--accent)' : '#60a5fa'} opacity={0.7} />}
+                      {isSel && (
+                        <g onClick={e => { e.stopPropagation(); setArrows(p=>p.filter(a=>a.id!==arrow.id)); setSelectedArrow(null); }} style={{ cursor:'pointer' }}>
+                          <circle cx={mx} cy={my} r={9} fill="var(--danger)" opacity={0.9} />
+                          <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={11} fontWeight="bold">×</text>
+                        </g>
+                      )}
                     </g>
-                  )}
-                </g>
-              );
-            })}
-          {/* Arrow drag preview */}
-          {arrowStart && arrowPreviewPos && (() => {
-            const f = items.find(i => i.id === arrowStart);
-            if (!f) return null;
-            return <line x1={f.x+f.w/2} y1={f.y+f.h/2} x2={arrowPreviewPos.x} y2={arrowPreviewPos.y}
-              stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 4" opacity={0.8}
-              markerEnd="url(#arrowhead-mb)" pointerEvents="none" />;
+                  );
+                })}
+                {/* Preview ligne en cours de tracé */}
+                {previewSrc && arrowPreviewPos && (
+                  <line x1={previewSrc.x} y1={previewSrc.y} x2={arrowPreviewPos.x} y2={arrowPreviewPos.y}
+                    stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 4" opacity={0.8}
+                    markerEnd="url(#arrowhead-mb)" pointerEvents="none" />
+                )}
+              </svg>
+            );
           })()}
-          </svg>
 
           {/* Items */}
           {items.map(item => {
             const isSel = selectedId === item.id;
             const isEd  = editingId  === item.id;
-            const isArrowSource = arrowStart === item.id;
+            const isArrowSource = arrowAnchor?.kind === 'item' && arrowAnchor.id === item.id;
             const isPostit = item.type === 'postit';
             const isShape  = item.type === 'shape';
             const textColor = isPostit ? '#1a1a1a' : 'var(--text)';
 
             return (
               <div key={item.id}
+                onMouseEnter={() => { if (tool === 'arrow') setMbHoverItemId(item.id); }}
+                onMouseLeave={() => setMbHoverItemId(null)}
                 onMouseDown={e => handleItemMouseDown(e, item)}
                 onMouseUp={e => {
-                  if (tool === 'arrow' && arrowStartRef.current && arrowStartRef.current !== item.id) {
-                    e.stopPropagation();
-                    setArrows(p => [...p, { id:`ar${Date.now()}`, from:arrowStartRef.current!, to:item.id }]);
-                    arrowStartRef.current = null;
-                    setArrowStart(null);
-                    setArrowPreviewPos(null);
+                  if (tool === 'arrow' && arrowAnchorRef.current) {
+                    const anchor = arrowAnchorRef.current;
+                    const isSelf = anchor.kind === 'item' && anchor.id === item.id;
+                    if (!isSelf) {
+                      e.stopPropagation();
+                      const newArrow: MBArrow = { id:`ar${Date.now()}` };
+                      if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+                      else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+                      newArrow.to = item.id;
+                      setArrows(p => [...p, newArrow]);
+                      arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+                    }
                   }
                 }}
                 onDoubleClick={e => {
@@ -1403,6 +1489,49 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                     style={{ position:'absolute', top:6, right:6, width:20, height:20, borderRadius:'50%', background:'var(--danger)', border:'none', color:'white', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:20, lineHeight:1 }}>
                     ×
                   </button>
+                )}
+
+                {/* Poignées de connexion (style Miro) — visibles au survol en mode flèche */}
+                {tool === 'arrow' && (mbHoverItemId === item.id || isArrowSource) && (
+                  <>
+                    {(['top','right','bottom','left'] as ArrowPort[]).map(port => {
+                      const dx = port==='left' ? 0 : port==='right' ? item.w : item.w/2;
+                      const dy = port==='top'  ? 0 : port==='bottom' ? item.h : item.h/2;
+                      return (
+                        <div key={port}
+                          onMouseDown={e => {
+                            e.stopPropagation();
+                            arrowAnchorRef.current = { kind:'item', id:item.id, port };
+                            setArrowAnchor({ kind:'item', id:item.id, port });
+                            arrowJustStarted.current = true;
+                          }}
+                          onMouseUp={e => {
+                            if (arrowAnchorRef.current && !(arrowAnchorRef.current.kind==='item' && arrowAnchorRef.current.id===item.id)) {
+                              e.stopPropagation();
+                              const anchor = arrowAnchorRef.current;
+                              const newArrow: MBArrow = { id:`ar${Date.now()}` };
+                              if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+                              else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+                              newArrow.to = item.id; newArrow.toPort = port;
+                              setArrows(p => [...p, newArrow]);
+                              arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+                            }
+                          }}
+                          style={{
+                            position:'absolute',
+                            left: dx - 6, top: dy - 6,
+                            width:12, height:12,
+                            borderRadius:'50%',
+                            background:'#60a5fa',
+                            border:'2px solid white',
+                            cursor:'crosshair',
+                            zIndex:30,
+                            boxShadow:'0 0 0 2px rgba(96,165,250,0.4)',
+                          }}
+                        />
+                      );
+                    })}
+                  </>
                 )}
               </div>
             );
