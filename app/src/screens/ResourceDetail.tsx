@@ -3031,8 +3031,7 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
                   value={item.notes}
                   onChange={e => updateItem(item.id, { notes: e.target.value })}
                   placeholder={t('resourceDetail.inspirationsView.notesPlaceholder')}
-                  rows={3}
-                  style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, color:'var(--text-2)', fontSize:12, fontFamily:'var(--ff-text)', padding:'7px 10px', outline:'none', resize:'vertical', lineHeight:1.55, boxSizing:'border-box', colorScheme:'dark' }}
+                  style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, color:'var(--text-2)', fontSize:12, fontFamily:'var(--ff-text)', padding:'7px 10px', outline:'none', resize:'vertical', lineHeight:1.55, boxSizing:'border-box', colorScheme:'dark', minHeight:66 }}
                 />
 
                 {/* Per-item likes / avoids */}
