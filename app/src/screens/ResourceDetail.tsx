@@ -1300,8 +1300,8 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
               : null;
 
             return (
-              <svg onClick={handleArrowSvgClick}
-                style={{ position:'absolute', width:10000, height:10000, top:0, left:0, pointerEvents: tool==='select' ? 'all' : 'none', overflow:'visible', zIndex:0 }}>
+              <svg onClick={tool==='select' ? handleArrowSvgClick : undefined}
+                style={{ position:'absolute', width:10000, height:10000, top:0, left:0, pointerEvents:'none', overflow:'visible', zIndex:100 }}>
                 <defs>
                   <marker id="arrowhead-mb" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
                     <polygon points="0 0, 8 3, 0 6" fill="#60a5fa" />
@@ -1324,7 +1324,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                   const showDot1 = !arrow.from;
                   const showDot2 = !arrow.to;
                   return (
-                    <g key={arrow.id}>
+                    <g key={arrow.id} style={{ pointerEvents: tool==='select' ? 'all' : 'none' }}>
                       <line x1={ep1.x} y1={ep1.y} x2={ep2.x} y2={ep2.y}
                         stroke="transparent" strokeWidth={16} style={{ cursor:'pointer' }} />
                       <line x1={ep1.x} y1={ep1.y} x2={ep2.x} y2={ep2.y}
@@ -1351,6 +1351,55 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                     stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 4" opacity={0.8}
                     markerEnd="url(#arrowhead-mb)" pointerEvents="none" />
                 )}
+
+                {/* Poignées de connexion Miro-style — dans le SVG pour passer au-dessus des items */}
+                {tool === 'arrow' && items.map(item => {
+                  const isHovered = mbHoverItemId === item.id;
+                  const isSrc = arrowAnchor?.kind === 'item' && arrowAnchor.id === item.id;
+                  if (!isHovered && !isSrc) return null;
+                  return (['top','right','bottom','left'] as ArrowPort[]).map(port => {
+                    const px2 = item.x + (port==='left' ? 0 : port==='right' ? item.w : item.w/2);
+                    const py2 = item.y + (port==='top'  ? 0 : port==='bottom' ? item.h : item.h/2);
+                    return (
+                      <circle key={`${item.id}-${port}`}
+                        cx={px2} cy={py2} r={6}
+                        fill="#60a5fa" stroke="white" strokeWidth={2}
+                        style={{ cursor:'crosshair' }}
+                        onMouseDown={e => {
+                          e.stopPropagation();
+                          if (arrowAnchorRef.current) {
+                            // Compléter la flèche vers ce port
+                            const anchor = arrowAnchorRef.current;
+                            if (anchor.kind === 'item' && anchor.id === item.id) return;
+                            const newArrow: MBArrow = { id:`ar${Date.now()}` };
+                            if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+                            else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+                            newArrow.to = item.id; newArrow.toPort = port;
+                            setArrows(p => [...p, newArrow]);
+                            arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+                          } else {
+                            // Démarrer une flèche depuis ce port
+                            arrowAnchorRef.current = { kind:'item', id:item.id, port };
+                            setArrowAnchor({ kind:'item', id:item.id, port });
+                            arrowJustStarted.current = true;
+                          }
+                        }}
+                        onMouseUp={e => {
+                          const anchor = arrowAnchorRef.current;
+                          if (anchor && !(anchor.kind==='item' && anchor.id===item.id)) {
+                            e.stopPropagation();
+                            const newArrow: MBArrow = { id:`ar${Date.now()}` };
+                            if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+                            else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+                            newArrow.to = item.id; newArrow.toPort = port;
+                            setArrows(p => [...p, newArrow]);
+                            arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+                          }
+                        }}
+                      />
+                    );
+                  });
+                })}
               </svg>
             );
           })()}
@@ -1491,48 +1540,6 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                   </button>
                 )}
 
-                {/* Poignées de connexion (style Miro) — visibles au survol en mode flèche */}
-                {tool === 'arrow' && (mbHoverItemId === item.id || isArrowSource) && (
-                  <>
-                    {(['top','right','bottom','left'] as ArrowPort[]).map(port => {
-                      const dx = port==='left' ? 0 : port==='right' ? item.w : item.w/2;
-                      const dy = port==='top'  ? 0 : port==='bottom' ? item.h : item.h/2;
-                      return (
-                        <div key={port}
-                          onMouseDown={e => {
-                            e.stopPropagation();
-                            arrowAnchorRef.current = { kind:'item', id:item.id, port };
-                            setArrowAnchor({ kind:'item', id:item.id, port });
-                            arrowJustStarted.current = true;
-                          }}
-                          onMouseUp={e => {
-                            if (arrowAnchorRef.current && !(arrowAnchorRef.current.kind==='item' && arrowAnchorRef.current.id===item.id)) {
-                              e.stopPropagation();
-                              const anchor = arrowAnchorRef.current;
-                              const newArrow: MBArrow = { id:`ar${Date.now()}` };
-                              if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
-                              else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
-                              newArrow.to = item.id; newArrow.toPort = port;
-                              setArrows(p => [...p, newArrow]);
-                              arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
-                            }
-                          }}
-                          style={{
-                            position:'absolute',
-                            left: dx - 6, top: dy - 6,
-                            width:12, height:12,
-                            borderRadius:'50%',
-                            background:'#60a5fa',
-                            border:'2px solid white',
-                            cursor:'crosshair',
-                            zIndex:30,
-                            boxShadow:'0 0 0 2px rgba(96,165,250,0.4)',
-                          }}
-                        />
-                      );
-                    })}
-                  </>
-                )}
               </div>
             );
           })}
