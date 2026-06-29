@@ -842,16 +842,14 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
   const [zoom, setZoom]             = useState(1);
   const [tool, setTool]             = useState<MBTool>('pan');
   const [arrowStart, setArrowStart] = useState<string | null>(null);
-  const [showAddImg, setShowAddImg] = useState(false);
-  const [imgUrl, setImgUrl]         = useState('');
+  const [showAddMedia, setShowAddMedia] = useState(false);
+  const [mediaUrl, setMediaUrl]         = useState('');
   const [postitColor, setPostitColor] = useState(POSTIT_COLORS[0]);
   const [shapeColor, setShapeColor]   = useState(SHAPE_COLORS[0]);
 
   const [arrowPreviewPos, setArrowPreviewPos] = useState<{x:number,y:number}|null>(null);
   const [shapePreview, setShapePreview]       = useState<{x:number,y:number,w:number,h:number}|null>(null);
   const [isCanvasDragging, setIsCanvasDragging] = useState(false);
-  const [showAddVideo, setShowAddVideo]       = useState(false);
-  const [videoUrl, setVideoUrl]               = useState('');
 
   const canvasRef        = useRef<HTMLDivElement>(null);
   const dragState        = useRef<DragState | null>(null);
@@ -1065,18 +1063,29 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     return id;
   };
 
-  const addImage = () => {
-    if (!imgUrl.trim()) return;
-    addAtCenter({ type:'image', w:260, h:190, imageUrl:imgUrl.trim() });
-    setImgUrl(''); setShowAddImg(false);
+  const detectMediaType = (url: string): 'video' | 'image' | 'web' => {
+    const u = url.toLowerCase();
+    if (/youtu\.?be|vimeo\.com|dailymotion|twitch\.tv/.test(u)) return 'video';
+    if (/\.(mp4|webm|mov|avi|mkv)(\?|$)/.test(u)) return 'video';
+    if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)(\?|$)/.test(u)) return 'image';
+    return 'web';
   };
 
-  const addVideo = () => {
-    const url = videoUrl.trim();
+  const addMedia = () => {
+    const url = mediaUrl.trim();
     if (!url) return;
-    const thumb = getAutoThumb(url);
-    addAtCenter({ type:'video', w:280, h:190, videoUrl: url.startsWith('http') ? url : `https://${url}`, thumbnailUrl: thumb ?? undefined });
-    setVideoUrl(''); setShowAddVideo(false);
+    const full = url.startsWith('http') ? url : `https://${url}`;
+    const kind = detectMediaType(full);
+    if (kind === 'video') {
+      const thumb = getAutoThumb(full);
+      addAtCenter({ type:'video', w:280, h:190, videoUrl:full, thumbnailUrl: thumb ?? undefined });
+    } else if (kind === 'image') {
+      addAtCenter({ type:'image', w:260, h:190, imageUrl:full });
+    } else {
+      // site web → on essaie comme image avec favicon fallback
+      addAtCenter({ type:'image', w:260, h:190, imageUrl:full });
+    }
+    setMediaUrl(''); setShowAddMedia(false);
   };
 
   const dropImagesOnCanvas = (e: React.DragEvent) => {
@@ -1175,13 +1184,10 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
           style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
           <SFIcon name="type" size={12} />
         </button>
-        <button title={t('resourceDetail.mbImage')} onClick={() => setShowAddImg(true)}
-          style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
-          <SFIcon name="image-plus" size={12} />
-        </button>
-        <button title={t('resourceDetail.mbVideo')} onClick={() => setShowAddVideo(true)}
-          style={{ padding:'4px 7px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', flexShrink:0 }}>
-          <SFIcon name="circle-play" size={12} />
+        <button onClick={() => setShowAddMedia(true)}
+          style={{ padding:'4px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', display:'flex', gap:4, alignItems:'center', flexShrink:0 }}>
+          <SFIcon name="link" size={12} />
+          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.04em' }}>Média</span>
         </button>
         {/* Palette couleur fond */}
         <div style={{ display:'flex', gap:2, alignItems:'center' }}>
@@ -1407,48 +1413,50 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', marginLeft:'auto' }}>{t('resourceDetail.mbItemsArrows', { items: items.length, arrows: arrows.length })}</span>
       </div>
 
-      {/* Add image modal */}
-      {showAddImg && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}>
-          <div style={{ background:'var(--surface)', borderRadius:14, padding:28, width:420, border:'1px solid var(--border)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
-            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>{t('resourceDetail.mbAddImageTitle')}</h3>
-            <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16 }}>{t('resourceDetail.mbAddImageDesc')}</p>
-            <input value={imgUrl} onChange={e=>setImgUrl(e.target.value)} autoFocus
-              onKeyDown={e=>{ if(e.key==='Enter') addImage(); if(e.key==='Escape') setShowAddImg(false); }}
-              placeholder="https://example.com/image.jpg"
-              style={{ width:'100%', padding:'10px 12px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'var(--ff-text)', colorScheme:'dark' }}
-            />
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-              <SFButton variant="ghost" onClick={()=>setShowAddImg(false)}>{t('resourceDetail.cancel')}</SFButton>
-              <SFButton variant="primary" onClick={addImage}>{t('resourceDetail.add')}</SFButton>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal média unifié */}
+      {showAddMedia && (() => {
+        const url = mediaUrl.trim();
+        const kind = url ? detectMediaType(url.startsWith('http') ? url : `https://${url}`) : null;
+        const thumb = kind === 'video' ? getAutoThumb(url.startsWith('http') ? url : `https://${url}`) : null;
+        const kindLabel = kind === 'video' ? 'Vidéo' : kind === 'image' ? 'Image' : kind === 'web' ? 'Site web' : null;
+        const kindIcon  = kind === 'video' ? 'circle-play' : kind === 'image' ? 'image' : kind === 'web' ? 'globe' : 'link';
+        return (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}
+            onMouseDown={e => { if (e.target === e.currentTarget) { setShowAddMedia(false); setMediaUrl(''); } }}>
+            <div style={{ background:'var(--surface)', borderRadius:16, padding:28, width:460, border:'1px solid var(--border-2)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+              <h3 style={{ fontSize:15, fontWeight:700, marginBottom:4, color:'var(--text)', fontFamily:'var(--ff-display)' }}>Ajouter un média</h3>
+              <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16, fontFamily:'var(--ff-text)' }}>Collez n'importe quelle URL — image, vidéo YouTube / Vimeo, ou site web.</p>
 
-      {/* Add video modal */}
-      {showAddVideo && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}>
-          <div style={{ background:'var(--surface)', borderRadius:14, padding:28, width:440, border:'1px solid var(--border)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
-            <h3 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>{t('resourceDetail.mbAddVideoTitle')}</h3>
-            <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16 }}>{t('resourceDetail.mbAddVideoDesc')}</p>
-            <input value={videoUrl} onChange={e=>setVideoUrl(e.target.value)} autoFocus
-              onKeyDown={e=>{ if(e.key==='Enter') addVideo(); if(e.key==='Escape') setShowAddVideo(false); }}
-              placeholder="https://youtube.com/watch?v=…"
-              style={{ width:'100%', padding:'10px 12px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'var(--ff-text)', colorScheme:'dark' }}
-            />
-            {videoUrl.trim() && (() => {
-              const thumb = getAutoThumb(videoUrl.trim());
-              if (!thumb) return null;
-              return <img src={thumb} alt={t('resourceDetail.thumbnail')} style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e=>(e.target as HTMLImageElement).style.display='none'} />;
-            })()}
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-              <SFButton variant="ghost" onClick={()=>setShowAddVideo(false)}>{t('resourceDetail.cancel')}</SFButton>
-              <SFButton variant="primary" onClick={addVideo}>{t('resourceDetail.add')}</SFButton>
+              <div style={{ position:'relative' }}>
+                <input value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') addMedia(); if (e.key === 'Escape') { setShowAddMedia(false); setMediaUrl(''); } }}
+                  placeholder="https://…"
+                  style={{ width:'100%', padding:'10px 12px', paddingRight: kind ? 90 : 12, borderRadius:9, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'var(--ff-text)', colorScheme:'dark' }}
+                />
+                {kind && (
+                  <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', display:'flex', alignItems:'center', gap:4, background:'var(--surface-3)', border:'1px solid var(--border)', borderRadius:6, padding:'2px 7px', fontSize:10, fontFamily:'var(--ff-mono)', color:'var(--text-2)' }}>
+                    <SFIcon name={kindIcon} size={10} />
+                    {kindLabel}
+                  </span>
+                )}
+              </div>
+
+              {/* Aperçu */}
+              {thumb && (
+                <img src={thumb} alt="Aperçu" style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
+              )}
+              {kind === 'image' && url && (
+                <img src={url.startsWith('http') ? url : `https://${url}`} alt="Aperçu" style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
+              )}
+
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
+                <SFButton variant="ghost" onClick={() => { setShowAddMedia(false); setMediaUrl(''); }}>{t('resourceDetail.cancel')}</SFButton>
+                <SFButton variant="primary" onClick={addMedia} disabled={!url}>{t('resourceDetail.add')}</SFButton>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
     <ScriptCommentSidebar resourceId={resource.id} />
     </div>
