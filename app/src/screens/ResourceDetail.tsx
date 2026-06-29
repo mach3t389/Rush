@@ -2947,7 +2947,7 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
           <SFButton variant="primary" size="sm" icon="plus" onClick={addItem}>{t('resourceDetail.inspirationsView.addButton')}</SFButton>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           {items.map((item, idx) => {
             const thumbSrc = item.imageUrl || getAutoThumb(item.url);
             const href = item.url ? (item.url.startsWith('http') ? item.url : `https://${item.url}`) : null;
@@ -2958,68 +2958,73 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
               key={item.id}
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
-              style={{ background:'var(--surface)', borderRadius:10, border:'1px solid var(--border)', overflow:'hidden', display:'flex', flexDirection:'row', minHeight:80 }}
+              style={{ background:'var(--surface)', borderRadius:10, border:'1px solid var(--border)', overflow:'hidden', display:'flex', flexDirection:'row' }}
             >
-              {/* Thumbnail — petite vignette fixe à gauche */}
+              {/* Thumbnail */}
               <div
                 onClick={() => href && window.open(href, '_blank', 'noreferrer')}
                 title={href ? t('resourceDetail.inspirationsView.openUrlTitle', { url: item.url }) : undefined}
-                style={{ width:88, flexShrink:0, background:item.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
+                style={{ width:120, flexShrink:0, background:item.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
               >
                 {thumbSrc
                   ? <img src={thumbSrc} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
-                  : <SFIcon name="image" size={20} color="rgba(255,255,255,0.15)" />}
-                <div style={{ position:'absolute', top:4, left:4, fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:700, color:'white', background:'rgba(0,0,0,0.55)', borderRadius:4, padding:'1px 5px', lineHeight:1.4 }}>{num}</div>
-                <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:3, opacity: hoveredId === item.id ? 1 : 0, transition:'opacity 0.15s' }}>
+                  : <SFIcon name="image" size={24} color="rgba(255,255,255,0.15)" />}
+                <div style={{ position:'absolute', top:5, left:5, fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:700, color:'white', background:'rgba(0,0,0,0.55)', borderRadius:4, padding:'1px 5px', lineHeight:1.4 }}>{num}</div>
+                <div style={{ position:'absolute', bottom:5, right:5, display:'flex', gap:3, opacity: hoveredId === item.id ? 1 : 0, transition:'opacity 0.15s' }}>
                   {href && (
-                    <div style={{ width:20, height:20, borderRadius:5, background:'rgba(0,0,0,0.65)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <SFIcon name="external-link" size={10} color="white" />
+                    <div style={{ width:22, height:22, borderRadius:5, background:'rgba(0,0,0,0.65)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <SFIcon name="external-link" size={11} color="white" />
                     </div>
                   )}
                   <button
                     onClick={e => { e.stopPropagation(); removeItem(item.id); }}
-                    style={{ width:20, height:20, borderRadius:5, background:'rgba(0,0,0,0.65)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+                    style={{ width:22, height:22, borderRadius:5, background:'rgba(0,0,0,0.65)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
                   >
-                    <SFIcon name="trash-2" size={9} color="white" />
+                    <SFIcon name="trash-2" size={10} color="white" />
                   </button>
                 </div>
               </div>
-              {/* Contenu — priorité au texte */}
-              <div style={{ flex:1, padding:'8px 10px', display:'flex', flexDirection:'column', gap:3, minWidth:0, overflow:'hidden' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+
+              {/* Contenu */}
+              <div style={{ flex:1, padding:'10px 14px', display:'flex', flexDirection:'column', gap:4, minWidth:0 }}>
+                {/* Row 1 : titre + URL + bouton J'aime */}
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <input
                     value={item.title}
                     onChange={e => updateItem(item.id, { title: e.target.value })}
-                    style={{ flex:1, background:'transparent', border:'none', color:'var(--text)', fontSize:12, fontWeight:600, outline:'none', fontFamily:'var(--ff-text)', minWidth:0 }}
+                    style={{ flex:1, background:'transparent', border:'none', color:'var(--text)', fontSize:13, fontWeight:600, outline:'none', fontFamily:'var(--ff-text)', minWidth:0 }}
                   />
+                  <div style={{ display:'flex', alignItems:'center', gap:4, color:'var(--text-3)', fontSize:10, fontFamily:'var(--ff-mono)', flexShrink:0 }}>
+                    <SFIcon name="link" size={9} color="var(--text-3)" />
+                    <input
+                      value={item.url}
+                      onChange={e => updateItem(item.id, { url: e.target.value })}
+                      placeholder={t('resourceDetail.inspirationsView.urlPlaceholder')}
+                      style={{ background:'transparent', border:'none', color:'var(--text-3)', fontSize:10, fontFamily:'var(--ff-mono)', outline:'none', width:160 }}
+                    />
+                  </div>
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : item.id)}
                     title={isExpanded ? t('resourceDetail.inspirationsView.hideLikesAvoids') : t('resourceDetail.inspirationsView.showLikesAvoids')}
-                    style={{ flexShrink:0, padding:'2px 5px', borderRadius:5, border:`1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'}`, background: isExpanded ? 'rgba(249,255,0,0.08)' : 'transparent', color: isExpanded ? 'var(--accent)' : 'var(--text-3)', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:9, fontFamily:'var(--ff-mono)' }}
+                    style={{ flexShrink:0, padding:'3px 6px', borderRadius:5, border:`1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'}`, background: isExpanded ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent', color: isExpanded ? 'var(--accent)' : 'var(--text-3)', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:9, fontFamily:'var(--ff-mono)' }}
                   >
                     <SFIcon name="thumbs-up" size={10} />
                   </button>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                  <SFIcon name="link" size={9} color="var(--text-3)" />
-                  <input
-                    value={item.url}
-                    onChange={e => updateItem(item.id, { url: e.target.value })}
-                    placeholder={t('resourceDetail.inspirationsView.urlPlaceholder')}
-                    style={{ flex:1, background:'transparent', border:'none', color:'var(--text-3)', fontSize:10, fontFamily:'var(--ff-mono)', outline:'none', minWidth:0 }}
-                  />
-                </div>
+
+                {/* Notes — zone principale */}
                 <textarea
                   value={item.notes}
                   onChange={e => updateItem(item.id, { notes: e.target.value })}
                   placeholder={t('resourceDetail.inspirationsView.notesPlaceholder')}
-                  rows={2}
-                  style={{ width:'100%', background:'transparent', border:'none', borderTop:'1px solid var(--border)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)', padding:'5px 0 0', outline:'none', resize:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark', marginTop:2 }}
+                  rows={3}
+                  style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, color:'var(--text-2)', fontSize:12, fontFamily:'var(--ff-text)', padding:'7px 10px', outline:'none', resize:'vertical', lineHeight:1.55, boxSizing:'border-box', colorScheme:'dark' }}
                 />
+
                 {/* Per-item likes / avoids */}
                 {isExpanded && (
-                  <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:8 }}>
-                    <div>
+                  <div style={{ marginTop:4, display:'flex', gap:12 }}>
+                    <div style={{ flex:1 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
                         <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--ok)', flexShrink:0 }} />
                         <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.inspirationsView.likesHeader')}</span>
@@ -3032,7 +3037,7 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
                         style={{ width:'100%', padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', resize:'none', outline:'none', lineHeight:1.5, boxSizing:'border-box', colorScheme:'dark' }}
                       />
                     </div>
-                    <div>
+                    <div style={{ flex:1 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
                         <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--danger)', flexShrink:0 }} />
                         <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.inspirationsView.avoidsHeader')}</span>
@@ -3051,15 +3056,15 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
             </div>
             );
           })}
-          {/* Add card */}
+          {/* Add button */}
           <button
             onClick={addItem}
-            style={{ aspectRatio:'16/10', borderRadius:12, border:'1px dashed var(--border-2)', background:'transparent', color:'var(--text-3)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', minHeight:120 }}
+            style={{ width:'100%', padding:'12px', borderRadius:10, border:'1px dashed var(--border-2)', background:'transparent', color:'var(--text-3)', display:'flex', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--accent)'; (e.currentTarget as HTMLElement).style.color='var(--accent)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border-2)'; (e.currentTarget as HTMLElement).style.color='var(--text-3)'; }}
           >
-            <SFIcon name="plus" size={20} />
-            <span style={{ fontSize:11, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.inspirationsView.addButton')}</span>
+            <SFIcon name="plus" size={14} />
+            <span style={{ fontSize:12, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.inspirationsView.addButton')}</span>
           </button>
         </div>
       </div>
