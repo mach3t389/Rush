@@ -1271,6 +1271,7 @@
     "pmStripeLink": "Lien de paiement Stripe",
     "pmName": "Nom affiché",
     "sectionBilling": "Facturation",
+    "sectionModels": "Modèles",
     "billingTitle": "Paramètres de facturation",
     "billingDesc": "Valeurs par défaut utilisées lors de la création de chaque nouvelle facture.",
     "defaultTaxRate": "Taux de taxe par défaut (%)",

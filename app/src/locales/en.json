@@ -1257,6 +1257,7 @@
     "pmStripeLink": "Stripe payment link",
     "pmName": "Display name",
     "sectionBilling": "Billing",
+    "sectionModels": "Templates",
     "billingTitle": "Invoice settings",
     "billingDesc": "Default values used when creating each new invoice.",
     "defaultTaxRate": "Default tax rate (%)",

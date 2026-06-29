@@ -283,14 +283,8 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           {/* Outils transversaux */}
           <NavItem to="/calendrier" icon="calendar"     label={t('nav.calendar')}      exact={false} collapsed={collapsed} />
           <NavItem to="/fichiers"   icon="folder-open"  label={t('nav.files')}         exact={false} collapsed={collapsed} />
+          <NavItem to="/finances"   icon="receipt"      label={t('nav.finances')}      exact={false} collapsed={collapsed} />
           <NavItem to="/activite"   icon="bell"         label={t('nav.notifications')} exact={false} collapsed={collapsed} badge={unreadCount} />
-
-          {/* Séparateur */}
-          <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
-
-          {/* Gestion */}
-          <NavItem to="/finances" icon="receipt" label={t('nav.finances')} exact={false} collapsed={collapsed} />
-          <NavItem to="/modeles"  icon="library" label={t('nav.models')}   exact={false} collapsed={collapsed} />
         </nav>
 
         {/* Projets épinglés */}

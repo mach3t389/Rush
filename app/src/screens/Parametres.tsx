@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon } from '../components/ui';
 import { MonEquipe } from './MonEquipe';
+import { Modeles } from './Modeles';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
@@ -367,7 +368,7 @@ function InvoiceDefaultsSettings() {
 }
 
 const SECTIONS = [
-  { groupKey: 'settings.groupStudio', items: [{ key: 'infos', labelKey: 'settings.sectionStudioInfo' }, { key: 'team', labelKey: 'settings.sectionInternalTeam' }, { key: 'portail', labelKey: 'settings.sectionClientPortal' }, { key: 'paiements', labelKey: 'settings.sectionPaymentMethods' }, { key: 'facturation', labelKey: 'settings.sectionBilling' }] },
+  { groupKey: 'settings.groupStudio', items: [{ key: 'infos', labelKey: 'settings.sectionStudioInfo' }, { key: 'team', labelKey: 'settings.sectionInternalTeam' }, { key: 'portail', labelKey: 'settings.sectionClientPortal' }, { key: 'paiements', labelKey: 'settings.sectionPaymentMethods' }, { key: 'facturation', labelKey: 'settings.sectionBilling' }, { key: 'modeles', labelKey: 'settings.sectionModels' }] },
   { groupKey: 'settings.groupAccount', items: [{ key: 'profil', labelKey: 'settings.sectionProfile' }, { key: 'notifs', labelKey: 'settings.sectionNotifications' }, { key: 'securite', labelKey: 'settings.sectionSecurity' }] },
   { groupKey: 'settings.groupCustomization', items: [{ key: 'polices', labelKey: 'settings.sectionFonts' }, { key: 'langue', labelKey: 'settings.sectionLanguage' }] },
   { groupKey: 'settings.groupIntegrations', items: [{ key: 'integrations', labelKey: 'settings.sectionConnectionsSync' }, { key: 'plugins', labelKey: 'settings.sectionPluginsTools' }] },
@@ -742,7 +743,7 @@ export function Parametres() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 32 }}>
+      <div style={{ flex: 1, overflow: activeSection === 'modeles' ? 'hidden' : 'auto', padding: activeSection === 'modeles' ? 0 : 32, position: 'relative' }}>
         {activeSection === 'infos' && (
           <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
@@ -1186,7 +1187,12 @@ export function Parametres() {
             </div>
           </div>
         )}
-        {!['infos', 'team', 'portail', 'paiements', 'facturation', 'profil', 'notifs', 'securite', 'polices', 'integrations', 'plugins'].includes(activeSection) && (
+        {activeSection === 'modeles' && (
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <Modeles />
+          </div>
+        )}
+        {!['infos', 'team', 'portail', 'paiements', 'facturation', 'modeles', 'profil', 'notifs', 'securite', 'polices', 'integrations', 'plugins'].includes(activeSection) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
             <SFIcon name="clock" size={24} color="var(--border-2)" />
             <p style={{ color: 'var(--text-3)', fontSize: 14 }}>
