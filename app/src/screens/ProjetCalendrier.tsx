@@ -226,6 +226,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
   const { t } = useTranslation();
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const scrollRef = useRef<HTMLDivElement>(null);
+  const timeGridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
 
@@ -246,9 +247,8 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
       <div ref={scrollRef} style={{ flex:1,overflowY:'scroll',overflowX:'hidden' }}
         onMouseMove={e=>{
           if(!dragRef.current) return;
-          const scrollTop=scrollRef.current?.scrollTop??0;
-          const rect=scrollRef.current!.getBoundingClientRect();
-          const y=e.clientY-rect.top+scrollTop;
+          const gridRect=timeGridRef.current!.getBoundingClientRect();
+          const y=e.clientY-gridRect.top;
           const startY=dragRef.current.startY;
           const moved=Math.abs(y-startY)>10;
           dragRef.current.moved=moved;
@@ -256,9 +256,8 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
         }}
         onMouseUp={e=>{
           if(!dragRef.current) return;
-          const scrollTop=scrollRef.current?.scrollTop??0;
-          const rect=scrollRef.current!.getBoundingClientRect();
-          const y=e.clientY-rect.top+scrollTop;
+          const gridRect=timeGridRef.current!.getBoundingClientRect();
+          const y=e.clientY-gridRect.top;
           const startY=dragRef.current.startY;
           const day=dragRef.current.day;
           if(dragRef.current.moved){
@@ -315,7 +314,7 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
         </div>
 
         {/* ── Time grid ── */}
-        <div style={{ display:'flex',minHeight:`${HOURS.length*HOUR_H}px`,position:'relative' }}>
+        <div ref={timeGridRef} style={{ display:'flex',minHeight:`${HOURS.length*HOUR_H}px`,position:'relative' }}>
           <div style={{ width:52,flexShrink:0 }}>
             {HOURS.map(h=>(
               <div key={h} style={{ height:HOUR_H,display:'flex',alignItems:'flex-start',paddingTop:4,paddingRight:8,justifyContent:'flex-end' }}>
@@ -331,17 +330,15 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
               <div key={di}
                 onMouseDown={e=>{
                   if((e.target as HTMLElement).closest('[data-event]')) return;
-                  const scrollTop=scrollRef.current?.scrollTop??0;
-                  const rect=scrollRef.current!.getBoundingClientRect();
-                  const y=e.clientY-rect.top+scrollTop;
+                  const gridRect=timeGridRef.current!.getBoundingClientRect();
+                  const y=e.clientY-gridRect.top;
                   dragRef.current={ colIdx:di, day:d, startY:y, moved:false };
                   e.preventDefault();
                 }}
                 onClick={e=>{
                   if(dragRef.current?.moved) return;
-                  const scrollTop=scrollRef.current?.scrollTop??0;
-                  const rect=scrollRef.current!.getBoundingClientRect();
-                  const y=e.clientY-rect.top+scrollTop;
+                  const gridRect=timeGridRef.current!.getBoundingClientRect();
+                  const y=e.clientY-gridRect.top;
                   const h=Math.floor(y/HOUR_H)+START_HOUR;
                   onSlotClick(d,Math.min(h,END_HOUR-1));
                 }}
