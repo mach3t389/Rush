@@ -1122,10 +1122,10 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
 
   const toolBtn = (tl: MBTool, icon: string, label: string, shortcut: string) => (
     <button key={tl} title={`${label} (${shortcut})`} onClick={() => { setTool(tl); arrowStartRef.current = null; setArrowStart(null); setArrowPreviewPos(null); }}
-      title={`${label} (${shortcut})`}
       style={{ padding:'4px 8px', borderRadius:7, border:`1px solid ${tool===tl ? 'var(--accent)' : 'var(--border)'}`, background: tool===tl ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: tool===tl ? 'var(--accent)' : 'var(--text-2)', cursor:'pointer', display:'flex', gap:4, alignItems:'center' }}>
       <SFIcon name={icon} size={12} />
       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</span>
+      <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, opacity:0.5, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:3, padding:'1px 3px', lineHeight:1.4 }}>{shortcut}</span>
     </button>
   );
 
