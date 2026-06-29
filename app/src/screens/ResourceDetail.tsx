@@ -1348,19 +1348,23 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                     markerEnd="url(#arrowhead-mb)" pointerEvents="none" />
                 )}
 
-                {/* Poignées de connexion Miro-style — dans le SVG pour passer au-dessus des items */}
+                {/* Poignées de connexion Miro-style — dans le SVG pour passer au-dessus des items.
+                    Toujours rendues en mode flèche (emphase au survol) pour éviter la race
+                    de démontage qui faisait disparaître la poignée juste avant le clic. */}
                 {tool === 'arrow' && items.map(item => {
                   const isHovered = mbHoverItemId === item.id;
                   const isSrc = arrowAnchor?.kind === 'item' && arrowAnchor.id === item.id;
-                  if (!isHovered && !isSrc) return null;
+                  const emphasis = isHovered || isSrc;
                   return (['top','right','bottom','left'] as ArrowPort[]).map(port => {
                     const px2 = item.x + (port==='left' ? 0 : port==='right' ? item.w : item.w/2);
                     const py2 = item.y + (port==='top'  ? 0 : port==='bottom' ? item.h : item.h/2);
                     return (
                       <circle key={`${item.id}-${port}`}
-                        cx={px2} cy={py2} r={6}
+                        cx={px2} cy={py2} r={emphasis ? 6 : 4.5}
                         fill="#60a5fa" stroke="white" strokeWidth={2}
-                        style={{ cursor:'crosshair' }}
+                        opacity={emphasis ? 1 : 0.55}
+                        style={{ cursor:'crosshair', transition:'opacity .1s' }}
+                        onMouseEnter={() => setMbHoverItemId(item.id)}
                         onMouseDown={e => {
                           e.stopPropagation();
                           if (arrowAnchorRef.current) {
