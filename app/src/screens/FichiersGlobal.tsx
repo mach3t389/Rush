@@ -1618,6 +1618,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
 // ── Main screen ────────────────────────────────────────────────────────────────
 
 export function FileBrowser({ initialNav, embedded = false, locked = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean }) {
+  const { t } = useTranslation();
   const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
   const lockedScope: NavLocation | undefined = locked && initialNav ? initialNav : undefined;
   const navigate = useNavigate();
@@ -1963,7 +1964,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     addResource({
       id: resourceId,
       type: actualType,
-      eyebrow: isRevision ? pendingRevision!.eyebrow : (RESOURCE_EYEBROW[def.type] ?? def.label.toUpperCase()),
+      eyebrow: isRevision ? pendingRevision!.eyebrow : (RESOURCE_EYEBROW[def.type] ?? t(def.labelKey).toUpperCase()),
       title: name,
       status: 'info',
       statusLabel: 'En cours',
@@ -2070,7 +2071,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     items.push({ label: 'Ressources', icon: '', action: () => {}, header: true });
     RESOURCE_TYPES.forEach(def => {
       items.push({
-        label: def.label, icon: def.icon, color: def.color,
+        label: t(def.labelKey), icon: def.icon, color: def.color,
         action: () => { if (def.type === 'video_review') setShowRevisionPicker(true); else setNewResourceDef(def); },
       });
     });
