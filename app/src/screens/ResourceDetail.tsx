@@ -25,7 +25,7 @@ export type ScriptElType = 'scene' | 'action' | 'character' | 'parenthetical' | 
 export interface ScriptEl { id: string; type: ScriptElType; text: string; }
 
 type MBTool = 'select' | 'pan' | 'arrow' | 'rect' | 'ellipse';
-interface MBItem { id: string; type: 'image' | 'text' | 'color' | 'postit' | 'shape' | 'video'; x: number; y: number; w: number; h: number; text?: string; imageUrl?: string; bg?: string; shapeType?: 'rect' | 'ellipse'; shapeColor?: string; postitColor?: string; videoUrl?: string; thumbnailUrl?: string; }
+interface MBItem { id: string; type: 'image' | 'text' | 'color' | 'postit' | 'shape' | 'video' | 'web'; x: number; y: number; w: number; h: number; text?: string; imageUrl?: string; bg?: string; shapeType?: 'rect' | 'ellipse'; shapeColor?: string; postitColor?: string; videoUrl?: string; thumbnailUrl?: string; webUrl?: string; }
 interface MBArrow { id: string; from: string; to: string; label?: string; }
 type DragState =
   | { type: 'pan'; startX: number; startY: number; startPan: { x: number; y: number } }
@@ -1082,8 +1082,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     } else if (kind === 'image') {
       addAtCenter({ type:'image', w:260, h:190, imageUrl:full });
     } else {
-      // site web → on essaie comme image avec favicon fallback
-      addAtCenter({ type:'image', w:260, h:190, imageUrl:full });
+      addAtCenter({ type:'web', w:280, h:190, webUrl:full, thumbnailUrl:`https://image.thum.io/get/width/560/crop/360/${full}` });
     }
     setMediaUrl(''); setShowAddMedia(false);
   };
@@ -1347,6 +1346,28 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                   </div>
                 )}
 
+                {item.type==='web' && (
+                  <div style={{ width:'100%', height:'100%', position:'relative', background:'#0d0d0d', display:'flex', alignItems:'center', justifyContent:'center' }}
+                    onClick={e => { if (didDrag.current) return; e.stopPropagation(); if (item.webUrl) window.open(item.webUrl, '_blank', 'noreferrer'); }}>
+                    {item.thumbnailUrl
+                      ? <img src={item.thumbnailUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
+                      : <SFIcon name="globe" size={32} color="rgba(255,255,255,0.15)" />}
+                    {/* Barre URL en bas */}
+                    <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'4px 8px', background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', gap:5 }}>
+                      <SFIcon name="globe" size={9} color="rgba(255,255,255,0.5)" />
+                      <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'rgba(255,255,255,0.5)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {item.webUrl?.replace(/^https?:\/\//, '')}
+                      </span>
+                    </div>
+                    {/* Poignée de déplacement */}
+                    <div
+                      style={{ position:'absolute', top:6, left:6, width:22, height:22, borderRadius:5, background:'rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'move', zIndex:2 }}
+                      onMouseDownCapture={e => { e.stopPropagation(); handleItemMouseDown(e as unknown as React.MouseEvent<HTMLDivElement>, item); }}>
+                      <SFIcon name="grip" size={11} color="rgba(255,255,255,0.7)" />
+                    </div>
+                  </div>
+                )}
+
                 {item.type==='color' &&
                   <div style={{ width:'100%', height:'100%', background:item.bg??'#1a2035' }} />}
 
@@ -1442,11 +1463,20 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
               </div>
 
               {/* Aperçu */}
-              {thumb && (
+              {url && kind === 'video' && thumb && (
                 <img src={thumb} alt="Aperçu" style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
               )}
-              {kind === 'image' && url && (
+              {url && kind === 'image' && (
                 <img src={url.startsWith('http') ? url : `https://${url}`} alt="Aperçu" style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
+              )}
+              {url && kind === 'web' && (
+                <div style={{ marginTop:12, borderRadius:9, overflow:'hidden', border:'1px solid var(--border)', position:'relative' }}>
+                  <img src={`https://image.thum.io/get/width/560/crop/360/${url.startsWith('http') ? url : `https://${url}`}`} alt="Aperçu" style={{ width:'100%', height:200, objectFit:'cover', display:'block' }} onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
+                  <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'5px 10px', background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', gap:6 }}>
+                    <SFIcon name="globe" size={10} color="rgba(255,255,255,0.5)" />
+                    <span style={{ fontSize:10, fontFamily:'var(--ff-mono)', color:'rgba(255,255,255,0.6)' }}>{(url.startsWith('http') ? url : `https://${url}`).replace(/^https?:\/\//, '')}</span>
+                  </div>
+                </div>
               )}
 
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
