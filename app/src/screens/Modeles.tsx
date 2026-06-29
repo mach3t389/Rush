@@ -553,30 +553,38 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '20px 20px 14px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-          <SFIcon name={tpl.icon} size={20} color="rgba(255,255,255,0.9)" />
-        </div>
-        {tpl.builtIn
-          ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{tpl.name}</h2>
-          : <div style={{ marginBottom: 6 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>}
-        {tpl.builtIn
-          ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 10 }}>{tpl.description}</p>
-          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {tpl.tags.map(tag => (
-            <span key={tag} style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44` }}>{tag}</span>
-          ))}
-          {tpl.builtIn && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)' }}>{t('models.builtIn')}</span>}
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
-        {[{ label: t('models.sections'), value: tpl.sections.length }, { label: t('models.tasks'), value: totalTasks }].map((s, i) => (
-          <div key={s.label} style={{ padding: '10px 20px', borderRight: i === 0 ? '1px solid var(--border)' : 'none' }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
-            <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value || '—'}</p>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        {/* Header: Icon + Title + Description + Stats */}
+        <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
           </div>
-        ))}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {tpl.builtIn
+              ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{tpl.name}</h2>
+              : <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>}
+            {tpl.builtIn
+              ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 6 }}>{tpl.description}</p>
+              : <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {tpl.tags.map(tag => (
+                  <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44`, whiteSpace: 'nowrap' }}>{tag}</span>
+                ))}
+              </div>
+              {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('models.builtIn')}</span>}
+            </div>
+          </div>
+        </div>
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[{ label: t('models.sections'), value: tpl.sections.length }, { label: t('models.tasks'), value: totalTasks }].map((s) => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value || '—'}</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {tpl.sections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>{t('models.noSectionBlank')}</p>}
@@ -755,32 +763,38 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '20px 20px 14px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-          <SFIcon name={tpl.icon} size={20} color="rgba(255,255,255,0.9)" />
-        </div>
-        {tpl.builtIn
-          ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{tpl.name}</h2>
-          : <div style={{ marginBottom: 6 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.formNamePlaceholder')} /></div>}
-        {tpl.builtIn
-          ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 10 }}>{tpl.description}</p>
-          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.formDescPlaceholder')} /></div>}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {tpl.tags.map(tag => (
-            <span key={tag} style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44` }}>{tag}</span>
-          ))}
-          {tpl.builtIn && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)' }}>{t('models.builtIn')}</span>}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
-        {[{ label: t('models.fields'), value: tpl.fields.length }, { label: t('models.required'), value: tpl.fields.filter(f => f.required).length }].map((s, i) => (
-          <div key={s.label} style={{ padding: '10px 20px', borderRight: i === 0 ? '1px solid var(--border)' : 'none' }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
-            <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value}</p>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        {/* Header: Icon + Title + Description + Stats */}
+        <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
           </div>
-        ))}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {tpl.builtIn
+              ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{tpl.name}</h2>
+              : <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.formNamePlaceholder')} /></div>}
+            {tpl.builtIn
+              ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 6 }}>{tpl.description}</p>
+              : <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.formDescPlaceholder')} /></div>}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {tpl.tags.map(tag => (
+                  <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44`, whiteSpace: 'nowrap' }}>{tag}</span>
+                ))}
+              </div>
+              {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('models.builtIn')}</span>}
+            </div>
+          </div>
+        </div>
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[{ label: t('models.fields'), value: tpl.fields.length }, { label: t('models.required'), value: tpl.fields.filter(f => f.required).length }].map((s) => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value}</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Fields preview */}
@@ -2115,28 +2129,28 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <SFIcon name={tpl.icon} size={22} color="rgba(255,255,255,0.9)" />
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 10 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-              {tpl.builtIn
-                ? <h2 style={{ fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</h2>
-                : <InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={15} fontWeight={700} placeholder="Nom du modèle…" />}
-              {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(249,255,0,0.2)', flexShrink: 0 }}>Intégré</span>}
+            {tpl.builtIn
+              ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</h2>
+              : <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder="Nom du modèle…" /></div>}
+            {tpl.builtIn
+              ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 6 }}>{tpl.description}</p>
+              : <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder="Description du modèle…" /></div>}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${tpl.color}22`, color: tpl.color, border: `1px solid ${tpl.color}44`, whiteSpace: 'nowrap', fontWeight: 500 }}>{t(RES_TYPE_LABEL_KEYS[tpl.type])}</span>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {tpl.tags.map(tag => (
+                  <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44`, whiteSpace: 'nowrap' }}>{tag}</span>
+                ))}
+              </div>
+              {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('models.builtIn')}</span>}
             </div>
-            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 7px', borderRadius: 5, background: `${tpl.color}22`, color: tpl.color, border: `1px solid ${tpl.color}44` }}>{t(RES_TYPE_LABEL_KEYS[tpl.type])}</span>
           </div>
-        </div>
-        {tpl.builtIn
-          ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 10 }}>{tpl.description}</p>
-          : <div style={{ marginBottom: 10 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder="Description du modèle…" /></div>}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {tpl.tags.map(tag => (
-            <span key={tag} style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 8px', borderRadius: 6, background: `${TAG_COLORS[tag] ?? '#444'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#444'}44` }}>{tag}</span>
-          ))}
         </div>
       </div>
       {/* Content preview */}
