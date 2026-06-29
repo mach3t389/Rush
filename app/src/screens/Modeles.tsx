@@ -749,13 +749,15 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
 
 // ── Form Template Detail sidebar ───────────────────────────────────────────────
 
-function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRename }: {
+function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRename, currentTab, onTabChange }: {
   tpl: FormTemplate;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onFill: () => void;
   onRename?: (name: string, description: string) => void;
+  currentTab?: 'apercu' | 'reponses';
+  onTabChange?: (tab: 'apercu' | 'reponses') => void;
 }) {
   const { t } = useTranslation();
   const [editName, setEditName] = useState(tpl.name);
@@ -764,7 +766,7 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-        {/* Header: Icon + Title + Description + Stats */}
+        {/* Header: Icon + Title + Description + Stats + Tabs */}
         <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
@@ -785,6 +787,16 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
               {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('models.builtIn')}</span>}
             </div>
           </div>
+          {/* Tabs on the right */}
+          {currentTab !== undefined && onTabChange && (
+            <div style={{ display: 'flex', gap: 4, alignSelf: 'flex-start', flexShrink: 0 }}>
+              {(['apercu', 'reponses'] as const).map(tabKey => (
+                <button key={tabKey} onClick={() => onTabChange(tabKey)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 500, background: currentTab === tabKey ? 'var(--surface-2)' : 'transparent', color: currentTab === tabKey ? 'var(--text)' : 'var(--text-3)', transition: 'all 0.1s' }}>
+                  {tabKey === 'apercu' ? 'Aperçu' : 'Réponses'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 12 }}>
@@ -2897,29 +2909,37 @@ export function Modeles() {
           {/* FORMULAIRES detail */}
           {typeFilter === 'formulaires' && (
             selectedForm ? (
-              <>
-                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4, flexShrink: 0 }}>
-                  {(['apercu', 'reponses'] as const).map(t => (
-                    <button key={t} onClick={() => setFormDetailTab(t)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', fontWeight: 500, background: formDetailTab === t ? 'var(--surface-2)' : 'transparent', color: formDetailTab === t ? 'var(--text)' : 'var(--text-3)', transition: 'all 0.1s' }}>
-                      {t === 'apercu' ? 'Aperçu' : 'Réponses'}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  {formDetailTab === 'apercu'
-                    ? <FormTemplateDetail tpl={selectedForm}
-                        onEdit={() => { setFormViewData(selectedForm.builtIn ? { ...selectedForm, id: `form-${Date.now()}`, name: `${selectedForm.name} (copie)`, builtIn: false } : selectedForm); setFormViewOpen(true); }}
-                        onDuplicate={() => duplicateForm(selectedForm)}
-                        onDelete={() => deleteForm(selectedForm)}
-                        onFill={() => openFiller()}
-                        onRename={(name, desc) => renameForm(selectedForm.id, name, desc)}
-                      />
-                    : <div style={{ height: '100%', overflow: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {formDetailTab === 'apercu'
+                  ? <FormTemplateDetail tpl={selectedForm}
+                      currentTab={formDetailTab}
+                      onTabChange={setFormDetailTab}
+                      onEdit={() => { setFormViewData(selectedForm.builtIn ? { ...selectedForm, id: `form-${Date.now()}`, name: `${selectedForm.name} (copie)`, builtIn: false } : selectedForm); setFormViewOpen(true); }}
+                      onDuplicate={() => duplicateForm(selectedForm)}
+                      onDelete={() => deleteForm(selectedForm)}
+                      onFill={() => openFiller()}
+                      onRename={(name, desc) => renameForm(selectedForm.id, name, desc)}
+                    />
+                  : <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                        <div>
+                          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{selectedForm.name}</h2>
+                          <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>{selectedForm.description}</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          {(['apercu', 'reponses'] as const).map(tabKey => (
+                            <button key={tabKey} onClick={() => setFormDetailTab(tabKey)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 500, background: formDetailTab === tabKey ? 'var(--surface-2)' : 'transparent', color: formDetailTab === tabKey ? 'var(--text)' : 'var(--text-3)', transition: 'all 0.1s' }}>
+                              {tabKey === 'apercu' ? 'Aperçu' : 'Réponses'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, overflow: 'auto' }}>
                         <FormInstancesPanel templateId={selectedForm.id} templateName={selectedForm.name} templateColor={selectedForm.color} onFillNew={() => openFiller()} onEditInstance={inst => openFiller(inst)} />
                       </div>
-                  }
-                </div>
-              </>
+                    </div>
+                }
+              </div>
             ) : (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13 }}>Sélectionnez un formulaire</div>
             )
