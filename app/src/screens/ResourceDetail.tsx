@@ -1441,12 +1441,51 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         const thumb = kind === 'video' ? getAutoThumb(url.startsWith('http') ? url : `https://${url}`) : null;
         const kindLabel = kind === 'video' ? 'Vidéo' : kind === 'image' ? 'Image' : kind === 'web' ? 'Site web' : null;
         const kindIcon  = kind === 'video' ? 'circle-play' : kind === 'image' ? 'image' : kind === 'web' ? 'globe' : 'link';
+
+        const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const files = Array.from(e.target.files ?? []);
+          if (!files.length) return;
+          files.forEach((file, i) => {
+            const blobUrl = URL.createObjectURL(file);
+            if (file.type.startsWith('image/')) {
+              addAtCenter({ type:'image', w:260, h:190, imageUrl:blobUrl, x: undefined as unknown as number });
+            } else if (file.type.startsWith('video/')) {
+              addAtCenter({ type:'video', w:280, h:190, videoUrl:blobUrl });
+            }
+          });
+          setShowAddMedia(false);
+          setMediaUrl('');
+          e.target.value = '';
+        };
+
         return (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100 }}
             onMouseDown={e => { if (e.target === e.currentTarget) { setShowAddMedia(false); setMediaUrl(''); } }}>
             <div style={{ background:'var(--surface)', borderRadius:16, padding:28, width:460, border:'1px solid var(--border-2)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
               <h3 style={{ fontSize:15, fontWeight:700, marginBottom:4, color:'var(--text)', fontFamily:'var(--ff-display)' }}>Ajouter un média</h3>
-              <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16, fontFamily:'var(--ff-text)' }}>Collez n'importe quelle URL — image, vidéo YouTube / Vimeo, ou site web.</p>
+
+              {/* Zone d'import fichier */}
+              <label style={{ display:'block', marginBottom:16, cursor:'pointer' }}>
+                <input type="file" accept="image/*,video/*" multiple style={{ display:'none' }} onChange={handleFileImport} />
+                <div style={{ border:'1.5px dashed var(--border-2)', borderRadius:10, padding:'18px 16px', display:'flex', alignItems:'center', gap:12, background:'var(--surface-2)', transition:'border-color .15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor='var(--accent)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor='var(--border-2)')}>
+                  <div style={{ width:36, height:36, borderRadius:9, background:'var(--surface-3)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <SFIcon name="upload" size={16} color="var(--text-2)" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-text)', marginBottom:2 }}>Importer depuis l'ordinateur</div>
+                    <div style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>Images ou vidéos — sélection multiple</div>
+                  </div>
+                </div>
+              </label>
+
+              {/* Séparateur */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+                <div style={{ flex:1, height:1, background:'var(--border)' }} />
+                <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)', textTransform:'uppercase', letterSpacing:'0.06em' }}>ou coller une URL</span>
+                <div style={{ flex:1, height:1, background:'var(--border)' }} />
+              </div>
 
               <div style={{ position:'relative' }}>
                 <input value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} autoFocus
@@ -1462,7 +1501,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                 )}
               </div>
 
-              {/* Aperçu */}
+              {/* Aperçu URL */}
               {url && kind === 'video' && thumb && (
                 <img src={thumb} alt="Aperçu" style={{ width:'100%', height:160, objectFit:'cover', borderRadius:9, marginTop:12, border:'1px solid var(--border)' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
               )}
