@@ -266,29 +266,31 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Main nav */}
         <nav style={{ padding: collapsed ? '0 6px' : '0 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {[
-            { to: '/',          icon: 'house',         labelKey: 'nav.dashboard',    exact: true  },
-            { to: '/taches',    icon: 'square-check',  labelKey: 'nav.myTasks', exact: false },
-          ].map(item => (
-            <NavItem key={item.to} to={item.to} icon={item.icon} label={t(item.labelKey)} exact={item.exact} collapsed={collapsed} />
-          ))}
-          {[
-            { to: '/clients',    icon: 'users',        labelKey: 'nav.clients',       exact: true  },
-            { to: '/projets',    icon: 'folder',       labelKey: 'nav.projects',       exact: true  },
-            { to: '/global',     icon: 'layers',       labelKey: 'nav.globalView',   exact: false },
-            { to: '/activite',   icon: 'bell',         labelKey: 'nav.notifications', exact: false },
-          ].map(item => (
-            <NavItem
-              key={item.to}
-              icon={item.icon} label={t(item.labelKey)} to={item.to} exact={item.exact}
-              collapsed={collapsed}
-              badge={item.to === '/activite' ? unreadCount : undefined}
-            />
-          ))}
-          {/* Separator */}
+          {/* Accueil + Mes tâches */}
+          <NavItem to="/"       icon="house"        label={t('nav.dashboard')} exact={true}  collapsed={collapsed} />
+          <NavItem to="/taches" icon="square-check" label={t('nav.myTasks')}  exact={false} collapsed={collapsed} />
+
+          {/* Séparateur */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
-          <NavItem to="/finances" icon="receipt"  label={t('nav.finances')} exact={false} collapsed={collapsed} />
-          <NavItem to="/modeles"  icon="library"  label={t('nav.models')}   exact={false} collapsed={collapsed} />
+
+          {/* Entités */}
+          <NavItem to="/projets" icon="folder" label={t('nav.projects')} exact={true} collapsed={collapsed} />
+          <NavItem to="/clients" icon="users"  label={t('nav.clients')}  exact={true} collapsed={collapsed} />
+
+          {/* Séparateur */}
+          <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
+
+          {/* Outils transversaux */}
+          <NavItem to="/calendrier" icon="calendar"     label={t('nav.calendar')}      exact={false} collapsed={collapsed} />
+          <NavItem to="/fichiers"   icon="folder-open"  label={t('nav.files')}         exact={false} collapsed={collapsed} />
+          <NavItem to="/activite"   icon="bell"         label={t('nav.notifications')} exact={false} collapsed={collapsed} badge={unreadCount} />
+
+          {/* Séparateur */}
+          <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
+
+          {/* Gestion */}
+          <NavItem to="/finances" icon="receipt" label={t('nav.finances')} exact={false} collapsed={collapsed} />
+          <NavItem to="/modeles"  icon="library" label={t('nav.models')}   exact={false} collapsed={collapsed} />
         </nav>
 
         {/* Projets épinglés */}
