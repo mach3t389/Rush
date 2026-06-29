@@ -2964,7 +2964,7 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
               <div
                 onClick={() => href && window.open(href, '_blank', 'noreferrer')}
                 title={href ? t('resourceDetail.inspirationsView.openUrlTitle', { url: item.url }) : undefined}
-                style={{ width:120, flexShrink:0, background:item.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
+                style={{ width:160, aspectRatio:'16/9', flexShrink:0, background:item.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', cursor: href ? 'pointer' : 'default', overflow:'hidden' }}
               >
                 {thumbSrc
                   ? <img src={thumbSrc} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
