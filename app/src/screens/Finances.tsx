@@ -66,46 +66,64 @@ export function StatusPill({ status }: { status: InvoiceStatus }) {
 
 // ── RevenueChart ──────────────────────────────────────────────────────────────
 
+type ChartMode = 'issuedDate' | 'sentDate' | 'paidDate';
+
+const CHART_MODES: Array<{ key: ChartMode; labelKey: string }> = [
+  { key: 'issuedDate', labelKey: 'finance.chartByIssuedDate' },
+  { key: 'sentDate',   labelKey: 'finance.chartBySentDate'   },
+  { key: 'paidDate',   labelKey: 'finance.chartByPaidDate'   },
+];
+
 function RevenueChart({ invoices }: { invoices: Invoice[] }) {
   const { t } = useTranslation();
+  const [mode, setMode] = useState<ChartMode>('issuedDate');
   const months = getLast6Months();
 
   const data = months.map(m => {
     const mi = invoices.filter(i => {
-      const d = new Date(i.issuedDate);
-      return d.getFullYear() === m.year && d.getMonth() === m.month;
+      const d = mode === 'issuedDate' ? i.issuedDate : mode === 'sentDate' ? i.sentDate : i.paidDate;
+      if (!d) return false;
+      const dt = new Date(d);
+      return dt.getFullYear() === m.year && dt.getMonth() === m.month;
     });
     const paid        = mi.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
-    const outstanding = mi.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0);
-    const overdue     = mi.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
-    const draft       = mi.filter(i => i.status === 'draft').reduce((s, i) => s + i.total, 0);
+    const outstanding = mode !== 'paidDate' ? mi.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0) : 0;
+    const overdue     = mode !== 'paidDate' ? mi.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0) : 0;
+    const draft       = mode === 'issuedDate' ? mi.filter(i => i.status === 'draft').reduce((s, i) => s + i.total, 0) : 0;
     return { label: m.label, paid, outstanding, overdue, draft, total: paid + outstanding + overdue + draft };
   });
 
   const maxVal = Math.max(1, ...data.map(d => d.total));
-  const W = 560; const H = 130;
-  const PAD = { t: 8, r: 8, b: 28, l: 52 };
+  const W = 480; const H = 96;
+  const PAD = { t: 6, r: 8, b: 22, l: 46 };
   const chartW = W - PAD.l - PAD.r;
   const chartH = H - PAD.t - PAD.b;
   const slotW = chartW / 6;
-  const barW = slotW * 0.55;
+  const barW = slotW * 0.52;
 
   const yTicks = [0, 0.5, 1].map(p => ({ pct: p, val: maxVal * p, y: PAD.t + chartH * (1 - p) }));
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('finance.chartTitle')}</p>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('finance.chartTitle')}</p>
+        <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border)' }}>
+          {CHART_MODES.map(m => (
+            <button key={m.key} onClick={() => setMode(m.key)} style={{ fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', background: mode === m.key ? 'var(--surface-3)' : 'var(--surface-2)', color: mode === m.key ? 'var(--text)' : 'var(--text-3)', fontWeight: mode === m.key ? 600 : 400 }}>
+              {t(m.labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-        {/* Grid lines + Y labels */}
         {yTicks.map(({ val, y, pct }) => (
           <g key={pct}>
             <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="var(--border)" strokeWidth={0.5} />
-            <text x={PAD.l - 6} y={y + 3} textAnchor="end" fontSize={8} fill="var(--text-3)" fontFamily="var(--ff-mono)">
+            <text x={PAD.l - 5} y={y + 3} textAnchor="end" style={{ fontSize: '7px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
               {val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0)}
             </text>
           </g>
         ))}
-        {/* Bars */}
         {data.map((d, i) => {
           const cx = PAD.l + i * slotW + slotW / 2;
           const bx = cx - barW / 2;
@@ -120,19 +138,88 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
               {rh > 0 && <rect x={bx} y={base - rh - ph - oh} width={barW} height={rh} fill="var(--danger)" opacity={0.75} rx={2} />}
               {oh > 0 && <rect x={bx} y={base - oh - ph} width={barW} height={oh} fill="var(--warn)" opacity={0.75} rx={2} />}
               {ph > 0 && <rect x={bx} y={base - ph} width={barW} height={ph} fill="var(--ok)" opacity={0.85} rx={2} />}
-              <text x={cx} y={H - 4} textAnchor="middle" fontSize={8} fill="var(--text-3)" fontFamily="var(--ff-mono)">{d.label}</text>
+              <text x={cx} y={H - 4} textAnchor="middle" style={{ fontSize: '7px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
-        {[['var(--ok)', t('finance.statusPaid')], ['var(--warn)', t('finance.statusSent')], ['var(--danger)', t('finance.statusOverdue')], ['var(--border-2)', t('finance.statusDraft')]].map(([color, label]) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'block', flexShrink: 0 }} />
+      <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
+        {([['var(--ok)', t('finance.statusPaid')], ['var(--warn)', t('finance.statusSent')], ['var(--danger)', t('finance.statusOverdue')], ['var(--border-2)', t('finance.statusDraft')]] as [string, string][]).map(([color, label]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 2, background: color, display: 'block', flexShrink: 0 }} />
             <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{label}</span>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── StatusDonut ───────────────────────────────────────────────────────────────
+
+function arcPath(cx: number, cy: number, R: number, r: number, startAngle: number, endAngle: number): string {
+  const cos = Math.cos, sin = Math.sin;
+  const x1 = cx + R * cos(startAngle), y1 = cy + R * sin(startAngle);
+  const x2 = cx + R * cos(endAngle),   y2 = cy + R * sin(endAngle);
+  const x3 = cx + r * cos(endAngle),   y3 = cy + r * sin(endAngle);
+  const x4 = cx + r * cos(startAngle), y4 = cy + r * sin(startAngle);
+  const large = endAngle - startAngle > Math.PI ? 1 : 0;
+  return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${r} ${r} 0 ${large} 0 ${x4} ${y4} Z`;
+}
+
+function StatusDonut({ invoices }: { invoices: Invoice[] }) {
+  const { t } = useTranslation();
+
+  const paid        = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
+  const outstanding = invoices.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0);
+  const overdue     = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
+  const draft       = invoices.filter(i => i.status === 'draft').reduce((s, i) => s + i.total, 0);
+
+  const segments = [
+    { value: paid,        color: 'var(--ok)',      label: t('finance.statusPaid')    },
+    { value: outstanding, color: 'var(--warn)',     label: t('finance.donutOutstanding') },
+    { value: overdue,     color: 'var(--danger)',   label: t('finance.statusOverdue') },
+    { value: draft,       color: 'var(--border-2)', label: t('finance.statusDraft')  },
+  ].filter(s => s.value > 0);
+
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+
+  const cx = 52, cy = 52, R = 44, r = 26;
+  const GAP = 0.025;
+  let angle = -Math.PI / 2;
+  const paths = segments.map(seg => {
+    const sweep = (seg.value / total) * (2 * Math.PI) - GAP;
+    const start = angle + GAP / 2;
+    const end   = start + sweep;
+    angle += (seg.value / total) * (2 * Math.PI);
+    return { d: arcPath(cx, cy, R, r, start, end), color: seg.color, label: seg.label, pct: Math.round(seg.value / total * 100) };
+  });
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', width: 210, flexShrink: 0 }}>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>{t('finance.donutTitle')}</p>
+      {total === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 104, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 11 }}>—</div>
+      ) : (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <svg viewBox="0 0 104 104" style={{ width: 92, height: 92, flexShrink: 0 }}>
+            {paths.map((p, i) => <path key={i} d={p.d} fill={p.color} opacity={0.88} />)}
+            <text x={cx} y={cy - 3} textAnchor="middle" style={{ fontFamily: 'var(--ff-mono)', fontSize: '7px', fill: 'var(--text-3)' }}>{t('finance.statusPaid')}</text>
+            <text x={cx} y={cy + 8} textAnchor="middle" style={{ fontFamily: 'var(--ff-mono)', fontSize: '9px', fontWeight: 700, fill: 'var(--ok)' }}>{Math.round(paid / total * 100)}%</text>
+          </svg>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {paths.map((p, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 7, height: 7, borderRadius: 2, background: p.color, flexShrink: 0, display: 'block' }} />
+                <div>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', lineHeight: 1 }}>{p.label}</div>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{p.pct}%</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -879,9 +966,10 @@ export function Finances() {
           ))}
         </div>
 
-        {/* Chart */}
-        <div style={{ marginBottom: 20 }}>
+        {/* Charts row */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'stretch' }}>
           <RevenueChart invoices={invoices} />
+          <StatusDonut invoices={invoices} />
         </div>
 
         {/* Filter bar — status pills */}
