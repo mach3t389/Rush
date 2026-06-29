@@ -14,7 +14,7 @@ import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavori
 import type { Priority, ResourceType, Resource, Task, User, Project, SectionData } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
-import { ChecklistView, DocumentView, ScreenplayView, MoodboardView, FileView, FormView, mkQ as mkFormQ } from './ResourceDetail';
+import { ChecklistView, DocumentView, ScreenplayView, MoodboardView, FileView, FormView, InspirationsView, mkQ as mkFormQ } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
 
@@ -186,6 +186,8 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
         {tpl.type === 'file' && <FileView resource={fakeResource} seedFolderStructure={tpl.folderStructure} />}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
+        {tpl.type === 'inspirations' && <InspirationsView resource={fakeResource} />}
+        {tpl.type === 'form' && <FormView resource={fakeResource} templateMode initialQuestions={fieldsToQuestions(tpl.fields ?? [])} />}
       </div>
     </div>
   );

@@ -2914,7 +2914,7 @@ function getAutoThumb(url: string): string | null {
   } catch { return null; }
 }
 
-function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+export function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
   const { t } = useTranslation();
   const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[] }>(persistKey) : undefined;
   const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? INITIAL_INSPI);
