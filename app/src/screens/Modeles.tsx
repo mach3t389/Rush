@@ -2065,6 +2065,7 @@ const RES_TYPE_ICONS: Record<ResourceTemplateType, string> = {
 function ResourceTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, favorite, onToggleFavorite }: {
   tpl: ResourceTemplate; selected: boolean; onClick: () => void; favorite?: boolean; onToggleFavorite?: () => void;
 } & DragItemProps) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -2105,6 +2106,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
   onDelete: () => void;
   onRename?: (name: string, description: string) => void;
 }) {
+  const { t } = useTranslation();
   const itemCount = tpl.checklistItems?.length ?? tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? 0;
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
@@ -2221,6 +2223,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
   onSave: (t: ResourceTemplate) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(template.name ?? '');
   const [description, setDescription] = useState(template.description ?? '');
   const [color, setColor] = useState(template.color ?? '#5B8AF5');
