@@ -339,8 +339,9 @@ function TimeGridView({ days, events, tasks, onSlotClick, onRangeSelect, onEvent
                 }}
                 onClick={e=>{
                   if(dragRef.current?.moved) return;
-                  const rect=(e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                  const y=e.clientY-rect.top;
+                  const scrollTop=scrollRef.current?.scrollTop??0;
+                  const rect=scrollRef.current!.getBoundingClientRect();
+                  const y=e.clientY-rect.top+scrollTop;
                   const h=Math.floor(y/HOUR_H)+START_HOUR;
                   onSlotClick(d,Math.min(h,END_HOUR-1));
                 }}
