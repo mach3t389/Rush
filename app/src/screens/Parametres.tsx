@@ -601,11 +601,24 @@ function KeyboardShortcutsSettings() {
 }
 
 const SECTIONS = [
-  { groupKey: 'settings.groupStudio', items: [{ key: 'infos', labelKey: 'settings.sectionStudioInfo' }, { key: 'team', labelKey: 'settings.sectionInternalTeam' }, { key: 'portail', labelKey: 'settings.sectionClientPortal' }, { key: 'paiements', labelKey: 'settings.sectionPaymentMethods' }, { key: 'facturation', labelKey: 'settings.sectionBilling' }, { key: 'modeles', labelKey: 'settings.sectionModels' }] },
-  { groupKey: 'settings.groupAccount', items: [{ key: 'profil', labelKey: 'settings.sectionProfile' }, { key: 'notifs', labelKey: 'settings.sectionNotifications' }, { key: 'securite', labelKey: 'settings.sectionSecurity' }] },
-  { groupKey: 'settings.groupCustomization', items: [{ key: 'polices', labelKey: 'settings.sectionFonts' }, { key: 'langue', labelKey: 'settings.sectionLanguage' }, { key: 'raccourcis', labelKey: 'settings.sectionShortcuts' }] },
-  { groupKey: 'settings.groupIntegrations', items: [{ key: 'integrations', labelKey: 'settings.sectionConnectionsSync' }, { key: 'plugins', labelKey: 'settings.sectionPluginsTools' }] },
-  { groupKey: 'settings.groupBilling', items: [{ key: 'plan', labelKey: 'settings.sectionPlanSubscription' }, { key: 'historique', labelKey: 'settings.sectionHistory' }] },
+  { groupKey: 'settings.groupStudio', items: [
+    { key: 'infos',       labelKey: 'settings.sectionStudioInfo'   },
+    { key: 'team',        labelKey: 'settings.sectionInternalTeam'  },
+    { key: 'portail',     labelKey: 'settings.sectionClientPortal'  },
+    { key: 'facturation', labelKey: 'settings.sectionBilling'       },
+    { key: 'modeles',     labelKey: 'settings.sectionModels'        },
+  ]},
+  { groupKey: 'settings.groupAccount', items: [
+    { key: 'profil',   labelKey: 'settings.sectionProfile'        },
+    { key: 'notifs',   labelKey: 'settings.sectionNotifications'  },
+    { key: 'securite', labelKey: 'settings.sectionSecurity'       },
+  ]},
+  { groupKey: 'settings.groupCustomization', items: [
+    { key: 'personnalisation', labelKey: 'settings.sectionCustomization' },
+  ]},
+  { groupKey: 'settings.groupIntegrations', items: [
+    { key: 'integrations', labelKey: 'settings.sectionIntegrations' },
+  ]},
 ];
 
 const ACCENT_COLORS = ['#f9ff00', '#ff6b35', '#00c2ff', '#7c6af7', '#00d4a0', '#ff4081'];
@@ -1051,8 +1064,14 @@ export function Parametres() {
 
         {/* ── Portail client ── */}
         {activeSection === 'portail' && <PortalAccentSettings />}
-        {activeSection === 'paiements' && <PaymentMethodsSettings />}
-        {activeSection === 'facturation' && <InvoiceDefaultsSettings />}
+        {activeSection === 'facturation' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+            <PaymentMethodsSettings />
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
+              <InvoiceDefaultsSettings />
+            </div>
+          </div>
+        )}
 
         {/* ── Profil ── */}
         {activeSection === 'profil' && (
@@ -1184,72 +1203,85 @@ export function Parametres() {
           </div>
         )}
 
-        {activeSection === 'polices' && (
-          <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div>
-              <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.fontsTitle')}</h2>
-              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.fontsDesc')}</p>
-            </div>
+        {activeSection === 'personnalisation' && (
+          <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 48 }}>
 
-            {/* Heading font */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* ── Polices ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.headingFont')}</label>
-                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('settings.headingFontDesc')}</p>
+                <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.fontsTitle')}</h2>
+                <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.fontsDesc')}</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {[...HEADING_FONTS, ...customHeadings].map(f => (
-                  <FontCard key={f.value} font={f} selected={uiFonts.heading === f.value} type="heading" onSelect={() => setUiFonts(p => ({ ...p, heading: f.value }))} />
-                ))}
-              </div>
-              <CustomFontImport onImported={(name, value) => {
-                const f = { label: name, value, google: null };
-                setCustomHeadings(p => [...p.filter(x=>x.value!==value), f]);
-                setUiFonts(p => ({ ...p, heading: value }));
-              }} />
-            </div>
 
-            {/* Body font */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.bodyFont')}</label>
-                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('settings.bodyFontDesc')}</p>
+              {/* Heading font */}
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.headingFont')}</label>
+                  <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('settings.headingFontDesc')}</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[...HEADING_FONTS, ...customHeadings].map(f => (
+                    <FontCard key={f.value} font={f} selected={uiFonts.heading === f.value} type="heading" onSelect={() => setUiFonts(p => ({ ...p, heading: f.value }))} />
+                  ))}
+                </div>
+                <CustomFontImport onImported={(name, value) => {
+                  const f = { label: name, value, google: null };
+                  setCustomHeadings(p => [...p.filter(x=>x.value!==value), f]);
+                  setUiFonts(p => ({ ...p, heading: value }));
+                }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {[...BODY_FONTS, ...customBodies].map(f => (
-                  <FontCard key={f.value} font={f} selected={uiFonts.body === f.value} type="body" onSelect={() => setUiFonts(p => ({ ...p, body: f.value }))} />
-                ))}
-              </div>
-              <CustomFontImport onImported={(name, value) => {
-                const f = { label: name, value, google: null };
-                setCustomBodies(p => [...p.filter(x=>x.value!==value), f]);
-                setUiFonts(p => ({ ...p, body: value }));
-              }} />
-            </div>
 
-            {/* Preview */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.preview')}</label>
-              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{ fontFamily: uiFonts.heading, fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{t('settings.previewHeadingSample')}</p>
-                <p style={{ fontFamily: uiFonts.body, fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>{t('settings.previewBodySample')}</p>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <span style={{ fontFamily: uiFonts.heading, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 7, background: 'var(--accent)', color: 'var(--on-accent)' }}>{t('settings.previewPrimaryButton')}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border-2)', color: 'var(--text-2)' }}>{t('settings.previewMonoLabel')}</span>
+              {/* Body font */}
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>{t('settings.bodyFont')}</label>
+                  <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('settings.bodyFontDesc')}</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[...BODY_FONTS, ...customBodies].map(f => (
+                    <FontCard key={f.value} font={f} selected={uiFonts.body === f.value} type="body" onSelect={() => setUiFonts(p => ({ ...p, body: f.value }))} />
+                  ))}
+                </div>
+                <CustomFontImport onImported={(name, value) => {
+                  const f = { label: name, value, google: null };
+                  setCustomBodies(p => [...p.filter(x=>x.value!==value), f]);
+                  setUiFonts(p => ({ ...p, body: value }));
+                }} />
+              </div>
+
+              {/* Preview */}
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.preview')}</label>
+                <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontFamily: uiFonts.heading, fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{t('settings.previewHeadingSample')}</p>
+                  <p style={{ fontFamily: uiFonts.body, fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>{t('settings.previewBodySample')}</p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <span style={{ fontFamily: uiFonts.heading, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 7, background: 'var(--accent)', color: 'var(--on-accent)' }}>{t('settings.previewPrimaryButton')}</span>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border-2)', color: 'var(--text-2)' }}>{t('settings.previewMonoLabel')}</span>
+                  </div>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={() => { setUiFonts({ heading: "'Montserrat',sans-serif", body: "'Montserrat',sans-serif" }); saveUiFonts("'Montserrat',sans-serif", "'Montserrat',sans-serif"); }} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                  {t('settings.reset')}
+                </button>
+                <SFButton variant="primary" onClick={() => saveUiFonts(uiFonts.heading, uiFonts.body)}>{t('settings.applyFonts')}</SFButton>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => { setUiFonts({ heading: "'Montserrat',sans-serif", body: "'Montserrat',sans-serif" }); saveUiFonts("'Montserrat',sans-serif", "'Montserrat',sans-serif"); }} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                {t('settings.reset')}
-              </button>
-              <SFButton variant="primary" onClick={() => saveUiFonts(uiFonts.heading, uiFonts.body)}>{t('settings.applyFonts')}</SFButton>
+            {/* ── Langue ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
+              <LanguageSettings />
             </div>
+
+            {/* ── Raccourcis ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
+              <KeyboardShortcutsSettings />
+            </div>
+
           </div>
         )}
-        {activeSection === 'langue' && <LanguageSettings />}
-        {activeSection === 'raccourcis' && <KeyboardShortcutsSettings />}
         {activeSection === 'integrations' && (
           <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
@@ -1322,14 +1354,13 @@ export function Parametres() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-        {activeSection === 'plugins' && (
-          <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div>
-              <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.pluginsTitle')}</h2>
-              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.pluginsDesc')}</p>
-            </div>
+
+            {/* ── Plugins ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.pluginsTitle')}</h2>
+                <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.pluginsDesc')}</p>
+              </div>
 
             {/* Premiere Pro */}
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1419,6 +1450,7 @@ export function Parametres() {
                 <button disabled style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'not-allowed', opacity: 0.5, fontFamily: 'var(--ff-text)' }}>{t('settings.copy')}</button>
               </div>
             </div>
+            </div>
           </div>
         )}
         {activeSection === 'modeles' && (
@@ -1426,7 +1458,7 @@ export function Parametres() {
             <Modeles />
           </div>
         )}
-        {!['infos', 'team', 'portail', 'paiements', 'facturation', 'modeles', 'profil', 'notifs', 'securite', 'polices', 'langue', 'raccourcis', 'integrations', 'plugins'].includes(activeSection) && (
+        {!['infos', 'team', 'portail', 'facturation', 'modeles', 'profil', 'notifs', 'securite', 'personnalisation', 'integrations'].includes(activeSection) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
             <SFIcon name="clock" size={24} color="var(--border-2)" />
             <p style={{ color: 'var(--text-3)', fontSize: 14 }}>

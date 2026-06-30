@@ -6,6 +6,7 @@ import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
 import { triggerAIToggle, triggerAIClose } from '../aiChatBridge';
 import { ToastBar } from '../ToastBar';
+import { ViewAsBanner } from '../ViewAsBanner';
 import { getShortcuts, subscribeShortcuts, matchesShortcut } from '../../data/shortcutsStore';
 
 export function AppShell() {
@@ -55,6 +56,7 @@ export function AppShell() {
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--bg)' }}>
       <Sidebar onSearch={() => setCmdOpen(true)} />
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <ViewAsBanner />
         <GlobalTopBar onSearch={() => setCmdOpen(true)} />
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <Outlet />

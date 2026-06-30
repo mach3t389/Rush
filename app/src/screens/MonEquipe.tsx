@@ -1,8 +1,10 @@
 ﻿import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
-import { ProfileEditPanel, loadPhoto, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
+import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
+import { enterViewAs } from '../data/viewAsStore';
 
 // ── Mock extra info for team members ─────────────────────────────────────────
 
@@ -142,9 +144,25 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
 
 function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const memberProjects = PROJECTS.filter(p => p.members.some(m => m.id === member.id));
   const [showEdit, setShowEdit] = useState(false);
   const photoUrl = loadPhoto(member.id);
+
+  const handleViewAs = () => {
+    const permissions = loadPermissions(member.id, member.role);
+    enterViewAs({
+      type: 'internal',
+      id: member.id,
+      name: member.name,
+      initials: member.initials,
+      avatarColor: member.avatarColor,
+      role: member.role,
+      permissions,
+    });
+    onClose();
+    navigate('/');
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', justifyContent: 'flex-end' }}
@@ -206,7 +224,8 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
         <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
           <SFButton variant="ghost" icon="mail">{t('team.contactAction')}</SFButton>
           <SFButton variant="ghost" icon="send">{t('team.resendInvitation')}</SFButton>
-          <div style={{ marginLeft: 'auto' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <SFButton variant="ghost" icon="eye" onClick={handleViewAs}>{t('viewAs.viewAs')}</SFButton>
             <SFButton variant="primary" icon="pencil" onClick={() => setShowEdit(true)}>{t('team.editProfile')}</SFButton>
           </div>
         </div>

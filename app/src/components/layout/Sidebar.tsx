@@ -11,6 +11,7 @@ import {
   getProjectColor, setProjectColor,
 } from '../../data/pinnedStore';
 import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
+import { getViewAsUser, subscribeViewAs } from '../../data/viewAsStore';
 
 function PinnedBadge({ count }: { count: number }) {
   if (count === 0) return null;
@@ -122,11 +123,19 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
   const [logoFull, setLogoFullState] = useState(getLogoFull);
   const [logoSquare, setLogoSquareState] = useState(getLogoSquare);
+  const [viewAs, setViewAs] = useState(getViewAsUser);
 
   useEffect(() => subscribeStudioLogos(() => {
     setLogoFullState(getLogoFull());
     setLogoSquareState(getLogoSquare());
   }), []);
+
+  useEffect(() => subscribeViewAs(() => setViewAs(getViewAsUser())), []);
+
+  // Derive permission restrictions when viewing as an internal member
+  const viewAsPerms = viewAs?.type === 'internal' ? (viewAs.permissions ?? []) : null;
+  const canSeeClients  = !viewAsPerms || viewAsPerms.includes('manage_clients');
+  const canSeeFinances = !viewAsPerms || viewAsPerms.includes('view_invoices') || viewAsPerms.includes('manage_invoices');
 
   const pinnedProjects = pinnedIds
     .map(id => getProjects().find(p => p.id === id))
@@ -260,7 +269,9 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
           {/* Entités */}
           <NavItem to="/projets" icon="folder" label={t('nav.projects')} exact={true} collapsed={collapsed} />
-          <NavItem to="/clients" icon="users"  label={t('nav.clients')}  exact={true} collapsed={collapsed} />
+          {canSeeClients && (
+            <NavItem to="/clients" icon="users" label={t('nav.clients')} exact={true} collapsed={collapsed} />
+          )}
 
           {/* Séparateur */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
@@ -268,7 +279,9 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
           {/* Outils transversaux */}
           <NavItem to="/calendrier" icon="calendar"    label={t('nav.calendar')} exact={false} collapsed={collapsed} />
           <NavItem to="/fichiers"   icon="folder-open" label={t('nav.files')}    exact={false} collapsed={collapsed} />
-          <NavItem to="/finances"   icon="receipt"     label={t('nav.finances')} exact={false} collapsed={collapsed} />
+          {canSeeFinances && (
+            <NavItem to="/finances" icon="receipt" label={t('nav.finances')} exact={false} collapsed={collapsed} />
+          )}
         </nav>
 
         {/* Projets épinglés */}

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
@@ -20,6 +20,7 @@ import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMemb
 import { getInvoicesByClient, subscribeInvoices, updateInvoice, removeInvoice, sendInvoice as doSendInvoice, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
+import { enterViewAs } from '../data/viewAsStore';
 
 function getStoredApprover(clientId: string): string | null {
   try { return localStorage.getItem(`sf_approver_id_${clientId}`); } catch { return null; }
@@ -198,6 +199,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
 
 function EquipeTab({ clientId }: { clientId: string }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [members, setMembers] = useState<ClientMember[]>(() => getClientTeam(clientId));
   const [showInvite, setShowInvite] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
@@ -310,6 +312,28 @@ function EquipeTab({ clientId }: { clientId: string }) {
     // Portal permissions (external contacts only)
     const [portalPerms, setPortalPerms] = useState<PortalPermissions>(() => loadPortalPermissions(m.id));
     const photoRef = useRef<HTMLInputElement>(null);
+    const [showProjectPicker, setShowProjectPicker] = useState(false);
+
+    const handleViewAsPortal = useCallback(() => {
+      const clientProjects = getProjects().filter(p => p.clientId === clientId);
+      if (clientProjects.length === 0) return;
+      if (clientProjects.length === 1) {
+        enterViewAs({
+          type: 'external',
+          id: m.id,
+          name: m.name,
+          initials: m.initials,
+          avatarColor: m.color,
+          role: m.role,
+          portalPermissions: loadPortalPermissions(m.id),
+          clientId,
+        });
+        onClose();
+        navigate(`/portail/${clientProjects[0].id}`);
+      } else {
+        setShowProjectPicker(true);
+      }
+    }, [m, clientId, navigate, onClose]);
 
     const save = () => {
       try {
@@ -573,10 +597,60 @@ function EquipeTab({ clientId }: { clientId: string }) {
                   {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
                 </button>
                 <div style={{ flex: 1 }} />
+                {!m.internal && (
+                  <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
+                )}
                 <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
                 <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
               </>
             )}
+
+          {/* Project picker for multi-project clients */}
+          {showProjectPicker && (() => {
+            const clientProjects = getProjects().filter(p => p.clientId === clientId);
+            return createPortal(
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
+                onClick={() => setShowProjectPicker(false)}>
+                <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: 24, width: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+                  onClick={e => e.stopPropagation()}>
+                  <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{t('viewAs.pickProject')}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 16 }}>{t('viewAs.pickProjectDesc')}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {clientProjects.map(p => (
+                      <button key={p.id} onClick={() => {
+                        enterViewAs({
+                          type: 'external',
+                          id: m.id,
+                          name: m.name,
+                          initials: m.initials,
+                          avatarColor: m.color,
+                          role: m.role,
+                          portalPermissions: loadPortalPermissions(m.id),
+                          clientId,
+                        });
+                        setShowProjectPicker(false);
+                        onClose();
+                        navigate(`/portail/${p.id}`);
+                      }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}>
+                        <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+                          <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{p.phaseLabel}</p>
+                        </div>
+                        <span style={{ marginLeft: 'auto', display: 'flex' }}><SFIcon name="arrow-right" size={13} color="var(--text-3)" /></span>
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setShowProjectPicker(false)} style={{ marginTop: 16, width: '100%', padding: '9px', borderRadius: 9, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+                    {t('client.cancel')}
+                  </button>
+                </div>
+              </div>,
+              document.body
+            );
+          })()}
           </div>
         </div>
       </div>
