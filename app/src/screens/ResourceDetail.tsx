@@ -261,7 +261,7 @@ const INITIAL_VERSIONS: ScriptVersion[] = [
 ];
 
 // ── Accessoires / props (liste de breakdown rattachée au scénario) ──────────────
-interface PropItem { id: string; text: string; scene?: string; toBring: boolean; }
+interface PropItem { id: string; text: string; scene?: string; toBring: boolean; sourceElId?: string; }
 const INITIAL_PROPS: PropItem[] = [
   { id: 'pr1', text: 'Robe de créatrice (mannequin)',  scene: 'INT. LOFT PARISIEN — JOUR', toBring: true  },
   { id: 'pr2', text: 'Mannequins de présentation',      scene: 'INT. LOFT PARISIEN — JOUR', toBring: true  },
@@ -363,7 +363,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   const taRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const elRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string; scene?: string } | null>(null);
+  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string; scene?: string; sourceElId?: string } | null>(null);
 
   const activeVersion = versions.find(v => v.id === activeVersionId)!;
   const elements = activeVersion.elements;
@@ -461,7 +461,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
     if (!ta || ta.tagName !== 'TEXTAREA') return;
     const start = ta.selectionStart ?? 0;
     const end = ta.selectionEnd ?? 0;
-    if (start === end) return; // aucune sélection → menu natif normal
+    if (start === end) return;
     const selected = ta.value.substring(start, end).trim();
     if (!selected) return;
     e.preventDefault();
@@ -473,7 +473,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
         if (elements[i].type === 'scene') { scene = elements[i].text; break; }
       }
     }
-    setSelectionPopup({ x: e.clientX, y: e.clientY, text: selected, scene });
+    setSelectionPopup({ x: e.clientX, y: e.clientY, text: selected, scene, sourceElId: elId });
   };
   const signCount = elements.reduce((a, e) => a + e.text.replace(/\s/g, '').length, 0);
   const allCharacters = [...new Set(elements.filter(e => e.type === 'character').map(e => e.text.trim()).filter(Boolean))];
@@ -687,7 +687,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
               style={{ position:'fixed', left: selectionPopup.x, top: selectionPopup.y, zIndex:300, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:10, padding:4, boxShadow:'0 8px 24px rgba(0,0,0,0.5)', minWidth:200, pointerEvents:'all' }}>
               <button
                 onClick={() => {
-                  setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, scene: selectionPopup.scene, toBring: true }]);
+                  setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, scene: selectionPopup.scene, toBring: true, sourceElId: selectionPopup.sourceElId }]);
                   setPanelTab('props');
                   setSelectionPopup(null);
                   onEdit?.();
@@ -756,7 +756,55 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                         </div>
                       )}
                     </div>
-                    <div style={{ flex:1 }}>
+                    <div style={{ flex:1, position:'relative', marginLeft: cfg.ml, width: cfg.w }}>
+                      {(() => {
+                        const linkedProps = propItems.filter(p => p.sourceElId === el.id && p.text);
+                        if (!linkedProps.length) return null;
+                        // Build highlighted parts
+                        const rawText = cfg.upper ? el.text.toUpperCase() : el.text;
+                        const parts: { txt: string; propId?: string }[] = [];
+                        const matches: { start: number; end: number; propId: string }[] = [];
+                        for (const p of linkedProps) {
+                          const needle = cfg.upper ? p.text.toUpperCase() : p.text;
+                          let from = 0;
+                          while (true) {
+                            const i = rawText.indexOf(needle, from);
+                            if (i === -1) break;
+                            matches.push({ start: i, end: i + needle.length, propId: p.id });
+                            from = i + 1;
+                          }
+                        }
+                        matches.sort((a, b) => a.start - b.start);
+                        let pos = 0;
+                        for (const m of matches) {
+                          if (m.start > pos) parts.push({ txt: rawText.slice(pos, m.start) });
+                          parts.push({ txt: rawText.slice(m.start, m.end), propId: m.propId });
+                          pos = m.end;
+                        }
+                        if (pos < rawText.length) parts.push({ txt: rawText.slice(pos) });
+                        return (
+                          <div aria-hidden style={{
+                            position:'absolute', top:0, left:0, right:0, bottom:0,
+                            fontFamily:'"IBM Plex Mono", monospace', fontSize:13, lineHeight:1.8,
+                            fontStyle: cfg.italic ? 'italic' : 'normal',
+                            fontWeight: el.type === 'character' ? 700 : 400,
+                            textAlign: cfg.right ? 'right' : 'left',
+                            whiteSpace:'pre-wrap', wordBreak:'break-word',
+                            color:'transparent', pointerEvents:'none',
+                            padding:0, margin:0, boxSizing:'border-box',
+                          }}>
+                            {parts.map((p, i) => p.propId ? (
+                              <mark key={i}
+                                title="Cliquer pour supprimer cet accessoire"
+                                style={{ background:'color-mix(in srgb, var(--accent) 28%, transparent)', color:'transparent', borderRadius:3, cursor:'pointer', pointerEvents:'all' }}
+                                onClick={() => { setPropItems(prev => prev.filter(x => x.id !== p.propId)); onEdit?.(); }}
+                              >{p.txt}</mark>
+                            ) : (
+                              <span key={i}>{p.txt}</span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       <textarea
                         ref={ta => { if (ta) taRefs.current.set(el.id, ta); else taRefs.current.delete(el.id); }}
                         value={el.text}
@@ -766,13 +814,15 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                         rows={1}
                         style={{
                           display:'block', resize:'none', overflow:'hidden', outline:'none', border:'none', background:'transparent',
-                          fontFamily:'"IBM Plex Mono", monospace', fontSize:13, lineHeight:1.8, color:'var(--text)',
+                          fontFamily:'"IBM Plex Mono", monospace', fontSize:13, lineHeight:1.8,
+                          color: propItems.some(p => p.sourceElId === el.id) ? 'transparent' : 'var(--text)',
+                          caretColor:'var(--text)',
                           textTransform: cfg.upper ? 'uppercase' : 'none',
                           fontStyle: cfg.italic ? 'italic' : 'normal',
                           fontWeight: el.type === 'character' ? 700 : 400,
                           textAlign: cfg.right ? 'right' : 'left',
-                          marginLeft: cfg.ml, width: cfg.w,
-                          boxSizing:'border-box', colorScheme:'dark',
+                          marginLeft: 0, width: '100%',
+                          boxSizing:'border-box', colorScheme:'dark', padding:0,
                         }}
                       />
                     </div>
