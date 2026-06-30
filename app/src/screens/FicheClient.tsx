@@ -433,9 +433,9 @@ function EquipeTab({ clientId }: { clientId: string }) {
                   </button>
                 )}
               </>
-            ) : (
+            ) : m.internal ? (
+              /* ── Équipe interne : permissions studio ── */
               <>
-                {/* Presets */}
                 {(() => {
                   const activePreset = matchPreset(perms);
                   return (
@@ -494,6 +494,62 @@ function EquipeTab({ clientId }: { clientId: string }) {
                     </div>
                   </div>
                 ))}
+              </>
+            ) : (
+              /* ── Contact client : permissions portail ── */
+              <>
+                {/* Presets portail */}
+                <div>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('client.portalPresets')}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {PORTAL_PRESETS.map(preset => {
+                      const active = matchPortalPreset(portalPerms) === preset.key;
+                      return (
+                        <button key={preset.key} onClick={() => setPortalPerms({ ...preset.perms })}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.12s', fontFamily: 'var(--ff-text)' }}
+                          onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                          onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{t(preset.labelKey)}</p>
+                            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(preset.descKey)}</p>
+                          </div>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.12s' }}>
+                            {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {!matchPortalPreset(portalPerms) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
+                        <SFIcon name="sliders" size={13} color="var(--accent)" />
+                        <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>{t('client.custom')}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('client.permissionDetails')}</p>
+                </div>
+                {/* Toggles portail */}
+                {([
+                  { key: 'approve' as const, labelKey: 'client.portalPermApprove', descKey: 'client.portalPermApproveDesc' },
+                  { key: 'comment' as const, labelKey: 'client.portalPermComment', descKey: 'client.portalPermCommentDesc' },
+                  { key: 'download' as const, labelKey: 'client.portalPermDownload', descKey: 'client.portalPermDownloadDesc' },
+                ]).map(p => {
+                  const on = portalPerms[p.key];
+                  return (
+                    <div key={p.key} onClick={() => setPortalPerms(prev => ({ ...prev, [p.key]: !prev[p.key] }))}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 9, border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600 }}>{t(p.labelKey)}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(p.descKey)}</p>
+                      </div>
+                      <div style={{ width: 36, height: 20, borderRadius: 10, background: on ? 'var(--accent)' : 'var(--surface-3)', border: `1px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`, position: 'relative', transition: 'all 0.15s', flexShrink: 0 }}>
+                        <div style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: on ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </>
             )}
           </div>
