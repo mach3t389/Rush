@@ -2386,7 +2386,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [pendingAnchorId, setPendingAnchorId] = useState<string | null>(null);
   const newCommentRef = useRef<HTMLTextAreaElement>(null);
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>(loadCustomStyles);
-  const [darkPage, setDarkPage] = useState(false);
+  const [darkPage, setDarkPage] = useState(() => localStorage.getItem('sf_doc_dark') === '1');
   const [dictating, setDictating] = useState(false);
   const dictationRef = useRef<any>(null);
   const savedRangeRef = useRef<Range | null>(null);
@@ -2902,7 +2902,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:9, border: dictating ? '1px solid var(--accent)' : '1px solid transparent', background: dictating ? 'var(--accent)' : 'var(--surface-3)', cursor:'pointer', flexShrink:0, transition:'background 0.15s, border-color 0.15s', animation: dictating ? 'mic-pulse 1.4s ease-in-out infinite' : 'none', marginLeft:4 }}>
               <SFIcon name="mic" size={13} color={dictating ? 'var(--on-accent)' : 'var(--text-3)'} />
             </button>
-            <button onClick={() => setDarkPage(p => !p)} title={darkPage ? t('resourceDetail.documentView.lightMode') : t('resourceDetail.documentView.darkMode')}
+            <button onClick={() => setDarkPage(p => { const next = !p; localStorage.setItem('sf_doc_dark', next ? '1' : '0'); return next; })} title={darkPage ? t('resourceDetail.documentView.lightMode') : t('resourceDetail.documentView.darkMode')}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
               <SFIcon name={darkPage ? 'sun' : 'moon'} size={12} />
             </button>
