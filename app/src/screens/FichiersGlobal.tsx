@@ -2114,7 +2114,16 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   // Unified click handler — dossiers et fichiers, shift/ctrl multi-select.
   // La liste ordonnée dossiers-puis-fichiers reflète l'affichage pour shift-range.
-  const orderedItemIds = [...filteredFolders.map(f => f.id), ...filteredFiles.map(f => f.id)];
+  // À la vue racine, currentFiles/Folders sont vides (vue spéciale) — on les reconstruit.
+  const rootScopeFiles = location.scope === 'root'
+    ? allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null)
+    : [];
+  const rootScopeFolders = location.scope === 'root'
+    ? allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id))
+    : [];
+  const orderedItemIds = location.scope === 'root'
+    ? [...rootScopeFolders.map(f => f.id), ...rootScopeFiles.map(f => f.id)]
+    : [...filteredFolders.map(f => f.id), ...filteredFiles.map(f => f.id)];
 
   const handleItemClick = (e: React.MouseEvent, id: string) => {
     if (e.shiftKey && lastSelectedId) {
