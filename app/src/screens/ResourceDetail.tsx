@@ -3127,12 +3127,18 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 function getAutoThumb(url: string): string | null {
   if (!url) return null;
   const full = url.startsWith('http') ? url : `https://${url}`;
-  const ytMatch = full.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]{11})/);
+  const u = full.toLowerCase().split('?')[0];
+  // YouTube
+  const ytMatch = full.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
   if (ytMatch) return `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
-  try {
-    const domain = new URL(full).hostname;
-    return `https://image.thum.io/get/width/400/crop/240/noanimate/${full}`;
-  } catch { return null; }
+  // Vimeo
+  const vimeoMatch = full.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) return `https://vumbnail.com/${vimeoMatch[1]}.jpg`;
+  // Image directe → retourner l'URL elle-même
+  if (/\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)$/.test(u)) return full;
+  // Site web → capture thum.io
+  try { new URL(full); return `https://image.thum.io/get/width/400/crop/240/noanimate/${full}`; }
+  catch { return null; }
 }
 
 export function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
