@@ -456,14 +456,15 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   const pageCount = Math.max(1, Math.ceil(elements.reduce((a, e) => a + e.text.split('\n').length, 0) / 55));
   const wordCount = elements.reduce((a, e) => a + e.text.trim().split(/\s+/).filter(Boolean).length, 0);
 
-  const handleEditorMouseUp = (e: React.MouseEvent) => {
+  const handleEditorContextMenu = (e: React.MouseEvent) => {
     const ta = document.activeElement as HTMLTextAreaElement;
     if (!ta || ta.tagName !== 'TEXTAREA') return;
     const start = ta.selectionStart ?? 0;
     const end = ta.selectionEnd ?? 0;
-    if (start === end) { setSelectionPopup(null); return; }
+    if (start === end) return; // aucune sélection → menu natif normal
     const selected = ta.value.substring(start, end).trim();
-    if (!selected) { setSelectionPopup(null); return; }
+    if (!selected) return;
+    e.preventDefault();
     const elId = [...taRefs.current.entries()].find(([, ref]) => ref === ta)?.[0];
     let scene: string | undefined;
     if (elId) {
@@ -677,35 +678,38 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
           </div>
         </div>
 
-        {/* Selection → prop popup */}
+        {/* Clic droit → menu contextuel accessoire */}
         {selectionPopup && (
-          <div
-            onMouseDown={e => e.stopPropagation()}
-            style={{ position:'fixed', left: selectionPopup.x, top: selectionPopup.y - 44, transform:'translateX(-50%)', zIndex:300, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:9, padding:'5px 8px', display:'flex', alignItems:'center', gap:6, boxShadow:'0 6px 20px rgba(0,0,0,0.5)', pointerEvents:'all', whiteSpace:'nowrap' }}>
-            <button
-              onClick={() => {
-                setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, scene: selectionPopup.scene, toBring: true }]);
-                setPanelTab('props');
-                setSelectionPopup(null);
-                onEdit?.();
-              }}
-              style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', padding:'2px 4px', borderRadius:5 }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
-              <SFIcon name="package" size={13} />
-              Ajouter comme accessoire
-            </button>
-            {selectionPopup.scene && (
-              <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)', borderLeft:'1px solid var(--border)', paddingLeft:8, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis' }}>
-                {selectionPopup.scene}
-              </span>
-            )}
-          </div>
+          <>
+            <div onClick={() => setSelectionPopup(null)} style={{ position:'fixed', inset:0, zIndex:299 }} />
+            <div
+              onMouseDown={e => e.stopPropagation()}
+              style={{ position:'fixed', left: selectionPopup.x, top: selectionPopup.y, zIndex:300, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:10, padding:4, boxShadow:'0 8px 24px rgba(0,0,0,0.5)', minWidth:200, pointerEvents:'all' }}>
+              <button
+                onClick={() => {
+                  setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, scene: selectionPopup.scene, toBring: true }]);
+                  setPanelTab('props');
+                  setSelectionPopup(null);
+                  onEdit?.();
+                }}
+                style={{ display:'flex', alignItems:'center', gap:9, width:'100%', background:'none', border:'none', cursor:'pointer', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', padding:'7px 10px', borderRadius:7, textAlign:'left' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                <SFIcon name="package" size={13} />
+                <span style={{ flex:1 }}>Ajouter comme accessoire</span>
+              </button>
+              {selectionPopup.scene && (
+                <div style={{ padding:'4px 10px 6px', fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)', borderTop:'1px solid var(--border)', marginTop:2 }}>
+                  <SFIcon name="clapperboard" size={9} /> {selectionPopup.scene}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Script body */}
-        <div ref={scrollRef} onMouseUp={handleEditorMouseUp} onMouseDown={() => setSelectionPopup(null)} style={{ flex:1, overflow:'auto', padding:'32px 0', background:'var(--bg)' }}>
+        <div ref={scrollRef} onContextMenu={handleEditorContextMenu} style={{ flex:1, overflow:'auto', padding:'32px 0', background:'var(--bg)' }}>
           <div style={{ maxWidth:780, margin:'0 auto', padding:'0 40px' }}>
             {(() => {
               // Group elements into scene blocks: [{sceneEl, bodyEls}]
