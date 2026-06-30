@@ -1982,8 +1982,20 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     e.stopPropagation();
     let items: CtxMenuItem[];
     if (folder.state === 'trashed') {
+      const isInSel = selectedIds.has(folder.id) && selectedIds.size > 1;
+      const restoreAll = () => {
+        if (isInSel) {
+          [...selectedIds].forEach(id => {
+            const f = allFolders.find(x => x.id === id);
+            if (f) restoreFolder(id);
+            const fi = allFiles.find(x => x.id === id);
+            if (fi) restoreFile(id);
+          });
+        } else { restoreFolder(folder.id); }
+      };
+      const restoreLabel = isInSel ? `Restaurer (${selectedIds.size})` : 'Restaurer';
       items = [
-        { label: 'Restaurer', icon: 'rotate-ccw', action: () => restoreFolder(folder.id) },
+        { label: restoreLabel, icon: 'rotate-ccw', action: restoreAll },
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Supprimer définitivement', icon: 'trash-2', action: () => { if (confirm(`Supprimer définitivement « ${folder.name} » et tout son contenu ? Cette action est irréversible.`)) deleteFolder(folder.id); }, danger: true },
       ];
@@ -2010,8 +2022,20 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     e.stopPropagation();
     let items: CtxMenuItem[];
     if (file.state === 'trashed') {
+      const isInSel = selectedIds.has(file.id) && selectedIds.size > 1;
+      const restoreAll = () => {
+        if (isInSel) {
+          [...selectedIds].forEach(id => {
+            const fo = allFolders.find(x => x.id === id);
+            if (fo) restoreFolder(id);
+            const fi = allFiles.find(x => x.id === id);
+            if (fi) restoreFile(id);
+          });
+        } else { restoreFile(file.id); }
+      };
+      const restoreLabel = isInSel ? `Restaurer (${selectedIds.size})` : 'Restaurer';
       items = [
-        { label: 'Restaurer', icon: 'rotate-ccw', action: () => restoreFile(file.id) },
+        { label: restoreLabel, icon: 'rotate-ccw', action: restoreAll },
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Supprimer définitivement', icon: 'trash-2', action: () => { if (confirm(`Supprimer définitivement « ${file.name} » ? Cette action est irréversible.`)) deleteFile(file.id); }, danger: true },
       ];
