@@ -627,7 +627,8 @@
     "deselectAll": "Deselect all",
     "noMembers": "No members in this project",
     "selectedCount": "{{count}} selected",
-    "clearSelection": "Clear selection"
+    "clearSelection": "Clear selection",
+    "permissions": "Permissions"
   },
   "team": {
     "inviteMember": "Invite a member",
@@ -651,7 +652,8 @@
     "title": "Internal team",
     "subtitle": "{{count}} internal members",
     "searchPlaceholder": "Search for a member...",
-    "projectCount": "{{count}} projects"
+    "projectCount": "{{count}} projects",
+    "permissions": "Permissions"
   },
   "activityFeed": {
     "all": "All",

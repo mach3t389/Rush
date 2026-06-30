@@ -5,6 +5,7 @@ import { SFAvatar, SFIcon, SFButton } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getClientExternalTeam } from '../data/clientTeamStore';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
+import { PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import type { User } from '../types';
 
 // ── Local state store (session-only, per project) ─────────────────────────────
@@ -56,6 +57,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [perms, setPerms] = useState<PermissionKey[]>(PERMISSION_PRESETS[2].perms);
   const q = search.toLowerCase();
 
   const allUsers: Record<string, User> = {};
@@ -81,7 +83,10 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
 
   const handleConfirm = () => {
     const users = [...picked].map(id => allUsers[id]).filter(Boolean);
-    if (users.length > 0) onAdd(users);
+    if (users.length > 0) {
+      users.forEach(u => savePermissions(u.id, perms));
+      onAdd(users);
+    }
   };
 
   const rowStyle = (id: string): React.CSSProperties => ({
@@ -199,6 +204,34 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Permission presets */}
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+            {t('members.permissions')}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5 }}>
+            {PERMISSION_PRESETS.map(p => {
+              const active = JSON.stringify([...perms].sort()) === JSON.stringify([...p.perms].sort());
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setPerms(p.perms)}
+                  style={{
+                    padding: '7px 9px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                    background: active ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  <p style={{ fontSize: 10, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)', margin: 0 }}>{t(p.labelKey)}</p>
+                  <p style={{ fontSize: 9, color: 'var(--text-3)', margin: '1px 0 0', fontFamily: 'var(--ff-mono)', lineHeight: 1.35 }}>{t(p.descKey)}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Footer confirm */}

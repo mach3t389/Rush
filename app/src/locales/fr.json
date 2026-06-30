@@ -627,7 +627,8 @@
     "deselectAll": "Tout désélectionner",
     "noMembers": "Aucun membre dans ce projet",
     "selectedCount": "{{count}} sélectionnés",
-    "clearSelection": "Annuler la sélection"
+    "clearSelection": "Annuler la sélection",
+    "permissions": "Autorisations"
   },
   "team": {
     "inviteMember": "Inviter un membre",
@@ -651,7 +652,8 @@
     "title": "Équipe interne",
     "subtitle": "{{count}} membres internes",
     "searchPlaceholder": "Rechercher un membre...",
-    "projectCount": "{{count}} projets"
+    "projectCount": "{{count}} projets",
+    "permissions": "Autorisations"
   },
   "activityFeed": {
     "all": "Tout",

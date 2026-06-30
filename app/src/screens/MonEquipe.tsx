@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
-import { ProfileEditPanel, loadPhoto } from '../components/profile/ProfileEditPanel';
+import { ProfileEditPanel, loadPhoto, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 
 // ── Mock extra info for team members ─────────────────────────────────────────
 
@@ -58,9 +58,11 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [sent, setSent] = useState(false);
+  const [perms, setPerms] = useState<PermissionKey[]>(PERMISSION_PRESETS[2].perms);
 
   const submit = () => {
     if (!name.trim() || !email.trim()) return;
+    savePermissions(email.trim(), perms);
     setSent(true);
     setTimeout(onClose, 1500);
   };
@@ -94,6 +96,34 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
                   style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
               </div>
             ))}
+            {/* Permission presets */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>
+                {t('team.permissions')}
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                {PERMISSION_PRESETS.map(p => {
+                  const active = JSON.stringify([...perms].sort()) === JSON.stringify([...p.perms].sort());
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setPerms(p.perms)}
+                      style={{
+                        padding: '8px 10px', borderRadius: 9, cursor: 'pointer', textAlign: 'left',
+                        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                        background: active ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+                        transition: 'all 0.1s',
+                      }}
+                    >
+                      <p style={{ fontSize: 11, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)', margin: 0 }}>{t(p.labelKey)}</p>
+                      <p style={{ fontSize: 9, color: 'var(--text-3)', margin: '2px 0 0', fontFamily: 'var(--ff-mono)', lineHeight: 1.4 }}>{t(p.descKey)}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
               {t('team.inviteHint')}
             </p>
