@@ -363,6 +363,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   const taRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const elRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string; scene?: string } | null>(null);
 
   const activeVersion = versions.find(v => v.id === activeVersionId)!;
   const elements = activeVersion.elements;
@@ -454,6 +455,25 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   scenes.forEach((s, i) => sceneNumberById.set(s.id, i + 1));
   const pageCount = Math.max(1, Math.ceil(elements.reduce((a, e) => a + e.text.split('\n').length, 0) / 55));
   const wordCount = elements.reduce((a, e) => a + e.text.trim().split(/\s+/).filter(Boolean).length, 0);
+
+  const handleEditorMouseUp = (e: React.MouseEvent) => {
+    const ta = document.activeElement as HTMLTextAreaElement;
+    if (!ta || ta.tagName !== 'TEXTAREA') return;
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    if (start === end) { setSelectionPopup(null); return; }
+    const selected = ta.value.substring(start, end).trim();
+    if (!selected) { setSelectionPopup(null); return; }
+    const elId = [...taRefs.current.entries()].find(([, ref]) => ref === ta)?.[0];
+    let scene: string | undefined;
+    if (elId) {
+      const elIdx = elements.findIndex(el => el.id === elId);
+      for (let i = elIdx; i >= 0; i--) {
+        if (elements[i].type === 'scene') { scene = elements[i].text; break; }
+      }
+    }
+    setSelectionPopup({ x: e.clientX, y: e.clientY, text: selected, scene });
+  };
   const signCount = elements.reduce((a, e) => a + e.text.replace(/\s/g, '').length, 0);
   const allCharacters = [...new Set(elements.filter(e => e.type === 'character').map(e => e.text.trim()).filter(Boolean))];
   const allLocations = [...new Set(elements.filter(e => e.type === 'scene').map(e => {
@@ -657,8 +677,35 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
           </div>
         </div>
 
+        {/* Selection → prop popup */}
+        {selectionPopup && (
+          <div
+            onMouseDown={e => e.stopPropagation()}
+            style={{ position:'fixed', left: selectionPopup.x, top: selectionPopup.y - 44, transform:'translateX(-50%)', zIndex:300, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:9, padding:'5px 8px', display:'flex', alignItems:'center', gap:6, boxShadow:'0 6px 20px rgba(0,0,0,0.5)', pointerEvents:'all', whiteSpace:'nowrap' }}>
+            <button
+              onClick={() => {
+                setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, scene: selectionPopup.scene, toBring: true }]);
+                setPanelTab('props');
+                setSelectionPopup(null);
+                onEdit?.();
+              }}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', padding:'2px 4px', borderRadius:5 }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <SFIcon name="package" size={13} />
+              Ajouter comme accessoire
+            </button>
+            {selectionPopup.scene && (
+              <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)', borderLeft:'1px solid var(--border)', paddingLeft:8, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis' }}>
+                {selectionPopup.scene}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Script body */}
-        <div ref={scrollRef} style={{ flex:1, overflow:'auto', padding:'32px 0', background:'var(--bg)' }}>
+        <div ref={scrollRef} onMouseUp={handleEditorMouseUp} onMouseDown={() => setSelectionPopup(null)} style={{ flex:1, overflow:'auto', padding:'32px 0', background:'var(--bg)' }}>
           <div style={{ maxWidth:780, margin:'0 auto', padding:'0 40px' }}>
             {(() => {
               // Group elements into scene blocks: [{sceneEl, bodyEls}]
