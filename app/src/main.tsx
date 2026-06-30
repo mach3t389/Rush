@@ -1,9 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, redirect } from 'react-router-dom';
 import { I18nextProvider } from 'react-i18next';
 import './index.css';
 import i18n from './i18n/i18n';
+import { isAuthenticated } from './data/authStore';
 
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './screens/Dashboard';
@@ -28,14 +29,29 @@ import { VueGlobale } from './screens/VueGlobale';
 import { ProjectActivite } from './screens/ProjectActivite';
 import { Finances } from './screens/Finances';
 import { ProjetFinances } from './screens/ProjetFinances';
+import { Login } from './screens/Login';
+import { Register } from './screens/Register';
+import { ForgotPassword } from './screens/ForgotPassword';
+import { Onboarding } from './screens/Onboarding';
+
+// ── Route guards ──────────────────────────────────────────────────────────────
+const authLoader = () => { if (!isAuthenticated()) return redirect('/login'); return null; };
+const guestLoader = () => { if (isAuthenticated()) return redirect('/'); return null; };
 
 const router = createBrowserRouter([
+  // Auth routes (standalone, no sidebar)
+  { path: '/login',          element: <Login />,          loader: guestLoader },
+  { path: '/register',       element: <Register />,       loader: guestLoader },
+  { path: '/forgot-password',element: <ForgotPassword />, loader: guestLoader },
+  { path: '/onboarding',     element: <Onboarding />,     loader: authLoader  },
+
   // Portail client — sans sidebar (route standalone)
   { path: '/portail/:projectId', element: <Portail /> },
 
   {
     path: '/',
     element: <AppShell />,
+    loader: authLoader,
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'taches', element: <Taches /> },

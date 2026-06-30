@@ -7,12 +7,13 @@ import { subscribeNotifs, getNotifHistory } from '../../data/notificationStore';
 import { USERS } from '../../data/mock';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../profile/ProfileEditPanel';
 import { getShortcuts, subscribeShortcuts, formatCombo } from '../../data/shortcutsStore';
+import { getCurrentUser, logout } from '../../data/authStore';
 
 interface Props {
   onSearch: () => void;
 }
 
-const me = USERS.lea;
+const FALLBACK_USER = USERS.lea;
 
 export function GlobalTopBar({ onSearch }: Props) {
   const { t } = useTranslation();
@@ -27,14 +28,34 @@ export function GlobalTopBar({ onSearch }: Props) {
 
   // UI state
   const [showProfile, setShowProfile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(() => getNotifHistory().filter(n => !n.read).length);
   const [shortcuts, setShortcuts] = useState(getShortcuts);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Profile
+  // Auth user — fall back to Léa if no session (dev convenience)
+  const authUser = getCurrentUser();
+  const me = authUser
+    ? { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }
+    : FALLBACK_USER;
+
+  // Profile overrides (name/role changes saved in ProfileEditPanel)
   const profileOverrides = loadProfile(me.id);
   const photoUrl = loadPhoto(me.id);
   const displayName = profileOverrides.name ?? me.name;
   const displayRole = profileOverrides.role ?? me.role;
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showUserMenu]);
 
   useEffect(() => subscribeNotifs(() => setUnreadCount(getNotifHistory().filter(n => !n.read).length)), []);
   useEffect(() => subscribeShortcuts(() => setShortcuts(getShortcuts())), []);
@@ -139,19 +160,46 @@ export function GlobalTopBar({ onSearch }: Props) {
 
         <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
 
-        {/* Profil */}
-        <button onClick={() => setShowProfile(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, height: 30, padding: '0 8px 0 4px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', flexShrink: 0, transition: 'background 0.1s, border-color 0.1s' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
-          <div style={{ width: 22, height: 22, borderRadius: '50%', background: me.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
-            {photoUrl ? <img src={photoUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : me.initials}
-          </div>
-          <div style={{ textAlign: 'left', minWidth: 0 }}>
-            <p style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: 'var(--text)' }}>{displayName}</p>
-            <p style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.15, whiteSpace: 'nowrap' }}>{displayRole}</p>
-          </div>
-        </button>
+        {/* Profil — ouvre un dropdown */}
+        <div ref={userMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button onClick={() => setShowUserMenu(p => !p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, height: 30, padding: '0 8px 0 4px', borderRadius: 8, border: '1px solid var(--border)', background: showUserMenu ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.1s, border-color 0.1s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+            onMouseLeave={e => { if (!showUserMenu) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; } }}>
+            <div style={{ width: 22, height: 22, borderRadius: '50%', background: me.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
+              {photoUrl ? <img src={photoUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : me.initials}
+            </div>
+            <div style={{ textAlign: 'left', minWidth: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: 'var(--text)' }}>{displayName}</p>
+              <p style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.15, whiteSpace: 'nowrap' }}>{displayRole}</p>
+            </div>
+          </button>
+
+          {showUserMenu && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300,
+              background: 'var(--surface)', border: '1px solid var(--border-2)',
+              borderRadius: 12, padding: '6px', minWidth: 180,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+            }}>
+              {/* User info header */}
+              <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{displayName}</p>
+                <p style={{ fontSize: 10, color: 'var(--text-3)', margin: '2px 0 0', fontFamily: 'var(--ff-mono)' }}>{authUser?.email ?? 'lea.marchand@studioflow.fr'}</p>
+              </div>
+
+              {/* Mon profil */}
+              <MenuRow icon="user" label={t('auth.myProfile')} onClick={() => { setShowUserMenu(false); setShowProfile(true); }} />
+              {/* Paramètres */}
+              <MenuRow icon="settings" label="Paramètres" onClick={() => { setShowUserMenu(false); navigate('/parametres'); }} />
+
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
+              {/* Déconnexion */}
+              <MenuRow icon="log-out" label={t('auth.logout')} danger onClick={() => { setShowUserMenu(false); logout(); navigate('/login', { replace: true }); }} />
+            </div>
+          )}
+        </div>
       </div>
 
       {showProfile && (
@@ -159,7 +207,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           userId={me.id}
           initialName={me.name}
           initialRole={me.role}
-          initialEmail="lea.marchand@studioflow.fr"
+          initialEmail={authUser?.email ?? 'lea.marchand@studioflow.fr'}
           initialPhone="+1 514 555-0101"
           initialInitials={me.initials}
           initialColor={me.avatarColor}
@@ -169,5 +217,27 @@ export function GlobalTopBar({ onSearch }: Props) {
         />
       )}
     </>
+  );
+}
+
+function MenuRow({ icon, label, onClick, danger }: { icon: string; label: string; onClick: () => void; danger?: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+        padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+        background: hovered ? (danger ? 'rgba(255,80,80,0.08)' : 'var(--surface-2)') : 'transparent',
+        color: danger ? 'var(--danger)' : 'var(--text)', textAlign: 'left',
+        fontSize: 12, fontFamily: 'var(--ff-text)', fontWeight: 500,
+        transition: 'background 0.1s',
+      }}
+    >
+      <SFIcon name={icon} size={13} color={danger ? 'var(--danger)' : 'var(--text-2)'} />
+      {label}
+    </button>
   );
 }
