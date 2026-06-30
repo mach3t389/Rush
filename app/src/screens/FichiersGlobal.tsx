@@ -2316,7 +2316,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             </span>
         }
         <span style={{ fontSize: 11, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase' }}>
-          {rm ? rm.label : file.ext}
+          {rm ? t(rm.labelKey) : (file.ext ? file.ext.toUpperCase() : t(TYPE_META[file.type]?.labelKey ?? 'files.typeFile'))}
         </span>
         {/* Colonne statut — cliquable pour les ressources */}
         {resource ? (
