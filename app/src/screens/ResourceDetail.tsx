@@ -790,13 +790,13 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                             fontWeight: el.type === 'character' ? 700 : 400,
                             textAlign: cfg.right ? 'right' : 'left',
                             whiteSpace:'pre-wrap', wordBreak:'break-word',
-                            color:'transparent', pointerEvents:'none',
+                            color:'var(--text)', pointerEvents:'none',
                             padding:0, margin:0, boxSizing:'border-box',
                           }}>
                             {parts.map((p, i) => p.propId ? (
                               <mark key={i}
                                 title="Cliquer pour supprimer cet accessoire"
-                                style={{ background:'color-mix(in srgb, var(--accent) 28%, transparent)', color:'transparent', borderRadius:3, cursor:'pointer', pointerEvents:'all' }}
+                                style={{ background:'none', color:'var(--text)', textDecoration:'underline', textDecorationColor:'var(--accent)', textDecorationStyle:'solid', textDecorationThickness:2, textUnderlineOffset:3, cursor:'pointer', pointerEvents:'all' }}
                                 onClick={() => { setPropItems(prev => prev.filter(x => x.id !== p.propId)); onEdit?.(); }}
                               >{p.txt}</mark>
                             ) : (
