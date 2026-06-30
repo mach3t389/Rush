@@ -15,7 +15,7 @@ import { FileBrowser } from './FichiersGlobal';
 
 // ── Client contacts (shared store) ───────────────────────────────────────────
 
-import { getClientContacts, type ClientContact as ClientMember } from '../data/clientContactsStore';
+import { getClientContacts, type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, loadPortalPermissions, savePortalPermissions, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
 import { getInvoicesByClient, subscribeInvoices, updateInvoice, removeInvoice, sendInvoice as doSendInvoice, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
@@ -52,22 +52,29 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
+  const [portalPerms, setPortalPerms] = useState<PortalPermissions>({ ...DEFAULT_PORTAL_PERMISSIONS });
+
+  const activePreset = matchPortalPreset(portalPerms);
 
   const submit = () => {
     if (!name.trim() || !email.trim()) return;
     const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    onInvite({ id: `ext${Date.now()}`, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f' });
+    const id = `ext${Date.now()}`;
+    onInvite({ id, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f', portalPermissions: portalPerms });
+    savePortalPermissions(id, portalPerms);
     onClose();
   };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 440, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.invitePerson')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
+
+        {/* Champs */}
         {[
           { label: t('client.fullNameRequired'), val: name, set: setName, placeholder: t('client.fullNamePlaceholder') },
           { label: t('client.emailRequired'), val: email, set: setEmail, placeholder: t('client.emailContactPlaceholder') },
@@ -79,6 +86,28 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
               style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
           </div>
         ))}
+
+        {/* Accès portail */}
+        <div style={{ height: 1, background: 'var(--border)', margin: '6px 0 16px' }} />
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('client.portalAccess')}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          {PORTAL_PRESETS.map(preset => {
+            const active = activePreset === preset.key;
+            return (
+              <button key={preset.key} onClick={() => setPortalPerms({ ...preset.perms })}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)', transition: 'all 0.12s' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{t(preset.labelKey)}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(preset.descKey)}</p>
+                </div>
+                <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
         <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
           {t('client.inviteHint')}
         </p>
@@ -270,6 +299,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
     const [resent, setResent] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [activeTab, setActiveTab] = useState<'profil' | 'permissions'>('profil');
+    // Studio permissions (internal members only)
     const [perms, setPerms] = useState<PermissionKey[]>(() => {
       try {
         const raw = localStorage.getItem(permKey);
@@ -277,12 +307,15 @@ function EquipeTab({ clientId }: { clientId: string }) {
       } catch { /* noop */ }
       return DEFAULT_PERMISSIONS[m.role] ?? ['request_approval'];
     });
+    // Portal permissions (external contacts only)
+    const [portalPerms, setPortalPerms] = useState<PortalPermissions>(() => loadPortalPermissions(m.id));
     const photoRef = useRef<HTMLInputElement>(null);
 
     const save = () => {
       try {
         localStorage.setItem(storageKey, JSON.stringify({ name, email, role }));
-        localStorage.setItem(permKey, JSON.stringify(perms));
+        if (m.internal) localStorage.setItem(permKey, JSON.stringify(perms));
+        else savePortalPermissions(m.id, portalPerms);
       } catch { /* noop */ }
       setClientTeam(clientId, getClientTeam(clientId).map(x => x.id === m.id ? { ...x, name, email, role } : x));
       setMembers(getClientTeam(clientId));

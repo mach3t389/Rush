@@ -1,6 +1,40 @@
 // Shared store for client-side contacts (people at the client company).
 // Used by FicheClient (Équipe tab) and ProjectMembres (Contacts client section).
 
+export interface PortalPermissions {
+  approve: boolean;  // can formally approve/reject deliverables
+  comment: boolean;  // can leave comments on resources
+  download: boolean; // can download shared files
+}
+
+export const DEFAULT_PORTAL_PERMISSIONS: PortalPermissions = { approve: false, comment: true, download: true };
+
+export interface PortalPreset { key: string; labelKey: string; descKey: string; perms: PortalPermissions; }
+
+export const PORTAL_PRESETS: PortalPreset[] = [
+  { key: 'approver',     labelKey: 'client.portalPresetApprover',     descKey: 'client.portalPresetApproverDesc',     perms: { approve: true,  comment: true,  download: true  } },
+  { key: 'collaborator', labelKey: 'client.portalPresetCollaborator', descKey: 'client.portalPresetCollaboratorDesc', perms: { approve: false, comment: true,  download: true  } },
+  { key: 'observer',     labelKey: 'client.portalPresetObserver',     descKey: 'client.portalPresetObserverDesc',     perms: { approve: false, comment: false, download: true  } },
+];
+
+export function matchPortalPreset(perms: PortalPermissions): string | null {
+  return PORTAL_PRESETS.find(p =>
+    p.perms.approve === perms.approve && p.perms.comment === perms.comment && p.perms.download === perms.download
+  )?.key ?? null;
+}
+
+export function loadPortalPermissions(contactId: string): PortalPermissions {
+  try {
+    const raw = localStorage.getItem(`sf_portal_perms_${contactId}`);
+    if (raw) return JSON.parse(raw);
+  } catch { /* noop */ }
+  return { ...DEFAULT_PORTAL_PERMISSIONS };
+}
+
+export function savePortalPermissions(contactId: string, perms: PortalPermissions) {
+  try { localStorage.setItem(`sf_portal_perms_${contactId}`, JSON.stringify(perms)); } catch { /* noop */ }
+}
+
 export interface ClientContact {
   id: string;
   name: string;
@@ -11,6 +45,7 @@ export interface ClientContact {
   color: string;
   internal?: boolean;
   userId?: string; // links to USERS key if internal studio member
+  portalPermissions?: PortalPermissions;
 }
 
 export const CLIENT_CONTACTS: Record<string, ClientContact[]> = {
