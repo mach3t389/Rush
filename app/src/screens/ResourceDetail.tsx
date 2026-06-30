@@ -2848,7 +2848,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
       {/* ── Table des matières ── */}
       {showToc && (
-        <div style={{ width:220, flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', background:'var(--surface)', overflow:'hidden' }}>
+        <div style={{ width:200, flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', background:'var(--surface)', overflow:'hidden' }}>
           <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.documentView.tableOfContents')}</span>
             <button onClick={()=>setShowToc(false)} style={{ display:'flex', background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', padding:2 }}>
@@ -2882,7 +2882,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
       )}
 
       {/* ── Main editor column ── */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <div style={{ flex:1, minWidth:280, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         {/* Toolbar */}
         <div style={{ padding:'6px 12px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:2, background:'var(--surface)', flexShrink:0, flexWrap:'wrap' }}>
           {/* TOC toggle */}
@@ -3059,7 +3059,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               suppressContentEditableWarning
               onInput={handleInput}
               className="doc-editor"
-              style={{ width:595, background: darkPage ? '#1a1a1a' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: darkPage ? '#e8e6e3' : theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? 'none' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', transition:'background 0.2s, color 0.2s' }}
+              style={{ width:595, background:'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? 'none' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', filter: darkPage ? 'invert(1)' : 'none', transition:'filter 0.2s' }}
             />
           </div>
         </div>
@@ -3075,7 +3075,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
       {/* ── Right sidebar (Comments + AI) ── */}
       {showComments && (
-        <div style={{ width:300, flexShrink:0, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <div style={{ width:260, flexShrink:0, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           {/* Tabs */}
           <div style={{ display:'flex', flexShrink:0, borderBottom:'1px solid var(--border)' }}>
             {(['comments','ai'] as const).map(tab => (
