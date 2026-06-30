@@ -2217,7 +2217,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             : <p style={{ fontSize: 11, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p>
           }
           <p style={{ fontSize: 9, color: rm ? rm.color : 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {rm ? rm.label : (file.ext || formatFileSize(file.size) || '—')}
+            {rm ? t(rm.labelKey) : (file.ext || formatFileSize(file.size) || '—')}
           </p>
         </div>
       </div>
@@ -2709,7 +2709,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               {renamingId === f.id
                 ? <RenameInput value={f.name} onSave={v => { renameFile(f.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
                 : <span style={{ ...nameStyle(f.id), color: isLocSel ? 'var(--text)' : nameStyle(f.id).color }}>{f.name}</span>}
-              {isRes && renamingId !== f.id && <span style={{ fontSize: 9, color: meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm?.label ?? 'RES'}</span>}
+              {isRes && renamingId !== f.id && <span style={{ fontSize: 9, color: meta.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>{rm ? t(rm.labelKey) : 'RES'}</span>}
             </div>
           );
         })}
