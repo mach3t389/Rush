@@ -364,6 +364,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   const scrollRef = useRef<HTMLDivElement>(null);
   const elRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string; scene?: string; sourceElId?: string } | null>(null);
+  const [propPopup, setPropPopup] = useState<{ x: number; y: number; propId: string } | null>(null);
 
   const activeVersion = versions.find(v => v.id === activeVersionId)!;
   const elements = activeVersion.elements;
@@ -708,6 +709,31 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
           </>
         )}
 
+        {/* Prop underline popover */}
+        {propPopup && (() => {
+          const prop = propItems.find(p => p.id === propPopup.propId);
+          if (!prop) return null;
+          return (
+            <>
+              <div onClick={() => setPropPopup(null)} style={{ position:'fixed', inset:0, zIndex:299 }} />
+              <div onMouseDown={e => e.stopPropagation()} style={{ position:'fixed', left: propPopup.x, top: propPopup.y - 8, transform:'translate(-50%, -100%)', zIndex:300, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:10, padding:'8px 10px', boxShadow:'0 8px 24px rgba(0,0,0,0.5)', minWidth:180, display:'flex', flexDirection:'column', gap:6 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                  <SFIcon name="package" size={12} color="var(--accent)" />
+                  <span style={{ fontSize:12, color:'var(--text)', fontFamily:'var(--ff-text)', flex:1, fontWeight:500 }}>{prop.text}</span>
+                </div>
+                {prop.scene && <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)' }}>{prop.scene}</span>}
+                <button
+                  onClick={() => { setPropItems(prev => prev.filter(x => x.id !== propPopup.propId)); setPropPopup(null); onEdit?.(); }}
+                  style={{ display:'flex', alignItems:'center', gap:6, background:'color-mix(in srgb, var(--danger) 12%, transparent)', border:'1px solid color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius:7, padding:'5px 9px', cursor:'pointer', color:'var(--danger)', fontSize:11, fontFamily:'var(--ff-text)', marginTop:2 }}
+                >
+                  <SFIcon name="trash-2" size={11} />
+                  Supprimer l'accessoire
+                </button>
+              </div>
+            </>
+          );
+        })()}
+
         {/* Script body */}
         <div ref={scrollRef} onContextMenu={handleEditorContextMenu} style={{ flex:1, overflow:'auto', padding:'32px 0', background:'var(--bg)' }}>
           <div style={{ maxWidth:780, margin:'0 auto', padding:'0 40px' }}>
@@ -795,9 +821,9 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                           }}>
                             {parts.map((p, i) => p.propId ? (
                               <mark key={i}
-                                title="Cliquer pour supprimer cet accessoire"
+                                title="Accessoire lié"
                                 style={{ background:'none', color:'var(--text)', textDecoration:'underline', textDecorationColor:'var(--accent)', textDecorationStyle:'solid', textDecorationThickness:2, textUnderlineOffset:3, cursor:'pointer', pointerEvents:'all' }}
-                                onClick={() => { setPropItems(prev => prev.filter(x => x.id !== p.propId)); onEdit?.(); }}
+                                onClick={e => { e.stopPropagation(); setPropPopup({ x: e.clientX, y: e.clientY, propId: p.propId! }); }}
                               >{p.txt}</mark>
                             ) : (
                               <span key={i}>{p.txt}</span>
