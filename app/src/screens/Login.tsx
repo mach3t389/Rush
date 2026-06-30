@@ -117,6 +117,17 @@ export function Login() {
               </button>
             ))}
           </div>
+
+          {/* Pricing link */}
+          <Link to="/pricing" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 16,
+            fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'rgba(255,255,255,0.3)',
+            textDecoration: 'none', letterSpacing: '0.04em', transition: 'color 0.15s',
+          }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent)'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.3)'}>
+            {t('pricing.openPricing')} →
+          </Link>
         </div>
       </div>
 

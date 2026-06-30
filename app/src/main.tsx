@@ -33,6 +33,7 @@ import { Login } from './screens/Login';
 import { Register } from './screens/Register';
 import { ForgotPassword } from './screens/ForgotPassword';
 import { Onboarding } from './screens/Onboarding';
+import { Pricing } from './screens/Pricing';
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 const authLoader = () => { if (!isAuthenticated()) return redirect('/login'); return null; };
@@ -44,6 +45,9 @@ const router = createBrowserRouter([
   { path: '/register',       element: <Register />,       loader: guestLoader },
   { path: '/forgot-password',element: <ForgotPassword />, loader: guestLoader },
   { path: '/onboarding',     element: <Onboarding />,     loader: authLoader  },
+
+  // Page tarification publique — sans authentification requise
+  { path: '/pricing', element: <Pricing /> },
 
   // Portail client — sans sidebar (route standalone)
   { path: '/portail/:projectId', element: <Portail /> },

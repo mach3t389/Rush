@@ -1014,6 +1014,47 @@ const fmtSz = (n: number): string => {
   return `${n} o`;
 };
 
+// -- 2D Binary-split treemap layout (percentage-based, recursive) --
+interface TRect { id: string; x: number; y: number; w: number; h: number }
+
+function layoutBinary(
+  items: { id: string; size: number }[],
+  x: number, y: number, w: number, h: number
+): TRect[] {
+  if (items.length === 0) return [];
+  if (items.length === 1) return [{ id: items[0].id, x, y, w, h }];
+  const total = items.reduce((s, i) => s + i.size, 0);
+  let cum = 0, splitIdx = 1;
+  for (let k = 0; k < items.length - 1; k++) {
+    cum += items[k].size;
+    if (cum >= total / 2) { splitIdx = k + 1; break; }
+  }
+  const leftFrac = items.slice(0, splitIdx).reduce((s, i) => s + i.size, 0) / total;
+  if (w >= h) {
+    const sw = w * leftFrac;
+    return [
+      ...layoutBinary(items.slice(0, splitIdx),  x,      y, sw,     h),
+      ...layoutBinary(items.slice(splitIdx),      x + sw, y, w - sw, h),
+    ];
+  } else {
+    const sh = h * leftFrac;
+    return [
+      ...layoutBinary(items.slice(0, splitIdx),  x, y,      w, sh    ),
+      ...layoutBinary(items.slice(splitIdx),      x, y + sh, w, h - sh),
+    ];
+  }
+}
+
+// File-type categories for breakdown panel
+const FILE_TYPE_CATS: { key: string; labelKey: string; color: string; exts: string[]; resourceTypes?: string[] }[] = [
+  { key: 'video',    labelKey: 'files.typeVideo',    color: '#ef4444', exts: ['mp4','mov','avi','mkv','webm','mxf','m4v','wmv'], resourceTypes: ['video_review'] },
+  { key: 'image',    labelKey: 'files.typeImage',    color: '#3b82f6', exts: ['jpg','jpeg','png','gif','webp','svg','heic','tiff','psd','ai'], resourceTypes: ['image_review','moodboard'] },
+  { key: 'audio',    labelKey: 'files.typeAudio',    color: '#8b5cf6', exts: ['mp3','wav','aac','flac','ogg','m4a','aiff'] },
+  { key: 'document', labelKey: 'files.typeDocument', color: '#f59e0b', exts: ['pdf','doc','docx','txt','xls','xlsx','ppt','pptx','odt','csv'], resourceTypes: ['document_review'] },
+  { key: 'archive',  labelKey: 'files.typeArchive',  color: '#6b7280', exts: ['zip','rar','tar','gz','7z','bz2'] },
+  { key: 'other',    labelKey: 'files.typeOther',    color: '#10b981', exts: [] },
+];
+
 function VersionRow({ v, vpct, canDelete, onDelete }: {
   v: StorageVersion; vpct: number; canDelete: boolean; onDelete: () => void;
 }) {
@@ -1074,6 +1115,7 @@ export function StorageView({
   const [ctx, setCtx] = React.useState<{ pos: { x: number; y: number }; items: CtxMenuItem[] } | null>(null);
   const [storageSelIds, setStorageSelIds] = React.useState<Set<string>>(new Set());
   const [storageLast, setStorageLast] = React.useState<string | null>(null);
+  const [mapMode, setMapMode] = React.useState<'list' | 'map'>('list');
 
   const handleStorageClick = (e: React.MouseEvent, id: string) => {
     if (e.shiftKey && storageLast) {
@@ -1244,6 +1286,42 @@ export function StorageView({
   const totalSize  = items.reduce((s, i) => s + i.size, 0);
   const totalCount = files.length;
 
+  // 2D treemap layout (sorted desc by size)
+  const treemapRects = React.useMemo(() => {
+    const sorted = [...items].filter(i => i.size > 0).sort((a, b) => b.size - a.size);
+    return layoutBinary(sorted, 0, 0, 100, 100);
+  }, [items]);
+
+  // File-type breakdown (all files in current scope)
+  const typeBreakdown = React.useMemo(() => {
+    const scopedFiles = files.filter(f => (f.size ?? 0) > 0);
+    const totSz = scopedFiles.reduce((s, f) => s + (f.size ?? 0), 0);
+    return FILE_TYPE_CATS.map(cat => {
+      const catFiles = scopedFiles.filter(f => {
+        const ext = (f.ext ?? '').toLowerCase();
+        if (cat.exts.includes(ext)) return true;
+        if (cat.resourceTypes && f.resourceType && cat.resourceTypes.includes(f.resourceType)) return true;
+        if (cat.key === 'other') {
+          return !FILE_TYPE_CATS.filter(c => c.key !== 'other').some(c => {
+            const e = (f.ext ?? '').toLowerCase();
+            return c.exts.includes(e) || (c.resourceTypes && f.resourceType && c.resourceTypes.includes(f.resourceType));
+          });
+        }
+        return false;
+      });
+      const sz = catFiles.reduce((s, f) => s + (f.size ?? 0), 0);
+      return { ...cat, size: sz, count: catFiles.length, pct: totSz > 0 ? sz / totSz * 100 : 0 };
+    }).filter(c => c.size > 0).sort((a, b) => b.size - a.size);
+  }, [files]);
+
+  // Top 8 largest files (leaves only)
+  const topFiles = React.useMemo(() => {
+    return [...files]
+      .filter(f => (f.size ?? 0) > 0)
+      .sort((a, b) => (b.size ?? 0) - (a.size ?? 0))
+      .slice(0, 8);
+  }, [files]);
+
   const handleAction = (item: StorageItem) => {
     if (context !== 'active') {
       if (item.isFolder && item.folderItem) restoreFolder(item.folderItem.id);
@@ -1280,23 +1358,142 @@ export function StorageView({
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>
           {t('files.itemsCount', { count: items.length })} &bull; {t('files.filesCount', { count: totalCount })}
         </span>
-        {storageSelIds.size > 0 && (
-          <button
-            onClick={trashStorageSelected}
-            title={context !== 'active' ? t('files.restoreCountTooltip', { count: storageSelIds.size }) : t('files.trashCountTooltip', { count: storageSelIds.size })}
-            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', marginLeft: 'auto' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = context !== 'active' ? 'var(--ok)' : 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = context !== 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-          >
-            <SFIcon name={context !== 'active' ? 'rotate-ccw' : 'trash-2'} size={13} color={context !== 'active' ? 'var(--ok)' : 'var(--danger)'} />
-            {storageSelIds.size > 1 && (
-              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 8, background: context !== 'active' ? 'var(--ok)' : 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                {storageSelIds.size}
-              </span>
-            )}
-          </button>
-        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+          {storageSelIds.size > 0 && mapMode === 'list' && (
+            <button
+              onClick={trashStorageSelected}
+              title={context !== 'active' ? t('files.restoreCountTooltip', { count: storageSelIds.size }) : t('files.trashCountTooltip', { count: storageSelIds.size })}
+              style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', marginRight: 8 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = context !== 'active' ? 'var(--ok)' : 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = context !== 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+            >
+              <SFIcon name={context !== 'active' ? 'rotate-ccw' : 'trash-2'} size={13} color={context !== 'active' ? 'var(--ok)' : 'var(--danger)'} />
+              {storageSelIds.size > 1 && (
+                <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, borderRadius: 8, background: context !== 'active' ? 'var(--ok)' : 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                  {storageSelIds.size}
+                </span>
+              )}
+            </button>
+          )}
+          {/* Liste / Carte toggle */}
+          <div style={{ display: 'flex', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)' }}>
+            {([['list', 'list', t('files.viewList')], ['map', 'layout-dashboard', t('files.viewMap')]] as [string, string, string][]).map(([m, icon, label]) => (
+              <button key={m} onClick={() => setMapMode(m as 'list' | 'map')} title={label} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: 'none', cursor: 'pointer',
+                background: mapMode === m ? 'var(--surface-3)' : 'transparent',
+                color: mapMode === m ? 'var(--accent)' : 'var(--text-3)',
+                fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: 600, transition: 'all 0.12s',
+              }}>
+                <SFIcon name={icon} size={12} color={mapMode === m ? 'var(--accent)' : 'var(--text-3)'} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* ── Mode Carte : 2D treemap + breakdown ─────────────────────────── */}
+      {mapMode === 'map' && (
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+
+          {/* 2D Treemap */}
+          <div style={{ flex: 1, position: 'relative', background: 'var(--bg)', overflow: 'hidden' }}>
+            {treemapRects.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+                <SFIcon name="layout-dashboard" size={36} color="var(--text-2)" />
+                <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('files.noFileInLocation')}</p>
+              </div>
+            ) : treemapRects.map(rect => {
+              const item = items.find(i => i.id === rect.id);
+              if (!item) return null;
+              const pct = totalSize > 0 ? item.size / totalSize * 100 : 0;
+              const isHov = hoveredId === item.id;
+              const showLabel = rect.w > 7 && rect.h > 5;
+              const showSize  = rect.w > 10 && rect.h > 9;
+              return (
+                <div
+                  key={rect.id}
+                  title={`${item.name} — ${fmtSz(item.size)} (${pct.toFixed(1)}%)`}
+                  onClick={item.onClick}
+                  onMouseEnter={() => setHoveredId(rect.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  style={{
+                    position: 'absolute',
+                    left: `${rect.x}%`, top: `${rect.y}%`,
+                    width: `${rect.w}%`, height: `${rect.h}%`,
+                    background: isHov ? item.color : item.color + 'bb',
+                    border: '2px solid var(--bg)',
+                    boxSizing: 'border-box',
+                    cursor: item.onClick ? 'pointer' : 'default',
+                    overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                    padding: 7,
+                    transition: 'background 0.1s',
+                  }}
+                >
+                  {showLabel && (
+                    <p style={{ fontSize: Math.min(13, Math.max(9, rect.w * 1.2)), fontWeight: 700, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                      {item.name}
+                    </p>
+                  )}
+                  {showSize && (
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: Math.min(10, Math.max(8, rect.w * 0.9)), color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+                      {fmtSz(item.size)} · {pct.toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Sidebar : type breakdown + top fichiers */}
+          <div style={{ width: 230, flexShrink: 0, borderLeft: '1px solid var(--border)', background: 'var(--surface)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--text-3)', marginBottom: 14 }}>{t('files.byType')}</p>
+              {typeBreakdown.length === 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('files.noData')}</p>
+              ) : typeBreakdown.map(cat => (
+                <div key={cat.key} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: cat.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, flex: 1, color: 'var(--text-2)' }}>{t(cat.labelKey)}</span>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{fmtSz(cat.size)}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 4, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${cat.pct}%`, background: cat.color, borderRadius: 3, transition: 'width 0.3s' }} />
+                    </div>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', minWidth: 34, textAlign: 'right' }}>{cat.pct.toFixed(1)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '14px 16px' }}>
+              <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--text-3)', marginBottom: 12 }}>{t('files.topFiles')}</p>
+              {topFiles.length === 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('files.noData')}</p>
+              ) : topFiles.map((f, i) => {
+                const ext = (f.ext ?? '').toLowerCase();
+                const cat = FILE_TYPE_CATS.find(c => c.exts.includes(ext) || (c.resourceTypes && f.resourceType && c.resourceTypes.includes(f.resourceType))) ?? FILE_TYPE_CATS[FILE_TYPE_CATS.length - 1];
+                return (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', minWidth: 14, textAlign: 'right' }}>{i + 1}</span>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: cat.color, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>{f.name}</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', marginTop: 1 }}>{fmtSz(f.size)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mode Liste ───────────────────────────────────────────────────── */}
+      {mapMode === 'list' && <>
 
       {/* Column headers */}
       <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '1fr 220px 60px 70px 36px', gap: 8, padding: '6px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
@@ -1442,7 +1639,7 @@ export function StorageView({
         })}
       </div>
 
-      {/* Treemap footer */}
+      {/* Barre 1D footer */}
       <div style={{ flexShrink: 0, height: 180, borderTop: '2px solid var(--border)', display: 'flex', overflow: 'hidden' }}>
         {items.filter(i => i.size > 0).map(item => {
           const pct = totalSize > 0 ? item.size / totalSize : 0;
@@ -1484,6 +1681,9 @@ export function StorageView({
           </div>
         )}
       </div>
+
+      </> /* fin mode liste */}
+
     </div>
     {ctx && <ContextMenu items={ctx.items} pos={ctx.pos} onClose={() => setCtx(null)} />}
     </>

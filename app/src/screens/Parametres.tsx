@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon } from '../components/ui';
 import { MonEquipe } from './MonEquipe';
@@ -927,88 +928,110 @@ const MOCK_SESSIONS = [
   { device: 'macOS · Chrome',   location: 'Paris, FR',    current: false, lastKey: 'settings.sessionYesterday' },
 ];
 
-// ── Plan & Abonnement ────────────────────────────────────────────────────────
+// ── Plan & Abonnement (deux axes) ────────────────────────────────────────────
 
-const PLANS = [
+const PLATFORM_PLANS = [
   {
-    key: 'solo',
+    key: 'gratuit',
     nameKey: 'settings.planSolo',
     descKey: 'settings.planSoloDesc',
     priceMonthly: 0,
     priceYearly: 0,
+    storageIncluded: '5 Go',
     features: [
-      { key: 'planUsers',    value: '1' },
-      { key: 'planProjects', value: '3' },
-      { key: 'planStorage',  value: '5 Go' },
-      { key: 'planPortal',   included: false },
-      { key: 'planInvoicing',included: false },
-      { key: 'planAI',       included: false },
+      { labelKey: 'settings.planFeat3Projects',      included: true  },
+      { labelKey: 'settings.planFeat5Members',        included: true  },
+      { labelKey: 'settings.planFeatPortalBranded',   included: true  },
+      { labelKey: 'settings.planFeatTemplatesPreset', included: true  },
+      { labelKey: 'settings.planFeatTemplatesCustom', included: false },
+      { labelKey: 'settings.planFeatAI',              included: false },
+      { labelKey: 'settings.planFeatFinances',        included: false },
     ],
   },
   {
     key: 'studio',
     nameKey: 'settings.planStudio',
     descKey: 'settings.planStudioDesc',
-    priceMonthly: 29,
-    priceYearly: 279,
+    priceMonthly: 19,
+    priceYearly: 182,
     popular: true,
+    storageIncluded: '50 Go',
     features: [
-      { key: 'planUsersPlural', value: '5' },
-      { key: 'planProjectsUnlimited' },
-      { key: 'planStorage',  value: '50 Go' },
-      { key: 'planPortal',   included: true },
-      { key: 'planInvoicing',included: true },
-      { key: 'planAI',       included: true },
+      { labelKey: 'settings.planFeatUnlimitedProjects', included: true },
+      { labelKey: 'settings.planFeatUnlimitedMembers',  included: true },
+      { labelKey: 'settings.planFeatPortalWhiteLabel',  included: true },
+      { labelKey: 'settings.planFeatTemplatesPreset',   included: true },
+      { labelKey: 'settings.planFeatTemplatesCustom',   included: true },
+      { labelKey: 'settings.planFeatAI',                included: true },
+      { labelKey: 'settings.planFeatFinances',          included: true },
     ],
   },
   {
     key: 'agence',
     nameKey: 'settings.planAgence',
     descKey: 'settings.planAgenceDesc',
-    priceMonthly: 79,
-    priceYearly: 759,
+    priceMonthly: 49,
+    priceYearly: 470,
+    storageIncluded: '200 Go',
     features: [
-      { key: 'planUsersUnlimited' },
-      { key: 'planProjectsUnlimited' },
-      { key: 'planStorage',  value: '500 Go' },
-      { key: 'planPortal',   included: true },
-      { key: 'planInvoicing',included: true },
-      { key: 'planAI',       included: true },
-      { key: 'planWhiteLabel', included: true },
-      { key: 'planPriority', included: true },
+      { labelKey: 'settings.planFeatEverythingStudio', included: true },
+      { labelKey: 'settings.planFeatPrioritySupport',  included: true },
+      { labelKey: 'settings.planFeatAPIAccess',        included: true },
     ],
   },
 ];
 
+const STORAGE_BLOCKS = [
+  { gb: 0,    labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,  priceYearly: 0   },
+  { gb: 50,   labelKey: null, label: '+50 Go',         priceMonthly: 5,  priceYearly: 48  },
+  { gb: 200,  labelKey: null, label: '+200 Go',        priceMonthly: 15, priceYearly: 144 },
+  { gb: 500,  labelKey: null, label: '+500 Go',        priceMonthly: 35, priceYearly: 336 },
+  { gb: 1000, labelKey: null, label: '+1 To',          priceMonthly: 50, priceYearly: 480 },
+];
+
 const MOCK_INVOICES = [
-  { date: '2026-05-01', amount: '29,00 €', status: 'paid' },
-  { date: '2026-04-01', amount: '29,00 €', status: 'paid' },
-  { date: '2026-03-01', amount: '29,00 €', status: 'paid' },
+  { date: '2026-05-01', amount: '19,00 $ CA', status: 'paid' },
+  { date: '2026-04-01', amount: '19,00 $ CA', status: 'paid' },
+  { date: '2026-03-01', amount: '19,00 $ CA', status: 'paid' },
 ];
 
 function PlanSettings() {
   const { t } = useTranslation();
-  const [billing, setBilling]     = useState<'monthly' | 'yearly'>('monthly');
-  const [currentPlan, setCurrentPlan] = useState('studio');
-  const [confirming, setConfirming]   = useState<string | null>(null);
+  const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
+  const [currentPlan, setCurrentPlan]     = useState('studio');
+  const [currentStorage, setCurrentStorage] = useState(0);
+  const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
 
-  const handleSwitch = (planKey: string) => {
-    if (planKey === currentPlan) return;
-    setConfirming(planKey);
-  };
+  const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
+  const activeStorage = STORAGE_BLOCKS.find(s => s.gb === currentStorage)!;
 
-  const confirmSwitch = () => {
-    if (confirming) setCurrentPlan(confirming);
+  const platformPrice = billing === 'monthly' ? activePlan.priceMonthly : activePlan.priceYearly;
+  const storagePrice  = billing === 'monthly' ? activeStorage.priceMonthly : activeStorage.priceYearly;
+  const totalPrice    = platformPrice + storagePrice;
+
+  const pendingPlan    = confirming?.plan    ?? currentPlan;
+  const pendingStorage = confirming?.storage ?? currentStorage;
+
+  const applyChanges = () => {
+    setCurrentPlan(confirming!.plan);
+    setCurrentStorage(confirming!.storage);
     setConfirming(null);
   };
 
-  return (
-    <div style={{ maxWidth: 760 }}>
-      <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.planTitle')}</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 28 }}>{t('settings.planDesc')}</p>
+  const trySwitch = (planKey: string, storageGb: number) => {
+    if (planKey === currentPlan && storageGb === currentStorage) return;
+    setConfirming({ plan: planKey, storage: storageGb });
+  };
 
-      {/* Billing toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+  const hasUnsaved = pendingPlan !== currentPlan || pendingStorage !== currentStorage;
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.planTitle')}</h2>
+      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 32 }}>{t('settings.planDesc')}</p>
+
+      {/* ── Billing toggle ─────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
         <div style={{ display: 'flex', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)' }}>
           {(['monthly', 'yearly'] as const).map(b => (
             <button key={b} onClick={() => setBilling(b)} style={{
@@ -1028,134 +1051,224 @@ function PlanSettings() {
         )}
       </div>
 
-      {/* Plan cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 40 }}>
-        {PLANS.map(plan => {
-          const isCurrent = plan.key === currentPlan;
-          const price = billing === 'monthly' ? plan.priceMonthly : plan.priceYearly;
-          const isFree = price === 0;
-          return (
-            <div key={plan.key} style={{
-              borderRadius: 14, border: `2px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
-              background: isCurrent ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
-              padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 0,
-              position: 'relative', transition: 'border-color 0.2s',
-            }}>
-              {/* Badges */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-                {isCurrent && (
-                  <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-accent)', background: 'var(--accent)', borderRadius: 5, padding: '3px 7px' }}>
-                    {t('settings.planCurrentBadge')}
-                  </span>
-                )}
-                {plan.popular && !isCurrent && (
-                  <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-2)', background: 'var(--surface-3)', borderRadius: 5, padding: '3px 7px' }}>
-                    {t('settings.planPopularBadge')}
-                  </span>
-                )}
-              </div>
+      {/* ── Axe 1 : Fonctionnalités ────────────────────────────────────── */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent)' }}>01</span>
+          <h3 style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{t('settings.planAxis1')}</h3>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 20, marginLeft: 26 }}>{t('settings.planAxis1Desc')}</p>
 
-              <p style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--text)', marginBottom: 4 }}>{t(plan.nameKey)}</p>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)', marginBottom: 18, lineHeight: 1.4 }}>{t(plan.descKey)}</p>
-
-              {/* Price */}
-              <div style={{ marginBottom: 20 }}>
-                {isFree ? (
-                  <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{t('settings.planFree')}</span>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{price}€</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>
-                      {t(billing === 'monthly' ? 'settings.planMonthly' : 'settings.planYearly')}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {PLATFORM_PLANS.map(plan => {
+            const isCurrent = plan.key === currentPlan;
+            const price = billing === 'monthly' ? plan.priceMonthly : plan.priceYearly;
+            const isFree = price === 0;
+            return (
+              <div key={plan.key}
+                onClick={() => trySwitch(plan.key, currentStorage)}
+                style={{
+                  borderRadius: 14,
+                  border: `2px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
+                  background: isCurrent ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
+                  padding: '20px 18px', display: 'flex', flexDirection: 'column',
+                  cursor: isCurrent ? 'default' : 'pointer',
+                  transition: 'border-color 0.2s, background 0.2s',
+                }}
+                onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+              >
+                {/* Badge */}
+                <div style={{ height: 22, marginBottom: 12 }}>
+                  {isCurrent && (
+                    <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-accent)', background: 'var(--accent)', borderRadius: 5, padding: '3px 7px' }}>
+                      {t('settings.planCurrentBadge')}
                     </span>
-                  </div>
-                )}
-                {billing === 'yearly' && !isFree && (
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{t('settings.planBilledYearly')}</p>
-                )}
-              </div>
+                  )}
+                  {plan.popular && !isCurrent && (
+                    <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-2)', background: 'var(--surface-3)', borderRadius: 5, padding: '3px 7px' }}>
+                      {t('settings.planPopularBadge')}
+                    </span>
+                  )}
+                </div>
 
-              {/* Features */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22, flex: 1 }}>
-                {plan.features.map((f, i) => {
-                  const included = f.included !== false;
-                  const label = f.value ? t(`settings.${f.key}`, { n: f.value }) : t(`settings.${f.key}`);
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <p style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 2 }}>{t(plan.nameKey)}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 16, lineHeight: 1.4 }}>{t(plan.descKey)}</p>
+
+                {/* Prix */}
+                <div style={{ marginBottom: 18 }}>
+                  {isFree ? (
+                    <span style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--ff-display)' }}>{t('settings.planFree')}</span>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                      <span style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--ff-display)' }}>{price} $</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t(billing === 'monthly' ? 'settings.planMonthly' : 'settings.planYearly')} CA</span>
+                    </div>
+                  )}
+                  <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginTop: 2, visibility: billing === 'yearly' && !isFree ? 'visible' : 'hidden' }}>
+                    {t('settings.planBilledYearly')}
+                  </p>
+                </div>
+
+                {/* Stockage inclus */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 16, width: 'fit-content' }}>
+                  <SFIcon name="hard-drive" size={11} color="var(--text-3)" />
+                  <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{plan.storageIncluded} {t('settings.planStorageIncluded')}</span>
+                </div>
+
+                {/* Features */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1, marginBottom: 18 }}>
+                  {plan.features.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                       <div style={{
-                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-                        background: included ? 'rgba(0,210,120,0.12)' : 'var(--surface-3)',
+                        width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+                        background: f.included ? 'rgba(0,210,120,0.12)' : 'var(--surface-3)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <SFIcon name={included ? 'check' : 'x'} size={9} color={included ? 'var(--ok)' : 'var(--text-3)'} />
+                        <SFIcon name={f.included ? 'check' : 'x'} size={8} color={f.included ? 'var(--ok)' : 'var(--text-3)'} />
                       </div>
-                      <span style={{ fontSize: 11, color: included ? 'var(--text-2)' : 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{label}</span>
+                      <span style={{ fontSize: 11, color: f.included ? 'var(--text-2)' : 'var(--text-3)' }}>{t(f.labelKey)}</span>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
 
-              {/* CTA */}
-              {isCurrent ? (
-                <button disabled style={{
-                  width: '100%', padding: '10px', borderRadius: 9, border: '1px solid var(--border)',
-                  background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontWeight: 600,
-                  fontFamily: 'var(--ff-text)', cursor: 'default',
-                }}>
-                  {t('settings.planCurrent')}
+                <button
+                  disabled={isCurrent}
+                  onClick={e => { e.stopPropagation(); trySwitch(plan.key, currentStorage); }}
+                  style={{
+                    width: '100%', padding: '9px', borderRadius: 9, border: isCurrent ? '1px solid var(--border)' : 'none',
+                    background: isCurrent ? 'transparent' : plan.popular ? 'var(--accent)' : 'var(--surface-3)',
+                    color: isCurrent ? 'var(--text-3)' : plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
+                    fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-text)',
+                    cursor: isCurrent ? 'default' : 'pointer', transition: 'all 0.15s',
+                  }}>
+                  {isCurrent ? t('settings.planCurrent') : t('settings.planCTASubscribe')}
                 </button>
-              ) : (
-                <button onClick={() => handleSwitch(plan.key)} style={{
-                  width: '100%', padding: '10px', borderRadius: 9, border: 'none',
-                  background: plan.popular ? 'var(--accent)' : 'var(--surface-3)',
-                  color: plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
-                  fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-text)', cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}>
-                  {t('settings.planUpgrade')}
-                </button>
-              )}
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', textAlign: 'center', marginBottom: 40 }}>
-        {t('settings.planCancelAnytime')}
-      </p>
+      {/* Lien vers page tarification */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -16, marginBottom: 24 }}>
+        <Link to="/pricing" style={{ fontSize: 12, color: 'var(--text-3)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5 }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent)'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
+          {t('pricing.openPricing')}
+          <SFIcon name="arrow-right" size={12} />
+        </Link>
+      </div>
 
-      {/* Payment history */}
+      {/* ── Axe 2 : Stockage ───────────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 36, marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent)' }}>02</span>
+          <h3 style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{t('settings.planAxis2')}</h3>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 12, marginLeft: 26 }}>{t('settings.planAxis2Desc')}</p>
+
+        {/* Stockage inclus dans le plan actif */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 26, marginBottom: 20, padding: '6px 12px', borderRadius: 8, background: 'rgba(249,255,0,0.06)', border: '1px solid rgba(249,255,0,0.18)', width: 'fit-content' }}>
+          <SFIcon name="hard-drive" size={12} color="var(--accent)" />
+          <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 600, color: 'var(--accent)' }}>
+            {t('settings.planStorageBaseInfo', { storage: activePlan.storageIncluded })}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {STORAGE_BLOCKS.map(block => {
+            const isSelected = block.gb === currentStorage;
+            const blockPrice = billing === 'monthly' ? block.priceMonthly : block.priceYearly;
+            const displayLabel = block.labelKey ? t(block.labelKey) : block.label!;
+            return (
+              <div key={block.gb}
+                onClick={() => trySwitch(currentPlan, block.gb)}
+                style={{
+                  borderRadius: 12, border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                  background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
+                  padding: '14px 20px', cursor: 'pointer', transition: 'all 0.15s',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 110,
+                }}
+                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+              >
+                <SFIcon name="hard-drive" size={18} color={isSelected ? 'var(--accent)' : 'var(--text-3)'} />
+                <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--ff-display)', color: isSelected ? 'var(--text)' : 'var(--text-2)', marginTop: 4 }}>
+                  {displayLabel}
+                </span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: isSelected ? 'var(--accent)' : 'var(--text-3)', fontWeight: 600 }}>
+                  {blockPrice === 0 ? t('settings.planStorageIncluded') : `+${blockPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
+                </span>
+                {isSelected && (
+                  <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--on-accent)', background: 'var(--accent)', borderRadius: 4, padding: '2px 6px', marginTop: 2 }}>
+                    {t('settings.planStorageSelected')}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Récapitulatif ──────────────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32, marginBottom: 40 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 16 }}>{t('settings.planSummaryTitle')}</h3>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', maxWidth: 400 }}>
+          {[
+            { label: t('settings.planSummaryPlatform'), value: platformPrice === 0 ? t('settings.planSummaryFree') : `${platformPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`, sub: t(activePlan.nameKey) },
+            { label: t('settings.planSummaryStorage'), value: storagePrice === 0 ? t('settings.planSummaryNone') : `+${storagePrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`, sub: activeStorage.label },
+          ].map((row, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 1 }}>{row.label}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{row.sub}</p>
+              </div>
+              <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', fontWeight: 700, color: 'var(--text-2)' }}>{row.value}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'var(--surface-2)' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{t('settings.planSummaryTotal')}</span>
+            <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', color: totalPrice === 0 ? 'var(--ok)' : 'var(--accent)' }}>
+              {totalPrice === 0 ? t('settings.planSummaryFree') : `${totalPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
+            </span>
+          </div>
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 12 }}>{t('settings.planCancelAnytime')}</p>
+      </div>
+
+      {/* ── Historique des paiements ───────────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 6 }}>{t('settings.planHistoryTitle')}</h3>
         <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18 }}>{t('settings.planHistoryDesc')}</p>
-        {MOCK_INVOICES.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('settings.planHistoryEmpty')}</p>
-        ) : (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '9px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-              {['planHistoryDate', 'planHistoryAmount', 'planHistoryStatus', 'planHistoryDownload'].map(k => (
-                <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(`settings.${k}`)}</span>
-              ))}
-            </div>
-            {MOCK_INVOICES.map((inv, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '11px 16px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>{inv.date}</span>
-                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{inv.amount}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', borderRadius: 5, padding: '3px 8px', display: 'inline-block' }}>
-                  {t(`settings.planHistory${inv.status === 'paid' ? 'Paid' : 'Pending'}`)}
-                </span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                  <SFIcon name="download" size={14} />
-                </button>
-              </div>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '9px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+            {['planHistoryDate','planHistoryAmount','planHistoryStatus','planHistoryDownload'].map(k => (
+              <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(`settings.${k}`)}</span>
             ))}
           </div>
-        )}
+          {MOCK_INVOICES.map((inv, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '11px 16px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>{inv.date}</span>
+              <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{inv.amount}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', borderRadius: 5, padding: '3px 8px', display: 'inline-block' }}>
+                {t(`settings.planHistory${inv.status === 'paid' ? 'Paid' : 'Pending'}`)}
+              </span>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                <SFIcon name="download" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Confirm modal */}
+      {/* ── Modal de confirmation ──────────────────────────────────────── */}
       {confirming && (() => {
-        const plan = PLANS.find(p => p.key === confirming)!;
+        const newPlan    = PLATFORM_PLANS.find(p => p.key === confirming.plan)!;
+        const newStorage = STORAGE_BLOCKS.find(s => s.gb === confirming.storage)!;
+        const newPlatPrice = billing === 'monthly' ? newPlan.priceMonthly : newPlan.priceYearly;
+        const newStorPrice = billing === 'monthly' ? newStorage.priceMonthly : newStorage.priceYearly;
+        const newTotal = newPlatPrice + newStorPrice;
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}
             onClick={() => setConfirming(null)}>
@@ -1164,15 +1277,28 @@ function PlanSettings() {
               <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
                 <SFIcon name="repeat" size={20} color="var(--accent)" />
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 8 }}>{t('settings.planUpgrade')}</h3>
-              <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 24, lineHeight: 1.5 }}>
-                {t(plan.nameKey)} — {billing === 'monthly' ? `${plan.priceMonthly}€/mois` : `${plan.priceYearly}€/an`}
-              </p>
+              <h3 style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 16 }}>{t('settings.planUpgrade')}</h3>
+              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummaryPlatform')}</span>
+                  <span style={{ fontWeight: 600 }}>{t(newPlan.nameKey)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummaryStorage')}</span>
+                  <span style={{ fontWeight: 600 }}>{newStorage.label}</span>
+                </div>
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{t('settings.planSummaryTotal')}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--accent)' }}>
+                    {newTotal === 0 ? t('settings.planSummaryFree') : `${newTotal} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
+                  </span>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setConfirming(null)} style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  Annuler
+                  {t('common.cancel') || 'Annuler'}
                 </button>
-                <button onClick={confirmSwitch} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                <button onClick={applyChanges} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
                   Confirmer
                 </button>
               </div>
