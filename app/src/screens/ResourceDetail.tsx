@@ -3969,7 +3969,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                             onBlur={e => (e.currentTarget.style.borderBottomColor='var(--border-2)')} />
                           {/* Type selector */}
                           <div style={{ position:'relative', flexShrink:0 }}>
-                            <button onClick={() => setShowTypeMenu(showTypeMenu===selectedQuestion.id?null:selectedQuestion.id)}
+                            <button onClick={e => { e.stopPropagation(); setShowTypeMenu(showTypeMenu===selectedQuestion.id?null:selectedQuestion.id); }}
                               style={{ ...btnBase, background:'var(--surface-2)', color:'var(--text-2)', border:'1px solid var(--border-2)', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap' }}>
                               <SFIcon name={FORM_Q_TYPES.find(t=>t.type===selectedQuestion.type)?.icon||'minus'} size={12} />
                               {FORM_Q_TYPES.find(t=>t.type===selectedQuestion.type)?.label}
