@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon } from '../components/ui';
 import { MonEquipe } from './MonEquipe';
-import { Modeles } from './Modeles';
 import {
   getShortcuts, setShortcut, resetAllShortcuts, subscribeShortcuts,
   formatCombo, DEFAULT_SHORTCUTS,
@@ -606,12 +605,12 @@ const SECTIONS = [
     { key: 'team',        labelKey: 'settings.sectionInternalTeam'  },
     { key: 'portail',     labelKey: 'settings.sectionClientPortal'  },
     { key: 'facturation', labelKey: 'settings.sectionBilling'       },
-    { key: 'modeles',     labelKey: 'settings.sectionModels'        },
   ]},
   { groupKey: 'settings.groupAccount', items: [
     { key: 'profil',   labelKey: 'settings.sectionProfile'        },
     { key: 'notifs',   labelKey: 'settings.sectionNotifications'  },
     { key: 'securite', labelKey: 'settings.sectionSecurity'       },
+    { key: 'plan',     labelKey: 'settings.sectionPlanSubscription' },
   ]},
   { groupKey: 'settings.groupCustomization', items: [
     { key: 'personnalisation', labelKey: 'settings.sectionCustomization' },
@@ -928,6 +927,263 @@ const MOCK_SESSIONS = [
   { device: 'macOS · Chrome',   location: 'Paris, FR',    current: false, lastKey: 'settings.sessionYesterday' },
 ];
 
+// ── Plan & Abonnement ────────────────────────────────────────────────────────
+
+const PLANS = [
+  {
+    key: 'solo',
+    nameKey: 'settings.planSolo',
+    descKey: 'settings.planSoloDesc',
+    priceMonthly: 0,
+    priceYearly: 0,
+    features: [
+      { key: 'planUsers',    value: '1' },
+      { key: 'planProjects', value: '3' },
+      { key: 'planStorage',  value: '5 Go' },
+      { key: 'planPortal',   included: false },
+      { key: 'planInvoicing',included: false },
+      { key: 'planAI',       included: false },
+    ],
+  },
+  {
+    key: 'studio',
+    nameKey: 'settings.planStudio',
+    descKey: 'settings.planStudioDesc',
+    priceMonthly: 29,
+    priceYearly: 279,
+    popular: true,
+    features: [
+      { key: 'planUsersPlural', value: '5' },
+      { key: 'planProjectsUnlimited' },
+      { key: 'planStorage',  value: '50 Go' },
+      { key: 'planPortal',   included: true },
+      { key: 'planInvoicing',included: true },
+      { key: 'planAI',       included: true },
+    ],
+  },
+  {
+    key: 'agence',
+    nameKey: 'settings.planAgence',
+    descKey: 'settings.planAgenceDesc',
+    priceMonthly: 79,
+    priceYearly: 759,
+    features: [
+      { key: 'planUsersUnlimited' },
+      { key: 'planProjectsUnlimited' },
+      { key: 'planStorage',  value: '500 Go' },
+      { key: 'planPortal',   included: true },
+      { key: 'planInvoicing',included: true },
+      { key: 'planAI',       included: true },
+      { key: 'planWhiteLabel', included: true },
+      { key: 'planPriority', included: true },
+    ],
+  },
+];
+
+const MOCK_INVOICES = [
+  { date: '2026-05-01', amount: '29,00 €', status: 'paid' },
+  { date: '2026-04-01', amount: '29,00 €', status: 'paid' },
+  { date: '2026-03-01', amount: '29,00 €', status: 'paid' },
+];
+
+function PlanSettings() {
+  const { t } = useTranslation();
+  const [billing, setBilling]     = useState<'monthly' | 'yearly'>('monthly');
+  const [currentPlan, setCurrentPlan] = useState('studio');
+  const [confirming, setConfirming]   = useState<string | null>(null);
+
+  const handleSwitch = (planKey: string) => {
+    if (planKey === currentPlan) return;
+    setConfirming(planKey);
+  };
+
+  const confirmSwitch = () => {
+    if (confirming) setCurrentPlan(confirming);
+    setConfirming(null);
+  };
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.planTitle')}</h2>
+      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 28 }}>{t('settings.planDesc')}</p>
+
+      {/* Billing toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+        <div style={{ display: 'flex', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)' }}>
+          {(['monthly', 'yearly'] as const).map(b => (
+            <button key={b} onClick={() => setBilling(b)} style={{
+              padding: '8px 18px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--ff-text)', transition: 'all 0.15s',
+              background: billing === b ? 'var(--accent)' : 'transparent',
+              color: billing === b ? 'var(--on-accent)' : 'var(--text-2)',
+            }}>
+              {t(b === 'monthly' ? 'settings.planToggleMonthly' : 'settings.planToggleYearly')}
+            </button>
+          ))}
+        </div>
+        {billing === 'yearly' && (
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', border: '1px solid rgba(0,210,120,0.25)', borderRadius: 6, padding: '3px 8px' }}>
+            {t('settings.planYearlySaving')}
+          </span>
+        )}
+      </div>
+
+      {/* Plan cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 40 }}>
+        {PLANS.map(plan => {
+          const isCurrent = plan.key === currentPlan;
+          const price = billing === 'monthly' ? plan.priceMonthly : plan.priceYearly;
+          const isFree = price === 0;
+          return (
+            <div key={plan.key} style={{
+              borderRadius: 14, border: `2px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
+              background: isCurrent ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
+              padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 0,
+              position: 'relative', transition: 'border-color 0.2s',
+            }}>
+              {/* Badges */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                {isCurrent && (
+                  <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-accent)', background: 'var(--accent)', borderRadius: 5, padding: '3px 7px' }}>
+                    {t('settings.planCurrentBadge')}
+                  </span>
+                )}
+                {plan.popular && !isCurrent && (
+                  <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-2)', background: 'var(--surface-3)', borderRadius: 5, padding: '3px 7px' }}>
+                    {t('settings.planPopularBadge')}
+                  </span>
+                )}
+              </div>
+
+              <p style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--text)', marginBottom: 4 }}>{t(plan.nameKey)}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)', marginBottom: 18, lineHeight: 1.4 }}>{t(plan.descKey)}</p>
+
+              {/* Price */}
+              <div style={{ marginBottom: 20 }}>
+                {isFree ? (
+                  <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{t('settings.planFree')}</span>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                    <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{price}€</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>
+                      {t(billing === 'monthly' ? 'settings.planMonthly' : 'settings.planYearly')}
+                    </span>
+                  </div>
+                )}
+                {billing === 'yearly' && !isFree && (
+                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{t('settings.planBilledYearly')}</p>
+                )}
+              </div>
+
+              {/* Features */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22, flex: 1 }}>
+                {plan.features.map((f, i) => {
+                  const included = f.included !== false;
+                  const label = f.value ? t(`settings.${f.key}`, { n: f.value }) : t(`settings.${f.key}`);
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{
+                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                        background: included ? 'rgba(0,210,120,0.12)' : 'var(--surface-3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <SFIcon name={included ? 'check' : 'x'} size={9} color={included ? 'var(--ok)' : 'var(--text-3)'} />
+                      </div>
+                      <span style={{ fontSize: 11, color: included ? 'var(--text-2)' : 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* CTA */}
+              {isCurrent ? (
+                <button disabled style={{
+                  width: '100%', padding: '10px', borderRadius: 9, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontWeight: 600,
+                  fontFamily: 'var(--ff-text)', cursor: 'default',
+                }}>
+                  {t('settings.planCurrent')}
+                </button>
+              ) : (
+                <button onClick={() => handleSwitch(plan.key)} style={{
+                  width: '100%', padding: '10px', borderRadius: 9, border: 'none',
+                  background: plan.popular ? 'var(--accent)' : 'var(--surface-3)',
+                  color: plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
+                  fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-text)', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}>
+                  {t('settings.planUpgrade')}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', textAlign: 'center', marginBottom: 40 }}>
+        {t('settings.planCancelAnytime')}
+      </p>
+
+      {/* Payment history */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 6 }}>{t('settings.planHistoryTitle')}</h3>
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18 }}>{t('settings.planHistoryDesc')}</p>
+        {MOCK_INVOICES.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('settings.planHistoryEmpty')}</p>
+        ) : (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '9px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+              {['planHistoryDate', 'planHistoryAmount', 'planHistoryStatus', 'planHistoryDownload'].map(k => (
+                <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(`settings.${k}`)}</span>
+              ))}
+            </div>
+            {MOCK_INVOICES.map((inv, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '11px 16px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>{inv.date}</span>
+                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{inv.amount}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', borderRadius: 5, padding: '3px 8px', display: 'inline-block' }}>
+                  {t(`settings.planHistory${inv.status === 'paid' ? 'Paid' : 'Pending'}`)}
+                </span>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                  <SFIcon name="download" size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Confirm modal */}
+      {confirming && (() => {
+        const plan = PLANS.find(p => p.key === confirming)!;
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}
+            onClick={() => setConfirming(null)}>
+            <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '32px', maxWidth: 380, width: '90%', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+                <SFIcon name="repeat" size={20} color="var(--accent)" />
+              </div>
+              <h3 style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 8 }}>{t('settings.planUpgrade')}</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 24, lineHeight: 1.5 }}>
+                {t(plan.nameKey)} — {billing === 'monthly' ? `${plan.priceMonthly}€/mois` : `${plan.priceYearly}€/an`}
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setConfirming(null)} style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                  Annuler
+                </button>
+                <button onClick={confirmSwitch} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                  Confirmer
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 export function Parametres() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState('infos');
@@ -989,7 +1245,7 @@ export function Parametres() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: activeSection === 'modeles' ? 'hidden' : 'auto', padding: activeSection === 'modeles' ? 0 : 32, position: 'relative' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: 32, position: 'relative' }}>
         {activeSection === 'infos' && (
           <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
@@ -1453,12 +1709,8 @@ export function Parametres() {
             </div>
           </div>
         )}
-        {activeSection === 'modeles' && (
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <Modeles />
-          </div>
-        )}
-        {!['infos', 'team', 'portail', 'facturation', 'modeles', 'profil', 'notifs', 'securite', 'personnalisation', 'integrations'].includes(activeSection) && (
+        {activeSection === 'plan' && <PlanSettings />}
+        {!['infos', 'team', 'portail', 'facturation', 'profil', 'notifs', 'securite', 'personnalisation', 'integrations', 'plan'].includes(activeSection) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
             <SFIcon name="clock" size={24} color="var(--border-2)" />
             <p style={{ color: 'var(--text-3)', fontSize: 14 }}>
