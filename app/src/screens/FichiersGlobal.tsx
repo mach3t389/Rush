@@ -3413,15 +3413,15 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               {/* Type filter pills — masqué dans les vues spéciales */}
               {!isSpecialView && (
                 <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-                  {(['all', 'pdf', 'image', 'video', 'audio', 'doc', 'zip', 'other'] as const).map(t => (
-                    <button key={t} onClick={() => setFilterType(t)} style={{
+                  {(['all', 'pdf', 'image', 'video', 'audio', 'doc', 'zip', 'other'] as const).map(ft => (
+                    <button key={ft} onClick={() => setFilterType(ft)} style={{
                       padding: '4px 12px', borderRadius: 999, fontSize: 11,
-                      border: `1.5px solid ${filterType === t ? 'var(--accent)' : 'var(--border)'}`,
-                      background: filterType === t ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
-                      color: filterType === t ? 'var(--text)' : 'var(--text-3)',
+                      border: `1.5px solid ${filterType === ft ? 'var(--accent)' : 'var(--border)'}`,
+                      background: filterType === ft ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
+                      color: filterType === ft ? 'var(--text)' : 'var(--text-3)',
                       cursor: 'pointer', fontFamily: 'var(--ff-mono)',
                     }}>
-                      {t === 'all' ? 'Tout' : TYPE_META[t]?.label ?? t}
+                      {ft === 'all' ? t('files.filterAll') : t(TYPE_META[ft]?.labelKey ?? ft)}
                     </button>
                   ))}
                 </div>

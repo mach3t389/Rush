@@ -890,6 +890,7 @@
     "nameThisResource": "Give this resource a name",
     "urlPlaceholder": "https://mysite.com",
     "resourceNamePlaceholder": "Resource name…",
+    "filterAll": "All",
     "typeFolder": "Folder",
     "typePdf": "PDF",
     "typeImage": "Image",

@@ -41,9 +41,9 @@ export function ProjectHeaderBar({
     { label: t('projects.tabOverview'),   path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
     { label: t('projects.tabTasks'),      path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
     { label: t('projects.tabCalendar'),   path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
-    { label: t('projects.tabTeam'),       path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
     { label: t('projects.tabFiles'),      path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
     { label: t('projects.tabFinance'),    path: `/projets/${projectId}/finances`,   end: false, badge: 0 },
+    { label: t('projects.tabTeam'),       path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
     { label: t('projects.tabActivity'),   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
   ];
 
