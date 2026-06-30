@@ -1332,15 +1332,28 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                       />
                       {showDot1 && <circle cx={ep1.x} cy={ep1.y} r={3.5} fill={isSel ? 'var(--accent)' : '#60a5fa'} opacity={0.7} />}
                       {showDot2 && <circle cx={ep2.x} cy={ep2.y} r={3.5} fill={isSel ? 'var(--accent)' : '#60a5fa'} opacity={0.7} />}
-                      {isSel && (
-                        <g onClick={e => { e.stopPropagation(); setArrows(p=>p.filter(a=>a.id!==arrow.id)); setSelectedArrow(null); }} style={{ cursor:'pointer' }}>
-                          <circle cx={mx} cy={my} r={9} fill="var(--danger)" opacity={0.9} />
-                          <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={11} fontWeight="bold">×</text>
-                        </g>
-                      )}
                     </g>
                   );
                 })}
+                {/* Bouton supprimer de la flèche sélectionnée — rendu en dernier pour rester
+                    au-dessus des zones de clic des autres flèches qui se croisent */}
+                {selectedArrow && tool === 'select' && (() => {
+                  const arrow = arrows.find(a => a.id === selectedArrow);
+                  if (!arrow) return null;
+                  const ep1 = resolveEp(arrow, 'from');
+                  const ep2 = resolveEp(arrow, 'to');
+                  if (!ep1 || !ep2) return null;
+                  const mx = (ep1.x + ep2.x) / 2;
+                  const my = (ep1.y + ep2.y) / 2;
+                  return (
+                    <g style={{ pointerEvents:'all', cursor:'pointer' }}
+                      onMouseDown={e => { e.stopPropagation(); }}
+                      onClick={e => { e.stopPropagation(); setArrows(p=>p.filter(a=>a.id!==selectedArrow)); setSelectedArrow(null); }}>
+                      <circle cx={mx} cy={my} r={10} fill="var(--danger)" opacity={0.95} />
+                      <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={12} fontWeight="bold" style={{ pointerEvents:'none' }}>×</text>
+                    </g>
+                  );
+                })()}
                 {/* Preview ligne en cours de tracé */}
                 {previewSrc && arrowPreviewPos && (
                   <line x1={previewSrc.x} y1={previewSrc.y} x2={arrowPreviewPos.x} y2={arrowPreviewPos.y}
