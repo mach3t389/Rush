@@ -3526,7 +3526,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         const resource = isRes ? allResources.find(r => r.id === f.resourceId) : undefined;
         const cc = isRes && f.resourceId ? (commentCounts[f.resourceId] ?? 0) : 0;
         const rows: { label: string; value: string; color?: string }[] = [
-          { label: 'Type', value: rm2 ? rm2.label : (f.ext?.toUpperCase() || 'Fichier'), color: rm2?.color },
+          { label: 'Type', value: rm2 ? t(rm2.labelKey) : (f.ext?.toUpperCase() || 'Fichier'), color: rm2?.color },
           ...(resource ? [{ label: 'Statut', value: resource.statusLabel, color: STATUS_COLOR[resource.status] ?? undefined }] : []),
           ...(!isRes && f.size ? [{ label: 'Taille', value: formatFileSize(f.size) }] : []),
           ...(cc > 0 ? [{ label: 'Commentaires', value: String(cc), color: 'var(--accent)' }] : []),
@@ -3541,7 +3541,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                 <FileTypeIcon type={f.type} resourceType={f.resourceType} mediaSubtype={fileMediaSubtype(f)} size={36} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</p>
-                  {rm2 && <p style={{ fontSize: 10, color: rm2.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>{rm2.label}</p>}
+                  {rm2 && <p style={{ fontSize: 10, color: rm2.color, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>{t(rm2.labelKey)}</p>}
                 </div>
                 <button onClick={() => setInfoFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 6, flexShrink: 0 }}>
                   <SFIcon name="x" size={14} />
