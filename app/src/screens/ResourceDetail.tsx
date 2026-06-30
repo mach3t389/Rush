@@ -353,6 +353,7 @@ function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
 function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId, panelTab, setPanelTab, propItems, setPropItems }: ScriptViewProps) {
   const { t } = useTranslation();
   const [newProp, setNewProp] = useState('');
+  const [propSceneFilter, setPropSceneFilter] = useState<string | 'all'>('all');
   const [propSceneOpen, setPropSceneOpen] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [openTypeId, setOpenTypeId] = useState<string | null>(null);
@@ -596,19 +597,31 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             setNewProp('');
             onEdit?.();
           };
+          const filteredProps = propSceneFilter === 'all' ? propItems : propItems.filter(p => p.scene === propSceneFilter);
           return (
             <div style={{ flex:1, overflow:'auto', padding:'10px 10px', display:'flex', flexDirection:'column' }}>
+              {/* Scene filter */}
+              {sceneLabels.length > 0 && (
+                <div style={{ marginBottom:8 }}>
+                  <select value={propSceneFilter} onChange={e => setPropSceneFilter(e.target.value)}
+                    style={{ width:'100%', padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color: propSceneFilter === 'all' ? 'var(--text-3)' : 'var(--text)', fontSize:10, fontFamily:'var(--ff-mono)', outline:'none', colorScheme:'dark', cursor:'pointer' }}>
+                    <option value="all">Toutes les scènes</option>
+                    <option value="__none__">Sans scène</option>
+                    {sceneLabels.map(s => <option key={s} value={s}>{s.length > 38 ? s.slice(0, 38) + '…' : s}</option>)}
+                  </select>
+                </div>
+              )}
               {/* Counter */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10, padding:'0 2px' }}>
                 <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.toBring')}</span>
-                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>{propItems.filter(p => p.toBring).length}/{propItems.length}</span>
+                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>{filteredProps.filter(p => p.toBring).length}/{filteredProps.length}</span>
               </div>
 
-              {propItems.length === 0 && (
-                <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>{t('resourceDetail.noProp')}</p>
+              {filteredProps.length === 0 && (
+                <p style={{ fontSize:11, color:'var(--text-3)', padding:'8px 4px' }}>{propSceneFilter === 'all' ? t('resourceDetail.noProp') : 'Aucun accessoire pour cette scène.'}</p>
               )}
 
-              {propItems.map(p => (
+              {filteredProps.map(p => (
                 <div key={p.id} style={{ marginBottom:6, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 8px' }}>
                   <div style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
                     {/* À apporter */}
@@ -2618,8 +2631,14 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   };
 
   const scrollToAnchor = (anchorId: string) => {
-    const el = editorRef.current?.querySelector(`[data-comment-id="${anchorId}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const el = editorRef.current?.querySelector(`[data-comment-id="${anchorId}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash highlight
+    const prev = el.style.background;
+    el.style.transition = 'background 0s';
+    el.style.background = 'rgba(249,255,0,0.55)';
+    setTimeout(() => { el.style.transition = 'background 0.8s'; el.style.background = prev; }, 600);
   };
 
   const SpeechRecognitionAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
@@ -3059,7 +3078,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               suppressContentEditableWarning
               onInput={handleInput}
               className="doc-editor"
-              style={{ width:595, background:'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? 'none' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', filter: darkPage ? 'invert(1)' : 'none', transition:'filter 0.2s' }}
+              style={{ width:595, background: darkPage ? '#d5d5d5' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? '0 0 0 1px rgba(255,255,255,0.08)' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', filter: darkPage ? 'invert(1)' : 'none', transition:'background 0.2s, filter 0.2s' }}
             />
           </div>
         </div>
