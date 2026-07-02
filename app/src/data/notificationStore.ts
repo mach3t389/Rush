@@ -9,7 +9,7 @@ const STORAGE_KEY = 'sf_notifs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type NotifKind = 'comment' | 'mention' | 'status' | 'annotation' | 'version' | 'approval';
+export type NotifKind = 'comment' | 'mention' | 'status' | 'annotation' | 'version' | 'approval' | 'invitation';
 
 export interface AppNotif {
   id: string;
@@ -20,7 +20,8 @@ export interface AppNotif {
   read: boolean;
   taskId?: string;
   resourceId?: string;
-  projectId: string;
+  projectId?: string;
+  clientId?: string;
 }
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
