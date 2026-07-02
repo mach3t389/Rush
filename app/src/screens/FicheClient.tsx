@@ -49,8 +49,7 @@ const INTERNAL_TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
-function InviteModal({ clientId, existingEmails, onClose, onInvite }: {
-  clientId: string;
+function InviteModal({ existingEmails, onClose, onInvite }: {
   existingEmails: string[];
   onClose: () => void;
   onInvite: (m: ClientMember) => string;
@@ -763,7 +762,6 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
       {showInvite && (
         <InviteModal
-          clientId={clientId}
           existingEmails={members.map(m => m.email.toLowerCase())}
           onClose={() => setShowInvite(false)}
           onInvite={m => {
