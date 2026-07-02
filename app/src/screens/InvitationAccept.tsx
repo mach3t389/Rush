@@ -38,8 +38,12 @@ export function InvitationAccept() {
     const invitation = getInvitation(token);
     if (!invitation) return null;
     const client = findClient(invitation.clientId);
+    if (!client) return null;
     const contact = getClientTeam(invitation.clientId).find(c => c.id === invitation.contactId);
-    if (!client || !contact) return null;
+    // A resolved invitation's contact may no longer exist in the live store
+    // (declined invitations remove the contact) — only a still-pending
+    // invitation needs the contact record to render (name, permissions).
+    if (invitation.outcome === 'pending' && !contact) return null;
     return { invitation, client, contact };
   });
 
@@ -66,29 +70,6 @@ export function InvitationAccept() {
 
   const { invitation, client, contact } = snapshot;
   const studioName = localStorage.getItem(STUDIO_NAME_KEY) ?? 'StudioFlow Production';
-  const perms = contact.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS;
-
-  const accept = () => {
-    setClientTeam(
-      invitation.clientId,
-      getClientTeam(invitation.clientId).map(m => (m.id === contact.id ? { ...m, status: 'active' as const } : m))
-    );
-    resolveInvitation(invitation.token, 'accepted');
-    addNotif({
-      kind: 'invitation',
-      actor: contact.name,
-      text: `a rejoint l'équipe de ${client.name}`,
-      clientId: client.id,
-      timestamp: Date.now(),
-    });
-    setOutcome('accepted');
-  };
-
-  const decline = () => {
-    removeClientTeamMember(invitation.clientId, contact.id);
-    resolveInvitation(invitation.token, 'declined');
-    setOutcome('declined');
-  };
 
   if (outcome === 'accepted') {
     return (
@@ -121,6 +102,47 @@ export function InvitationAccept() {
       </Shell>
     );
   }
+
+  if (!contact) {
+    return (
+      <Shell>
+        <SFIcon name="link-2-off" size={40} color="var(--text-3)" />
+        <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', margin: '20px 0 10px' }}>
+          {t('invitation.invalidTitle')}
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 24 }}>
+          {t('invitation.invalidDesc')}
+        </p>
+        <Link to="/login" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+          {t('invitation.backToLogin')}
+        </Link>
+      </Shell>
+    );
+  }
+
+  const perms = contact.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS;
+
+  const accept = () => {
+    setClientTeam(
+      invitation.clientId,
+      getClientTeam(invitation.clientId).map(m => (m.id === contact.id ? { ...m, status: 'active' as const } : m))
+    );
+    resolveInvitation(invitation.token, 'accepted');
+    addNotif({
+      kind: 'invitation',
+      actor: contact.name,
+      text: `a rejoint l'équipe de ${client.name}`,
+      clientId: client.id,
+      timestamp: Date.now(),
+    });
+    setOutcome('accepted');
+  };
+
+  const decline = () => {
+    removeClientTeamMember(invitation.clientId, contact.id);
+    resolveInvitation(invitation.token, 'declined');
+    setOutcome('declined');
+  };
 
   const permRows: { active: boolean; label: string }[] = [
     { active: perms.approve, label: t('invitation.permApprove') },
