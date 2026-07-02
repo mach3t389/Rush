@@ -242,19 +242,12 @@ function EquipeTab({ clientId }: { clientId: string }) {
   const [members, setMembers] = useState<ClientMember[]>(() => getClientTeam(clientId));
   const [showInvite, setShowInvite] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
-  const [resent, setResent] = useState<string | null>(null);
   const [approverId, setApproverId] = useState<string | null>(() => getStoredApprover(clientId));
 
   const removeMember = (id: string) => {
     removeClientTeamMember(clientId, id);
     setMembers(getClientTeam(clientId));
     if (approverId === id) { setApproverId(null); setStoredApprover(clientId, null); }
-  };
-
-
-  const resendInvite = (id: string) => {
-    setResent(id);
-    setTimeout(() => setResent(null), 2000);
   };
 
   const toggleApprover = (m: ClientMember) => {
@@ -338,6 +331,20 @@ function EquipeTab({ clientId }: { clientId: string }) {
     const [role, setRole] = useState(m.role);
     const [photo, setPhoto] = useState<string | null>(() => { try { return localStorage.getItem(photoKey); } catch { return null; } });
     const [resent, setResent] = useState(false);
+    const [resendLink, setResendLink] = useState<string | null>(null);
+    const [linkCopied, setLinkCopied] = useState(false);
+
+    const handleResend = () => {
+      const invitation = createInvitation(clientId, m.id);
+      setResendLink(getInvitationLink(invitation.token));
+      setResent(true);
+      setTimeout(() => setResent(false), 2000);
+    };
+
+    const copyResendLink = () => {
+      if (!resendLink) return;
+      navigator.clipboard.writeText(resendLink).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); });
+    };
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [activeTab, setActiveTab] = useState<'profil' | 'permissions'>('profil');
     // Studio permissions (internal members only)
@@ -488,12 +495,23 @@ function EquipeTab({ clientId }: { clientId: string }) {
                 )}
 
                 {m.status !== 'active' && (
-                  <button
-                    onClick={() => { resendInvite(m.id); setResent(true); setTimeout(() => setResent(false), 2000); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: resent ? 'rgba(0,200,100,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: resent ? 'var(--ok)' : 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)', transition: 'all 0.2s', width: '100%', textAlign: 'left' }}>
-                    <SFIcon name={resent ? 'check' : 'send'} size={15} color={resent ? 'var(--ok)' : 'var(--text-3)'} />
-                    {resent ? t('client.invitationResent') : t('client.resendInvitation')}
-                  </button>
+                  <>
+                    <button
+                      onClick={handleResend}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: resent ? 'rgba(0,200,100,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: resent ? 'var(--ok)' : 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)', transition: 'all 0.2s', width: '100%', textAlign: 'left' }}>
+                      <SFIcon name={resent ? 'check' : 'send'} size={15} color={resent ? 'var(--ok)' : 'var(--text-3)'} />
+                      {resent ? t('client.invitationResent') : t('client.resendInvitation')}
+                    </button>
+                    {resendLink && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <input readOnly value={resendLink} onFocus={e => e.currentTarget.select()}
+                          style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+                        <SFButton variant={linkCopied ? 'primary' : 'secondary'} icon={linkCopied ? 'check' : 'copy'} onClick={copyResendLink}>
+                          {linkCopied ? t('client.linkCopied') : t('client.copyLink')}
+                        </SFButton>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : m.internal ? (
