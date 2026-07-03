@@ -30,6 +30,7 @@ const KIND_LABEL_KEY: Record<NotifKind, string> = {
   version:    'activity.newVersion',
   approval:   'activity.approval',
   invitation: 'activity.invitation',
+  deliverableApproved: 'activity.deliverableApproved',
 };
 
 import type { Status } from '../types';
@@ -41,6 +42,7 @@ const KIND_STATUS: Record<NotifKind, Status> = {
   version:    'info',
   approval:   'review',
   invitation: 'ok',
+  deliverableApproved: 'ok',
 };
 
 const ACTOR_COLOR: Record<string, string> = {
@@ -120,6 +122,7 @@ function actorSummary(actors: string[], count: number, kind: NotifKind, t: TFunc
     version:    t('activity.verbVersion'),
     approval:   t('activity.verbApproval'),
     invitation: t('activity.verbInvitation'),
+    deliverableApproved: t('activity.verbDeliverableApproved'),
   };
   const verb = verbMap[kind];
   if (actors.length === 1) return t('activity.actorSummaryOne', { actor: actors[0], verb });
@@ -138,6 +141,7 @@ const NOTIF_ICON: Record<NotifKind, { icon: string; color: string; bg: string }>
   version:    { icon: 'cloud-upload',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)' },
   approval:   { icon: 'shield-check',   color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)' },
   invitation: { icon: 'user-plus',      color: '#2a7a8a', bg: 'rgba(42,122,138,0.15)' },
+  deliverableApproved: { icon: 'check-circle', color: 'var(--ok)', bg: 'rgba(0,200,100,0.12)' },
 };
 
 function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {

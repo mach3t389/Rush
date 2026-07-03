@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VIDEO_CORRECTIONS } from '../data/mock';
 import { findProject } from '../data/projectStore';
 import { addNotif } from '../data/notificationStore';
-import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
+import { getDeliverables, updateTask, subscribeStore } from '../data/taskStore';
+import { getDeliverableDisplay } from '../data/deliverableStatus';
+import { SFPill, SFBar, SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoice } from '../data/financeStore';
+import type { Task, DeliverableType } from '../types';
+
+const DELIVERABLE_TYPE_ICON: Record<DeliverableType, string> = {
+  video: 'video', photo: 'image', audio: 'music', document: 'file-text', web: 'globe',
+  graphique: 'pen-tool', service: 'briefcase', produit: 'package-2', autre: 'circle-dashed',
+};
+
+const DELIVERABLE_TYPE_LABEL: Record<DeliverableType, string> = {
+  video: 'overview.delivVideo', photo: 'overview.delivPhoto', audio: 'overview.delivAudio',
+  document: 'overview.delivDocument', web: 'overview.delivWeb', graphique: 'overview.delivGraphic',
+  service: 'overview.delivService', produit: 'overview.delivProduct', autre: 'overview.delivOther',
+};
 
 const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
 
@@ -82,11 +96,12 @@ export function Portail() {
   const navigate = useNavigate();
   const project = findProject(projectId ?? '') ?? findProject('pj1')!;
 
-  const [approved, setApproved] = useState(false);
-  const [requestedCorrections, setRequestedCorrections] = useState(false);
   const [showMessage, setShowMessage] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const [copied, setCopied]         = useState<string | null>(null);
+  const [deliverables, setDeliverables] = useState<Task[]>(() => getDeliverables(project.id).filter(d => d.sharedWithClient));
+
+  useEffect(() => subscribeStore(() => setDeliverables(getDeliverables(project.id).filter(d => d.sharedWithClient))), [project.id]);
 
   const openInvoices = getInvoicesByProject(project.id).filter(i => ['sent', 'viewed', 'overdue'].includes(i.status));
   const paymentMethods = getEnabledPaymentMethods();
@@ -99,31 +114,28 @@ export function Portail() {
     { label: t('portal.phaseDelivery'),       done: currentPhaseIdx >= 3 },
   ];
 
-  const LIVRABLES = [
-    { name: 'Rough Cut Final — V4', version: 'V4', type: t('portal.deliverableTypeVideo'),  status: 'review' as const, label: t('portal.statusInReview'),    date: '8 juin 2025',  pending: true  },
-    { name: 'Scénario V3',          version: 'V3', type: t('portal.deliverableTypeScript'), status: 'ok'     as const, label: t('portal.statusApproved'),    date: '1 juin 2025',  pending: false },
-    { name: 'Rough Cut V3',         version: 'V3', type: t('portal.deliverableTypeVideo'),  status: 'danger'  as const, label: t('portal.statusCorrections'), date: '28 mai 2025',  pending: false },
-    { name: 'Rough Cut V2',         version: 'V2', type: t('portal.deliverableTypeVideo'),  status: 'ok'      as const, label: t('portal.statusApproved'),    date: '20 mai 2025',  pending: false },
-  ];
-  const pendingLivrable = LIVRABLES[0];
+  const pendingDeliverables = deliverables.filter(d => d.status === 'review');
+  const historyDeliverables = deliverables.filter(d => d.status !== 'review');
 
-  const handleApprove = () => {
-    setApproved(true);
+  const handleApprove = (dl: Task) => {
+    updateTask(project.id, dl.id, { status: 'ok', correctionsRequested: false });
     addNotif({
-      kind: 'status',
+      kind: 'deliverableApproved',
       actor: project.clientName,
-      text: `a approuvé le livrable "${pendingLivrable.name}"`,
+      text: `a approuvé le livrable "${dl.title}"`,
+      taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
     });
   };
 
-  const handleCorrections = () => {
-    setRequestedCorrections(true);
+  const handleCorrections = (dl: Task) => {
+    updateTask(project.id, dl.id, { correctionsRequested: true });
     addNotif({
       kind: 'comment',
       actor: project.clientName,
-      text: `a demandé des corrections sur "${pendingLivrable.name}"`,
+      text: `a demandé des corrections sur "${dl.title}"`,
+      taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
     });
@@ -181,96 +193,102 @@ export function Portail() {
         {/* Colonne principale */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Livrable en attente */}
-          {!approved && !requestedCorrections && (
-            <div style={{
-              background: 'var(--surface)', borderRadius: 'var(--radius)',
-              border: '1px solid var(--accent)', padding: 24,
-            }}>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
-                {t('portal.awaitingYourApproval')}
-              </p>
-
-              <div style={{
-                aspectRatio: '16/9', borderRadius: 10,
-                background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 11px), var(--surface-2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: 16, border: '1px solid var(--border)', cursor: 'pointer',
-              }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: '50%',
-                  background: 'rgba(249,255,0,0.12)', border: '1px solid var(--accent)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <SFIcon name="play" size={22} color="var(--accent)" />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-                <div>
-                  <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{pendingLivrable.name}</p>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-                    {pendingLivrable.type} · {pendingLivrable.version} · {t('portal.sharedOn', { date: pendingLivrable.date })}
-                  </p>
-                </div>
-                <SFPill status={pendingLivrable.status} small>{pendingLivrable.label}</SFPill>
-              </div>
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <SFButton variant="primary" icon="check" onClick={handleApprove} style={{ flex: 1, justifyContent: 'center' }}>
-                  {t('portal.approve')}
-                </SFButton>
-                <SFButton variant="secondary" icon="message-circle" onClick={handleCorrections} style={{ flex: 1, justifyContent: 'center' }}>
-                  {t('portal.requestCorrections')}
-                </SFButton>
-              </div>
+          {deliverables.length === 0 ? (
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 32, textAlign: 'center' }}>
+              <SFIcon name="package" size={28} color="var(--text-3)" />
+              <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 12 }}>{t('portal.noDeliverablesShared')}</p>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Livrables en attente d'approbation */}
+              {pendingDeliverables.map(dl => {
+                const typeIcon = DELIVERABLE_TYPE_ICON[dl.deliverableType ?? 'autre'];
+                const typeLabel = t(DELIVERABLE_TYPE_LABEL[dl.deliverableType ?? 'autre']);
+                return (
+                  <div key={dl.id} style={{
+                    background: 'var(--surface)', borderRadius: 'var(--radius)',
+                    border: '1px solid var(--accent)', padding: 24,
+                  }}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
+                      {t('portal.awaitingYourApproval')}
+                    </p>
 
-          {/* Confirmation après action */}
-          {(approved || requestedCorrections) && (
-            <div style={{
-              background: 'var(--surface)', borderRadius: 'var(--radius)',
-              border: `1px solid ${approved ? 'var(--ok)' : 'var(--warn)'}`,
-              padding: 24, display: 'flex', alignItems: 'center', gap: 16,
-            }}>
-              <SFIcon name={approved ? 'check-circle' : 'message-circle'} size={28} color={approved ? 'var(--ok)' : 'var(--warn)'} />
-              <div>
-                <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                  {approved ? t('portal.deliverableApproved') : t('portal.correctionsRequested')}
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                  {approved
-                    ? t('portal.teamNotifiedThanks')
-                    : t('portal.teamNotifiedCorrections')
-                  }
-                </p>
-              </div>
-            </div>
-          )}
+                    <div style={{
+                      aspectRatio: '16/9', borderRadius: 10,
+                      background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 11px), var(--surface-2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 16, border: '1px solid var(--border)',
+                    }}>
+                      <div style={{
+                        width: 52, height: 52, borderRadius: '50%',
+                        background: 'rgba(249,255,0,0.12)', border: '1px solid var(--accent)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <SFIcon name={typeIcon} size={22} color="var(--accent)" />
+                      </div>
+                    </div>
 
-          {/* Historique des livrables */}
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20 }}>
-            <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>{t('portal.deliverableHistory')}</p>
-            {LIVRABLES.slice(1).map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < LIVRABLES.length - 2 ? '1px solid var(--border)' : 'none' }}>
-                <div style={{
-                  width: 48, height: 32, borderRadius: 6, flexShrink: 0,
-                  background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 9px), var(--surface-2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <SFIcon name="film" size={12} color="var(--text-3)" />
+                    <div style={{ marginBottom: 16 }}>
+                      <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{dl.title}</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
+                        {typeLabel} · {t('portal.sharedOn', { date: formatDisplay(dl.dueDate) })}
+                      </p>
+                    </div>
+
+                    {dl.correctionsRequested && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', borderRadius: 8, background: '#a85f3e18', border: '1px solid #a85f3e44' }}>
+                        <SFIcon name="alert-triangle" size={13} color="#a85f3e" />
+                        <span style={{ fontSize: 12, color: '#a85f3e' }}>{t('portal.correctionsRequestedNote')}</span>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <SFButton variant="primary" icon="check" onClick={() => handleApprove(dl)} style={{ flex: 1, justifyContent: 'center' }}>
+                        {t('portal.approve')}
+                      </SFButton>
+                      {!dl.correctionsRequested && (
+                        <SFButton variant="secondary" icon="message-circle" onClick={() => handleCorrections(dl)} style={{ flex: 1, justifyContent: 'center' }}>
+                          {t('portal.requestCorrections')}
+                        </SFButton>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Historique des livrables */}
+              {historyDeliverables.length > 0 && (
+                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20 }}>
+                  <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>{t('portal.deliverableHistory')}</p>
+                  {historyDeliverables.map((item, i) => {
+                    const display = getDeliverableDisplay(item);
+                    const typeIcon = DELIVERABLE_TYPE_ICON[item.deliverableType ?? 'autre'];
+                    const typeLabel = t(DELIVERABLE_TYPE_LABEL[item.deliverableType ?? 'autre']);
+                    return (
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < historyDeliverables.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <div style={{
+                          width: 48, height: 32, borderRadius: 6, flexShrink: 0,
+                          background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 9px), var(--surface-2)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <SFIcon name={typeIcon} size={12} color="var(--text-3)" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: 500, fontSize: 13 }}>{item.title}</p>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
+                            {typeLabel} · {formatDisplay(item.dueDate)}
+                          </p>
+                        </div>
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: display.color, background: `${display.color}18`, border: `1px solid ${display.color}44`, borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap' }}>
+                          {t(display.labelKey)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 500, fontSize: 13 }}>{item.name}</p>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
-                    {item.type} · {item.version} · {item.date}
-                  </p>
-                </div>
-                <SFPill status={item.status} small>{item.label}</SFPill>
-              </div>
-            ))}
-          </div>
+              )}
+            </>
+          )}
 
           {/* Avancement */}
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20 }}>
