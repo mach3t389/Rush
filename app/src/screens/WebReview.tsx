@@ -4,6 +4,7 @@ import { SFIcon, SFButton, SFPill, SFAvatar } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { PROJECTS } from '../data/mock';
+import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 
 interface Annotation {
   id: string;
@@ -16,13 +17,14 @@ interface Annotation {
   authorColor: string;
   resolved: boolean;
   createdAt: string;
+  replies: RevisionReply[];
 }
 
 // Demo annotations stored in page-pixel coordinates
 const DEMO_ANNOTATIONS: Annotation[] = [
-  { id: 'a1', x: 300, y: 150, text: 'Le logo est trop petit sur mobile. Agrandir à 48px minimum.', author: 'Léa Marchand', authorInitials: 'LM', authorColor: '#3b4f8f', resolved: false, createdAt: 'Il y a 2h' },
-  { id: 'a2', x: 650, y: 380, text: 'Cette section manque de contraste. Tester avec un fond plus foncé.', author: 'Marc Dupont', authorInitials: 'MD', authorColor: '#1a6b4a', resolved: false, createdAt: 'Il y a 45 min' },
-  { id: 'a3', x: 420, y: 620, text: 'CTA bien placé, approuvé.', author: 'Léa Marchand', authorInitials: 'LM', authorColor: '#3b4f8f', resolved: true, createdAt: 'Hier' },
+  { id: 'a1', x: 300, y: 150, text: 'Le logo est trop petit sur mobile. Agrandir à 48px minimum.', author: 'Léa Marchand', authorInitials: 'LM', authorColor: '#3b4f8f', resolved: false, createdAt: 'Il y a 2h', replies: [] },
+  { id: 'a2', x: 650, y: 380, text: 'Cette section manque de contraste. Tester avec un fond plus foncé.', author: 'Marc Dupont', authorInitials: 'MD', authorColor: '#1a6b4a', resolved: false, createdAt: 'Il y a 45 min', replies: [] },
+  { id: 'a3', x: 420, y: 620, text: 'CTA bien placé, approuvé.', author: 'Léa Marchand', authorInitials: 'LM', authorColor: '#3b4f8f', resolved: true, createdAt: 'Hier', replies: [] },
 ];
 
 function Pin({
@@ -196,6 +198,7 @@ export function WebReview() {
       authorColor: '#5b3ea8',
       resolved: false,
       createdAt: 'À l\'instant',
+      replies: [],
     };
     setAnnotations(prev => [...prev, ann]);
     setSelectedId(ann.id);
@@ -212,6 +215,19 @@ export function WebReview() {
     setAnnotations(prev => prev.filter(a => a.id !== id));
     if (selectedId === id) setSelectedId(null);
   };
+
+  const replyToAnnotation = (id: string, text: string) => {
+    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, replies: [...a.replies, { id: `wr${Date.now()}`, author: { id: 'moi', name: 'Moi', initials: 'MO', avatarColor: '#5b3ea8', role: '' }, text }] } : a));
+  };
+
+  const toRevisionComment = (ann: Annotation, index: number): RevisionComment => ({
+    id: ann.id,
+    author: { id: `wa-${index}`, name: ann.author, initials: ann.authorInitials, avatarColor: ann.authorColor, role: '' },
+    text: ann.text,
+    status: ann.resolved ? 'resolved' : 'open',
+    annotation: { x: ann.x, y: ann.y },
+    replies: ann.replies,
+  });
 
   const visible = annotations.filter(a => showResolved || !a.resolved);
   const openCount = annotations.filter(a => !a.resolved).length;
@@ -450,77 +466,17 @@ export function WebReview() {
           </div>
 
           {sidebarTab === 'annotations' && (
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-              <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {annotations.length} annotations
-                </span>
-                <button
-                  onClick={() => setShowResolved(o => !o)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', fontSize: 10, color: showResolved ? 'var(--text-2)' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                >
-                  <SFIcon name={showResolved ? 'eye' : 'eye-off'} size={11} />
-                  Résolues
-                </button>
-              </div>
-
-              {visible.length === 0 && (
-                <div style={{ padding: '32px 20px', textAlign: 'center' }}>
-                  <SFIcon name="message-circle" size={28} color="var(--text-3)" />
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10, lineHeight: 1.5 }}>Aucune annotation visible.<br />Cliquez sur "Annoter" pour en ajouter.</p>
-                </div>
-              )}
-
-              {visible.map((ann, i) => (
-                <div
-                  key={ann.id}
-                  onClick={() => setSelectedId(selectedId === ann.id ? null : ann.id)}
-                  style={{
-                    padding: '12px 14px', borderBottom: '1px solid var(--border)',
-                    cursor: 'pointer',
-                    background: selectedId === ann.id ? 'var(--surface-2)' : 'transparent',
-                    transition: 'background 0.12s',
-                    opacity: ann.resolved ? 0.6 : 1,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{
-                      width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                      background: ann.resolved ? 'rgba(34,197,94,0.15)' : 'rgba(249,200,0,0.15)',
-                      border: `1.5px solid ${ann.resolved ? 'rgba(34,197,94,0.6)' : 'rgba(249,200,0,0.6)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontFamily: 'var(--ff-mono)', fontSize: 9, fontWeight: 700,
-                      color: ann.resolved ? 'rgba(34,197,94,0.9)' : 'rgba(249,200,0,0.95)',
-                    }}>
-                      {ann.resolved ? '✓' : i + 1}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, marginBottom: 6, textDecoration: ann.resolved ? 'line-through' : 'none' }}>{ann.text}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <SFAvatar initials={ann.authorInitials} bg={ann.authorColor} size={16} />
-                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>{ann.author} · {ann.createdAt}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {selectedId === ann.id && (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingLeft: 28 }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); toggleResolved(ann.id); }}
-                        style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid var(--border-2)', background: 'var(--surface-3)', color: ann.resolved ? 'var(--ok)' : 'var(--text-2)', fontSize: 10, fontFamily: 'var(--ff-mono)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                      >
-                        {ann.resolved ? 'Réouvrir' : 'Résoudre'}
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); deleteAnnotation(ann.id); }}
-                        style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border-2)', background: 'var(--surface-3)', color: 'var(--danger)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        <SFIcon name="trash-2" size={12} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <RevisionCommentSidebar
+              comments={visible.map((ann, i) => toRevisionComment(ann, i))}
+              activeId={selectedId}
+              onActivate={setSelectedId}
+              onResolve={toggleResolved}
+              onReply={replyToAnnotation}
+              onDelete={deleteAnnotation}
+              pendingAnnotation={false}
+              onCancelPending={() => {}}
+              embedded
+            />
           )}
 
           {sidebarTab === 'info' && (
