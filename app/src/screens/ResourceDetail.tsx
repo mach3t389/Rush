@@ -7,6 +7,7 @@ import { getResources, updateResource, subscribeResources } from '../data/resour
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
+import { RevisionCommentSidebar, type RevisionComment } from '../components/RevisionComments';
 import type { Resource, ResourceType, Status, User } from '../types';
 import { VideoReviewBody } from './VideoReview';
 
@@ -282,70 +283,38 @@ interface ScriptViewProps extends EditableProps {
 
 // ── Script comment sidebar ────────────────────────────────────────────────────
 
-interface ScriptComment { id: string; author: string; text: string; ts: number; resolved: boolean; }
+function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string }) {
+  const [comments, setComments] = useState<RevisionComment[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
-function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
-  const { t } = useTranslation();
-  const [comments, setComments] = useState<ScriptComment[]>([]);
-  const [draft, setDraft] = useState('');
-
-  const addComment = () => {
-    if (!draft.trim()) return;
-    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: t('resourceDetail.me'), text: draft.trim(), ts: Date.now(), resolved: false }]);
-    setDraft('');
+  const handleAdd = (text: string) => {
+    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [] }]);
+  };
+  const handleResolve = (id: string) => {
+    setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
+  };
+  const handleReply = (id: string, text: string) => {
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author: USERS.lea, text }] } : c));
+  };
+  const handleDelete = (id: string) => {
+    setComments(prev => prev.filter(c => c.id !== id));
+    if (activeId === id) setActiveId(null);
   };
 
-  const openComments = comments.filter(c => !c.resolved);
-  const resolvedComments = comments.filter(c => c.resolved);
-
   return (
-    <div id="rd-comments-panel" style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
-      <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', flexShrink:0, display:'flex', alignItems:'center', gap:6 }}>
-        <SFIcon name="message-circle" size={12} color="var(--text-3)" />
-        <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('activity.comments')}</p>
-        {openComments.length > 0 && <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', fontWeight:700 }}>{openComments.length}</span>}
-      </div>
-      <div style={{ flex:1, overflow:'auto', padding:'10px', display:'flex', flexDirection:'column', gap:6 }}>
-        {comments.length === 0 && (
-          <p style={{ fontSize:11, color:'var(--text-3)', padding:'4px 2px' }}>{t('resourceDetail.noComment')}</p>
-        )}
-        {openComments.map(c => (
-          <div key={c.id} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
-              <SFAvatar user={{ name: c.author } as any} size={18} />
-              <span style={{ fontSize:11, fontWeight:600, color:'var(--text-2)', flex:1 }}>{c.author}</span>
-              <button
-                onClick={() => setComments(prev => prev.map(cc => cc.id === c.id ? { ...cc, resolved: true } : cc))}
-                title={t('resourceDetail.resolve')}
-                style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', padding:2, borderRadius:4, display:'flex', alignItems:'center' }}
-              >
-                <SFIcon name="check" size={11} />
-              </button>
-            </div>
-            <p style={{ fontSize:12, color:'var(--text)', lineHeight:1.5 }}>{c.text}</p>
-          </div>
-        ))}
-        {resolvedComments.length > 0 && (
-          <p style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginTop:4 }}>{t('resourceDetail.resolvedCount', { count: resolvedComments.length })}</p>
-        )}
-      </div>
-      <div style={{ padding:'10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
-        <textarea
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } }}
-          placeholder={t('tasks.addComment')}
-          rows={2}
-          style={{ width:'100%', resize:'none', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, padding:'7px 9px', fontSize:12, color:'var(--text)', outline:'none', fontFamily:'var(--ff-text)', boxSizing:'border-box', colorScheme:'dark' }}
-        />
-        <button
-          onClick={addComment}
-          disabled={!draft.trim()}
-          style={{ marginTop:6, width:'100%', padding:'6px 0', borderRadius:7, border:'none', background: draft.trim() ? 'var(--accent)' : 'var(--surface-3)', color: draft.trim() ? '#000' : 'var(--text-3)', fontSize:12, fontWeight:600, cursor: draft.trim() ? 'pointer' : 'default', fontFamily:'var(--ff-text)', transition:'background 0.15s' }}
-        >
-          {t('taskPanel.send')}
-        </button>
-      </div>
+    <div id="rd-comments-panel" style={{ width:280, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
+      <RevisionCommentSidebar
+        comments={comments}
+        activeId={activeId}
+        onActivate={setActiveId}
+        onAdd={handleAdd}
+        onResolve={handleResolve}
+        onReply={handleReply}
+        onDelete={handleDelete}
+        pendingAnnotation={false}
+        onCancelPending={() => {}}
+        embedded
+      />
     </div>
   );
 }
