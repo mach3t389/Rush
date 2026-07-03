@@ -117,6 +117,7 @@
     "newVersion": "NOUVELLE VERSION",
     "approval": "APPROBATION",
     "invitation": "INVITATION",
+    "deliverableApproved": "LIVRABLE APPROUVÉ",
     "unreadCount": "Non lues ({{count}})",
     "markAllRead": "Tout marquer comme lu",
     "noNotifications": "Aucune notification",
@@ -134,6 +135,7 @@
     "verbVersion": "a uploadé une nouvelle version",
     "verbApproval": "a demandé une approbation",
     "verbInvitation": "a rejoint l'équipe",
+    "verbDeliverableApproved": "a approuvé le livrable",
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} et {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"
@@ -1463,6 +1465,7 @@
     "sharedOn": "Partagé le {{date}}",
     "approve": "Approuver",
     "requestCorrections": "Demander des corrections",
+    "correctionsRequestedNote": "Corrections demandées — en attente d'une nouvelle version du studio.",
     "deliverableHistory": "Historique des livrables",
     "noDeliverablesShared": "Aucun livrable partagé pour le moment.",
     "projectProgress": "Avancement du projet",

@@ -120,7 +120,7 @@ export function Portail() {
   const handleApprove = (dl: Task) => {
     updateTask(project.id, dl.id, { status: 'ok', correctionsRequested: false });
     addNotif({
-      kind: 'approval',
+      kind: 'deliverableApproved',
       actor: project.clientName,
       text: `a approuvé le livrable "${dl.title}"`,
       taskId: dl.id,
@@ -235,13 +235,22 @@ export function Portail() {
                       </p>
                     </div>
 
+                    {dl.correctionsRequested && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', borderRadius: 8, background: '#a85f3e18', border: '1px solid #a85f3e44' }}>
+                        <SFIcon name="alert-triangle" size={13} color="#a85f3e" />
+                        <span style={{ fontSize: 12, color: '#a85f3e' }}>{t('portal.correctionsRequestedNote')}</span>
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: 10 }}>
                       <SFButton variant="primary" icon="check" onClick={() => handleApprove(dl)} style={{ flex: 1, justifyContent: 'center' }}>
                         {t('portal.approve')}
                       </SFButton>
-                      <SFButton variant="secondary" icon="message-circle" onClick={() => handleCorrections(dl)} style={{ flex: 1, justifyContent: 'center' }}>
-                        {t('portal.requestCorrections')}
-                      </SFButton>
+                      {!dl.correctionsRequested && (
+                        <SFButton variant="secondary" icon="message-circle" onClick={() => handleCorrections(dl)} style={{ flex: 1, justifyContent: 'center' }}>
+                          {t('portal.requestCorrections')}
+                        </SFButton>
+                      )}
                     </div>
                   </div>
                 );
