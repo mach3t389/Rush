@@ -1,13 +1,13 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
-import { RevisionCommentSidebar, type RevisionComment } from '../components/RevisionComments';
+import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 import type { Resource, ResourceType, Status, User } from '../types';
 import { VideoReviewBody } from './VideoReview';
 
@@ -2417,7 +2417,7 @@ const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; body
   },
 };
 
-interface DocComment { id: string; author: User; text: string; time: string; anchorId?: string; excerpt?: string; }
+interface DocComment { id: string; author: User; text: string; time: string; anchorId?: string; excerpt?: string; status: 'open' | 'resolved'; replies: RevisionReply[]; }
 
 interface CustomStyle { id: string; name: string; fontFamily: string; fontSize: number; fontWeight: string; fontStyle: string; color: string; }
 
@@ -2470,8 +2470,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const aiBottomRef = useRef<HTMLDivElement>(null);
   const [comments, setComments] = useState<DocComment[]>(
     persisted?.comments ?? (persistKey ? [] : [
-      { id:'dc1', author:USERS.sarah,  text:'La section budget nécessite une mise à jour avec les derniers chiffres.', time:'Il y a 1h' },
-      { id:'dc2', author:USERS.thomas, text:'Peut-on ajouter une section sur la stratégie sociale ?', time:'Il y a 3h' },
+      { id:'dc1', author:USERS.sarah,  text:'La section budget nécessite une mise à jour avec les derniers chiffres.', time:'Il y a 1h', status:'open', replies:[] },
+      { id:'dc2', author:USERS.thomas, text:'Peut-on ajouter une section sur la stratégie sociale ?', time:'Il y a 3h', status:'open', replies:[] },
     ])
   );
 
@@ -2579,14 +2579,27 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     setTimeout(() => newCommentRef.current?.focus(), 50);
   };
 
-  const submitComment = () => {
-    if (!newCommentText.trim() || !pendingAnchorId) return;
+  const submitComment = (textOverride?: string) => {
+    const text = (textOverride ?? newCommentText).trim();
+    if (!text || !pendingAnchorId) return;
     const mark = editorRef.current?.querySelector(`[data-comment-id="${pendingAnchorId}"]`) as HTMLElement | null;
     const excerpt = mark?.innerText?.slice(0, 80) ?? '';
-    setComments(p => [...p, { id: pendingAnchorId, author: USERS.lea, text: newCommentText.trim(), time: 'À l\'instant', anchorId: pendingAnchorId, excerpt }]);
+    setComments(p => [...p, { id: pendingAnchorId, author: USERS.lea, text, time: 'À l\'instant', anchorId: pendingAnchorId, excerpt, status: 'open', replies: [] }]);
     setNewCommentText('');
     setPendingAnchorId(null);
     onEdit?.();
+  };
+
+  const resolveComment = (id: string) => {
+    setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
+  };
+
+  const replyToComment = (id: string, text: string) => {
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `dr${Date.now()}`, author: USERS.lea, text }] } : c));
+  };
+
+  const deleteComment = (id: string) => {
+    setComments(prev => prev.filter(c => c.id !== id));
   };
 
   const cancelComment = () => {
@@ -3077,42 +3090,18 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
           {/* Comments tab */}
           {rightTab==='comments' && (
-            <>
-              <div style={{ flex:1, overflow:'auto', padding:12, display:'flex', flexDirection:'column', gap:10 }}>
-                {comments.map(c => (
-                  <div key={c.id} onClick={() => c.anchorId && scrollToAnchor(c.anchorId)}
-                    style={{ display:'flex', gap:8, cursor: c.anchorId ? 'pointer' : 'default', opacity: pendingAnchorId && pendingAnchorId !== c.anchorId ? 0.5 : 1 }}>
-                    <SFAvatar initials={c.author.initials} bg={c.author.avatarColor} size={24} />
-                    <div style={{ flex:1, background: pendingAnchorId===c.anchorId ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', borderRadius:9, padding:'8px 10px', border: pendingAnchorId===c.anchorId ? '1px solid rgba(249,255,0,0.3)' : '1px solid transparent' }}>
-                      {c.excerpt && (
-                        <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', borderLeft:'2px solid rgba(249,255,0,0.4)', paddingLeft:6, marginBottom:5, lineHeight:1.4, fontStyle:'italic' }}>
-                          "{c.excerpt}{c.excerpt.length >= 80 ? '…' : ''}"
-                        </p>
-                      )}
-                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                        <span style={{ fontSize:11, fontWeight:600 }}>{c.author.name.split(' ')[0]}</span>
-                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{c.time}</span>
-                      </div>
-                      <p style={{ fontSize:12, color:'var(--text-2)', lineHeight:1.5 }}>{c.text}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {pendingAnchorId && (
-                <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border)', background:'var(--surface-2)' }}>
-                  <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>{t('resourceDetail.commentsPanel.newCommentLabel')}</div>
-                  <textarea ref={newCommentRef} value={newCommentText} onChange={e=>setNewCommentText(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submitComment(); } if(e.key==='Escape') cancelComment(); }}
-                    placeholder={t('resourceDetail.commentsPanel.commentPlaceholder')} rows={3}
-                    style={{ width:'100%', padding:'7px 10px', borderRadius:9, border:'1px solid var(--border-2)', background:'var(--surface)', color:'var(--text)', fontSize:12, outline:'none', fontFamily:'var(--ff-text)', colorScheme:'dark' as any, resize:'none', boxSizing:'border-box' }}
-                  />
-                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                    <button onClick={submitComment} style={{ flex:1, padding:'6px', borderRadius:7, border:'none', cursor:'pointer', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.commentsPanel.submitButton')}</button>
-                    <button onClick={cancelComment} style={{ padding:'6px 10px', borderRadius:7, border:'1px solid var(--border-2)', cursor:'pointer', background:'transparent', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-text)' }}>{t('resourceDetail.commentsPanel.cancelButton')}</button>
-                  </div>
-                </div>
-              )}
-            </>
+            <RevisionCommentSidebar
+              comments={comments}
+              activeId={pendingAnchorId}
+              onActivate={id => { if (id) scrollToAnchor(id); }}
+              onResolve={resolveComment}
+              onReply={replyToComment}
+              onDelete={deleteComment}
+              pendingAnnotation={!!pendingAnchorId}
+              onCancelPending={cancelComment}
+              onAdd={pendingAnchorId ? text => submitComment(text) : undefined}
+              embedded
+            />
           )}
 
           {/* AI tab */}
