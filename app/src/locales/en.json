@@ -116,6 +116,7 @@
     "annotation": "ANNOTATION",
     "newVersion": "NEW VERSION",
     "approval": "APPROVAL",
+    "invitation": "INVITATION",
     "unreadCount": "Unread ({{count}})",
     "markAllRead": "Mark all as read",
     "noNotifications": "No notifications",
@@ -132,6 +133,7 @@
     "verbAnnotationPlural": "added {{count}} annotations",
     "verbVersion": "uploaded a new version",
     "verbApproval": "requested an approval",
+    "verbInvitation": "joined the team",
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} and {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"

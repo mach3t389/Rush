@@ -39,6 +39,7 @@ function seedNotifs(): AppNotif[] {
     annotation: ['a ajouté une annotation'],
     version:    ['a uploadé une nouvelle version'],
     approval:   ['a demandé une approbation'],
+    invitation: [], // jamais généré par ce seed — les notifs d'invitation viennent d'InvitationAccept.tsx
   };
   const actors = ['Sarah Martin', 'Thomas Robert', 'Julie Bernard', 'Marc Dufour'];
 
