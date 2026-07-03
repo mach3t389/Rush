@@ -90,6 +90,8 @@ export interface Task {
   deliverableQuantity?: number;
   deliverableNote?: string;
   linkedResources?: string[];
+  sharedWithClient?: boolean;      // livrable visible dans le portail client
+  correctionsRequested?: boolean;  // le client a demandé des changements sur ce livrable
   sectionLabel?: string;
   mySection?: string;
 }

@@ -54,7 +54,16 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
   const sections = getSections(projectId);
   const next = sections.map(s => ({
     ...s,
-    tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+    tasks: s.tasks.map(t => {
+      if (t.id !== taskId) return t;
+      // Changing a deliverable's status is how the studio acknowledges client
+      // feedback — clear correctionsRequested unless the caller is explicitly
+      // setting it as part of this same patch.
+      const resolvedPatch = (patch.status !== undefined && patch.correctionsRequested === undefined)
+        ? { ...patch, correctionsRequested: false }
+        : patch;
+      return { ...t, ...resolvedPatch };
+    }),
   }));
   setSections(projectId, next);
 }
