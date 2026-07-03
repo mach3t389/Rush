@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFIcon, SFButton, SFPill, SFAvatar } from '../components/ui';
+import { SFIcon, SFButton, SFPill } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { PROJECTS } from '../data/mock';
@@ -125,7 +125,7 @@ export function WebReview() {
   // pendingPos stored in page-pixel coordinates
   const [pendingPos, setPendingPos] = useState<{ x: number; y: number } | null>(null);
   const [draftText, setDraftText] = useState('');
-  const [showResolved, setShowResolved] = useState(true);
+  const [showResolved] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'annotations' | 'info'>('annotations');
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
