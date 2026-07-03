@@ -283,6 +283,7 @@ interface ScriptViewProps extends EditableProps {
 
 // ── Script comment sidebar ────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept in the signature for API compatibility with all 5 call sites; comments are not persisted per resourceId (see design spec)
 function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string }) {
   const [comments, setComments] = useState<RevisionComment[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
