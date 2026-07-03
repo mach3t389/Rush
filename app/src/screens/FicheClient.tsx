@@ -17,6 +17,7 @@ import { FileBrowser } from './FichiersGlobal';
 
 import { getClientContacts, type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, loadPortalPermissions, savePortalPermissions, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
+import { createInvitation, getInvitationLink } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, updateInvoice, removeInvoice, sendInvoice as doSendInvoice, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
@@ -48,22 +49,39 @@ const INTERNAL_TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m: ClientMember) => void }) {
+function InviteModal({ existingEmails, onClose, onInvite }: {
+  existingEmails: string[];
+  onClose: () => void;
+  onInvite: (m: ClientMember) => string;
+}) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [portalPerms, setPortalPerms] = useState<PortalPermissions>({ ...DEFAULT_PORTAL_PERMISSIONS });
+  const [error, setError] = useState('');
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const activePreset = matchPortalPreset(portalPerms);
 
   const submit = () => {
     if (!name.trim() || !email.trim()) return;
+    const lower = email.trim().toLowerCase();
+    if (existingEmails.includes(lower)) {
+      setError(t('client.emailAlreadyInvited'));
+      return;
+    }
     const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     const id = `ext${Date.now()}`;
-    onInvite({ id, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f', portalPermissions: portalPerms });
+    const generatedLink = onInvite({ id, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f', portalPermissions: portalPerms });
     savePortalPermissions(id, portalPerms);
-    onClose();
+    setLink(generatedLink);
+  };
+
+  const copyLink = () => {
+    if (!link) return;
+    navigator.clipboard.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
   return (
@@ -75,47 +93,67 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (m:
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
-        {/* Champs */}
-        {[
-          { label: t('client.fullNameRequired'), val: name, set: setName, placeholder: t('client.fullNamePlaceholder') },
-          { label: t('client.emailRequired'), val: email, set: setEmail, placeholder: t('client.emailContactPlaceholder') },
-          { label: t('client.rolePosition'), val: role, set: setRole, placeholder: t('client.rolePositionPlaceholder') },
-        ].map(f => (
-          <div key={f.label} style={{ marginBottom: 14 }}>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
-            <input value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
-          </div>
-        ))}
+        {link ? (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14, lineHeight: 1.5 }}>
+              {t('client.invitationLinkHint')}
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+              <input readOnly value={link} onFocus={e => e.currentTarget.select()}
+                style={{ flex: 1, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+              <SFButton variant={copied ? 'primary' : 'secondary'} icon={copied ? 'check' : 'copy'} onClick={copyLink}>
+                {copied ? t('client.linkCopied') : t('client.copyLink')}
+              </SFButton>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <SFButton variant="primary" onClick={onClose}>{t('client.close')}</SFButton>
+            </div>
+          </>
+        ) : (
+          <>
+            {[
+              { label: t('client.fullNameRequired'), val: name, set: setName, placeholder: t('client.fullNamePlaceholder') },
+              { label: t('client.emailRequired'), val: email, set: setEmail, placeholder: t('client.emailContactPlaceholder') },
+              { label: t('client.rolePosition'), val: role, set: setRole, placeholder: t('client.rolePositionPlaceholder') },
+            ].map(f => (
+              <div key={f.label} style={{ marginBottom: 14 }}>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
+                <input value={f.val} onChange={e => { f.set(e.target.value); setError(''); }} placeholder={f.placeholder}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
+              </div>
+            ))}
 
-        {/* Accès portail */}
-        <div style={{ height: 1, background: 'var(--border)', margin: '6px 0 16px' }} />
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('client.portalAccess')}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-          {PORTAL_PRESETS.map(preset => {
-            const active = activePreset === preset.key;
-            return (
-              <button key={preset.key} onClick={() => setPortalPerms({ ...preset.perms })}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)', transition: 'all 0.12s' }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{t(preset.labelKey)}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(preset.descKey)}</p>
-                </div>
-                <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+            {error && <p style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
 
-        <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
-          {t('client.inviteHint')}
-        </p>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
-          <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>{t('client.sendInvitation')}</SFButton>
-        </div>
+            <div style={{ height: 1, background: 'var(--border)', margin: '6px 0 16px' }} />
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('client.portalAccess')}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+              {PORTAL_PRESETS.map(preset => {
+                const active = activePreset === preset.key;
+                return (
+                  <button key={preset.key} onClick={() => setPortalPerms({ ...preset.perms })}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)', transition: 'all 0.12s' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{t(preset.labelKey)}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(preset.descKey)}</p>
+                    </div>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
+              {t('client.inviteHint')}
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+              <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>{t('client.sendInvitation')}</SFButton>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -203,19 +241,12 @@ function EquipeTab({ clientId }: { clientId: string }) {
   const [members, setMembers] = useState<ClientMember[]>(() => getClientTeam(clientId));
   const [showInvite, setShowInvite] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
-  const [resent, setResent] = useState<string | null>(null);
   const [approverId, setApproverId] = useState<string | null>(() => getStoredApprover(clientId));
 
   const removeMember = (id: string) => {
     removeClientTeamMember(clientId, id);
     setMembers(getClientTeam(clientId));
     if (approverId === id) { setApproverId(null); setStoredApprover(clientId, null); }
-  };
-
-
-  const resendInvite = (id: string) => {
-    setResent(id);
-    setTimeout(() => setResent(null), 2000);
   };
 
   const toggleApprover = (m: ClientMember) => {
@@ -299,6 +330,20 @@ function EquipeTab({ clientId }: { clientId: string }) {
     const [role, setRole] = useState(m.role);
     const [photo, setPhoto] = useState<string | null>(() => { try { return localStorage.getItem(photoKey); } catch { return null; } });
     const [resent, setResent] = useState(false);
+    const [resendLink, setResendLink] = useState<string | null>(null);
+    const [linkCopied, setLinkCopied] = useState(false);
+
+    const handleResend = () => {
+      const invitation = createInvitation(clientId, m.id);
+      setResendLink(getInvitationLink(invitation.token));
+      setResent(true);
+      setTimeout(() => setResent(false), 2000);
+    };
+
+    const copyResendLink = () => {
+      if (!resendLink) return;
+      navigator.clipboard.writeText(resendLink).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); });
+    };
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [activeTab, setActiveTab] = useState<'profil' | 'permissions'>('profil');
     // Studio permissions (internal members only)
@@ -449,12 +494,23 @@ function EquipeTab({ clientId }: { clientId: string }) {
                 )}
 
                 {m.status !== 'active' && (
-                  <button
-                    onClick={() => { resendInvite(m.id); setResent(true); setTimeout(() => setResent(false), 2000); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: resent ? 'rgba(0,200,100,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: resent ? 'var(--ok)' : 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)', transition: 'all 0.2s', width: '100%', textAlign: 'left' }}>
-                    <SFIcon name={resent ? 'check' : 'send'} size={15} color={resent ? 'var(--ok)' : 'var(--text-3)'} />
-                    {resent ? t('client.invitationResent') : t('client.resendInvitation')}
-                  </button>
+                  <>
+                    <button
+                      onClick={handleResend}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: resent ? 'rgba(0,200,100,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: resent ? 'var(--ok)' : 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)', transition: 'all 0.2s', width: '100%', textAlign: 'left' }}>
+                      <SFIcon name={resent ? 'check' : 'send'} size={15} color={resent ? 'var(--ok)' : 'var(--text-3)'} />
+                      {resent ? t('client.invitationResent') : t('client.resendInvitation')}
+                    </button>
+                    {resendLink && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <input readOnly value={resendLink} onFocus={e => e.currentTarget.select()}
+                          style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+                        <SFButton variant={linkCopied ? 'primary' : 'secondary'} icon={linkCopied ? 'check' : 'copy'} onClick={copyResendLink}>
+                          {linkCopied ? t('client.linkCopied') : t('client.copyLink')}
+                        </SFButton>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : m.internal ? (
@@ -704,7 +760,18 @@ function EquipeTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={m => { addClientTeamMember(clientId, m); setMembers(getClientTeam(clientId)); }} />}
+      {showInvite && (
+        <InviteModal
+          existingEmails={members.map(m => m.email.toLowerCase())}
+          onClose={() => setShowInvite(false)}
+          onInvite={m => {
+            addClientTeamMember(clientId, m);
+            setMembers(getClientTeam(clientId));
+            const invitation = createInvitation(clientId, m.id);
+            return getInvitationLink(invitation.token);
+          }}
+        />
+      )}
       {showAssign && <AssignInternalModal existingIds={internalIds} onClose={() => setShowAssign(false)} onAssign={ms => { ms.forEach(m => addClientTeamMember(clientId, m)); setMembers(getClientTeam(clientId)); }} />}
       {panelMember && (
         <MemberEditPanel

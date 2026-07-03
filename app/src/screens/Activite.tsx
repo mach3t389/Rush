@@ -29,6 +29,7 @@ const KIND_LABEL_KEY: Record<NotifKind, string> = {
   annotation: 'activity.annotation',
   version:    'activity.newVersion',
   approval:   'activity.approval',
+  invitation: 'activity.invitation',
 };
 
 import type { Status } from '../types';
@@ -39,6 +40,7 @@ const KIND_STATUS: Record<NotifKind, Status> = {
   annotation: 'info',
   version:    'info',
   approval:   'review',
+  invitation: 'ok',
 };
 
 const ACTOR_COLOR: Record<string, string> = {
@@ -63,7 +65,7 @@ interface NotifGroup {
   unread: boolean;
   taskId?: string;
   resourceId?: string;
-  projectId: string;
+  projectId?: string;
 }
 
 function groupNotifs(notifs: AppNotif[]): NotifGroup[] {
@@ -117,6 +119,7 @@ function actorSummary(actors: string[], count: number, kind: NotifKind, t: TFunc
     annotation: count > 1 ? t('activity.verbAnnotationPlural', { count }) : t('activity.verbAnnotation'),
     version:    t('activity.verbVersion'),
     approval:   t('activity.verbApproval'),
+    invitation: t('activity.verbInvitation'),
   };
   const verb = verbMap[kind];
   if (actors.length === 1) return t('activity.actorSummaryOne', { actor: actors[0], verb });
@@ -134,6 +137,7 @@ const NOTIF_ICON: Record<NotifKind, { icon: string; color: string; bg: string }>
   annotation: { icon: 'pen-line',       color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)' },
   version:    { icon: 'cloud-upload',   color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)' },
   approval:   { icon: 'shield-check',   color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)' },
+  invitation: { icon: 'user-plus',      color: '#2a7a8a', bg: 'rgba(42,122,138,0.15)' },
 };
 
 function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {

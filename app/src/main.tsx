@@ -13,6 +13,7 @@ import { Projets } from './screens/Projets';
 import { Travail } from './screens/Travail';
 import { VideoReview } from './screens/VideoReview';
 import { Portail } from './screens/Portail';
+import { InvitationAccept } from './screens/InvitationAccept';
 import { Clients } from './screens/Clients';
 import { FicheClient } from './screens/FicheClient';
 import { CalendrierGlobal } from './screens/CalendrierGlobal';
@@ -51,6 +52,9 @@ const router = createBrowserRouter([
 
   // Portail client — sans sidebar (route standalone)
   { path: '/portail/:projectId', element: <Portail /> },
+
+  // Invitation contact client — sans sidebar, accessible sans compte (route standalone)
+  { path: '/invitation/:token', element: <InvitationAccept /> },
 
   {
     path: '/',
