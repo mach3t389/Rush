@@ -830,8 +830,6 @@
     "deliverableInReview": "In review",
     "deliverableOverdue": "Overdue",
     "deliverableCorrectionsRequested": "Corrections requested",
-    "shareWithClient": "Share with client",
-    "unshareWithClient": "Remove from client portal",
     "description": "Description",
     "linkedResources": "Linked resources",
     "link": "Link",
