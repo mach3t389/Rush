@@ -6,6 +6,7 @@ import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { ACTIVITY, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, subscribeStore, getSections } from '../data/taskStore';
+import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
@@ -64,14 +65,6 @@ const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }
   { value: '2.35:1', label: '2.35:1',      ratio: '2.35/1' },
   { value: 'custom', label: 'Perso.',      ratio: '4/3'    },
 ];
-
-const DELIVERABLE_STATUS: Record<string, { labelKey:string; color:string; icon:string }> = {
-  warn:   { labelKey:'overview.deliverableToDeliver', color:'var(--text-3)', icon:'clock'        },
-  info:   { labelKey:'overview.deliverableInProgress', color:'var(--info)',  icon:'loader'       },
-  ok:     { labelKey:'overview.deliverableApproved',  color:'var(--ok)',     icon:'check-circle' },
-  review: { labelKey:'overview.deliverableInReview',  color:'var(--review)', icon:'eye'          },
-  danger: { labelKey:'overview.deliverableOverdue',   color:'var(--danger)', icon:'alert-circle' },
-};
 
 const MOCK_DOCS = [
   { id:'d1', icon:'file-text', name:'Brief créatif client',        meta:'PDF · 2.4 Mo',  date:'3 mai 2025'   },
@@ -628,7 +621,7 @@ export function TravailOverview() {
             )}
 
             {deliverables.map((dl) => {
-              const st = DELIVERABLE_STATUS[dl.status] ?? DELIVERABLE_STATUS['warn'];
+              const st = getDeliverableDisplay(dl);
               const fmt = FORMAT_OPTIONS.find(f => f.value === dl.format);
               const dlType = DELIVERABLE_TYPES.find(dt => dt.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
               const isPickerOpen = formatPickerOpen === dl.id;
@@ -717,6 +710,13 @@ export function TravailOverview() {
                         </>
                       )}
                     </div>
+
+                    {/* Bouton partager avec le client */}
+                    <button onClick={e => { e.stopPropagation(); updateTask(project.id, dl.id, { sharedWithClient: !dl.sharedWithClient }); }}
+                      title={dl.sharedWithClient ? t('overview.unshareWithClient') : t('overview.shareWithClient')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, background: dl.sharedWithClient ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${dl.sharedWithClient ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: dl.sharedWithClient ? 'var(--accent)' : 'var(--text-3)', flexShrink: 0 }}>
+                      <SFIcon name={dl.sharedWithClient ? 'eye' : 'eye-off'} size={12} color={dl.sharedWithClient ? 'var(--accent)' : 'var(--text-3)'} />
+                    </button>
                   </div>
 
                   {/* Type — clickable dropdown */}
@@ -791,7 +791,7 @@ export function TravailOverview() {
                   <SFAvatar initials={dl.assignee?.initials ?? '?'} bg={dl.assignee?.avatarColor ?? '#555'} size={24} />
 
                   {/* Statut */}
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color }}>{st.label}</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color }}>{t(st.labelKey)}</span>
 
                   {/* Actions */}
                   <button
