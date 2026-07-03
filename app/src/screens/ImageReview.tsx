@@ -8,6 +8,8 @@ import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
+import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
+import { setFileContent, getFileContent } from '../data/fileContentStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
@@ -21,7 +23,15 @@ interface MockImage {
   id: string;
   label: string;
   bg: string;
+  fileId?: string; // référence fileContentStore pour les images uploadées
   aspect: string; // CSS aspect-ratio
+}
+
+// Résout l'URL affichable d'une image uploadée (fileContentStore), sinon undefined
+// (les images de seed n'ont pas de fileId et gardent leur `bg` littéral en fallback).
+function resolveImageSrc(img: MockImage): string | undefined {
+  if (!img.fileId) return undefined;
+  return getFileContent(img.fileId) ?? undefined;
 }
 
 interface LocalRound {
@@ -44,6 +54,12 @@ const STATUS_LABEL: Record<Status, string> = {
   ok: 'Approuvé', warn: 'À réviser', danger: 'Bloqué',
   info: 'En cours', review: 'En révision', neutral: 'En attente',
 };
+
+interface ImageReviewContent {
+  rounds?: LocalRound[];
+  activeRound?: string;
+  comments?: RevisionComment[];
+}
 
 // ── Grid layout helpers ───────────────────────────────────────────────────────
 
@@ -81,15 +97,16 @@ function ImageViewer({
   drawing: boolean;
   onPlace: (x: number, y: number) => void;
 }) {
+  const src = resolveImageSrc(image);
   return (
     <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', userSelect: 'none' }}>
       {/* Placeholder image */}
       <div style={{
         aspectRatio: image.aspect, width: '100%', position: 'relative',
-        background: image.bg.startsWith('blob:') || image.bg.startsWith('data:') ? 'var(--surface-2)' : image.bg,
+        background: src ? 'var(--surface-2)' : image.bg,
       }}>
-        {image.bg.startsWith('blob:') || image.bg.startsWith('data:') ? (
-          <img src={image.bg} alt={image.label} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', position: 'absolute', inset: 0 }} />
+        {src ? (
+          <img src={src} alt={image.label} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', position: 'absolute', inset: 0 }} />
         ) : (
           <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
             <SFIcon name="image" size={32} color="rgba(255,255,255,0.2)" />
@@ -118,6 +135,8 @@ export function ImageReview() {
   const resources = getResources();
   const resource = resources.find(r => r.id === resourceId);
 
+  const persisted = resourceId ? getResourceContent<ImageReviewContent>(resourceId) : undefined;
+
   const [localTitle, setLocalTitle] = useState(resource?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(resource?.title ?? '');
@@ -136,11 +155,11 @@ export function ImageReview() {
     setEditingDesc(false);
   };
 
-  const [rounds, setRounds] = useState<LocalRound[]>(SEED_ROUNDS);
-  const [activeRound, setActiveRound] = useState(SEED_ROUNDS[SEED_ROUNDS.length - 1].v);
+  const [rounds, setRounds] = useState<LocalRound[]>(persisted?.rounds ?? SEED_ROUNDS);
+  const [activeRound, setActiveRound] = useState(persisted?.activeRound ?? SEED_ROUNDS[SEED_ROUNDS.length - 1].v);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'gallery' | 'single'>('gallery');
-  const [comments, setComments] = useState<RevisionComment[]>([]);
+  const [comments, setComments] = useState<RevisionComment[]>(persisted?.comments ?? []);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [pendingAnno, setPendingAnno] = useState<RevisionAnnotation | null>(null);
@@ -157,16 +176,41 @@ export function ImageReview() {
   const dropImagesToActive = (files: File[]) => {
     const imgs = files.filter(f => f.type.startsWith('image/'));
     if (!imgs.length) return;
-    const newImages: MockImage[] = imgs.map((f, i) => ({
-      id: `upload-${Date.now()}-${i}`,
-      label: f.name.replace(/\.[^.]+$/, ''),
-      bg: URL.createObjectURL(f),
-      aspect: '4/3',
-    }));
+    const newImages: MockImage[] = imgs.map((f, i) => {
+      const fileId = `img-${resourceId}-${Date.now()}-${i}`;
+      setFileContent(fileId, f);
+      return {
+        id: `upload-${Date.now()}-${i}`,
+        label: f.name.replace(/\.[^.]+$/, ''),
+        bg: 'var(--surface-2)',
+        fileId,
+        aspect: '4/3',
+      };
+    });
     setRounds(prev => prev.map(r => r.v === activeRound ? { ...r, images: [...r.images, ...newImages] } : r));
   };
 
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
+
+  // ── Persistance du contenu de révision par ressource ───────────────────────
+  const irPersistTimer = useRef<number | null>(null);
+  const irMounted = useRef(false);
+  const irSnapshotRef = useRef<ImageReviewContent | null>(null);
+  useEffect(() => {
+    const snapshot: ImageReviewContent = { rounds, activeRound, comments };
+    irSnapshotRef.current = snapshot;
+    if (!resourceId) return;
+    if (!irMounted.current) { irMounted.current = true; return; } // ne pas écrire au montage
+    if (irPersistTimer.current) clearTimeout(irPersistTimer.current);
+    irPersistTimer.current = window.setTimeout(() => setResourceContent(resourceId, snapshot), 400);
+  }, [resourceId, rounds, activeRound, comments]);
+  // Flush la dernière modification en attente au démontage.
+  useEffect(() => () => {
+    if (resourceId && irPersistTimer.current && irSnapshotRef.current) {
+      clearTimeout(irPersistTimer.current);
+      setResourceContent(resourceId, irSnapshotRef.current);
+    }
+  }, [resourceId]);
 
   const round = rounds.find(r => r.v === activeRound) ?? rounds[rounds.length - 1];
   const selectedImage = round.images.find(img => img.id === selectedImageId) ?? round.images[0];
@@ -181,13 +225,17 @@ export function ImageReview() {
   };
 
   const addFilesToRound = (targetRound: string) => {
-    const newImages: MockImage[] = pendingFiles.map((f, i) => ({
-      id: `upload-${Date.now()}-${i}`,
-      label: f.name.replace(/\.[^.]+$/, ''),
-      // Use real object URL so uploaded images render
-      bg: URL.createObjectURL(f),
-      aspect: '4/3',
-    }));
+    const newImages: MockImage[] = pendingFiles.map((f, i) => {
+      const fileId = `img-${resourceId}-${Date.now()}-${i}`;
+      setFileContent(fileId, f);
+      return {
+        id: `upload-${Date.now()}-${i}`,
+        label: f.name.replace(/\.[^.]+$/, ''),
+        bg: 'var(--surface-2)',
+        fileId,
+        aspect: '4/3',
+      };
+    });
     setRounds(prev => prev.map(r => r.v === targetRound
       ? { ...r, images: [...r.images, ...newImages] }
       : r
@@ -199,12 +247,17 @@ export function ImageReview() {
   const addFilesAsNewRound = () => {
     const next = `R${rounds.length + 1}`;
     const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    const newImages: MockImage[] = pendingFiles.map((f, i) => ({
-      id: `upload-${Date.now()}-${i}`,
-      label: f.name.replace(/\.[^.]+$/, ''),
-      bg: URL.createObjectURL(f),
-      aspect: '4/3',
-    }));
+    const newImages: MockImage[] = pendingFiles.map((f, i) => {
+      const fileId = `img-${resourceId}-${Date.now()}-${i}`;
+      setFileContent(fileId, f);
+      return {
+        id: `upload-${Date.now()}-${i}`,
+        label: f.name.replace(/\.[^.]+$/, ''),
+        bg: 'var(--surface-2)',
+        fileId,
+        aspect: '4/3',
+      };
+    });
     setRounds(prev => [...prev, {
       v: next, label: `Ronde ${rounds.length + 1}`, date: today,
       author: USERS.lea, status: 'review', images: newImages,
@@ -467,8 +520,8 @@ export function ImageReview() {
                       >
                         {/* Fill the grid cell completely */}
                         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                          {img.bg.startsWith('blob:') || img.bg.startsWith('data:') ? (
-                            <img src={img.bg} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          {resolveImageSrc(img) ? (
+                            <img src={resolveImageSrc(img)} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                           ) : (
                             <div style={{ width: '100%', height: '100%', background: img.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <SFIcon name="image" size={28} color="rgba(255,255,255,0.15)" />
