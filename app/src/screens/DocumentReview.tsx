@@ -5,6 +5,7 @@ import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
+import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
@@ -80,6 +81,13 @@ const INITIAL_ROUNDS: DocRound[] = [
 function fmtSize(bytes: number) {
   if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} Mo`;
   return `${Math.round(bytes / 1e3)} Ko`;
+}
+
+interface DocumentReviewContent {
+  rounds?: DocRound[];
+  activeRound?: string;
+  comments?: RevisionComment[];
+  currentPage?: number;
 }
 
 // ── Upload modal ───────────────────────────────────────────────────────────────
@@ -186,6 +194,8 @@ export function DocumentReview() {
   const { resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resource = getResources().find(r => r.id === resourceId);
 
+  const persisted = resourceId ? getResourceContent<DocumentReviewContent>(resourceId) : undefined;
+
   const [localTitle, setLocalTitle] = useState(resource?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(resource?.title ?? '');
@@ -204,12 +214,12 @@ export function DocumentReview() {
     setEditingDesc(false);
   };
 
-  const [rounds, setRounds] = useState<DocRound[]>(INITIAL_ROUNDS);
-  const [activeRound, setActiveRound] = useState(INITIAL_ROUNDS[INITIAL_ROUNDS.length - 1].v);
+  const [rounds, setRounds] = useState<DocRound[]>(persisted?.rounds ?? INITIAL_ROUNDS);
+  const [activeRound, setActiveRound] = useState(persisted?.activeRound ?? INITIAL_ROUNDS[INITIAL_ROUNDS.length - 1].v);
   const [isDocDragging, setIsDocDragging] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(persisted?.currentPage ?? 1);
   const [viewMode, setViewMode] = useState<'page' | 'scroll'>('page');
-  const [comments, setComments] = useState<RevisionComment[]>([]);
+  const [comments, setComments] = useState<RevisionComment[]>(persisted?.comments ?? []);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [pendingAnno, setPendingAnno] = useState<RevisionAnnotation | null>(null);
@@ -234,6 +244,26 @@ export function DocumentReview() {
   const aiMessagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);
+
+  // ── Persistance du contenu de révision par ressource ───────────────────────
+  const drPersistTimer = useRef<number | null>(null);
+  const drMounted = useRef(false);
+  const drSnapshotRef = useRef<DocumentReviewContent | null>(null);
+  useEffect(() => {
+    const snapshot: DocumentReviewContent = { rounds, activeRound, comments, currentPage };
+    drSnapshotRef.current = snapshot;
+    if (!resourceId) return;
+    if (!drMounted.current) { drMounted.current = true; return; } // ne pas écrire au montage
+    if (drPersistTimer.current) clearTimeout(drPersistTimer.current);
+    drPersistTimer.current = window.setTimeout(() => setResourceContent(resourceId, snapshot), 400);
+  }, [resourceId, rounds, activeRound, comments, currentPage]);
+  // Flush la dernière modification en attente au démontage.
+  useEffect(() => () => {
+    if (resourceId && drPersistTimer.current && drSnapshotRef.current) {
+      clearTimeout(drPersistTimer.current);
+      setResourceContent(resourceId, drSnapshotRef.current);
+    }
+  }, [resourceId]);
 
   const pages = DOC_PAGES;
   const totalPages = pages.length;
