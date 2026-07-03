@@ -3,6 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFButton, SFIcon } from './ui';
 import { USERS } from '../data/mock';
 
+const TEAM = Object.values(USERS);
+
+function renderMentions(text: string) {
+  return text.split(/(@\S+)/g).map((part, i) =>
+    part.startsWith('@')
+      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
+      : part
+  );
+}
+
 // ── Shared types ──────────────────────────────────────────────────────────────
 
 export interface RevisionAnnotation {
@@ -26,6 +36,7 @@ export interface RevisionComment {
   annotation?: RevisionAnnotation;
   replies: RevisionReply[];
   contextLabel?: string; // e.g. "Page 2" or "Photo 3"
+  excerpt?: string; // quoted source text the comment is anchored to (e.g. a text selection)
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -135,6 +146,8 @@ function CommentCard({
   const { t } = useTranslation();
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
+  const [replyMentionQuery, setReplyMentionQuery] = useState<string | null>(null);
+  const [replyMentionRect, setReplyMentionRect] = useState<DOMRect | null>(null);
   const color = comment.annotation ? annoColor(index) : 'var(--text-3)';
   const resolved = comment.status === 'resolved';
 
@@ -144,6 +157,19 @@ function CommentCard({
     onReply(t);
     setReplyText('');
     setShowReply(false);
+    setReplyMentionQuery(null);
+  };
+
+  const handleReplyChange = (val: string, el: HTMLInputElement | null) => {
+    setReplyText(val);
+    const m = val.match(/@(\w*)$/);
+    if (m) { setReplyMentionQuery(m[1]); if (el) setReplyMentionRect(el.getBoundingClientRect()); }
+    else setReplyMentionQuery(null);
+  };
+
+  const pickReplyMention = (name: string) => {
+    setReplyText(prev => prev.replace(/@\w*$/, `@${name} `));
+    setReplyMentionQuery(null);
   };
 
   return (
@@ -200,7 +226,12 @@ function CommentCard({
         )}
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45, margin: '0 0 10px' }}>{comment.text}</p>
+      {comment.excerpt && (
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', borderLeft: '2px solid rgba(249,255,0,0.4)', paddingLeft: 6, marginBottom: 5, lineHeight: 1.4, fontStyle: 'italic' }}>
+          "{comment.excerpt}{comment.excerpt.length >= 80 ? '…' : ''}"
+        </p>
+      )}
+      <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45, margin: '0 0 10px' }}>{renderMentions(comment.text)}</p>
 
       {/* Replies */}
       {comment.replies.length > 0 && (
@@ -210,7 +241,7 @@ function CommentCard({
               <SFAvatar name={r.author.name} initials={r.author.initials} color={r.author.avatarColor} size={16} />
               <div>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{r.author.name} </span>
-                <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{r.text}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{renderMentions(r.text)}</span>
               </div>
             </div>
           ))}
@@ -235,12 +266,25 @@ function CommentCard({
       </div>
 
       {showReply && (
-        <div style={{ marginTop: 8, display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+        <div style={{ marginTop: 8, display: 'flex', gap: 6, position: 'relative' }} onClick={e => e.stopPropagation()}>
+          {replyMentionQuery !== null && (
+            <div style={{ position: 'fixed', bottom: replyMentionRect ? window.innerHeight - replyMentionRect.top + 4 : 80, left: replyMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+              {TEAM.filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
+                <button key={u.id} onMouseDown={e => { e.preventDefault(); pickReplyMention(u.name); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: u.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'white', fontWeight: 700, flexShrink: 0 }}>{u.initials}</span>
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          )}
           <input
             autoFocus
             value={replyText}
-            onChange={e => setReplyText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') submitReply(); if (e.key === 'Escape') setShowReply(false); }}
+            onChange={e => handleReplyChange(e.target.value, e.target)}
+            onKeyDown={e => { if (e.key === 'Enter' && replyMentionQuery === null) submitReply(); if (e.key === 'Escape') setShowReply(false); }}
             placeholder={t('review.replyShort')}
             style={{ flex: 1, padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
           />
@@ -271,20 +315,21 @@ export function RevisionCommentSidebar({
   comments: RevisionComment[];
   activeId: string | null;
   onActivate: (id: string | null) => void;
-  onAdd: (text: string) => void;
+  onAdd?: (text: string) => void;
   onResolve: (id: string) => void;
   onReply: (id: string, text: string) => void;
   onDelete?: (id: string) => void;
   pendingAnnotation: boolean;
   onCancelPending: () => void;
-  drawing: boolean;
-  onToggleDrawing: () => void;
+  drawing?: boolean;
+  onToggleDrawing?: () => void;
   contextLabel?: string;
   embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const [newText, setNewText] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
+  const [addMentionQuery, setAddMentionQuery] = useState<string | null>(null);
 
   const filtered = comments.filter(c =>
     filter === 'all' ? true : c.status === filter
@@ -293,9 +338,22 @@ export function RevisionCommentSidebar({
 
   const submit = () => {
     const t = newText.trim();
-    if (!t) return;
+    if (!t || !onAdd) return;
     onAdd(t);
     setNewText('');
+    setAddMentionQuery(null);
+  };
+
+  const handleAddChange = (val: string) => {
+    setNewText(val);
+    const m = val.match(/@(\w*)$/);
+    if (m) setAddMentionQuery(m[1]);
+    else setAddMentionQuery(null);
+  };
+
+  const pickAddMention = (name: string) => {
+    setNewText(prev => prev.replace(/@\w*$/, `@${name} `));
+    setAddMentionQuery(null);
   };
 
   return (
@@ -310,21 +368,23 @@ export function RevisionCommentSidebar({
               <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', background: 'var(--accent)', color: 'var(--on-accent)', padding: '2px 6px', borderRadius: 10 }}>{openCount}</span>
             )}
           </div>
-          <button
-            onClick={onToggleDrawing}
-            title={drawing ? t('review.cancelAnnotation') : t('review.placeAnnotation')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7,
-              border: `1px solid ${drawing ? 'var(--accent)' : 'var(--border-2)'}`,
-              background: drawing ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--surface-2)',
-              color: drawing ? 'var(--accent)' : 'var(--text-2)',
-              fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 500,
-              transition: 'all 0.12s',
-            }}
-          >
-            <SFIcon name="map-pin" size={12}  />
-            {drawing ? t('review.clickOnMedia') : t('review.annotate')}
-          </button>
+          {onToggleDrawing && (
+            <button
+              onClick={onToggleDrawing}
+              title={drawing ? t('review.cancelAnnotation') : t('review.placeAnnotation')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7,
+                border: `1px solid ${drawing ? 'var(--accent)' : 'var(--border-2)'}`,
+                background: drawing ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--surface-2)',
+                color: drawing ? 'var(--accent)' : 'var(--text-2)',
+                fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 500,
+                transition: 'all 0.12s',
+              }}
+            >
+              <SFIcon name="map-pin" size={12}  />
+              {drawing ? t('review.clickOnMedia') : t('review.annotate')}
+            </button>
+          )}
         </div>
 
         {/* Filter pills */}
@@ -397,13 +457,26 @@ export function RevisionCommentSidebar({
       </div>
 
       {/* Quick add (no annotation) */}
-      {!pendingAnnotation && (
+      {!pendingAnnotation && onAdd && (
         <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
+            {addMentionQuery !== null && (
+              <div style={{ position: 'absolute', bottom: 'calc(100% + 4px)', left: 0, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                {TEAM.filter(u => u.name.toLowerCase().includes(addMentionQuery.toLowerCase())).map(u => (
+                  <button key={u.id} onMouseDown={e => { e.preventDefault(); pickAddMention(u.name); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                    <span style={{ width: 22, height: 22, borderRadius: '50%', background: u.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'white', fontWeight: 700, flexShrink: 0 }}>{u.initials}</span>
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            )}
             <input
               value={newText}
-              onChange={e => setNewText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+              onChange={e => handleAddChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && addMentionQuery === null) submit(); }}
               placeholder={t('review.addCommentMention')}
               style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
             />
