@@ -139,7 +139,7 @@ export function Pricing() {
         </div>
       </header>
 
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 24px 96px' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 24px' }}>
 
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <div style={{ textAlign: 'center', padding: '72px 0 56px' }}>
@@ -510,27 +510,6 @@ export function Pricing() {
           </Link>
         </div>
 
-      </div>
-
-      {/* ── Barre de prix fixe ───────────────────────────────────────── */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60,
-        borderTop: '1px solid var(--border)', background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap', rowGap: 8,
-        padding: '14px 24px',
-      }}>
-        <span style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
-          {t('pricing.calcBarSummary', { plan: t(calcPlanData.nameKey), seats: calcSeats, storage: calcStorageLabel })}
-          {' → '}
-          <strong style={{ color: 'var(--accent)', fontSize: 15 }}>{calcTotal} $</strong>
-          {' '}{t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA
-        </span>
-        <Link to="/register" style={{
-          padding: '8px 20px', borderRadius: 9, background: 'var(--accent)', color: 'var(--on-accent)',
-          fontSize: 13, fontWeight: 700, fontFamily: 'var(--ff-text)', textDecoration: 'none', whiteSpace: 'nowrap',
-        }}>
-          {t('pricing.calcBarCta')}
-        </Link>
       </div>
     </div>
   );

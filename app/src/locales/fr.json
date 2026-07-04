@@ -2200,8 +2200,6 @@
     "calcBreakdownSeats": "Membres additionnels",
     "calcBreakdownStorage": "Stockage additionnel",
     "calcBreakdownTotal": "Total",
-    "calcBarSummary": "{{plan}} · {{seats}} membres · {{storage}}",
-    "calcBarCta": "Commencer",
     "selfHostTitle": "Vous préférez héberger vous-même ?",
     "selfHostDesc": "Gardez le contrôle total de vos données. Installez Rush sur votre propre serveur — même un Raspberry Pi — au lieu de payer un abonnement cloud.",
     "selfHostLicenseTitle": "Licence auto-hébergée",
