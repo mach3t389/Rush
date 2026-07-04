@@ -4,4 +4,5 @@ export { SFButton } from './SFButton';
 export { SFCard } from './SFCard';
 export { SFAvatar, SFAvatarGroup } from './SFAvatar';
 export { SFBar } from './SFBar';
+export { SFModal } from './SFModal';
 export { DatePickerDropdown, TimePickerDropdown, TimeButton, TaskDatePopover, toYMD, parseYMD, formatDisplay, fmtTaskDate, isOverdue, dueDateColor, TODAY_DP, FR_MONTHS } from './DatePicker';
