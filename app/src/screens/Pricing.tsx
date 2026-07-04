@@ -19,6 +19,16 @@ const STORAGE_BLOCKS = [
   { label: '+1 To',  priceM: 50, priceY: 480 },
 ];
 
+const STORAGE_TOTALS = ['50 Go', '100 Go', '250 Go', '550 Go', '1 050 Go']; // aligné index-à-index avec STORAGE_BLOCKS
+
+function planTotal(plan: typeof PLANS[number], seats: number, storageIdx: number, billing: 'monthly' | 'yearly') {
+  const base = billing === 'monthly' ? plan.priceM : plan.priceY;
+  const seatPrice = billing === 'monthly' ? plan.seatPriceM : plan.seatPriceY;
+  const extraSeats = Math.max(0, seats - plan.includedSeats);
+  const storagePrice = billing === 'monthly' ? STORAGE_BLOCKS[storageIdx].priceM : STORAGE_BLOCKS[storageIdx].priceY;
+  return base + extraSeats * seatPrice + storagePrice;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Check({ ok }: { ok: boolean }) {
@@ -38,23 +48,69 @@ function CellValue({ v }: { v: boolean | string }) {
   return <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>{v}</span>;
 }
 
+function Stepper({ label, onDec, onInc, disableDec, disableInc, editable, value, min, max, onChangeValue }: {
+  label: string; onDec: () => void; onInc: () => void; disableDec: boolean; disableInc: boolean;
+  editable?: boolean; value?: number; min?: number; max?: number; onChangeValue?: (n: number) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button onClick={onDec} disabled={disableDec} style={{
+        width: 20, height: 20, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)',
+        cursor: disableDec ? 'default' : 'pointer', opacity: disableDec ? 0.4 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+      }}>
+        <SFIcon name="minus" size={10} color="var(--text-2)" />
+      </button>
+      {editable ? (
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          onChange={e => {
+            const parsed = parseInt(e.target.value, 10);
+            if (Number.isNaN(parsed)) return;
+            onChangeValue?.(Math.min(max ?? parsed, Math.max(min ?? parsed, parsed)));
+          }}
+          style={{
+            width: 44, textAlign: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)',
+            color: 'var(--text)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 0',
+          }}
+        />
+      ) : (
+        <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)', minWidth: 52, textAlign: 'center' }}>{label}</span>
+      )}
+      <button onClick={onInc} disabled={disableInc} style={{
+        width: 20, height: 20, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)',
+        cursor: disableInc ? 'default' : 'pointer', opacity: disableInc ? 0.4 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+      }}>
+        <SFIcon name="plus" size={10} color="var(--text-2)" />
+      </button>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function Pricing() {
   const { t } = useTranslation();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaq, setOpenFaq]  = useState<number | null>(null);
+  const [studioSeats, setStudioSeats] = useState(2);
+  const [studioStorageIdx, setStudioStorageIdx] = useState(0);
+  const [agenceSeats, setAgenceSeats] = useState(2);
+  const [agenceStorageIdx, setAgenceStorageIdx] = useState(0);
 
-  const COMPARE_SECTIONS = [
-    {
-      title: t('pricing.sectionProjects'),
-      rows: [
-        { label: t('pricing.featProjects'), values: ['3', t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featMembers'),  values: [t('pricing.included2'), t('pricing.included2'), t('pricing.included2')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featGuests'),   values: [t('pricing.unlimited'), t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featStorage'),  values: ['5 Go', '50 Go', '50 Go'] as [string|boolean, string|boolean, string|boolean] },
-      ],
-    },
+  function headerPriceLabel(plan: typeof PLANS[number]) {
+    if (plan.key === 'gratuit') return t('settings.planFree');
+    const seats = plan.key === 'studio' ? studioSeats : agenceSeats;
+    const storageIdx = plan.key === 'studio' ? studioStorageIdx : agenceStorageIdx;
+    const total = planTotal(plan, seats, storageIdx, billing);
+    return `${total} $/${billing === 'monthly' ? 'mois' : 'an'}`;
+  }
+
+  const OTHER_SECTIONS = [
     {
       title: t('pricing.sectionPortal'),
       rows: [
@@ -257,17 +313,105 @@ export function Pricing() {
                 }}>
                   <p style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--ff-display)', color: plan.popular ? 'var(--accent)' : 'var(--text)', marginBottom: 2 }}>{t(plan.nameKey)}</p>
                   <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-                    {billing === 'monthly' ? plan.priceM === 0 ? t('settings.planFree') : `${plan.priceM} $/mois` : plan.priceY === 0 ? t('settings.planFree') : `${plan.priceY} $/an`}
+                    {headerPriceLabel(plan)}
                   </p>
                 </div>
               ))}
             </div>
 
+            {/* Section Projets & équipe (interactive) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '9px 20px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent)' }}>{t('pricing.sectionProjects')}</span>
+              </div>
+              {[0, 1, 2].map(i => <div key={i} style={{ ...colStyle(i), padding: '9px 8px' }} />)}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featProjects')}</span>
+              </div>
+              {['3', t('pricing.unlimited'), t('pricing.unlimited')].map((v, i) => (
+                <div key={i} style={{ ...colStyle(i), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CellValue v={v} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featMembers')}</span>
+              </div>
+              <div style={{ ...colStyle(0), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CellValue v={t('pricing.included2')} />
+              </div>
+              <div style={{ ...colStyle(1), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Stepper
+                  editable value={studioSeats} min={2} max={50}
+                  label={String(studioSeats)}
+                  onChangeValue={setStudioSeats}
+                  onDec={() => setStudioSeats(s => Math.max(2, s - 1))}
+                  onInc={() => setStudioSeats(s => Math.min(50, s + 1))}
+                  disableDec={studioSeats <= 2}
+                  disableInc={studioSeats >= 50}
+                />
+              </div>
+              <div style={{ ...colStyle(2), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Stepper
+                  editable value={agenceSeats} min={2} max={50}
+                  label={String(agenceSeats)}
+                  onChangeValue={setAgenceSeats}
+                  onDec={() => setAgenceSeats(s => Math.max(2, s - 1))}
+                  onInc={() => setAgenceSeats(s => Math.min(50, s + 1))}
+                  disableDec={agenceSeats <= 2}
+                  disableInc={agenceSeats >= 50}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featGuests')}</span>
+              </div>
+              {[t('pricing.unlimited'), t('pricing.unlimited'), t('pricing.unlimited')].map((v, i) => (
+                <div key={i} style={{ ...colStyle(i), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CellValue v={v} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featStorage')}</span>
+              </div>
+              <div style={{ ...colStyle(0), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CellValue v="5 Go" />
+              </div>
+              <div style={{ ...colStyle(1), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Stepper
+                  label={STORAGE_TOTALS[studioStorageIdx]}
+                  onDec={() => setStudioStorageIdx(i => Math.max(0, i - 1))}
+                  onInc={() => setStudioStorageIdx(i => Math.min(STORAGE_TOTALS.length - 1, i + 1))}
+                  disableDec={studioStorageIdx <= 0}
+                  disableInc={studioStorageIdx >= STORAGE_TOTALS.length - 1}
+                />
+              </div>
+              <div style={{ ...colStyle(2), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Stepper
+                  label={STORAGE_TOTALS[agenceStorageIdx]}
+                  onDec={() => setAgenceStorageIdx(i => Math.max(0, i - 1))}
+                  onInc={() => setAgenceStorageIdx(i => Math.min(STORAGE_TOTALS.length - 1, i + 1))}
+                  disableDec={agenceStorageIdx <= 0}
+                  disableInc={agenceStorageIdx >= STORAGE_TOTALS.length - 1}
+                />
+              </div>
+            </div>
+
             {/* Sections + rows */}
-            {COMPARE_SECTIONS.map((section, si) => (
+            {OTHER_SECTIONS.map((section, si) => (
               <div key={si}>
                 {/* Section header */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', borderTop: si > 0 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}>
                   <div style={{ padding: '9px 20px' }}>
                     <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent)' }}>{section.title}</span>
                   </div>
@@ -278,7 +422,7 @@ export function Pricing() {
                 {section.rows.map((row, ri) => (
                   <div key={ri} style={{
                     display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr',
-                    borderBottom: ri < section.rows.length - 1 || si < COMPARE_SECTIONS.length - 1 ? '1px solid var(--border)' : 'none',
+                    borderBottom: ri < section.rows.length - 1 || si < OTHER_SECTIONS.length - 1 ? '1px solid var(--border)' : 'none',
                   }}>
                     <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
                       <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{row.label}</span>
