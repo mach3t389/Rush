@@ -8,7 +8,7 @@ import { SFIcon } from '../components/ui';
 const PLANS = [
   { key: 'gratuit', nameKey: 'settings.planSolo',   descKey: 'settings.planSoloDesc',   priceM: 0,  priceY: 0,   storage: '5 Go',   cta: 'pricing.startFree',   link: '/register', popular: false },
   { key: 'studio',  nameKey: 'settings.planStudio',  descKey: 'settings.planStudioDesc', priceM: 19, priceY: 182, storage: '50 Go',  cta: 'pricing.choosePlan',  link: '/register', popular: true  },
-  { key: 'agence',  nameKey: 'settings.planAgence',  descKey: 'settings.planAgenceDesc', priceM: 49, priceY: 470, storage: '200 Go', cta: 'pricing.chooseAgency',link: '/register', popular: false },
+  { key: 'agence',  nameKey: 'settings.planAgence',  descKey: 'settings.planAgenceDesc', priceM: 49, priceY: 470, storage: '50 Go', cta: 'pricing.chooseAgency',link: '/register', popular: false },
 ];
 
 const STORAGE_BLOCKS = [
@@ -51,7 +51,7 @@ export function Pricing() {
       rows: [
         { label: t('pricing.featProjects'), values: ['3', t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
         { label: t('pricing.featMembers'),  values: [t('pricing.upTo5'), t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featStorage'),  values: ['5 Go', '50 Go', '200 Go'] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featStorage'),  values: ['5 Go', '50 Go', '50 Go'] as [string|boolean, string|boolean, string|boolean] },
       ],
     },
     {
@@ -67,6 +67,13 @@ export function Pricing() {
         { label: t('pricing.featTemplatesCustom'), values: [false, true, true] as [boolean, boolean, boolean] },
         { label: t('pricing.featAI'),              values: [false, true, true] as [boolean, boolean, boolean] },
         { label: t('pricing.featFinances'),        values: [false, true, true] as [boolean, boolean, boolean] },
+      ],
+    },
+    {
+      title: t('pricing.sectionIntegrations'),
+      rows: [
+        { label: t('pricing.featGoogleCalendar'),        values: [t('pricing.comingSoon'), t('pricing.comingSoon'), t('pricing.comingSoon')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featCreativeIntegrations'),  values: [false, t('pricing.comingSoon'), t('pricing.comingSoon')] as [string|boolean, string|boolean, string|boolean] },
       ],
     },
     {
@@ -93,7 +100,7 @@ export function Pricing() {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', overflowX: 'hidden' }}>
+    <div style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg)', overflowX: 'hidden' }}>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header style={{
@@ -135,24 +142,29 @@ export function Pricing() {
           </p>
 
           {/* Billing toggle */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)' }}>
-              {(['monthly', 'yearly'] as const).map(b => (
-                <button key={b} onClick={() => setBilling(b)} style={{
-                  padding: '9px 22px', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-                  fontFamily: 'var(--ff-text)', transition: 'all 0.15s',
-                  background: billing === b ? 'var(--accent)' : 'transparent',
-                  color: billing === b ? 'var(--on-accent)' : 'var(--text-2)',
-                }}>
-                  {t(b === 'monthly' ? 'settings.planToggleMonthly' : 'settings.planToggleYearly')}
-                </button>
-              ))}
-            </div>
-            {billing === 'yearly' && (
-              <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', border: '1px solid rgba(0,210,120,0.25)', borderRadius: 7, padding: '4px 10px' }}>
-                {t('settings.planYearlySaving')}
-              </span>
-            )}
+          <div style={{ display: 'inline-flex', borderRadius: 12, border: '1px solid var(--border)', overflow: 'visible', background: 'var(--surface-2)', position: 'relative' }}>
+            {(['monthly', 'yearly'] as const).map(b => (
+              <button key={b} onClick={() => setBilling(b)} style={{
+                position: 'relative', padding: '9px 22px', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+                fontFamily: 'var(--ff-text)', transition: 'all 0.15s',
+                borderRadius: b === 'monthly' ? '11px 0 0 11px' : '0 11px 11px 0',
+                background: billing === b ? 'var(--accent)' : 'transparent',
+                color: billing === b ? 'var(--on-accent)' : 'var(--text-2)',
+              }}>
+                {t(b === 'monthly' ? 'settings.planToggleMonthly' : 'settings.planToggleYearly')}
+                {b === 'yearly' && (
+                  <span style={{
+                    position: 'absolute', top: -10, right: -10,
+                    fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)',
+                    background: 'rgba(0,210,120,0.15)', border: '1px solid rgba(0,210,120,0.4)',
+                    borderRadius: 20, padding: '2px 7px', whiteSpace: 'nowrap',
+                    visibility: billing === 'yearly' ? 'visible' : 'hidden',
+                  }}>
+                    {t('settings.planYearlySaving')}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -195,6 +207,13 @@ export function Pricing() {
                     {t('pricing.billedYearly')}
                   </p>
                 </div>
+
+                {!isFree && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+                    <SFIcon name="clock" size={12} color="var(--ok)" />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ok)' }}>{t('pricing.trialBadge')}</span>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 24, width: 'fit-content' }}>
                   <SFIcon name="hard-drive" size={11} color="var(--text-3)" />

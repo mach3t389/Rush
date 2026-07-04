@@ -972,7 +972,7 @@ const PLATFORM_PLANS = [
     descKey: 'settings.planAgenceDesc',
     priceMonthly: 49,
     priceYearly: 470,
-    storageIncluded: '200 Go',
+    storageIncluded: '50 Go',
     features: [
       { labelKey: 'settings.planFeatEverythingStudio', included: true },
       { labelKey: 'settings.planFeatPrioritySupport',  included: true },
