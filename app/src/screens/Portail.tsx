@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VIDEO_CORRECTIONS } from '../data/mock';
-import { findProject, subscribeProjects } from '../data/projectStore';
+import { findProject } from '../data/projectStore';
 import { addNotif } from '../data/notificationStore';
 import { getDeliverables, updateTask, subscribeStore } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { SFPill, SFBar, SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoice } from '../data/financeStore';
-import type { Task, DeliverableType, Project } from '../types';
+import type { Task, DeliverableType } from '../types';
 
 const DELIVERABLE_TYPE_ICON: Record<DeliverableType, string> = {
   video: 'video', photo: 'image', audio: 'music', document: 'file-text', web: 'globe',
@@ -94,31 +94,14 @@ export function Portail() {
   const { t } = useTranslation();
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState<Project | undefined>(() => findProject(projectId ?? ''));
-
-  useEffect(() => {
-    return subscribeProjects(() => setProject(findProject(projectId ?? '')));
-  }, [projectId]);
+  const project = findProject(projectId ?? '') ?? findProject('pj1')!;
 
   const [showMessage, setShowMessage] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const [copied, setCopied]         = useState<string | null>(null);
-  const [deliverables, setDeliverables] = useState<Task[]>(() => project ? getDeliverables(project.id).filter(d => d.sharedWithClient) : []);
+  const [deliverables, setDeliverables] = useState<Task[]>(() => getDeliverables(project.id).filter(d => d.sharedWithClient));
 
-  useEffect(() => {
-    if (!project) return;
-    const id = project.id;
-    return subscribeStore(() => setDeliverables(getDeliverables(id).filter(d => d.sharedWithClient)));
-  }, [project]);
-
-  // For real (Supabase-backed) sessions, the project list loads asynchronously —
-  // on a fresh page load/reload this component can mount before the fetch
-  // resolves. The subscribeProjects() effect above will populate it once the
-  // fetch completes. This guard sits after every hook call so hook order
-  // never changes between renders.
-  if (!project) {
-    return <div style={{ padding: 40, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>{t('common.loading')}</div>;
-  }
+  useEffect(() => subscribeStore(() => setDeliverables(getDeliverables(project.id).filter(d => d.sharedWithClient))), [project.id]);
 
   const openInvoices = getInvoicesByProject(project.id).filter(i => ['sent', 'viewed', 'overdue'].includes(i.status));
   const paymentMethods = getEnabledPaymentMethods();

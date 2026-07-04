@@ -4,7 +4,7 @@ import { registerAIToggle, registerAIClose } from './aiChatBridge';
 import { getShortcuts as getShortcutsFn, matchesShortcut as matchesShortcutFn } from '../data/shortcutsStore';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
-import { getProjects, addProject, findProject, subscribeProjects } from '../data/projectStore';
+import { getProjects, addProject } from '../data/projectStore';
 import { addEvent } from '../data/eventStore';
 import { addResource } from '../data/resourceStore';
 import { CLIENTS, MY_TASKS } from '../data/mock';
@@ -235,22 +235,7 @@ function executeTool(
           modifiedAt: 'À l\'instant',
         };
         addProject(project);
-        // For real (Supabase-backed) sessions, addProject() writes asynchronously —
-        // wait for the new project to actually be readable before navigating, so
-        // Travail never mounts with an id that isn't in the store yet.
-        const goToProject = () => navigate(`/projets/${project.id}`);
-        setTimeout(() => {
-          if (findProject(project.id)) {
-            goToProject();
-          } else {
-            const unsubscribe = subscribeProjects(() => {
-              if (findProject(project.id)) {
-                unsubscribe();
-                goToProject();
-              }
-            });
-          }
-        }, 600);
+        setTimeout(() => navigate(`/projets/${project.id}`), 600);
         return `Projet "${project.name}" créé (ID: ${project.id}) pour ${client.name}. Navigation vers le projet…`;
       }
 
