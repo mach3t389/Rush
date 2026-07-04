@@ -30,20 +30,18 @@ export function Register() {
   const [error, setError]           = useState('');
   const [loading, setLoading]       = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setError(t('auth.passwordMismatch')); return; }
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      const result = register({ studioName, name, email, password });
-      if (result.ok) {
-        navigate('/onboarding', { replace: true });
-      } else {
-        setError(t(result.error!));
-        setLoading(false);
-      }
-    }, 400);
+    const result = await register({ studioName, name, email, password });
+    if (result.ok) {
+      navigate('/onboarding', { replace: true });
+    } else {
+      setError(t(result.error!));
+      setLoading(false);
+    }
   };
 
   const isValid = studioName.trim() && name.trim() && email.trim() && password.trim() && confirm.trim();
