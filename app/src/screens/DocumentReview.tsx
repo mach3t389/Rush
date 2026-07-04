@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFButton, SFIcon } from '../components/ui';
+import { SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
@@ -106,56 +106,53 @@ function UploadModal({
   onClose: () => void;
 }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
-      <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.65)' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Fichier à ajouter</h3>
+    <SFModal open onClose={onClose} width={380}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Fichier à ajouter</h3>
 
-        {/* File chip */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 20 }}>
-          <SFIcon name="file-text" size={20} color="var(--accent)" />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pending.name}</p>
-            <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{fmtSize(pending.size)}</p>
+      {/* File chip */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 20 }}>
+        <SFIcon name="file-text" size={20} color="var(--accent)" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pending.name}</p>
+          <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{fmtSize(pending.size)}</p>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 14 }}>Où souhaitez-vous ajouter ce fichier ?</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button onClick={onAddToVersion} style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10,
+          border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left',
+        }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          <SFIcon name="layers" size={18} color="var(--text-2)" />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Version actuelle (V{roundCount})</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Remplace le fichier de cette version</p>
           </div>
-        </div>
-
-        <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 14 }}>Où souhaitez-vous ajouter ce fichier ?</p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={onAddToVersion} style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10,
-            border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left',
-          }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-          >
-            <SFIcon name="layers" size={18} color="var(--text-2)" />
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Version actuelle (V{roundCount})</p>
-              <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Remplace le fichier de cette version</p>
-            </div>
-          </button>
-          <button onClick={onNewVersion} style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10,
-            border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left',
-          }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-          >
-            <SFIcon name="plus-circle" size={18} color="var(--text-2)" />
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Nouvelle version (V{roundCount + 1})</p>
-              <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Crée une nouvelle version avec ce fichier</p>
-            </div>
-          </button>
-        </div>
-
-        <button onClick={onClose} style={{ marginTop: 16, width: '100%', padding: '7px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}>
-          Annuler
+        </button>
+        <button onClick={onNewVersion} style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10,
+          border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left',
+        }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          <SFIcon name="plus-circle" size={18} color="var(--text-2)" />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Nouvelle version (V{roundCount + 1})</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Crée une nouvelle version avec ce fichier</p>
+          </div>
         </button>
       </div>
-    </div>
+
+      <button onClick={onClose} style={{ marginTop: 16, width: '100%', padding: '7px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}>
+        Annuler
+      </button>
+    </SFModal>
   );
 }
 
@@ -901,21 +898,16 @@ export function DocumentReview() {
       )}
 
       {/* Delete version confirmation */}
-      {deleteTarget && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={() => setDeleteTarget(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-          <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 340, boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Supprimer la version ?</h3>
-            <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
-              La <strong>{rounds.find(r => r.v === deleteTarget)?.label}</strong> et tous ses commentaires seront supprimés.
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="secondary" onClick={() => setDeleteTarget(null)}>Annuler</SFButton>
-              <SFButton variant="primary" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => deleteRound(deleteTarget!)}>Supprimer</SFButton>
-            </div>
-          </div>
+      <SFModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} width={340}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Supprimer la version ?</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
+          La <strong>{rounds.find(r => r.v === deleteTarget)?.label}</strong> et tous ses commentaires seront supprimés.
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <SFButton variant="secondary" onClick={() => setDeleteTarget(null)}>Annuler</SFButton>
+          <SFButton variant="primary" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => deleteRound(deleteTarget!)}>Supprimer</SFButton>
         </div>
-      )}
+      </SFModal>
     </div>
   );
 }
