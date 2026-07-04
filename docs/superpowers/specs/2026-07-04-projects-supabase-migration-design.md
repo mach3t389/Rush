@@ -60,21 +60,21 @@ create policy "studios_insert_own" on studios for insert with check (owner_user_
 create policy "studios_update_own" on studios for update using (owner_user_id = auth.uid());
 
 create table if not exists projects (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   studio_id uuid not null references studios(id) on delete cascade,
   name text not null,
-  client_id text,
-  client_name text,
-  client_color text,
+  client_id text not null default '',
+  client_name text not null default '',
+  client_color text not null default '',
   phase text not null default 'preproduction',
   phase_label text not null default 'Pré-production',
   progress int not null default 0,
   task_count int not null default 0,
   deliverable_count int not null default 0,
-  delivery_date text,
+  delivery_date text not null default '',
   status text not null default 'neutral',
   status_label text not null default '',
-  modified_at timestamptz not null default now(),
+  modified_at text not null default '',
   budget numeric,
   description text,
   folder_structure_template_id text,
@@ -89,6 +89,8 @@ create policy "projects_delete_own" on projects for delete using (studio_id in (
 ```
 
 `client_id`/`client_name`/`client_color` stay denormalized free-text columns for now (matching the current `Project` shape) since `clientStore` isn't migrated yet — that's a later chantier. `members` is stored as JSONB since team/user records aren't migrated yet either.
+
+`projects.id` is `text`, not `uuid`: every call site that builds a new `Project` generates its own id client-side in the pattern `pj${Date.now()}` (confirmed in `ProjectsListView.tsx`, `Modeles.tsx`, `AIChat.tsx`) — using `text` accepts these as-is without touching any of those call sites.
 
 ### Store API stays synchronous — no ripple to consuming screens
 
