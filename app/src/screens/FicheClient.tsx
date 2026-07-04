@@ -1553,16 +1553,15 @@ export function FicheClient() {
   const { t } = useTranslation();
   const { clientId } = useParams();
   const navigate = useNavigate();
-  const [clientData, setClientData] = useState(() => findClient(clientId ?? '') ?? findClient('c1')!);
+  const [clientData, setClientData] = useState<Client | undefined>(() => findClient(clientId ?? ''));
   const client = clientData;
-  const projects = PROJECTS.filter(p => p.clientId === client.id);
 
   useEffect(() => {
     return subscribeClients(() => {
-      const updated = findClient(clientId ?? '') ?? findClient('c1')!;
-      setClientData(updated);
+      setClientData(findClient(clientId ?? ''));
     });
   }, [clientId]);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
   const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
@@ -1580,6 +1579,17 @@ export function FicheClient() {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [clientMenuOpen]);
+
+  // For real (Supabase-backed) sessions, the client list loads asynchronously —
+  // on a fresh page load/reload, this component can mount before the fetch
+  // resolves. The subscribeClients() effect above will populate it once the
+  // fetch completes. This guard sits after every hook call so hook order
+  // never changes between renders.
+  if (!client) {
+    return <div style={{ padding: 40, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>{t('common.loading')}</div>;
+  }
+
+  const projects = PROJECTS.filter(p => p.clientId === client.id);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

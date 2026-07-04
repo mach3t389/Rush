@@ -339,7 +339,8 @@
   },
   "common": {
     "required": "*",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "loading": "Loading…"
   },
   "overview": {
     "markAsDone": "Mark as done",

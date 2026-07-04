@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
-import { getClients, addClient, updateClient, subscribeClients } from '../data/clientStore';
+import { getClients, addClient, findClient, updateClient, subscribeClients } from '../data/clientStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
 
@@ -68,7 +68,19 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
     };
     addClient(client);
     onClose();
-    navigate(`/clients/${id}`);
+    // For real (Supabase-backed) sessions, addClient() writes asynchronously —
+    // wait for the new client to actually be readable before navigating, so
+    // FicheClient never mounts with an id that isn't in the store yet.
+    if (findClient(id)) {
+      navigate(`/clients/${id}`);
+    } else {
+      const unsubscribe = subscribeClients(() => {
+        if (findClient(id)) {
+          unsubscribe();
+          navigate(`/clients/${id}`);
+        }
+      });
+    }
   };
 
   return (
