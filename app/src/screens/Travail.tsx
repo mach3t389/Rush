@@ -371,7 +371,13 @@ function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number;
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS);
   const authUser = getCurrentUser();
-  if (!authUser) return [];
+  // getCurrentUser() can briefly return null right after login, before the
+  // Supabase auth-state-change listener populates its cache (same one-frame
+  // window already accepted in GlobalTopBar.tsx). Fall back to the same
+  // FALLBACK_USER-style demo user rather than an empty array, so callers
+  // that assume getTeam()[0] is always defined (e.g. the "add task" row's
+  // default assignee) never see undefined.
+  if (!authUser) return [USERS.lea];
   return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
 }
 
