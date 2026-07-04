@@ -40,6 +40,26 @@
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
+    },
+    {
+      "name": "supabase-my-tasks-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/supabase-my-tasks/app", "--", "--port", "5239", "--strictPort"],
+      "port": 5239,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "rush-app-alt",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", "app", "--", "--port", "5241", "--strictPort"],
+      "port": 5241,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
     }
   ]
 }
