@@ -47,8 +47,9 @@ Appelée dans le composant : `planTotal(studioPlanData, studioSeats, studioStora
 ## Composant `Stepper` (nouveau helper local, à côté de `Check`/`CellValue`)
 
 ```tsx
-function Stepper({ label, onDec, onInc, disableDec, disableInc }: {
+function Stepper({ label, onDec, onInc, disableDec, disableInc, editable, value, min, max, onChangeValue }: {
   label: string; onDec: () => void; onInc: () => void; disableDec: boolean; disableInc: boolean;
+  editable?: boolean; value?: number; min?: number; max?: number; onChangeValue?: (n: number) => void;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -59,7 +60,25 @@ function Stepper({ label, onDec, onInc, disableDec, disableInc }: {
       }}>
         <SFIcon name="minus" size={10} color="var(--text-2)" />
       </button>
-      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)', minWidth: 52, textAlign: 'center' }}>{label}</span>
+      {editable ? (
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          onChange={e => {
+            const parsed = parseInt(e.target.value, 10);
+            if (Number.isNaN(parsed)) return;
+            onChangeValue?.(Math.min(max ?? parsed, Math.max(min ?? parsed, parsed)));
+          }}
+          style={{
+            width: 44, textAlign: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)',
+            color: 'var(--text)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 0',
+          }}
+        />
+      ) : (
+        <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)', minWidth: 52, textAlign: 'center' }}>{label}</span>
+      )}
       <button onClick={onInc} disabled={disableInc} style={{
         width: 20, height: 20, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)',
         cursor: disableInc ? 'default' : 'pointer', opacity: disableInc ? 0.4 : 1,
@@ -72,8 +91,8 @@ function Stepper({ label, onDec, onInc, disableDec, disableInc }: {
 }
 ```
 Réutilisé pour les 4 cellules interactives (Studio/Agence × sièges/stockage) avec des bornes différentes :
-- Sièges : `label = String(seats)`, `disableDec = seats <= 2`, `disableInc = seats >= 50`, pas de 1.
-- Stockage : `label = STORAGE_TOTALS[idx]`, `disableDec = idx <= 0`, `disableInc = idx >= STORAGE_TOTALS.length - 1`, pas de 1 sur l'index.
+- **Sièges** : `editable`, `value = seats`, `min = 2`, `max = 50`, `onChangeValue = setSeats` (clampé à [2, 50] avant d'être appliqué). Champ `<input type="number">` — permet de taper un chiffre directement, et les flèches haut/bas du clavier (comportement natif du navigateur sur un `input[type=number]` focus) incrémentent/décrémentent par pas de 1, en plus des boutons `−`/`+` pour un clic rapide. `disableDec = seats <= 2`, `disableInc = seats >= 50`.
+- **Stockage** : non-`editable` (comme avant), `label = STORAGE_TOTALS[idx]`, `disableDec = idx <= 0`, `disableInc = idx >= STORAGE_TOTALS.length - 1`, pas de 1 sur l'index. Reste boutons uniquement — les paliers de stockage sont des valeurs fixes (pas de saisie libre possible, contrairement aux sièges).
 
 ## Restructuration du tableau comparatif
 
