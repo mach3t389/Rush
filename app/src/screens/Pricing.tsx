@@ -155,9 +155,10 @@ export function Pricing() {
                 {b === 'yearly' && (
                   <span style={{
                     position: 'absolute', top: -10, right: -10,
-                    fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)',
-                    background: 'rgba(0,210,120,0.15)', border: '1px solid rgba(0,210,120,0.4)',
+                    fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--on-accent)',
+                    background: 'var(--ok)', border: '1px solid var(--ok)',
                     borderRadius: 20, padding: '2px 7px', whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                     visibility: billing === 'yearly' ? 'visible' : 'hidden',
                   }}>
                     {t('settings.planYearlySaving')}
@@ -333,6 +334,75 @@ export function Pricing() {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* ── Auto-hébergement ────────────────────────────────────────────── */}
+        <div style={{ marginBottom: 80 }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', letterSpacing: '-0.4px', marginBottom: 8 }}>{t('pricing.selfHostTitle')}</h2>
+            <p style={{ fontSize: 14, color: 'var(--text-3)', maxWidth: 480, margin: '0 auto' }}>{t('pricing.selfHostDesc')}</p>
+          </div>
+
+          <div style={{ maxWidth: 720, margin: '0 auto', position: 'relative', border: '1px solid var(--border)', borderRadius: 18, padding: 32, background: 'var(--surface)' }}>
+            <span style={{
+              position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+              fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase',
+              letterSpacing: '0.08em', color: 'var(--text-2)', background: 'var(--surface-3)',
+              border: '1px solid var(--border-2)', borderRadius: 20, padding: '3px 12px', whiteSpace: 'nowrap',
+            }}>
+              {t('pricing.selfHostBadge')}
+            </span>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+              {/* Licence unique */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <SFIcon name="server" size={16} color="var(--accent)" />
+                  <p style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--ff-display)' }}>{t('pricing.selfHostLicenseTitle')}</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 16 }}>
+                  <span style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--ff-display)' }}>{t('pricing.selfHostLicensePrice')}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('pricing.selfHostLicenseSuffix')}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[t('pricing.selfHostLicenseFeat1'), t('pricing.selfHostLicenseFeat2'), t('pricing.selfHostLicenseFeat3')].map(feat => (
+                    <div key={feat} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <SFIcon name="check" size={13} color="var(--ok)" />
+                      <span style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.4 }}>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mises à jour continues */}
+              <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 28 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <SFIcon name="refresh-cw" size={16} color="var(--ok)" />
+                  <p style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--ff-display)' }}>{t('pricing.selfHostUpdatesTitle')}</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 16 }}>
+                  <span style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--ff-display)' }}>{t('pricing.selfHostUpdatesPrice')}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('pricing.selfHostUpdatesSuffix')}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[t('pricing.selfHostUpdatesFeat1'), t('pricing.selfHostUpdatesFeat2'), t('pricing.selfHostUpdatesFeat3')].map(feat => (
+                    <div key={feat} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <SFIcon name="check" size={13} color="var(--ok)" />
+                      <span style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.4 }}>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <a href="mailto:hebergement@rush.app" style={{
+              display: 'block', width: '100%', marginTop: 28, padding: '12px', borderRadius: 11,
+              background: 'var(--surface-3)', color: 'var(--text)', fontSize: 14, fontWeight: 700,
+              fontFamily: 'var(--ff-text)', textDecoration: 'none', textAlign: 'center',
+            }}>
+              {t('pricing.selfHostCta')}
+            </a>
           </div>
         </div>
 
