@@ -12,7 +12,7 @@
 import { PROJECTS } from './mock';
 import type { Project } from '../types';
 import { loadPersisted, savePersisted } from './persist';
-import { isDemoSession } from './authStore';
+import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 
@@ -119,6 +119,13 @@ function ensureSupabaseFetchStarted(): void {
   _supabaseFetchStarted = true;
   void fetchSupabaseProjects();
 }
+
+export function resetProjectsCache(): void {
+  _supabaseProjects = [];
+  _supabaseFetchStarted = false;
+}
+
+onLogout(resetProjectsCache);
 
 async function addSupabaseProject(p: Project): Promise<void> {
   const studioId = await getStudioId();
