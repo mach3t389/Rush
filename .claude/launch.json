@@ -32,10 +32,10 @@
       }
     },
     {
-      "name": "supabase-projects-worktree",
+      "name": "supabase-clients-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/supabase-projects/app", "--", "--port", "5233", "--strictPort"],
-      "port": 5233,
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/supabase-clients/app", "--", "--port", "5235", "--strictPort"],
+      "port": 5235,
       "autoPort": false,
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"

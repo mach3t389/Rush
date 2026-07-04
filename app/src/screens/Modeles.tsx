@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { USERS } from '../data/mock';
-import { addProject } from '../data/projectStore';
+import { addProject, findProject, subscribeProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
@@ -702,7 +702,19 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
 
     addProject(newProject);
     onClose();
-    navigate(`/projets/${projectId}`);
+    // For real (Supabase-backed) sessions, addProject() writes asynchronously —
+    // wait for the new project to actually be readable before navigating, so
+    // Travail never mounts with an id that isn't in the store yet.
+    if (findProject(projectId)) {
+      navigate(`/projets/${projectId}`);
+    } else {
+      const unsubscribe = subscribeProjects(() => {
+        if (findProject(projectId)) {
+          unsubscribe();
+          navigate(`/projets/${projectId}`);
+        }
+      });
+    }
   };
   return (
     <>

@@ -1,6 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue, TODAY_DP } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
@@ -13,7 +14,7 @@ import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { updateResource, getResources, subscribeResources } from '../data/resourceStore';
 import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '../data/templates';
 import type { ProjectTemplate } from '../data/templates';
-import type { Task, Priority, ResourceType, SectionData, Status } from '../types';
+import type { Task, Priority, ResourceType, SectionData, Status, Project } from '../types';
 import { TravailBoard } from './TravailBoard';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
@@ -1632,10 +1633,28 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
 }
 
 export function Travail() {
+  const { t } = useTranslation();
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const project = findProject(projectId ?? '') ?? findProject('pj1')!;
+  const [project, setProject] = useState<Project | undefined>(() => findProject(projectId ?? ''));
+
+  useEffect(() => {
+    return subscribeProjects(() => {
+      const resolved = findProject(projectId ?? '');
+      setProject(prev => {
+        // First resolution after an async fetch (e.g. real-session reload
+        // that mounted before the fetch completed): the sections state was
+        // initialized empty since `project` was still undefined, so reload
+        // it now that the project is known.
+        if (!prev && resolved) {
+          const stored = getSections(resolved.id);
+          setSectionsState(stored.length > 0 ? stored : (PROJECT_TASKS[resolved.id] ?? []));
+        }
+        return resolved;
+      });
+    });
+  }, [projectId]);
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);
 
@@ -1664,6 +1683,7 @@ export function Travail() {
   }, [searchParams]);
 
   const getInitialSections = () => {
+    if (!project) return [];
     const stored = getSections(project.id);
     // Each project shows its own tasks; a project with none starts empty
     // (the "Nouvelle section" affordance lets the user build it out).
@@ -1674,7 +1694,7 @@ export function Travail() {
   const setSections = (updater: SectionData[] | ((prev: SectionData[]) => SectionData[])) => {
     setSectionsState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      setSections_store(project.id, next);
+      if (project) setSections_store(project.id, next);
       return next;
     });
   };
@@ -1707,6 +1727,15 @@ export function Travail() {
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
   }, [selectedTask]);
+
+  // For real (Supabase-backed) sessions, the project list loads asynchronously —
+  // on a fresh page load/reload, or right after creating a project, this
+  // component can mount before the fetch resolves. The subscribeProjects()
+  // effect above will populate it once the fetch completes. This guard sits
+  // after every hook call so hook order never changes between renders.
+  if (!project) {
+    return <div style={{ padding: 40, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>{t('common.loading')}</div>;
+  }
 
   const togglePref = (key: string, value: boolean) => localStorage.setItem(key, JSON.stringify(value));
 
