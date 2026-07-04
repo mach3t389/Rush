@@ -86,7 +86,12 @@ create policy "projects_select_own" on projects for select using (studio_id in (
 create policy "projects_insert_own" on projects for insert with check (studio_id in (select id from studios where owner_user_id = auth.uid()));
 create policy "projects_update_own" on projects for update using (studio_id in (select id from studios where owner_user_id = auth.uid()));
 create policy "projects_delete_own" on projects for delete using (studio_id in (select id from studios where owner_user_id = auth.uid()));
+
+grant select, insert, update, delete on studios to authenticated;
+grant select, insert, update, delete on projects to authenticated;
 ```
+
+RLS policies alone are not sufficient — Postgres also requires table-level `GRANT`s for the `authenticated` role, or every query fails with `42501 permission denied` regardless of what the RLS policy would allow.
 
 `client_id`/`client_name`/`client_color` stay denormalized free-text columns for now (matching the current `Project` shape) since `clientStore` isn't migrated yet — that's a later chantier. `members` is stored as JSONB since team/user records aren't migrated yet either.
 

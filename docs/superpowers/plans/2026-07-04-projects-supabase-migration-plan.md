@@ -81,7 +81,12 @@ create policy "projects_update_own" on projects
   for update using (studio_id in (select id from studios where owner_user_id = auth.uid()));
 create policy "projects_delete_own" on projects
   for delete using (studio_id in (select id from studios where owner_user_id = auth.uid()));
+
+grant select, insert, update, delete on studios to authenticated;
+grant select, insert, update, delete on projects to authenticated;
 ```
+
+RLS policies alone are not sufficient — Postgres also requires the underlying table-level `GRANT`s for the `authenticated` role, or every query fails with `42501 permission denied` even when the RLS policy itself would allow it. The `grant` statements above are required, not optional.
 
 - [ ] **Step 3: Verify the tables exist**
 
@@ -92,6 +97,8 @@ select table_name from information_schema.tables where table_name in ('studios',
 ```
 
 Expected: two rows, `studios` and `projects`.
+
+Note: if "Confirm email" is enabled in Supabase Authentication settings, each real signup sends a confirmation email — the free-tier email-sending rate limit is low and gets exhausted quickly during manual E2E testing (Task 4), returning a generic `429 email rate limit exceeded` from `signUp()`. Disabling "Confirm email" (Authentication → Sign In / Providers → Email) avoids this entirely and is recommended for this dev/testing phase.
 
 - [ ] **Step 4: Report back to continue**
 

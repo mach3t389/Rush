@@ -1,5 +1,6 @@
 import { USERS } from './mock';
 import { supabase } from './supabaseClient';
+import { resetStudioIdCache } from './studioStore';
 
 export interface AuthUser {
   id: string;
@@ -70,6 +71,18 @@ export function getCurrentUser(): AuthUser | null {
   return supabaseUserCache;
 }
 
+export function isDemoSession(): boolean {
+  return !!localStorage.getItem(AUTH_KEY);
+}
+
+// Lets Supabase-backed stores (projectStore, and future migrations) register
+// their own in-memory cache reset without authStore needing to import them
+// back — keeps the dependency direction one-way (stores depend on authStore).
+const _logoutHandlers = new Set<() => void>();
+export function onLogout(fn: () => void): void {
+  _logoutHandlers.add(fn);
+}
+
 export async function login(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
   if (!email.trim() || !password.trim()) return { ok: false, error: 'auth.requiredFields' };
 
@@ -136,6 +149,8 @@ export async function register(data: {
 
 export async function logout(): Promise<void> {
   localStorage.removeItem(AUTH_KEY);
+  resetStudioIdCache();
+  _logoutHandlers.forEach(fn => fn());
   await supabase.auth.signOut();
 }
 
