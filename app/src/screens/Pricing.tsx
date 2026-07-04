@@ -12,14 +12,16 @@ const PLANS = [
 ];
 
 const STORAGE_BLOCKS = [
-  { label: '5 Go',   priceM: 0,  priceY: 0   },
-  { label: '+50 Go', priceM: 5,  priceY: 48  },
-  { label: '+200 Go',priceM: 15, priceY: 144 },
-  { label: '+500 Go',priceM: 35, priceY: 336 },
-  { label: '+1 To',  priceM: 50, priceY: 480 },
+  { label: '5 Go',   priceM: 0,   priceY: 0    },
+  { label: '+50 Go', priceM: 2,   priceY: 19   },
+  { label: '+200 Go',priceM: 6,   priceY: 58   },
+  { label: '+500 Go',priceM: 15,  priceY: 144  },
+  { label: '+1 To',  priceM: 30,  priceY: 288  },
+  { label: '+2 To',  priceM: 60,  priceY: 576  },
+  { label: '+4 To',  priceM: 120, priceY: 1152 },
 ];
 
-const STORAGE_TOTALS = ['50 Go', '100 Go', '250 Go', '550 Go', '1 050 Go']; // aligné index-à-index avec STORAGE_BLOCKS
+const STORAGE_TOTALS = ['50 Go', '100 Go', '250 Go', '550 Go', '1 050 Go', '2 050 Go', '4 050 Go']; // aligné index-à-index avec STORAGE_BLOCKS
 
 function planTotal(plan: typeof PLANS[number], seats: number, storageIdx: number, billing: 'monthly' | 'yearly') {
   const base = billing === 'monthly' ? plan.priceM : plan.priceY;
