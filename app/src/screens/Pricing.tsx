@@ -391,7 +391,7 @@ export function Pricing() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                 <span>{t('pricing.calcBreakdownTotal')}</span>
-                <span>{calcTotal} $ {t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')}</span>
+                <span>{calcTotal} $ {t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA</span>
               </div>
             </div>
           </div>
@@ -523,7 +523,7 @@ export function Pricing() {
           {t('pricing.calcBarSummary', { plan: t(calcPlanData.nameKey), seats: calcSeats, storage: calcStorageLabel })}
           {' → '}
           <strong style={{ color: 'var(--accent)', fontSize: 15 }}>{calcTotal} $</strong>
-          {' '}{t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')}
+          {' '}{t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA
         </span>
         <Link to="/register" style={{
           padding: '8px 20px', borderRadius: 9, background: 'var(--accent)', color: 'var(--on-accent)',
