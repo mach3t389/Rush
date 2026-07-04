@@ -44,6 +44,9 @@ export function Pricing() {
   const { t } = useTranslation();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaq, setOpenFaq]  = useState<number | null>(null);
+  const [calcPlan, setCalcPlan] = useState<'studio' | 'agence'>('studio');
+  const [calcSeats, setCalcSeats] = useState(2);
+  const [calcStorageIdx, setCalcStorageIdx] = useState(0);
 
   const COMPARE_SECTIONS = [
     {
@@ -92,6 +95,16 @@ export function Pricing() {
     { q: t('pricing.faq3Q'), a: t('pricing.faq3A') },
     { q: t('pricing.faq4Q'), a: t('pricing.faq4A') },
   ];
+
+  const calcPlanData = PLANS.find(p => p.key === calcPlan)!;
+  const calcBasePrice = billing === 'monthly' ? calcPlanData.priceM : calcPlanData.priceY;
+  const calcSeatPrice = billing === 'monthly' ? calcPlanData.seatPriceM : calcPlanData.seatPriceY;
+  const calcExtraSeats = Math.max(0, calcSeats - calcPlanData.includedSeats);
+  const calcSeatsCost = calcExtraSeats * calcSeatPrice;
+  const calcStorageBlock = STORAGE_BLOCKS[calcStorageIdx];
+  const calcStorageCost = billing === 'monthly' ? calcStorageBlock.priceM : calcStorageBlock.priceY;
+  const calcTotal = calcBasePrice + calcSeatsCost + calcStorageCost;
+  const calcStorageLabel = calcStorageIdx === 0 ? t('pricing.calcNoStorage') : calcStorageBlock.label;
 
   const colStyle = (i: number): React.CSSProperties => ({
     textAlign: 'center',
@@ -316,28 +329,71 @@ export function Pricing() {
           </p>
         </div>
 
-        {/* ── Stockage ─────────────────────────────────────────────────── */}
+        {/* ── Calculateur ──────────────────────────────────────────────── */}
         <div style={{ marginBottom: 80 }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', letterSpacing: '-0.4px', marginBottom: 8 }}>{t('pricing.storageTitle')}</h2>
-            <p style={{ fontSize: 14, color: 'var(--text-3)', maxWidth: 480, margin: '0 auto' }}>{t('pricing.storageDesc')}</p>
+            <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', letterSpacing: '-0.4px', marginBottom: 8 }}>{t('pricing.calcTitle')}</h2>
+            <p style={{ fontSize: 14, color: 'var(--text-3)', maxWidth: 480, margin: '0 auto' }}>{t('pricing.calcSubtitle')}</p>
           </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {STORAGE_BLOCKS.map(block => {
-              const price = billing === 'monthly' ? block.priceM : block.priceY;
-              return (
-                <div key={block.label} style={{
-                  borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)',
-                  padding: '16px 22px', textAlign: 'center', minWidth: 110,
-                }}>
-                  <SFIcon name="hard-drive" size={20} color="var(--text-3)" />
-                  <p style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--ff-display)', marginTop: 8, marginBottom: 4 }}>{block.label}</p>
-                  <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', fontWeight: 600 }}>
-                    {price === 0 ? t('pricing.storageIncluded') : `+${price} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
-                  </p>
-                </div>
-              );
-            })}
+
+          <div style={{ maxWidth: 560, margin: '0 auto', border: '1px solid var(--border)', borderRadius: 18, padding: 32, background: 'var(--surface)' }}>
+            <div style={{ display: 'inline-flex', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 28 }}>
+              {(['studio', 'agence'] as const).map(key => {
+                const plan = PLANS.find(p => p.key === key)!;
+                return (
+                  <button key={key} onClick={() => setCalcPlan(key)} style={{
+                    padding: '8px 20px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                    fontFamily: 'var(--ff-text)', borderRadius: key === 'studio' ? '9px 0 0 9px' : '0 9px 9px 0',
+                    background: calcPlan === key ? 'var(--accent)' : 'transparent',
+                    color: calcPlan === key ? 'var(--on-accent)' : 'var(--text-2)',
+                  }}>
+                    {t(plan.nameKey)}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 24, lineHeight: 1.5 }}>{t('pricing.calcGuestsNote')}</p>
+
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>{t('pricing.calcSeatsLabel')}</span>
+                <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', fontWeight: 700 }}>{calcSeats}</span>
+              </div>
+              <input type="range" min={2} max={50} value={calcSeats}
+                onChange={e => setCalcSeats(parseInt(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>{t('pricing.calcSeatsIncludedNote')}</p>
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>{t('pricing.calcStorageLabel')}</span>
+                <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', fontWeight: 700 }}>{calcStorageLabel}</span>
+              </div>
+              <input type="range" min={0} max={STORAGE_BLOCKS.length - 1} step={1} value={calcStorageIdx}
+                onChange={e => setCalcStorageIdx(parseInt(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-3)' }}>
+                <span>{t('pricing.calcBreakdownBase')}</span>
+                <span>{calcBasePrice} $</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-3)' }}>
+                <span>{t('pricing.calcBreakdownSeats')}</span>
+                <span>{calcSeatsCost} $</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-3)' }}>
+                <span>{t('pricing.calcBreakdownStorage')}</span>
+                <span>{calcStorageCost} $</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <span>{t('pricing.calcBreakdownTotal')}</span>
+                <span>{calcTotal} $ {t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')}</span>
+              </div>
+            </div>
           </div>
         </div>
 
