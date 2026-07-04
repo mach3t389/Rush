@@ -14,7 +14,8 @@ import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { updateResource, getResources, subscribeResources } from '../data/resourceStore';
 import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '../data/templates';
 import type { ProjectTemplate } from '../data/templates';
-import type { Task, Priority, ResourceType, SectionData, Status, Project } from '../types';
+import type { Task, Priority, ResourceType, SectionData, Status, Project, User } from '../types';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { TravailBoard } from './TravailBoard';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
@@ -363,7 +364,22 @@ function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number;
   );
 }
 
-const TEAM = Object.values(USERS);
+// Demo sessions can assign to any of the 5 mock people. Real sessions have
+// no team/multi-member system yet (Phase 2 established one real user per
+// studio) — the only assignable person is the current user themselves, which
+// is forward-compatible with real team invites shipping later.
+function getTeam(): User[] {
+  if (isDemoSession()) return Object.values(USERS);
+  const authUser = getCurrentUser();
+  // getCurrentUser() can briefly return null right after login, before the
+  // Supabase auth-state-change listener populates its cache (same one-frame
+  // window already accepted in GlobalTopBar.tsx). Fall back to the same
+  // FALLBACK_USER-style demo user rather than an empty array, so callers
+  // that assume getTeam()[0] is always defined (e.g. the "add task" row's
+  // default assignee) never see undefined.
+  if (!authUser) return [USERS.lea];
+  return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
+}
 
 function TaskRow({
   task,
@@ -388,7 +404,7 @@ function TaskRow({
 }) {
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
-  const [assignee, setAssignee] = useState<typeof TEAM[0] | null>(task.assignee);
+  const [assignee, setAssignee] = useState<User | null>(task.assignee);
   const [status, setStatus] = useState(task.status as string);
   const [statusLabel, setStatusLabel] = useState(task.statusLabel);
   const [dueDate, setDueDate] = useState(task.dueDate);
@@ -556,7 +572,7 @@ function TaskRow({
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>Non assigné</>,
               assignee === null
             )}
-            {TEAM.map(u => ddItem(() => { setAssignee(u); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignee: u }); },
+            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignee: u }); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}
@@ -692,7 +708,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
 }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
-  const [assignee, setAssignee] = useState<typeof TEAM[0]>(TEAM[0]);
+  const [assignee, setAssignee] = useState<User>(() => getTeam()[0]);
   const [priority, setPriority] = useState<Priority>('normal');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('');
@@ -706,7 +722,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
   };
 
   const reset = () => {
-    setTitle(''); setAssignee(TEAM[0]); setPriority('normal');
+    setTitle(''); setAssignee(getTeam()[0]); setPriority('normal');
     setDueDate(''); setStatus(''); setStatusLabel('');
     setAdding(false); setOpenField(null);
   };
@@ -786,7 +802,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
           </button>
           {openField === 'assignee' && (
             <InlineDropdown onClose={() => setOpenField(null)} anchorRect={addDropRect} minWidth={180}>
-              {TEAM.map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
+              {getTeam().map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
                 <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
                 assignee.id === u.id
               ))}

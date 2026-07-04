@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, isAssignedTask } from '../data/myTaskStore';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, ResourceType } from '../types';
@@ -1088,13 +1089,17 @@ export function Taches() {
   const clearFilters = () => { setFilterPriorities([]); setFilterStatuses([]); };
 
   const addTask = useCallback((title: string, opts: AddOpts & { mySection?: string }) => {
+    const authUser = getCurrentUser();
+    const defaultAssignee = isDemoSession() || !authUser
+      ? USERS.lea
+      : { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role };
     const newTask: Task = {
       id: `my-${Date.now()}`,
       title,
       projectId: opts.project?.id ?? 'int',
       projectName: opts.project?.name ?? 'Interne',
       projectColor: opts.project?.clientColor ?? 'var(--text-3)',
-      assignee: opts.assignee ?? USERS.lea,
+      assignee: opts.assignee ?? defaultAssignee,
       status: opts.status as Task['status'],
       statusLabel: opts.statusLabel,
       priority: opts.priority,
@@ -1263,7 +1268,7 @@ export function Taches() {
                           <ColHeader {...colHeaderProps} />
                         </div>
                         {g.tasks.map(task => (
-                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
+                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
                         ))}
                         <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} />
                       </>
@@ -1282,7 +1287,7 @@ export function Taches() {
                 <ColHeader {...colHeaderProps} />
               </div>
               {noSectionTasks.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
               ))}
               <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
             </div>
@@ -1305,7 +1310,7 @@ export function Taches() {
                         <ColHeader {...colHeaderProps} />
                       </div>
                       {g.tasks.map(task => (
-                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={() => removeMyTask(task.id)} />
+                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
                       ))}
                       <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} />
                     </>
@@ -1368,7 +1373,7 @@ export function Taches() {
             {t('taskPanel.copy')}
           </button>
           <button onClick={() => {
-            [...multiSelIds].forEach(id => removeMyTask(id));
+            [...multiSelIds].filter(id => !isAssignedTask(id)).forEach(id => removeMyTask(id));
             setMultiSelIds(new Set());
           }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="trash-2" size={13} />
