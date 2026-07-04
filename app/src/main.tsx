@@ -37,8 +37,8 @@ import { Onboarding } from './screens/Onboarding';
 import { Pricing } from './screens/Pricing';
 
 // ── Route guards ──────────────────────────────────────────────────────────────
-const authLoader = () => { if (!isAuthenticated()) return redirect('/login'); return null; };
-const guestLoader = () => { if (isAuthenticated()) return redirect('/'); return null; };
+const authLoader = async () => { if (!(await isAuthenticated())) return redirect('/login'); return null; };
+const guestLoader = async () => { if (await isAuthenticated()) return redirect('/'); return null; };
 
 const router = createBrowserRouter([
   // Auth routes (standalone, no sidebar)
