@@ -196,7 +196,7 @@ export function GlobalTopBar({ onSearch }: Props) {
               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
 
               {/* Déconnexion */}
-              <MenuRow icon="log-out" label={t('auth.logout')} danger onClick={() => { setShowUserMenu(false); logout(); navigate('/login', { replace: true }); }} />
+              <MenuRow icon="log-out" label={t('auth.logout')} danger onClick={() => { setShowUserMenu(false); void logout(); navigate('/login', { replace: true }); }} />
             </div>
           )}
         </div>
