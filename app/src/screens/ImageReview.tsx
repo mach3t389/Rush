@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { SFAvatar, SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
@@ -675,90 +675,75 @@ export function ImageReview() {
       </div>
 
       {/* Add round modal */}
-      {addRoundOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={() => setAddRoundOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-          <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 360, boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t('review.newReviewRound')}</h3>
-            <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
-              {t('review.newRoundDesc', { round: `R${rounds.length + 1}` })}
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="secondary" onClick={() => setAddRoundOpen(false)}>{t('review.cancel')}</SFButton>
-              <SFButton variant="primary" icon="plus" onClick={addRound}>{t('review.createRound')}</SFButton>
-            </div>
-          </div>
+      <SFModal open={addRoundOpen} onClose={() => setAddRoundOpen(false)} width={360}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t('review.newReviewRound')}</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
+          {t('review.newRoundDesc', { round: `R${rounds.length + 1}` })}
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <SFButton variant="secondary" onClick={() => setAddRoundOpen(false)}>{t('review.cancel')}</SFButton>
+          <SFButton variant="primary" icon="plus" onClick={addRound}>{t('review.createRound')}</SFButton>
         </div>
-      )}
+      </SFModal>
 
       {/* Upload modal */}
-      {uploadModalOpen && pendingFiles.length > 0 && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={() => { setUploadModalOpen(false); setPendingFiles([]); }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
-          <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.65)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>
-              {t('review.imagesToAdd', { count: pendingFiles.length })}
-            </h3>
-            {/* File list preview */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 160, overflowY: 'auto' }}>
-              {pendingFiles.map((f, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <div style={{ width: 36, height: 28, borderRadius: 5, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-3)' }}>
-                    <img src={URL.createObjectURL(f)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</p>
-                    <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 1 }}>
-                      {f.size >= 1e6 ? `${(f.size / 1e6).toFixed(1)} Mo` : `${Math.round(f.size / 1e3)} Ko`}
-                    </p>
-                  </div>
-                </div>
-              ))}
+      <SFModal open={uploadModalOpen && pendingFiles.length > 0} onClose={() => { setUploadModalOpen(false); setPendingFiles([]); }} width={380}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>
+          {t('review.imagesToAdd', { count: pendingFiles.length })}
+        </h3>
+        {/* File list preview */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 160, overflowY: 'auto' }}>
+          {pendingFiles.map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <div style={{ width: 36, height: 28, borderRadius: 5, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-3)' }}>
+                <img src={URL.createObjectURL(f)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</p>
+                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 1 }}>
+                  {f.size >= 1e6 ? `${(f.size / 1e6).toFixed(1)} Mo` : `${Math.round(f.size / 1e3)} Ko`}
+                </p>
+              </div>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12 }}>{t('review.whereToAddImages')}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={() => addFilesToRound(activeRound)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                <SFIcon name="layers" size={18} color="var(--text-2)" />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('review.currentRound', { label: round.label })}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('review.addImagesToThisRound')}</p>
-                </div>
-              </button>
-              <button onClick={addFilesAsNewRound} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                <SFIcon name="plus-circle" size={18} color="var(--text-2)" />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Nouvelle ronde (R{rounds.length + 1})</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Crée une nouvelle ronde avec ces images</p>
-                </div>
-              </button>
-            </div>
-            <button onClick={() => { setUploadModalOpen(false); setPendingFiles([]); }} style={{ marginTop: 16, width: '100%', padding: '7px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}>
-              Annuler
-            </button>
-          </div>
+          ))}
         </div>
-      )}
+        <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12 }}>{t('review.whereToAddImages')}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={() => addFilesToRound(activeRound)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+            <SFIcon name="layers" size={18} color="var(--text-2)" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('review.currentRound', { label: round.label })}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('review.addImagesToThisRound')}</p>
+            </div>
+          </button>
+          <button onClick={addFilesAsNewRound} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+            <SFIcon name="plus-circle" size={18} color="var(--text-2)" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Nouvelle ronde (R{rounds.length + 1})</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Crée une nouvelle ronde avec ces images</p>
+            </div>
+          </button>
+        </div>
+        <button onClick={() => { setUploadModalOpen(false); setPendingFiles([]); }} style={{ marginTop: 16, width: '100%', padding: '7px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}>
+          Annuler
+        </button>
+      </SFModal>
 
       {/* Delete round confirmation */}
-      {deleteTarget && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={() => setDeleteTarget(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-          <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, padding: 24, width: 340, boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Supprimer la ronde ?</h3>
-            <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
-              La ronde <strong>{rounds.find(r => r.v === deleteTarget)?.label}</strong> et toutes ses images seront supprimées.
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="secondary" onClick={() => setDeleteTarget(null)}>Annuler</SFButton>
-              <SFButton variant="primary" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => deleteRound(deleteTarget!)}>Supprimer</SFButton>
-            </div>
-          </div>
+      <SFModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} width={340}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Supprimer la ronde ?</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
+          La ronde <strong>{rounds.find(r => r.v === deleteTarget)?.label}</strong> et toutes ses images seront supprimées.
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <SFButton variant="secondary" onClick={() => setDeleteTarget(null)}>Annuler</SFButton>
+          <SFButton variant="primary" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => deleteRound(deleteTarget!)}>Supprimer</SFButton>
         </div>
-      )}
+      </SFModal>
     </div>
   );
 }
