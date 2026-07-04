@@ -6,9 +6,9 @@ import { SFIcon } from '../components/ui';
 // ── Data ─────────────────────────────────────────────────────────────────────
 
 const PLANS = [
-  { key: 'gratuit', nameKey: 'settings.planSolo',   descKey: 'settings.planSoloDesc',   priceM: 0,  priceY: 0,   storage: '5 Go',   cta: 'pricing.startFree',   link: '/register', popular: false },
-  { key: 'studio',  nameKey: 'settings.planStudio',  descKey: 'settings.planStudioDesc', priceM: 19, priceY: 182, storage: '50 Go',  cta: 'pricing.choosePlan',  link: '/register', popular: true  },
-  { key: 'agence',  nameKey: 'settings.planAgence',  descKey: 'settings.planAgenceDesc', priceM: 49, priceY: 470, storage: '50 Go', cta: 'pricing.chooseAgency',link: '/register', popular: false },
+  { key: 'gratuit', nameKey: 'settings.planSolo',   descKey: 'settings.planSoloDesc',   priceM: 0,  priceY: 0,   storage: '5 Go',   cta: 'pricing.startFree',   link: '/register', popular: false, includedSeats: 2, seatPriceM: 0, seatPriceY: 0 },
+  { key: 'studio',  nameKey: 'settings.planStudio',  descKey: 'settings.planStudioDesc', priceM: 19, priceY: 182, storage: '50 Go',  cta: 'pricing.choosePlan',  link: '/register', popular: true,  includedSeats: 2, seatPriceM: 3, seatPriceY: 29 },
+  { key: 'agence',  nameKey: 'settings.planAgence',  descKey: 'settings.planAgenceDesc', priceM: 49, priceY: 470, storage: '50 Go', cta: 'pricing.chooseAgency',link: '/register', popular: false, includedSeats: 2, seatPriceM: 2, seatPriceY: 19 },
 ];
 
 const STORAGE_BLOCKS = [
@@ -50,7 +50,8 @@ export function Pricing() {
       title: t('pricing.sectionProjects'),
       rows: [
         { label: t('pricing.featProjects'), values: ['3', t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featMembers'),  values: [t('pricing.upTo5'), t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featMembers'),  values: [t('pricing.included2'), t('pricing.included2'), t('pricing.included2')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featGuests'),   values: [t('pricing.unlimited'), t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
         { label: t('pricing.featStorage'),  values: ['5 Go', '50 Go', '50 Go'] as [string|boolean, string|boolean, string|boolean] },
       ],
     },
@@ -310,6 +311,9 @@ export function Pricing() {
               ))}
             </div>
           </div>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginTop: 16 }}>
+            {t('pricing.membersNote')}
+          </p>
         </div>
 
         {/* ── Stockage ─────────────────────────────────────────────────── */}
