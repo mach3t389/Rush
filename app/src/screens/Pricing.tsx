@@ -6,9 +6,9 @@ import { SFIcon } from '../components/ui';
 // ── Data ─────────────────────────────────────────────────────────────────────
 
 const PLANS = [
-  { key: 'gratuit', nameKey: 'settings.planSolo',   descKey: 'settings.planSoloDesc',   priceM: 0,  priceY: 0,   storage: '5 Go',   cta: 'pricing.startFree',   link: '/register', popular: false },
-  { key: 'studio',  nameKey: 'settings.planStudio',  descKey: 'settings.planStudioDesc', priceM: 19, priceY: 182, storage: '50 Go',  cta: 'pricing.choosePlan',  link: '/register', popular: true  },
-  { key: 'agence',  nameKey: 'settings.planAgence',  descKey: 'settings.planAgenceDesc', priceM: 49, priceY: 470, storage: '50 Go', cta: 'pricing.chooseAgency',link: '/register', popular: false },
+  { key: 'gratuit', nameKey: 'settings.planSolo',   descKey: 'settings.planSoloDesc',   priceM: 0,  priceY: 0,   storage: '5 Go',   cta: 'pricing.startFree',   link: '/register', popular: false, includedSeats: 2, seatPriceM: 0, seatPriceY: 0 },
+  { key: 'studio',  nameKey: 'settings.planStudio',  descKey: 'settings.planStudioDesc', priceM: 19, priceY: 182, storage: '50 Go',  cta: 'pricing.choosePlan',  link: '/register', popular: true,  includedSeats: 2, seatPriceM: 3, seatPriceY: 29 },
+  { key: 'agence',  nameKey: 'settings.planAgence',  descKey: 'settings.planAgenceDesc', priceM: 49, priceY: 470, storage: '50 Go', cta: 'pricing.chooseAgency',link: '/register', popular: false, includedSeats: 2, seatPriceM: 2, seatPriceY: 19 },
 ];
 
 const STORAGE_BLOCKS = [
@@ -44,13 +44,17 @@ export function Pricing() {
   const { t } = useTranslation();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaq, setOpenFaq]  = useState<number | null>(null);
+  const [calcPlan, setCalcPlan] = useState<'studio' | 'agence'>('studio');
+  const [calcSeats, setCalcSeats] = useState(2);
+  const [calcStorageIdx, setCalcStorageIdx] = useState(0);
 
   const COMPARE_SECTIONS = [
     {
       title: t('pricing.sectionProjects'),
       rows: [
         { label: t('pricing.featProjects'), values: ['3', t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featMembers'),  values: [t('pricing.upTo5'), t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featMembers'),  values: [t('pricing.included2'), t('pricing.included2'), t('pricing.included2')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featGuests'),   values: [t('pricing.unlimited'), t('pricing.unlimited'), t('pricing.unlimited')] as [string|boolean, string|boolean, string|boolean] },
         { label: t('pricing.featStorage'),  values: ['5 Go', '50 Go', '50 Go'] as [string|boolean, string|boolean, string|boolean] },
       ],
     },
@@ -92,6 +96,16 @@ export function Pricing() {
     { q: t('pricing.faq4Q'), a: t('pricing.faq4A') },
   ];
 
+  const calcPlanData = PLANS.find(p => p.key === calcPlan)!;
+  const calcBasePrice = billing === 'monthly' ? calcPlanData.priceM : calcPlanData.priceY;
+  const calcSeatPrice = billing === 'monthly' ? calcPlanData.seatPriceM : calcPlanData.seatPriceY;
+  const calcExtraSeats = Math.max(0, calcSeats - calcPlanData.includedSeats);
+  const calcSeatsCost = calcExtraSeats * calcSeatPrice;
+  const calcStorageBlock = STORAGE_BLOCKS[calcStorageIdx];
+  const calcStorageCost = billing === 'monthly' ? calcStorageBlock.priceM : calcStorageBlock.priceY;
+  const calcTotal = calcBasePrice + calcSeatsCost + calcStorageCost;
+  const calcStorageLabel = calcStorageIdx === 0 ? t('pricing.calcNoStorage') : calcStorageBlock.label;
+
   const colStyle = (i: number): React.CSSProperties => ({
     textAlign: 'center',
     padding: '12px 8px',
@@ -125,7 +139,7 @@ export function Pricing() {
         </div>
       </header>
 
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 24px' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 24px 96px' }}>
 
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <div style={{ textAlign: 'center', padding: '72px 0 56px' }}>
@@ -310,30 +324,76 @@ export function Pricing() {
               ))}
             </div>
           </div>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginTop: 16 }}>
+            {t('pricing.membersNote')}
+          </p>
         </div>
 
-        {/* ── Stockage ─────────────────────────────────────────────────── */}
+        {/* ── Calculateur ──────────────────────────────────────────────── */}
         <div style={{ marginBottom: 80 }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', letterSpacing: '-0.4px', marginBottom: 8 }}>{t('pricing.storageTitle')}</h2>
-            <p style={{ fontSize: 14, color: 'var(--text-3)', maxWidth: 480, margin: '0 auto' }}>{t('pricing.storageDesc')}</p>
+            <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', letterSpacing: '-0.4px', marginBottom: 8 }}>{t('pricing.calcTitle')}</h2>
+            <p style={{ fontSize: 14, color: 'var(--text-3)', maxWidth: 480, margin: '0 auto' }}>{t('pricing.calcSubtitle')}</p>
           </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {STORAGE_BLOCKS.map(block => {
-              const price = billing === 'monthly' ? block.priceM : block.priceY;
-              return (
-                <div key={block.label} style={{
-                  borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)',
-                  padding: '16px 22px', textAlign: 'center', minWidth: 110,
-                }}>
-                  <SFIcon name="hard-drive" size={20} color="var(--text-3)" />
-                  <p style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--ff-display)', marginTop: 8, marginBottom: 4 }}>{block.label}</p>
-                  <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', fontWeight: 600 }}>
-                    {price === 0 ? t('pricing.storageIncluded') : `+${price} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
-                  </p>
-                </div>
-              );
-            })}
+
+          <div style={{ maxWidth: 560, margin: '0 auto', border: '1px solid var(--border)', borderRadius: 18, padding: 32, background: 'var(--surface)' }}>
+            <div style={{ display: 'inline-flex', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 28 }}>
+              {(['studio', 'agence'] as const).map(key => {
+                const plan = PLANS.find(p => p.key === key)!;
+                return (
+                  <button key={key} onClick={() => setCalcPlan(key)} style={{
+                    padding: '8px 20px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                    fontFamily: 'var(--ff-text)', borderRadius: key === 'studio' ? '9px 0 0 9px' : '0 9px 9px 0',
+                    background: calcPlan === key ? 'var(--accent)' : 'transparent',
+                    color: calcPlan === key ? 'var(--on-accent)' : 'var(--text-2)',
+                  }}>
+                    {t(plan.nameKey)}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 24, lineHeight: 1.5 }}>{t('pricing.calcGuestsNote')}</p>
+
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>{t('pricing.calcSeatsLabel')}</span>
+                <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', fontWeight: 700 }}>{calcSeats}</span>
+              </div>
+              <input type="range" min={2} max={50} value={calcSeats}
+                onChange={e => setCalcSeats(parseInt(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>{t('pricing.calcSeatsIncludedNote')}</p>
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>{t('pricing.calcStorageLabel')}</span>
+                <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', fontWeight: 700 }}>{calcStorageLabel}</span>
+              </div>
+              <input type="range" min={0} max={STORAGE_BLOCKS.length - 1} step={1} value={calcStorageIdx}
+                onChange={e => setCalcStorageIdx(parseInt(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-3)' }}>
+                <span>{t('pricing.calcBreakdownBase')}</span>
+                <span>{calcBasePrice} $</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-3)' }}>
+                <span>{t('pricing.calcBreakdownSeats')}</span>
+                <span>{calcSeatsCost} $</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-3)' }}>
+                <span>{t('pricing.calcBreakdownStorage')}</span>
+                <span>{calcStorageCost} $</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <span>{t('pricing.calcBreakdownTotal')}</span>
+                <span>{calcTotal} $ {t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -450,6 +510,27 @@ export function Pricing() {
           </Link>
         </div>
 
+      </div>
+
+      {/* ── Barre de prix fixe ───────────────────────────────────────── */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60,
+        borderTop: '1px solid var(--border)', background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap', rowGap: 8,
+        padding: '14px 24px',
+      }}>
+        <span style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
+          {t('pricing.calcBarSummary', { plan: t(calcPlanData.nameKey), seats: calcSeats, storage: calcStorageLabel })}
+          {' → '}
+          <strong style={{ color: 'var(--accent)', fontSize: 15 }}>{calcTotal} $</strong>
+          {' '}{t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA
+        </span>
+        <Link to="/register" style={{
+          padding: '8px 20px', borderRadius: 9, background: 'var(--accent)', color: 'var(--on-accent)',
+          fontSize: 13, fontWeight: 700, fontFamily: 'var(--ff-text)', textDecoration: 'none', whiteSpace: 'nowrap',
+        }}>
+          {t('pricing.calcBarCta')}
+        </Link>
       </div>
     </div>
   );
