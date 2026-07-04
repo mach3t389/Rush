@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFAvatar, SFIcon, SFButton } from '../components/ui';
+import { SFAvatar, SFIcon, SFButton, SFModal } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getClientExternalTeam } from '../data/clientTeamStore';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -98,22 +98,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   });
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div style={{
-        position: 'relative', background: 'var(--surface)',
-        border: '1px solid var(--border-2)', borderRadius: 16,
-        padding: '20px', width: 360, maxHeight: '70vh',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700 }}>{t('members.addToTeam')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
-            <SFIcon name="x" size={15} />
-          </button>
-        </div>
-
+    <SFModal open onClose={onClose} title={t('members.addToTeam')} width={360} maxHeight="70vh">
         <div style={{ position: 'relative', marginBottom: 12 }}>
           <SFIcon name="search" size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
           <input
@@ -252,8 +237,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
             {picked.size > 1 ? t('members.addCount', { count: picked.size }) : t('members.add')}
           </button>
         </div>
-      </div>
-    </div>
+    </SFModal>
   );
 }
 
