@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
+import { SFPill, SFAvatar, SFIcon, SFModal, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import type { Task, Priority, SectionData } from '../types';
@@ -119,36 +119,27 @@ export function MoveTaskModal({ task, sections, onMove, onClose }: {
 }) {
   const { t } = useTranslation();
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, padding: '20px', minWidth: 320, maxWidth: 400, boxShadow: '0 16px 48px rgba(0,0,0,0.7)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700 }}>{t('taskPanel.moveTask')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-            <SFIcon name="x" size={15} />
+    <SFModal open onClose={onClose} title={t('taskPanel.moveTask')} width={400}>
+      <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('taskPanel.taskLabel', { title: task.title })}</p>
+      <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>{t('taskPanel.availableSections')}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {sections.map(s => (
+          <button
+            key={s.label}
+            onClick={() => { onMove(s.label); onClose(); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+          >
+            <SFIcon name="layers" size={13} color="var(--text-3)" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 500 }}>{s.label}</p>
+              <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('taskPanel.taskCount', { count: s.tasks.length })}</p>
+            </div>
           </button>
-        </div>
-        <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('taskPanel.taskLabel', { title: task.title })}</p>
-        <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>{t('taskPanel.availableSections')}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {sections.map(s => (
-            <button
-              key={s.label}
-              onClick={() => { onMove(s.label); onClose(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-            >
-              <SFIcon name="layers" size={13} color="var(--text-3)" />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 500 }}>{s.label}</p>
-                <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('taskPanel.taskCount', { count: s.tasks.length })}</p>
-              </div>
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
-    </div>
+    </SFModal>
   );
 }
 
