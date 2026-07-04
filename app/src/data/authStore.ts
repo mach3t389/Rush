@@ -1,5 +1,6 @@
 import { USERS } from './mock';
 import { supabase } from './supabaseClient';
+import { resetStudioIdCache } from './studioStore';
 
 export interface AuthUser {
   id: string;
@@ -70,6 +71,10 @@ export function getCurrentUser(): AuthUser | null {
   return supabaseUserCache;
 }
 
+export function isDemoSession(): boolean {
+  return !!localStorage.getItem(AUTH_KEY);
+}
+
 export async function login(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
   if (!email.trim() || !password.trim()) return { ok: false, error: 'auth.requiredFields' };
 
@@ -136,6 +141,7 @@ export async function register(data: {
 
 export async function logout(): Promise<void> {
   localStorage.removeItem(AUTH_KEY);
+  resetStudioIdCache();
   await supabase.auth.signOut();
 }
 
