@@ -72,6 +72,7 @@ function Stepper({ label, onDec, onInc, disableDec, disableInc, editable, value,
             if (Number.isNaN(parsed)) return;
             onChangeValue?.(Math.min(max ?? parsed, Math.max(min ?? parsed, parsed)));
           }}
+          className="sf-pricing-seat-input"
           style={{
             width: 44, textAlign: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-mono)',
             color: 'var(--text)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 0',
@@ -158,6 +159,11 @@ export function Pricing() {
 
   return (
     <div style={{ height: '100vh', overflowY: 'auto', background: 'var(--bg)', overflowX: 'hidden' }}>
+      <style>{`
+        .sf-pricing-seat-input::-webkit-outer-spin-button,
+        .sf-pricing-seat-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .sf-pricing-seat-input { -moz-appearance: textfield; }
+      `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header style={{
@@ -311,8 +317,8 @@ export function Pricing() {
                   padding: '16px 8px',
                   borderTop: plan.popular ? `3px solid var(--accent)` : '3px solid transparent',
                 }}>
-                  <p style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--ff-display)', color: plan.popular ? 'var(--accent)' : 'var(--text)', marginBottom: 2 }}>{t(plan.nameKey)}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--ff-display)', color: plan.popular ? 'var(--accent)' : 'var(--text)', marginBottom: 4 }}>{t(plan.nameKey)}</p>
+                  <p style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--ff-display)', color: plan.popular ? 'var(--accent)' : 'var(--text)' }}>
                     {headerPriceLabel(plan)}
                   </p>
                 </div>
@@ -441,9 +447,9 @@ export function Pricing() {
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
               <div style={{ padding: '16px 20px' }} />
               {PLANS.map((plan, i) => (
-                <div key={plan.key} style={{ ...colStyle(i), padding: '16px 12px' }}>
+                <div key={plan.key} style={{ ...colStyle(i), padding: '16px 20px' }}>
                   <Link to={plan.link} style={{
-                    display: 'block', padding: '9px 0', borderRadius: 9,
+                    display: 'block', padding: '10px 0', borderRadius: 9,
                     background: plan.popular ? 'var(--accent)' : 'var(--surface-3)',
                     color: plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
                     fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-text)',
