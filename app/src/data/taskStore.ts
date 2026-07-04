@@ -48,6 +48,21 @@ function persist() { savePersisted(STORAGE_KEY, _store); }
 const _supabaseSections: Record<string, SectionData[]> = {};
 const _fetchedProjectIds = new Set<string>();
 
+// setSections() fires writes fire-and-forget. Two writes to the SAME project
+// in quick succession (e.g. "add a section" immediately followed by "add a
+// task to it") would otherwise overlap: writeSupabaseSections() does a full
+// delete-then-recreate, so a second write's delete can remove the first
+// write's just-inserted section before its task insert (which references
+// that section's id) has run, causing a foreign-key violation. Chaining each
+// project's writes onto a per-project queue serializes them without needing
+// a surgical diff — writes to DIFFERENT projects still run concurrently.
+const _writeQueues: Record<string, Promise<void>> = {};
+
+function enqueueWrite(projectId: string, run: () => Promise<void>): void {
+  const previous = _writeQueues[projectId] ?? Promise.resolve();
+  _writeQueues[projectId] = previous.then(run, run);
+}
+
 interface SectionRow {
   id: string;
   studio_id: string;
@@ -168,7 +183,7 @@ export function setSections(projectId: string, sections: SectionData[]): void {
     notify();
     return;
   }
-  void writeSupabaseSections(projectId, sections);
+  enqueueWrite(projectId, () => writeSupabaseSections(projectId, sections));
 }
 
 export function addDeliverable(projectId: string, task: Task): void {
