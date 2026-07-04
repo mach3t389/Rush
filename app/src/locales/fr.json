@@ -339,7 +339,8 @@
   },
   "common": {
     "required": "*",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "loading": "Chargement…"
   },
   "overview": {
     "markAsDone": "Marquer comme terminé",
