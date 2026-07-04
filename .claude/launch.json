@@ -20,6 +20,26 @@
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
+    },
+    {
+      "name": "pricing-calculator-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/pricing-calculator/app", "--", "--port", "5231", "--strictPort"],
+      "port": 5231,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "supabase-projects-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/supabase-projects/app", "--", "--port", "5233", "--strictPort"],
+      "port": 5233,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
     }
   ]
 }
