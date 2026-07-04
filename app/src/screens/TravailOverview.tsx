@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, SFModal } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { ACTIVITY, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
@@ -310,51 +310,48 @@ function FormResponseModal({ form, onClose }: { form: ProjectForm; onClose: () =
   const [activeResponse, setActiveResponse] = useState(0);
   const resp = form.responses[activeResponse];
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
-      <div style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 18, width: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
-        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>{form.title}</h3>
-            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('overview.responseCount', { count: form.responses.length })}</p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 6 }}><SFIcon name="x" size={16} /></button>
+    <SFModal open onClose={onClose} width={560} maxHeight="80vh" padding={0}>
+      <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{form.title}</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('overview.responseCount', { count: form.responses.length })}</p>
         </div>
-        {form.responses.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('overview.noResponsesYet')}</div>
-        ) : (
-          <>
-            {form.responses.length > 1 && (
-              <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexShrink: 0 }}>
-                {form.responses.map((r, i) => (
-                  <button key={r.id} onClick={() => setActiveResponse(i)}
-                    style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: activeResponse === i ? 'var(--surface-3)' : 'transparent', color: activeResponse === i ? 'var(--text)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                    {r.respondent.split(' (')[0]}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div style={{ overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <SFIcon name="user" size={14} color="var(--text-3)" />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{resp.respondent}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.submittedOn', { date: resp.submittedAt })}</p>
-                </div>
-              </div>
-              {form.fields.map(field => (
-                <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{field.label}</span>
-                  <div style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: resp.answers[field.id] ? 'var(--text)' : 'var(--text-3)', fontStyle: resp.answers[field.id] ? 'normal' : 'italic' }}>
-                    {resp.answers[field.id] || t('overview.noAnswer')}
-                  </div>
-                </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 6 }}><SFIcon name="x" size={16} /></button>
+      </div>
+      {form.responses.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('overview.noResponsesYet')}</div>
+      ) : (
+        <>
+          {form.responses.length > 1 && (
+            <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexShrink: 0 }}>
+              {form.responses.map((r, i) => (
+                <button key={r.id} onClick={() => setActiveResponse(i)}
+                  style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: activeResponse === i ? 'var(--surface-3)' : 'transparent', color: activeResponse === i ? 'var(--text)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                  {r.respondent.split(' (')[0]}
+                </button>
               ))}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+          <div style={{ overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <SFIcon name="user" size={14} color="var(--text-3)" />
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600 }}>{resp.respondent}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.submittedOn', { date: resp.submittedAt })}</p>
+              </div>
+            </div>
+            {form.fields.map(field => (
+              <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{field.label}</span>
+                <div style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: resp.answers[field.id] ? 'var(--text)' : 'var(--text-3)', fontStyle: resp.answers[field.id] ? 'normal' : 'italic' }}>
+                  {resp.answers[field.id] || t('overview.noAnswer')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </SFModal>
   );
 }
 
