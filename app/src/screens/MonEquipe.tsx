@@ -1,10 +1,13 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { enterViewAs } from '../data/viewAsStore';
+import { isDemoSession } from '../data/authStore';
+import { getTeamMembers, subscribeTeam, createInvitation } from '../data/teamStore';
+import { getProjects } from '../data/projectStore';
 
 // ── Mock extra info for team members ─────────────────────────────────────────
 
@@ -52,6 +55,21 @@ const INTERNAL_TEAM: TeamMember[] = Object.values(USERS)
     activeProjects: PROJECTS.filter(p => p.members.some(m => m.id === u.id)).length,
   }));
 
+function getRealTeam(): TeamMember[] {
+  const projects = getProjects();
+  return getTeamMembers().map(m => ({
+    id: m.id,
+    name: m.name,
+    initials: m.initials,
+    avatarColor: m.avatarColor,
+    role: m.role,
+    email: m.email,
+    since: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '—',
+    phone: '—',
+    activeProjects: projects.filter(p => p.members.some(pm => pm.id === m.id)).length,
+  }));
+}
+
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
 function InviteTeamModal({ onClose }: { onClose: () => void }) {
@@ -59,14 +77,26 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
-  const [sent, setSent] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
   const [perms, setPerms] = useState<PermissionKey[]>(PERMISSION_PRESETS[2].perms);
 
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim() || !email.trim()) return;
+    setSending(true);
     savePermissions(email.trim(), perms);
-    setSent(true);
-    setTimeout(onClose, 1500);
+    const result = await createInvitation(email.trim(), role.trim() || 'Membre');
+    setLink(result.link);
+    setSending(false);
+    if (isDemoSession()) setTimeout(onClose, 1500);
+  };
+
+  const copyLink = async () => {
+    if (!link) return;
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -77,13 +107,26 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
           <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('team.inviteMember')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
-        {sent ? (
+        {link && isDemoSession() ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '20px 0' }}>
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,200,100,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <SFIcon name="check" size={24} color="var(--ok)" />
             </div>
             <p style={{ fontSize: 14, fontWeight: 600 }}>{t('team.invitationSent')}</p>
             <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{email}</p>
+          </div>
+        ) : link ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('team.linkReadyHint')}</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input readOnly value={link} style={{ flex: 1, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-mono)' }} />
+              <SFButton variant="primary" icon={copied ? 'check' : 'copy'} onClick={copyLink}>
+                {copied ? t('team.linkCopied') : t('team.copyLink')}
+              </SFButton>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <SFButton variant="ghost" onClick={onClose}>{t('team.done')}</SFButton>
+            </div>
           </div>
         ) : (
           <>
@@ -98,7 +141,6 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
                   style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
               </div>
             ))}
-            {/* Permission presets */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>
                 {t('team.permissions')}
@@ -125,13 +167,14 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
                 })}
               </div>
             </div>
-
             <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 18, lineHeight: 1.5 }}>
-              {t('team.inviteHint')}
+              {isDemoSession() ? t('team.inviteHint') : t('team.inviteHintReal')}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <SFButton variant="ghost" onClick={onClose}>{t('team.cancel')}</SFButton>
-              <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim()}>{t('team.sendInvitation')}</SFButton>
+              <SFButton variant="primary" onClick={submit} disabled={!name.trim() || !email.trim() || sending}>
+                {sending ? '…' : t('team.sendInvitation')}
+              </SFButton>
             </div>
           </>
         )}
@@ -262,8 +305,12 @@ export function MonEquipe() {
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showInvite, setShowInvite] = useState(false);
+  const [, forceRerender] = useState(0);
 
-  const filtered = INTERNAL_TEAM.filter(m =>
+  useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
+
+  const team = isDemoSession() ? INTERNAL_TEAM : getRealTeam();
+  const filtered = team.filter(m =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||
     m.role.toLowerCase().includes(search.toLowerCase())
   );
@@ -275,7 +322,7 @@ export function MonEquipe() {
         <div>
           <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('team.title')}</h1>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {t('team.subtitle', { count: INTERNAL_TEAM.length })} · Studio StudioFlow
+            {t('team.subtitle', { count: team.length })}
           </p>
         </div>
         <SFButton variant="primary" icon="user-plus" onClick={() => setShowInvite(true)}>{t('team.inviteMember')}</SFButton>

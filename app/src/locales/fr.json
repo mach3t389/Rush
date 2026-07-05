@@ -741,7 +741,12 @@
     "subtitle": "{{count}} membres internes",
     "searchPlaceholder": "Rechercher un membre...",
     "projectCount": "{{count}} projets",
-    "permissions": "Autorisations"
+    "permissions": "Autorisations",
+    "linkReadyHint": "Copiez ce lien et envoyez-le à la personne que vous invitez.",
+    "copyLink": "Copier le lien",
+    "linkCopied": "Copié !",
+    "done": "Terminé",
+    "inviteHintReal": "Copiez le lien généré et envoyez-le vous-même — l'envoi automatique par courriel arrivera plus tard."
   },
   "activityFeed": {
     "all": "Tout",
