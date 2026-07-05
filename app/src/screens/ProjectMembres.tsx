@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal } from '../components/ui';
-import { PROJECTS, USERS } from '../data/mock';
+import { USERS } from '../data/mock';
 import { getClientExternalTeam } from '../data/clientTeamStore';
-import { updateProject } from '../data/projectStore';
+import { findProject, updateProject } from '../data/projectStore';
 import { isDemoSession } from '../data/authStore';
 import { getTeamMembers, isTeamOwner } from '../data/teamStore';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -322,7 +322,7 @@ export function ProjectMembres() {
   const { projectId = '' } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  const project = PROJECTS.find(p => p.id === projectId);
+  const project = findProject(projectId);
   const [members, setMembers] = useState<User[]>(project?.members ?? []);
   const [showAdd, setShowAdd] = useState(false);
 
