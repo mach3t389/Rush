@@ -60,6 +60,16 @@
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
+    },
+    {
+      "name": "pricing-tooltips-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/pricing-tooltips/app", "--", "--port", "5243", "--strictPort"],
+      "port": 5243,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
     }
   ]
 }
