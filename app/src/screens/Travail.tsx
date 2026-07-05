@@ -15,6 +15,7 @@ import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '..
 import type { ProjectTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, Status, Project, User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { TravailBoard } from './TravailBoard';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
@@ -363,19 +364,19 @@ function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number;
   );
 }
 
-// Demo sessions can assign to any of the 5 mock people. Real sessions have
-// no team/multi-member system yet (Phase 2 established one real user per
-// studio) — the only assignable person is the current user themselves, which
-// is forward-compatible with real team invites shipping later.
+// Demo sessions can assign to any of the 5 mock people. Real sessions read
+// the studio's real team roster (teamStore.ts) — invited members, not just
+// the current user.
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS);
+  const team = getTeamMembers();
+  if (team.length > 0) return team;
+  // teamStore's fetch hasn't resolved yet (or getCurrentUser() briefly
+  // returns null right after login, same one-frame window already accepted
+  // in GlobalTopBar.tsx) — fall back to a placeholder so callers that assume
+  // getTeam()[0] is always defined (e.g. the "add task" row's default
+  // assignee) never see undefined.
   const authUser = getCurrentUser();
-  // getCurrentUser() can briefly return null right after login, before the
-  // Supabase auth-state-change listener populates its cache (same one-frame
-  // window already accepted in GlobalTopBar.tsx). Fall back to the same
-  // FALLBACK_USER-style demo user rather than an empty array, so callers
-  // that assume getTeam()[0] is always defined (e.g. the "add task" row's
-  // default assignee) never see undefined.
   if (!authUser) return [USERS.lea];
   return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
 }
@@ -714,6 +715,10 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
   const [statusLabel, setStatusLabel] = useState('');
   const [openField, setOpenField] = useState<'assignee' | 'priority' | 'status' | 'dueDate' | null>(null);
   const [addDropRect, setAddDropRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => subscribeTeam(() => {
+    setAssignee(prev => (prev.id === USERS.lea.id || prev.id === getCurrentUser()?.id ? getTeam()[0] : prev));
+  }), []);
 
   const openAddDrop = (key: typeof openField, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpenField(prev => prev === key ? null : key);
