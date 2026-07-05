@@ -2152,6 +2152,15 @@
     "declinedDesc": "Vous avez refusé cette invitation. Si c'est une erreur, contactez votre studio pour en recevoir une nouvelle.",
     "backToLogin": "Retour à la connexion"
   },
+  "teamInvitation": {
+    "invalidTitle": "Lien d'invitation invalide",
+    "invalidDesc": "Ce lien n'existe pas, a expiré, ou a déjà été utilisé. Contactez la personne qui vous a invité(e) pour en obtenir un nouveau.",
+    "pendingTitle": "Rejoindre l'équipe",
+    "pendingDesc": "Vous êtes invité(e) à rejoindre {{studio}} en tant que {{role}}. Créez votre compte pour continuer.",
+    "joinButton": "Rejoindre le studio",
+    "joinFailed": "Votre compte a été créé, mais l'ajout à l'équipe a échoué. Contactez la personne qui vous a invité(e).",
+    "backToLogin": "Retour à la connexion"
+  },
   "pricing": {
     "title": "Tarification transparente",
     "subtitle": "Commencez gratuitement. Évoluez à votre rythme.",

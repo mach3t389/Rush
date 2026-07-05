@@ -2139,6 +2139,15 @@
     "declinedDesc": "You declined this invitation. If this was a mistake, contact your studio for a new one.",
     "backToLogin": "Back to login"
   },
+  "teamInvitation": {
+    "invalidTitle": "Invalid invitation link",
+    "invalidDesc": "This link doesn't exist, has expired, or was already used. Contact the person who invited you for a new one.",
+    "pendingTitle": "Join the team",
+    "pendingDesc": "You've been invited to join {{studio}} as {{role}}. Create your account to continue.",
+    "joinButton": "Join the studio",
+    "joinFailed": "Your account was created, but joining the team failed. Contact the person who invited you.",
+    "backToLogin": "Back to login"
+  },
   "pricing": {
     "title": "Transparent pricing",
     "subtitle": "Start free. Grow at your own pace.",

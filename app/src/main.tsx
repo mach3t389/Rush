@@ -14,6 +14,7 @@ import { Travail } from './screens/Travail';
 import { VideoReview } from './screens/VideoReview';
 import { Portail } from './screens/Portail';
 import { InvitationAccept } from './screens/InvitationAccept';
+import { TeamInvitationAccept } from './screens/TeamInvitationAccept';
 import { Clients } from './screens/Clients';
 import { FicheClient } from './screens/FicheClient';
 import { CalendrierGlobal } from './screens/CalendrierGlobal';
@@ -55,6 +56,9 @@ const router = createBrowserRouter([
 
   // Invitation contact client — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation/:token', element: <InvitationAccept /> },
+
+  // Invitation membre d'équipe — sans sidebar, accessible sans compte (route standalone)
+  { path: '/invitation-equipe/:token', element: <TeamInvitationAccept /> },
 
   {
     path: '/',
