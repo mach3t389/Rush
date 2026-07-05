@@ -4,20 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getClientExternalTeam } from '../data/clientTeamStore';
+import { updateProject } from '../data/projectStore';
+import { isDemoSession } from '../data/authStore';
+import { getTeamMembers, isTeamOwner } from '../data/teamStore';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import type { User } from '../types';
-
-// ── Local state store (session-only, per project) ─────────────────────────────
-
-const projectMembersStore: Record<string, User[]> = {};
-
-function getMembers(projectId: string, defaultMembers: User[]): User[] {
-  if (!projectMembersStore[projectId]) {
-    projectMembersStore[projectId] = [...defaultMembers];
-  }
-  return projectMembersStore[projectId];
-}
 
 // ── Role badge ────────────────────────────────────────────────────────────────
 
@@ -63,7 +55,8 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   const allUsers: Record<string, User> = {};
   Object.values(USERS).forEach(u => { allUsers[u.id] = u; });
 
-  const internalPool = Object.values(USERS).filter(u =>
+  const internalTeam = isDemoSession() ? Object.values(USERS) : getTeamMembers();
+  const internalPool = internalTeam.filter(u =>
     !currentIds.has(u.id) && u.name.toLowerCase().includes(q)
   );
 
@@ -330,9 +323,7 @@ export function ProjectMembres() {
   const navigate = useNavigate();
 
   const project = PROJECTS.find(p => p.id === projectId);
-  const [members, setMembers] = useState<User[]>(() =>
-    getMembers(projectId, project?.members ?? [])
-  );
+  const [members, setMembers] = useState<User[]>(project?.members ?? []);
   const [showAdd, setShowAdd] = useState(false);
 
   if (!project) {
@@ -347,7 +338,7 @@ export function ProjectMembres() {
   }
 
   const currentIds = new Set(members.map(m => m.id));
-  const ownerUser = USERS.lea;
+  const isOwnerId = (id: string) => isDemoSession() ? id === USERS.lea.id : isTeamOwner(id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggleSelect = (id: string) => {
@@ -358,30 +349,29 @@ export function ProjectMembres() {
     });
   };
 
-  const selectableIds = members.filter(m => m.id !== ownerUser.id).map(m => m.id);
+  const selectableIds = members.filter(m => !isOwnerId(m.id)).map(m => m.id);
   const allSelected = selectableIds.length > 0 && selectableIds.every(id => selected.has(id));
 
   const toggleSelectAll = () => {
     setSelected(allSelected ? new Set() : new Set(selectableIds));
   };
 
-  const handleAdd = (users: User[]) => {
-    const updated = [...members, ...users];
-    projectMembersStore[projectId] = updated;
+  const persistMembers = (updated: User[]) => {
     setMembers(updated);
+    updateProject(projectId, { members: updated });
+  };
+
+  const handleAdd = (users: User[]) => {
+    persistMembers([...members, ...users]);
   };
 
   const handleRemove = (userId: string) => {
-    const updated = members.filter(m => m.id !== userId);
-    projectMembersStore[projectId] = updated;
-    setMembers(updated);
+    persistMembers(members.filter(m => m.id !== userId));
     setSelected(prev => { const next = new Set(prev); next.delete(userId); return next; });
   };
 
   const handleRemoveSelected = () => {
-    const updated = members.filter(m => !selected.has(m.id));
-    projectMembersStore[projectId] = updated;
-    setMembers(updated);
+    persistMembers(members.filter(m => !selected.has(m.id)));
     setSelected(new Set());
   };
 
@@ -447,7 +437,7 @@ export function ProjectMembres() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {members.filter(m => m.role !== 'Cliente').map(m => (
-                      <MemberCard key={m.id} user={m} onRemove={() => handleRemove(m.id)} isOwner={m.id === ownerUser.id} selected={selected.has(m.id)} onToggleSelect={() => toggleSelect(m.id)} />
+                      <MemberCard key={m.id} user={m} onRemove={() => handleRemove(m.id)} isOwner={isOwnerId(m.id)} selected={selected.has(m.id)} onToggleSelect={() => toggleSelect(m.id)} />
                     ))}
                   </div>
                 </div>
