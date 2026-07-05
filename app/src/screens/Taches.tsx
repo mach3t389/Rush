@@ -7,9 +7,10 @@ import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, isAssignedTask } from '../data/myTaskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
-import type { Task, Priority, ResourceType } from '../types';
+import type { Task, Priority, ResourceType, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -108,7 +109,14 @@ function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir
 
 // �"?�"? Shared helpers �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-const TEAM = Object.values(USERS);
+function getTeam(): User[] {
+  if (isDemoSession()) return Object.values(USERS);
+  const team = getTeamMembers();
+  if (team.length > 0) return team;
+  const authUser = getCurrentUser();
+  if (!authUser) return [USERS.lea];
+  return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
+}
 
 const STATUS_OPTIONS: { value: string; labelKey: string }[] = [
   { value: '',       labelKey: 'tasks.noStatus'   },
@@ -276,7 +284,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
   const [endDate, setEndDate] = useState(task.endDate ?? '');
   const [startTime, setStartTime] = useState(task.startTime ?? '');
   const [endTime, setEndTime] = useState(task.endTime ?? '');
-  const [assignee, setAssignee] = useState<typeof TEAM[0] | null>(task.assignee ?? null);
+  const [assignee, setAssignee] = useState<User | null>(task.assignee ?? null);
   const [sectionLabel, setSectionLabel] = useState(task.sectionLabel ?? '');
   const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | 'assignee' | 'projsec' | null>(null);
   const [projSearch, setProjSearch] = useState('');
@@ -572,7 +580,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee === null
             )}
-            {TEAM.map(u => ddItem(() => { setAssignee(u); setOpen(null); },
+            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}
@@ -813,7 +821,7 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 
 // �"?�"? Add task row �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-type AddOpts = { priority: Priority; assignee: typeof TEAM[0] | null; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
+type AddOpts = { priority: Priority; assignee: User | null; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
 
 function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void }) {
   const { t } = useTranslation();
@@ -853,7 +861,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(false);
-  const [assignee, setAssignee] = useState<typeof TEAM[0] | null>(TEAM[0]);
+  const [assignee, setAssignee] = useState<User | null>(getTeam()[0]);
   const [project, setProject]   = useState<typeof PROJECTS[0] | null>(null);
   const [priority, setPriority] = useState<Priority>(defaultPriority);
   const [status, setStatus]     = useState('');
@@ -863,13 +871,17 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => subscribeTeam(() => {
+    setAssignee(prev => (!prev || prev.id === USERS.lea.id || prev.id === getCurrentUser()?.id ? getTeam()[0] : prev));
+  }), []);
+
   const openDrop = (key: typeof openField, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpenField(prev => prev === key ? null : key);
     setDropRect(e.currentTarget.getBoundingClientRect());
   };
 
   const reset = () => {
-    setTitle(''); setAssignee(TEAM[0]); setProject(null); setPriority(defaultPriority);
+    setTitle(''); setAssignee(getTeam()[0]); setProject(null); setPriority(defaultPriority);
     setStatus(''); setStatusLabel(''); setDueDate('');
     setOpen(false); setOpenField(null);
   };
@@ -967,7 +979,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
               {ddItem(() => { setAssignee(null); setOpenField(null); },
                 <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
                 assignee === null)}
-              {TEAM.map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
+              {getTeam().map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
                 <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
                 assignee?.id === u.id
               ))}
