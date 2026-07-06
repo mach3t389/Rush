@@ -489,7 +489,7 @@ export function Pricing() {
               {PLANS.map((plan, i) => (
                 <div key={plan.key} style={{ ...colStyle(i), padding: '16px 20px' }}>
                   <Link to={plan.link} style={{
-                    display: 'block', padding: '10px 0', borderRadius: 9,
+                    display: 'block', padding: '10px 16px', borderRadius: 9,
                     background: plan.popular ? 'var(--accent)' : 'var(--surface-3)',
                     color: plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
                     fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-text)',
