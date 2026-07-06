@@ -1,3 +1,16 @@
+// Reactive calendar-events store.
+//
+// Demo sessions (isDemoSession() === true): unchanged localStorage-backed
+// behavior, exactly as before this migration.
+//
+// Real sessions: backed by Supabase, scoped to the user's studio (see
+// studioStore.ts). getEvents() stays synchronous via an in-memory cache
+// populated by a background fetch — the same pattern clientStore.ts uses.
+
+import { isDemoSession, onLogout } from './authStore';
+import { getStudioId } from './studioStore';
+import { supabase } from './supabaseClient';
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -39,7 +52,9 @@ export function subscribeEvents(fn: Listener): () => void {
   return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); };
 }
 
-export function getEvents(): CalendarEvent[] {
+// ── Demo (localStorage) path ────────────────────────────────────────────────
+
+function getDemoEvents(): CalendarEvent[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as CalendarEvent[];
@@ -47,23 +62,146 @@ export function getEvents(): CalendarEvent[] {
   return INITIAL_EVENTS;
 }
 
-function save(events: CalendarEvent[]) {
+function saveDemoEvents(events: CalendarEvent[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); } catch { /* noop */ }
+}
+
+// ── Real (Supabase-backed) session state ────────────────────────────────────
+
+let _supabaseEvents: CalendarEvent[] = [];
+let _supabaseFetchStarted = false;
+
+interface EventRow {
+  id: string;
+  studio_id: string;
+  title: string;
+  event_type_id: string;
+  project_id: string | null;
+  start: string;
+  end: string;
+  all_day: boolean | null;
+  description: string | null;
+  location: string | null;
+  meeting_url: string | null;
+  member_ids: string[];
+}
+
+function toEvent(row: EventRow): CalendarEvent {
+  return {
+    id: row.id,
+    title: row.title,
+    eventTypeId: row.event_type_id,
+    projectId: row.project_id ?? undefined,
+    start: row.start,
+    end: row.end,
+    allDay: row.all_day ?? undefined,
+    description: row.description ?? undefined,
+    location: row.location ?? undefined,
+    meetingUrl: row.meeting_url ?? undefined,
+    memberIds: row.member_ids ?? undefined,
+  };
+}
+
+function toRow(e: CalendarEvent, studioId: string): Omit<EventRow, 'end'> & { end: string } {
+  return {
+    id: e.id,
+    studio_id: studioId,
+    title: e.title,
+    event_type_id: e.eventTypeId,
+    project_id: e.projectId ?? null,
+    start: e.start,
+    end: e.end,
+    all_day: e.allDay ?? null,
+    description: e.description ?? null,
+    location: e.location ?? null,
+    meeting_url: e.meetingUrl ?? null,
+    member_ids: e.memberIds ?? [],
+  };
+}
+
+async function fetchSupabaseEvents(): Promise<void> {
+  const studioId = await getStudioId();
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('studio_id', studioId)
+    .order('created_at', { ascending: true });
+
+  if (error) { console.error('fetchSupabaseEvents failed', error); return; }
+
+  _supabaseEvents = (data as EventRow[]).map(toEvent);
+  notify();
+}
+
+function ensureSupabaseFetchStarted(): void {
+  if (_supabaseFetchStarted) return;
+  _supabaseFetchStarted = true;
+  void fetchSupabaseEvents();
+}
+
+export function resetEventsCache(): void {
+  _supabaseEvents = [];
+  _supabaseFetchStarted = false;
+}
+
+onLogout(resetEventsCache);
+
+async function addSupabaseEvent(ev: CalendarEvent): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('events').insert(toRow(ev, studioId));
+  if (error) { console.error('addSupabaseEvent failed', error); return; }
+  await fetchSupabaseEvents();
+}
+
+async function updateSupabaseEvent(id: string, patch: Partial<Omit<CalendarEvent, 'id'>>): Promise<void> {
+  const studioId = await getStudioId();
+  const current = _supabaseEvents.find(e => e.id === id);
+  if (!current) { console.error('updateSupabaseEvent: event not found in cache', id); return; }
+  const merged = { ...current, ...patch };
+  const { error } = await supabase.from('events').update(toRow(merged, studioId)).eq('id', id);
+  if (error) { console.error('updateSupabaseEvent failed', error); return; }
+  await fetchSupabaseEvents();
+}
+
+async function deleteSupabaseEvent(id: string): Promise<void> {
+  const { error } = await supabase.from('events').delete().eq('id', id);
+  if (error) { console.error('deleteSupabaseEvent failed', error); return; }
+  await fetchSupabaseEvents();
+}
+
+// ── Public API (unchanged signatures) ───────────────────────────────────────
+
+export function getEvents(): CalendarEvent[] {
+  if (isDemoSession()) return getDemoEvents();
+  ensureSupabaseFetchStarted();
+  return _supabaseEvents;
 }
 
 export function addEvent(ev: Omit<CalendarEvent, 'id'>): CalendarEvent {
   const newEv: CalendarEvent = { ...ev, id: `ev_${Date.now()}` };
-  save([...getEvents(), newEv]);
-  notify();
+  if (isDemoSession()) {
+    saveDemoEvents([...getDemoEvents(), newEv]);
+    notify();
+    return newEv;
+  }
+  void addSupabaseEvent(newEv);
   return newEv;
 }
 
 export function updateEvent(id: string, patch: Partial<Omit<CalendarEvent, 'id'>>) {
-  save(getEvents().map(e => e.id === id ? { ...e, ...patch } : e));
-  notify();
+  if (isDemoSession()) {
+    saveDemoEvents(getDemoEvents().map(e => e.id === id ? { ...e, ...patch } : e));
+    notify();
+    return;
+  }
+  void updateSupabaseEvent(id, patch);
 }
 
 export function deleteEvent(id: string) {
-  save(getEvents().filter(e => e.id !== id));
-  notify();
+  if (isDemoSession()) {
+    saveDemoEvents(getDemoEvents().filter(e => e.id !== id));
+    notify();
+    return;
+  }
+  void deleteSupabaseEvent(id);
 }
