@@ -268,11 +268,11 @@ export function Pricing() {
                 {b === 'yearly' && (
                   <span style={{
                     position: 'absolute', top: -10, right: -10,
-                    fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--on-accent)',
-                    background: 'var(--ok)', border: '1px solid var(--ok)',
+                    fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)',
                     borderRadius: 20, padding: '2px 7px', whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                    visibility: billing === 'yearly' ? 'visible' : 'hidden',
+                    background: billing === 'yearly' ? 'var(--on-accent)' : 'var(--surface-3)',
+                    color: billing === 'yearly' ? 'var(--ok)' : 'var(--text-3)',
+                    border: `1px solid ${billing === 'yearly' ? 'var(--ok)' : 'var(--border)'}`,
                   }}>
                     {t('settings.planYearlySaving')}
                   </span>
