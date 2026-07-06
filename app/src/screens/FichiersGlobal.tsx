@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation, Trans } from 'react-i18next';
-import { SFIcon, SFButton } from '../components/ui';
+import { SFIcon, SFButton, SFBar } from '../components/ui';
 import {
   getFolders, getFiles, addFolder, deleteFolder, renameFolder,
   addFile, deleteFile, renameFile, subscribeFileStore,
@@ -22,7 +22,7 @@ import { addResource, getResources, subscribeResources, updateResource } from '.
 import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
-import { setFileContent, getFileContent, removeFileContent, hasFileContent } from '../data/fileContentStore';
+import { setFileContent, getFileContent, removeFileContent, hasFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -1908,6 +1908,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [templateName, setTemplateName] = useState('');
   const [templateProjectId, setTemplateProjectId] = useState<string | null>(null);
 
+  // Upload progress tracking
+  const [uploadingIds, setUploadingIds] = useState<{ id: string; name: string }[]>([]);
+  const [uploadTick, setUploadTick] = useState(0);
+  useEffect(() => subscribeUploadStatus(() => setUploadTick((n) => n + 1)), []);
+
   // Context menu
   const [ctx, setCtx] = useState<{ pos: { x: number; y: number }; items: CtxMenuItem[] } | null>(null);
 
@@ -2151,9 +2156,16 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         projectId: scope === 'project' ? scopeId : undefined,
         clientId:  scope === 'client'  ? scopeId : undefined,
       });
+      setUploadingIds((prev) => [...prev, { id: newFile.id, name: file.name }]);
       setFileContent(newFile.id, file);
     }
   }, [location]);
+
+  useEffect(() => {
+    if (uploadingIds.length === 0) return;
+    const stillUploading = uploadingIds.filter((u) => getUploadStatus(u.id)?.state === 'uploading');
+    if (stillUploading.length !== uploadingIds.length) setUploadingIds(stillUploading);
+  }, [uploadingIds, uploadTick]);
 
   const handleCreateResource = (def: typeof RESOURCE_TYPES[number], name: string, webUrl?: string) => {
     const { scope, scopeId, folderId } = location;
@@ -3811,6 +3823,29 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         style={{ display: 'none' }}
         onChange={e => { processUploadedFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }}
       />
+
+      {uploadingIds.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20, width: 320, zIndex: 500,
+          background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+        }}>
+          {uploadingIds.map((u) => {
+            const status = getUploadStatus(u.id);
+            const pct = status ? Math.round(status.progress * 100) : 0;
+            return (
+              <div key={u.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-2)' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{u.name}</span>
+                  <span>{pct}%</span>
+                </div>
+                <SFBar value={pct} max={100} />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
