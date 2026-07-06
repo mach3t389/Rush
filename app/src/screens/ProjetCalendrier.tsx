@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
+import type { User } from '../types';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getTeamMembers } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -15,6 +18,15 @@ import {
 } from '../components/calendar/calendarUtils';
 import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
+
+function getTeam(): User[] {
+  if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
+  const members = getTeamMembers();
+  if (members.length > 0) return members;
+  const self = getCurrentUser();
+  if (self) return [{ id: self.id, name: self.name, initials: self.initials, avatarColor: self.avatarColor, role: self.role }];
+  return [USERS.lea];
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -68,7 +80,11 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
   const [endT, setEndT]           = useState(defaultEndTime ?? `${fmt2((defaultDate.getHours()||9)+1)}:00`);
   const [location, setLocation]   = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
-  const [participants, setParticipants] = useState<string[]>(['lea']);
+  const [participants, setParticipants] = useState<string[]>(() => {
+    if (isDemoSession()) return ['lea'];
+    const self = getCurrentUser();
+    return self ? [self.id] : ['lea'];
+  });
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
   const [showNewType, setShowNewType] = useState(false);
   const [newTypeLabel, setNewTypeLabel] = useState('');
@@ -229,7 +245,7 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
         </div>
 
         {(() => {
-          const team = Object.values(USERS).filter(u=>u.role!=='Cliente');
+          const team = getTeam();
           return (
             <div style={{ marginBottom:20 }}>
               <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:8 }}>{t('calendar.participants')}</p>
@@ -367,7 +383,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 
         {/* Participants */}
         {(()=>{
-          const team=Object.values(USERS).filter(u=>u.role!=='Cliente');
+          const team = getTeam();
           const visible=participantsExpanded?team:team.slice(0,PARTICIPANT_THRESHOLD);
           const hidden=team.length-PARTICIPANT_THRESHOLD;
           return (
