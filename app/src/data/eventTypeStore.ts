@@ -1,3 +1,17 @@
+// Reactive event-type taxonomy store.
+//
+// Demo sessions (isDemoSession() === true): unchanged localStorage-backed
+// behavior, exactly as before this migration.
+//
+// Real sessions: backed by Supabase, scoped to the user's studio. Every new
+// real studio gets the 6 built-in types seeded once (see
+// seedBuiltInEventTypes, called from studioStore.ts's brand-new-studio
+// branch). getEventTypes() stays synchronous via an in-memory cache
+// populated by a background fetch — the same pattern clientStore.ts uses.
+
+import { isDemoSession, onLogout } from './authStore';
+import { supabase } from './supabaseClient';
+
 export interface EventType {
   id: string;
   label: string;
@@ -27,7 +41,9 @@ export function subscribeEventTypes(fn: Listener): () => void {
   return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); };
 }
 
-export function getEventTypes(): EventType[] {
+// ── Demo (localStorage) path ────────────────────────────────────────────────
+
+function getDemoEventTypes(): EventType[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as EventType[];
@@ -35,28 +51,154 @@ export function getEventTypes(): EventType[] {
   return DEFAULT_TYPES;
 }
 
-function save(types: EventType[]) {
+function saveDemoEventTypes(types: EventType[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(types)); } catch { /* noop */ }
+}
+
+// ── Real (Supabase-backed) session state ────────────────────────────────────
+
+let _supabaseTypes: EventType[] = [];
+let _supabaseFetchStarted = false;
+
+interface EventTypeRow {
+  id: string;
+  studio_id: string;
+  label: string;
+  color: string;
+  icon: string;
+  built_in: boolean | null;
+}
+
+function toEventType(row: EventTypeRow): EventType {
+  return {
+    id: row.id,
+    label: row.label,
+    color: row.color,
+    icon: row.icon,
+    builtIn: row.built_in ?? undefined,
+  };
+}
+
+async function fetchSupabaseEventTypes(studioId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('event_types')
+    .select('*')
+    .eq('studio_id', studioId)
+    .order('created_at', { ascending: true });
+
+  if (error) { console.error('fetchSupabaseEventTypes failed', error); return; }
+
+  _supabaseTypes = (data as EventTypeRow[]).map(toEventType);
+  notify();
+}
+
+function ensureSupabaseFetchStarted(): void {
+  if (_supabaseFetchStarted) return;
+  _supabaseFetchStarted = true;
+  void (async () => {
+    const { getStudioId } = await import('./studioStore');
+    const studioId = await getStudioId();
+    await fetchSupabaseEventTypes(studioId);
+  })();
+}
+
+export function resetEventTypesCache(): void {
+  _supabaseTypes = [];
+  _supabaseFetchStarted = false;
+}
+
+onLogout(resetEventTypesCache);
+
+/**
+ * Inserts the 6 built-in event types for a newly-created real studio.
+ * Called once from studioStore.ts's getStudioId() brand-new-studio branch —
+ * never called for demo sessions or for studios that already have types.
+ */
+export async function seedBuiltInEventTypes(studioId: string): Promise<void> {
+  const rows: EventTypeRow[] = DEFAULT_TYPES.map(t => ({
+    id: t.id,
+    studio_id: studioId,
+    label: t.label,
+    color: t.color,
+    icon: t.icon,
+    built_in: t.builtIn ?? null,
+  }));
+  const { error } = await supabase.from('event_types').insert(rows);
+  if (error) console.error('seedBuiltInEventTypes failed', error);
+}
+
+async function addSupabaseEventType(type: EventType, studioId: string): Promise<void> {
+  const { error } = await supabase.from('event_types').insert({
+    id: type.id,
+    studio_id: studioId,
+    label: type.label,
+    color: type.color,
+    icon: type.icon,
+    built_in: type.builtIn ?? null,
+  });
+  if (error) { console.error('addSupabaseEventType failed', error); return; }
+  await fetchSupabaseEventTypes(studioId);
+}
+
+async function updateSupabaseEventType(id: string, patch: Partial<Omit<EventType, 'id' | 'builtIn'>>, studioId: string): Promise<void> {
+  const { error } = await supabase.from('event_types').update(patch).eq('id', id);
+  if (error) { console.error('updateSupabaseEventType failed', error); return; }
+  await fetchSupabaseEventTypes(studioId);
+}
+
+async function deleteSupabaseEventType(id: string, studioId: string): Promise<void> {
+  const { error } = await supabase.from('event_types').delete().eq('id', id);
+  if (error) { console.error('deleteSupabaseEventType failed', error); return; }
+  await fetchSupabaseEventTypes(studioId);
+}
+
+// ── Public API (unchanged signatures) ───────────────────────────────────────
+
+export function getEventTypes(): EventType[] {
+  if (isDemoSession()) return getDemoEventTypes();
+  ensureSupabaseFetchStarted();
+  return _supabaseTypes;
 }
 
 export function addEventType(type: Omit<EventType, 'id'>): EventType {
   const newType: EventType = { ...type, id: `et_${Date.now()}` };
-  const types = [...getEventTypes(), newType];
-  save(types);
-  notify();
+  if (isDemoSession()) {
+    saveDemoEventTypes([...getDemoEventTypes(), newType]);
+    notify();
+    return newType;
+  }
+  void (async () => {
+    const { getStudioId } = await import('./studioStore');
+    const studioId = await getStudioId();
+    await addSupabaseEventType(newType, studioId);
+  })();
   return newType;
 }
 
 export function updateEventType(id: string, patch: Partial<Omit<EventType, 'id' | 'builtIn'>>) {
-  const types = getEventTypes().map(t => t.id === id ? { ...t, ...patch } : t);
-  save(types);
-  notify();
+  if (isDemoSession()) {
+    saveDemoEventTypes(getDemoEventTypes().map(t => t.id === id ? { ...t, ...patch } : t));
+    notify();
+    return;
+  }
+  void (async () => {
+    const { getStudioId } = await import('./studioStore');
+    const studioId = await getStudioId();
+    await updateSupabaseEventType(id, patch, studioId);
+  })();
 }
 
 export function deleteEventType(id: string) {
-  const types = getEventTypes().filter(t => t.id !== id || t.builtIn);
-  save(types);
-  notify();
+  if (isDemoSession()) {
+    saveDemoEventTypes(getDemoEventTypes().filter(t => t.id !== id || t.builtIn));
+    notify();
+    return;
+  }
+  void (async () => {
+    const { getStudioId } = await import('./studioStore');
+    const studioId = await getStudioId();
+    await deleteSupabaseEventType(id, studioId);
+  })();
 }
 
 export function getEventTypeById(id: string): EventType | undefined {

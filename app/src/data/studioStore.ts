@@ -80,6 +80,8 @@ export async function getStudioId(): Promise<string> {
   if (insertError) throw insertError;
 
   await insertOwnerMembership(created.id, user);
+  const { seedBuiltInEventTypes } = await import('./eventTypeStore');
+  await seedBuiltInEventTypes(created.id);
   cachedStudioId = created.id;
   return created.id;
 }
