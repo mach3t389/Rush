@@ -5,7 +5,7 @@ import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
 import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getTeamMembers } from '../data/teamStore';
+import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -275,6 +275,8 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
   });
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
   const [localEventTypes, setLocalEventTypes] = useState<EventType[]>(getEventTypes);
+  const [, forceRerender] = useState(0);
+  useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
   const PARTICIPANT_THRESHOLD = 4;
 
   const save = () => {
@@ -462,6 +464,8 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   const [meetingUrl, setMeetingUrl] = useState(ev.meetingUrl ?? '');
   const [participants, setParticipants] = useState<string[]>(ev.participantIds ?? []);
   const [participantsExpanded, setParticipantsExpanded] = useState(false);
+  const [, forceRerender] = useState(0);
+  useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
   const PARTICIPANT_THRESHOLD = 4;
   const togglePart = (id: string) => setParticipants(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
