@@ -163,6 +163,7 @@ Deno.serve(async (req: Request) => {
         return json({ error: "unknown action" }, 400);
     }
   } catch (err) {
+    console.error("file-storage error:", err instanceof Error ? err.stack ?? err.message : String(err));
     const message = err instanceof Error ? err.message : "unknown error";
     return json({ error: message }, 400);
   }
