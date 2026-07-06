@@ -4,6 +4,7 @@
 import { supabase } from './supabaseClient';
 
 let cachedStudioId: string | null = null;
+let inFlight: Promise<string> | null = null;
 
 interface SupabaseUserLike {
   id: string;
@@ -33,7 +34,13 @@ async function insertOwnerMembership(studioId: string, user: SupabaseUserLike): 
 
 export async function getStudioId(): Promise<string> {
   if (cachedStudioId) return cachedStudioId;
+  if (!inFlight) {
+    inFlight = resolveStudioId().finally(() => { inFlight = null; });
+  }
+  return inFlight;
+}
 
+async function resolveStudioId(): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('getStudioId called without an authenticated Supabase user');
 
@@ -88,4 +95,5 @@ export async function getStudioId(): Promise<string> {
 
 export function resetStudioIdCache(): void {
   cachedStudioId = null;
+  inFlight = null;
 }
