@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
@@ -108,6 +108,10 @@ function InfoTooltip({ text, children }: { text: string; children: React.ReactNo
     if (timerRef.current) window.clearTimeout(timerRef.current);
     setRect(null);
   };
+
+  useEffect(() => {
+    return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
+  }, []);
 
   return (
     <span ref={ref} onMouseEnter={show} onMouseLeave={hide} style={{ display: 'inline-flex', cursor: 'help' }}>
