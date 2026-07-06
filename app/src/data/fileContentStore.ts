@@ -85,6 +85,11 @@ function clearDoneMark(id: string): void {
 const _uploadStatus = new Map<string, UploadStatus>();
 const _getUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const _listeners = new Set<() => void>();
+const _uploadGeneration = new Map<string, number>();
+
+function isCurrentUpload(id: string, generation: number): boolean {
+  return _uploadGeneration.get(id) === generation;
+}
 
 function notify() { _listeners.forEach((fn) => fn()); }
 
@@ -135,6 +140,9 @@ function xhrUploadPart(url: string, blob: Blob, onProgress: (loadedBytes: number
 }
 
 async function uploadReal(id: string, file: File): Promise<void> {
+  const myGeneration = (_uploadGeneration.get(id) ?? 0) + 1;
+  _uploadGeneration.set(id, myGeneration);
+
   const existing = loadUploadRecord(id);
   let record: StoredUploadRecord;
 
@@ -166,6 +174,7 @@ async function uploadReal(id: string, file: File): Promise<void> {
   let bytesDone = 0;
   for (const p of doneSet) bytesDone += Math.min(record.partSize, file.size - (p - 1) * record.partSize);
 
+  if (!isCurrentUpload(id, myGeneration)) return;
   _uploadStatus.set(id, { state: 'uploading', progress: file.size === 0 ? 1 : bytesDone / file.size, bytesUploaded: bytesDone, totalBytes: file.size });
   notify();
 
@@ -180,13 +189,16 @@ async function uploadReal(id: string, file: File): Promise<void> {
       let etag: string | null = null;
       let attempts = 0;
       let lastError: unknown = null;
+      let maxLoadedThisPart = 0;
       while (attempts < 3 && !etag) {
         attempts++;
         try {
           const { url } = await callFileStorage('sign-part', { key: record.key, uploadId: record.uploadId, partNumber });
           if (!url) throw new Error('sign-part did not return a url');
           etag = await xhrUploadPart(url, blob, (loaded) => {
-            const currentBytes = bytesDone + loaded;
+            if (!isCurrentUpload(id, myGeneration)) return;
+            if (loaded > maxLoadedThisPart) maxLoadedThisPart = loaded;
+            const currentBytes = bytesDone + maxLoadedThisPart;
             _uploadStatus.set(id, { state: 'uploading', progress: currentBytes / file.size, bytesUploaded: currentBytes, totalBytes: file.size });
             notify();
           });
@@ -198,24 +210,28 @@ async function uploadReal(id: string, file: File): Promise<void> {
 
       bytesDone += (end - start);
       record.completedParts = [...record.completedParts.filter((p) => p !== partNumber), partNumber];
+      if (!isCurrentUpload(id, myGeneration)) return;
       saveUploadRecord(id, record);
       _uploadStatus.set(id, { state: 'uploading', progress: bytesDone / file.size, bytesUploaded: bytesDone, totalBytes: file.size });
       notify();
     }
 
     const { parts: finalParts } = await callFileStorage('list-parts', { key: record.key, uploadId: record.uploadId });
+    if (!isCurrentUpload(id, myGeneration)) return;
     await callFileStorage('complete-upload', {
       key: record.key,
       uploadId: record.uploadId,
       parts: (finalParts ?? []).map((p) => ({ partNumber: p.partNumber, etag: p.etag })),
     });
 
+    if (!isCurrentUpload(id, myGeneration)) return;
     clearUploadRecord(id);
     markUploadDone(id);
     _uploadStatus.set(id, { state: 'done', progress: 1, bytesUploaded: file.size, totalBytes: file.size });
     notify();
   } catch (err) {
     console.error('uploadReal failed', err);
+    if (!isCurrentUpload(id, myGeneration)) return;
     _uploadStatus.set(id, { state: 'error', progress: file.size === 0 ? 0 : bytesDone / file.size, bytesUploaded: bytesDone, totalBytes: file.size });
     notify();
   }
@@ -285,6 +301,7 @@ export function removeFileContent(id: string): void {
     }
   })();
 
+  _uploadGeneration.set(id, (_uploadGeneration.get(id) ?? 0) + 1);
   clearUploadRecord(id);
   clearDoneMark(id);
   _uploadStatus.delete(id);
