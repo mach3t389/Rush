@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
@@ -94,6 +94,54 @@ function Stepper({ label, onDec, onInc, disableDec, disableInc, editable, value,
   );
 }
 
+function InfoTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const show = () => {
+    timerRef.current = window.setTimeout(() => {
+      if (ref.current) setRect(ref.current.getBoundingClientRect());
+    }, 300);
+  };
+  const hide = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    setRect(null);
+  };
+
+  useEffect(() => {
+    return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
+  }, []);
+
+  return (
+    <span ref={ref} onMouseEnter={show} onMouseLeave={hide} style={{ display: 'inline-flex', cursor: 'help' }}>
+      {children}
+      {rect && (
+        <div style={{
+          position: 'fixed', top: rect.bottom + 8, left: rect.left, zIndex: 500,
+          maxWidth: 260, padding: '10px 12px', borderRadius: 10,
+          background: 'var(--surface-3)', border: '1px solid var(--border-2)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, fontFamily: 'var(--ff-text)',
+          pointerEvents: 'none',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
+
+function RowLabel({ label, desc }: { label: string; desc: string }) {
+  return (
+    <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
+      <InfoTooltip text={desc}>
+        <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{label}</span>
+      </InfoTooltip>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function Pricing() {
@@ -117,30 +165,30 @@ export function Pricing() {
     {
       title: t('pricing.sectionPortal'),
       rows: [
-        { label: t('pricing.featPortal'),   values: [t('pricing.brandedPortal'), t('pricing.whiteLabel'), t('pricing.whiteLabel')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featPortal'), desc: t('pricing.descPortal'), values: [t('pricing.brandedPortal'), t('pricing.whiteLabel'), t('pricing.whiteLabel')] as [string|boolean, string|boolean, string|boolean] },
       ],
     },
     {
       title: t('pricing.sectionFeatures'),
       rows: [
-        { label: t('pricing.featTemplatesPreset'), values: [true, true, true] as [boolean, boolean, boolean] },
-        { label: t('pricing.featTemplatesCustom'), values: [false, true, true] as [boolean, boolean, boolean] },
-        { label: t('pricing.featAI'),              values: [false, true, true] as [boolean, boolean, boolean] },
-        { label: t('pricing.featFinances'),        values: [false, true, true] as [boolean, boolean, boolean] },
+        { label: t('pricing.featTemplatesPreset'), desc: t('pricing.descTemplatesPreset'), values: [true, true, true] as [boolean, boolean, boolean] },
+        { label: t('pricing.featTemplatesCustom'), desc: t('pricing.descTemplatesCustom'), values: [false, true, true] as [boolean, boolean, boolean] },
+        { label: t('pricing.featAI'),              desc: t('pricing.descAI'),              values: [false, true, true] as [boolean, boolean, boolean] },
+        { label: t('pricing.featFinances'),        desc: t('pricing.descFinances'),        values: [false, true, true] as [boolean, boolean, boolean] },
       ],
     },
     {
       title: t('pricing.sectionIntegrations'),
       rows: [
-        { label: t('pricing.featGoogleCalendar'),        values: [t('pricing.comingSoon'), t('pricing.comingSoon'), t('pricing.comingSoon')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featCreativeIntegrations'),  values: [false, t('pricing.comingSoon'), t('pricing.comingSoon')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featGoogleCalendar'),        desc: t('pricing.descGoogleCalendar'),        values: [t('pricing.comingSoon'), t('pricing.comingSoon'), t('pricing.comingSoon')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featCreativeIntegrations'),  desc: t('pricing.descCreativeIntegrations'),  values: [false, t('pricing.comingSoon'), t('pricing.comingSoon')] as [string|boolean, string|boolean, string|boolean] },
       ],
     },
     {
       title: t('pricing.sectionSupport'),
       rows: [
-        { label: t('pricing.featSupport'), values: [t('pricing.supportEmail'), t('pricing.supportEmail'), t('pricing.supportPriority')] as [string|boolean, string|boolean, string|boolean] },
-        { label: t('pricing.featAPI'),     values: [false, false, true] as [boolean, boolean, boolean] },
+        { label: t('pricing.featSupport'), desc: t('pricing.descSupport'), values: [t('pricing.supportEmail'), t('pricing.supportEmail'), t('pricing.supportPriority')] as [string|boolean, string|boolean, string|boolean] },
+        { label: t('pricing.featAPI'),     desc: t('pricing.descAPI'),     values: [false, false, true] as [boolean, boolean, boolean] },
       ],
     },
   ];
@@ -336,9 +384,7 @@ export function Pricing() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featProjects')}</span>
-              </div>
+              <RowLabel label={t('pricing.featProjects')} desc={t('pricing.descProjects')} />
               {['3', t('pricing.unlimited'), t('pricing.unlimited')].map((v, i) => (
                 <div key={i} style={{ ...colStyle(i), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <CellValue v={v} />
@@ -347,9 +393,7 @@ export function Pricing() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featMembers')}</span>
-              </div>
+              <RowLabel label={t('pricing.featMembers')} desc={t('pricing.descMembers')} />
               <div style={{ ...colStyle(0), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CellValue v={t('pricing.included2')} />
               </div>
@@ -378,9 +422,7 @@ export function Pricing() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featGuests')}</span>
-              </div>
+              <RowLabel label={t('pricing.featGuests')} desc={t('pricing.descGuests')} />
               {[t('pricing.unlimited'), t('pricing.unlimited'), t('pricing.unlimited')].map((v, i) => (
                 <div key={i} style={{ ...colStyle(i), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <CellValue v={v} />
@@ -389,9 +431,7 @@ export function Pricing() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('pricing.featStorage')}</span>
-              </div>
+              <RowLabel label={t('pricing.featStorage')} desc={t('pricing.descStorage')} />
               <div style={{ ...colStyle(0), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CellValue v="5 Go" />
               </div>
@@ -432,9 +472,7 @@ export function Pricing() {
                     display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr',
                     borderBottom: ri < section.rows.length - 1 || si < OTHER_SECTIONS.length - 1 ? '1px solid var(--border)' : 'none',
                   }}>
-                    <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{row.label}</span>
-                    </div>
+                    <RowLabel label={row.label} desc={row.desc} />
                     {row.values.map((v, i) => (
                       <div key={i} style={{ ...colStyle(i), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <CellValue v={v} />
