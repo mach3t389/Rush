@@ -163,7 +163,14 @@ Deno.serve(async (req: Request) => {
         return json({ error: "unknown action" }, 400);
     }
   } catch (err) {
-    console.error("file-storage error:", err instanceof Error ? err.stack ?? err.message : String(err));
+    try {
+      const dump = err && typeof err === "object"
+        ? JSON.stringify(err, Object.getOwnPropertyNames(err))
+        : String(err);
+      console.error("file-storage error:", err instanceof Error ? (err.stack ?? err.message) : dump, "| constructor:", err?.constructor?.name);
+    } catch (logErr) {
+      console.error("file-storage error (failed to serialize):", String(err), logErr);
+    }
     const message = err instanceof Error ? err.message : "unknown error";
     return json({ error: message }, 400);
   }
