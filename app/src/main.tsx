@@ -5,6 +5,7 @@ import { I18nextProvider } from 'react-i18next';
 import './index.css';
 import i18n from './i18n/i18n';
 import { isAuthenticated } from './data/authStore';
+import { preloadResourceContent } from './data/resourceContentStore';
 
 import { AppShell } from './components/layout/AppShell';
 import { Dashboard } from './screens/Dashboard';
@@ -38,7 +39,11 @@ import { Onboarding } from './screens/Onboarding';
 import { Pricing } from './screens/Pricing';
 
 // ── Route guards ──────────────────────────────────────────────────────────────
-const authLoader = async () => { if (!(await isAuthenticated())) return redirect('/login'); return null; };
+const authLoader = async () => {
+  if (!(await isAuthenticated())) return redirect('/login');
+  await preloadResourceContent();
+  return null;
+};
 const guestLoader = async () => { if (await isAuthenticated()) return redirect('/'); return null; };
 
 const router = createBrowserRouter([

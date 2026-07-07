@@ -1,4 +1,7 @@
 import { loadPersisted, savePersisted } from './persist';
+import { isDemoSession, onLogout } from './authStore';
+import { getStudioId } from './studioStore';
+import { supabase } from './supabaseClient';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Store de CONTENU par ressource.
@@ -9,36 +12,108 @@ import { loadPersisted, savePersisted } from './persist';
 // `resourceId`. Chaque éditeur connaît la forme de SON propre contenu ; le store
 // reste volontairement générique (`unknown`).
 //
-// ⚠️  POINT DE BASCULE BACKEND : c'est le SEUL module à réécrire le jour où l'on
-// branche un backend. Les éditeurs n'appellent que get/set/subscribe ci-dessous ;
-// remplacer l'implémentation localStorage par des appels API ne touchera aucun
-// composant d'UI. Garder cette frontière étanche.
+// Demo sessions: unchanged localStorage behavior, exactly as before this
+// migration. Real sessions: backed by the `resource_content` table, bulk-loaded
+// into an in-memory cache (see `preloadResourceContent`) so every read stays
+// synchronous — the 9 consumer screens read this store exactly once at mount,
+// with no subscription, so the cache MUST already be populated by the time they
+// mount (see `preloadResourceContent`'s wiring into `main.tsx`'s `authLoader`).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'sf_resource_content';
 
-let _content: Record<string, unknown> = loadPersisted(STORAGE_KEY, {} as Record<string, unknown>);
-const _listeners: Set<() => void> = new Set();
+// ── Demo-session working set ─────────────────────────────────────────────────
+let _demoContent: Record<string, unknown> = loadPersisted(STORAGE_KEY, {} as Record<string, unknown>);
 
-function persist() { savePersisted(STORAGE_KEY, _content); }
+// ── Real-session working set ─────────────────────────────────────────────────
+let _supabaseContent: Record<string, unknown> = {};
+let _preloadPromise: Promise<void> | null = null;
+
+const _listeners: Set<() => void> = new Set();
+function notify() { _listeners.forEach(fn => fn()); }
+function persistDemo() { savePersisted(STORAGE_KEY, _demoContent); }
+
+interface ResourceContentRow {
+  resource_id: string;
+  content: unknown;
+}
+
+async function fetchSupabaseContent(): Promise<void> {
+  const studioId = await getStudioId();
+  const { data, error } = await supabase
+    .from('resource_content')
+    .select('resource_id, content')
+    .eq('studio_id', studioId);
+
+  if (error) { console.error('fetchSupabaseContent failed', error); return; }
+
+  const next: Record<string, unknown> = {};
+  for (const row of data as ResourceContentRow[]) next[row.resource_id] = row.content;
+  _supabaseContent = next;
+  notify();
+}
+
+export function preloadResourceContent(): Promise<void> {
+  if (isDemoSession()) return Promise.resolve();
+  if (!_preloadPromise) _preloadPromise = fetchSupabaseContent();
+  return _preloadPromise;
+}
+
+export function resetResourceContentCache(): void {
+  _supabaseContent = {};
+  _preloadPromise = null;
+}
+
+onLogout(resetResourceContentCache);
+
+async function setSupabaseContent(resourceId: string, content: unknown): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase
+    .from('resource_content')
+    .upsert({ resource_id: resourceId, studio_id: studioId, content, updated_at: new Date().toISOString() });
+  if (error) console.error('setSupabaseContent failed', error);
+}
+
+async function removeSupabaseContent(resourceId: string): Promise<void> {
+  const { error } = await supabase.from('resource_content').delete().eq('resource_id', resourceId);
+  if (error) console.error('removeSupabaseContent failed', error);
+}
+
+// ── Public API (unchanged signatures) ───────────────────────────────────────
 
 export function getResourceContent<T = unknown>(resourceId: string): T | undefined {
-  return _content[resourceId] as T | undefined;
+  if (isDemoSession()) return _demoContent[resourceId] as T | undefined;
+  return _supabaseContent[resourceId] as T | undefined;
 }
 
 export function setResourceContent<T = unknown>(resourceId: string, content: T): void {
-  _content = { ..._content, [resourceId]: content };
-  persist();
-  _listeners.forEach(fn => fn());
+  if (isDemoSession()) {
+    _demoContent = { ..._demoContent, [resourceId]: content };
+    persistDemo();
+    notify();
+    return;
+  }
+  _supabaseContent = { ..._supabaseContent, [resourceId]: content };
+  notify();
+  void setSupabaseContent(resourceId, content);
 }
 
 export function removeResourceContent(resourceId: string): void {
-  if (!(resourceId in _content)) return;
-  const next = { ..._content };
+  if (isDemoSession()) {
+    if (!(resourceId in _demoContent)) return;
+    const next = { ..._demoContent };
+    delete next[resourceId];
+    _demoContent = next;
+    persistDemo();
+    notify();
+    return;
+  }
+  if (!(resourceId in _supabaseContent)) return;
+  const next = { ..._supabaseContent };
   delete next[resourceId];
-  _content = next;
-  persist();
-  _listeners.forEach(fn => fn());
+  _supabaseContent = next;
+  notify();
+  void removeSupabaseContent(resourceId);
 }
 
 export function subscribeResourceContent(fn: () => void): () => void {

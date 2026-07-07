@@ -4,6 +4,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { removeResourceContent } from './resourceContentStore';
 
 const STORAGE_KEY = 'sf_resources';
 
@@ -154,6 +155,7 @@ export function updateResource(id: string, patch: Partial<Resource>): void {
 }
 
 export function removeResource(id: string): void {
+  removeResourceContent(id);
   if (isDemoSession()) {
     _demoResources = _demoResources.filter(r => r.id !== id);
     persistDemo();
