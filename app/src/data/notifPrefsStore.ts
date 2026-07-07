@@ -1,7 +1,12 @@
 // Préférences de notification (par type d'événement × canal).
-// Persistées en localStorage. Sans backend, le canal "email" est déclaratif ;
-// le canal "in-app" pourra plus tard piloter le filtrage du notificationStore.
+//
+// Demo sessions: unchanged localStorage behavior, exactly as before this migration.
+// Real sessions: backed by the `notif_prefs` table, scoped by the authenticated
+// user's own id (auth.uid()) — the first table in this project scoped per-user
+// rather than per-studio, since notification preferences are inherently personal.
 
+import { isDemoSession } from './authStore';
+import { supabase } from './supabaseClient';
 import { loadPersisted, savePersisted } from './persist';
 
 const STORAGE_KEY = 'sf_notif_prefs';
@@ -23,12 +28,55 @@ const DEFAULTS: NotifPrefs = Object.fromEntries(
   NOTIF_EVENTS.map(e => [e.key, { inapp: true, email: e.key === 'mention' || e.key === 'approval' }])
 );
 
+// ── Real-session in-memory cache ────────────────────────────────────────────
+let _prefs: NotifPrefs | null = null;
+let _fetchStarted = false;
+
+async function fetchSupabasePrefs(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from('notif_prefs')
+    .select('prefs')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) { console.error('fetchSupabasePrefs failed', error); return; }
+
+  _prefs = { ...DEFAULTS, ...((data?.prefs as NotifPrefs) ?? {}) };
+}
+
+function ensureFetchStarted(): void {
+  if (_fetchStarted) return;
+  _fetchStarted = true;
+  void fetchSupabasePrefs();
+}
+
+async function saveSupabasePrefs(prefs: NotifPrefs): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase.from('notif_prefs').upsert({ user_id: user.id, prefs, updated_at: new Date().toISOString() });
+  if (error) console.error('saveSupabasePrefs failed', error);
+}
+
+// ── Public API (unchanged signatures) ───────────────────────────────────────
+
 export function loadNotifPrefs(): NotifPrefs {
-  const saved = loadPersisted<NotifPrefs | null>(STORAGE_KEY, null);
-  // Fusion avec les défauts pour rester robuste si de nouveaux types apparaissent.
-  return { ...DEFAULTS, ...(saved ?? {}) };
+  if (isDemoSession()) {
+    const saved = loadPersisted<NotifPrefs | null>(STORAGE_KEY, null);
+    return { ...DEFAULTS, ...(saved ?? {}) };
+  }
+  ensureFetchStarted();
+  return _prefs ?? DEFAULTS;
 }
 
 export function saveNotifPrefs(prefs: NotifPrefs): void {
-  savePersisted(STORAGE_KEY, prefs);
+  if (isDemoSession()) {
+    savePersisted(STORAGE_KEY, prefs);
+    return;
+  }
+  _prefs = { ...DEFAULTS, ...prefs };
+  void saveSupabasePrefs(prefs);
 }
