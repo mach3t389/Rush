@@ -39,18 +39,22 @@ interface ResourceContentRow {
 }
 
 async function fetchSupabaseContent(): Promise<void> {
-  const studioId = await getStudioId();
-  const { data, error } = await supabase
-    .from('resource_content')
-    .select('resource_id, content')
-    .eq('studio_id', studioId);
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase
+      .from('resource_content')
+      .select('resource_id, content')
+      .eq('studio_id', studioId);
 
-  if (error) { console.error('fetchSupabaseContent failed', error); return; }
+    if (error) { console.error('fetchSupabaseContent failed', error); return; }
 
-  const next: Record<string, unknown> = {};
-  for (const row of data as ResourceContentRow[]) next[row.resource_id] = row.content;
-  _supabaseContent = next;
-  notify();
+    const next: Record<string, unknown> = {};
+    for (const row of data as ResourceContentRow[]) next[row.resource_id] = row.content;
+    _supabaseContent = next;
+    notify();
+  } catch (err) {
+    console.error('fetchSupabaseContent failed', err);
+  }
 }
 
 export function preloadResourceContent(): Promise<void> {
