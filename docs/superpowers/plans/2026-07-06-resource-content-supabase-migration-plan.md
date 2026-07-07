@@ -31,7 +31,7 @@
 
 ```sql
 create table resource_content (
-  resource_id uuid primary key references resources(id) on delete cascade,
+  resource_id text primary key references resources(id) on delete cascade,
   studio_id uuid not null references studios(id),
   content jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -45,6 +45,8 @@ create policy "studio members can manage their resource content"
   using (studio_id in (select my_studio_ids()))
   with check (studio_id in (select my_studio_ids()));
 ```
+
+Note: `resource_id` is `text`, not `uuid` — `resources.id` (the referenced column) turned out to be `text` (app-generated string ids), not a real Postgres `uuid`, discovered when the first attempt with `uuid` failed with a `42804` foreign key type mismatch. This does not affect any TypeScript code in Task 2 — `resourceId` is already typed as `string` everywhere in the app.
 
 Expected: "Success. No rows returned."
 
