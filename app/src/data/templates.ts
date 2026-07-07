@@ -508,11 +508,10 @@ export function resetCustomProjectTemplatesCache(): void {
 
 onLogout(resetCustomProjectTemplatesCache);
 
-async function replaceSupabaseProjectTemplates(templates: ProjectTemplate[]): Promise<void> {
+async function replaceSupabaseProjectTemplates(previousIds: string[], templates: ProjectTemplate[]): Promise<void> {
   const studioId = await getStudioId();
-  const existingIds = _supabaseProjectTemplates.map(t => t.id);
   const nextIds = templates.map(t => t.id);
-  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+  const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
   if (removedIds.length > 0) {
     const { error: delError } = await supabase.from('custom_project_templates').delete().in('id', removedIds);
@@ -541,8 +540,9 @@ export function saveCustomTemplates(templates: ProjectTemplate[]): void {
     persistDemoProjectTemplates();
     return;
   }
+  const previousIds = _supabaseProjectTemplates.map(t => t.id);
   _supabaseProjectTemplates = templates;
-  void replaceSupabaseProjectTemplates(templates);
+  void replaceSupabaseProjectTemplates(previousIds, templates);
 }
 
 export function loadAllTemplates(): ProjectTemplate[] {
@@ -591,11 +591,10 @@ export function resetCustomFormTemplatesCache(): void {
 
 onLogout(resetCustomFormTemplatesCache);
 
-async function replaceSupabaseFormTemplates(templates: FormTemplate[]): Promise<void> {
+async function replaceSupabaseFormTemplates(previousIds: string[], templates: FormTemplate[]): Promise<void> {
   const studioId = await getStudioId();
-  const existingIds = _supabaseFormTemplates.map(t => t.id);
   const nextIds = templates.map(t => t.id);
-  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+  const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
   if (removedIds.length > 0) {
     const { error: delError } = await supabase.from('custom_form_templates').delete().in('id', removedIds);
@@ -624,8 +623,9 @@ export function saveCustomFormTemplates(templates: FormTemplate[]): void {
     persistDemoFormTemplates();
     return;
   }
+  const previousIds = _supabaseFormTemplates.map(t => t.id);
   _supabaseFormTemplates = templates;
-  void replaceSupabaseFormTemplates(templates);
+  void replaceSupabaseFormTemplates(previousIds, templates);
 }
 
 export function loadAllFormTemplates(): FormTemplate[] {
@@ -903,11 +903,10 @@ export function resetCustomResourceTemplatesCache(): void {
 
 onLogout(resetCustomResourceTemplatesCache);
 
-async function replaceSupabaseResourceTemplates(templates: ResourceTemplate[]): Promise<void> {
+async function replaceSupabaseResourceTemplates(previousIds: string[], templates: ResourceTemplate[]): Promise<void> {
   const studioId = await getStudioId();
-  const existingIds = _supabaseResourceTemplates.map(t => t.id);
   const nextIds = templates.map(t => t.id);
-  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+  const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
   if (removedIds.length > 0) {
     const { error: delError } = await supabase.from('custom_resource_templates').delete().in('id', removedIds);
@@ -936,8 +935,9 @@ export function saveCustomResourceTemplates(templates: ResourceTemplate[]): void
     persistDemoResourceTemplates();
     return;
   }
+  const previousIds = _supabaseResourceTemplates.map(t => t.id);
   _supabaseResourceTemplates = templates;
-  void replaceSupabaseResourceTemplates(templates);
+  void replaceSupabaseResourceTemplates(previousIds, templates);
 }
 
 export function loadAllResourceTemplates(): ResourceTemplate[] {
