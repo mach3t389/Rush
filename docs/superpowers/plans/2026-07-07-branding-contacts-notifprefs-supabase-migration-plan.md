@@ -43,7 +43,7 @@ create table client_contacts (
   initials text not null,
   color text not null,
   internal boolean not null default false,
-  studio_member_id uuid references studio_members(id) on delete set null,
+  studio_member_id uuid references studio_members(user_id) on delete set null,
   portal_permissions jsonb not null default '{"approve":false,"comment":true,"download":true}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
