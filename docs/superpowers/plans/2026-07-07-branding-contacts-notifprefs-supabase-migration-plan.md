@@ -33,8 +33,8 @@
 alter table studios add column logo_full text, add column logo_square text;
 
 create table client_contacts (
-  id uuid primary key default gen_random_uuid(),
-  client_id uuid not null references clients(id) on delete cascade,
+  id text primary key,
+  client_id text not null references clients(id) on delete cascade,
   studio_id uuid not null references studios(id),
   name text not null,
   role text not null,
