@@ -1,4 +1,7 @@
 import type { Priority, ResourceType } from '../types';
+import { isDemoSession, onLogout } from './authStore';
+import { getStudioId } from './studioStore';
+import { supabase } from './supabaseClient';
 
 // ── Project template types ─────────────────────────────────────────────────────
 
@@ -467,15 +470,79 @@ export const BUILT_IN_FORM_TEMPLATES: FormTemplate[] = [
 
 const STORAGE_KEY = 'sf_custom_templates';
 
-export function loadCustomTemplates(): ProjectTemplate[] {
+let _demoProjectTemplates: ProjectTemplate[] = loadDemoProjectTemplates();
+function loadDemoProjectTemplates(): ProjectTemplate[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
+function persistDemoProjectTemplates(): void { localStorage.setItem(STORAGE_KEY, JSON.stringify(_demoProjectTemplates)); }
+
+let _supabaseProjectTemplates: ProjectTemplate[] = [];
+let _projectTemplatesFetchStarted = false;
+
+interface CustomTemplateRow { id: string; data: ProjectTemplate; }
+
+async function fetchSupabaseProjectTemplates(): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase.from('custom_project_templates').select('id, data').eq('studio_id', studioId);
+    if (error) { console.error('fetchSupabaseProjectTemplates failed', error); return; }
+    _supabaseProjectTemplates = (data as CustomTemplateRow[]).map(row => row.data);
+  } catch (err) {
+    console.error('fetchSupabaseProjectTemplates failed', err);
+  }
+}
+
+function ensureProjectTemplatesFetchStarted(): void {
+  if (_projectTemplatesFetchStarted) return;
+  _projectTemplatesFetchStarted = true;
+  void fetchSupabaseProjectTemplates();
+}
+
+export function resetCustomProjectTemplatesCache(): void {
+  _supabaseProjectTemplates = [];
+  _projectTemplatesFetchStarted = false;
+}
+
+onLogout(resetCustomProjectTemplatesCache);
+
+async function replaceSupabaseProjectTemplates(templates: ProjectTemplate[]): Promise<void> {
+  const studioId = await getStudioId();
+  const existingIds = _supabaseProjectTemplates.map(t => t.id);
+  const nextIds = templates.map(t => t.id);
+  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+
+  if (removedIds.length > 0) {
+    const { error: delError } = await supabase.from('custom_project_templates').delete().in('id', removedIds);
+    if (delError) { console.error('replaceSupabaseProjectTemplates delete failed', delError); return; }
+  }
+
+  if (templates.length > 0) {
+    const { error: upsertError } = await supabase.from('custom_project_templates').upsert(
+      templates.map(t => ({ id: t.id, studio_id: studioId, data: t }))
+    );
+    if (upsertError) { console.error('replaceSupabaseProjectTemplates upsert failed', upsertError); return; }
+  }
+
+  await fetchSupabaseProjectTemplates();
+}
+
+export function loadCustomTemplates(): ProjectTemplate[] {
+  if (isDemoSession()) return _demoProjectTemplates;
+  ensureProjectTemplatesFetchStarted();
+  return _supabaseProjectTemplates;
+}
 
 export function saveCustomTemplates(templates: ProjectTemplate[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+  if (isDemoSession()) {
+    _demoProjectTemplates = templates;
+    persistDemoProjectTemplates();
+    return;
+  }
+  _supabaseProjectTemplates = templates;
+  void replaceSupabaseProjectTemplates(templates);
 }
 
 export function loadAllTemplates(): ProjectTemplate[] {
@@ -486,15 +553,79 @@ export function loadAllTemplates(): ProjectTemplate[] {
 
 const FORM_TPL_KEY = 'sf_custom_form_templates';
 
-export function loadCustomFormTemplates(): FormTemplate[] {
+let _demoFormTemplates: FormTemplate[] = loadDemoFormTemplates();
+function loadDemoFormTemplates(): FormTemplate[] {
   try {
     const raw = localStorage.getItem(FORM_TPL_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
+function persistDemoFormTemplates(): void { localStorage.setItem(FORM_TPL_KEY, JSON.stringify(_demoFormTemplates)); }
+
+let _supabaseFormTemplates: FormTemplate[] = [];
+let _formTemplatesFetchStarted = false;
+
+interface CustomFormTemplateRow { id: string; data: FormTemplate; }
+
+async function fetchSupabaseFormTemplates(): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase.from('custom_form_templates').select('id, data').eq('studio_id', studioId);
+    if (error) { console.error('fetchSupabaseFormTemplates failed', error); return; }
+    _supabaseFormTemplates = (data as CustomFormTemplateRow[]).map(row => row.data);
+  } catch (err) {
+    console.error('fetchSupabaseFormTemplates failed', err);
+  }
+}
+
+function ensureFormTemplatesFetchStarted(): void {
+  if (_formTemplatesFetchStarted) return;
+  _formTemplatesFetchStarted = true;
+  void fetchSupabaseFormTemplates();
+}
+
+export function resetCustomFormTemplatesCache(): void {
+  _supabaseFormTemplates = [];
+  _formTemplatesFetchStarted = false;
+}
+
+onLogout(resetCustomFormTemplatesCache);
+
+async function replaceSupabaseFormTemplates(templates: FormTemplate[]): Promise<void> {
+  const studioId = await getStudioId();
+  const existingIds = _supabaseFormTemplates.map(t => t.id);
+  const nextIds = templates.map(t => t.id);
+  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+
+  if (removedIds.length > 0) {
+    const { error: delError } = await supabase.from('custom_form_templates').delete().in('id', removedIds);
+    if (delError) { console.error('replaceSupabaseFormTemplates delete failed', delError); return; }
+  }
+
+  if (templates.length > 0) {
+    const { error: upsertError } = await supabase.from('custom_form_templates').upsert(
+      templates.map(t => ({ id: t.id, studio_id: studioId, data: t }))
+    );
+    if (upsertError) { console.error('replaceSupabaseFormTemplates upsert failed', upsertError); return; }
+  }
+
+  await fetchSupabaseFormTemplates();
+}
+
+export function loadCustomFormTemplates(): FormTemplate[] {
+  if (isDemoSession()) return _demoFormTemplates;
+  ensureFormTemplatesFetchStarted();
+  return _supabaseFormTemplates;
+}
 
 export function saveCustomFormTemplates(templates: FormTemplate[]): void {
-  localStorage.setItem(FORM_TPL_KEY, JSON.stringify(templates));
+  if (isDemoSession()) {
+    _demoFormTemplates = templates;
+    persistDemoFormTemplates();
+    return;
+  }
+  _supabaseFormTemplates = templates;
+  void replaceSupabaseFormTemplates(templates);
 }
 
 export function loadAllFormTemplates(): FormTemplate[] {
@@ -734,15 +865,79 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
 
 const RES_TPL_KEY = 'sf_custom_resource_templates';
 
-export function loadCustomResourceTemplates(): ResourceTemplate[] {
+let _demoResourceTemplates: ResourceTemplate[] = loadDemoResourceTemplates();
+function loadDemoResourceTemplates(): ResourceTemplate[] {
   try {
     const raw = localStorage.getItem(RES_TPL_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
+function persistDemoResourceTemplates(): void { localStorage.setItem(RES_TPL_KEY, JSON.stringify(_demoResourceTemplates)); }
+
+let _supabaseResourceTemplates: ResourceTemplate[] = [];
+let _resourceTemplatesFetchStarted = false;
+
+interface CustomResourceTemplateRow { id: string; data: ResourceTemplate; }
+
+async function fetchSupabaseResourceTemplates(): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase.from('custom_resource_templates').select('id, data').eq('studio_id', studioId);
+    if (error) { console.error('fetchSupabaseResourceTemplates failed', error); return; }
+    _supabaseResourceTemplates = (data as CustomResourceTemplateRow[]).map(row => row.data);
+  } catch (err) {
+    console.error('fetchSupabaseResourceTemplates failed', err);
+  }
+}
+
+function ensureResourceTemplatesFetchStarted(): void {
+  if (_resourceTemplatesFetchStarted) return;
+  _resourceTemplatesFetchStarted = true;
+  void fetchSupabaseResourceTemplates();
+}
+
+export function resetCustomResourceTemplatesCache(): void {
+  _supabaseResourceTemplates = [];
+  _resourceTemplatesFetchStarted = false;
+}
+
+onLogout(resetCustomResourceTemplatesCache);
+
+async function replaceSupabaseResourceTemplates(templates: ResourceTemplate[]): Promise<void> {
+  const studioId = await getStudioId();
+  const existingIds = _supabaseResourceTemplates.map(t => t.id);
+  const nextIds = templates.map(t => t.id);
+  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+
+  if (removedIds.length > 0) {
+    const { error: delError } = await supabase.from('custom_resource_templates').delete().in('id', removedIds);
+    if (delError) { console.error('replaceSupabaseResourceTemplates delete failed', delError); return; }
+  }
+
+  if (templates.length > 0) {
+    const { error: upsertError } = await supabase.from('custom_resource_templates').upsert(
+      templates.map(t => ({ id: t.id, studio_id: studioId, data: t }))
+    );
+    if (upsertError) { console.error('replaceSupabaseResourceTemplates upsert failed', upsertError); return; }
+  }
+
+  await fetchSupabaseResourceTemplates();
+}
+
+export function loadCustomResourceTemplates(): ResourceTemplate[] {
+  if (isDemoSession()) return _demoResourceTemplates;
+  ensureResourceTemplatesFetchStarted();
+  return _supabaseResourceTemplates;
+}
 
 export function saveCustomResourceTemplates(templates: ResourceTemplate[]): void {
-  localStorage.setItem(RES_TPL_KEY, JSON.stringify(templates));
+  if (isDemoSession()) {
+    _demoResourceTemplates = templates;
+    persistDemoResourceTemplates();
+    return;
+  }
+  _supabaseResourceTemplates = templates;
+  void replaceSupabaseResourceTemplates(templates);
 }
 
 export function loadAllResourceTemplates(): ResourceTemplate[] {
