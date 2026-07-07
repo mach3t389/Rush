@@ -44,7 +44,11 @@ create policy "studio members can manage their resource content"
   on resource_content for all
   using (studio_id in (select my_studio_ids()))
   with check (studio_id in (select my_studio_ids()));
+
+grant select, insert, update, delete on resource_content to authenticated;
 ```
+
+RLS policies alone are not sufficient — Postgres also requires the underlying table-level `GRANT`s for the `authenticated` role, or every query fails with `42501 permission denied` even when the RLS policy itself would allow it (confirmed repeatedly in this chantier's Projects/Clients/Tasks/My Tasks sub-projects — this plan should have included it from the start and didn't; caught during Task 3 E2E verification when a real-session `select` on `resource_content` returned a 403). The `grant` statement above is required, not optional.
 
 Note: `resource_id` is `text`, not `uuid` — `resources.id` (the referenced column) turned out to be `text` (app-generated string ids), not a real Postgres `uuid`, discovered when the first attempt with `uuid` failed with a `42804` foreign key type mismatch. This does not affect any TypeScript code in Task 2 — `resourceId` is already typed as `string` everywhere in the app.
 
