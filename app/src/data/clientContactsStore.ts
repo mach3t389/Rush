@@ -23,18 +23,6 @@ export function matchPortalPreset(perms: PortalPermissions): string | null {
   )?.key ?? null;
 }
 
-export function loadPortalPermissions(contactId: string): PortalPermissions {
-  try {
-    const raw = localStorage.getItem(`sf_portal_perms_${contactId}`);
-    if (raw) return JSON.parse(raw);
-  } catch { /* noop */ }
-  return { ...DEFAULT_PORTAL_PERMISSIONS };
-}
-
-export function savePortalPermissions(contactId: string, perms: PortalPermissions) {
-  try { localStorage.setItem(`sf_portal_perms_${contactId}`, JSON.stringify(perms)); } catch { /* noop */ }
-}
-
 export interface ClientContact {
   id: string;
   name: string;
@@ -44,11 +32,16 @@ export interface ClientContact {
   initials: string;
   color: string;
   internal?: boolean;
-  userId?: string; // links to USERS key if internal studio member
-  portalPermissions?: PortalPermissions;
+  userId?: string; // links to USERS key if internal studio member (demo sessions only)
+  portalPermissions: PortalPermissions;
 }
 
-export const CLIENT_CONTACTS: Record<string, ClientContact[]> = {
+// Seed/demo data intentionally omits `portalPermissions` — it's filled in with
+// DEFAULT_PORTAL_PERMISSIONS when lazily seeding a demo client's team
+// (see clientTeamStore.ts's seedFromContacts). Do not add the field here.
+type SeedContact = Omit<ClientContact, 'portalPermissions'> & { portalPermissions?: PortalPermissions };
+
+export const CLIENT_CONTACTS: Record<string, SeedContact[]> = {
   c1: [
     { id: 'ext1', name: 'Sophie Blanc',  role: 'Directrice marketing',  email: 'sophie@novafilms.fr',    status: 'active',  initials: 'SB', color: '#3b4f8f' },
     { id: 'ext2', name: 'Pierre Leroy',  role: 'Chef de projet client', email: 'pierre@novafilms.fr',   status: 'invited', initials: 'PL', color: '#7d4e57' },
@@ -75,12 +68,15 @@ export const CLIENT_CONTACTS: Record<string, ClientContact[]> = {
   ],
 };
 
-export const DEFAULT_CLIENT_CONTACTS: ClientContact[] = [
+export const DEFAULT_CLIENT_CONTACTS: SeedContact[] = [
   { id: 'extd1', name: 'Contact principal', role: 'Directeur général', email: 'contact@client.fr', status: 'active', initials: 'CP', color: '#404040' },
 ];
 
+// Returned contacts may be missing `portalPermissions` for seed/demo data —
+// callers that need it (e.g. clientTeamStore.ts's seedFromContacts) fill in
+// DEFAULT_PORTAL_PERMISSIONS when absent.
 export function getClientContacts(clientId: string): ClientContact[] {
-  return CLIENT_CONTACTS[clientId] ?? DEFAULT_CLIENT_CONTACTS;
+  return (CLIENT_CONTACTS[clientId] ?? DEFAULT_CLIENT_CONTACTS) as ClientContact[];
 }
 
 // Only external contacts (not internal studio members)

@@ -15,7 +15,7 @@ import { FileBrowser } from './FichiersGlobal';
 
 // ── Client contacts (shared store) ───────────────────────────────────────────
 
-import { getClientContacts, type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, loadPortalPermissions, savePortalPermissions, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
+import { getClientContacts, type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
 import { createInvitation, getInvitationLink } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, updateInvoice, removeInvoice, sendInvoice as doSendInvoice, formatMoney, type Invoice } from '../data/financeStore';
@@ -75,7 +75,6 @@ function InviteModal({ existingEmails, onClose, onInvite }: {
     const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     const id = `ext${Date.now()}`;
     const generatedLink = onInvite({ id, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f', portalPermissions: portalPerms });
-    savePortalPermissions(id, portalPerms);
     setLink(generatedLink);
   };
 
@@ -178,7 +177,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
   const handleConfirm = () => {
     const members: ClientMember[] = available
       .filter(u => selected.has(u.id))
-      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@studioflow.fr`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id }));
+      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@studioflow.fr`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
     if (members.length) onAssign(members);
     onClose();
   };
@@ -355,7 +354,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
       return DEFAULT_PERMISSIONS[m.role] ?? ['request_approval'];
     });
     // Portal permissions (external contacts only)
-    const [portalPerms, setPortalPerms] = useState<PortalPermissions>(() => loadPortalPermissions(m.id));
+    const [portalPerms, setPortalPerms] = useState<PortalPermissions>(() => m.portalPermissions);
     const photoRef = useRef<HTMLInputElement>(null);
     const [showProjectPicker, setShowProjectPicker] = useState(false);
 
@@ -370,7 +369,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
           initials: m.initials,
           avatarColor: m.color,
           role: m.role,
-          portalPermissions: loadPortalPermissions(m.id),
+          portalPermissions: m.portalPermissions,
           clientId,
         });
         onClose();
@@ -384,9 +383,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
       try {
         localStorage.setItem(storageKey, JSON.stringify({ name, email, role }));
         if (m.internal) localStorage.setItem(permKey, JSON.stringify(perms));
-        else savePortalPermissions(m.id, portalPerms);
       } catch { /* noop */ }
-      setClientTeam(clientId, getClientTeam(clientId).map(x => x.id === m.id ? { ...x, name, email, role } : x));
+      setClientTeam(clientId, getClientTeam(clientId).map(x => x.id === m.id ? { ...x, name, email, role, portalPermissions: m.internal ? x.portalPermissions : portalPerms } : x));
       setMembers(getClientTeam(clientId));
       onClose();
     };
@@ -681,7 +679,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                           initials: m.initials,
                           avatarColor: m.color,
                           role: m.role,
-                          portalPermissions: loadPortalPermissions(m.id),
+                          portalPermissions: m.portalPermissions,
                           clientId,
                         });
                         setShowProjectPicker(false);
