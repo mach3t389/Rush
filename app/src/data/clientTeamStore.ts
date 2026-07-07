@@ -112,11 +112,10 @@ async function removeSupabaseContact(clientId: string, contactId: string): Promi
   await fetchSupabaseContacts(clientId);
 }
 
-async function replaceSupabaseTeam(clientId: string, team: ClientContact[]): Promise<void> {
+async function replaceSupabaseTeam(clientId: string, previousIds: string[], team: ClientContact[]): Promise<void> {
   const studioId = await getStudioId();
-  const existingIds = (_supabaseContacts[clientId] ?? []).map(c => c.id);
   const nextIds = team.map(c => c.id);
-  const removedIds = existingIds.filter(id => !nextIds.includes(id));
+  const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
   if (removedIds.length > 0) {
     const { error: delError } = await supabase.from('client_contacts').delete().in('id', removedIds);
@@ -149,9 +148,10 @@ export function setClientTeam(clientId: string, team: ClientContact[]): void {
     persistDemo();
     return;
   }
+  const previousIds = (_supabaseContacts[clientId] ?? []).map(c => c.id);
   _supabaseContacts[clientId] = team;
   notify();
-  void replaceSupabaseTeam(clientId, team);
+  void replaceSupabaseTeam(clientId, previousIds, team);
 }
 
 export function addClientTeamMember(clientId: string, member: ClientContact): void {
