@@ -1,4 +1,25 @@
+// Reactive finance store — invoices, payment methods, invoice defaults.
+//
+// Demo sessions (isDemoSession() === true): unchanged localStorage behavior,
+// exactly as before this migration.
+// Real sessions: backed by Supabase, scoped to the caller's studio — every
+// team member in a studio sees the same invoices, payment methods, and
+// billing defaults. Bulk-fetched into an in-memory cache on first access
+// (mirroring resourceStore.ts/notificationStore.ts), synchronous reads from
+// cache, optimistic writes (cache updated immediately, Supabase call fired
+// in the background).
+//
+// Invoice PDFs are not stored in this file's own tables — they delegate to
+// fileContentStore.ts (the same Cloudflare R2-backed storage already used
+// for project files/videos), keyed by `invoice-pdf-<id>`. Each invoice keeps
+// a simple `hasPdf` boolean so invoice lists can show/hide the PDF icon
+// without asking the file-storage system about every row.
+
 import { loadPersisted, savePersisted } from './persist';
+import { isDemoSession, onLogout } from './authStore';
+import { getStudioId } from './studioStore';
+import { supabase } from './supabaseClient';
+import { setFileContent, getFileContent, removeFileContent } from './fileContentStore';
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
 export type PaymentMethodType = 'bank_transfer' | 'interac' | 'stripe' | 'paypal' | 'cheque' | 'cash' | 'custom';
@@ -72,6 +93,7 @@ export interface Invoice {
   internalNote?: string;
   paidDate?: string;
   paidAmount?: number;
+  hasPdf?: boolean;
   comments?: InvoiceComment[];
 }
 
@@ -97,7 +119,7 @@ export interface PaymentMethod {
   sortOrder: number;
 }
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Mock data (demo sessions only) ──────────────────────────────────────────────
 
 const QC_TAXES = TAX_PRESETS.QC.lines;
 
@@ -118,10 +140,19 @@ const DEFAULT_METHODS: PaymentMethod[] = [
   { id:'pm4', type:'paypal',        name:'PayPal',             icon:'wallet',      details:'Envoyer à: payments@studio-rush.ca', feePercent:3.5, feeLabel:'+3.5% de frais', isRecommended:false, isEnabled:false, sortOrder:3 },
 ];
 
-// ── Store state ───────────────────────────────────────────────────────────────
+// ── Demo-session working set ─────────────────────────────────────────────────
 
 const INVOICES_KEY = 'sf_invoices';
 const METHODS_KEY  = 'sf_payment_methods';
+const DEFAULTS_KEY = 'sf_invoice_defaults';
+
+const FACTORY_DEFAULTS: InvoiceDefaults = {
+  taxLines: TAX_PRESETS.QC.lines.map(l => ({ ...l })),
+  paymentTermsDays: 30,
+  currency: 'CAD',
+  notes: '',
+  numberPrefix: 'INV',
+};
 
 // Migrate persisted invoices that still have the old taxRate: number shape
 function migrateInvoices(raw: unknown[]): Invoice[] {
@@ -151,45 +182,352 @@ function migrateDefaults(raw: unknown): InvoiceDefaults {
   return d as unknown as InvoiceDefaults;
 }
 
-let _invoices: Invoice[]       = migrateInvoices(loadPersisted(INVOICES_KEY, [...MOCK_INVOICES]));
-let _methods:  PaymentMethod[] = loadPersisted(METHODS_KEY,  [...DEFAULT_METHODS]);
+let _demoInvoices: Invoice[]       = migrateInvoices(loadPersisted(INVOICES_KEY, [...MOCK_INVOICES]));
+let _demoMethods:  PaymentMethod[] = loadPersisted(METHODS_KEY,  [...DEFAULT_METHODS]);
+let _demoDefaults: InvoiceDefaults = migrateDefaults(loadPersisted(DEFAULTS_KEY, { ...FACTORY_DEFAULTS }));
+
+function persistDemoInvoices() { savePersisted(INVOICES_KEY, _demoInvoices); }
+function persistDemoMethods()  { savePersisted(METHODS_KEY,  _demoMethods); }
 
 const _iListeners = new Set<() => void>();
 const _mListeners = new Set<() => void>();
+const _dListeners = new Set<() => void>();
 
-function persistI() { savePersisted(INVOICES_KEY, _invoices); }
-function persistM() { savePersisted(METHODS_KEY,  _methods); }
+// ── Real-session working set ──────────────────────────────────────────────────
 
-// ── Invoices ──────────────────────────────────────────────────────────────────
+let _supabaseInvoices: Invoice[] = [];
+let _supabaseInvoicesFetchStarted = false;
+let _supabaseMethods: PaymentMethod[] = [];
+let _supabaseMethodsFetchStarted = false;
+let _supabaseDefaults: InvoiceDefaults | null = null;
+let _supabaseDefaultsFetchStarted = false;
 
-export function getInvoices():                     Invoice[]           { return _invoices; }
-export function getInvoicesByClient(cid: string):  Invoice[]           { return _invoices.filter(i => i.clientId === cid); }
-export function getInvoicesByProject(pid: string): Invoice[]           { return _invoices.filter(i => i.projectId === pid); }
-export function findInvoice(id: string):           Invoice | undefined { return _invoices.find(i => i.id === id); }
+export function resetFinanceCache(): void {
+  _supabaseInvoices = [];
+  _supabaseInvoicesFetchStarted = false;
+  _supabaseMethods = [];
+  _supabaseMethodsFetchStarted = false;
+  _supabaseDefaults = null;
+  _supabaseDefaultsFetchStarted = false;
+}
+onLogout(resetFinanceCache);
+
+interface InvoiceRow {
+  id: string;
+  studio_id: string;
+  number: string;
+  client_id: string;
+  project_id: string | null;
+  title: string;
+  amount: number;
+  tax_lines: TaxLine[];
+  tax: number;
+  total: number;
+  currency: string;
+  status: InvoiceStatus;
+  issued_date: string;
+  due_date: string;
+  sent_date: string | null;
+  payment_terms_days: number | null;
+  notes: string | null;
+  internal_note: string | null;
+  paid_date: string | null;
+  paid_amount: number | null;
+  has_pdf: boolean;
+  comments: InvoiceComment[];
+}
+
+function toInvoice(row: InvoiceRow): Invoice {
+  return {
+    id: row.id,
+    number: row.number,
+    clientId: row.client_id,
+    projectId: row.project_id ?? undefined,
+    title: row.title,
+    amount: row.amount,
+    taxLines: row.tax_lines,
+    tax: row.tax,
+    total: row.total,
+    currency: row.currency,
+    status: row.status,
+    issuedDate: row.issued_date,
+    dueDate: row.due_date,
+    sentDate: row.sent_date ?? undefined,
+    paymentTermsDays: row.payment_terms_days ?? undefined,
+    notes: row.notes ?? undefined,
+    internalNote: row.internal_note ?? undefined,
+    paidDate: row.paid_date ?? undefined,
+    paidAmount: row.paid_amount ?? undefined,
+    hasPdf: row.has_pdf,
+    comments: row.comments ?? [],
+  };
+}
+
+function toInvoiceRow(inv: Invoice, studioId: string): InvoiceRow & { studio_id: string } {
+  return {
+    id: inv.id,
+    studio_id: studioId,
+    number: inv.number,
+    client_id: inv.clientId,
+    project_id: inv.projectId ?? null,
+    title: inv.title,
+    amount: inv.amount,
+    tax_lines: inv.taxLines,
+    tax: inv.tax,
+    total: inv.total,
+    currency: inv.currency,
+    status: inv.status,
+    issued_date: inv.issuedDate,
+    due_date: inv.dueDate,
+    sent_date: inv.sentDate ?? null,
+    payment_terms_days: inv.paymentTermsDays ?? null,
+    notes: inv.notes ?? null,
+    internal_note: inv.internalNote ?? null,
+    paid_date: inv.paidDate ?? null,
+    paid_amount: inv.paidAmount ?? null,
+    has_pdf: inv.hasPdf ?? false,
+    comments: inv.comments ?? [],
+  };
+}
+
+async function fetchSupabaseInvoices(): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('studio_id', studioId)
+      .order('created_at', { ascending: false });
+    if (error) { console.error('fetchSupabaseInvoices failed', error); return; }
+    _supabaseInvoices = (data as InvoiceRow[]).map(toInvoice);
+    _iListeners.forEach(fn => fn());
+  } catch (err) {
+    console.error('fetchSupabaseInvoices failed', err);
+  }
+}
+
+function ensureSupabaseInvoicesFetchStarted(): void {
+  if (_supabaseInvoicesFetchStarted) return;
+  _supabaseInvoicesFetchStarted = true;
+  void fetchSupabaseInvoices();
+}
+
+async function addSupabaseInvoice(inv: Invoice): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('invoices').insert(toInvoiceRow(inv, studioId));
+  if (error) console.error('addSupabaseInvoice failed', error);
+}
+
+async function updateSupabaseInvoice(id: string, inv: Invoice): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('invoices').update(toInvoiceRow(inv, studioId)).eq('id', id);
+  if (error) console.error('updateSupabaseInvoice failed', error);
+}
+
+async function removeSupabaseInvoice(id: string): Promise<void> {
+  const { error } = await supabase.from('invoices').delete().eq('id', id);
+  if (error) console.error('removeSupabaseInvoice failed', error);
+}
+
+interface PaymentMethodRow {
+  id: string;
+  studio_id: string;
+  type: PaymentMethodType;
+  name: string;
+  icon: string;
+  details: string;
+  fee_percent: number | null;
+  fee_label: string | null;
+  is_recommended: boolean;
+  is_enabled: boolean;
+  stripe_link: string | null;
+  sort_order: number;
+}
+
+function toMethod(row: PaymentMethodRow): PaymentMethod {
+  return {
+    id: row.id,
+    type: row.type,
+    name: row.name,
+    icon: row.icon,
+    details: row.details,
+    feePercent: row.fee_percent ?? undefined,
+    feeLabel: row.fee_label ?? undefined,
+    isRecommended: row.is_recommended,
+    isEnabled: row.is_enabled,
+    stripeLink: row.stripe_link ?? undefined,
+    sortOrder: row.sort_order,
+  };
+}
+
+function toMethodRow(m: PaymentMethod, studioId: string): PaymentMethodRow {
+  return {
+    id: m.id,
+    studio_id: studioId,
+    type: m.type,
+    name: m.name,
+    icon: m.icon,
+    details: m.details,
+    fee_percent: m.feePercent ?? null,
+    fee_label: m.feeLabel ?? null,
+    is_recommended: m.isRecommended,
+    is_enabled: m.isEnabled,
+    stripe_link: m.stripeLink ?? null,
+    sort_order: m.sortOrder,
+  };
+}
+
+async function fetchSupabaseMethods(): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase
+      .from('payment_methods')
+      .select('*')
+      .eq('studio_id', studioId)
+      .order('sort_order', { ascending: true });
+    if (error) { console.error('fetchSupabaseMethods failed', error); return; }
+    _supabaseMethods = (data as PaymentMethodRow[]).map(toMethod);
+    _mListeners.forEach(fn => fn());
+  } catch (err) {
+    console.error('fetchSupabaseMethods failed', err);
+  }
+}
+
+function ensureSupabaseMethodsFetchStarted(): void {
+  if (_supabaseMethodsFetchStarted) return;
+  _supabaseMethodsFetchStarted = true;
+  void fetchSupabaseMethods();
+}
+
+async function addSupabaseMethod(m: PaymentMethod): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('payment_methods').insert(toMethodRow(m, studioId));
+  if (error) console.error('addSupabaseMethod failed', error);
+}
+
+async function updateSupabaseMethod(id: string, m: PaymentMethod): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('payment_methods').update(toMethodRow(m, studioId)).eq('id', id);
+  if (error) console.error('updateSupabaseMethod failed', error);
+}
+
+async function removeSupabaseMethod(id: string): Promise<void> {
+  const { error } = await supabase.from('payment_methods').delete().eq('id', id);
+  if (error) console.error('removeSupabaseMethod failed', error);
+}
+
+interface InvoiceDefaultsRow {
+  studio_id: string;
+  tax_lines: TaxLine[];
+  payment_terms_days: number;
+  currency: string;
+  notes: string;
+  number_prefix: string;
+}
+
+function toDefaults(row: InvoiceDefaultsRow): InvoiceDefaults {
+  return {
+    taxLines: row.tax_lines,
+    paymentTermsDays: row.payment_terms_days,
+    currency: row.currency,
+    notes: row.notes,
+    numberPrefix: row.number_prefix,
+  };
+}
+
+async function fetchSupabaseDefaults(): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data, error } = await supabase
+      .from('invoice_defaults')
+      .select('*')
+      .eq('studio_id', studioId)
+      .maybeSingle();
+    if (error) { console.error('fetchSupabaseDefaults failed', error); return; }
+    _supabaseDefaults = data ? toDefaults(data as InvoiceDefaultsRow) : null;
+    _dListeners.forEach(fn => fn());
+  } catch (err) {
+    console.error('fetchSupabaseDefaults failed', err);
+  }
+}
+
+function ensureSupabaseDefaultsFetchStarted(): void {
+  if (_supabaseDefaultsFetchStarted) return;
+  _supabaseDefaultsFetchStarted = true;
+  void fetchSupabaseDefaults();
+}
+
+async function saveSupabaseDefaults(defaults: InvoiceDefaults): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('invoice_defaults').upsert({
+    studio_id: studioId,
+    tax_lines: defaults.taxLines,
+    payment_terms_days: defaults.paymentTermsDays,
+    currency: defaults.currency,
+    notes: defaults.notes,
+    number_prefix: defaults.numberPrefix,
+  });
+  if (error) console.error('saveSupabaseDefaults failed', error);
+}
+
+// ── Invoices — public API (unchanged signatures) ────────────────────────────────
+
+export function getInvoices(): Invoice[] {
+  if (isDemoSession()) return _demoInvoices;
+  ensureSupabaseInvoicesFetchStarted();
+  return _supabaseInvoices;
+}
+export function getInvoicesByClient(cid: string):  Invoice[] { return getInvoices().filter(i => i.clientId === cid); }
+export function getInvoicesByProject(pid: string): Invoice[] { return getInvoices().filter(i => i.projectId === pid); }
+export function findInvoice(id: string): Invoice | undefined { return getInvoices().find(i => i.id === id); }
 
 export function addInvoice(inv: Invoice): void {
-  _invoices = [inv, ..._invoices];
-  persistI();
+  if (isDemoSession()) {
+    _demoInvoices = [inv, ..._demoInvoices];
+    persistDemoInvoices();
+    _iListeners.forEach(fn => fn());
+    return;
+  }
+  _supabaseInvoices = [inv, ..._supabaseInvoices];
   _iListeners.forEach(fn => fn());
+  void addSupabaseInvoice(inv);
 }
+
 export function updateInvoice(id: string, patch: Partial<Invoice>): void {
-  _invoices = _invoices.map(i => i.id === id ? { ...i, ...patch } : i);
-  persistI();
+  if (isDemoSession()) {
+    _demoInvoices = _demoInvoices.map(i => i.id === id ? { ...i, ...patch } : i);
+    persistDemoInvoices();
+    _iListeners.forEach(fn => fn());
+    return;
+  }
+  const current = _supabaseInvoices.find(i => i.id === id);
+  if (!current) { console.error('updateInvoice: invoice not found in cache', id); return; }
+  const merged = { ...current, ...patch };
+  _supabaseInvoices = _supabaseInvoices.map(i => i.id === id ? merged : i);
   _iListeners.forEach(fn => fn());
+  void updateSupabaseInvoice(id, merged);
 }
+
 export function removeInvoice(id: string): void {
-  _invoices = _invoices.filter(i => i.id !== id);
-  removePdf(id);
-  persistI();
+  removeFileContent(pdfKey(id));
+  if (isDemoSession()) {
+    _demoInvoices = _demoInvoices.filter(i => i.id !== id);
+    persistDemoInvoices();
+    _iListeners.forEach(fn => fn());
+    return;
+  }
+  _supabaseInvoices = _supabaseInvoices.filter(i => i.id !== id);
   _iListeners.forEach(fn => fn());
+  void removeSupabaseInvoice(id);
 }
+
 export function subscribeInvoices(fn: () => void): () => void {
   _iListeners.add(fn);
   return () => _iListeners.delete(fn);
 }
 
 export function sendInvoice(id: string): void {
-  const inv = _invoices.find(i => i.id === id);
+  const inv = getInvoices().find(i => i.id === id);
   if (!inv) return;
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -205,7 +543,7 @@ export function sendInvoice(id: string): void {
 }
 
 export function setInvoiceStatus(id: string, newStatus: InvoiceStatus): void {
-  const inv = _invoices.find(i => i.id === id);
+  const inv = getInvoices().find(i => i.id === id);
   if (!inv || inv.status === newStatus) return;
 
   if (newStatus === 'sent' && inv.status === 'draft') {
@@ -220,69 +558,102 @@ export function setInvoiceStatus(id: string, newStatus: InvoiceStatus): void {
 }
 
 export function addInvoiceComment(invoiceId: string, comment: InvoiceComment): void {
-  _invoices = _invoices.map(i =>
-    i.id === invoiceId ? { ...i, comments: [...(i.comments ?? []), comment] } : i
-  );
-  persistI();
-  _iListeners.forEach(fn => fn());
+  const inv = getInvoices().find(i => i.id === invoiceId);
+  if (!inv) return;
+  updateInvoice(invoiceId, { comments: [...(inv.comments ?? []), comment] });
 }
 
-// ── Payment methods ───────────────────────────────────────────────────────────
+// ── Payment methods — public API (unchanged signatures) ─────────────────────────
 
-export function getPaymentMethods():        PaymentMethod[] { return _methods; }
-export function getEnabledPaymentMethods(): PaymentMethod[] { return [..._methods].filter(m => m.isEnabled).sort((a, b) => a.sortOrder - b.sortOrder); }
+export function getPaymentMethods(): PaymentMethod[] {
+  if (isDemoSession()) return _demoMethods;
+  ensureSupabaseMethodsFetchStarted();
+  return _supabaseMethods;
+}
+export function getEnabledPaymentMethods(): PaymentMethod[] {
+  return [...getPaymentMethods()].filter(m => m.isEnabled).sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 export function addPaymentMethod(m: PaymentMethod): void {
-  _methods = [..._methods, m];
-  persistM();
+  if (isDemoSession()) {
+    _demoMethods = [..._demoMethods, m];
+    persistDemoMethods();
+    _mListeners.forEach(fn => fn());
+    return;
+  }
+  _supabaseMethods = [..._supabaseMethods, m];
   _mListeners.forEach(fn => fn());
+  void addSupabaseMethod(m);
 }
+
 export function updatePaymentMethod(id: string, patch: Partial<PaymentMethod>): void {
-  _methods = _methods.map(m => m.id === id ? { ...m, ...patch } : m);
-  persistM();
+  if (isDemoSession()) {
+    _demoMethods = _demoMethods.map(m => m.id === id ? { ...m, ...patch } : m);
+    persistDemoMethods();
+    _mListeners.forEach(fn => fn());
+    return;
+  }
+  const current = _supabaseMethods.find(m => m.id === id);
+  if (!current) { console.error('updatePaymentMethod: method not found in cache', id); return; }
+  const merged = { ...current, ...patch };
+  _supabaseMethods = _supabaseMethods.map(m => m.id === id ? merged : m);
   _mListeners.forEach(fn => fn());
+  void updateSupabaseMethod(id, merged);
 }
+
 export function removePaymentMethod(id: string): void {
-  _methods = _methods.filter(m => m.id !== id);
-  persistM();
+  if (isDemoSession()) {
+    _demoMethods = _demoMethods.filter(m => m.id !== id);
+    persistDemoMethods();
+    _mListeners.forEach(fn => fn());
+    return;
+  }
+  _supabaseMethods = _supabaseMethods.filter(m => m.id !== id);
   _mListeners.forEach(fn => fn());
+  void removeSupabaseMethod(id);
 }
+
 export function subscribePaymentMethods(fn: () => void): () => void {
   _mListeners.add(fn);
   return () => _mListeners.delete(fn);
 }
 
-// ── PDF storage ───────────────────────────────────────────────────────────────
+// ── PDF storage (delegates to fileContentStore.ts / Cloudflare R2) ─────────────
 
-export function savePdf(invoiceId: string, dataUrl: string): void {
-  try { localStorage.setItem(`sf_inv_pdf_${invoiceId}`, dataUrl); } catch { /* quota */ }
+function pdfKey(invoiceId: string): string {
+  return `invoice-pdf-${invoiceId}`;
+}
+
+export function savePdf(invoiceId: string, file: File): void {
+  setFileContent(pdfKey(invoiceId), file);
+  updateInvoice(invoiceId, { hasPdf: true });
 }
 export function loadPdf(invoiceId: string): string | null {
-  try { return localStorage.getItem(`sf_inv_pdf_${invoiceId}`); } catch { return null; }
+  return getFileContent(pdfKey(invoiceId));
 }
 export function removePdf(invoiceId: string): void {
-  try { localStorage.removeItem(`sf_inv_pdf_${invoiceId}`); } catch { /* noop */ }
+  removeFileContent(pdfKey(invoiceId));
+  updateInvoice(invoiceId, { hasPdf: false });
 }
 
-// ── Invoice defaults ──────────────────────────────────────────────────────────
+// ── Invoice defaults — public API (unchanged signatures) ────────────────────────
 
-const DEFAULTS_KEY = 'sf_invoice_defaults';
-const FACTORY_DEFAULTS: InvoiceDefaults = {
-  taxLines: TAX_PRESETS.QC.lines.map(l => ({ ...l })),
-  paymentTermsDays: 30,
-  currency: 'CAD',
-  notes: '',
-  numberPrefix: 'INV',
-};
-
-let _defaults: InvoiceDefaults = migrateDefaults(loadPersisted(DEFAULTS_KEY, { ...FACTORY_DEFAULTS }));
-const _dListeners = new Set<() => void>();
-
-export function getInvoiceDefaults(): InvoiceDefaults { return _defaults; }
+export function getInvoiceDefaults(): InvoiceDefaults {
+  if (isDemoSession()) return _demoDefaults;
+  ensureSupabaseDefaultsFetchStarted();
+  return _supabaseDefaults ?? FACTORY_DEFAULTS;
+}
 export function setInvoiceDefaults(patch: Partial<InvoiceDefaults>): void {
-  _defaults = { ..._defaults, ...patch };
-  savePersisted(DEFAULTS_KEY, _defaults);
+  if (isDemoSession()) {
+    _demoDefaults = { ..._demoDefaults, ...patch };
+    savePersisted(DEFAULTS_KEY, _demoDefaults);
+    _dListeners.forEach(fn => fn());
+    return;
+  }
+  const merged = { ...(_supabaseDefaults ?? FACTORY_DEFAULTS), ...patch };
+  _supabaseDefaults = merged;
   _dListeners.forEach(fn => fn());
+  void saveSupabaseDefaults(merged);
 }
 export function subscribeInvoiceDefaults(fn: () => void): () => void {
   _dListeners.add(fn);
@@ -297,8 +668,9 @@ export function formatMoney(amount: number, currency = 'CAD'): string {
 
 export function nextInvoiceNumber(): string {
   const year = new Date().getFullYear();
-  const prefix = _defaults.numberPrefix.trim() || 'INV';
-  const nums = _invoices
+  const defaults = getInvoiceDefaults();
+  const prefix = defaults.numberPrefix.trim() || 'INV';
+  const nums = getInvoices()
     .map(i => parseInt((i.number.match(/(\d+)$/) ?? ['0'])[0]))
     .filter(n => !isNaN(n));
   const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
