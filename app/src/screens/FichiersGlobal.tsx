@@ -241,11 +241,8 @@ function FileTypeIcon({ type, resourceType, mediaSubtype, size = 28 }: { type: F
             position: 'absolute', right: -3, bottom: -3,
             width: badge, height: badge, borderRadius: '50%',
             background: 'var(--accent)', border: '2px solid var(--surface-2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
-        >
-          <SFIcon name="pencil" size={Math.round(badge * 0.6)} color="var(--on-accent)" />
-        </div>
+        />
       )}
     </div>
   );
