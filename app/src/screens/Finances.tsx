@@ -6,7 +6,7 @@ import { getProjects } from '../data/projectStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import {
   getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices,
-  sendInvoice as doSendInvoice, addInvoiceComment,
+  setInvoiceStatus, addInvoiceComment,
   savePdf, loadPdf, formatMoney, nextInvoiceNumber, addDays,
   getInvoiceDefaults, computeTaxLines, TAX_PRESETS,
   type Invoice, type InvoiceStatus, type InvoiceComment, type TaxLine,
@@ -54,13 +54,75 @@ function getLastNMonths(n: number): { label: string; year: number; month: number
 
 // ── StatusPill ────────────────────────────────────────────────────────────────
 
-export function StatusPill({ status }: { status: InvoiceStatus }) {
+const ALL_INVOICE_STATUSES: InvoiceStatus[] = ['draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled'];
+
+function FinanceInlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex = 250 }: {
+  onClose: () => void;
+  children: React.ReactNode;
+  anchorRect?: DOMRect | null;
+  minWidth?: number;
+  zIndex?: number;
+}) {
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  React.useLayoutEffect(() => {
+    if (!dropRef.current || !anchorRect) return;
+    const h = dropRef.current.offsetHeight;
+    const w = dropRef.current.offsetWidth;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const top = anchorRect.bottom + 4 + h > vh && anchorRect.top >= h + 4 ? anchorRect.top - h - 4 : anchorRect.bottom + 4;
+    const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
+    setPos({ top, left, visibility: 'visible' });
+  }, [anchorRect]);
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: zIndex - 1 }} />
+      <div ref={dropRef} style={{ position: 'fixed', ...pos, zIndex, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+        {children}
+      </div>
+    </>
+  );
+}
+
+export function StatusPill({ status, onChange }: { status: InvoiceStatus; onChange?: (s: InvoiceStatus) => void }) {
   const { t } = useTranslation();
   const cfg = STATUS_CFG[status];
-  return (
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+
+  const pill = (
     <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: cfg.bg, color: cfg.fg, fontFamily: 'var(--ff-mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
       {t(cfg.labelKey)}
     </span>
+  );
+
+  if (!onChange) return pill;
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        onClick={e => { e.stopPropagation(); setAnchor((e.currentTarget as HTMLElement).getBoundingClientRect()); setOpen(o => !o); }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+      >
+        {pill}
+        <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+      </button>
+      {open && (
+        <FinanceInlineDropdown onClose={() => setOpen(false)} anchorRect={anchor}>
+          {ALL_INVOICE_STATUSES.map(s => (
+            <button key={s} onClick={e => { e.stopPropagation(); onChange(s); setOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: s === status ? 'var(--surface-3)' : 'transparent', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => { if (s !== status) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { if (s !== status) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_CFG[s].fg, display: 'block', flexShrink: 0 }} />
+              {t(STATUS_CFG[s].labelKey)}
+            </button>
+          ))}
+        </FinanceInlineDropdown>
+      )}
+    </div>
   );
 }
 
@@ -258,14 +320,7 @@ export function InvoiceDetailPanel({
   const client  = allClients.find(c => c.id === invoice.clientId);
   const project = invoice.projectId ? allProjects.find(p => p.id === invoice.projectId) : null;
   const hasPdf  = loadPdf(invoice.id) !== null;
-  const canSend = invoice.status === 'draft';
-  const canPay  = !['paid', 'cancelled', 'draft'].includes(invoice.status);
   const terms   = invoice.paymentTermsDays ?? 30;
-
-  const handleSend = () => { doSendInvoice(invoice.id); };
-  const handleMarkPaid = () => {
-    updateInvoice(invoice.id, { status: 'paid', paidDate: todayIso(), paidAmount: invoice.total });
-  };
 
   const handleComment = () => {
     const text = commentText.trim();
@@ -311,11 +366,20 @@ export function InvoiceDetailPanel({
             <div>
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{invoice.number}</span>
               <h2 style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--ff-display)', margin: '4px 0 6px' }}>{invoice.title}</h2>
-              <StatusPill status={invoice.status} />
+              <StatusPill status={invoice.status} onChange={s => setInvoiceStatus(invoice.id, s)} />
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 4 }}>
-              <SFIcon name="x" size={18} />
-            </button>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+              <button onClick={onEdit} title={t('finance.editInvoice')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
+              >
+                <SFIcon name="square-pen" size={13} />
+              </button>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 4 }}>
+                <SFIcon name="x" size={18} />
+              </button>
+            </div>
           </div>
 
           <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 26, fontWeight: 700, color: invoice.status === 'overdue' ? 'var(--danger)' : 'var(--text)', marginBottom: 12 }}>
@@ -323,18 +387,11 @@ export function InvoiceDetailPanel({
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {canSend && (
-              <SFButton variant="primary" icon="send" onClick={handleSend}>{t('finance.sendInvoice')}</SFButton>
-            )}
-            {canPay && (
-              <SFButton variant="secondary" icon="check-circle" onClick={handleMarkPaid}>{t('finance.markPaid')}</SFButton>
-            )}
-            {hasPdf && (
+          {hasPdf && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <SFButton variant="ghost" icon="file-text" onClick={() => setPdfOpen(true)}>{t('finance.viewPdf')}</SFButton>
-            )}
-            <SFButton variant="ghost" icon="edit-2" onClick={onEdit}>{t('finance.editInvoice')}</SFButton>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -615,7 +672,6 @@ export function InvoiceFormPanel({
 
   const inputStyle: React.CSSProperties = { width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
   const labelStyle: React.CSSProperties = { fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5, display: 'block' };
-  const statuses: InvoiceStatus[] = ['draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled'];
   const lockDisplay: React.CSSProperties = { ...inputStyle, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none', opacity: 0.8 };
 
   return (
@@ -632,18 +688,10 @@ export function InvoiceFormPanel({
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* N° + Statut */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>{t('finance.invoiceNumber')}</label>
-              <input value={number} onChange={e => setNumber(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>{t('finance.statusLabel')}</label>
-              <select value={status} onChange={e => setStatus(e.target.value as InvoiceStatus)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                {statuses.map(s => <option key={s} value={s}>{t(`finance.status${s.charAt(0).toUpperCase()}${s.slice(1)}`)}</option>)}
-              </select>
-            </div>
+          {/* N° */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <label style={labelStyle}>{t('finance.invoiceNumber')}</label>
+            <input value={number} onChange={e => setNumber(e.target.value)} style={inputStyle} />
           </div>
 
           {/* Intitulé */}
@@ -974,17 +1022,6 @@ export function Finances() {
   const openEdit    = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
   const openDetail  = (inv: Invoice) => setDetailInvoice(inv);
 
-  const handleMarkPaid = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const inv = invoices.find(i => i.id === id);
-    if (inv) updateInvoice(id, { status: 'paid', paidDate: todayIso(), paidAmount: inv.total });
-  };
-
-  const handleSend = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    doSendInvoice(id);
-  };
-
   const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
   const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
 
@@ -1137,7 +1174,7 @@ export function Finances() {
 
               return (
                 <div key={inv.id}
-                  style={{ display: 'grid', gridTemplateColumns: '140px 120px 130px 1fr 110px 100px 100px 100px', padding: '10px 16px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', background: isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
+                  style={{ display: 'grid', gridTemplateColumns: '140px 120px 130px 1fr 110px 100px 100px 100px', padding: '11px 16px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', background: isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
                   onMouseEnter={e => { if (!isLate) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)'; }}
                   onClick={() => openDetail(inv)}
@@ -1150,27 +1187,13 @@ export function Finances() {
                   <span style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{project?.name ?? '—'}</span>
                   <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{inv.title}</span>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, fontWeight: 600, textAlign: 'right', paddingRight: 10 }}>{formatMoney(inv.total, inv.currency)}</span>
-                  <span><StatusPill status={inv.status} /></span>
+                  <span><StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} /></span>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
 
                   <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                    {inv.status === 'draft' && (
-                      <button title={t('finance.sendInvoice')} onClick={e => handleSend(inv.id, e)} style={actionBtn}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--info)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                        <SFIcon name="send" size={13} />
-                      </button>
-                    )}
                     {hasPdf && (
                       <button title={t('finance.viewPdf')} onClick={() => openDetail(inv)} style={actionBtn}>
                         <SFIcon name="file-text" size={13} />
-                      </button>
-                    )}
-                    {inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft' && (
-                      <button title={t('finance.markPaid')} onClick={e => handleMarkPaid(inv.id, e)} style={actionBtn}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ok)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                        <SFIcon name="check-circle" size={13} />
                       </button>
                     )}
                     {confirming ? (
