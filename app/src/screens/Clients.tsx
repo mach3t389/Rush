@@ -525,11 +525,20 @@ export function Clients() {
         </div>
       </div>
 
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+          <SFIcon name="users" size={36} color="var(--text-3)" />
+          <p style={{ fontSize: 14 }}>{t('clients.noClientsFound')}</p>
+          <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
+        </div>
+      )}
+
       {/* List view */}
-      {view === 'list' && <ClientListView clients={filtered} onEdit={setEditingClient} />}
+      {view === 'list' && filtered.length > 0 && <ClientListView clients={filtered} onEdit={setEditingClient} />}
 
       {/* Grid */}
-      {view === 'grid' && (
+      {view === 'grid' && filtered.length > 0 && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {filtered.map(client => {
           const pinned = isPinnedClient(client.id);

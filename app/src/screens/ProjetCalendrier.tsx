@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
+import { MY_TASKS, USERS } from '../data/mock';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
@@ -37,7 +38,7 @@ function resolveProjectEvents(projectIds: string[], eventTypes: EventType[]): Ca
   return getEvents()
     .filter(e => projectIds.includes(e.projectId ?? ''))
     .map(e => {
-      const p = PROJECTS.find(x => x.id === e.projectId);
+      const p = getProjects().find(x => x.id === e.projectId);
       const et = typeMap[e.eventTypeId] ?? { color: '#888', label: 'Autre', icon: 'circle' };
       const parseDate = (s: string) => s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
       return {
@@ -549,8 +550,8 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
         {/* Project filter — embedded client view only, with 2+ projects */}
         {embedded && activeProjectIds.length > 1 && (()=>{
           const clientProjects = activeProjectIds
-            .map(id => PROJECTS.find(p => p.id === id))
-            .filter(Boolean) as typeof PROJECTS;
+            .map(id => getProjects().find(p => p.id === id))
+            .filter(Boolean) as ReturnType<typeof getProjects>;
           const hasFilter = selectedProjectsFilter.size > 0;
           return (
             <div>

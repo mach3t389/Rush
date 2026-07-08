@@ -6,6 +6,7 @@ import { ACTIVITY } from '../data/mock';
 import { ActivityFeed } from '../components/ActivityFeed';
 import type { AppNotif, NotifKind } from '../data/notificationStore';
 import { subscribeNotifs, getNotifHistory, markAllRead } from '../data/notificationStore';
+import { isDemoSession } from '../data/authStore';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -364,7 +365,7 @@ export function Activite() {
 
           {/* Tab: Studio — même flux riche que la fiche client */}
           {tab === 'studio' && (
-            <ActivityFeed activities={ACTIVITY.map(a => ({
+            <ActivityFeed activities={isDemoSession() ? ACTIVITY.map(a => ({
               id: a.id,
               day: a.day,
               type: a.type ?? 'comment',
@@ -375,7 +376,7 @@ export function Activite() {
               target: a.target,
               detail: a.detail,
               time: a.time,
-            }))} />
+            })) : []} />
           )}
 
       </div>

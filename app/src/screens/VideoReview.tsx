@@ -2,7 +2,8 @@
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
-import { PROJECTS, VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
+import { VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
+import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
@@ -557,7 +558,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     const newTask: VideoTask = { id: `vt${Date.now()}`, title: c.text.slice(0, 80), timeLabel: c.timeLabel ?? undefined, done: false, priority: 'normal' };
     setTasks(p => [...p, newTask]);
     if (projectId) {
-      const project = PROJECTS.find(p => p.id === projectId);
+      const project = getProjects().find(p => p.id === projectId);
       addDeliverable(projectId, {
         id: newTask.id,
         title: newTask.title,

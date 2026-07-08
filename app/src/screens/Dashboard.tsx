@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
-import { TODAY_TASKS, ACTIVITY, PROJECTS, USERS } from '../data/mock';
+import { TODAY_TASKS, ACTIVITY, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById } from '../data/eventTypeStore';
+import { getProjects } from '../data/projectStore';
+import { getMyTasks } from '../data/myTaskStore';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -207,9 +210,11 @@ function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClic
 export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const activeProjects = PROJECTS.filter(p => p.status !== 'neutral');
-  const lateProjects   = PROJECTS.filter(p => p.status === 'danger').length;
-  const urgentToday    = TODAY_TASKS.filter(t => t.priority === 'urgent').length;
+  const projects   = getProjects();
+  const myTasks    = isDemoSession() ? TODAY_TASKS : getMyTasks();
+  const activeProjects = projects.filter(p => p.status !== 'neutral');
+  const lateProjects   = projects.filter(p => p.status === 'danger').length;
+  const urgentToday    = myTasks.filter(t => t.priority === 'urgent').length;
 
   const [events, setEvents] = useState<CalendarEvent[]>(getEvents);
   useEffect(() => subscribeEvents(() => setEvents(getEvents())), []);
@@ -225,14 +230,16 @@ export function Dashboard() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(TODAY, i));
   const tasksByDay = weekDays.map(day => ({
     day,
-    tasks: TODAY_TASKS.filter(t => { const d = parseFrDate(t.dueDate); return d && isSameDay(d, day); }),
+    tasks: myTasks.filter(t => { const d = parseFrDate(t.dueDate); return d && isSameDay(d, day); }),
   }));
 
-  const PENDING_APPROVALS = [
+  // Pas encore de suivi réel des livrables en attente d'approbation —
+  // section démo uniquement pour l'instant.
+  const PENDING_APPROVALS = isDemoSession() ? [
     { name: 'Rough Cut — Nova Films', delay: '2j', status: 'danger' as const, projectId: 'pj1' },
     { name: 'V3 Clip Automne',        delay: '5j', status: 'warn'   as const, projectId: 'pj2' },
     { name: 'Maquette motion design', delay: '1j', status: 'danger' as const, projectId: 'pj3' },
-  ];
+  ] : [];
 
   const dayLabel = (() => {
     const d = TODAY.getDay();
@@ -242,8 +249,9 @@ export function Dashboard() {
   })();
 
   const firstName = (() => {
-    const p = loadProfile(USERS.lea.id);
-    const full = p.name ?? USERS.lea.name;
+    const current = isDemoSession() ? USERS.lea : (getCurrentUser() ?? USERS.lea);
+    const p = loadProfile(current.id);
+    const full = p.name ?? current.name;
     return full.split(' ')[0];
   })();
 
@@ -262,7 +270,7 @@ export function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginRight: 'auto', marginLeft: 24 }}>
           {[
             { value: activeProjects.length, label: t('dashboard.activeProjects'),     color: 'var(--text-2)' },
-            { value: TODAY_TASKS.length,    label: t('dashboard.tasksThisWeek'), color: 'var(--text-2)' },
+            { value: myTasks.length,    label: t('dashboard.tasksThisWeek'), color: 'var(--text-2)' },
             ...(lateProjects > 0  ? [{ value: lateProjects,             label: t('dashboard.overdue'),      color: 'var(--danger)' }] : []),
             ...(urgentToday > 0   ? [{ value: urgentToday,              label: t('dashboard.urgentToday'),  color: 'var(--warn)'   }] : []),
           ].map(s => (
@@ -283,18 +291,18 @@ export function Dashboard() {
 
           {/* Mes tâches — collapsible compact */}
           <CollapsibleCard
-            icon="check-square" title={t('nav.myTasks')} badge={TODAY_TASKS.length}
+            icon="check-square" title={t('nav.myTasks')} badge={myTasks.length}
             linkLabel={t('dashboard.viewAllFem')} onLink={() => navigate('/taches')}
           >
-            {TODAY_TASKS.slice(0, 5).map(t => (
+            {myTasks.slice(0, 5).map(t => (
               <CompactTaskRow key={t.id} task={t} onClick={() => navigate('/taches')} />
             ))}
-            {TODAY_TASKS.length > 5 && (
+            {myTasks.length > 5 && (
               <button onClick={() => navigate('/taches')} style={{
                 width: '100%', padding: '8px 16px', background: 'none', border: 'none',
                 cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', textAlign: 'left',
               }}>
-                {t('dashboard.moreTasksViewAll', { count: TODAY_TASKS.length - 5 })}
+                {t('dashboard.moreTasksViewAll', { count: myTasks.length - 5 })}
               </button>
             )}
           </CollapsibleCard>
@@ -352,7 +360,7 @@ export function Dashboard() {
             {upcomingEvents.map((ev, i) => {
               const type = getEventTypeById(ev.eventTypeId);
               const inProgress = isEventNow(ev);
-              const project = PROJECTS.find(p => p.id === ev.projectId);
+              const project = projects.find(p => p.id === ev.projectId);
               return (
                 <div
                   key={ev.id}
@@ -423,14 +431,14 @@ export function Dashboard() {
             icon="folder" title={t('dashboard.activeProjectsTitle')} badge={activeProjects.length}
             linkLabel={t('dashboard.viewAllMasc')} onLink={() => navigate('/projets')}
           >
-            {PROJECTS.slice(0, 6).map((p, i) => (
+            {projects.slice(0, 6).map((p, i) => (
               <div
                 key={p.id}
                 onClick={() => navigate(`/projets/${p.id}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '9px 16px',
-                  borderBottom: i < Math.min(PROJECTS.length, 6) - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: i < Math.min(projects.length, 6) - 1 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -480,7 +488,7 @@ export function Dashboard() {
             linkLabel={t('dashboard.viewAll')} onLink={() => navigate('/activite')}
             defaultOpen={false}
           >
-            {ACTIVITY.slice(0, 5).map((item, i) => {
+            {(isDemoSession() ? ACTIVITY : []).slice(0, 5).map((item, i) => {
               const meta = ACTIVITY_ICON[item.type ?? ''] ?? ACTIVITY_FALLBACK;
               return (
                 <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 16px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>

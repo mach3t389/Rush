@@ -20,6 +20,7 @@ import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMemb
 import { createInvitation, getInvitationLink } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
+import { isDemoSession } from '../data/authStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 import { enterViewAs } from '../data/viewAsStore';
 
@@ -943,6 +944,7 @@ const ACTIVITY_ICON: Record<ActivityType, { icon: string; color: string; bg: str
 };
 
 function getClientActivities(projects: typeof PROJECTS): ClientActivity[] {
+  if (!isDemoSession()) return [];
   return [
     { id: 'a1', day: "Aujourd'hui", type: 'comment', actorName: 'Sarah Martin',   actorInitials: 'SM', actorColor: '#3b4f8f', action: 'a commenté sur', target: 'Rough Cut — V4', detail: '"L\'intro est un peu longue…"', time: 'Il y a 12 min', projectName: projects[0]?.name, projectColor: projects[0]?.clientColor },
     { id: 'a2', day: "Aujourd'hui", type: 'upload',  actorName: 'Thomas Robert',  actorInitials: 'TR', actorColor: '#5c3d8f', action: 'a uploadé', target: 'Rough Cut — V4', detail: 'V4 · 03:28 · 2.1 Go', time: 'Il y a 2h', projectName: projects[0]?.name, projectColor: projects[0]?.clientColor },
@@ -1573,7 +1575,7 @@ export function FicheClient() {
     return <div style={{ padding: 40, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>{t('common.loading')}</div>;
   }
 
-  const projects = PROJECTS.filter(p => p.clientId === client.id);
+  const projects = getProjects().filter(p => p.clientId === client.id);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

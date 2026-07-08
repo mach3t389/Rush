@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton, SFPill } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
-import { PROJECTS } from '../data/mock';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 
 interface Annotation {
@@ -86,7 +85,6 @@ export function WebReview() {
   const navigate = useNavigate();
   const { projectId, resourceId } = useParams();
   const resource = getResources().find(r => r.id === resourceId);
-  const project = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
 
   const [localTitle, setLocalTitle] = useState(resource?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);

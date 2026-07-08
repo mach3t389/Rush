@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
+import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
@@ -5704,7 +5705,7 @@ export function ResourceBody({ resource }: { resource: Resource }) {
 export function ResourceDetail() {
   const { projectId, resourceId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const project = PROJECTS.find(p => p.id === projectId) ?? PROJECTS[0];
+  const project = getProjects().find(p => p.id === projectId);
   const [resources, setResources] = useState(getResources);
   useEffect(() => subscribeResources(() => setResources(getResources())), []);
   useEffect(() => { if (resourceId) markResourceRead(resourceId); }, [resourceId]);

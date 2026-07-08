@@ -188,7 +188,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
 function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const memberProjects = PROJECTS.filter(p => p.members.some(m => m.id === member.id));
+  const memberProjects = getProjects().filter(p => p.members.some(m => m.id === member.id));
   const [showEdit, setShowEdit] = useState(false);
   const photoUrl = loadPhoto(member.id);
 

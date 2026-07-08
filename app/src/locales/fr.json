@@ -142,6 +142,7 @@
   },
   "clients": {
     "newClient": "Nouveau client",
+    "noClientsFound": "Aucun client trouvé",
     "name": "Nom",
     "subtitle": "Sous-titre",
     "city": "Ville",

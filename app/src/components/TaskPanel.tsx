@@ -1,7 +1,8 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate, isOverdue } from './ui';
-import { USERS, PROJECTS } from '../data/mock';
+import { USERS } from '../data/mock';
+import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -392,7 +393,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     onUpdate?.({ title: val });
   };
 
-  const breadProjectData = PROJECTS.find(p => p.id === breadProjectId);
+  const breadProjectData = getProjects().find(p => p.id === breadProjectId);
   const breadSections = getSections(breadProjectId);
 
   const panelSectionLabel = (label: string) => (
@@ -533,7 +534,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 </button>
                 {breadProjectOpen && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 400, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginTop: 4 }}>
-                    {PROJECTS.map(p => (
+                    {getProjects().map(p => (
                       <button key={p.id} onClick={() => {
                         const newSections = getSections(p.id);
                         const firstSection = newSections[0]?.label ?? '';

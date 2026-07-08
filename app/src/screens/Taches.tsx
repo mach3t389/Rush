@@ -503,12 +503,12 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {(() => {
                   const q = projSearch.toLowerCase();
-                  const all = PROJECTS.filter(p => !q || p.name.toLowerCase().includes(q) || p.clientName.toLowerCase().includes(q));
+                  const all = getProjects().filter(p => !q || p.name.toLowerCase().includes(q) || p.clientName.toLowerCase().includes(q));
                   const current = all.find(p => p.id === task.projectId);
                   const others = all.filter(p => p.id !== task.projectId);
                   const recentOthers = others.slice(0, 3);
                   const moreOthers = others.slice(3);
-                  const projBtn = (p: typeof PROJECTS[0]) => (
+                  const projBtn = (p: ReturnType<typeof getProjects>[0]) => (
                     <button key={p.id}
                       onClick={() => {
                         updateMyTask(task.id, { projectId: p.id, projectName: p.name, projectColor: p.clientColor, sectionLabel: '' });
@@ -956,7 +956,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
                 <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{t('tasks.noProject')}</span>,
                 project === null
               )}
-              {PROJECTS.map(p => ddItem(() => { setProject(p); setOpenField(null); },
+              {getProjects().map(p => ddItem(() => { setProject(p); setOpenField(null); },
                 <><i style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, display: 'block', flexShrink: 0 }} />{p.name}</>,
                 project?.id === p.id
               ))}
@@ -1452,7 +1452,7 @@ export function Taches() {
             setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
           }}
           onMove={(newProjectId, _newSectionLabel) => {
-            const proj = PROJECTS.find(p => p.id === newProjectId);
+            const proj = getProjects().find(p => p.id === newProjectId);
             if (proj) {
               const patch = { projectId: newProjectId, projectName: proj.name, projectColor: proj.clientColor };
               updateMyTask(selectedTask.id, patch);
