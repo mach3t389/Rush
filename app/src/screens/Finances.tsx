@@ -7,10 +7,11 @@ import { loadProfile } from '../components/profile/ProfileEditPanel';
 import {
   getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices, findInvoice,
   setInvoiceStatus, addInvoiceComment,
-  savePdf, loadPdf, formatMoney, nextInvoiceNumber, addDays,
+  savePdf, loadPdf, removePdf, formatMoney, nextInvoiceNumber, addDays,
   getInvoiceDefaults, computeTaxLines, TAX_PRESETS,
   type Invoice, type InvoiceStatus, type InvoiceComment, type TaxLine,
 } from '../data/financeStore';
+import { subscribeUploadStatus } from '../data/fileContentStore';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -307,6 +308,7 @@ export function InvoiceDetailPanel({
   const [tab, setTab] = useState<'details' | 'comments'>('details');
   const [commentText, setCommentText] = useState('');
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [uploadTick, setUploadTick] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const allClients  = getClients();
@@ -314,12 +316,13 @@ export function InvoiceDetailPanel({
 
   useEffect(() => { if (open) { setTab('details'); setCommentText(''); } }, [open, invoice?.id]);
   useEffect(() => { if (tab === 'comments') bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [tab, invoice?.comments?.length]);
+  useEffect(() => subscribeUploadStatus(() => setUploadTick(n => n + 1)), []);
 
   if (!open || !invoice) return null;
 
   const client  = allClients.find(c => c.id === invoice.clientId);
   const project = invoice.projectId ? allProjects.find(p => p.id === invoice.projectId) : null;
-  const hasPdf  = loadPdf(invoice.id) !== null;
+  const hasPdf  = !!invoice.hasPdf;
   const terms   = invoice.paymentTermsDays ?? 30;
 
   const handleComment = () => {
@@ -354,7 +357,7 @@ export function InvoiceDetailPanel({
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{invoice.number} — {invoice.title}</span>
               <button onClick={() => setPdfOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={18} /></button>
             </div>
-            <iframe src={loadPdf(invoice.id)!} style={{ flex: 1, border: 'none', width: '100%' }} title="PDF" />
+            <iframe key={uploadTick} src={loadPdf(invoice.id) ?? ''} style={{ flex: 1, border: 'none', width: '100%' }} title="PDF" />
           </div>
         </>
       )}
@@ -586,8 +589,9 @@ export function InvoiceFormPanel({
   const [customDue,     setCustomDue]     = useState(false);
   const [notes,         setNotes]         = useState('');
   const [internalNote,  setInternalNote]  = useState('');
-  const [pdfDataUrl,    setPdfDataUrl]    = useState<string | null>(null);
-  const [pdfName,       setPdfName]       = useState('');
+  const [hasExistingPdf, setHasExistingPdf] = useState(false);
+  const [newPdfFile,     setNewPdfFile]     = useState<File | null>(null);
+  const [pdfName,        setPdfName]        = useState('');
 
   const effectiveClientId  = lockedClientId  ?? defaultClientId  ?? (allClients[0]?.id ?? '');
   const effectiveProjectId = lockedProjectId ?? defaultProjectId ?? '';
@@ -602,8 +606,7 @@ export function InvoiceFormPanel({
       setCurrency(invoice.currency);   setStatus(invoice.status);
       setPayTermsDays(invoice.paymentTermsDays ?? 30);
       setNotes(invoice.notes ?? '');   setInternalNote(invoice.internalNote ?? '');
-      const existing = loadPdf(invoice.id);
-      setPdfDataUrl(existing); setPdfName(existing ? 'facture.pdf' : '');
+      setHasExistingPdf(!!invoice.hasPdf); setNewPdfFile(null); setPdfName(invoice.hasPdf ? 'facture.pdf' : '');
       setCustomDue(false);
     } else {
       const defs = getInvoiceDefaults();
@@ -615,7 +618,7 @@ export function InvoiceFormPanel({
       setCurrency(defs.currency);      setStatus('draft');
       setPayTermsDays(defs.paymentTermsDays); setCustomDue(false);
       setNotes(defs.notes);            setInternalNote('');
-      setPdfDataUrl(null);             setPdfName('');
+      setHasExistingPdf(false);        setNewPdfFile(null); setPdfName('');
     }
   }, [open, invoice]);
 
@@ -642,10 +645,9 @@ export function InvoiceFormPanel({
   const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setNewPdfFile(file);
     setPdfName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => setPdfDataUrl(reader.result as string);
-    reader.readAsDataURL(file);
+    setHasExistingPdf(false);
   };
 
   const handleSave = () => {
@@ -664,7 +666,8 @@ export function InvoiceFormPanel({
       comments: invoice?.comments,
     };
     if (invoice) { updateInvoice(id, inv); } else { addInvoice(inv); }
-    if (pdfDataUrl) savePdf(id, pdfDataUrl);
+    if (newPdfFile) savePdf(id, newPdfFile);
+    else if (invoice?.hasPdf && !hasExistingPdf) removePdf(id);
     onClose();
   };
 
@@ -887,11 +890,11 @@ export function InvoiceFormPanel({
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <label style={labelStyle}>{t('finance.pdfFile')}</label>
             <input ref={fileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={handlePdfChange} />
-            {pdfDataUrl ? (
+            {(hasExistingPdf || newPdfFile) ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
                 <SFIcon name="file-text" size={14} color="var(--text-3)" />
                 <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfName || 'facture.pdf'}</span>
-                <button onClick={() => { setPdfDataUrl(null); setPdfName(''); if (fileRef.current) fileRef.current.value = ''; }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 2 }}>
+                <button onClick={() => { setHasExistingPdf(false); setNewPdfFile(null); setPdfName(''); if (fileRef.current) fileRef.current.value = ''; }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 2 }}>
                   <SFIcon name="x" size={13} />
                 </button>
               </div>
@@ -1168,7 +1171,7 @@ export function Finances() {
             {filtered.map((inv, i) => {
               const client  = clientMap[inv.clientId];
               const project = inv.projectId ? projectMap[inv.projectId] : null;
-              const hasPdf  = loadPdf(inv.id) !== null;
+              const hasPdf  = !!inv.hasPdf;
               const isLate  = inv.status === 'overdue';
               const confirming = deleteId === inv.id;
               const commentCount = inv.comments?.length ?? 0;
