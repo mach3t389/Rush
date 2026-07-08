@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import {
-  getInvoicesByProject, subscribeInvoices, updateInvoice, removeInvoice,
-  sendInvoice as doSendInvoice, loadPdf, formatMoney, type Invoice,
+  getInvoicesByProject, subscribeInvoices, removeInvoice,
+  setInvoiceStatus, loadPdf, formatMoney, type Invoice,
 } from '../data/financeStore';
 import { getClients } from '../data/clientStore';
 import { findProject } from '../data/projectStore';
@@ -29,7 +29,6 @@ export function ProjetFinances() {
   const revenue     = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
   const outstanding = invoices.filter(i => i.status === 'sent' || i.status === 'viewed').reduce((s, i) => s + i.total, 0);
   const overdue     = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
-  const today       = () => new Date().toISOString().slice(0, 10);
 
   const openAdd    = () => { setEditInvoice(null); setPanelOpen(true); };
   const openEdit   = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
@@ -122,27 +121,13 @@ export function ProjetFinances() {
                   <span style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{client?.name ?? '—'}</span>
                   <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{inv.title}</span>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, fontWeight: 600, textAlign: 'right', paddingRight: 12 }}>{formatMoney(inv.total, inv.currency)}</span>
-                  <span><StatusPill status={inv.status} /></span>
+                  <span><StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} /></span>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
 
                   <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                    {inv.status === 'draft' && (
-                      <button title={t('finance.sendInvoice')} onClick={() => doSendInvoice(inv.id)} style={actionBtn}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--info)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                        <SFIcon name="send" size={13} />
-                      </button>
-                    )}
                     {hasPdf && (
                       <button title={t('finance.viewPdf')} onClick={() => openDetail(inv)} style={actionBtn}>
                         <SFIcon name="file-text" size={13} />
-                      </button>
-                    )}
-                    {inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft' && (
-                      <button title={t('finance.markPaid')} onClick={() => updateInvoice(inv.id, { status: 'paid', paidDate: today(), paidAmount: inv.total })} style={actionBtn}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ok)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
-                        <SFIcon name="check-circle" size={13} />
                       </button>
                     )}
                     {confirming ? (
