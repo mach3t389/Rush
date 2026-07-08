@@ -17,6 +17,30 @@ const labelStyle: React.CSSProperties = {
   display: 'block', marginBottom: 6, fontFamily: 'var(--ff-text)',
 };
 
+function Field({
+  label, value, onChange, type = 'text', placeholder, autoComplete, extra,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; placeholder: string; autoComplete?: string; extra?: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={type} value={value} placeholder={placeholder}
+          autoComplete={autoComplete}
+          onChange={e => onChange(e.target.value)}
+          style={inputStyle}
+          onFocus={ev => (ev.target as HTMLInputElement).style.borderColor = 'var(--accent)'}
+          onBlur={ev => (ev.target as HTMLInputElement).style.borderColor = 'var(--border)'}
+        />
+        {extra}
+      </div>
+    </div>
+  );
+}
+
 export function Register() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -45,28 +69,6 @@ export function Register() {
   };
 
   const isValid = studioName.trim() && name.trim() && email.trim() && password.trim() && confirm.trim();
-
-  const Field = ({
-    label, value, onChange, type = 'text', placeholder, autoComplete, extra,
-  }: {
-    label: string; value: string; onChange: (v: string) => void;
-    type?: string; placeholder: string; autoComplete?: string; extra?: React.ReactNode;
-  }) => (
-    <div style={{ marginBottom: 14 }}>
-      <label style={labelStyle}>{label}</label>
-      <div style={{ position: 'relative' }}>
-        <input
-          type={type} value={value} placeholder={placeholder}
-          autoComplete={autoComplete}
-          onChange={e => onChange(e.target.value)}
-          style={inputStyle}
-          onFocus={ev => (ev.target as HTMLInputElement).style.borderColor = 'var(--accent)'}
-          onBlur={ev => (ev.target as HTMLInputElement).style.borderColor = 'var(--border)'}
-        />
-        {extra}
-      </div>
-    </div>
-  );
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
