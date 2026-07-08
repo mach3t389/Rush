@@ -5,7 +5,7 @@ import { SFIcon, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import {
   getInvoicesByProject, subscribeInvoices, removeInvoice, findInvoice,
-  setInvoiceStatus, loadPdf, formatMoney, type Invoice,
+  setInvoiceStatus, formatMoney, type Invoice,
 } from '../data/financeStore';
 import { getClients } from '../data/clientStore';
 import { findProject } from '../data/projectStore';
@@ -95,7 +95,7 @@ export function ProjetFinances() {
 
             {invoices.map((inv, i) => {
               const client     = clientMap[inv.clientId];
-              const hasPdf     = loadPdf(inv.id) !== null;
+              const hasPdf     = !!inv.hasPdf;
               const isLate     = inv.status === 'overdue';
               const confirming = deleteId === inv.id;
               const commentCount = inv.comments?.length ?? 0;
