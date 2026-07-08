@@ -18,7 +18,7 @@ import { FileBrowser } from './FichiersGlobal';
 import { getClientContacts, type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
 import { createInvitation, getInvitationLink } from '../data/invitationStore';
-import { getInvoicesByClient, subscribeInvoices, removeInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
+import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 import { enterViewAs } from '../data/viewAsStore';
@@ -983,6 +983,7 @@ function FinancesTab({ clientId }: { clientId: string }) {
   const openAdd    = () => { setEditInvoice(null); setPanelOpen(true); };
   const openEdit   = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
   const openDetail = (inv: Invoice) => setDetailInvoice(inv);
+  const closeForm  = () => { setPanelOpen(false); if (editInvoice) setDetailInvoice(findInvoice(editInvoice.id) ?? editInvoice); };
 
   const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
   const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
@@ -1073,7 +1074,7 @@ function FinancesTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      <InvoiceFormPanel open={panelOpen} invoice={editInvoice} lockedClientId={clientId} onClose={() => setPanelOpen(false)} />
+      <InvoiceFormPanel open={panelOpen} invoice={editInvoice} lockedClientId={clientId} onClose={closeForm} />
       <InvoiceDetailPanel
         open={detailInvoice !== null}
         invoice={detailInvoice}

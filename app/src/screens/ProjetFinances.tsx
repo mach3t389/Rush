@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import {
-  getInvoicesByProject, subscribeInvoices, removeInvoice,
+  getInvoicesByProject, subscribeInvoices, removeInvoice, findInvoice,
   setInvoiceStatus, loadPdf, formatMoney, type Invoice,
 } from '../data/financeStore';
 import { getClients } from '../data/clientStore';
@@ -33,6 +33,7 @@ export function ProjetFinances() {
   const openAdd    = () => { setEditInvoice(null); setPanelOpen(true); };
   const openEdit   = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
   const openDetail = (inv: Invoice) => setDetailInvoice(inv);
+  const closeForm  = () => { setPanelOpen(false); if (editInvoice) setDetailInvoice(findInvoice(editInvoice.id) ?? editInvoice); };
 
   const thStyle: React.CSSProperties = {
     fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
@@ -160,7 +161,7 @@ export function ProjetFinances() {
         invoice={editInvoice}
         lockedClientId={project?.clientId}
         lockedProjectId={projectId}
-        onClose={() => setPanelOpen(false)}
+        onClose={closeForm}
       />
       <InvoiceDetailPanel
         open={detailInvoice !== null}

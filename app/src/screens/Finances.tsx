@@ -5,7 +5,7 @@ import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import {
-  getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices,
+  getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices, findInvoice,
   setInvoiceStatus, addInvoiceComment,
   savePdf, loadPdf, formatMoney, nextInvoiceNumber, addDays,
   getInvoiceDefaults, computeTaxLines, TAX_PRESETS,
@@ -1021,6 +1021,7 @@ export function Finances() {
   const openAdd     = () => { setEditInvoice(null); setPanelOpen(true); };
   const openEdit    = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
   const openDetail  = (inv: Invoice) => setDetailInvoice(inv);
+  const closeForm   = () => { setPanelOpen(false); if (editInvoice) setDetailInvoice(findInvoice(editInvoice.id) ?? editInvoice); };
 
   const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
   const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
@@ -1216,7 +1217,7 @@ export function Finances() {
         )}
       </div>
 
-      <InvoiceFormPanel open={panelOpen} invoice={editInvoice} onClose={() => setPanelOpen(false)} />
+      <InvoiceFormPanel open={panelOpen} invoice={editInvoice} onClose={closeForm} />
       <InvoiceDetailPanel
         open={detailInvoice !== null}
         invoice={detailInvoice}
