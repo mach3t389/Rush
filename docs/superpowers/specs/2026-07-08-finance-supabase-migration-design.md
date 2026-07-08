@@ -49,6 +49,7 @@ create table invoices (
   internal_note text,
   paid_date text,
   paid_amount numeric,
+  has_pdf boolean not null default false,
   comments jsonb not null default '[]',
   created_at timestamptz not null default now()
 );
@@ -123,16 +124,25 @@ Toutes les fonctions d'écriture existantes (`addInvoice`, `updateInvoice`, `rem
 
 ## PDF de facture — réutilisation du stockage existant
 
-`savePdf`, `loadPdf`, `removePdf` (actuellement en base64 `localStorage`) sont retirés de `financeStore.ts`. Les 3 écrans (`Finances.tsx`, `ProjetFinances.tsx` — implicitement via les composants partagés — et `InvoiceFormPanel`/`InvoiceDetailPanel`) appellent directement les fonctions déjà existantes de `fileContentStore.ts` :
+`savePdf`, `loadPdf`, `removePdf` restent exportées par `financeStore.ts` (les écrans n'ont donc presque rien à changer), mais leur intérieur délègue désormais au système de stockage déjà construit pour les vidéos/fichiers du studio (`fileContentStore.ts`, sur Cloudflare R2), avec un identifiant du type `invoice-pdf-<id de la facture>` :
 
 ```ts
-setFileContent(`invoice-pdf-${invoiceId}`, file);      // au lieu de savePdf(id, dataUrl)
-getFileContent(`invoice-pdf-${invoiceId}`);            // au lieu de loadPdf(id)
-removeFileContent(`invoice-pdf-${invoiceId}`);         // au lieu de removePdf(id)
-hasFileContent(`invoice-pdf-${invoiceId}`);            // au lieu de loadPdf(id) !== null
+export function savePdf(invoiceId: string, file: File): void {   // avant : (invoiceId, dataUrl: string)
+  setFileContent(`invoice-pdf-${invoiceId}`, file);
+  updateInvoice(invoiceId, { hasPdf: true });
+}
+export function loadPdf(invoiceId: string): string | null {      // signature inchangée
+  return getFileContent(`invoice-pdf-${invoiceId}`);
+}
+export function removePdf(invoiceId: string): void {              // signature inchangée
+  removeFileContent(`invoice-pdf-${invoiceId}`);
+  updateInvoice(invoiceId, { hasPdf: false });
+}
 ```
 
-Différence pratique pour `InvoiceFormPanel` : le champ d'upload PDF passait le fichier par un `FileReader` pour obtenir une chaîne base64 avant d'appeler `savePdf` ; il passera désormais directement l'objet `File` à `setFileContent`, sans étape de lecture intermédiaire. Aucun changement d'interface pour l'utilisateur (le bouton « Choisir un PDF » se comporte pareil), et aucune limite de taille supplémentaire n'est introduite par les autres tables.
+Différence pratique pour `InvoiceFormPanel` : le champ d'upload PDF passait le fichier par un `FileReader` pour obtenir une chaîne base64 avant d'appeler `savePdf` ; il passera désormais directement l'objet `File`, sans étape de lecture intermédiaire.
+
+Un nouveau champ `hasPdf` (booléen) est ajouté à chaque facture — mis à jour par `savePdf`/`removePdf` en même temps que le fichier. C'est ce qui permet aux tableaux de factures (qui doivent vérifier « est-ce que cette facture a un PDF » pour chacune des lignes affichées) de le savoir instantanément sans devoir demander un lien d'accès au fichier pour chaque ligne — seul l'aperçu du PDF (quand on clique réellement pour l'ouvrir) a besoin d'aller chercher ce lien. Aucun changement d'interface pour l'utilisateur (le bouton « Choisir un PDF » se comporte pareil), et aucune limite de taille supplémentaire n'est introduite par les autres tables.
 
 En session démo, `fileContentStore.ts` garde son comportement `localStorage` actuel (base64, limité à 3 Mo) — donc les PDF de démonstration existants continuent de fonctionner sans changement.
 
