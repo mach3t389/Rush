@@ -204,6 +204,21 @@ export function sendInvoice(id: string): void {
   });
 }
 
+export function setInvoiceStatus(id: string, newStatus: InvoiceStatus): void {
+  const inv = _invoices.find(i => i.id === id);
+  if (!inv || inv.status === newStatus) return;
+
+  if (newStatus === 'sent' && inv.status === 'draft') {
+    sendInvoice(id);
+    return;
+  }
+  if (newStatus === 'paid') {
+    updateInvoice(id, { status: 'paid', paidDate: new Date().toISOString().slice(0, 10), paidAmount: inv.total });
+    return;
+  }
+  updateInvoice(id, { status: newStatus });
+}
+
 export function addInvoiceComment(invoiceId: string, comment: InvoiceComment): void {
   _invoices = _invoices.map(i =>
     i.id === invoiceId ? { ...i, comments: [...(i.comments ?? []), comment] } : i
