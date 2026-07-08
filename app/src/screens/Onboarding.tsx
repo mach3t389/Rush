@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
 import { getCurrentUser } from '../data/authStore';
+import { getLogoFull, setLogoFull, getLogoSquare, setLogoSquare } from '../data/studioLogoStore';
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
 
@@ -23,18 +24,18 @@ function StepBar({ current, total }: { current: number; total: number }) {
 // ── Logo upload widget ────────────────────────────────────────────────────────
 
 function LogoUpload({
-  label, desc, storageKey, size,
-}: { label: string; desc: string; storageKey: string; size: [number, number] }) {
+  label, desc, getter, setter, size,
+}: { label: string; desc: string; getter: () => string | null; setter: (v: string | null) => void; size: [number, number] }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(() => localStorage.getItem(storageKey));
+  const [preview, setPreview] = useState<string | null>(() => getter());
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = ev => {
       const data = ev.target?.result as string;
       setPreview(data);
-      try { localStorage.setItem(storageKey, data); } catch { /* noop */ }
+      setter(data);
     };
     reader.readAsDataURL(file);
   };
@@ -66,7 +67,7 @@ function LogoUpload({
           <>
             <img src={preview} alt={label} style={{ maxWidth: '90%', maxHeight: '80%', objectFit: 'contain' }} />
             <button
-              onClick={e => { e.stopPropagation(); setPreview(null); localStorage.removeItem(storageKey); }}
+              onClick={e => { e.stopPropagation(); setPreview(null); setter(null); }}
               style={{
                 position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%',
                 background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer',
@@ -217,8 +218,8 @@ export function Onboarding() {
             <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 28, lineHeight: 1.6 }}>
               {t('onboarding.step2Desc')}
             </p>
-            <LogoUpload label={t('onboarding.logoFull')} desc={t('onboarding.logoFullDesc')} storageKey="sf_logo_full" size={[320, 100]} />
-            <LogoUpload label={t('onboarding.logoSquare')} desc={t('onboarding.logoSquareDesc')} storageKey="sf_logo_square" size={[100, 100]} />
+            <LogoUpload label={t('onboarding.logoFull')} desc={t('onboarding.logoFullDesc')} getter={getLogoFull} setter={setLogoFull} size={[320, 100]} />
+            <LogoUpload label={t('onboarding.logoSquare')} desc={t('onboarding.logoSquareDesc')} getter={getLogoSquare} setter={setLogoSquare} size={[100, 100]} />
           </div>
         )}
 

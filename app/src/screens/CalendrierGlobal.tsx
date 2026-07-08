@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
-import { PROJECTS, MY_TASKS, USERS } from '../data/mock';
+import { MY_TASKS, USERS } from '../data/mock';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
@@ -31,7 +32,7 @@ function getTeam(): User[] {
 function resolveEvents(eventTypes: EventType[]): CalEvent[] {
   const typeMap = Object.fromEntries(eventTypes.map(t => [t.id, t]));
   return getEvents().map(e => {
-    const p = e.projectId ? PROJECTS.find(x => x.id === e.projectId) : undefined;
+    const p = e.projectId ? getProjects().find(x => x.id === e.projectId) : undefined;
     const et = typeMap[e.eventTypeId] ?? { color: '#888', label: 'Autre', icon: 'circle' };
     const parseDate = (s: string) => s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
     return {
@@ -131,7 +132,7 @@ function ProjectSelect({ value, onChange }: { value: string; onChange: (id: stri
   const [open, setOpen] = useState(false);
   const options = [
     { id: '', label: t('calendar.noProject'), color: null as string | null, italic: true },
-    ...PROJECTS.map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
+    ...getProjects().map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
   ];
   const sel = options.find(o => o.id === value) ?? options[0];
   return (
@@ -721,7 +722,7 @@ export function CalendrierGlobal() {
 
         {/* Project filters */}
         {(()=>{
-          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...PROJECTS.filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
+          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>
