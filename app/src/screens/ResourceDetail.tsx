@@ -2381,7 +2381,7 @@ function getCustomDocThemeCss(): string {
 
 const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; bodyFont: string; css: string }> = {
   standard: {
-    labelKey: 'resourceDetail.themeStandard', headingFont: 'Montserrat', bodyFont: 'Georgia',
+    labelKey: 'resourceDetail.documentView.themeStandard', headingFont: 'Montserrat', bodyFont: 'Georgia',
     css: `.doc-editor h1{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:700;color:#111;margin:24px 0 10px;line-height:1.3}
           .doc-editor h2{font-family:'Montserrat',sans-serif;font-size:19px;font-weight:600;color:#222;margin:20px 0 8px;line-height:1.3}
           .doc-editor h3{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:#444;margin:14px 0 5px;text-transform:uppercase;letter-spacing:0.05em}
@@ -2392,7 +2392,7 @@ const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; body
           .doc-editor strong{font-weight:700}.doc-editor em{font-style:italic}`,
   },
   moderne: {
-    labelKey: 'resourceDetail.themeModern', headingFont: 'Montserrat', bodyFont: 'Montserrat',
+    labelKey: 'resourceDetail.documentView.themeModern', headingFont: 'Montserrat', bodyFont: 'Montserrat',
     css: `.doc-editor h1{font-family:'Montserrat',sans-serif;font-size:34px;font-weight:900;color:#000;margin:32px 0 14px;line-height:1.05;letter-spacing:-0.03em}
           .doc-editor h2{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:#000;margin:24px 0 8px;text-transform:uppercase;letter-spacing:0.14em;border-bottom:2px solid #000;padding-bottom:5px}
           .doc-editor h3{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:600;color:#333;margin:16px 0 5px}
@@ -2403,7 +2403,7 @@ const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; body
           .doc-editor strong{font-weight:700}.doc-editor em{font-style:italic}`,
   },
   classique: {
-    labelKey: 'resourceDetail.themeClassic', headingFont: 'Georgia', bodyFont: 'Georgia',
+    labelKey: 'resourceDetail.documentView.themeClassic', headingFont: 'Georgia', bodyFont: 'Georgia',
     css: `.doc-editor h1{font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:bold;font-style:italic;color:#1c1208;margin:28px 0 6px;line-height:1.25;letter-spacing:0.01em;border-bottom:1px solid #c4aa6e;padding-bottom:10px}
           .doc-editor h2{font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:bold;color:#1c1208;margin:22px 0 8px;line-height:1.3}
           .doc-editor h3{font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;font-style:italic;color:#4a3f20;margin:16px 0 5px}
@@ -2414,7 +2414,7 @@ const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; body
           .doc-editor strong{font-weight:bold}.doc-editor em{font-style:italic}`,
   },
   custom: {
-    label: 'Personnalisé', headingFont: 'Custom', bodyFont: 'Custom',
+    labelKey: 'resourceDetail.documentView.themeCustom', headingFont: 'Custom', bodyFont: 'Custom',
     css: '',
   },
 };
