@@ -1795,6 +1795,12 @@ export function Travail() {
     setAddingSection(false);
   };
 
+  const handleRenameSection = (idx: number, newLabel: string) => {
+    const trimmed = newLabel.trim();
+    if (!trimmed || trimmed === sections[idx]?.label) return;
+    setSections(prev => prev.map((s, i) => i === idx ? { ...s, label: trimmed } : s));
+  };
+
   const handleToggleComplete = (idx: number) => {
     const wasCompleted = sections[idx]?.completed;
     const label = sections[idx]?.label;
@@ -2044,6 +2050,7 @@ export function Travail() {
                 isDragging={draggedIdx === globalIdx}
                 onAddTask={task => handleAddTask(globalIdx, task)}
                 onDelete={() => handleDeleteSection(globalIdx)}
+                onRename={newLabel => handleRenameSection(globalIdx, newLabel)}
                 onDeleteTask={taskId => setSections(prev => prev.map((s, i) => i === globalIdx ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s))}
                 projectId={project.id}
                 projectName={project.name}
