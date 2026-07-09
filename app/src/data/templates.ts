@@ -2,6 +2,43 @@ import type { Priority, ResourceType } from '../types';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { loadPersisted, savePersisted } from './persist';
+
+// ── Hidden built-in templates ────────────────────────────────────────────────────
+// Les modèles "Intégrés" ne sont pas des lignes de données réelles (juste du contenu
+// d'exemple codé en dur) : on ne peut pas les retirer du tableau, mais on peut les
+// masquer localement — même effet visuel qu'une suppression, sans toucher au code.
+// Préférence d'affichage locale au navigateur (comme sf_pinned_projects), pas synchronisée.
+
+const HIDDEN_TEMPLATES_KEY = 'sf_hidden_templates';
+let _hiddenTemplateIds: string[] = loadPersisted(HIDDEN_TEMPLATES_KEY, []);
+const _hiddenListeners = new Set<() => void>();
+
+export function isTemplateHidden(id: string): boolean {
+  return _hiddenTemplateIds.includes(id);
+}
+
+export function hideTemplate(id: string): void {
+  if (_hiddenTemplateIds.includes(id)) return;
+  _hiddenTemplateIds = [..._hiddenTemplateIds, id];
+  savePersisted(HIDDEN_TEMPLATES_KEY, _hiddenTemplateIds);
+  _hiddenListeners.forEach(fn => fn());
+}
+
+export function unhideTemplate(id: string): void {
+  _hiddenTemplateIds = _hiddenTemplateIds.filter(x => x !== id);
+  savePersisted(HIDDEN_TEMPLATES_KEY, _hiddenTemplateIds);
+  _hiddenListeners.forEach(fn => fn());
+}
+
+export function getHiddenTemplateIds(): string[] {
+  return [..._hiddenTemplateIds];
+}
+
+export function subscribeHiddenTemplates(fn: () => void): () => void {
+  _hiddenListeners.add(fn);
+  return () => _hiddenListeners.delete(fn);
+}
 
 // ── Project template types ─────────────────────────────────────────────────────
 
@@ -545,8 +582,12 @@ export function saveCustomTemplates(templates: ProjectTemplate[]): void {
   void replaceSupabaseProjectTemplates(previousIds, templates);
 }
 
+export function getVisibleBuiltInTemplates(): ProjectTemplate[] {
+  return BUILT_IN_TEMPLATES.filter(t => !isTemplateHidden(t.id));
+}
+
 export function loadAllTemplates(): ProjectTemplate[] {
-  return [...BUILT_IN_TEMPLATES, ...loadCustomTemplates()];
+  return [...getVisibleBuiltInTemplates(), ...loadCustomTemplates()];
 }
 
 // ── Form template storage ──────────────────────────────────────────────────────
@@ -628,8 +669,12 @@ export function saveCustomFormTemplates(templates: FormTemplate[]): void {
   void replaceSupabaseFormTemplates(previousIds, templates);
 }
 
+export function getVisibleBuiltInFormTemplates(): FormTemplate[] {
+  return BUILT_IN_FORM_TEMPLATES.filter(t => !isTemplateHidden(t.id));
+}
+
 export function loadAllFormTemplates(): FormTemplate[] {
-  return [...BUILT_IN_FORM_TEMPLATES, ...loadCustomFormTemplates()];
+  return [...getVisibleBuiltInFormTemplates(), ...loadCustomFormTemplates()];
 }
 
 // ── Resource template types ────────────────────────────────────────────────────
@@ -940,6 +985,10 @@ export function saveCustomResourceTemplates(templates: ResourceTemplate[]): void
   void replaceSupabaseResourceTemplates(previousIds, templates);
 }
 
+export function getVisibleBuiltInResourceTemplates(): ResourceTemplate[] {
+  return BUILT_IN_RESOURCE_TEMPLATES.filter(t => !isTemplateHidden(t.id));
+}
+
 export function loadAllResourceTemplates(): ResourceTemplate[] {
-  return [...BUILT_IN_RESOURCE_TEMPLATES, ...loadCustomResourceTemplates()];
+  return [...getVisibleBuiltInResourceTemplates(), ...loadCustomResourceTemplates()];
 }

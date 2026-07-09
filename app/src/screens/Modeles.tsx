@@ -8,7 +8,7 @@ import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import type { ProjectTemplate, TemplateSection, TemplateTask, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, ChecklistItem, DocumentSection, SceneBlock, ReviewRound, FolderNode, MoodboardRef } from '../data/templates';
-import { loadAllTemplates, loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES, loadAllFormTemplates, loadCustomFormTemplates, saveCustomFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, BUILT_IN_RESOURCE_TEMPLATES } from '../data/templates';
+import { loadAllTemplates, loadCustomTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, loadCustomFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
 import type { Priority, ResourceType, Resource, Task, User, Project, SectionData } from '../types';
@@ -629,7 +629,15 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
             {tpl.builtIn ? t('models.editCopy') : t('models.edit')}
           </SFButton>
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>{t('models.duplicate')}</SFButton>
-          {!tpl.builtIn && <SFButton variant="ghost" size="sm" icon="trash-2" onClick={onDelete} style={{ color: 'var(--danger)' }} />}
+          <SFButton
+            variant="ghost" size="sm"
+            icon={tpl.builtIn ? 'eye-off' : 'trash-2'}
+            onClick={() => {
+              if (tpl.builtIn && !confirm(t('models.hideBuiltInConfirm'))) return;
+              onDelete();
+            }}
+            style={{ color: tpl.builtIn ? 'var(--text-3)' : 'var(--danger)' }}
+          />
         </div>
       </div>
     </div>
@@ -832,7 +840,15 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
             {tpl.builtIn ? t('models.editCopy') : t('models.edit')}
           </SFButton>
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>{t('models.duplicate')}</SFButton>
-          {!tpl.builtIn && <SFButton variant="ghost" size="sm" icon="trash-2" onClick={onDelete} style={{ color: 'var(--danger)' }} />}
+          <SFButton
+            variant="ghost" size="sm"
+            icon={tpl.builtIn ? 'eye-off' : 'trash-2'}
+            onClick={() => {
+              if (tpl.builtIn && !confirm(t('models.hideBuiltInConfirm'))) return;
+              onDelete();
+            }}
+            style={{ color: tpl.builtIn ? 'var(--text-3)' : 'var(--danger)' }}
+          />
         </div>
       </div>
     </div>
@@ -2235,7 +2251,15 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>
             {tpl.builtIn ? 'Modifier une copie' : 'Dupliquer'}
           </SFButton>
-          {!tpl.builtIn && <SFButton variant="ghost" size="sm" icon="trash-2" onClick={onDelete} style={{ color: 'var(--danger)' }} />}
+          <SFButton
+            variant="ghost" size="sm"
+            icon={tpl.builtIn ? 'eye-off' : 'trash-2'}
+            onClick={() => {
+              if (tpl.builtIn && !confirm(t('models.hideBuiltInConfirm'))) return;
+              onDelete();
+            }}
+            style={{ color: tpl.builtIn ? 'var(--text-3)' : 'var(--danger)' }}
+          />
         </div>
       </div>
     </div>
@@ -2463,6 +2487,10 @@ export function Modeles() {
   useEffect(() => subscribeTemplateFavorites(() => setFavorites(getFavoriteTemplateIds())), []);
   const toggleFav = (id: string) => { toggleTemplateFavorite(id); setFavorites(getFavoriteTemplateIds()); };
 
+  // ── Modèles intégrés masqués (préférence locale) ──
+  const [hiddenCount, setHiddenCount] = useState(() => getHiddenTemplateIds().length);
+  useEffect(() => subscribeHiddenTemplates(() => setHiddenCount(getHiddenTemplateIds().length)), []);
+
   // ── Project templates state
   const [templates, setTemplates] = useState(loadAllTemplates);
   const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => { const all = loadAllTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
@@ -2496,23 +2524,40 @@ export function Modeles() {
   const [dragFormId, setDragFormId] = useState<string | null>(null);
   const [dragOverFormId, setDragOverFormId] = useState<string | null>(null);
 
+  const resetHiddenTemplates = () => {
+    getHiddenTemplateIds().forEach(id => unhideTemplate(id));
+    setTemplates(loadAllTemplates());
+    setFormTemplates(loadAllFormTemplates());
+    setResourceTemplates(loadAllResourceTemplates());
+  };
+
   // ── Project template handlers
   const saveTpl = (tpl: ProjectTemplate) => {
     const custom = templates.filter(t => !t.builtIn);
     const existing = custom.findIndex(t => t.id === tpl.id);
     const updated = existing >= 0 ? custom.map(t => t.id === tpl.id ? tpl : t) : [...custom, tpl];
     saveCustomTemplates(updated);
-    setTemplates([...BUILT_IN_TEMPLATES, ...updated]);
+    setTemplates([...getVisibleBuiltInTemplates(), ...updated]);
     setSelectedTpl(tpl);
   };
 
   const duplicateTpl = (tpl: ProjectTemplate) => saveTpl({ ...tpl, id: `tpl-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] });
 
+  // Modèle intégré : pas supprimable pour de vrai (contenu codé en dur), on le masque simplement.
+  // Modèle custom : suppression réelle du stockage.
   const deleteTpl = (tpl: ProjectTemplate) => {
+    if (tpl.builtIn) {
+      hideTemplate(tpl.id);
+      const next = templates.filter(t => t.id !== tpl.id);
+      setTemplates(next);
+      setSelectedTpl(next[0] ?? null);
+      return;
+    }
     const custom = templates.filter(t => !t.builtIn && t.id !== tpl.id);
     saveCustomTemplates(custom);
-    setTemplates([...BUILT_IN_TEMPLATES, ...custom]);
-    setSelectedTpl(BUILT_IN_TEMPLATES[0]);
+    const builtIn = getVisibleBuiltInTemplates();
+    setTemplates([...builtIn, ...custom]);
+    setSelectedTpl(builtIn[0] ?? custom[0] ?? null);
   };
 
   const renameTpl = (id: string, name: string, description: string) => {
@@ -2543,7 +2588,7 @@ export function Modeles() {
     const existing = custom.findIndex(t => t.id === tpl.id);
     const updated = existing >= 0 ? custom.map(t => t.id === tpl.id ? tpl : t) : [...custom, tpl];
     saveCustomFormTemplates(updated);
-    setFormTemplates([...BUILT_IN_FORM_TEMPLATES, ...updated]);
+    setFormTemplates([...getVisibleBuiltInFormTemplates(), ...updated]);
     setSelectedForm(tpl);
     setFormViewOpen(false);
   };
@@ -2551,10 +2596,18 @@ export function Modeles() {
   const duplicateForm = (tpl: FormTemplate) => saveForm({ ...tpl, id: `form-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] });
 
   const deleteForm = (tpl: FormTemplate) => {
+    if (tpl.builtIn) {
+      hideTemplate(tpl.id);
+      const next = formTemplates.filter(t => t.id !== tpl.id);
+      setFormTemplates(next);
+      setSelectedForm(next[0] ?? null);
+      return;
+    }
     const custom = formTemplates.filter(t => !t.builtIn && t.id !== tpl.id);
     saveCustomFormTemplates(custom);
-    setFormTemplates([...BUILT_IN_FORM_TEMPLATES, ...custom]);
-    setSelectedForm(BUILT_IN_FORM_TEMPLATES[0]);
+    const builtIn = getVisibleBuiltInFormTemplates();
+    setFormTemplates([...builtIn, ...custom]);
+    setSelectedForm(builtIn[0] ?? custom[0] ?? null);
   };
 
   const renameForm = (id: string, name: string, description: string) => {
@@ -2590,7 +2643,7 @@ export function Modeles() {
     const existing = custom.findIndex(t => t.id === tpl.id);
     const updated = existing >= 0 ? custom.map(t => t.id === tpl.id ? tpl : t) : [...custom, tpl];
     saveCustomResourceTemplates(updated);
-    setResourceTemplates([...BUILT_IN_RESOURCE_TEMPLATES, ...updated]);
+    setResourceTemplates([...getVisibleBuiltInResourceTemplates(), ...updated]);
     setSelectedRes(tpl);
     setResEditorOpen(false);
   };
@@ -2620,9 +2673,15 @@ export function Modeles() {
   };
 
   const deleteRes = (tpl: ResourceTemplate) => {
+    if (tpl.builtIn) {
+      hideTemplate(tpl.id);
+      setResourceTemplates(resourceTemplates.filter(t => t.id !== tpl.id));
+      setSelectedRes(null);
+      return;
+    }
     const custom = resourceTemplates.filter(t => !t.builtIn && t.id !== tpl.id);
     saveCustomResourceTemplates(custom);
-    setResourceTemplates([...BUILT_IN_RESOURCE_TEMPLATES, ...custom]);
+    setResourceTemplates([...getVisibleBuiltInResourceTemplates(), ...custom]);
     setSelectedRes(null);
   };
 
@@ -2694,13 +2753,20 @@ export function Modeles() {
           <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Modèles</h1>
           <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{topbarCount}</p>
         </div>
-        <SFButton
-          variant="secondary"
-          icon={typeFilter === 'projets' ? 'layout-template' : typeFilter === 'formulaires' ? 'clipboard-list' : 'layers'}
-          onClick={handleNew}
-        >
-          {typeFilter === 'formulaires' ? 'Nouveau formulaire' : 'Nouveau modèle'}
-        </SFButton>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {hiddenCount > 0 && (
+            <button onClick={resetHiddenTemplates} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', textDecoration: 'underline', padding: 0 }}>
+              {hiddenCount} modèle{hiddenCount > 1 ? 's' : ''} masqué{hiddenCount > 1 ? 's' : ''} — Réafficher
+            </button>
+          )}
+          <SFButton
+            variant="secondary"
+            icon={typeFilter === 'projets' ? 'layout-template' : typeFilter === 'formulaires' ? 'clipboard-list' : 'layers'}
+            onClick={handleNew}
+          >
+            {typeFilter === 'formulaires' ? 'Nouveau formulaire' : 'Nouveau modèle'}
+          </SFButton>
+        </div>
       </div>
 
       {/* Body */}

@@ -88,7 +88,9 @@ export function ActivityFeed({ activities }: { activities: FeedActivity[] }) {
 
         {/* Activity feed */}
         {days.length === 0 && (
-          <p style={{ color: 'var(--text-3)', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>{t('activityFeed.noActivityForFilter')}</p>
+          <p style={{ color: 'var(--text-3)', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>
+            {activities.length === 0 ? t('activityFeed.noActivityYet') : t('activityFeed.noActivityForFilter')}
+          </p>
         )}
         {days.map(day => (
           <div key={day} style={{ marginBottom: 24 }}>
