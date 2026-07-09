@@ -300,6 +300,20 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
   const [hovered, setHovered] = useState(false);
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const completeTimer = useRef<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(task.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
+  useEffect(() => { if (!editingTitle) setTitleDraft(task.title); }, [task.title, editingTitle]);
+
+  const commitTitle = () => {
+    const trimmed = titleDraft.trim();
+    if (trimmed && trimmed !== task.title) updateMyTask(task.id, { title: trimmed });
+    else setTitleDraft(task.title);
+    setEditingTitle(false);
+  };
 
   // Cocher une tâche dans Mes tâches → animation de coche, puis retrait de la
   // liste (persisté checked:true). La tâche reste dans son projet (store séparé).
@@ -374,19 +388,53 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         {checked && <SFIcon name="check" size={10} color="white" />}
       </button>
 
-      {/* Titre — clicking opens panel (Ctrl+click / Shift+click → multi-select) */}
-      <span
-        onClick={e => onSelect(task, e)}
-        onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
-        style={{
-          fontSize: 13, fontWeight: 500,
-          textDecoration: checked ? 'line-through' : 'none',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          color: 'var(--text)', cursor: 'pointer',
+      {/* Titre — un seul clic ouvre le panneau, mais avec un léger délai : un
+          second clic dans cette fenêtre (double-clic) l'annule et édite le
+          texte en ligne à la place, comme dans Asana. */}
+      <div
+        onClick={e => {
+          if (editingTitle) return;
+          const evt = e;
+          titleClickTimerRef.current = setTimeout(() => { onSelect(task, evt); }, 220);
         }}
+        onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
+        onDoubleClick={e => {
+          e.stopPropagation();
+          if (titleClickTimerRef.current) { clearTimeout(titleClickTimerRef.current); titleClickTimerRef.current = null; }
+          setEditingTitle(true);
+        }}
+        style={{ overflow: 'hidden', cursor: editingTitle ? 'text' : 'pointer' }}
       >
-        {task.title}
-      </span>
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            value={titleDraft}
+            onChange={e => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
+              if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false); }
+              e.stopPropagation();
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontSize: 13, fontWeight: 500, padding: '2px 6px', width: '100%',
+              borderRadius: 6, border: '1px solid var(--accent)',
+              background: 'var(--surface-3)', color: 'var(--text)',
+              fontFamily: 'var(--ff-text)', outline: 'none',
+            }}
+          />
+        ) : (
+          <span style={{
+            fontSize: 13, fontWeight: 500,
+            textDecoration: checked ? 'line-through' : 'none',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            color: 'var(--text)', display: 'block',
+          }}>
+            {titleDraft}
+          </span>
+        )}
+      </div>
 
       {/* Sous-tâches */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

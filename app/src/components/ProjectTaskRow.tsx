@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFIcon, SFModal, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
@@ -178,6 +178,20 @@ export function ProjectTaskRow({
   const [hovered, setHovered] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const dragHandleActive = useRef(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(task.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
+  useEffect(() => { if (!editingTitle) setTitleDraft(task.title); }, [task.title, editingTitle]);
+
+  const commitTitle = () => {
+    const trimmed = titleDraft.trim();
+    if (trimmed && trimmed !== task.title) onUpdate({ title: trimmed });
+    else setTitleDraft(task.title);
+    setEditingTitle(false);
+  };
 
   const openDrop = (key: typeof open, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpen(prev => prev === key ? null : key);
@@ -235,18 +249,50 @@ export function ProjectTaskRow({
         </button>
       </div>
 
-      {/* Title — clicking opens panel */}
-      <span
-        onClick={() => onSelect(task)}
-        style={{
-          fontSize: 13, fontWeight: 500,
-          textDecoration: checked ? 'line-through' : 'none',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          cursor: 'pointer',
+      {/* Title — un seul clic ouvre le panneau (avec léger délai) ; un double-clic
+          l'annule et édite le texte en ligne, comme dans Asana. */}
+      <div
+        onClick={() => {
+          if (editingTitle) return;
+          titleClickTimerRef.current = setTimeout(() => { onSelect(task); }, 220);
         }}
+        onDoubleClick={e => {
+          e.stopPropagation();
+          if (titleClickTimerRef.current) { clearTimeout(titleClickTimerRef.current); titleClickTimerRef.current = null; }
+          setEditingTitle(true);
+        }}
+        style={{ overflow: 'hidden', cursor: editingTitle ? 'text' : 'pointer' }}
       >
-        {task.title}
-      </span>
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            value={titleDraft}
+            onChange={e => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
+              if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false); }
+              e.stopPropagation();
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontSize: 13, fontWeight: 500, padding: '2px 6px', width: '100%',
+              borderRadius: 6, border: '1px solid var(--accent)',
+              background: 'var(--surface-3)', color: 'var(--text)',
+              fontFamily: 'var(--ff-text)', outline: 'none',
+            }}
+          />
+        ) : (
+          <span style={{
+            fontSize: 13, fontWeight: 500,
+            textDecoration: checked ? 'line-through' : 'none',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            display: 'block',
+          }}>
+            {titleDraft}
+          </span>
+        )}
+      </div>
 
       {/* Sous-tâches */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
