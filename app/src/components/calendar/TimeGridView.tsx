@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { TODAY, isSameDay, HOUR_H, START_HOUR, END_HOUR, HOURS, SCROLL_TO_HOUR, fmt2, timeToY, layoutEvents, type CalEvent } from './calendarUtils';
 import { EventBlock } from './EventBlock';
 
-export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick, onEventChange }: {
+export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick, onEventChange, createModalOpen }: {
   days: Date[];
   events: CalEvent[];
   tasks: { date: Date; title: string; color: string }[];
@@ -12,6 +12,11 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   onEventClick: (ev: CalEvent) => void;
   onAllDayClick?: (d: Date) => void;
   onEventChange?: (ev: CalEvent, newStart: Date, newEnd: Date) => void;
+  // Quand fourni : la zone surlignée par le glisser-déposer reste visible en
+  // arrière-plan tant que la modale de création est ouverte, au lieu de
+  // disparaître dès le relâchement de la souris puis de "réapparaître" une
+  // fois l'événement créé.
+  createModalOpen?: boolean;
 }) {
   const { t } = useTranslation();
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
@@ -29,6 +34,13 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
   const timeGridRef = useRef<HTMLDivElement>(null);
+
+  // La modale de création se referme (créé ou annulé) → on peut effacer le
+  // surlignage laissé par le glisser-déposer.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing the drag highlight once the create modal closes is the intended effect
+    if (!createModalOpen) setDragSel(null);
+  }, [createModalOpen]);
 
   // Snap Y position to nearest 15-min increment
   const yToTimeParts = (y: number): { h: number; m: number } => {
@@ -65,9 +77,13 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
             // ensure at least 15 min duration
             if(end.h*60+end.m <= start.h*60+start.m) { end=yToTimeParts(botY+HOUR_H/4); }
             onRangeSelect(day, start.h, start.m, Math.min(end.h,END_HOUR), end.h>=END_HOUR?0:end.m);
+            // Ne pas effacer dragSel ici : on la garde visible en arrière-plan
+            // pendant que la modale de création est ouverte (voir l'effet
+            // ci-dessous, qui l'efface une fois la modale refermée).
+          } else {
+            setDragSel(null);
           }
           dragRef.current=null;
-          setDragSel(null);
         }}
         onMouseLeave={()=>{ dragRef.current=null; setDragSel(null); }}
       >

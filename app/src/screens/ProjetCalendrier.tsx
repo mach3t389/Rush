@@ -684,14 +684,14 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
           <TimeGridView
             days={getWeekDays(cur)} events={visibleEvents} tasks={taskChips}
             onSlotClick={handleSlotClick} onRangeSelect={handleRangeSelect} onEventClick={setSelectedEvent} onAllDayClick={handleAllDayClick}
-            onEventChange={handleEventChange}
+            onEventChange={handleEventChange} createModalOpen={showCreate}
           />
         )}
         {view==='day' && (
           <TimeGridView
             days={[cur]} events={visibleEvents} tasks={taskChips}
             onSlotClick={handleSlotClick} onRangeSelect={handleRangeSelect} onEventClick={setSelectedEvent} onAllDayClick={handleAllDayClick}
-            onEventChange={handleEventChange}
+            onEventChange={handleEventChange} createModalOpen={showCreate}
           />
         )}
       </div>
