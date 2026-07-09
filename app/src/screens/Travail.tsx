@@ -535,10 +535,11 @@ function TaskRow({
             }}
             onClick={e => e.stopPropagation()}
             style={{
-              flex: 1, fontSize: 13, fontWeight: 500, padding: '2px 6px',
+              fontSize: 13, fontWeight: 500, padding: '2px 6px',
               borderRadius: 6, border: '1px solid var(--accent)',
               background: 'var(--surface-3)', color: 'var(--text)',
-              fontFamily: 'var(--ff-text)', outline: 'none', width: '100%',
+              fontFamily: 'var(--ff-text)', outline: 'none',
+              width: `${Math.max(2, titleDraft.length + 1)}ch`, maxWidth: '100%',
             }}
           />
         ) : (
