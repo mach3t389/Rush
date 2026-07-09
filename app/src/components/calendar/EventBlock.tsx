@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SFIcon } from '../ui';
 import { fmtTime, timeToY, durationH, HOUR_H, type CalEvent } from './calendarUtils';
 
@@ -28,6 +28,16 @@ export function EventBlock({ ev, col, numCols, onClick, onChange }: {
   const dragRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef(false);
   const previewRef = useRef<{ start: Date; end: Date } | null>(null);
+
+  // Une fois le drag relâché, on garde l'aperçu affiché tel quel jusqu'à ce que
+  // les props réelles (ev.startDate/endDate, mises à jour de façon asynchrone
+  // par le store) rattrapent la position prévisualisée — sinon la carte
+  // "rebondit" un instant à son ancienne position avant de sauter à la bonne.
+  useEffect(() => {
+    if (preview && ev.startDate.getTime() === preview.start.getTime() && ev.endDate.getTime() === preview.end.getTime()) {
+      setPreview(null);
+    }
+  }, [ev.startDate, ev.endDate, preview]);
 
   const start = preview?.start ?? ev.startDate;
   const end   = preview?.end ?? ev.endDate;
@@ -75,10 +85,13 @@ export function EventBlock({ ev, col, numCols, onClick, onChange }: {
       dragRef.current = null;
       const finalPreview = previewRef.current;
       previewRef.current = null;
-      setPreview(null);
       if (d?.moved && finalPreview) {
         suppressClickRef.current = true;
+        // Garder l'aperçu affiché (ne pas le remettre à null ici) — le useEffect
+        // ci-dessus le videra une fois que `ev` reflètera vraiment ce changement.
         onChange(finalPreview.start, finalPreview.end);
+      } else {
+        setPreview(null);
       }
     };
 
