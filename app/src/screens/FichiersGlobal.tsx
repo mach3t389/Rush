@@ -1577,8 +1577,8 @@ export function StorageView({
                 <div style={{ flex: 1, height: 5, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: 3 }} />
                 </div>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>
-                  {fmtSz(item.size)}
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: item.size > 0 ? 'var(--text)' : 'var(--text-3)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>
+                  {item.size > 0 ? fmtSz(item.size) : '—'}
                 </span>
               </div>
 
@@ -1589,7 +1589,7 @@ export function StorageView({
 
               {/* Percentage */}
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-3)' }}>
-                {pct >= 0.1 ? `${pct.toFixed(1)}%` : '<0.1%'}
+                {item.size > 0 ? (pct >= 0.1 ? `${pct.toFixed(1)}%` : '<0.1%') : '—'}
               </span>
 
               {/* Action */}
