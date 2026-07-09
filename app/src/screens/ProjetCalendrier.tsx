@@ -19,6 +19,7 @@ import {
 } from '../components/calendar/calendarUtils';
 import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
+import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -495,6 +496,11 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
 
   const handleDeleteEvent = (id: string) => { deleteEvent(id); setSelectedEvent(null); };
 
+  // Glisser-déplacer un événement (change l'heure) ou étirer sa poignée du bas (change la durée)
+  const handleEventChange = (ev: CalEvent, newStart: Date, newEnd: Date) => {
+    updateEvent(ev.id, { start: newStart.toISOString(), end: newEnd.toISOString() });
+  };
+
   const prev = () => {
     if(view==='month') setCur(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
     else if(view==='week') setCur(d=>addDays(d,-7));
@@ -580,36 +586,16 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
           );
         })()}
 
-        {/* Event type filters */}
-        {(()=>{
-          const hasFilter = selectedEventTypes.size > 0;
-          return (
-            <div>
-              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Types d'événements</p>
-                {hasFilter && (
-                  <button onClick={()=>setSelectedEventTypes(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                    Tout afficher
-                  </button>
-                )}
-              </div>
-              <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                {eventTypes.map(t=>{
-                  const active = !hasFilter || selectedEventTypes.has(t.id);
-                  return (
-                    <button key={t.id} onClick={()=>toggleEventType(t.id)}
-                      style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}
-                    >
-                      <div style={{ width:10,height:10,borderRadius:'50%',background:t.color,flexShrink:0 }} />
-                      <span style={{ fontSize:12,color:'var(--text-2)',flex:1 }}>{t.label}</span>
-                      {active&&hasFilter&&<SFIcon name="checkmark" size={11} color="var(--text-3)" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+        {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer */}
+        <EventTypeFilterList
+          eventTypes={eventTypes}
+          selectedEventTypes={selectedEventTypes}
+          onToggle={toggleEventType}
+          onClearFilter={()=>setSelectedEventTypes(new Set())}
+          titleLabel="Types d'événements"
+          showAllLabel="Tout afficher"
+          newTypeLabel="+ Nouveau"
+        />
 
         {/* Upcoming events for this project */}
         <div>
@@ -698,12 +684,14 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
           <TimeGridView
             days={getWeekDays(cur)} events={visibleEvents} tasks={taskChips}
             onSlotClick={handleSlotClick} onRangeSelect={handleRangeSelect} onEventClick={setSelectedEvent} onAllDayClick={handleAllDayClick}
+            onEventChange={handleEventChange}
           />
         )}
         {view==='day' && (
           <TimeGridView
             days={[cur]} events={visibleEvents} tasks={taskChips}
             onSlotClick={handleSlotClick} onRangeSelect={handleRangeSelect} onEventClick={setSelectedEvent} onAllDayClick={handleAllDayClick}
+            onEventChange={handleEventChange}
           />
         )}
       </div>

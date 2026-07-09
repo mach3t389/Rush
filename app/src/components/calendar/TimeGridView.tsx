@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { TODAY, isSameDay, HOUR_H, START_HOUR, END_HOUR, HOURS, SCROLL_TO_HOUR, fmt2, timeToY, layoutEvents, type CalEvent } from './calendarUtils';
 import { EventBlock } from './EventBlock';
 
-export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick }: {
+export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick, onEventChange }: {
   days: Date[];
   events: CalEvent[];
   tasks: { date: Date; title: string; color: string }[];
@@ -11,6 +11,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   onRangeSelect: (d: Date, startH: number, startM: number, endH: number, endM: number) => void;
   onEventClick: (ev: CalEvent) => void;
   onAllDayClick?: (d: Date) => void;
+  onEventChange?: (ev: CalEvent, newStart: Date, newEnd: Date) => void;
 }) {
   const { t } = useTranslation();
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
@@ -172,7 +173,8 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                 )}
                 {/* Events */}
                 {laid.map(ev=>(
-                  <EventBlock key={ev.id} ev={ev} col={ev.col} numCols={ev.numCols} onClick={()=>onEventClick(ev)} />
+                  <EventBlock key={ev.id} ev={ev} col={ev.col} numCols={ev.numCols} onClick={()=>onEventClick(ev)}
+                    onChange={onEventChange ? (s,e)=>onEventChange(ev,s,e) : undefined} />
                 ))}
               </div>
             );

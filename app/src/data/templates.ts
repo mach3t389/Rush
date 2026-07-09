@@ -230,7 +230,7 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
   },
   {
     id: 'tpl-shoot-photo',
-    name: 'Shoot photo',
+    name: 'Séance photo',
     description: 'Projet de photographie produit ou portrait. Inclut repérage, shooting et retouche.',
     color: '#7d4e57',
     icon: 'camera',

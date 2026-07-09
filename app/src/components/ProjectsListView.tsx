@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay } from './ui';
 import { USERS } from '../data/mock';
-import { loadAllTemplates, loadAllResourceTemplates } from '../data/templates';
+import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects } from '../data/projectStore';
@@ -72,7 +72,14 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [memberIds, setMemberIds]       = useState<string[]>([TEAM[0].id]);
   const [folderStructTplId, setFolderStructTplId] = useState<string | null>(null);
 
-  const templates = loadAllTemplates();
+  // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
+  // reste disponible dans la bibliothèque complète (Modèles). Ordre volontaire :
+  // "Projet vierge" en premier, puis 3 modèles pré-remplis représentatifs.
+  const QUICK_START_TEMPLATE_ORDER = ['tpl-vierge', 'tpl-shoot-photo', 'tpl-motion-design', 'tpl-film-institutionnel'];
+  const allTemplates = loadAllTemplates();
+  const templates = QUICK_START_TEMPLATE_ORDER
+    .map(id => allTemplates.find(t => t.id === id))
+    .filter((t): t is ProjectTemplate => !!t);
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
   const folderStructTemplates = loadAllResourceTemplates().filter(t => t.type === 'file');
 
@@ -81,8 +88,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
   const canNext = step === 'start' ? true
     : step === 'info' ? name.trim().length > 0
-    : step === 'fichiers' ? true
-    : memberIds.length > 0;
+    : true; // 'fichiers' et 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
 
   const next = () => {
     if (step === 'start') {
