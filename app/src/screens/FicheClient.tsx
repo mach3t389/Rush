@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
-import { findClient, updateClient, subscribeClients } from '../data/clientStore';
+import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { ProjectsListView } from '../components/ProjectsListView';
@@ -1550,8 +1550,8 @@ export function FicheClient() {
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
   const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
   const [showCreateProject, setShowCreateProject] = useState(false);
-  const [clientArchived, setClientArchived] = useState(false);
   const [clientMenuOpen, setClientMenuOpen] = useState(false);
+  const [confirmDeleteClient, setConfirmDeleteClient] = useState(false);
   const [clientEditOpen, setClientEditOpen] = useState(() => searchParams.get('edit') === 'true');
   const clientMenuRef = useRef<HTMLDivElement>(null);
 
@@ -1604,7 +1604,7 @@ export function FicheClient() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {clientArchived && (
+            {client.archived && (
               <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', letterSpacing: '0.05em' }}>
                 {t('client.archived')}
               </span>
@@ -1617,6 +1617,50 @@ export function FicheClient() {
               <SFIcon name="square-pen" size={14} color="var(--text-3)" />
               {t('client.edit')}
             </button>
+            <div style={{ position: 'relative' }} ref={clientMenuRef}>
+              <button onClick={() => setClientMenuOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
+                <SFIcon name="ellipsis" size={15} />
+              </button>
+              {clientMenuOpen && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                  <button
+                    onClick={() => { client.archived ? unarchiveClient(client.id) : archiveClient(client.id); setClientMenuOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name={client.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
+                    {client.archived ? t('client.unarchiveClient') : t('client.archiveClient')}
+                  </button>
+                  {client.archived && !confirmDeleteClient && (
+                    <button
+                      onClick={() => setConfirmDeleteClient(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                    >
+                      <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                      {t('client.deleteClientPermanently')}
+                    </button>
+                  )}
+                  {client.archived && confirmDeleteClient && (
+                    <div style={{ padding: '8px 10px' }}>
+                      <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('client.deleteClientConfirm')}</p>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          onClick={() => { removeClient(client.id); setClientMenuOpen(false); setConfirmDeleteClient(false); navigate('/clients'); }}
+                          style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                        >
+                          {t('tasks.yes')}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteClient(false)}
+                          style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                        >
+                          {t('tasks.no')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <SFButton variant="primary" icon="plus" onClick={() => { setTab('projets'); setShowCreateProject(true); }}>{t('client.newProject')}</SFButton>
           </div>
         </div>

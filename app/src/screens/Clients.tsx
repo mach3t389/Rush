@@ -469,8 +469,9 @@ export function Clients() {
   const filtered = clients.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.sector.toLowerCase().includes(search.toLowerCase());
     if (!matchSearch) return false;
+    if (filter === 'archived') return !!c.archived;
+    if (c.archived) return false;
     if (filter === 'active')   return c.status === 'ok' || c.status === 'info';
-    if (filter === 'archived') return c.status === 'neutral';
     return true;
   });
 
