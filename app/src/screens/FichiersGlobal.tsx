@@ -1924,6 +1924,17 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [selectedVirtualId, setSelectedVirtualId] = useState<string | null>(null);
 
+  // Changer de vue (grille/liste/colonnes/carte) ou d'emplacement peut faire
+  // disparaître visuellement l'élément sélectionné (ex: la vue "Carte" a sa
+  // propre sélection) — sans ceci, la sélection et le bouton "corbeille" du
+  // haut restaient actifs pour un élément qu'on ne voit plus du tout.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing selection when the underlying view/location changes is the intended effect
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
+    setSelectedVirtualId(null);
+  }, [viewMode, location]);
+
   // Drag-and-drop between folders
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const dragPayload = useRef<{ fileIds: string[]; folderIds: string[] } | null>(null);

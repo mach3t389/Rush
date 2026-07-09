@@ -1246,7 +1246,8 @@ export function Taches() {
   );
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Header + filter bar */}
       <div style={{ flexShrink: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
@@ -1419,6 +1420,7 @@ export function Taches() {
           </>}
       </div>
       </div>
+      </div>{/* end left column */}
 
       {/* Multi-select floating action bar */}
       {multiSelIds.size > 0 && createPortal(
@@ -1486,30 +1488,34 @@ export function Taches() {
         />
       )}
 
-      {/* Task panel overlay */}
-      {selectedTask && (
-        <TaskPanel
-          task={selectedTask}
-          sectionLabel={
-            getSections(selectedTask.projectId)
-              .find(s => s.tasks.some(t => t.id === selectedTask.id))?.label
-            ?? (selectedTask as Task & { phaseLabel?: string }).phaseLabel
-          }
-          onClose={() => setSelectedTask(null)}
-          onUpdate={patch => {
-            updateMyTask(selectedTask.id, patch);
-            setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
-          }}
-          onMove={(newProjectId, _newSectionLabel) => {
-            const proj = getProjects().find(p => p.id === newProjectId);
-            if (proj) {
-              const patch = { projectId: newProjectId, projectName: proj.name, projectColor: proj.clientColor };
+      {/* Inline task panel — même système que dans les tâches d'un projet : divise
+          la page en deux plutôt que de s'afficher en overlay par-dessus. */}
+      <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column' }}>
+        {selectedTask && (
+          <TaskPanel
+            inline
+            task={selectedTask}
+            sectionLabel={
+              getSections(selectedTask.projectId)
+                .find(s => s.tasks.some(t => t.id === selectedTask.id))?.label
+              ?? (selectedTask as Task & { phaseLabel?: string }).phaseLabel
+            }
+            onClose={() => setSelectedTask(null)}
+            onUpdate={patch => {
               updateMyTask(selectedTask.id, patch);
               setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
-            }
-          }}
-        />
-      )}
+            }}
+            onMove={(newProjectId, _newSectionLabel) => {
+              const proj = getProjects().find(p => p.id === newProjectId);
+              if (proj) {
+                const patch = { projectId: newProjectId, projectName: proj.name, projectColor: proj.clientColor };
+                updateMyTask(selectedTask.id, patch);
+                setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+              }
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
