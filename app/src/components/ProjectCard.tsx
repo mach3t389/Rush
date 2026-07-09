@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
-import { updateProject } from '../data/projectStore';
+import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
 const PROJECT_COLORS = [
@@ -252,6 +252,7 @@ export function ProjectCard({ p }: { p: Project }) {
   const [dropRect, setDropRect]     = useState<DOMRect | null>(null);
   const [editOpen, setEditOpen]     = useState(false);
   const [menuOpen, setMenuOpen]     = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -350,6 +351,58 @@ export function ProjectCard({ p }: { p: Project }) {
           >
             <SFIcon name="square-pen" size={13} />
           </button>
+
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+              title={t('projects.projectMenu')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}
+            >
+              <SFIcon name="ellipsis" size={14} />
+            </button>
+            {menuOpen && (
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+              >
+                <button
+                  onClick={() => { if (p.archived) { unarchiveProject(p.id); } else { archiveProject(p.id); } setMenuOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name={p.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
+                  {p.archived ? t('projects.unarchiveProject') : t('projects.archiveProject')}
+                </button>
+                {p.archived && !confirmDelete && (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                    {t('projects.deleteProjectPermanently')}
+                  </button>
+                )}
+                {p.archived && confirmDelete && (
+                  <div style={{ padding: '8px 10px' }}>
+                    <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('projects.deleteProjectConfirm')}</p>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => { removeProject(p.id); setMenuOpen(false); setConfirmDelete(false); }}
+                        style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                      >
+                        {t('tasks.yes')}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                      >
+                        {t('tasks.no')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -17,7 +17,7 @@ export interface EventType {
   label: string;
   color: string;
   icon: string;
-  builtIn?: boolean; // built-in types can't be deleted
+  builtIn?: boolean; // seeded default type — can still be edited/deleted by the user
 }
 
 const STORAGE_KEY = 'sf_event_types';
@@ -190,7 +190,7 @@ export function updateEventType(id: string, patch: Partial<Omit<EventType, 'id' 
 
 export function deleteEventType(id: string) {
   if (isDemoSession()) {
-    saveDemoEventTypes(getDemoEventTypes().filter(t => t.id !== id || t.builtIn));
+    saveDemoEventTypes(getDemoEventTypes().filter(t => t.id !== id));
     notify();
     return;
   }

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
-import { getClients, addClient, findClient, updateClient, subscribeClients } from '../data/clientStore';
+import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
 
@@ -316,8 +316,19 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
 
 // ── Shared row actions (star + edit) ──────────────────────────────────────────
 
-function ClientActions({ clientId, pinned, onEdit }: { clientId: string; pinned: boolean; onEdit: () => void }) {
+function ClientActions({ clientId, pinned, archived, onEdit }: { clientId: string; pinned: boolean; archived?: boolean; onEdit: () => void }) {
   const { t } = useTranslation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setMenuOpen(false); setConfirmDelete(false); } };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
       <button
@@ -338,6 +349,58 @@ function ClientActions({ clientId, pinned, onEdit }: { clientId: string; pinned:
       >
         <SFIcon name="square-pen" size={13} />
       </button>
+
+      <div ref={menuRef} style={{ position: 'relative' }}>
+        <button
+          onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+          title={t('clients.clientMenu')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}
+        >
+          <SFIcon name="ellipsis" size={14} />
+        </button>
+        {menuOpen && (
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+          >
+            <button
+              onClick={() => { if (archived) { unarchiveClient(clientId); } else { archiveClient(clientId); } setMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+            >
+              <SFIcon name={archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
+              {archived ? t('client.unarchiveClient') : t('client.archiveClient')}
+            </button>
+            {archived && !confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+              >
+                <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                {t('client.deleteClientPermanently')}
+              </button>
+            )}
+            {archived && confirmDelete && (
+              <div style={{ padding: '8px 10px' }}>
+                <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('client.deleteClientConfirm')}</p>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => { removeClient(clientId); setMenuOpen(false); setConfirmDelete(false); }}
+                    style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                  >
+                    {t('tasks.yes')}
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                  >
+                    {t('tasks.no')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -437,7 +500,7 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
 
             {/* Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <ClientActions clientId={client.id} pinned={pinned} onEdit={() => onEdit(client)} />
+              <ClientActions clientId={client.id} pinned={pinned} archived={client.archived} onEdit={() => onEdit(client)} />
             </div>
           </div>
         );
@@ -555,27 +618,9 @@ export function Clients() {
                     {client.sector} · {client.city}
                   </p>
                 </div>
-                {/* Star + edit */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, alignSelf: 'flex-start' }}>
-                  <button
-                    onClick={e => { e.stopPropagation(); togglePinClient(client.id); }}
-                    title={pinned ? t('clients.unpin') : t('clients.pinSidebar')}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
-                    onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
-                    onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
-                  >
-                    <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
-                  </button>
-
-                  <button
-                    onClick={e => { e.stopPropagation(); setEditingClient(client); }}
-                    title={t('clients.editClient')}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
-                  >
-                    <SFIcon name="square-pen" size={13} />
-                  </button>
+                {/* Star + edit + menu */}
+                <div style={{ alignSelf: 'flex-start' }}>
+                  <ClientActions clientId={client.id} pinned={pinned} archived={client.archived} onEdit={() => setEditingClient(client)} />
                 </div>
               </div>
 

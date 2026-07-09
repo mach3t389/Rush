@@ -80,11 +80,9 @@ export function EventTypeFilterList({
                   <button onClick={saveEdit} style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', flexShrink: 0 }}>
                     <SFIcon name="check" size={12} />
                   </button>
-                  {!et.builtIn && (
-                    <button onClick={() => removeType(et.id)} style={{ display: 'flex', padding: 5, borderRadius: 6, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}>
-                      <SFIcon name="trash-2" size={12} />
-                    </button>
-                  )}
+                  <button onClick={() => removeType(et.id)} style={{ display: 'flex', padding: 5, borderRadius: 6, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}>
+                    <SFIcon name="trash-2" size={12} />
+                  </button>
                 </div>
               )}
             </div>
