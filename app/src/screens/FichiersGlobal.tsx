@@ -2364,9 +2364,16 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     setSelectedVirtualId(null);
   };
 
+  // La sélection peut contenir des identifiants virtuels (colonne "Clients", un client, un projet —
+  // ex. 'clients-folder', 'client-xxx', 'proj-xxx') qui ne correspondent à aucun vrai dossier/fichier.
+  // Ces éléments générés automatiquement ne sont pas supprimables depuis Fichiers.
+  const deletableSelectedIds = new Set(
+    [...selectedIds].filter(id => allFolders.some(f => f.id === id) || allFiles.some(f => f.id === id))
+  );
+
   const trashSelected = () => {
-    selectedIds.forEach(id => {
-      if (filteredFolders.some(f => f.id === id) || allFolders.some(f => f.id === id)) trashFolder(id);
+    deletableSelectedIds.forEach(id => {
+      if (allFolders.some(f => f.id === id)) trashFolder(id);
       else trashFile(id);
     });
     setSelectedIds(new Set());
@@ -3284,19 +3291,19 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           ))}
         </div>
 
-        {/* Bouton corbeille (sélection active) */}
-        {selectedIds.size > 0 && (
+        {/* Bouton corbeille (sélection active) — seulement pour de vrais dossiers/fichiers, pas les entrées virtuelles (Clients, client, projet) */}
+        {deletableSelectedIds.size > 0 && (
           <button
             onClick={trashSelected}
-            title={`Mettre ${selectedIds.size} élément${selectedIds.size > 1 ? 's' : ''} à la corbeille`}
+            title={`Mettre ${deletableSelectedIds.size} élément${deletableSelectedIds.size > 1 ? 's' : ''} à la corbeille`}
             style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', flexShrink: 0 }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
           >
             <SFIcon name="trash-2" size={14} color="var(--danger)" />
-            {selectedIds.size > 1 && (
+            {deletableSelectedIds.size > 1 && (
               <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                {selectedIds.size}
+                {deletableSelectedIds.size}
               </span>
             )}
           </button>

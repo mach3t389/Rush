@@ -3062,7 +3062,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               suppressContentEditableWarning
               onInput={handleInput}
               className="doc-editor"
-              style={{ width:595, background: darkPage ? '#d5d5d5' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? '0 0 0 1px rgba(255,255,255,0.08)' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', filter: darkPage ? 'invert(1)' : 'none', transition:'background 0.2s, filter 0.2s' }}
+              style={{ width:595, background: darkPage ? '#ebebeb' : 'white', minHeight:842, padding:'72px 80px', outline:'none', fontSize:14, lineHeight:1.75, fontFamily: theme === 'moderne' ? "'Montserrat',sans-serif" : theme === 'custom' ? (() => { try { const s = localStorage.getItem('sf_ui_fonts'); return s ? JSON.parse(s).body ?? "Georgia,serif" : "Georgia,serif"; } catch { return "Georgia,serif"; } })() : "Georgia,'Times New Roman',serif", color: theme === 'classique' ? '#1c1208' : '#1a1a1a', boxShadow: darkPage ? '0 0 0 1px rgba(255,255,255,0.1)' : '0 8px 40px rgba(0,0,0,0.5)', borderRadius:2, boxSizing:'border-box', filter: darkPage ? 'invert(1)' : 'none', transition:'background 0.2s, filter 0.2s' }}
             />
           </div>
         </div>
