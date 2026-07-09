@@ -18,7 +18,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout, getCurrentUser } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
-import { updateTask as updateProjectTask } from './taskStore';
+import { updateTask as updateProjectTask, subscribeStore as subscribeTaskStore } from './taskStore';
 
 const STORAGE_KEY = 'sf_my_tasks';
 const SECTIONS_KEY = 'sf_my_task_sections';
@@ -33,6 +33,7 @@ let _freestandingTasks: Task[] = [];
 let _assignedTasks: Task[] = [];
 let _supabaseSectionRows: { id: string; label: string }[] = [];
 let _fetchStarted = false;
+let _taskStoreUnsub: (() => void) | null = null;
 
 interface MySectionRow {
   id: string;
@@ -93,6 +94,11 @@ function ensureSupabaseFetchStarted(): void {
   if (_fetchStarted) return;
   _fetchStarted = true;
   void fetchSupabaseMyTasks();
+  // Project task assignments (assignee, section, etc.) are edited via
+  // taskStore.ts's own Supabase writes, which never touch this module's
+  // cache — without this, a task assigned to the current user from
+  // Travail.tsx would never appear in "Mes tâches" until logout/login.
+  _taskStoreUnsub = subscribeTaskStore(() => { void fetchSupabaseMyTasks(); });
 }
 
 export function resetMyTasksCache(): void {
@@ -100,6 +106,8 @@ export function resetMyTasksCache(): void {
   _assignedTasks = [];
   _supabaseSectionRows = [];
   _fetchStarted = false;
+  _taskStoreUnsub?.();
+  _taskStoreUnsub = null;
 }
 
 onLogout(resetMyTasksCache);
