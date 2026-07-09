@@ -7,7 +7,7 @@ import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, isAssignedTask } from '../data/myTaskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getTeamMembers, subscribeTeam } from '../data/teamStore';
+import { getTeamMembers } from '../data/teamStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, ResourceType, User } from '../types';
@@ -861,7 +861,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(false);
-  const [assignee, setAssignee] = useState<User | null>(getTeam()[0]);
+  const [assignee, setAssignee] = useState<User | null>(null);
   const [project, setProject]   = useState<typeof PROJECTS[0] | null>(null);
   const [priority, setPriority] = useState<Priority>(defaultPriority);
   const [status, setStatus]     = useState('');
@@ -871,17 +871,13 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => subscribeTeam(() => {
-    setAssignee(prev => (!prev || prev.id === USERS.lea.id || prev.id === getCurrentUser()?.id ? getTeam()[0] : prev));
-  }), []);
-
   const openDrop = (key: typeof openField, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpenField(prev => prev === key ? null : key);
     setDropRect(e.currentTarget.getBoundingClientRect());
   };
 
   const reset = () => {
-    setTitle(''); setAssignee(getTeam()[0]); setProject(null); setPriority(defaultPriority);
+    setTitle(''); setAssignee(null); setProject(null); setPriority(defaultPriority);
     setStatus(''); setStatusLabel(''); setDueDate('');
     setOpen(false); setOpenField(null);
   };
@@ -1291,7 +1287,7 @@ export function Taches() {
               {priorityGroups.length === 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                   <ColHeader {...colHeaderProps} />
-                  <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
+                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} />
                 </div>
               )}
             </>
@@ -1306,7 +1302,7 @@ export function Taches() {
               {noSectionTasks.map(task => (
                 <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
               ))}
-              <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
+              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} />
             </div>
 
             {/* Named sections */}
@@ -1329,7 +1325,7 @@ export function Taches() {
                       {g.tasks.map(task => (
                         <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
                       ))}
-                      <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} />
+                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} />
                     </>
                   )}
                 </div>

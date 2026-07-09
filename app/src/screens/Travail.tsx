@@ -15,7 +15,7 @@ import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '..
 import type { ProjectTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, Status, Project, User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getTeamMembers, subscribeTeam } from '../data/teamStore';
+import { getTeamMembers } from '../data/teamStore';
 import { TravailBoard } from './TravailBoard';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
@@ -708,17 +708,13 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
 }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
-  const [assignee, setAssignee] = useState<User>(() => getTeam()[0]);
-  const [priority, setPriority] = useState<Priority>('normal');
+  const [assignee, setAssignee] = useState<User | null>(null);
+  const [priority, setPriority] = useState<Priority>('none');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('');
   const [statusLabel, setStatusLabel] = useState('');
   const [openField, setOpenField] = useState<'assignee' | 'priority' | 'status' | 'dueDate' | null>(null);
   const [addDropRect, setAddDropRect] = useState<DOMRect | null>(null);
-
-  useEffect(() => subscribeTeam(() => {
-    setAssignee(prev => (prev.id === USERS.lea.id || prev.id === getCurrentUser()?.id ? getTeam()[0] : prev));
-  }), []);
 
   const openAddDrop = (key: typeof openField, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpenField(prev => prev === key ? null : key);
@@ -726,7 +722,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
   };
 
   const reset = () => {
-    setTitle(''); setAssignee(getTeam()[0]); setPriority('normal');
+    setTitle(''); setAssignee(null); setPriority('none');
     setDueDate(''); setStatus(''); setStatusLabel('');
     setAdding(false); setOpenField(null);
   };
@@ -800,15 +796,21 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('assignee', e)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}>
-            <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={20} />
-            <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee.name}</span>
+            {assignee
+              ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={20} />
+              : <div style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', flexShrink: 0 }} />}
+            <span style={{ fontSize: 12, color: assignee ? 'var(--text-2)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee ? assignee.name : 'Non assigné'}</span>
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
           </button>
           {openField === 'assignee' && (
             <InlineDropdown onClose={() => setOpenField(null)} anchorRect={addDropRect} minWidth={180}>
+              {ddItem(() => { setAssignee(null); setOpenField(null); },
+                <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Non assigné</span>,
+                assignee === null
+              )}
               {getTeam().map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
                 <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-                assignee.id === u.id
+                assignee?.id === u.id
               ))}
             </InlineDropdown>
           )}

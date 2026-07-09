@@ -2924,13 +2924,13 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:300, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, minWidth:200, padding:'6px 0', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
                 {/* Section 1 — Thème */}
                 <div style={{ padding:'3px 12px 5px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{t('resourceDetail.documentView.themeSection')}</div>
-                {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, t]) => (
+                {(Object.entries(DOC_THEMES) as [DocTheme, typeof DOC_THEMES[DocTheme]][]).map(([key, themeDef]) => (
                   <button key={key}
                     onMouseDown={e=>{ e.preventDefault(); setTheme(key); setShowStyleMenu(false); }}
                     style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 12px', border:'none', background:'transparent', cursor:'pointer', textAlign:'left', color: theme===key ? 'var(--accent)' : 'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', boxSizing:'border-box' }}
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='var(--surface-3)'}
                     onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                    <span style={{ flex:1 }}>{t.label}</span>
+                    <span style={{ flex:1 }}>{t(themeDef.labelKey)}</span>
                     {theme===key && <span style={{ fontSize:10, color:'var(--accent)' }}>●</span>}
                   </button>
                 ))}
@@ -3083,7 +3083,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
           <div style={{ display:'flex', flexShrink:0, borderBottom:'1px solid var(--border)' }}>
             {(['comments','ai'] as const).map(tab => (
               <button key={tab} onClick={() => setRightTab(tab)}
-                style={{ flex:1, padding:'9px 6px', border:'none', background:'transparent', cursor:'pointer', fontSize:11, fontWeight: rightTab===tab ? 700 : 400, color: rightTab===tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab===tab ? '2px solid var(--accent)' : '2px solid transparent', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'var(--ff-text)', transition:'color 0.1s' }}>
+                style={{ flex:1, padding:'9px 6px', border:'none', background:'transparent', cursor:'pointer', fontSize:11, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontWeight: rightTab===tab ? 700 : 400, color: rightTab===tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab===tab ? '2px solid var(--accent)' : '2px solid transparent', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'var(--ff-text)', transition:'color 0.1s' }}>
                 <SFIcon name={tab==='comments' ? 'message-circle' : 'sparkles'} size={12} color={rightTab===tab ? 'var(--accent)' : 'var(--text-3)'} />
                 {tab==='comments' ? t('activity.comments') + ` (${comments.length})` : 'IA'}
               </button>
@@ -3576,12 +3576,12 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             >
               {STATUS_OPTIONS.map(opt => (
                 <button key={opt.status}
-                  onClick={() => { onStatusChange(opt.status, opt.label); setDropOpen(false); }}
+                  onClick={() => { onStatusChange(opt.status, t(opt.labelKey)); setDropOpen(false); }}
                   style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'6px 10px', border:'none', background: resource.status === opt.status ? 'var(--surface)' : 'transparent', cursor:'pointer', borderRadius:7 }}
                   onMouseEnter={e => (e.currentTarget.style.background='var(--surface)')}
                   onMouseLeave={e => (e.currentTarget.style.background=resource.status===opt.status?'var(--surface)':'transparent')}
                 >
-                  <SFPill status={opt.status} small>{opt.label}</SFPill>
+                  <SFPill status={opt.status} small>{t(opt.labelKey)}</SFPill>
                 </button>
               ))}
             </div>

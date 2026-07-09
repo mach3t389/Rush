@@ -457,7 +457,10 @@ export function TravailBoard({
                               title={t('board.changeAssignee')}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, borderRadius: '50%', display: 'flex' }}
                             >
-                              <SFAvatar initials={task.assignee.initials} bg={task.assignee.avatarColor} size={20} />
+                              {task.assignee
+                                ? <SFAvatar initials={task.assignee.initials} bg={task.assignee.avatarColor} size={20} />
+                                : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>
+                              }
                             </button>
                           </div>
                         </div>
@@ -473,9 +476,9 @@ export function TravailBoard({
                       id: `task-${Date.now()}`,
                       title: 'Nouvelle tâche',
                       projectId, projectName, projectColor,
-                      assignee: firstUser,
+                      assignee: null,
                       status: 'warn', statusLabel: 'À faire',
-                      priority: 'normal', priorityLabel: 'Normale',
+                      priority: 'none', priorityLabel: 'Aucune',
                       dueDate: '—', dueDateRed: false, checked: false, subtasks: [],
                     };
                     onAddTask(sIdx, newTask);

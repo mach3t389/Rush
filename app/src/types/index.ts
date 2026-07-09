@@ -69,7 +69,7 @@ export interface Task {
   projectId: string;
   projectName: string;
   projectColor: string;
-  assignee: User;
+  assignee: User | null;
   status: Status;
   statusLabel: string;
   priority: Priority;
