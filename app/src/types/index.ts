@@ -33,6 +33,7 @@ export interface Client {
   emailCompta?: string;
   website?: string;
   notes?: string;
+  archived?: boolean;
 }
 
 // ── Project ───────────────────────────────────────────────────────────────────

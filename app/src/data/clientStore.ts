@@ -13,6 +13,10 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { getProjects, removeProject } from './projectStore';
+import { deleteAllFilesForClient } from './fileStore';
+import { getInvoicesByClient, removeInvoice } from './financeStore';
+import { setClientTeam } from './clientTeamStore';
 
 const STORAGE_KEY = 'sf_added_clients';
 const OVERRIDES_KEY = 'sf_client_overrides';
@@ -50,6 +54,7 @@ interface ClientRow {
   email_compta: string | null;
   website: string | null;
   notes: string | null;
+  archived: boolean;
 }
 
 function toClient(row: ClientRow): Client {
@@ -73,6 +78,7 @@ function toClient(row: ClientRow): Client {
     emailCompta: row.email_compta ?? undefined,
     website: row.website ?? undefined,
     notes: row.notes ?? undefined,
+    archived: row.archived,
   };
 }
 
@@ -98,6 +104,7 @@ function toRow(c: Client, studioId: string): ClientRow {
     email_compta: c.emailCompta ?? null,
     website: c.website ?? null,
     notes: c.notes ?? null,
+    archived: c.archived ?? false,
   };
 }
 
@@ -184,4 +191,38 @@ export function updateClient(id: string, updates: Partial<Client>): void {
 export function subscribeClients(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);
+}
+
+export function archiveClient(id: string): void {
+  updateClient(id, { archived: true });
+}
+
+export function unarchiveClient(id: string): void {
+  updateClient(id, { archived: false });
+}
+
+async function removeSupabaseClient(id: string): Promise<void> {
+  const { error } = await supabase.from('clients').delete().eq('id', id);
+  if (error) { console.error('removeSupabaseClient failed', error); return; }
+  await fetchSupabaseClients();
+}
+
+export function removeClient(id: string): void {
+  getProjects().filter(p => p.clientId === id).forEach(p => removeProject(p.id));
+  deleteAllFilesForClient(id);
+  getInvoicesByClient(id).forEach(inv => removeInvoice(inv.id));
+  setClientTeam(id, []);
+
+  if (isDemoSession()) {
+    _added = _added.filter(c => c.id !== id);
+    const { [id]: _removed, ...rest } = _overrides;
+    _overrides = rest;
+    persist();
+    persistOverrides();
+    notify();
+    return;
+  }
+  _supabaseClients = _supabaseClients.filter(c => c.id !== id);
+  notify();
+  void removeSupabaseClient(id);
 }
