@@ -93,7 +93,9 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   return (
     <SFModal open onClose={onClose} title={t('members.addToTeam')} width={360} maxHeight="70vh">
         <div style={{ position: 'relative', marginBottom: 12 }}>
-          <SFIcon name="search" size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <SFIcon name="search" size={13} color="var(--text-3)" />
+          </div>
           <input
             autoFocus
             value={search}
