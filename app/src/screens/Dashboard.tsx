@@ -294,6 +294,9 @@ export function Dashboard() {
             icon="check-square" title={t('nav.myTasks')} badge={myTasks.length}
             linkLabel={t('dashboard.viewAllFem')} onLink={() => navigate('/taches')}
           >
+            {myTasks.length === 0 && (
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noTasksYet')}</p>
+            )}
             {myTasks.slice(0, 5).map(t => (
               <CompactTaskRow key={t.id} task={t} onClick={() => navigate('/taches')} />
             ))}
@@ -308,7 +311,7 @@ export function Dashboard() {
           </CollapsibleCard>
 
           {/* Prochaines échéances — compact */}
-          <CollapsibleCard icon="calendar-days" title={t('dashboard.upcomingDeadlines')} defaultOpen={false}>
+          <CollapsibleCard icon="calendar-days" title={t('dashboard.upcomingDeadlines')}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '10px 16px', gap: 4 }}>
               {tasksByDay.map(({ day, tasks: dayTasks }, i) => {
                 const isToday = i === 0;
@@ -431,6 +434,9 @@ export function Dashboard() {
             icon="folder" title={t('dashboard.activeProjectsTitle')} badge={activeProjects.length}
             linkLabel={t('dashboard.viewAllMasc')} onLink={() => navigate('/projets')}
           >
+            {projects.length === 0 && (
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noProjectsYet')}</p>
+            )}
             {projects.slice(0, 6).map((p, i) => (
               <div
                 key={p.id}
@@ -457,6 +463,9 @@ export function Dashboard() {
 
           {/* En attente d'approbation */}
           <CollapsibleCard icon="shield" title={t('dashboard.pendingApproval')} badge={PENDING_APPROVALS.length}>
+            {PENDING_APPROVALS.length === 0 && (
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noApprovalsPending')}</p>
+            )}
             {PENDING_APPROVALS.map((item, i) => (
               <div
                 key={item.name}
@@ -488,6 +497,9 @@ export function Dashboard() {
             linkLabel={t('dashboard.viewAll')} onLink={() => navigate('/activite')}
             defaultOpen={false}
           >
+            {(isDemoSession() ? ACTIVITY : []).length === 0 && (
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noActivityYet')}</p>
+            )}
             {(isDemoSession() ? ACTIVITY : []).slice(0, 5).map((item, i) => {
               const meta = ACTIVITY_ICON[item.type ?? ''] ?? ACTIVITY_FALLBACK;
               return (

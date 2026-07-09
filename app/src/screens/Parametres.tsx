@@ -1332,10 +1332,12 @@ export function Parametres() {
   });
 
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(loadNotifPrefs);
-  const [notifSaved, setNotifSaved] = useState(false);
   const setChannel = (key: string, channel: 'inapp' | 'email', value: boolean) =>
-    setNotifPrefs(p => ({ ...p, [key]: { ...p[key], [channel]: value } }));
-  const saveNotifs = () => { saveNotifPrefs(notifPrefs); setNotifSaved(true); setTimeout(() => setNotifSaved(false), 2000); };
+    setNotifPrefs(p => {
+      const next = { ...p, [key]: { ...p[key], [channel]: value } };
+      saveNotifPrefs(next);
+      return next;
+    });
 
   return (
     <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
@@ -1519,11 +1521,6 @@ export function Parametres() {
             <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5 }}>
               {t('settings.notificationsHint')}
             </p>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center' }}>
-              {notifSaved && <span style={{ fontSize: 12, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 5 }}><SFIcon name="check" size={13} color="var(--ok)" /> {t('settings.preferencesSaved')}</span>}
-              <SFButton variant="primary" onClick={saveNotifs}>{t('settings.save')}</SFButton>
-            </div>
           </div>
         )}
 
@@ -1603,13 +1600,13 @@ export function Parametres() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[...HEADING_FONTS, ...customHeadings].map(f => (
-                    <FontCard key={f.value} font={f} selected={uiFonts.heading === f.value} type="heading" onSelect={() => setUiFonts(p => ({ ...p, heading: f.value }))} />
+                    <FontCard key={f.value} font={f} selected={uiFonts.heading === f.value} type="heading" onSelect={() => setUiFonts(p => { const next = { ...p, heading: f.value }; saveUiFonts(next.heading, next.body); return next; })} />
                   ))}
                 </div>
                 <CustomFontImport onImported={(name, value) => {
                   const f = { label: name, value, google: null };
                   setCustomHeadings(p => [...p.filter(x=>x.value!==value), f]);
-                  setUiFonts(p => ({ ...p, heading: value }));
+                  setUiFonts(p => { const next = { ...p, heading: value }; saveUiFonts(next.heading, next.body); return next; });
                 }} />
               </div>
 
@@ -1621,13 +1618,13 @@ export function Parametres() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[...BODY_FONTS, ...customBodies].map(f => (
-                    <FontCard key={f.value} font={f} selected={uiFonts.body === f.value} type="body" onSelect={() => setUiFonts(p => ({ ...p, body: f.value }))} />
+                    <FontCard key={f.value} font={f} selected={uiFonts.body === f.value} type="body" onSelect={() => setUiFonts(p => { const next = { ...p, body: f.value }; saveUiFonts(next.heading, next.body); return next; })} />
                   ))}
                 </div>
                 <CustomFontImport onImported={(name, value) => {
                   const f = { label: name, value, google: null };
                   setCustomBodies(p => [...p.filter(x=>x.value!==value), f]);
-                  setUiFonts(p => ({ ...p, body: value }));
+                  setUiFonts(p => { const next = { ...p, body: value }; saveUiFonts(next.heading, next.body); return next; });
                 }} />
               </div>
 
@@ -1648,7 +1645,6 @@ export function Parametres() {
                 <button onClick={() => { setUiFonts({ heading: "'Montserrat',sans-serif", body: "'Montserrat',sans-serif" }); saveUiFonts("'Montserrat',sans-serif", "'Montserrat',sans-serif"); }} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
                   {t('settings.reset')}
                 </button>
-                <SFButton variant="primary" onClick={() => saveUiFonts(uiFonts.heading, uiFonts.body)}>{t('settings.applyFonts')}</SFButton>
               </div>
             </div>
 

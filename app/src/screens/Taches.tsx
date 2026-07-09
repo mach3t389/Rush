@@ -1247,16 +1247,16 @@ export function Taches() {
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {visible.length === 0 && (
+        {visible.length === 0 && hasActiveFilters && (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <SFIcon name="check-circle" size={32} color="var(--text-3)" />
             <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('taskPanel.noTasksForFilters')}</p>
-            {hasActiveFilters && <button onClick={clearFilters} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--ff-text)' }}>{t('taskPanel.clearFilters')}</button>}
+            <button onClick={clearFilters} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--ff-text)' }}>{t('taskPanel.clearFilters')}</button>
           </div>
         )}
 
-        {/* Grouped by priority OR by section */}
-        {visible.length > 0 && <>
+        {/* Grouped by priority OR by section — kept visible even with 0 tasks (no active filters) so the "no section" bucket's AddTaskRow lets the user create their first task */}
+        {(visible.length > 0 || !hasActiveFilters) && <>
           {groupByPriority ? (
             /* ── Priority groups ── */
             <>
@@ -1288,7 +1288,12 @@ export function Taches() {
                   </div>
                 );
               })}
-              {priorityGroups.length === 0 && visible.length === 0 && null}
+              {priorityGroups.length === 0 && (
+                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                  <ColHeader {...colHeaderProps} />
+                  <AddTaskRow defaultPriority="normal" onAdd={(title, opts) => addTask(title, opts)} />
+                </div>
+              )}
             </>
           ) : (
             /* ── Section groups (default) ── */

@@ -49,7 +49,11 @@
     "activeProjectsTitle": "Projets actifs",
     "pendingApproval": "En attente d'approbation",
     "pendingSince": "En attente depuis {{delay}}",
-    "recentActivity": "Activité récente"
+    "recentActivity": "Activité récente",
+    "noTasksYet": "Aucune tâche pour l'instant — elles apparaîtront ici dès que vous en créerez une.",
+    "noProjectsYet": "Aucun projet pour l'instant — créez votre premier projet pour le voir ici.",
+    "noApprovalsPending": "Aucune approbation en attente pour l'instant.",
+    "noActivityYet": "Aucune activité pour l'instant."
   },
   "priority": {
     "urgent": "Urgente",
@@ -144,7 +148,7 @@
     "newClient": "Nouveau client",
     "noClientsFound": "Aucun client trouvé",
     "name": "Nom",
-    "subtitle": "Sous-titre",
+    "subtitle": "Secteur d'activité",
     "city": "Ville",
     "avatarColor": "Couleur avatar",
     "placeholder": "Ex: Studio Lumière...",
@@ -532,7 +536,9 @@
   "topbar": {
     "back": "Retour",
     "forward": "Avancer",
-    "search": "Rechercher…"
+    "search": "Rechercher…",
+    "ai": "IA",
+    "activity": "Activité"
   },
   "command": {
     "startTyping": "Commencez à taper pour rechercher…",
@@ -663,7 +669,7 @@
     "editClient": "Modifier le client",
     "identity": "Identité",
     "clientName": "Nom du client",
-    "subtitle": "Sous-titre",
+    "subtitle": "Secteur d'activité",
     "subtitlePlaceholder": "Ex: Agence créative, Startup IA…",
     "relation": "Relation",
     "relationActive": "Actif",

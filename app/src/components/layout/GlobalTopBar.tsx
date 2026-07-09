@@ -137,7 +137,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(249,255,0,0.4)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(249,255,0,0.25)'; }}>
           <SFIcon name="sparkles" size={14} color="var(--accent)" />
-          IA
+          {t('topbar.ai')}
           <kbd style={{ fontSize: 10, color: 'var(--on-accent)', background: 'var(--accent)', border: '1px solid rgba(249,255,0,0.4)', borderRadius: 4, padding: '1px 6px', fontFamily: 'var(--ff-mono)', fontWeight: 700, lineHeight: 1.4 }}>{formatCombo(shortcuts.ai_toggle)}</kbd>
         </button>
 
@@ -148,7 +148,7 @@ export function GlobalTopBar({ onSearch }: Props) {
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isActive ? 'var(--surface-3)' : 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'var(--border-2)' : 'var(--border)'; }}>
               <SFIcon name="bell" size={14} />
-              Activité
+              {t('topbar.activity')}
               {unreadCount > 0 && (
                 <span style={{ background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '1px 5px', fontFamily: 'var(--ff-mono)', lineHeight: 1.4 }}>
                   {unreadCount}
