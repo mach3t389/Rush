@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from './ui';
-import { findProject, subscribeProjects } from '../data/projectStore';
+import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { useProjectTaskNotifCount, useProjectResourceNotifCount } from '../hooks/useNotifs';
 
@@ -29,6 +29,8 @@ export function ProjectHeaderBar({
   const [, forceUpdate] = useState(0);
   const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
   const [colorOpen, setColorOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
   const resourceNotifs = useProjectResourceNotifCount(projectId);
@@ -149,12 +151,62 @@ export function ProjectHeaderBar({
         </div>
       </div>
 
-      {/* Right slot — actions propres à l'onglet */}
-      {children && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-          {children}
+      {/* Right slot — actions propres à l'onglet + menu du projet */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        {project.archived && (
+          <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', letterSpacing: '0.05em' }}>
+            {t('projects.archivedBadge')}
+          </span>
+        )}
+        {children}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMenuOpen(v => !v)} title={t('projects.projectColor')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
+            <SFIcon name="more-horizontal" size={15} />
+          </button>
+          {menuOpen && (
+            <>
+              <div onClick={() => { setMenuOpen(false); setConfirmDelete(false); }} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                <button
+                  onClick={() => { project.archived ? unarchiveProject(project.id) : archiveProject(project.id); setMenuOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name={project.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
+                  {project.archived ? t('projects.unarchiveProject') : t('projects.archiveProject')}
+                </button>
+                {project.archived && !confirmDelete && (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                    {t('projects.deleteProjectPermanently')}
+                  </button>
+                )}
+                {project.archived && confirmDelete && (
+                  <div style={{ padding: '8px 10px' }}>
+                    <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('projects.deleteProjectConfirm')}</p>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => { removeProject(project.id); setMenuOpen(false); setConfirmDelete(false); navigate('/projets'); }}
+                        style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                      >
+                        {t('tasks.yes')}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                      >
+                        {t('tasks.no')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
