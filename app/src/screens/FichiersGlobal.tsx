@@ -2757,9 +2757,15 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       return { folders: globalFolders, files: rootFiles };
     }
     if (scope === 'client' && folderId === null) {
-      // Client root — show projects belonging to this client
+      // Client root — projets du client, mais aussi les dossiers/fichiers créés
+      // directement à la racine du client (sinon un dossier créé ici via le
+      // clic droit n'apparaît jamais dans cette colonne, même s'il existe bien).
       const clientProjects = projects.filter(p => p.clientId === scopeId);
-      return { folders: [], files: [], projects: clientProjects };
+      return {
+        folders: allFolders.filter(f => f.clientId === scopeId && f.parentId === null),
+        files: allFiles.filter(f => f.clientId === scopeId && f.parentFolderId === null),
+        projects: clientProjects,
+      };
     }
     if (scope === 'global') {
       return {
