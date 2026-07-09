@@ -2331,6 +2331,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const handleBgCtx = (e: React.MouseEvent, targetLoc: NavLocation = location) => {
     if (!canAddAt(targetLoc)) return;
     e.preventDefault();
+    // Stopper la propagation : en vue colonnes, chaque colonne a son propre
+    // handler (avec sa propre loc) — sans ceci, l'événement remonte jusqu'au
+    // conteneur englobant qui rouvre le menu avec `location` (la colonne la
+    // plus à droite), écrasant le bon menu déjà ouvert.
+    e.stopPropagation();
     setCtx({ pos: { x: e.clientX, y: e.clientY }, items: newMenuItems(targetLoc) });
   };
 
