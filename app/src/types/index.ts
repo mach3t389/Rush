@@ -55,6 +55,7 @@ export interface Project {
   budget?: number;
   description?: string;
   folderStructureTemplateId?: string;
+  archived?: boolean;
 }
 
 // ── Task ──────────────────────────────────────────────────────────────────────

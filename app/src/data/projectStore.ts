@@ -15,6 +15,10 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { setSections } from './taskStore';
+import { deleteEventsForProject } from './eventStore';
+import { deleteAllFilesForProject } from './fileStore';
+import { getInvoicesByProject, removeInvoice } from './financeStore';
 
 const STORAGE_KEY = 'sf_added_projects';
 const OVERRIDES_KEY = 'sf_project_overrides';
@@ -51,6 +55,7 @@ interface ProjectRow {
   description: string | null;
   folder_structure_template_id: string | null;
   members: Project['members'];
+  archived: boolean;
 }
 
 function toProject(row: ProjectRow): Project {
@@ -73,6 +78,7 @@ function toProject(row: ProjectRow): Project {
     budget: row.budget ?? undefined,
     description: row.description ?? undefined,
     folderStructureTemplateId: row.folder_structure_template_id ?? undefined,
+    archived: row.archived,
   };
 }
 
@@ -97,6 +103,7 @@ function toRow(p: Project, studioId: string): ProjectRow {
     description: p.description ?? null,
     folder_structure_template_id: p.folderStructureTemplateId ?? null,
     members: p.members,
+    archived: p.archived ?? false,
   };
 }
 
@@ -183,4 +190,38 @@ export function updateProject(id: string, updates: Partial<Project>): void {
 export function subscribeProjects(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);
+}
+
+export function archiveProject(id: string): void {
+  updateProject(id, { archived: true });
+}
+
+export function unarchiveProject(id: string): void {
+  updateProject(id, { archived: false });
+}
+
+async function removeSupabaseProject(id: string): Promise<void> {
+  const { error } = await supabase.from('projects').delete().eq('id', id);
+  if (error) { console.error('removeSupabaseProject failed', error); return; }
+  await fetchSupabaseProjects();
+}
+
+export function removeProject(id: string): void {
+  setSections(id, []);
+  deleteEventsForProject(id);
+  deleteAllFilesForProject(id);
+  getInvoicesByProject(id).forEach(inv => removeInvoice(inv.id));
+
+  if (isDemoSession()) {
+    _added = _added.filter(p => p.id !== id);
+    const { [id]: _removed, ...rest } = _overrides;
+    _overrides = rest;
+    persist();
+    persistOverrides();
+    notify();
+    return;
+  }
+  _supabaseProjects = _supabaseProjects.filter(p => p.id !== id);
+  notify();
+  void removeSupabaseProject(id);
 }
