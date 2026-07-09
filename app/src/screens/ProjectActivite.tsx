@@ -4,7 +4,7 @@ import { ActivityFeed, type FeedActivity } from '../components/ActivityFeed';
 import { PROJECTS, USERS } from '../data/mock';
 import { isDemoSession } from '../data/authStore';
 
-function getProjectActivities(projectId: string): FeedActivity[] {
+export function getProjectActivities(projectId: string): FeedActivity[] {
   if (!isDemoSession()) return [];
   const project = PROJECTS.find(p => p.id === projectId);
   const color = project?.clientColor ?? '#5c3d8f';

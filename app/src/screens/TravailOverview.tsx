@@ -3,14 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, SFModal } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { ACTIVITY, USERS } from '../data/mock';
+import { USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, subscribeStore, getSections } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
+import { getProjectActivities } from './ProjectActivite';
 import { getResources, subscribeResources } from '../data/resourceStore';
+import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice } from '../data/financeStore';
+import { StatusPill } from './Finances';
+import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType } from '../types';
 
 // Icônes par type de ressource (pour les ressources liées aux livrables)
@@ -29,21 +33,6 @@ interface VisionState {
   objectifs: string;
   references: string;
 }
-
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-const MOCK_INVOICES = [
-  { id:'f1', num:'FAC-2025-042', label:'Acompte 50%',  amount:4500, due:'15 mai 2025',  status:'paid'  },
-  { id:'f2', num:'FAC-2025-058', label:'Solde 50%',    amount:4500, due:'30 juin 2025', status:'sent'  },
-  { id:'f3', num:'FAC-2025-071', label:'Extras montage',amount:800, due:'15 juil. 2025',status:'draft' },
-];
-
-const INVOICE_STATUS: Record<string, { labelKey:string; color:string; bg:string }> = {
-  draft:   { labelKey:'overview.invoiceDraft',   color:'var(--text-3)',  bg:'var(--surface-3)' },
-  sent:    { labelKey:'overview.invoiceSent',    color:'var(--info)',    bg:'rgba(100,160,255,0.1)' },
-  paid:    { labelKey:'overview.invoicePaid',    color:'var(--ok)',      bg:'rgba(0,200,100,0.1)' },
-  overdue: { labelKey:'overview.invoiceOverdue', color:'var(--danger)',  bg:'rgba(255,60,60,0.1)' },
-};
 
 const DELIVERABLE_TYPES: { value: DeliverableType; labelKey: string; icon: string }[] = [
   { value: 'video',     labelKey: 'overview.delivVideo',    icon: 'video'        },
@@ -66,12 +55,21 @@ const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }
   { value: 'custom', label: 'Perso.',      ratio: '4/3'    },
 ];
 
-const MOCK_DOCS = [
-  { id:'d1', icon:'file-text', name:'Brief créatif client',        meta:'PDF · 2.4 Mo',  date:'3 mai 2025'   },
-  { id:'d2', icon:'file',      name:'Contrat de production signé', meta:'PDF · 890 Ko',  date:'15 avr. 2025' },
-  { id:'d3', icon:'file-text', name:'Devis approuvé V2',           meta:'PDF · 540 Ko',  date:'18 avr. 2025' },
-  { id:'d4', icon:'folder',    name:'Archives tournage J1',        meta:'ZIP · 14.2 Go', date:'10 mai 2025'  },
-];
+const FILE_TYPE_ICON: Record<string, string> = {
+  pdf: 'file-text', image: 'image', video: 'video', audio: 'music',
+  zip: 'archive', doc: 'file-text', spreadsheet: 'table', resource: 'sparkles', other: 'file',
+};
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} Go`;
+}
+
+function formatFileDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 // ── Activity ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +79,7 @@ const ACTIVITY_ICON: Record<string, string> = {
   task:    'check-circle',
   approve: 'shield-check',
   client:  'user',
+  member:  'user-plus',
 };
 const ACTIVITY_COLOR: Record<string, string> = {
   comment: 'var(--info)',
@@ -88,6 +87,7 @@ const ACTIVITY_COLOR: Record<string, string> = {
   task:    'var(--ok)',
   approve: 'var(--ok)',
   client:  'var(--review)',
+  member:  'var(--info)',
 };
 
 // ── Forms ──────────────────────────────────────────────────────────────────────
@@ -443,6 +443,8 @@ export function TravailOverview() {
   const [forms, setForms] = useState<ProjectForm[]>(MOCK_FORMS);
   const [deliverables, setDeliverables] = useState<Task[]>(() => getDeliverables(project.id));
   const [resources, setResources] = useState(getResources);
+  const [invoices, setInvoices] = useState<Invoice[]>(() => getInvoicesByProject(project.id));
+  const [files, setFiles] = useState<FileItem[]>(() => getFiles().filter(f => f.projectId === project.id));
   const [linkPickerOpen, setLinkPickerOpen] = useState<string | null>(null);
   const [addingDeliverable, setAddingDeliverable] = useState(false);
   const [newDlTitle, setNewDlTitle] = useState('');
@@ -456,6 +458,8 @@ export function TravailOverview() {
   }, [project.id]);
 
   useEffect(() => subscribeResources(() => setResources(getResources())), []);
+  useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByProject(project.id))), [project.id]);
+  useEffect(() => subscribeFileStore(() => setFiles(getFiles().filter(f => f.projectId === project.id))), [project.id]);
 
   const [vision, setVision] = useState<VisionState>({
     concept: '',
@@ -481,8 +485,15 @@ export function TravailOverview() {
       ? projectSections[firstOpenIdx].label
       : projectSections.length > 0 ? t('overview.done') : '—';
 
-  const totalInvoiced = MOCK_INVOICES.reduce((s, f) => s + f.amount, 0);
-  const totalPaid     = MOCK_INVOICES.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
+  const totalInvoiced = invoices.reduce((s, f) => s + f.total, 0);
+  const totalPaid     = invoices.filter(f => f.status === 'paid').reduce((s, f) => s + f.total, 0);
+
+  const recentFiles = files
+    .filter(f => !f.state)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 5);
+
+  const activities = getProjectActivities(project.id);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -564,31 +575,32 @@ export function TravailOverview() {
                 </div>
               ))}
             </div>
-            {MOCK_INVOICES.map((inv, i) => {
-              const st = INVOICE_STATUS[inv.status];
-              return (
-                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: st.bg, border: `1px solid ${st.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <SFIcon name="file-text" size={15} color={st.color} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{inv.num}</span>
-                      <span style={{ fontSize: 13, fontWeight: 500 }}>{inv.label}</span>
-                    </div>
-                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.dueDate', { date: inv.due })}</p>
-                  </div>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{inv.amount.toLocaleString('fr-CA')} $</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color, background: st.bg, borderRadius: 7, padding: '3px 9px', flexShrink: 0 }}>{t(st.labelKey)}</span>
-                  <button style={{ display: 'flex', padding: 5, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', flexShrink: 0 }}>
-                    <SFIcon name="more-horizontal" size={14} />
-                  </button>
+            {invoices.length === 0 ? (
+              <div style={{ padding: '24px 18px', textAlign: 'center' }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noInvoices')}</p>
+              </div>
+            ) : invoices.map((inv, i) => (
+              <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                onClick={() => navigate(`/projets/${project.id}/finances`)}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <SFIcon name="file-text" size={15} color="var(--text-3)" />
                 </div>
-              );
-            })}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{inv.number}</span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{inv.title}</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.dueDate', { date: formatFileDate(inv.dueDate) })}</p>
+                </div>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{inv.total.toLocaleString('fr-CA')} $</span>
+                <span onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                  <StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} />
+                </span>
+              </div>
+            ))}
           </Card>
 
           {/* ── Livrables client ── */}
@@ -870,21 +882,23 @@ export function TravailOverview() {
 
           {/* ── Documents & fichiers ── */}
           <Card title="Documents & fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
-            {MOCK_DOCS.map((doc, i) => (
-              <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < MOCK_DOCS.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+            {recentFiles.length === 0 ? (
+              <div style={{ padding: '24px 18px', textAlign: 'center' }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noFiles')}</p>
+              </div>
+            ) : recentFiles.map((doc, i) => (
+              <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < recentFiles.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                onClick={() => navigate(`/projets/${project.id}/fichiers`)}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <SFIcon name={doc.icon} size={15} color="var(--text-3)" />
+                  <SFIcon name={FILE_TYPE_ICON[doc.type] ?? 'file'} size={15} color="var(--text-3)" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{doc.meta} · {doc.date}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{doc.ext.toUpperCase()}{doc.size ? ` · ${formatFileSize(doc.size)}` : ''} · {formatFileDate(doc.updatedAt)}</p>
                 </div>
-                <button style={{ display: 'flex', padding: 6, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}>
-                  <SFIcon name="download" size={14} />
-                </button>
               </div>
             ))}
           </Card>
@@ -1109,14 +1123,16 @@ export function TravailOverview() {
               <span style={{ fontWeight: 600, fontSize: 13 }}>Activité récente</span>
             </div>
             <div style={{ padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {ACTIVITY.slice(0, 5).map(item => (
+              {activities.length === 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '4px 0' }}>{t('overview.noActivity')}</p>
+              ) : activities.slice(0, 5).map(item => (
                 <div key={item.id} style={{ display: 'flex', gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: `${ACTIVITY_COLOR[item.type]}20`, border: `1px solid ${ACTIVITY_COLOR[item.type]}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <SFIcon name={ACTIVITY_ICON[item.type]} size={13} color={ACTIVITY_COLOR[item.type]} />
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: `${ACTIVITY_COLOR[item.type] ?? 'var(--text-3)'}20`, border: `1px solid ${ACTIVITY_COLOR[item.type] ?? 'var(--text-3)'}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <SFIcon name={ACTIVITY_ICON[item.type] ?? 'activity'} size={13} color={ACTIVITY_COLOR[item.type] ?? 'var(--text-3)'} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--text-2)' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.actor.name.split(' ')[0]}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.actorName.split(' ')[0]}</span>
                       {' '}{item.action}{' '}
                       <span style={{ fontWeight: 500, color: 'var(--text)' }}>{item.target}</span>
                     </p>
