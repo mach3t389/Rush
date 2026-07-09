@@ -210,7 +210,7 @@ function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClic
 export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const projects   = getProjects();
+  const projects   = getProjects().filter(p => !p.archived);
   const myTasks    = isDemoSession() ? TODAY_TASKS : getMyTasks();
   const activeProjects = projects.filter(p => p.status !== 'neutral');
   const lateProjects   = projects.filter(p => p.status === 'danger').length;

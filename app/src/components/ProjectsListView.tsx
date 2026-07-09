@@ -62,7 +62,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const { t } = useTranslation();
   const [step, setStep]                 = useState<Step>('start');
   const [templateId, setTemplateId]     = useState<string | null>(null);
-  const clients = getClients();
+  const clients = getClients().filter(c => !c.archived);
   const [name, setName]                 = useState('');
   const [clientId, setClientId]         = useState(defaultClientId ?? clients[0]?.id ?? '');
   const [color, setColor]               = useState(PROJECT_COLORS[0]);

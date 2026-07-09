@@ -189,11 +189,11 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [projects, setProjects] = useState(() => getProjects());
+  const [projects, setProjects] = useState(() => getProjects().filter(p => !p.archived));
   const [targetProjectId, setTargetProjectId] = useState('');
   const [targetSection, setTargetSection] = useState('');
   const [newSection, setNewSection] = useState('');
-  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
+  useEffect(() => subscribeProjects(() => setProjects(getProjects().filter(p => !p.archived))), []);
 
   const targetSections = targetProjectId ? getSections(targetProjectId) : [];
   const proj = projects.find(p => p.id === targetProjectId);
@@ -505,7 +505,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
                   const q = projSearch.toLowerCase();
                   const all = getProjects().filter(p => !q || p.name.toLowerCase().includes(q) || p.clientName.toLowerCase().includes(q));
                   const current = all.find(p => p.id === task.projectId);
-                  const others = all.filter(p => p.id !== task.projectId);
+                  const others = all.filter(p => p.id !== task.projectId && !p.archived);
                   const recentOthers = others.slice(0, 3);
                   const moreOthers = others.slice(3);
                   const projBtn = (p: ReturnType<typeof getProjects>[0]) => (
@@ -956,7 +956,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
                 <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{t('tasks.noProject')}</span>,
                 project === null
               )}
-              {getProjects().map(p => ddItem(() => { setProject(p); setOpenField(null); },
+              {getProjects().filter(p => !p.archived).map(p => ddItem(() => { setProject(p); setOpenField(null); },
                 <><i style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, display: 'block', flexShrink: 0 }} />{p.name}</>,
                 project?.id === p.id
               ))}

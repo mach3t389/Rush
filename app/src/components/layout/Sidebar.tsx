@@ -139,11 +139,11 @@ export function Sidebar({ onSearch }: { onSearch?: () => void }) {
 
   const pinnedProjects = pinnedIds
     .map(id => getProjects().find(p => p.id === id))
-    .filter(Boolean) as ReturnType<typeof getProjects>;
+    .filter(p => p && !p.archived) as ReturnType<typeof getProjects>;
 
   const pinnedClients = pinnedClientIds
     .map(id => getClients().find(c => c.id === id))
-    .filter(Boolean) as ReturnType<typeof getClients>;
+    .filter(c => c && !c.archived) as ReturnType<typeof getClients>;
 
   // Project drag handlers
   const handleDragStart = (e: React.DragEvent, idx: number) => {

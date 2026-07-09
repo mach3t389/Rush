@@ -133,7 +133,7 @@ function ProjectSelect({ value, onChange }: { value: string; onChange: (id: stri
   const [open, setOpen] = useState(false);
   const options = [
     { id: '', label: t('calendar.noProject'), color: null as string | null, italic: true },
-    ...getProjects().map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
+    ...getProjects().filter(p => !p.archived).map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
   ];
   const sel = options.find(o => o.id === value) ?? options[0];
   return (
@@ -728,7 +728,7 @@ export function CalendrierGlobal() {
 
         {/* Project filters */}
         {(()=>{
-          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>p.status!=='neutral').map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
+          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>p.status!=='neutral' && !p.archived).map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>

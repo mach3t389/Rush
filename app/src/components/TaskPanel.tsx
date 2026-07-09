@@ -534,7 +534,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 </button>
                 {breadProjectOpen && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 400, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginTop: 4 }}>
-                    {getProjects().map(p => (
+                    {getProjects().filter(p => !p.archived).map(p => (
                       <button key={p.id} onClick={() => {
                         const newSections = getSections(p.id);
                         const firstSection = newSections[0]?.label ?? '';
