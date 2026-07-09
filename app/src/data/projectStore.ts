@@ -214,7 +214,7 @@ export function removeProject(id: string): void {
 
   if (isDemoSession()) {
     _added = _added.filter(p => p.id !== id);
-    const { [id]: _removed, ...rest } = _overrides;
+    const { [id]: _, ...rest } = _overrides;
     _overrides = rest;
     persist();
     persistOverrides();

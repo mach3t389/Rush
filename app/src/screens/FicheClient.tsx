@@ -1624,7 +1624,7 @@ export function FicheClient() {
               {clientMenuOpen && (
                 <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                   <button
-                    onClick={() => { client.archived ? unarchiveClient(client.id) : archiveClient(client.id); setClientMenuOpen(false); }}
+                    onClick={() => { if (client.archived) { unarchiveClient(client.id); } else { archiveClient(client.id); } setClientMenuOpen(false); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
                   >
                     <SFIcon name={client.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />

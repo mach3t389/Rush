@@ -168,7 +168,7 @@ export function ProjectHeaderBar({
               <div onClick={() => { setMenuOpen(false); setConfirmDelete(false); }} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
               <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                 <button
-                  onClick={() => { project.archived ? unarchiveProject(project.id) : archiveProject(project.id); setMenuOpen(false); }}
+                  onClick={() => { if (project.archived) { unarchiveProject(project.id); } else { archiveProject(project.id); } setMenuOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
                 >
                   <SFIcon name={project.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
