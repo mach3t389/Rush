@@ -303,7 +303,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const titleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
 
@@ -372,6 +371,11 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
       onMouseEnter={e => { setHovered(true); if (!selected && !multiSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
       onMouseLeave={e => { setHovered(false); if (!selected && !multiSelected) e.currentTarget.style.background = 'transparent'; }}
       onContextMenu={e => { e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
+      onClick={e => {
+        if (editingTitle) return;
+        if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+        onSelect(task, e);
+      }}
     >
       {/* Checkbox */}
       <button
@@ -387,23 +391,17 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         {checked && <SFIcon name="check" size={10} color="white" />}
       </button>
 
-      {/* Titre — un seul clic ouvre le panneau, mais avec un léger délai : un
-          second clic dans cette fenêtre (double-clic) l'annule et édite le
-          texte en ligne à la place, comme dans Asana. */}
+      {/* Titre — cliquer directement sur le texte édite le titre ; cliquer
+          n'importe où ailleurs sur la ligne ouvre le panneau de détail. */}
       <div
         onClick={e => {
           if (editingTitle) return;
-          const evt = e;
-          titleClickTimerRef.current = setTimeout(() => { onSelect(task, evt); }, 220);
-        }}
-        onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
-        onDoubleClick={e => {
           e.stopPropagation();
-          if (titleClickTimerRef.current) { clearTimeout(titleClickTimerRef.current); titleClickTimerRef.current = null; }
           setTitleDraft(task.title);
           setEditingTitle(true);
         }}
-        style={{ overflow: 'hidden', cursor: editingTitle ? 'text' : 'pointer' }}
+        onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
+        style={{ overflow: 'hidden', cursor: 'text' }}
       >
         {editingTitle ? (
           <input

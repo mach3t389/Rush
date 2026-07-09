@@ -181,7 +181,6 @@ export function ProjectTaskRow({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const titleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
 
@@ -223,6 +222,11 @@ export function ProjectTaskRow({
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={e => {
+        if (editingTitle) return;
+        if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+        onSelect(task);
+      }}
     >
       {/* Drag handle + Checkbox */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, position: 'relative' }}>
@@ -248,20 +252,16 @@ export function ProjectTaskRow({
         </button>
       </div>
 
-      {/* Title — un seul clic ouvre le panneau (avec léger délai) ; un double-clic
-          l'annule et édite le texte en ligne, comme dans Asana. */}
+      {/* Title — cliquer directement sur le texte édite le titre ; cliquer
+          n'importe où ailleurs sur la ligne ouvre le panneau de détail. */}
       <div
-        onClick={() => {
+        onClick={e => {
           if (editingTitle) return;
-          titleClickTimerRef.current = setTimeout(() => { onSelect(task); }, 220);
-        }}
-        onDoubleClick={e => {
           e.stopPropagation();
-          if (titleClickTimerRef.current) { clearTimeout(titleClickTimerRef.current); titleClickTimerRef.current = null; }
           setTitleDraft(task.title);
           setEditingTitle(true);
         }}
-        style={{ overflow: 'hidden', cursor: editingTitle ? 'text' : 'pointer' }}
+        style={{ overflow: 'hidden', cursor: 'text' }}
       >
         {editingTitle ? (
           <input
