@@ -2444,7 +2444,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             ? <RenameInput value={folder.name} onSave={v => { renameFolder(folder.id, v); setRenamingId(null); }} onCancel={() => setRenamingId(null)} />
             : <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</p>
           }
-          {childCount > 0 && <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{childCount} élément{childCount > 1 ? 's' : ''}</p>}
+          {/* Toujours rendu (même vide) pour garder la même hauteur que FileCard, qui a toujours une 2e ligne. */}
+          <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2, visibility: childCount > 0 ? 'visible' : 'hidden' }}>
+            {childCount > 0 ? `${childCount} élément${childCount > 1 ? 's' : ''}` : '—'}
+          </p>
         </div>
       </div>
     );
@@ -2660,7 +2663,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         <SFIcon name={icon} size={32} color={color} />
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{label}</p>
-          {count !== undefined && <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2 }}>{count} dossier{count > 1 ? 's' : ''}</p>}
+          <p style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 2, visibility: count !== undefined ? 'visible' : 'hidden' }}>
+            {count !== undefined ? `${count} dossier${count > 1 ? 's' : ''}` : '—'}
+          </p>
         </div>
       </div>
     );
@@ -2780,7 +2785,14 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const ColPanel = ({ loc, depth, selectedId, onSelect }: {
     loc: NavLocation; depth: number; selectedId?: string; onSelect: (childLoc: NavLocation) => void;
   }) => {
-    const { folders, files, projects: columnProjects } = getColumnItems(loc);
+    // Le filtre de type et la recherche (barre du haut) s'appliquent aussi en vue
+    // colonnes — sinon les pastilles de filtre semblent ne rien faire ici.
+    const { folders: unfilteredColFolders, files: unfilteredColFiles, projects: columnProjects } = getColumnItems(loc);
+    const folders = unfilteredColFolders.filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()));
+    const files = unfilteredColFiles.filter(f =>
+      (filterType === 'all' || f.type === filterType) &&
+      (!search || f.name.toLowerCase().includes(search.toLowerCase()))
+    );
     const [hoveredColProjectId, setHoveredColProjectId] = React.useState<string | null>(null);
     const [localSelectedFileId, setLocalSelectedFileId] = React.useState<string | null>(null);
 
@@ -3661,10 +3673,10 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             </div>
           )}
 
-          {/* ── Folder contents ── */}
+          {/* Header + pastilles de filtre de type — visibles quel que soit le mode
+              d'affichage (y compris colonnes), pas seulement grille/liste. */}
           {location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && !(location.scope === 'clients' && location.folderId === null) && (
             <>
-              {/* Header for special views (Corbeille / Archives) */}
               {isSpecialView && (
                 <div style={{ marginBottom: 18 }}>
                   <h2 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -3679,10 +3691,9 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                 </div>
               )}
 
-              {/* Type filter pills — masqué dans les vues spéciales */}
               {!isSpecialView && (
                 <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-                  {(['all', 'pdf', 'image', 'video', 'audio', 'doc', 'zip', 'other'] as const).map(ft => (
+                  {(['all', 'resource', 'pdf', 'image', 'video', 'audio', 'doc', 'zip', 'other'] as const).map(ft => (
                     <button key={ft} onClick={() => setFilterType(ft)} style={{
                       padding: '4px 12px', borderRadius: 999, fontSize: 11,
                       border: `1.5px solid ${filterType === ft ? 'var(--accent)' : 'var(--border)'}`,
@@ -3695,7 +3706,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
                   ))}
                 </div>
               )}
+            </>
+          )}
 
+          {/* ── Folder contents (grille/liste — pas en vue colonnes, qui affiche déjà le contenu via ses propres colonnes) ── */}
+          {viewMode !== 'columns' && location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && !(location.scope === 'clients' && location.folderId === null) && (
+            <>
               {filteredFolders.length === 0 && filteredFiles.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '60px 0', color: 'var(--text-3)' }}>
                   <SFIcon name={isTrashView ? 'trash-2' : isArchivesView ? 'archive' : 'folder-open'} size={40} color="var(--text-3)" />
