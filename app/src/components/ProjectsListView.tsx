@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, DatePickerDropdown, formatDisplay } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates } from '../data/templates';
-import type { Project, Status, SectionData, Task } from '../types/index';
-import { ProjectCard, PROJECT_STATUS_OPTIONS } from './ProjectCard';
-import { getProjects, addProject, subscribeProjects } from '../data/projectStore';
+import type { Project, Status, Phase, SectionData, Task } from '../types/index';
+import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
+import { getProjects, addProject, updateProject, subscribeProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
+import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
+import { loadPersisted, savePersisted } from '../data/persist';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -525,7 +528,131 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   );
 }
 
+// ── Detailed list (row) view ──────────────────────────────────────────────────
+
+const PROJ_LIST_COLS = 'minmax(200px, 2.2fr) 1fr 1.4fr minmax(120px, 1fr) 108px 68px';
+
+function ProjColHead({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      {children}
+    </span>
+  );
+}
+
+function ProjectListRow({ p }: { p: Project }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [pinned, setPinnedState] = useState(() => isPinned(p.id));
+  const [editOpen, setEditOpen] = useState(false);
+  const [name, setName] = useState(p.name);
+  const [color, setColor] = useState(p.clientColor);
+  const [status, setStatus] = useState<Status>(p.status);
+  const [statusLabel, setStatusLabel] = useState(p.statusLabel);
+  const [phase, setPhase] = useState<Phase>(p.phase);
+  const [phaseLabel, setPhaseLabel] = useState(p.phaseLabel);
+  const [deliveryDate, setDeliveryDate] = useState(p.deliveryDate);
+
+  useEffect(() => subscribePinned(() => setPinnedState(isPinned(p.id))), [p.id]);
+
+  const handleSave = (u: { name: string; color: string; status: Status; statusLabel: string; phase: Phase; phaseLabel: string; deliveryDate: string; budget?: number; description?: string }) => {
+    setName(u.name); setColor(u.color);
+    setStatus(u.status); setStatusLabel(u.statusLabel);
+    setPhase(u.phase); setPhaseLabel(u.phaseLabel);
+    setDeliveryDate(u.deliveryDate);
+    updateProject(p.id, {
+      name: u.name, status: u.status, statusLabel: u.statusLabel,
+      phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
+      budget: u.budget, description: u.description,
+    });
+  };
+
+  return (
+    <div
+      onClick={() => navigate(`/projets/${p.id}`)}
+      style={{ display: 'grid', gridTemplateColumns: PROJ_LIST_COLS, gap: 16, alignItems: 'center', padding: '12px 18px', borderTop: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+    >
+      {/* Projet */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{p.clientName}</p>
+        </div>
+      </div>
+
+      {/* Phase */}
+      <div>
+        <SFPill status="neutral" small>{phaseLabel}</SFPill>
+      </div>
+
+      {/* Progression */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><SFBar value={p.progress} height={4} /></div>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{p.progress}%</span>
+      </div>
+
+      {/* Statut */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <SFPill status={status} small>{statusLabel}</SFPill>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={() => togglePin(p.id)}
+          title={pinned ? t('projects.unpin') : t('projects.pinToSidebar')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: pinned ? 'rgba(249,255,0,0.12)' : 'var(--surface-2)', color: pinned ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}
+          onMouseEnter={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; } }}
+          onMouseLeave={e => { if (!pinned) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; } }}
+        >
+          <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
+        </button>
+        <button
+          onClick={() => setEditOpen(true)}
+          title={t('projects.editProject')}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
+        >
+          <SFIcon name="square-pen" size={13} />
+        </button>
+      </div>
+
+      {editOpen && (
+        <ProjectEditPanel
+          p={p} color={color} name={name} status={status} statusLabel={statusLabel}
+          phase={phase} phaseLabel={phaseLabel} deliveryDate={deliveryDate}
+          onClose={() => setEditOpen(false)} onSave={handleSave}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProjectListView({ projects }: { projects: Project[] }) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflowX: 'auto', overflowY: 'hidden', background: 'var(--surface)' }}>
+      <div style={{ minWidth: 780 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: PROJ_LIST_COLS, gap: 16, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <ProjColHead>{t('projects.colProject')}</ProjColHead>
+          <ProjColHead>{t('projects.colPhase')}</ProjColHead>
+          <ProjColHead>{t('projects.colProgress')}</ProjColHead>
+          <ProjColHead>{t('projects.colStatus')}</ProjColHead>
+          <div />
+        </div>
+        {projects.map(p => <ProjectListRow key={p.id} p={p} />)}
+      </div>
+    </div>
+  );
+}
+
 // ── Shared project list view ──────────────────────────────────────────────────
+
+const VIEW_KEY = 'sf_projects_view';
 
 export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
@@ -539,6 +666,8 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const [showModal, setShowModal] = useState(false);
   const [clientFilterOpen, setClientFilterOpen] = useState(false);
   const clientFilterRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
+  const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
 
   useEffect(() => subscribeProjects(() => setAllProjects(getProjects())), []);
 
@@ -733,6 +862,20 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
             );
           })()}
 
+          {/* View toggle */}
+          <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>
+            {([['grid', 'layout-grid', t('projects.viewGrid')], ['list', 'list', t('projects.viewList')]] as const).map(([val, icon, label]) => (
+              <button
+                key={val}
+                onClick={() => changeView(val)}
+                title={label}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 26, borderRadius: 7, border: 'none', background: view === val ? 'var(--surface-3)' : 'transparent', color: view === val ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', transition: 'background 0.12s, color 0.12s' }}
+              >
+                <SFIcon name={icon} size={15} />
+              </button>
+            ))}
+          </div>
+
           {/* New project button — in client context, sits in the controls row */}
           {clientId && (
             <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
@@ -740,20 +883,28 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         </div>
       </div>
 
-      {/* Project grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-        {filtered.map(p => (
-          <ProjectCard key={p.id} p={p} />
-        ))}
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+          <SFIcon name="folder-open" size={36} color="var(--text-3)" />
+          <p style={{ fontSize: 14 }}>{t('projects.noProjectsFound')}</p>
+          <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
+        </div>
+      )}
 
-        {filtered.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-            <SFIcon name="folder-open" size={36} color="var(--text-3)" />
-            <p style={{ fontSize: 14 }}>{t('projects.noProjectsFound')}</p>
-            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
-          </div>
-        )}
-      </div>
+      {/* Project grid */}
+      {view === 'grid' && filtered.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {filtered.map(p => (
+            <ProjectCard key={p.id} p={p} />
+          ))}
+        </div>
+      )}
+
+      {/* Project list */}
+      {view === 'list' && filtered.length > 0 && (
+        <ProjectListView projects={filtered} />
+      )}
 
       {showModal && (
         <NewProjectModal

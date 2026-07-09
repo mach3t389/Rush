@@ -309,14 +309,15 @@ const TERMS_OPTIONS = [7, 14, 15, 30, 45, 60, 90];
 function InvoiceDefaultsSettings() {
   const { t } = useTranslation();
   const [defs, setDefs] = useState<InvoiceDefaults>(getInvoiceDefaults);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => subscribeInvoiceDefaults(() => setDefs(getInvoiceDefaults())), []);
 
-  const save = () => {
-    setInvoiceDefaults(defs);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const setDefsAuto = (updater: (d: InvoiceDefaults) => InvoiceDefaults) => {
+    setDefs(prev => {
+      const next = updater(prev);
+      setInvoiceDefaults(next);
+      return next;
+    });
   };
 
   const fieldStyle: React.CSSProperties = {
@@ -347,7 +348,7 @@ function InvoiceDefaultsSettings() {
               const key = e.target.value;
               if (!key) return;
               const preset = TAX_PRESETS[key];
-              if (preset) setDefs(d => ({ ...d, taxLines: preset.lines.map(l => ({ ...l })) }));
+              if (preset) setDefsAuto(d => ({ ...d, taxLines: preset.lines.map(l => ({ ...l })) }));
               e.target.value = '';
             }}
             style={{ ...fieldStyle, cursor: 'pointer' }}
@@ -368,27 +369,27 @@ function InvoiceDefaultsSettings() {
               <div key={line.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <button
                   type="button"
-                  onClick={() => setDefs(d => ({ ...d, taxLines: d.taxLines.map((l: TaxLine, i: number) => i === idx ? { ...l, enabled: !l.enabled } : l) }))}
+                  onClick={() => setDefsAuto(d => ({ ...d, taxLines: d.taxLines.map((l: TaxLine, i: number) => i === idx ? { ...l, enabled: !l.enabled } : l) }))}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: line.enabled ? 'var(--ok)' : 'var(--text-3)', display: 'flex', flexShrink: 0 }}
                 >
                   <SFIcon name={line.enabled ? 'toggle-right' : 'toggle-left'} size={18} />
                 </button>
                 <input
                   value={line.name}
-                  onChange={e => setDefs(d => ({ ...d, taxLines: d.taxLines.map((l: TaxLine, i: number) => i === idx ? { ...l, name: e.target.value } : l) }))}
+                  onChange={e => setDefsAuto(d => ({ ...d, taxLines: d.taxLines.map((l: TaxLine, i: number) => i === idx ? { ...l, name: e.target.value } : l) }))}
                   placeholder={t('finance.taxName')}
                   style={{ ...fieldStyle, flex: 1, padding: '6px 8px', fontSize: 12, opacity: line.enabled ? 1 : 0.5 }}
                 />
                 <input
                   type="number" min="0" step="0.001"
                   value={line.rate}
-                  onChange={e => setDefs(d => ({ ...d, taxLines: d.taxLines.map((l: TaxLine, i: number) => i === idx ? { ...l, rate: parseFloat(e.target.value) || 0 } : l) }))}
+                  onChange={e => setDefsAuto(d => ({ ...d, taxLines: d.taxLines.map((l: TaxLine, i: number) => i === idx ? { ...l, rate: parseFloat(e.target.value) || 0 } : l) }))}
                   style={{ ...fieldStyle, width: 70, padding: '6px 8px', fontSize: 12, textAlign: 'right', opacity: line.enabled ? 1 : 0.5 }}
                 />
                 <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>%</span>
                 <button
                   type="button"
-                  onClick={() => setDefs(d => ({ ...d, taxLines: d.taxLines.filter((_: TaxLine, i: number) => i !== idx) }))}
+                  onClick={() => setDefsAuto(d => ({ ...d, taxLines: d.taxLines.filter((_: TaxLine, i: number) => i !== idx) }))}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3, flexShrink: 0 }}
                   onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
                   onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -399,7 +400,7 @@ function InvoiceDefaultsSettings() {
             ))}
             <button
               type="button"
-              onClick={() => setDefs(d => ({ ...d, taxLines: [...(d.taxLines ?? []), { id: `tax_${Date.now()}`, name: '', rate: 0, enabled: true }] }))}
+              onClick={() => setDefsAuto(d => ({ ...d, taxLines: [...(d.taxLines ?? []), { id: `tax_${Date.now()}`, name: '', rate: 0, enabled: true }] }))}
               style={{ alignSelf: 'flex-start', fontSize: 11, padding: '4px 10px', borderRadius: 7, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}
             >
               {t('finance.addTax')}
@@ -410,7 +411,7 @@ function InvoiceDefaultsSettings() {
         {/* Currency */}
         <div style={row}>
           <label style={labelStyle}>{t('settings.defaultCurrency')}</label>
-          <select value={defs.currency} onChange={e => setDefs(d => ({ ...d, currency: e.target.value }))} style={fieldStyle}>
+          <select value={defs.currency} onChange={e => setDefsAuto(d => ({ ...d, currency: e.target.value }))} style={fieldStyle}>
             {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
@@ -422,7 +423,7 @@ function InvoiceDefaultsSettings() {
             {TERMS_OPTIONS.map(d => (
               <button
                 key={d}
-                onClick={() => setDefs(prev => ({ ...prev, paymentTermsDays: d }))}
+                onClick={() => setDefsAuto(prev => ({ ...prev, paymentTermsDays: d }))}
                 style={{
                   padding: '5px 12px', borderRadius: 8, fontSize: 12, fontFamily: 'var(--ff-mono)',
                   border: '1px solid var(--border-2)', cursor: 'pointer',
@@ -441,7 +442,7 @@ function InvoiceDefaultsSettings() {
           <input
             type="text" maxLength={12}
             value={defs.numberPrefix}
-            onChange={e => setDefs(d => ({ ...d, numberPrefix: e.target.value }))}
+            onChange={e => setDefsAuto(d => ({ ...d, numberPrefix: e.target.value }))}
             placeholder="INV"
             style={fieldStyle}
           />
@@ -455,18 +456,12 @@ function InvoiceDefaultsSettings() {
         <textarea
           rows={3}
           value={defs.notes}
-          onChange={e => setDefs(d => ({ ...d, notes: e.target.value }))}
+          onChange={e => setDefsAuto(d => ({ ...d, notes: e.target.value }))}
           placeholder={t('settings.defaultNotesPlaceholder')}
           style={{ ...fieldStyle, resize: 'vertical', minHeight: 64 }}
         />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <SFButton variant="primary" onClick={save}>{t('finance.save')}</SFButton>
-        {saved && <span style={{ fontSize: 12, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <SFIcon name="check" size={13} color="var(--ok)" /> {t('settings.saved') || 'Enregistré'}
-        </span>}
-      </div>
     </div>
   );
 }

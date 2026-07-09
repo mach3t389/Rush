@@ -152,7 +152,6 @@ export function ProfileEditPanel({
   const [photo, setPhoto] = useState<string | null>(loadPhoto(userId));
   const [permissions, setPermissions] = useState<PermissionKey[]>(() => loadPermissions(userId, overrides.role ?? initialRole));
   const [tab, setTab] = useState<'info' | 'permissions'>('info');
-  const [roleOpen, setRoleOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -270,31 +269,17 @@ export function ProfileEditPanel({
 
               <div>
                 {label(t('profile.rolePosition'))}
-                <div style={{ position: 'relative' }}>
-                  <button onClick={() => { if (isAdmin) setRoleOpen(v => !v); }}
-                    style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: isAdmin ? 'pointer' : 'default', textAlign: 'left' }}>
-                    <span>{role}</span>
-                    {isAdmin && <SFIcon name="chevron-down" size={13} color="var(--text-3)" />}
-                  </button>
-                  {roleOpen && (
-                    <>
-                      <div onClick={() => setRoleOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 599 }} />
-                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 600, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: 240, overflowY: 'auto' }}>
-                        {ROLES.map(r => (
-                          <button key={r} onClick={() => { setRole(r); setRoleOpen(false); if (!isAdminRole) setPermissions(DEFAULT_PERMISSIONS[r] ?? []); }}
-                            style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: r === role ? 'var(--surface-3)' : 'transparent', color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                            onMouseEnter={e => { if (r !== role) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                            onMouseLeave={e => { if (r !== role) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                          >
-                            {r === role && <SFIcon name="check" size={13} color="var(--accent)" style={{ marginRight: 6 }} />}
-                            {r !== role && <span style={{ width: 19, display: 'inline-block' }} />}
-                            {r}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <input
+                  value={role}
+                  onChange={e => setRole(e.target.value)}
+                  onBlur={() => { if (!isAdminRole && DEFAULT_PERMISSIONS[role]) setPermissions(DEFAULT_PERMISSIONS[role]); }}
+                  disabled={!isAdmin}
+                  list="profile-role-suggestions"
+                  style={inputStyle}
+                />
+                <datalist id="profile-role-suggestions">
+                  {ROLES.map(r => <option key={r} value={r} />)}
+                </datalist>
               </div>
 
               <div>
