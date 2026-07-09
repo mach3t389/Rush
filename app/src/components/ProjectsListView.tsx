@@ -663,7 +663,7 @@ const VIEW_KEY = 'sf_projects_view';
 export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | Status>('all');
+  const [filter, setFilter] = useState<'all' | Status | 'archived'>('all');
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [sortOpen, setSortOpen] = useState(false);
@@ -698,6 +698,8 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         const match = p.name.toLowerCase().includes(q) || (!clientId && p.clientName.toLowerCase().includes(q));
         if (!match) return false;
       }
+      if (filter === 'archived') return !!p.archived;
+      if (p.archived) return false;
       if (filter !== 'all') return p.status === filter;
       return true;
     })
@@ -743,10 +745,10 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
 
         {/* Filter chips */}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {([['all', t('projects.filterAll')], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, t(o.labelKey)])] as [string, string][]).map(([val, label]) => (
+          {([['all', t('projects.filterAll')], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, t(o.labelKey)]), ['archived', t('projects.filterArchived')]] as [string, string][]).map(([val, label]) => (
             <button
               key={val}
-              onClick={() => setFilter(val as 'all' | Status)}
+              onClick={() => setFilter(val as 'all' | Status | 'archived')}
               style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
             >
               {label}

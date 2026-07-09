@@ -265,6 +265,7 @@
     "countsSummary": "{{total}} projets · {{active}} actifs · {{late}} en retard",
     "searchPlaceholder": "Rechercher un projet...",
     "filterAll": "Tous",
+    "filterArchived": "Archivés",
     "allClients": "Tous les clients",
     "sortBy": "Trier par",
     "sortRecent": "Récent",
