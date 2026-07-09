@@ -598,6 +598,48 @@ export function emptyTrash(): void {
   })();
 }
 
+export function deleteAllFilesForProject(projectId: string): void {
+  if (isDemoSession()) {
+    _demoFolders = _demoFolders.filter(f => f.projectId !== projectId);
+    _demoFiles = _demoFiles.filter(fi => fi.projectId !== projectId);
+    persistDemo();
+    notify();
+    return;
+  }
+
+  void (async () => {
+    const studioId = await getStudioId();
+    const { error: filesError } = await supabase.from('file_items')
+      .delete().eq('studio_id', studioId).eq('project_id', projectId);
+    if (filesError) { console.error('deleteAllFilesForProject (files) failed', filesError); return; }
+    const { error: foldersError } = await supabase.from('file_folders')
+      .delete().eq('studio_id', studioId).eq('project_id', projectId);
+    if (foldersError) { console.error('deleteAllFilesForProject (folders) failed', foldersError); return; }
+    await fetchSupabaseFileData();
+  })();
+}
+
+export function deleteAllFilesForClient(clientId: string): void {
+  if (isDemoSession()) {
+    _demoFolders = _demoFolders.filter(f => f.clientId !== clientId);
+    _demoFiles = _demoFiles.filter(fi => fi.clientId !== clientId);
+    persistDemo();
+    notify();
+    return;
+  }
+
+  void (async () => {
+    const studioId = await getStudioId();
+    const { error: filesError } = await supabase.from('file_items')
+      .delete().eq('studio_id', studioId).eq('client_id', clientId);
+    if (filesError) { console.error('deleteAllFilesForClient (files) failed', filesError); return; }
+    const { error: foldersError } = await supabase.from('file_folders')
+      .delete().eq('studio_id', studioId).eq('client_id', clientId);
+    if (foldersError) { console.error('deleteAllFilesForClient (folders) failed', foldersError); return; }
+    await fetchSupabaseFileData();
+  })();
+}
+
 // ── Subscriptions ──────────────────────────────────────────────────────────────
 
 export function subscribeFileStore(fn: Listener): () => void {

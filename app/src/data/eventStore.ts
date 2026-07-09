@@ -205,3 +205,18 @@ export function deleteEvent(id: string) {
   }
   void deleteSupabaseEvent(id);
 }
+
+async function deleteSupabaseEventsForProject(projectId: string): Promise<void> {
+  const { error } = await supabase.from('events').delete().eq('project_id', projectId);
+  if (error) { console.error('deleteSupabaseEventsForProject failed', error); return; }
+  await fetchSupabaseEvents();
+}
+
+export function deleteEventsForProject(projectId: string): void {
+  if (isDemoSession()) {
+    saveDemoEvents(getDemoEvents().filter(e => e.projectId !== projectId));
+    notify();
+    return;
+  }
+  void deleteSupabaseEventsForProject(projectId);
+}
