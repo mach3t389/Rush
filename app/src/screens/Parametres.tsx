@@ -887,7 +887,7 @@ function CustomFontImport({ onImported }: { onImported: (name: string, value: st
       <input ref={inputRef} type="file" accept=".ttf,.otf,.woff,.woff2" onChange={onFile} style={{ display: 'none' }} />
       {imported ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <SFIcon name="check-circle" size={16} color="var(--ok)" />
+          <SFIcon name="circle-check" size={16} color="var(--ok)" />
           <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('settings.fontImportedPrefix')} <strong style={{ fontFamily: `'${imported}',sans-serif`, color: 'var(--text)' }}>{imported}</strong> {t('settings.fontImportedSuffix')}</span>
           <button onClick={() => { setImported(null); if(inputRef.current) inputRef.current.value=''; }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={12} /></button>
         </div>

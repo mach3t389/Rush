@@ -1142,7 +1142,7 @@ export function Finances() {
           )}
           {hasAnyFilter && (
             <button onClick={clearAllFilters} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <SFIcon name="filter-x" size={12} />
+              <SFIcon name="funnel-x" size={12} />
               {t('finance.clearFilters')}
             </button>
           )}

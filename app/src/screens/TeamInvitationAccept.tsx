@@ -149,7 +149,7 @@ export function TeamInvitationAccept() {
 
         {error && (
           <div style={{ padding: '10px 14px', borderRadius: 9, marginBottom: 16, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.25)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <SFIcon name="alert-circle" size={14} color="var(--danger)" />
+            <SFIcon name="circle-alert" size={14} color="var(--danger)" />
             <span style={{ fontSize: 12, color: 'var(--danger)', fontFamily: 'var(--ff-text)' }}>{error}</span>
           </div>
         )}

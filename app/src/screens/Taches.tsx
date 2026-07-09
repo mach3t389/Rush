@@ -687,7 +687,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         onClick={e => onSelect(task, e)}
         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
       >
-        <SFIcon name="more-horizontal" size={14} color="var(--text-3)" />
+        <SFIcon name="ellipsis" size={14} color="var(--text-3)" />
       </button>
 
       {/* Right-click context menu */}
@@ -804,7 +804,7 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <SFIcon name="sliders" size={12} color="var(--text-3)" />
+      <SFIcon name="sliders-horizontal" size={12} color="var(--text-3)" />
 
       <FilterDropdown label={t('tasks.priority')} count={filterPriorities.size} onClear={onClearPriority} anchorRef={prioRef}>
         {PRIORITY_OPTIONS.map(p => checkRow(t(PRIORITY_LABEL_KEY[p]), PRIORITY_COLOR[p], filterPriorities.has(p), () => onTogglePriority(p)))}
@@ -1245,7 +1245,7 @@ export function Taches() {
 
         {visible.length === 0 && hasActiveFilters && (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <SFIcon name="check-circle" size={32} color="var(--text-3)" />
+            <SFIcon name="circle-check" size={32} color="var(--text-3)" />
             <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('taskPanel.noTasksForFilters')}</p>
             <button onClick={clearFilters} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--ff-text)' }}>{t('taskPanel.clearFilters')}</button>
           </div>

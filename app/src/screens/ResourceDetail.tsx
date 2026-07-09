@@ -4852,7 +4852,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
               <td colSpan={11} style={{ padding:'4px 0 8px', borderTop:'2px solid var(--border)' }}>
                 {addingScene ? (
                   <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 14px' }}>
-                    <SFIcon name="plus-circle" size={13} color="var(--accent)" />
+                    <SFIcon name="circle-plus" size={13} color="var(--accent)" />
                     <input autoFocus value={newSceneLabel} onChange={e => setNewSceneLabel(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') addScene(); if (e.key === 'Escape') setAddingScene(false); }}
                       placeholder={t('resourceDetail.screenplayView.newSceneTitlePlaceholder')}
@@ -4889,7 +4889,7 @@ function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptSc
               <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginBottom:8 }}>{t('resourceDetail.screenplayView.detectedScenesHeader')}</p>
               {scriptScenes.map(s => (
                 <div key={s.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderBottom:'1px solid var(--border)' }}>
-                  <SFIcon name="check-circle" size={12} color="var(--ok)" />
+                  <SFIcon name="circle-check" size={12} color="var(--ok)" />
                   <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text)' }}>S{s.number} — {s.label}</span>
                 </div>
               ))}

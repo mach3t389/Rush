@@ -666,7 +666,7 @@ function TaskRow({
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
         >
-          <SFIcon name="more-horizontal" size={14} />
+          <SFIcon name="ellipsis" size={14} />
         </button>
         {open === 'context' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>

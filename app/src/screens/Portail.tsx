@@ -54,7 +54,7 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
         {sent ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <SFIcon name="check-circle" size={28} color="var(--ok)" />
+              <SFIcon name="circle-check" size={28} color="var(--ok)" />
               <div>
                 <p style={{ fontWeight: 600, fontSize: 14 }}>{t('portal.messageSent')}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('portal.studioTeamNotified')}</p>
@@ -237,7 +237,7 @@ export function Portail() {
 
                     {dl.correctionsRequested && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', borderRadius: 8, background: '#a85f3e18', border: '1px solid #a85f3e44' }}>
-                        <SFIcon name="alert-triangle" size={13} color="#a85f3e" />
+                        <SFIcon name="triangle-alert" size={13} color="#a85f3e" />
                         <span style={{ fontSize: 12, color: '#a85f3e' }}>{t('portal.correctionsRequestedNote')}</span>
                       </div>
                     )}

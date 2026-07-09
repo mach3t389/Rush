@@ -1232,7 +1232,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                               onClick={e => { e.stopPropagation(); cycleCommentStatus(c.id); }}
                               title={c.status === 'resolved' ? t('review.markAsOpen') : t('review.markAsResolved')}
                               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 5, border: `1px solid ${c.status === 'resolved' ? 'var(--ok)' : 'var(--border-2)'}`, background: c.status === 'resolved' ? 'rgba(72,199,142,0.12)' : 'var(--surface-3)', color: c.status === 'resolved' ? 'var(--ok)' : 'var(--text-3)', fontSize: 9, fontFamily: 'var(--ff-mono)', cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                              {c.status === 'resolved' ? <SFIcon name="check-circle" size={9} color="var(--ok)" /> : <SFIcon name="circle-dot" size={9} color="var(--text-3)" />}
+                              {c.status === 'resolved' ? <SFIcon name="circle-check" size={9} color="var(--ok)" /> : <SFIcon name="circle-dot" size={9} color="var(--text-3)" />}
                               {c.status === 'resolved' ? t('review.resolved') : t('review.openStatus')}
                             </button>
                           </div>
@@ -1249,7 +1249,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                             ) : (
                               <button onClick={() => convertToTask(c)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--info)', background: 'rgba(100,160,255,0.07)', border: '1px solid rgba(100,160,255,0.25)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
-                                <SFIcon name="plus" size={10} color="var(--info)" /><SFIcon name="check-square" size={10} color="var(--info)" />{t('review.task')}
+                                <SFIcon name="plus" size={10} color="var(--info)" /><SFIcon name="square-check" size={10} color="var(--info)" />{t('review.task')}
                               </button>
                             )}
                           </div>

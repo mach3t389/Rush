@@ -141,7 +141,7 @@ function UploadModal({
           onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
         >
-          <SFIcon name="plus-circle" size={18} color="var(--text-2)" />
+          <SFIcon name="circle-plus" size={18} color="var(--text-2)" />
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Nouvelle version (V{roundCount + 1})</p>
             <p style={{ fontSize: 11, color: 'var(--text-3)' }}>Crée une nouvelle version avec ce fichier</p>

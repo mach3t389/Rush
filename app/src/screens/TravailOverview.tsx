@@ -248,7 +248,7 @@ export function TravailOverview() {
           })()}
           {completed ? (
             <button onClick={toggleCompleted} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(0,200,100,0.3)', background: 'rgba(0,200,100,0.1)', color: 'var(--ok)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-              <SFIcon name="check-circle" size={15} color="var(--ok)" />
+              <SFIcon name="circle-check" size={15} color="var(--ok)" />
               {t('overview.projectDone')}
             </button>
           ) : (
@@ -266,7 +266,7 @@ export function TravailOverview() {
           {/* Completed banner */}
           {completed && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(0,200,100,0.25)', background: 'rgba(0,200,100,0.06)' }}>
-              <SFIcon name="check-circle" size={18} color="var(--ok)" />
+              <SFIcon name="circle-check" size={18} color="var(--ok)" />
               <div>
                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ok)' }}>{t('overview.projectMarkedDone')}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('overview.projectArchivedDesc')}</p>
@@ -738,7 +738,7 @@ export function TravailOverview() {
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Tâches</p>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <SFIcon name="check-circle" size={12} color="var(--ok)" />
+                    <SFIcon name="circle-check" size={12} color="var(--ok)" />
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>
                       {Math.round(project.taskCount * project.progress / 100)}/{project.taskCount}
                     </span>

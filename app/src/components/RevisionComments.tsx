@@ -222,7 +222,7 @@ function CommentCard({
           </span>
         )}
         {resolved && (
-          <SFIcon name="check-circle" size={13} color="var(--ok)" style={{ marginLeft: 'auto' }} />
+          <SFIcon name="circle-check" size={13} color="var(--ok)" style={{ marginLeft: 'auto' }} />
         )}
       </div>
 

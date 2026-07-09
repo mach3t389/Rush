@@ -161,7 +161,7 @@ export function ProjectHeaderBar({
         {children}
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
-            <SFIcon name="more-horizontal" size={15} />
+            <SFIcon name="ellipsis" size={15} />
           </button>
           {menuOpen && (
             <>

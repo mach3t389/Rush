@@ -2688,7 +2688,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; }}
           onMouseLeave={e => { if (!showMenu) e.currentTarget.style.background = 'rgba(0,0,0,0.3)'; }}
         >
-          <SFIcon name="more-vertical" size={12} color="var(--text-2)" />
+          <SFIcon name="ellipsis-vertical" size={12} color="var(--text-2)" />
         </button>
         {showMenu && (
           <div style={{

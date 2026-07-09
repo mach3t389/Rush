@@ -546,7 +546,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                         })}
                         {!activePreset && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
-                            <SFIcon name="sliders" size={13} color="var(--accent)" />
+                            <SFIcon name="sliders-horizontal" size={13} color="var(--accent)" />
                             <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>{t('client.custom')}</p>
                           </div>
                         )}
@@ -606,7 +606,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
                     })}
                     {!matchPortalPreset(portalPerms) && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
-                        <SFIcon name="sliders" size={13} color="var(--accent)" />
+                        <SFIcon name="sliders-horizontal" size={13} color="var(--accent)" />
                         <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>{t('client.custom')}</p>
                       </div>
                     )}
@@ -868,7 +868,7 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
           onClick={() => setMenuOpen(v => !v)}
           style={{ background: menuOpen ? 'var(--surface-3)' : 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: 'var(--text-3)', opacity: menuOpen || hovered ? 1 : 0, transition: 'opacity 0.15s', display: 'flex' }}
         >
-          <SFIcon name="more-horizontal" size={15} />
+          <SFIcon name="ellipsis" size={15} />
         </button>
         {menuOpen && (
           <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 190, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>

@@ -335,7 +335,7 @@ export function ProfileEditPanel({
                       })}
                       {!activePreset && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
-                          <SFIcon name="sliders" size={13} color="var(--accent)" />
+                          <SFIcon name="sliders-horizontal" size={13} color="var(--accent)" />
                           <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>{t('profile.custom')}</p>
                         </div>
                       )}
