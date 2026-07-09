@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, SFModal } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
@@ -90,271 +90,6 @@ const ACTIVITY_COLOR: Record<string, string> = {
   member:  'var(--info)',
 };
 
-// ── Forms ──────────────────────────────────────────────────────────────────────
-
-type FormFieldType = 'text' | 'textarea' | 'choice' | 'yesno' | 'date' | 'file';
-
-interface FormField {
-  id: string;
-  type: FormFieldType;
-  label: string;
-  required: boolean;
-  options?: string[]; // for choice
-}
-
-interface ProjectForm {
-  id: string;
-  title: string;
-  fields: FormField[];
-  sentAt?: string;
-  responses: FormResponse[];
-}
-
-interface FormResponse {
-  id: string;
-  respondent: string;
-  submittedAt: string;
-  answers: Record<string, string>;
-}
-
-const MOCK_FORMS: ProjectForm[] = [
-  {
-    id: 'form-1',
-    title: 'Brief créatif client',
-    sentAt: '5 mai 2025',
-    fields: [
-      { id: 'f1', type: 'textarea', label: 'Décrivez votre vision pour ce projet', required: true },
-      { id: 'f2', type: 'choice',   label: 'Quel est le ton souhaité ?',           required: true, options: ['Professionnel', 'Dynamique', 'Émotionnel', 'Humoristique'] },
-      { id: 'f3', type: 'text',     label: 'Public cible',                         required: false },
-      { id: 'f4', type: 'date',     label: 'Date de diffusion souhaitée',          required: false },
-      { id: 'f5', type: 'yesno',    label: 'Avez-vous des références visuelles à partager ?', required: false },
-    ],
-    responses: [
-      { id: 'r1', respondent: 'Marc Dupuis (Nova Films)', submittedAt: '7 mai 2025', answers: { f1: 'Un film épuré et moderne qui met en valeur notre savoir-faire…', f2: 'Professionnel', f3: '35-50 ans, décideurs B2B', f4: '2025-09-01', f5: 'Oui' } },
-    ],
-  },
-];
-
-const FIELD_TYPE_OPTIONS: { type: FormFieldType; labelKey: string; icon: string }[] = [
-  { type: 'text',     labelKey: 'overview.fieldShortText',  icon: 'type' },
-  { type: 'textarea', labelKey: 'overview.fieldLongText',   icon: 'align-left' },
-  { type: 'choice',   labelKey: 'overview.fieldChoice',     icon: 'list' },
-  { type: 'yesno',    labelKey: 'overview.fieldYesNo',      icon: 'toggle-left' },
-  { type: 'date',     labelKey: 'overview.fieldDate',       icon: 'calendar' },
-  { type: 'file',     labelKey: 'overview.fieldFile',       icon: 'upload' },
-];
-
-function FormBuilderModal({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-  const [title, setTitle] = useState('Nouveau formulaire');
-  const [fields, setFields] = useState<FormField[]>([
-    { id: 'f0', type: 'text', label: '', required: false },
-  ]);
-  const [activeFieldId, setActiveFieldId] = useState<string | null>('f0');
-
-  const addField = (type: FormFieldType) => {
-    const f: FormField = { id: `f${Date.now()}`, type, label: '', required: false };
-    if (type === 'choice') f.options = ['Option 1', 'Option 2'];
-    setFields(p => [...p, f]);
-    setActiveFieldId(f.id);
-  };
-
-  const updateField = (id: string, patch: Partial<FormField>) =>
-    setFields(p => p.map(f => f.id === id ? { ...f, ...patch } : f));
-
-  const removeField = (id: string) => setFields(p => p.filter(f => f.id !== id));
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'stretch' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
-      <div style={{ position: 'relative', marginLeft: 'auto', width: 700, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', boxShadow: '-20px 0 60px rgba(0,0,0,0.7)', borderLeft: '1px solid var(--border)' }}>
-
-        {/* Header */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-            <SFIcon name="x" size={16} />
-          </button>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            style={{ flex: 1, background: 'transparent', border: 'none', fontSize: 16, fontWeight: 700, color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)' }}
-          />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <SFButton variant="secondary" size="sm" icon="send">{t('overview.sendToClient')}</SFButton>
-            <SFButton variant="primary" size="sm" icon="save">{t('overview.save')}</SFButton>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Fields list */}
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{t('overview.questionsCount', { count: fields.length })}</p>
-            {fields.map((f, i) => (
-              <div
-                key={f.id}
-                onClick={() => setActiveFieldId(f.id)}
-                style={{ border: `1px solid ${activeFieldId === f.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', background: activeFieldId === f.id ? 'rgba(249,255,0,0.03)' : 'var(--surface-2)', cursor: 'pointer', transition: 'border-color 0.12s' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: activeFieldId === f.id ? 10 : 0 }}>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', width: 20, flexShrink: 0 }}>{i + 1}.</span>
-                  <SFIcon name={FIELD_TYPE_OPTIONS.find(o => o.type === f.type)?.icon ?? 'type'} size={13} color="var(--text-3)" />
-                  {activeFieldId === f.id ? (
-                    <input
-                      autoFocus
-                      value={f.label}
-                      onChange={e => updateField(f.id, { label: e.target.value })}
-                      onClick={e => e.stopPropagation()}
-                      placeholder={t('overview.questionPlaceholder')}
-                      style={{ flex: 1, background: 'transparent', border: 'none', fontSize: 13, fontWeight: 500, color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)' }}
-                    />
-                  ) : (
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: f.label ? 'var(--text)' : 'var(--text-3)', fontStyle: f.label ? 'normal' : 'italic' }}>{f.label || t('overview.untitledQuestion')}</span>
-                  )}
-                  {f.required && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--danger)', background: 'rgba(255,60,60,0.1)', borderRadius: 5, padding: '2px 6px' }}>{t('overview.required')}</span>}
-                  <button onClick={e => { e.stopPropagation(); removeField(f.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3, borderRadius: 5, flexShrink: 0 }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
-                    <SFIcon name="trash-2" size={13} />
-                  </button>
-                </div>
-
-                {/* Expanded settings */}
-                {activeFieldId === f.id && (
-                  <div style={{ paddingLeft: 30, display: 'flex', flexDirection: 'column', gap: 10 }} onClick={e => e.stopPropagation()}>
-                    {/* Type picker */}
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      {FIELD_TYPE_OPTIONS.map(opt => (
-                        <button key={opt.type} onClick={() => updateField(f.id, { type: opt.type })}
-                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${f.type === opt.type ? 'var(--accent)' : 'var(--border)'}`, background: f.type === opt.type ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', color: f.type === opt.type ? 'var(--text)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                          <SFIcon name={opt.icon} size={11} />{t(opt.labelKey)}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Options for choice type */}
-                    {f.type === 'choice' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {(f.options ?? []).map((opt, oi) => (
-                          <div key={oi} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
-                            <input value={opt} onChange={e => updateField(f.id, { options: (f.options ?? []).map((o, i) => i === oi ? e.target.value : o) })}
-                              style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--text)', outline: 'none', padding: '3px 0', fontFamily: 'var(--ff-text)' }} />
-                            <button onClick={() => updateField(f.id, { options: (f.options ?? []).filter((_, i) => i !== oi) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}>
-                              <SFIcon name="x" size={11} />
-                            </button>
-                          </div>
-                        ))}
-                        <button onClick={() => updateField(f.id, { options: [...(f.options ?? []), `Option ${(f.options?.length ?? 0) + 1}`] })}
-                          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', padding: '3px 0', marginLeft: 22 }}>
-                          <SFIcon name="plus" size={12} /> {t('overview.addOption')}
-                        </button>
-                      </div>
-                    )}
-                    {/* Required toggle */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
-                      <div onClick={() => updateField(f.id, { required: !f.required })}
-                        style={{ width: 32, height: 18, borderRadius: 999, background: f.required ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.15s', flexShrink: 0 }}>
-                        <div style={{ position: 'absolute', top: 2, left: f.required ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: f.required ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.requiredAnswer')}</span>
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Add field */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 0' }}>
-              {FIELD_TYPE_OPTIONS.map(opt => (
-                <button key={opt.type} onClick={() => addField(opt.type)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}>
-                  <SFIcon name="plus" size={11} /><SFIcon name={opt.icon} size={11} />{t(opt.labelKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Preview panel */}
-          <div style={{ width: 260, borderLeft: '1px solid var(--border)', overflow: 'auto', padding: 20, background: 'var(--surface-2)', flexShrink: 0 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>{t('overview.clientPreview')}</p>
-            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(249,255,0,0.04)' }}>
-                <p style={{ fontSize: 14, fontWeight: 700 }}>{title || t('overview.formTitlePlaceholder')}</p>
-              </div>
-              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {fields.map((f, i) => (
-                  <div key={f.id}>
-                    <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 6, color: 'var(--text)' }}>
-                      {i + 1}. {f.label || t('overview.question')}{f.required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
-                    </p>
-                    {f.type === 'text' && <div style={{ height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)' }} />}
-                    {f.type === 'textarea' && <div style={{ height: 60, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)' }} />}
-                    {f.type === 'date' && <div style={{ height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', width: 120 }} />}
-                    {f.type === 'yesno' && <div style={{ display: 'flex', gap: 8 }}>{[t('overview.yes'), t('overview.no')].map(v => <div key={v} style={{ padding: '4px 12px', borderRadius: 7, border: '1px solid var(--border)', fontSize: 11, color: 'var(--text-3)' }}>{v}</div>)}</div>}
-                    {f.type === 'file' && <div style={{ height: 40, borderRadius: 7, border: '1px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SFIcon name="upload" size={13} color="var(--text-3)" /></div>}
-                    {f.type === 'choice' && (f.options ?? []).map(opt => <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}><div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} /><span style={{ fontSize: 11, color: 'var(--text-2)' }}>{opt}</span></div>)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FormResponseModal({ form, onClose }: { form: ProjectForm; onClose: () => void }) {
-  const { t } = useTranslation();
-  const [activeResponse, setActiveResponse] = useState(0);
-  const resp = form.responses[activeResponse];
-  return (
-    <SFModal open onClose={onClose} width={560} maxHeight="80vh" padding={0}>
-      <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{form.title}</h3>
-          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('overview.responseCount', { count: form.responses.length })}</p>
-        </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 6 }}><SFIcon name="x" size={16} /></button>
-      </div>
-      {form.responses.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('overview.noResponsesYet')}</div>
-      ) : (
-        <>
-          {form.responses.length > 1 && (
-            <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexShrink: 0 }}>
-              {form.responses.map((r, i) => (
-                <button key={r.id} onClick={() => setActiveResponse(i)}
-                  style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: activeResponse === i ? 'var(--surface-3)' : 'transparent', color: activeResponse === i ? 'var(--text)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  {r.respondent.split(' (')[0]}
-                </button>
-              ))}
-            </div>
-          )}
-          <div style={{ overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <SFIcon name="user" size={14} color="var(--text-3)" />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600 }}>{resp.respondent}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.submittedOn', { date: resp.submittedAt })}</p>
-              </div>
-            </div>
-            {form.fields.map(field => (
-              <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{field.label}</span>
-                <div style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: resp.answers[field.id] ? 'var(--text)' : 'var(--text-3)', fontStyle: resp.answers[field.id] ? 'normal' : 'italic' }}>
-                  {resp.answers[field.id] || t('overview.noAnswer')}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </SFModal>
-  );
-}
-
 // ── Shared ─────────────────────────────────────────────────────────────────────
 
 
@@ -438,9 +173,6 @@ export function TravailOverview() {
 
   const [approvalModal, setApprovalModal] = useState(false);
   const [approvalSent, setApprovalSent] = useState(false);
-  const [formsBuilderOpen, setFormsBuilderOpen] = useState(false);
-  const [formResponseModal, setFormResponseModal] = useState<ProjectForm | null>(null);
-  const [forms, setForms] = useState<ProjectForm[]>(MOCK_FORMS);
   const [deliverables, setDeliverables] = useState<Task[]>(() => getDeliverables(project.id));
   const [resources, setResources] = useState(getResources);
   const [invoices, setInvoices] = useState<Invoice[]>(() => getInvoicesByProject(project.id));
@@ -880,8 +612,8 @@ export function TravailOverview() {
             )}
           </Card>
 
-          {/* ── Documents & fichiers ── */}
-          <Card title="Documents & fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
+          {/* ── Fichiers ── */}
+          <Card title="Fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
             {recentFiles.length === 0 ? (
               <div style={{ padding: '24px 18px', textAlign: 'center' }}>
                 <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noFiles')}</p>
@@ -901,68 +633,6 @@ export function TravailOverview() {
                 </div>
               </div>
             ))}
-          </Card>
-
-          {/* ── Formulaires ── */}
-          <Card
-            title="Formulaires"
-            icon="clipboard-list"
-            action={
-              <SFButton variant="ghost" size="sm" icon="plus" onClick={() => setFormsBuilderOpen(true)}>
-                Nouveau formulaire
-              </SFButton>
-            }
-          >
-            {forms.length === 0 ? (
-              <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                <SFIcon name="clipboard-list" size={24} color="var(--surface-3)" />
-                <p style={{ marginTop: 10 }}>Aucun formulaire créé</p>
-                <button onClick={() => setFormsBuilderOpen(true)} style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  <SFIcon name="plus" size={12} /> Créer un formulaire
-                </button>
-              </div>
-            ) : (
-              forms.map((form, i) => (
-                <div key={form.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < forms.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(100,160,255,0.08)', border: '1px solid rgba(100,160,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <SFIcon name="clipboard-list" size={16} color="var(--info)" />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.title}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{form.fields.length} question{form.fields.length !== 1 ? 's' : ''}</span>
-                      {form.sentAt && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>· Envoyé le {form.sentAt}</span>}
-                      {form.responses.length > 0 && (
-                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--ok)', fontWeight: 600 }}>
-                          · {form.responses.length} réponse{form.responses.length !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    {form.responses.length > 0 && (
-                      <button onClick={e => { e.stopPropagation(); setFormResponseModal(form); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ok)'; (e.currentTarget as HTMLElement).style.color = 'var(--ok)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-                      >
-                        <SFIcon name="eye" size={12} /> Réponses
-                      </button>
-                    )}
-                    <button onClick={e => { e.stopPropagation(); setFormsBuilderOpen(true); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-                    >
-                      <SFIcon name="square-pen" size={12} /> Modifier
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
           </Card>
 
           {/* ── Notes internes ── */}
@@ -1167,8 +837,6 @@ export function TravailOverview() {
           }}
         />
       )}
-      {formsBuilderOpen && <FormBuilderModal onClose={() => setFormsBuilderOpen(false)} />}
-      {formResponseModal && <FormResponseModal form={formResponseModal} onClose={() => setFormResponseModal(null)} />}
 
       {approvalModal && (() => {
         const approver = getClientApprover(project.clientId);
