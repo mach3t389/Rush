@@ -27,6 +27,7 @@ export function EventBlock({ ev, col, numCols, onClick, onChange }: {
   const [preview, setPreview] = useState<{ start: Date; end: Date } | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef(false);
+  const previewRef = useRef<{ start: Date; end: Date } | null>(null);
 
   const start = preview?.start ?? ev.startDate;
   const end   = preview?.end ?? ev.endDate;
@@ -55,13 +56,15 @@ export function EventBlock({ ev, col, numCols, onClick, onChange }: {
         let ne = new Date(d.origEnd.getTime() + deltaMin * 60000);
         if (ns < dayStart) { const diff = dayStart.getTime() - ns.getTime(); ns = new Date(ns.getTime() + diff); ne = new Date(ne.getTime() + diff); }
         if (ne > dayEnd)   { const diff = ne.getTime() - dayEnd.getTime(); ns = new Date(ns.getTime() - diff); ne = new Date(ne.getTime() - diff); }
-        setPreview({ start: ns, end: ne });
+        previewRef.current = { start: ns, end: ne };
+        setPreview(previewRef.current);
       } else {
         const minEnd = new Date(d.origStart.getTime() + 15 * 60000);
         let ne = new Date(d.origEnd.getTime() + deltaMin * 60000);
         if (ne < minEnd) ne = minEnd;
         if (ne > dayEnd) ne = dayEnd;
-        setPreview({ start: d.origStart, end: ne });
+        previewRef.current = { start: d.origStart, end: ne };
+        setPreview(previewRef.current);
       }
     };
 
@@ -70,14 +73,12 @@ export function EventBlock({ ev, col, numCols, onClick, onChange }: {
       window.removeEventListener('mouseup', onMouseUp);
       const d = dragRef.current;
       dragRef.current = null;
-      if (d?.moved) {
+      const finalPreview = previewRef.current;
+      previewRef.current = null;
+      setPreview(null);
+      if (d?.moved && finalPreview) {
         suppressClickRef.current = true;
-        setPreview(cur => {
-          if (cur) onChange(cur.start, cur.end);
-          return null;
-        });
-      } else {
-        setPreview(null);
+        onChange(finalPreview.start, finalPreview.end);
       }
     };
 

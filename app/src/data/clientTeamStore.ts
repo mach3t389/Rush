@@ -27,6 +27,11 @@ let _supabaseFetchStarted: Record<string, boolean> = {};
 const _listeners: Set<() => void> = new Set();
 function notify() { _listeners.forEach(fn => fn()); }
 
+export function subscribeClientTeam(fn: () => void): () => void {
+  _listeners.add(fn);
+  return () => _listeners.delete(fn);
+}
+
 interface ClientContactRow {
   id: string;
   client_id: string;
@@ -146,6 +151,7 @@ export function setClientTeam(clientId: string, team: ClientContact[]): void {
   if (isDemoSession()) {
     demoStore[clientId] = team;
     persistDemo();
+    notify();
     return;
   }
   const previousIds = (_supabaseContacts[clientId] ?? []).map(c => c.id);
@@ -161,6 +167,7 @@ export function addClientTeamMember(clientId: string, member: ClientContact): vo
   if (isDemoSession()) {
     demoStore[clientId] = [...team, member];
     persistDemo();
+    notify();
     return;
   }
   _supabaseContacts[clientId] = [...team, member];
@@ -172,6 +179,7 @@ export function removeClientTeamMember(clientId: string, memberId: string): void
   if (isDemoSession()) {
     demoStore[clientId] = getClientTeam(clientId).filter(m => m.id !== memberId);
     persistDemo();
+    notify();
     return;
   }
   _supabaseContacts[clientId] = getClientTeam(clientId).filter(m => m.id !== memberId);

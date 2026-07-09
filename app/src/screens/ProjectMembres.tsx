@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
-import { getClientExternalTeam } from '../data/clientTeamStore';
+import { getClientExternalTeam, addClientTeamMember } from '../data/clientTeamStore';
+import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
 import { findProject, updateProject } from '../data/projectStore';
 import { isDemoSession } from '../data/authStore';
 import { getTeamMembers, isTeamOwner } from '../data/teamStore';
@@ -365,6 +366,13 @@ export function ProjectMembres() {
 
   const handleAdd = (users: User[]) => {
     persistMembers([...members, ...users]);
+    // Un membre de l'équipe interne ajouté à un projet client rejoint aussi l'équipe
+    // du client (sens unique — l'inverse ne modifie pas les projets du client).
+    users.forEach(u => addClientTeamMember(project.clientId, {
+      id: u.id, name: u.name, role: u.role, email: '', status: 'active',
+      initials: u.initials, color: u.avatarColor, internal: true, userId: u.id,
+      portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS },
+    }));
   };
 
   const handleRemove = (userId: string) => {

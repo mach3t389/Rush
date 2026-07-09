@@ -15,8 +15,9 @@ import { FileBrowser } from './FichiersGlobal';
 
 // ── Client contacts (shared store) ───────────────────────────────────────────
 
-import { getClientContacts, type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
-import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember } from '../data/clientTeamStore';
+import { type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
+import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember, subscribeClientTeam } from '../data/clientTeamStore';
+import { getTeamMembers } from '../data/teamStore';
 import { createInvitation, getInvitationLink } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
@@ -46,7 +47,9 @@ export function getClientApprover(clientId: string): ClientMember | null {
 }
 
 
-const INTERNAL_TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
+function getInternalTeam() {
+  return isDemoSession() ? Object.values(USERS).filter(u => u.role !== 'Cliente') : getTeamMembers();
+}
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
@@ -163,7 +166,7 @@ function InviteModal({ existingEmails, onClose, onInvite }: {
 
 function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: string[]; onClose: () => void; onAssign: (members: ClientMember[]) => void }) {
   const { t } = useTranslation();
-  const available = INTERNAL_TEAM.filter(u => !existingIds.includes(u.id));
+  const available = getInternalTeam().filter(u => !existingIds.includes(u.id));
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => setSelected(prev => {
@@ -242,6 +245,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
   const [showInvite, setShowInvite] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [approverId, setApproverId] = useState<string | null>(() => getStoredApprover(clientId));
+
+  useEffect(() => subscribeClientTeam(() => setMembers(getClientTeam(clientId))), [clientId]);
 
   const removeMember = (id: string) => {
     removeClientTeamMember(clientId, id);
@@ -1096,29 +1101,20 @@ const fmtMoney = (n: number) => `${n.toLocaleString('fr-CA')} $`;
 interface ClientInvoice { id: string; ref: string; label: string; amount: number; status: 'paid' | 'pending' | 'overdue'; date: string; }
 interface ClientFinance { billed: number; paid: number; pending: number; invoices: ClientInvoice[]; }
 
-const FINANCE_TABLE: Record<string, ClientFinance> = {
-  c1: { billed: 18000, paid: 9000, pending: 9000, invoices: [
-    { id: 'f1', ref: 'FAC-2025-058', label: 'Solde 50% — Campagne Été',         amount: 4500, status: 'pending', date: 'Échéance 30 juin' },
-    { id: 'f2', ref: 'FAC-2025-031', label: 'Film institutionnel — Solde',       amount: 4500, status: 'overdue', date: 'En retard · 5 juin' },
-    { id: 'f3', ref: 'FAC-2025-042', label: 'Acompte 50% — Campagne Été',        amount: 4500, status: 'paid',    date: 'Payé 4 juin' },
-    { id: 'f4', ref: 'FAC-2025-018', label: 'Film institutionnel — Acompte',     amount: 4500, status: 'paid',    date: 'Payé 12 mai' },
-  ] },
-  c2: { billed: 12000, paid: 6000, pending: 6000, invoices: [
-    { id: 'f5', ref: 'FAC-2025-051', label: 'Les Bâtisseurs — Tranche 2',        amount: 6000, status: 'pending', date: 'Échéance 20 juil' },
-    { id: 'f6', ref: 'FAC-2025-022', label: 'Les Bâtisseurs — Tranche 1',        amount: 6000, status: 'paid',    date: 'Payé 18 mai' },
-  ] },
-};
-
-function getClientFinance(clientId: string, activeProjects: number): ClientFinance {
-  if (FINANCE_TABLE[clientId]) return FINANCE_TABLE[clientId];
-  const billed = Math.max(1, activeProjects) * 6000;
-  const paid = Math.round(billed / 2);
+function getClientFinance(clientId: string): ClientFinance {
+  const clientInvoices = getInvoicesByClient(clientId);
+  const billed = clientInvoices.reduce((s, i) => s + i.total, 0);
+  const paid = clientInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
   return {
     billed, paid, pending: billed - paid,
-    invoices: [
-      { id: 'fd1', ref: 'FAC-2025-100', label: 'Acompte projet', amount: paid, status: 'paid',    date: 'Payé' },
-      { id: 'fd2', ref: 'FAC-2025-101', label: 'Solde projet',   amount: billed - paid, status: 'pending', date: 'À venir' },
-    ],
+    invoices: clientInvoices.map(i => ({
+      id: i.id,
+      ref: i.number,
+      label: i.title,
+      amount: i.total,
+      status: i.status === 'paid' ? 'paid' : i.status === 'overdue' ? 'overdue' : 'pending',
+      date: i.status === 'paid' ? (i.paidDate ? `Payé ${fmtDate(i.paidDate)}` : 'Payé') : i.status === 'overdue' ? `En retard · ${fmtDate(i.dueDate)}` : `Échéance ${fmtDate(i.dueDate)}`,
+    })),
   };
 }
 
@@ -1141,8 +1137,10 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const contacts = getClientContacts(clientId);
-  const finance = getClientFinance(clientId, client.activeProjects);
+  const [contacts, setContacts] = useState<ClientMember[]>(() => getClientTeam(clientId));
+  useEffect(() => subscribeClientTeam(() => setContacts(getClientTeam(clientId))), [clientId]);
+  const [finance, setFinance] = useState<ClientFinance>(() => getClientFinance(clientId));
+  useEffect(() => subscribeInvoices(() => setFinance(getClientFinance(clientId))), [clientId]);
   const recentActivity = getClientActivities(projects).slice(0, 4);
 
   const activeCount = projects.filter(p => p.status !== 'neutral').length;
