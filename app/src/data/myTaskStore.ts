@@ -159,6 +159,24 @@ async function addSupabaseMyTaskSection(label: string): Promise<void> {
   notify();
 }
 
+async function renameSupabaseMyTaskSection(oldLabel: string, newLabel: string): Promise<void> {
+  const studioId = await getStudioId();
+  const row = _supabaseSectionRows.find(s => s.label === oldLabel);
+  if (!row) return;
+  const { error } = await supabase.from('my_sections').update({ label: newLabel }).eq('studio_id', studioId).eq('id', row.id);
+  if (error) { console.error('renameSupabaseMyTaskSection failed', error); return; }
+  _supabaseSectionRows = _supabaseSectionRows.map(s => s.id === row.id ? { ...s, label: newLabel } : s);
+
+  const affected = _freestandingTasks.filter(t => t.mySection === oldLabel);
+  for (const t of affected) {
+    const merged: Task = { ...t, mySection: newLabel };
+    const { error: taskError } = await supabase.from('my_tasks').update({ data: merged }).eq('studio_id', studioId).eq('id', t.id);
+    if (taskError) { console.error('renameSupabaseMyTaskSection: update task failed', taskError); continue; }
+    _freestandingTasks = _freestandingTasks.map(x => x.id === t.id ? merged : x);
+  }
+  notify();
+}
+
 async function removeSupabaseMyTaskSection(label: string): Promise<void> {
   const studioId = await getStudioId();
   const row = _supabaseSectionRows.find(s => s.label === label);
@@ -213,6 +231,19 @@ export function removeMyTaskSection(label: string): void {
     return;
   }
   void removeSupabaseMyTaskSection(label);
+}
+
+export function renameMyTaskSection(oldLabel: string, newLabel: string): void {
+  if (!newLabel.trim() || newLabel === oldLabel) return;
+  if (isDemoSession()) {
+    _sections = _sections.map(s => s === oldLabel ? newLabel : s);
+    _tasks = _tasks.map(t => t.mySection === oldLabel ? { ...t, mySection: newLabel } : t);
+    savePersisted(SECTIONS_KEY, _sections);
+    savePersisted(STORAGE_KEY, _tasks);
+    notify();
+    return;
+  }
+  void renameSupabaseMyTaskSection(oldLabel, newLabel);
 }
 
 export function updateMyTask(taskId: string, patch: Partial<Task>): void {

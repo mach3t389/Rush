@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, isAssignedTask } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask } from '../data/myTaskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
@@ -870,21 +870,59 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 
 type AddOpts = { priority: Priority; assignee: User | null; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
 
-function SectionHeader({ label, count, collapsed, onToggle, onDelete }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void }) {
+function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void; onRename: (newLabel: string) => void }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState(label);
+  const labelInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editingLabel) labelInputRef.current?.select(); }, [editingLabel]);
+
+  const commitLabel = () => {
+    onRename(labelDraft);
+    setEditingLabel(false);
+  };
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setConfirm(false); }}
       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--surface-2)', borderBottom: collapsed ? 'none' : '1px solid var(--border)' }}
     >
-      <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flex: 1, textAlign: 'left' }}>
+      <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
         <SFIcon name={collapsed ? 'chevron-right' : 'chevron-down'} size={13} color="var(--text-3)" />
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-2)', fontWeight: 600 }}>{label}</span>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({count})</span>
       </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+        {editingLabel ? (
+          <input
+            ref={labelInputRef}
+            value={labelDraft}
+            onChange={e => setLabelDraft(e.target.value)}
+            onBlur={commitLabel}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); commitLabel(); }
+              if (e.key === 'Escape') { setLabelDraft(label); setEditingLabel(false); }
+              e.stopPropagation();
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+              fontWeight: 600, padding: '2px 6px', width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 300,
+              borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none',
+            }}
+          />
+        ) : (
+          <span
+            onClick={() => { setLabelDraft(label); setEditingLabel(true); }}
+            style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-2)', fontWeight: 600, cursor: 'text' }}
+          >
+            {label}
+          </span>
+        )}
+        <span onClick={onToggle} style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', cursor: 'pointer' }}>({count})</span>
+      </div>
       {hovered && !confirm && (
         <button onClick={() => setConfirm(true)} title={t('taskPanel.deleteSection')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2, borderRadius: 5 }}
@@ -1364,6 +1402,7 @@ export function Taches() {
                     collapsed={collapsed}
                     onToggle={() => toggleGroup(g.label)}
                     onDelete={() => removeMyTaskSection(g.label)}
+                    onRename={newLabel => renameMyTaskSection(g.label, newLabel)}
                   />
                   {!collapsed && (
                     <>

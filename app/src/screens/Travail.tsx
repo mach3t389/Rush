@@ -922,7 +922,7 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 
 function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
-  onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection, onCopySection,
+  onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
 }: {
@@ -939,6 +939,7 @@ function Section({
   onDeleteTask: (taskId: string) => void;
   onMoveSection: () => void;
   onCopySection: () => void;
+  onRename: (newLabel: string) => void;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -964,6 +965,16 @@ function Section({
   const [headerHovered, setHeaderHovered] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [taskDragOverIdx, setTaskDragOverIdx] = useState<number | null>(null);
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState(label);
+  const labelInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => { if (editingLabel) labelInputRef.current?.select(); }, [editingLabel]);
+
+  const commitLabel = () => {
+    onRename(labelDraft);
+    setEditingLabel(false);
+  };
   const sectionDragHandleActive = React.useRef(false);
 
   const isExternalTaskDrag = draggedTask !== null && draggedTask.fromSectionLabel !== label;
@@ -1081,13 +1092,37 @@ function Section({
           {completed && <SFIcon name="check" size={10} color="white" />}
         </button>
 
-        <span style={{
-          fontWeight: 600, fontSize: 13,
-          textDecoration: completed ? 'line-through' : 'none',
-          color: completed ? 'var(--text-3)' : 'var(--text)',
-        }}>
-          {label}
-        </span>
+        {editingLabel ? (
+          <input
+            ref={labelInputRef}
+            value={labelDraft}
+            onChange={e => setLabelDraft(e.target.value)}
+            onBlur={commitLabel}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); commitLabel(); }
+              if (e.key === 'Escape') { setLabelDraft(label); setEditingLabel(false); }
+              e.stopPropagation();
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontWeight: 600, fontSize: 13, padding: '2px 6px',
+              width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 300,
+              borderRadius: 6, border: '1px solid var(--accent)',
+              background: 'var(--surface-3)', color: 'var(--text)',
+              fontFamily: 'var(--ff-text)', outline: 'none',
+            }}
+          />
+        ) : (
+          <span
+            onClick={e => { e.stopPropagation(); setLabelDraft(label); setEditingLabel(true); }}
+            style={{
+              fontWeight: 600, fontSize: 13, cursor: 'text',
+              textDecoration: completed ? 'line-through' : 'none',
+              color: completed ? 'var(--text-3)' : 'var(--text)',
+            }}>
+            {label}
+          </span>
+        )}
 
         {completed && (
           <span style={{
@@ -2026,6 +2061,7 @@ export function Travail() {
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
           onDeleteTask={task => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== task.id) })))}
           onDeleteSection={label => setSections(prev => prev.filter(s => s.label !== label))}
+          onRenameSection={(oldLabel, newLabel) => setSections(prev => prev.map(s => s.label === oldLabel ? { ...s, label: newLabel.trim() || s.label } : s))}
           projectId={project.id}
           projectName={project.name}
           projectColor={project.clientColor}

@@ -143,6 +143,7 @@ interface Props {
   onAddSection: (label: string) => void;
   onDeleteTask: (task: Task) => void;
   onDeleteSection: (sectionLabel: string) => void;
+  onRenameSection: (oldLabel: string, newLabel: string) => void;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -154,7 +155,7 @@ export function TravailBoard({
   sections, selectedTask, multiSelIds,
   onSelectTask, onUpdateTask, onToggleSectionComplete,
   onAddTask, onMoveTask, onAddSection,
-  onDeleteTask, onDeleteSection,
+  onDeleteTask, onDeleteSection, onRenameSection,
   projectId, projectName, projectColor,
 }: Props) {
   const { t } = useTranslation();
@@ -168,7 +169,20 @@ export function TravailBoard({
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [openDrop, setOpenDrop] = useState<{ taskId: string; type: 'status' | 'priority' | 'assignee' | 'date'; rect: DOMRect } | null>(null);
+  const [editingSectionLabel, setEditingSectionLabel] = useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = useState('');
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const firstUser = TEAM[0];
+
+  useEffect(() => {
+    if (editingSectionLabel !== null) labelInputRef.current?.select();
+  }, [editingSectionLabel]);
+
+  const commitLabel = (originalLabel: string) => {
+    const trimmed = labelDraft.trim();
+    if (trimmed && trimmed !== originalLabel) onRenameSection(originalLabel, trimmed);
+    setEditingSectionLabel(null);
+  };
 
   const toggleCollapse = (label: string) => {
     setCollapsedSections(prev => {
@@ -262,9 +276,31 @@ export function TravailBoard({
                     {section.completed && <SFIcon name="check" size={8} color="#fff" />}
                   </button>
 
-                  <span style={{ fontWeight: 600, fontSize: 13, flex: 1, color: section.completed ? 'var(--text-3)' : 'var(--text)', textDecoration: section.completed ? 'line-through' : 'none' }}>
-                    {section.label}
-                  </span>
+                  {editingSectionLabel === section.label ? (
+                    <input
+                      ref={labelInputRef}
+                      value={labelDraft}
+                      onChange={e => setLabelDraft(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      onBlur={() => commitLabel(section.label)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitLabel(section.label); }
+                        else if (e.key === 'Escape') { setEditingSectionLabel(null); }
+                      }}
+                      style={{
+                        fontWeight: 600, fontSize: 13, color: 'var(--text)', background: 'var(--surface-2)',
+                        border: '1px solid var(--accent)', borderRadius: 5, padding: '1px 5px',
+                        width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 180, fontFamily: 'var(--ff-text)',
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onClick={e => { e.stopPropagation(); setLabelDraft(section.label); setEditingSectionLabel(section.label); }}
+                      style={{ fontWeight: 600, fontSize: 13, flex: 1, color: section.completed ? 'var(--text-3)' : 'var(--text)', textDecoration: section.completed ? 'line-through' : 'none', cursor: 'text' }}
+                    >
+                      {section.label}
+                    </span>
+                  )}
 
                   {confirmDeleteSection === section.label ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
