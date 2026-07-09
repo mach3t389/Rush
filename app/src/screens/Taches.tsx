@@ -306,7 +306,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
   const titleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
-  useEffect(() => { if (!editingTitle) setTitleDraft(task.title); }, [task.title, editingTitle]);
 
   const commitTitle = () => {
     const trimmed = titleDraft.trim();
@@ -401,6 +400,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         onDoubleClick={e => {
           e.stopPropagation();
           if (titleClickTimerRef.current) { clearTimeout(titleClickTimerRef.current); titleClickTimerRef.current = null; }
+          setTitleDraft(task.title);
           setEditingTitle(true);
         }}
         style={{ overflow: 'hidden', cursor: editingTitle ? 'text' : 'pointer' }}
@@ -431,7 +431,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             color: 'var(--text)', display: 'block',
           }}>
-            {titleDraft}
+            {task.title}
           </span>
         )}
       </div>
