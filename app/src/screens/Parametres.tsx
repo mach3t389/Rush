@@ -9,6 +9,7 @@ import {
   type ShortcutAction, type ShortcutCombo,
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
+import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, type StudioInfo } from '../data/studioStore';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
@@ -1308,6 +1309,9 @@ function PlanSettings() {
 export function Parametres() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState('infos');
+  const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
+  useEffect(() => subscribeStudioInfo(() => setStudioInfo(getStudioInfo())), []);
+  const saveStudioField = (field: keyof StudioInfo, value: string) => updateStudioInfo({ [field]: value });
   const [uiFonts, setUiFonts] = useState(loadUiFonts);
   const [customHeadings, setCustomHeadings] = useState<typeof HEADING_FONTS>([]);
   const [customBodies, setCustomBodies] = useState<typeof BODY_FONTS>([]);
@@ -1377,17 +1381,19 @@ export function Parametres() {
             </div>
 
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {[
-                { label: t('settings.studioName'), value: 'StudioFlow Production', type: 'text' },
-                { label: t('settings.studioSector'), value: 'Production vidéo', type: 'text' },
-                { label: t('settings.studioWebsite'), value: 'https://studioflow.fr', type: 'text' },
-              ].map(field => (
-                <div key={field.label}>
+              {([
+                ['name', t('settings.studioName')],
+                ['sector', t('settings.studioSector')],
+                ['website', t('settings.studioWebsite')],
+              ] as const).map(([field, label]) => (
+                <div key={field}>
                   <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>
-                    {field.label}
+                    {label}
                   </label>
                   <input
-                    defaultValue={field.value}
+                    value={studioInfo[field]}
+                    onChange={e => setStudioInfo(s => ({ ...s, [field]: e.target.value }))}
+                    onBlur={e => saveStudioField(field, e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
                   />
                 </div>
@@ -1395,7 +1401,9 @@ export function Parametres() {
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>{t('settings.address')}</label>
                 <textarea
-                  defaultValue={"42 rue de la Paix\n75001 Paris\nFrance"}
+                  value={studioInfo.address}
+                  onChange={e => setStudioInfo(s => ({ ...s, address: e.target.value }))}
+                  onBlur={e => saveStudioField('address', e.target.value)}
                   rows={3}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'var(--ff-text)' }}
                 />
@@ -1429,11 +1437,6 @@ export function Parametres() {
                   setter={setLogoSquare}
                 />
               </div>
-            </div>
-
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <SFButton variant="primary">{t('settings.saveChanges')}</SFButton>
             </div>
           </div>
         )}

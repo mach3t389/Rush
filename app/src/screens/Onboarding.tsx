@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
 import { getCurrentUser } from '../data/authStore';
 import { getLogoFull, setLogoFull, getLogoSquare, setLogoSquare } from '../data/studioLogoStore';
+import { updateStudioInfo } from '../data/studioStore';
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
 
@@ -119,9 +120,11 @@ export function Onboarding() {
   };
 
   const saveStep1 = () => {
-    if (studioName.trim()) {
-      try { localStorage.setItem('sf_studio_name', studioName.trim()); } catch { /* noop */ }
-    }
+    updateStudioInfo({
+      ...(studioName.trim() ? { name: studioName.trim() } : {}),
+      sector: sector.trim(),
+      website: website.trim(),
+    });
   };
 
   const next = () => {

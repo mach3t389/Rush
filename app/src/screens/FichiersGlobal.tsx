@@ -1897,6 +1897,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const [isDraggingOver, setIsDraggingOver]           = useState(false);
   const fileInputRef                                  = useRef<HTMLInputElement>(null);
   const [newBtnOpen, setNewBtnOpen]                   = useState(false);
+  // En vue colonnes, un clic droit dans une colonne donnée doit créer le nouvel
+  // élément dans CETTE colonne, pas dans la colonne active (location) — sinon
+  // « ajouter un fichier » depuis une colonne de gauche l'ajoute toujours à la
+  // colonne la plus à droite. null = utiliser `location` (comportement normal
+  // hors vue colonnes / bouton "Nouveau" de la barre d'outils).
+  const [addTargetLoc, setAddTargetLoc]               = useState<NavLocation | null>(null);
   const [newResourceDef, setNewResourceDef]           = useState<typeof RESOURCE_TYPES[number] | null>(null);
   const [showRevisionPicker, setShowRevisionPicker] = useState(false);
   const [pendingRevision, setPendingRevision]       = useState<RevisionSelection | null>(null);
@@ -2121,28 +2127,30 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   const handleNewFolder = (name: string) => {
-    const { scope, scopeId, folderId } = location;
+    const { scope, scopeId, folderId } = addTargetLoc ?? location;
     addFolder({
       name,
       parentId: folderId,
       projectId: scope === 'project' ? scopeId : undefined,
       clientId:  scope === 'client'  ? scopeId : undefined,
     });
+    setAddTargetLoc(null);
   };
 
   const handleAddFile = (name: string, type: FileItemType, ext: string) => {
-    const { scope, scopeId, folderId } = location;
+    const { scope, scopeId, folderId } = addTargetLoc ?? location;
     addFile({
       name, type, ext,
       parentFolderId: folderId,
       projectId: scope === 'project' ? scopeId : undefined,
       clientId:  scope === 'client'  ? scopeId : undefined,
     });
+    setAddTargetLoc(null);
   };
 
   // Traite des fichiers réels déposés (drag-and-drop OS ou input[type=file])
   const processUploadedFiles = useCallback((files: File[]) => {
-    const { scope, scopeId, folderId } = location;
+    const { scope, scopeId, folderId } = addTargetLoc ?? location;
     for (const file of files) {
       const ext = (file.name.split('.').pop() ?? '').toLowerCase();
       const type = fileTypeFromExt(ext);
@@ -2156,7 +2164,8 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       setUploadingIds((prev) => [...prev, { id: newFile.id, name: file.name }]);
       setFileContent(newFile.id, file);
     }
-  }, [location]);
+    setAddTargetLoc(null);
+  }, [location, addTargetLoc]);
 
   useEffect(() => {
     if (uploadingIds.length === 0) return;
@@ -2165,7 +2174,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   }, [uploadingIds, uploadTick]);
 
   const handleCreateResource = (def: typeof RESOURCE_TYPES[number], name: string, webUrl?: string) => {
-    const { scope, scopeId, folderId } = location;
+    const { scope, scopeId, folderId } = addTargetLoc ?? location;
     const projectId = scope === 'project' ? scopeId : undefined;
     const resourceId = `res-${Date.now()}`;
     const isRevision = def.type === 'video_review' && pendingRevision;
@@ -2184,6 +2193,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     addFile({ name, type: 'resource', ext: 'res', parentFolderId: folderId, projectId, resourceId, resourceType: actualType,
       ...(isRevision && pendingRevision!.mediaSubtype ? { mediaSubtype: pendingRevision!.mediaSubtype } : {}) });
     setPendingRevision(null);
+    setAddTargetLoc(null);
   };
 
   const handleFolderCtx = (e: React.MouseEvent, folder: FileFolder) => {
@@ -2293,29 +2303,35 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
 
   // ── "Nouveau" menu items (shared between the + button dropdown and the
   //    background right-click context menu) ──────────────────────────────────
-  const newMenuItems = (): CtxMenuItem[] => {
+  const isSpecialLoc = (loc: NavLocation) => loc.scope === 'global' && (loc.folderId === 'folder-trash' || loc.folderId === 'folder-archives');
+  const canAddAt = (loc: NavLocation) => loc.scope !== 'clients' && !isSpecialLoc(loc);
+  const canAddFileAt = (loc: NavLocation) => canAddAt(loc) && (loc.scope !== 'root' || !!lockedScope);
+
+  // targetLoc : emplacement où créer le nouvel élément — la colonne cliquée en
+  // vue colonnes, sinon `location` (comportement du bouton "Nouveau" normal).
+  const newMenuItems = (targetLoc: NavLocation = location): CtxMenuItem[] => {
     const items: CtxMenuItem[] = [
-      { label: 'Nouveau dossier', icon: 'folder-plus', action: () => setShowNewFolder(true) },
+      { label: 'Nouveau dossier', icon: 'folder-plus', action: () => { setAddTargetLoc(targetLoc); setShowNewFolder(true); } },
     ];
-    if (canAddFile) {
-      items.push({ label: 'Importer un fichier', icon: 'upload', action: () => fileInputRef.current?.click() });
+    if (canAddFileAt(targetLoc)) {
+      items.push({ label: 'Importer un fichier', icon: 'upload', action: () => { setAddTargetLoc(targetLoc); fileInputRef.current?.click(); } });
     }
     items.push({ label: '', icon: '', action: () => {}, separator: true });
     items.push({ label: 'Ressources', icon: '', action: () => {}, header: true });
     RESOURCE_TYPES.forEach(def => {
       items.push({
         label: t(def.labelKey), icon: def.icon, color: def.color,
-        action: () => { if (def.type === 'video_review') setShowRevisionPicker(true); else setNewResourceDef(def); },
+        action: () => { setAddTargetLoc(targetLoc); if (def.type === 'video_review') setShowRevisionPicker(true); else setNewResourceDef(def); },
       });
     });
     return items;
   };
 
   // Background right-click on the main content area → open the "Nouveau" menu.
-  const handleBgCtx = (e: React.MouseEvent) => {
-    if (!canAdd) return;
+  const handleBgCtx = (e: React.MouseEvent, targetLoc: NavLocation = location) => {
+    if (!canAddAt(targetLoc)) return;
     e.preventDefault();
-    setCtx({ pos: { x: e.clientX, y: e.clientY }, items: newMenuItems() });
+    setCtx({ pos: { x: e.clientX, y: e.clientY }, items: newMenuItems(targetLoc) });
   };
 
   // Prevents native browser text-selection on shift/ctrl+click before React handles it.
@@ -2651,7 +2667,11 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     const [showMenu, setShowMenu] = React.useState(false);
     const isPinned = pinnedIds.includes(project.id);
     return (
-      <div style={{ position: 'relative' }}>
+      <div
+        style={{ position: 'relative' }}
+        onMouseEnter={() => setShowPin(true)}
+        onMouseLeave={() => { setShowPin(false); if (!showMenu) setShowMenu(false); }}
+      >
         <VirtualCard
           id={`project-${project.id}`}
           label={project.name}
@@ -2712,11 +2732,6 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
             </button>
           </div>
         )}
-        <div
-          onMouseEnter={() => setShowPin(true)}
-          onMouseLeave={() => { setShowPin(false); if (!showMenu) setShowMenu(false); }}
-          style={{ position: 'absolute', inset: 0, borderRadius: 12, cursor: 'pointer' }}
-        />
       </div>
     );
   };
@@ -2816,11 +2831,13 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     });
 
     return (
-      <div style={{
-        width: 220, flexShrink: 0, height: '100%', overflowY: 'auto',
-        borderRight: '1px solid var(--border)', padding: '8px 6px',
-        background: depth % 2 === 0 ? 'var(--surface)' : 'var(--bg)',
-      }}>
+      <div
+        onContextMenu={e => handleBgCtx(e, loc)}
+        style={{
+          width: 220, flexShrink: 0, height: '100%', overflowY: 'auto',
+          borderRight: '1px solid var(--border)', padding: '8px 6px',
+          background: depth % 2 === 0 ? 'var(--surface)' : 'var(--bg)',
+        }}>
         {/* Root: show Clients folder */}
         {loc.scope === 'root' && (
           <div
@@ -3180,8 +3197,6 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   // Les roots de projet/client sont de vrais espaces de travail → ajout possible en vue globale ET verrouillée (parité).
   const isAtVirtualRoot = location.scope === 'clients';
   const canAdd = !isAtVirtualRoot && !isSpecialView;
-  // Un fichier a besoin d'un emplacement concret : pas à la racine globale (sauf en mode verrouillé où la racine = le projet/client).
-  const canAddFile = canAdd && (location.scope !== 'root' || !!lockedScope);
 
   // Convert folder structure to FolderNode[]
   const folderStructureToNodes = (projectId: string): FolderNode[] => {
