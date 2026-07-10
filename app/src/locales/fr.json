@@ -336,6 +336,7 @@
     "deleteProjectPermanently": "Supprimer définitivement",
     "deleteProjectConfirm": "Supprimer ce projet et tout son contenu ? Cette action est irréversible.",
     "archivedBadge": "Archivé",
+    "activeBadge": "Actif",
     "deliveryDate": "Date de livraison",
     "optional": "(optionnel)",
     "chooseDate": "Choisir une date…",

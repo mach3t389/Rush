@@ -436,16 +436,23 @@ export function ProjectCard({ p }: { p: Project }) {
         {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
       </div>
 
+      {/* Bottom row mirrors the client card layout: pill(s) on the left,
+          plain relative timestamp on the right (no "Modifié" prefix) — the
+          archived/actif pill is new, added alongside the existing
+          production-status pill rather than replacing it. */}
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.modified', { date: p.modifiedAt })}</span>
-        <button
-          onClick={openStatusDrop}
-          title={t('projects.changeStatus')}
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
-        >
-          <SFPill status={status} small>{statusLabel}</SFPill>
-          <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <SFPill status={p.archived ? 'neutral' : 'ok'} small>{p.archived ? t('projects.archivedBadge') : t('projects.activeBadge')}</SFPill>
+          <button
+            onClick={openStatusDrop}
+            title={t('projects.changeStatus')}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+          >
+            <SFPill status={status} small>{statusLabel}</SFPill>
+            <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+          </button>
+        </div>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{p.modifiedAt}</span>
       </div>
 
       {/* Status dropdown */}
