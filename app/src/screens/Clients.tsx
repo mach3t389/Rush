@@ -86,7 +86,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', boxShadow: '0 24px 72px rgba(0,0,0,0.6)', width: 480, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
@@ -206,7 +206,7 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
   return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 

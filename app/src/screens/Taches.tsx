@@ -273,6 +273,33 @@ function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number;
   );
 }
 
+function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
+  pos: { x: number; y: number }; onRename: () => void; onDelete: () => void; onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+      {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>{t('taskPanel.renameSection')}</span></>, onRename)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('taskPanel.deleteSection')}</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
+
 function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -625,11 +652,11 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         </button>
         {open === 'assignee' && (
           <InlineDropdown anchorRef={assigneeBtnRef} onClose={() => setOpen(null)}>
-            {ddItem(() => { setAssignee(null); setOpen(null); },
+            {ddItem(() => { setAssignee(null); setOpen(null); updateMyTask(task.id, { assignee: undefined }); },
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee === null
             )}
-            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); },
+            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); updateMyTask(task.id, { assignee: u }); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}
@@ -655,7 +682,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         </button>
         {open === 'priority' && (
           <InlineDropdown anchorRef={priorityBtnRef} onClose={() => setOpen(null)}>
-            {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); },
+            {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); updateMyTask(task.id, { priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); },
               <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
               priority === p
             ))}
@@ -678,7 +705,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         </button>
         {open === 'status' && (
           <InlineDropdown anchorRef={statusBtnRef} onClose={() => setOpen(null)}>
-            {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(t(o.labelKey)); setOpen(null); },
+            {STATUS_OPTIONS.map(o => ddItem(() => { setStatus(o.value); setStatusLabel(t(o.labelKey)); setOpen(null); updateMyTask(task.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); },
               <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
               status === o.value
             ))}
@@ -879,6 +906,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState(label);
   const labelInputRef = useRef<HTMLInputElement>(null);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => { if (editingLabel) labelInputRef.current?.select(); }, [editingLabel]);
 
@@ -891,6 +919,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setConfirm(false); }}
+      onContextMenu={e => { e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--surface-2)', borderBottom: collapsed ? 'none' : '1px solid var(--border)' }}
     >
       <button onClick={onToggle} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
@@ -939,6 +968,14 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
           <button onClick={onDelete} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.yes')}</button>
           <button onClick={() => setConfirm(false)} style={{ padding: '2px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
         </div>
+      )}
+      {ctxPos && (
+        <SectionContextMenu
+          pos={ctxPos}
+          onRename={() => { setLabelDraft(label); setEditingLabel(true); }}
+          onDelete={() => setConfirm(true)}
+          onClose={() => setCtxPos(null)}
+        />
       )}
     </div>
   );
@@ -1168,6 +1205,7 @@ export function Taches() {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [groupByPriority, setGroupByPriority] = usePersistedState<boolean>('sf_taches_group_prio', false);
+  const [hideCompleted, setHideCompleted] = usePersistedState<boolean>('sf_taches_hide_completed', false);
 
   React.useEffect(() => subscribeMyTasks(() => { setTasks(getMyTasks()); setMySections(getMyTaskSections()); }), []);
 
@@ -1235,6 +1273,7 @@ export function Taches() {
   if (filterStatusesSet.size > 0)   visible = visible.filter(t => filterStatusesSet.has(t.status as string));
   // Les tâches terminées disparaissent de Mes tâches (elles restent dans leur projet).
   visible = visible.filter(t => !t.checked);
+  if (hideCompleted) visible = visible.filter(t => t.status !== 'ok');
 
   const activeTasks = tasks.filter(t => !t.checked);
   const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
@@ -1330,6 +1369,14 @@ export function Taches() {
           >
             <SFIcon name="layers" size={12} color={groupByPriority ? 'var(--accent)' : 'var(--text-3)'} />
             {t('tasks.priority')}
+          </button>
+          <button
+            onClick={() => setHideCompleted(v => !v)}
+            title={hideCompleted ? t('tasks.showCompleted') : t('tasks.hideCompleted')}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${hideCompleted ? 'var(--accent)' : 'var(--border)'}`, background: hideCompleted ? 'rgba(249,255,0,0.08)' : 'transparent', color: hideCompleted ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
+          >
+            <SFIcon name={hideCompleted ? 'eye-off' : 'eye'} size={12} color={hideCompleted ? 'var(--accent)' : 'var(--text-3)'} />
+            {t('tasks.hideCompleted')}
           </button>
           <FilterBar
             filterPriorities={filterPrioritiesSet}

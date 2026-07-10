@@ -68,7 +68,7 @@ function RevisionPickerModal({ onSelect, onClose }: {
   const { t } = useTranslation();
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 420, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
           <div style={{ width: 36, height: 36, borderRadius: 9, background: '#a05be822', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -120,7 +120,7 @@ function NewResourceModal({ def, isWebReview, onSave, onClose }: { def: typeof R
   const handle = () => { if (!name.trim()) return; onSave(name.trim(), isWebReview ? webUrl.trim() : undefined); onClose(); };
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 400, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: def.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -416,7 +416,7 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string) => void; o
   useEffect(() => { ref.current?.select(); }, []);
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 380, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{t('files.newFolder')}</h3>
         <input
@@ -663,7 +663,7 @@ function AddFileModal({ onSave, onClose }: { onSave: (name: string, type: FileIt
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 420, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{t('files.addFile')}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -3932,7 +3932,7 @@ function SaveTemplateModal({ projectName, templateName, onNameChange, onSave, on
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '24px 28px', width: 420, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Sauvegarder comme modèle</h3>
         <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>Enregistrez la structure de dossiers du projet <strong>{projectName}</strong> comme modèle réutilisable.</p>

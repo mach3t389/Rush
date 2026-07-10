@@ -2016,7 +2016,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
       {/* ── Add resource modal ─────────────────────────────────────────────────── */}
       {showAddResource && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onClick={e => { if (e.target === e.currentTarget) setShowAddResource(false); }}>
+          onMouseDown={e => { if (e.target === e.currentTarget) setShowAddResource(false); }}>
           <div style={{ width: 560, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <p style={{ fontWeight: 700, fontSize: 15 }}>Ajouter une ressource</p>

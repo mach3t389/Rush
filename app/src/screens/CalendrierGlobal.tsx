@@ -18,6 +18,7 @@ import {
 import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
 import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
+import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -685,9 +686,10 @@ export function CalendrierGlobal() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setShowCreate(false); setSelectedEvent(null); return; }
       if ((e.target as HTMLElement).matches('input,textarea,[contenteditable]')) return;
-      if (e.key === 'm') setView('month');
-      if (e.key === 'w') setView('week');
-      if (e.key === 'j' || e.key === 'd') setView('day');
+      const shortcuts = getShortcuts();
+      if (matchesShortcut(e, shortcuts.cal_month)) setView('month');
+      if (matchesShortcut(e, shortcuts.cal_week)) setView('week');
+      if (matchesShortcut(e, shortcuts.cal_day)) setView('day');
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);

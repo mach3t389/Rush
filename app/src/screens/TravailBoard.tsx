@@ -46,6 +46,33 @@ function DropMenu({ rect, onClose, children }: { rect: DOMRect; onClose: () => v
   );
 }
 
+function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
+  pos: { x: number; y: number }; onRename: () => void; onDelete: () => void; onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+      {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>{t('taskPanel.renameSection')}</span></>, onRename)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('board.deleteSection')}</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
+
 function DItem({ label, active, danger, onClick }: { label: React.ReactNode; active?: boolean; danger?: boolean; onClick: () => void }) {
   return (
     <button
@@ -165,6 +192,7 @@ export function TravailBoard({
   const [newLabel, setNewLabel] = useState('');
   const [ctxMenu, setCtxMenu] = useState<{ task: Task; sectionIdx: number; x: number; y: number } | null>(null);
   const [confirmDeleteSection, setConfirmDeleteSection] = useState<string | null>(null);
+  const [sectionCtxMenu, setSectionCtxMenu] = useState<{ label: string; x: number; y: number } | null>(null);
   const [hoveredHeader, setHoveredHeader] = useState<string | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -263,6 +291,7 @@ export function TravailBoard({
                 style={{ padding: '12px 14px 10px', flexShrink: 0 }}
                 onMouseEnter={() => setHoveredHeader(section.label)}
                 onMouseLeave={() => { setHoveredHeader(null); setConfirmDeleteSection(null); }}
+                onContextMenu={e => { e.preventDefault(); setSectionCtxMenu({ label: section.label, x: e.clientX, y: e.clientY }); }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
                   {/* Section complete toggle */}
@@ -578,6 +607,19 @@ export function TravailBoard({
           sections={sections}
           currentSectionIdx={ctxMenu.sectionIdx}
           onMoveToSection={toIdx => { onMoveTask(ctxMenu.task, ctxMenu.sectionIdx, toIdx); setCtxMenu(null); }}
+        />
+      )}
+
+      {sectionCtxMenu && (
+        <SectionContextMenu
+          pos={{ x: sectionCtxMenu.x, y: sectionCtxMenu.y }}
+          onRename={() => { setLabelDraft(sectionCtxMenu.label); setEditingSectionLabel(sectionCtxMenu.label); }}
+          onDelete={() => {
+            const target = sections.find(s => s.label === sectionCtxMenu.label);
+            if (target && target.tasks.length > 0) setConfirmDeleteSection(sectionCtxMenu.label);
+            else onDeleteSection(sectionCtxMenu.label);
+          }}
+          onClose={() => setSectionCtxMenu(null)}
         />
       )}
 

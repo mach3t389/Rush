@@ -181,7 +181,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', boxShadow: '0 24px 72px rgba(0,0,0,0.6)', width: 820, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}

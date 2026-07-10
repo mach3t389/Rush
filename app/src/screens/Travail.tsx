@@ -365,6 +365,34 @@ function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number;
   );
 }
 
+function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }: {
+  pos: { x: number; y: number }; onRename: () => void; onCopy: () => void; onMove: () => void; onDelete: () => void; onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
+      {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>Renommer</span></>, onRename)}
+      {item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>Copier vers un autre projet</span></>, onCopy)}
+      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>Déplacer vers un autre projet</span></>, onMove)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
+
 // Demo sessions can assign to any of the 5 mock people. Real sessions read
 // the studio's real team roster (teamStore.ts) — invited members, not just
 // the current user.
@@ -985,6 +1013,7 @@ function Section({
   }, [completed]);
   const [headerHovered, setHeaderHovered] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const [taskDragOverIdx, setTaskDragOverIdx] = useState<number | null>(null);
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState(label);
@@ -1069,6 +1098,7 @@ function Section({
       <div
         onMouseEnter={() => setHeaderHovered(true)}
         onMouseLeave={() => { setHeaderHovered(false); setConfirmDelete(false); }}
+        onContextMenu={e => { e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)', background: completed ? 'rgba(255,255,255,0.02)' : 'transparent' }}
       >
 
@@ -1207,6 +1237,17 @@ function Section({
           </div>
         )}
       </div>
+
+      {ctxPos && (
+        <SectionContextMenu
+          pos={ctxPos}
+          onRename={() => { setLabelDraft(label); setEditingLabel(true); }}
+          onCopy={onCopySection}
+          onMove={onMoveSection}
+          onDelete={() => { if (tasks.length > 0) setConfirmDelete(true); else onDelete(); }}
+          onClose={() => setCtxPos(null)}
+        />
+      )}
 
       {!collapsed && (
         <>
@@ -1810,7 +1851,7 @@ export function Travail() {
     .filter(s => showCompletedSections || !s.completed)
     .map(s => ({
       ...s,
-      tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked),
+      tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked && t.status !== 'ok'),
     }));
 
   const anchorTaskId = React.useRef<string | null>(null);

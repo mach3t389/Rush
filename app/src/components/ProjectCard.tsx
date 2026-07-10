@@ -89,7 +89,11 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget) save(); }}
+      // onMouseDown (not onClick) — closing must trigger only when the press
+      // itself starts on the backdrop. A click fires wherever the mouse is
+      // released, so a text-selection drag started inside the panel and
+      // released over the backdrop would otherwise close it unintentionally.
+      onMouseDown={e => { if (e.target === e.currentTarget) save(); }}
     >
       <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 

@@ -101,7 +101,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('team.inviteMember')}</h3>

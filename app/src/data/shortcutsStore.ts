@@ -7,18 +7,24 @@ export interface ShortcutCombo {
   alt: boolean;
 }
 
-export type ShortcutAction = 'search' | 'ai_toggle' | 'ai_mic';
+export type ShortcutAction = 'search' | 'ai_toggle' | 'ai_mic' | 'cal_month' | 'cal_week' | 'cal_day';
 
 export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutCombo> = {
   search:    { key: 'r', ctrl: false, shift: false, alt: false },
   ai_toggle: { key: 'i', ctrl: false, shift: false, alt: false },
   ai_mic:    { key: 'm', ctrl: true,  shift: false, alt: false },
+  cal_month: { key: 'm', ctrl: false, shift: false, alt: false },
+  cal_week:  { key: 'w', ctrl: false, shift: false, alt: false },
+  cal_day:   { key: 'j', ctrl: false, shift: false, alt: false },
 };
 
 export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   search:    'Recherche',
   ai_toggle: 'Ouvrir/fermer l\'IA',
   ai_mic:    'Micro IA',
+  cal_month: 'Calendrier — vue Mois',
+  cal_week:  'Calendrier — vue Semaine',
+  cal_day:   'Calendrier — vue Jour',
 };
 
 const STORAGE_KEY = 'sf_shortcuts';

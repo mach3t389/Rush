@@ -471,6 +471,9 @@ const SHORTCUT_ACTIONS: Array<{ action: ShortcutAction; labelKey: string; descri
   { action: 'search',    labelKey: 'settings.shortcutSearch',    description: 'Ouvre la palette de recherche' },
   { action: 'ai_toggle', labelKey: 'settings.shortcutAiToggle',  description: 'Affiche ou masque le panneau IA' },
   { action: 'ai_mic',    labelKey: 'settings.shortcutAiMic',     description: 'Active le micro dans l\'assistant IA (panneau ouvert)' },
+  { action: 'cal_month', labelKey: 'settings.shortcutCalMonth',  description: 'Bascule le calendrier en vue Mois' },
+  { action: 'cal_week',  labelKey: 'settings.shortcutCalWeek',   description: 'Bascule le calendrier en vue Semaine' },
+  { action: 'cal_day',   labelKey: 'settings.shortcutCalDay',    description: 'Bascule le calendrier en vue Jour' },
 ];
 
 function KeyboardShortcutsSettings() {

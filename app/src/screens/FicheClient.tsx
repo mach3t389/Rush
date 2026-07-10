@@ -89,7 +89,7 @@ function InviteModal({ existingEmails, onClose, onInvite }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 440, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.invitePerson')}</h3>
@@ -188,7 +188,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 400, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.assignInternalMembers')}</h3>
@@ -418,7 +418,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 500, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-        onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+        onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
         <div style={{ width: 420, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Header */}
           <div style={{ padding: '20px 20px 0', borderBottom: '1px solid var(--border)' }}>
@@ -1407,7 +1407,9 @@ function ClientEditPanel({ client, onClose }: {
   return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      // onMouseDown, not onClick — a text-selection drag started inside the
+      // panel and released over the backdrop must not close it.
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
