@@ -2498,7 +2498,7 @@ export function Modeles() {
   const [tplEditorData, setTplEditorData] = useState<Partial<ProjectTemplate>>({});
   const [createProjectFrom, setCreateProjectFrom] = useState<ProjectTemplate | null>(null);
   const [previewTpl, setPreviewTpl] = useState<ProjectTemplate | null>(null);
-  const [builtInsCollapsed, setBuiltInsCollapsed] = useState(true);
+  const [builtInsCollapsed, setBuiltInsCollapsed] = useState(false);
   const [dragTplId, setDragTplId] = useState<string | null>(null);
   const [dragOverTplId, setDragOverTplId] = useState<string | null>(null);
 
@@ -2507,7 +2507,7 @@ export function Modeles() {
   const [selectedRes, setSelectedRes] = useState<ResourceTemplate | null>(() => { const all = loadAllResourceTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
   const [resEditorOpen, setResEditorOpen] = useState(false);
   const [resEditorData, setResEditorData] = useState<Partial<ResourceTemplate>>({});
-  const [resBuiltInsCollapsed, setResBuiltInsCollapsed] = useState(true);
+  const [resBuiltInsCollapsed, setResBuiltInsCollapsed] = useState(false);
   const [templateResViewTpl, setTemplateResViewTpl] = useState<ResourceTemplate | null>(null);
   const [dragResId, setDragResId] = useState<string | null>(null);
   const [dragOverResId, setDragOverResId] = useState<string | null>(null);
@@ -2520,7 +2520,7 @@ export function Modeles() {
   const [formFillerOpen, setFormFillerOpen] = useState(false);
   const [formFillerInstance, setFormFillerInstance] = useState<FormInstance | undefined>();
   const [formDetailTab, setFormDetailTab] = useState<'apercu' | 'reponses'>('apercu');
-  const [formBuiltInsCollapsed, setFormBuiltInsCollapsed] = useState(true);
+  const [formBuiltInsCollapsed, setFormBuiltInsCollapsed] = useState(false);
   const [dragFormId, setDragFormId] = useState<string | null>(null);
   const [dragOverFormId, setDragOverFormId] = useState<string | null>(null);
 
