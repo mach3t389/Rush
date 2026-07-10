@@ -463,9 +463,11 @@ export function TravailBoard({
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: PRIORITY_COLOR[task.priority], flexShrink: 0, display: 'block' }} />
-                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: PRIORITY_COLOR[task.priority], letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                              {t(PRIORITY_LABEL_KEY[task.priority])}
-                            </span>
+                            {task.priority !== 'none' && (
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: PRIORITY_COLOR[task.priority], letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                {t(PRIORITY_LABEL_KEY[task.priority])}
+                              </span>
+                            )}
                           </button>
                         </div>
 
@@ -481,9 +483,14 @@ export function TravailBoard({
                             onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'status', rect: e.currentTarget.getBoundingClientRect() }); }}
                             onMouseDown={e => e.stopPropagation()}
                             title={t('board.changeStatus')}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, borderRadius: 6 }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', minHeight: 20, borderRadius: 6 }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
-                            <SFPill status={task.status} small>{task.statusLabel || t('board.statusNone')}</SFPill>
+                            {task.statusLabel
+                              ? <SFPill status={task.status} small>{task.statusLabel}</SFPill>
+                              : <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border-2)', flexShrink: 0, display: 'block' }} />
+                            }
                           </button>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

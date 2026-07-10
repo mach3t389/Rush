@@ -671,13 +671,15 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
           onClick={() => setOpen(open === 'priority' ? null : 'priority')}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 20,
           }}
         >
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {t(PRIORITY_LABEL_KEY[priority])}
-          </span>
+          {priority !== 'none' && (
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {t(PRIORITY_LABEL_KEY[priority])}
+            </span>
+          )}
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
         {open === 'priority' && (
@@ -695,11 +697,11 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         <button
           ref={statusBtnRef}
           onClick={() => setOpen(open === 'status' ? null : 'status')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 20, display: 'flex', alignItems: 'center', gap: 6 }}
         >
           {status
             ? <SFPill status={status as Task['status']} small>{statusLabel}</SFPill>
-            : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>—</span>
+            : <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--border-2)', flexShrink: 0, display: 'block' }} />
           }
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
