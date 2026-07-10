@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
-import { getProjects, addProject, updateProject, subscribeProjects } from '../data/projectStore';
+import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
@@ -906,11 +906,15 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-          <SFIcon name="folder-open" size={36} color="var(--text-3)" />
-          <p style={{ fontSize: 14 }}>{t('projects.noProjectsFound')}</p>
-          <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
-        </div>
+        isProjectsLoading() ? (
+          <SFLoadingState />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+            <SFIcon name="folder-open" size={36} color="var(--text-3)" />
+            <p style={{ fontSize: 14 }}>{t('projects.noProjectsFound')}</p>
+            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
+          </div>
+        )
       )}
 
       {/* Project grid */}

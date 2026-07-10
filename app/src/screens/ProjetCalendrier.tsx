@@ -8,7 +8,7 @@ import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
-import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
+import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { MeetingField } from './CalendrierGlobal';
@@ -621,7 +621,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
               </div>
             ))}
             {visibleEvents.filter(ev=>ev.startDate>=TODAY).length===0 && (
-              <p style={{ fontSize:12,color:'var(--text-3)',fontStyle:'italic' }}>Aucun événement à venir</p>
+              <p style={{ fontSize:12,color:'var(--text-3)',fontStyle:'italic' }}>{isEventsLoading() ? t('common.loading') : 'Aucun événement à venir'}</p>
             )}
           </div>
         </div>

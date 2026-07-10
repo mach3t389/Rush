@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
 import { TODAY_TASKS, ACTIVITY, USERS } from '../data/mock';
-import { getEvents, subscribeEvents, type CalendarEvent } from '../data/eventStore';
+import { getEvents, subscribeEvents, isEventsLoading, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById } from '../data/eventTypeStore';
 import { getProjects } from '../data/projectStore';
@@ -358,7 +358,7 @@ export function Dashboard() {
             linkLabel={t('dashboard.calendar')} onLink={() => navigate('/calendrier')}
           >
             {upcomingEvents.length === 0 && (
-              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noEventNext14Days')}</p>
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{isEventsLoading() ? t('common.loading') : t('dashboard.noEventNext14Days')}</p>
             )}
             {upcomingEvents.map((ev, i) => {
               const type = getEventTypeById(ev.eventTypeId);

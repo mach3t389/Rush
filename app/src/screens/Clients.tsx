@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFCard, SFBar, SFButton } from '../components/ui';
+import { SFPill, SFCard, SFBar, SFButton, SFLoadingState } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
-import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
+import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient, isClientsLoading } from '../data/clientStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
 
@@ -591,11 +591,15 @@ export function Clients() {
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-          <SFIcon name="users" size={36} color="var(--text-3)" />
-          <p style={{ fontSize: 14 }}>{t('clients.noClientsFound')}</p>
-          <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
-        </div>
+        isClientsLoading() ? (
+          <SFLoadingState />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+            <SFIcon name="users" size={36} color="var(--text-3)" />
+            <p style={{ fontSize: 14 }}>{t('clients.noClientsFound')}</p>
+            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
+          </div>
+        )
       )}
 
       {/* List view */}
