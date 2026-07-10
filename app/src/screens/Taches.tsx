@@ -963,21 +963,29 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
     setDropRect(e.currentTarget.getBoundingClientRect());
   };
 
-  const reset = () => {
+  const clearFields = () => {
     setTitle(''); setAssignee(null); setProject(null); setPriority(defaultPriority);
     setStatus(''); setStatusLabel(''); setDueDate('');
-    setOpen(false); setOpenField(null);
+    setOpenField(null);
   };
 
-  const submit = () => {
+  const cancel = () => {
+    clearFields();
+    setOpen(false);
+  };
+
+  // Enter: create the task, then stay open with a blank row so the next
+  // task can be typed right away (skip a line, like Notion/Asana).
+  const submitAndContinue = () => {
     const t = title.trim();
-    if (!t) { reset(); return; }
+    if (!t) { cancel(); return; }
     onAdd(t, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project });
-    reset();
+    clearFields();
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const ddItem = (onClick: () => void, children: React.ReactNode, active?: boolean) => (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+    <button onMouseDown={e => e.preventDefault()} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
     >{children}</button>
@@ -1014,8 +1022,8 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
           autoFocus
           value={title}
           onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') reset(); }}
-          onBlur={() => { if (title.trim()) submit(); }}
+          onKeyDown={e => { if (e.key === 'Enter') submitAndContinue(); if (e.key === 'Escape') cancel(); }}
+          onBlur={cancel}
           placeholder={t('taskPanel.taskNamePlaceholder')}
           style={{ width: '100%', padding: '4px 0', background: 'transparent', border: 'none', borderBottom: '1px solid var(--accent)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
         />
@@ -1121,7 +1129,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
         </div>
 
         {/* Cancel */}
-        <button onMouseDown={e => e.preventDefault()} onClick={reset}
+        <button onMouseDown={e => e.preventDefault()} onClick={cancel}
           style={{ display: 'flex', padding: 4, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>

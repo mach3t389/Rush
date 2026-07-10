@@ -69,6 +69,7 @@ const RESOURCE_STATUS_OPTIONS: { status: Status; label: string }[] = [
 function ddItem(onClick: () => void, children: React.ReactNode, active?: boolean) {
   return (
     <button
+      onMouseDown={e => e.preventDefault()}
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', gap: 8, width: '100%',
@@ -728,21 +729,29 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
   const [statusLabel, setStatusLabel] = useState('');
   const [openField, setOpenField] = useState<'assignee' | 'priority' | 'status' | 'dueDate' | null>(null);
   const [addDropRect, setAddDropRect] = useState<DOMRect | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const openAddDrop = (key: typeof openField, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpenField(prev => prev === key ? null : key);
     setAddDropRect((e.currentTarget as HTMLButtonElement).getBoundingClientRect());
   };
 
-  const reset = () => {
+  const clearFields = () => {
     setTitle(''); setAssignee(null); setPriority('none');
     setDueDate(''); setStatus(''); setStatusLabel('');
-    setAdding(false); setOpenField(null);
+    setOpenField(null);
   };
 
-  const commit = (titleOverride?: string) => {
-    const t = (titleOverride ?? title).trim();
-    if (!t) { reset(); return; }
+  const cancel = () => {
+    clearFields();
+    setAdding(false);
+  };
+
+  // Enter: create the task, then stay open with a blank row so the next
+  // task can be typed right away (skip a line, like Notion/Asana).
+  const commit = () => {
+    const t = title.trim();
+    if (!t) { cancel(); return; }
     onAdd({
       id: `task-${Date.now()}`,
       title: t,
@@ -757,7 +766,8 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
       checked: false,
       subtasks: [],
     });
-    reset();
+    clearFields();
+    setTimeout(() => titleInputRef.current?.focus(), 0);
   };
 
   if (!adding) {
@@ -787,13 +797,14 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
 
-        {/* Title — Enter commits, Escape cancels */}
+        {/* Title — Enter commits and reopens a blank row, Escape/blur cancels */}
         <input
+          ref={titleInputRef}
           autoFocus
           value={title}
           onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') reset(); }}
-          onBlur={() => { if (title.trim()) commit(); }}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
+          onBlur={cancel}
           placeholder="Nom de la tâche..."
           style={{
             width: '100%', padding: '4px 0', background: 'transparent',
@@ -887,7 +898,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
         {/* Cancel only — X deletes the row */}
         <button
           onMouseDown={e => e.preventDefault()}
-          onClick={reset}
+          onClick={cancel}
           style={{ display: 'flex', padding: 4, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
