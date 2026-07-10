@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
-import type { Project, Status, Phase, SectionData, Task } from '../types/index';
+import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
@@ -12,11 +12,21 @@ import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getTeamMembers } from '../data/teamStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PROJECT_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#a85f3e', '#2a7a8a', '#7a6a2a', '#404040'];
 const TEAM = Object.values(USERS).filter(u => u.role !== 'Cliente');
+
+// Demo sessions pick from the 5 mock people; real sessions must show the
+// studio's actual invited team, not the mock roster.
+function getTeam(): User[] {
+  if (isDemoSession()) return TEAM;
+  const team = getTeamMembers();
+  return team.length > 0 ? team : TEAM;
+}
 type Step = 'start' | 'info' | 'fichiers' | 'team';
 type SortKey = 'recent' | 'alpha' | 'alpha-desc' | 'delivery' | 'client' | 'progress';
 
@@ -69,7 +79,10 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [deliveryDate, setDeliveryDate] = useState('');
   const [dateRect, setDateRect]         = useState<DOMRect | null>(null);
   const [dateOpen, setDateOpen]         = useState(false);
-  const [memberIds, setMemberIds]       = useState<string[]>([TEAM[0].id]);
+  const team = getTeam();
+  const authUser = getCurrentUser();
+  const defaultMemberId = (!isDemoSession() && authUser && team.some(u => u.id === authUser.id)) ? authUser.id : team[0]?.id;
+  const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
   const [folderStructTplId, setFolderStructTplId] = useState<string | null>(null);
 
   // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
@@ -111,7 +124,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const create = () => {
     const allClients = getClients();
     const client = allClients.find(c => c.id === clientId) ?? allClients[0];
-    const members = TEAM.filter(u => memberIds.includes(u.id));
+    const members = team.filter(u => memberIds.includes(u.id));
     const projectId = `pj${Date.now()}`;
     const newProject: Project = {
       id: projectId,
@@ -469,7 +482,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('projects.selectMembers')}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                {TEAM.map(u => {
+                {team.map(u => {
                   const on = memberIds.includes(u.id);
                   return (
                     <button
