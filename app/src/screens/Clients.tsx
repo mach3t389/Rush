@@ -565,18 +565,20 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 const VIEW_KEY = 'sf_clients_view';
+const FILTER_KEY = 'sf_clients_filter';
 
 export function Clients() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [search, setSearch]         = useState('');
-  const [filter, setFilter]         = useState<'all' | 'active' | 'archived'>('all');
+  const [filter, setFilter]         = useState<'all' | 'active' | 'archived'>(() => loadPersisted<'all' | 'active' | 'archived'>(FILTER_KEY, 'all'));
   const [clients, setClients]       = useState(getClients);
   const [showModal, setShowModal]   = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [view, setView]             = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
 
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
+  const changeFilter = (f: 'all' | 'active' | 'archived') => { setFilter(f); savePersisted(FILTER_KEY, f); };
 
   useEffect(() => subscribePinnedClients(() => setClients(getClients())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
@@ -633,7 +635,7 @@ export function Clients() {
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {([['all', t('clients.filterAll')], ['active', t('clients.filterActive')], ['archived', t('clients.filterArchived')]] as const).map(([val, label]) => (
-            <button key={val} onClick={() => setFilter(val)} style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <button key={val} onClick={() => changeFilter(val)} style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
               {label}
             </button>
           ))}

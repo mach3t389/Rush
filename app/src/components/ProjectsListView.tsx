@@ -680,11 +680,15 @@ function ProjectListView({ projects }: { projects: Project[] }) {
 // ── Shared project list view ──────────────────────────────────────────────────
 
 const VIEW_KEY = 'sf_projects_view';
+const FILTER_KEY = 'sf_projects_filter';
 
 export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | Status | 'archived'>('all');
+  // Only persisted for the main /projets page — a filter picked while
+  // looking at one client's own Projets tab (clientId set) shouldn't leak
+  // into what the global page shows next time.
+  const [filter, setFilter] = useState<'all' | Status | 'archived'>(() => clientId ? 'all' : loadPersisted<'all' | Status | 'archived'>(FILTER_KEY, 'all'));
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [sortOpen, setSortOpen] = useState(false);
@@ -695,6 +699,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const clientFilterRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
+  const changeFilter = (f: 'all' | Status | 'archived') => { setFilter(f); if (!clientId) savePersisted(FILTER_KEY, f); };
 
   useEffect(() => subscribeProjects(() => setAllProjects(getProjects())), []);
 
@@ -769,7 +774,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           {([['all', t('projects.filterAll')], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, t(o.labelKey)]), ['archived', t('projects.filterArchived')]] as [string, string][]).map(([val, label]) => (
             <button
               key={val}
-              onClick={() => setFilter(val as 'all' | Status | 'archived')}
+              onClick={() => changeFilter(val as 'all' | Status | 'archived')}
               style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
             >
               {label}

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { SFIcon } from './SFIcon';
 
 interface SFModalProps {
@@ -35,7 +36,14 @@ export function SFModal({
 
   if (!open) return null;
 
-  return (
+  // Portaled to document.body — without this, the modal is a DOM descendant
+  // of whatever mounted it. Per the CSS spec, any ancestor with a `transform`
+  // becomes the containing block for `position: fixed` descendants, so a
+  // card that toggles `transform` on hover (common for hover-lift effects)
+  // would make this modal's "centered on screen" position flip between the
+  // viewport and the card's own box every time the hover state changed —
+  // visible as the dialog repeatedly jumping/flickering between two spots.
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {/* onMouseDown, not onClick — a text-selection drag started inside the
           dialog and released over the backdrop must not close it. */}
@@ -62,6 +70,7 @@ export function SFModal({
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
