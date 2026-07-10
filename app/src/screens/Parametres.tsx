@@ -9,7 +9,7 @@ import {
   type ShortcutAction, type ShortcutCombo,
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
-import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, type StudioInfo } from '../data/studioStore';
+import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
@@ -1013,10 +1013,31 @@ function PlanSettings() {
   const pendingPlan    = confirming?.plan    ?? currentPlan;
   const pendingStorage = confirming?.storage ?? currentStorage;
 
-  const applyChanges = () => {
-    setCurrentPlan(confirming!.plan);
-    setCurrentStorage(confirming!.storage);
-    setConfirming(null);
+  const applyChanges = async () => {
+    const plan = confirming!.plan;
+    const storage = confirming!.storage;
+    if (plan === 'gratuit') {
+      // Rétrograder vers Gratuit : géré par le portail client Stripe
+      // (chantier C) — hors scope ici, ne rien faire de plus qu'avant.
+      setCurrentPlan(plan);
+      setCurrentStorage(storage);
+      setConfirming(null);
+      return;
+    }
+    const studioId = await getStudioId();
+    const res = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studioId,
+        plan,
+        billingCycle: 'monthly',
+        seats: 2,
+        storageTier: storage,
+      }),
+    });
+    const { url } = await res.json();
+    window.location.href = url;
   };
 
   const trySwitch = (planKey: string, storageGb: number) => {
