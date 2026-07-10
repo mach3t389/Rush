@@ -8,12 +8,19 @@ import { triggerAIToggle, triggerAIClose } from '../aiChatBridge';
 import { ToastBar } from '../ToastBar';
 import { ViewAsBanner } from '../ViewAsBanner';
 import { getShortcuts, subscribeShortcuts, matchesShortcut } from '../../data/shortcutsStore';
+import { initAnalytics } from '../../analytics';
 
 export function AppShell() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState(getShortcuts);
 
   useEffect(() => subscribeShortcuts(() => setShortcuts(getShortcuts())), []);
+
+  // AppShell only mounts once the auth loader (router guard) has confirmed
+  // the user is logged in — this is the single common entry point for the
+  // authenticated app, so injecting here means login/register attempts on
+  // /login are never counted as visits.
+  useEffect(() => { initAnalytics(); }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
