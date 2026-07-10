@@ -747,27 +747,37 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
     setAdding(false);
   };
 
+  const buildTask = (t: string): Task => ({
+    id: `task-${Date.now()}`,
+    title: t,
+    projectId, projectName, projectColor,
+    assignee,
+    status: status as Task['status'],
+    statusLabel,
+    priority,
+    priorityLabel: PRIORITY_LABEL[priority],
+    dueDate: dueDate || '—',
+    dueDateRed: false,
+    checked: false,
+    subtasks: [],
+  });
+
   // Enter: create the task, then stay open with a blank row so the next
   // task can be typed right away (skip a line, like Notion/Asana).
   const commit = () => {
     const t = title.trim();
     if (!t) { cancel(); return; }
-    onAdd({
-      id: `task-${Date.now()}`,
-      title: t,
-      projectId, projectName, projectColor,
-      assignee,
-      status: status as Task['status'],
-      statusLabel,
-      priority,
-      priorityLabel: PRIORITY_LABEL[priority],
-      dueDate: dueDate || '—',
-      dueDateRed: false,
-      checked: false,
-      subtasks: [],
-    });
+    onAdd(buildTask(t));
     clearFields();
     setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  // Blur (clicking away): create the task if a title was typed, otherwise
+  // discard the empty row. Either way the row closes — only Enter keeps it open.
+  const commitOnBlur = () => {
+    const t = title.trim();
+    if (t) onAdd(buildTask(t));
+    cancel();
   };
 
   if (!adding) {
@@ -804,7 +814,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
-          onBlur={cancel}
+          onBlur={commitOnBlur}
           placeholder="Nom de la tâche..."
           style={{
             width: '100%', padding: '4px 0', background: 'transparent',
