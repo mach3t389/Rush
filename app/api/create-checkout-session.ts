@@ -44,15 +44,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const origin = req.headers.origin || 'https://rush.app';
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    line_items: lineItems,
-    allow_promotion_codes: true,
-    success_url: `${origin}/parametres?checkout=success`,
-    cancel_url: `${origin}/parametres?checkout=cancelled`,
-    metadata: { studioId },
-    subscription_data: { metadata: { studioId } },
-  });
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: lineItems,
+      allow_promotion_codes: true,
+      success_url: `${origin}/parametres?checkout=success`,
+      cancel_url: `${origin}/parametres?checkout=cancelled`,
+      metadata: { studioId },
+      subscription_data: { metadata: { studioId } },
+    });
 
-  res.status(200).json({ url: session.url });
+    res.status(200).json({ url: session.url });
+  } catch (error) {
+    console.error('Failed to create Stripe checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
 }
