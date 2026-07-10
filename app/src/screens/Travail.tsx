@@ -1804,6 +1804,17 @@ export function Travail() {
   };
   const [sections, setSectionsState] = useState<SectionData[]>(getInitialSections);
 
+  // Real sessions: getSections() returns the cache as of THIS render, which
+  // is empty until the background Supabase fetch resolves — without this,
+  // landing on Tâches straight after login shows nothing until some other
+  // navigation remounts the component and re-reads the (by-then-populated)
+  // cache. Re-sync whenever the store notifies (fetch completed, or any
+  // other write) instead of only reading once at mount.
+  useEffect(() => subscribeStore(() => {
+    const stored = getSections(project.id);
+    setSectionsState(stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []));
+  }), [project.id]);
+
   const setSections = (updater: SectionData[] | ((prev: SectionData[]) => SectionData[])) => {
     setSectionsState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
