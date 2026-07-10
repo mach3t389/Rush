@@ -1025,19 +1025,26 @@ function PlanSettings() {
       return;
     }
     const studioId = await getStudioId();
-    const res = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studioId,
-        plan,
-        billingCycle: 'monthly',
-        seats: 2,
-        storageTier: storage,
-      }),
-    });
-    const { url } = await res.json();
-    window.location.href = url;
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studioId,
+          plan,
+          billingCycle: 'monthly',
+          seats: 2,
+          storageTier: storage,
+        }),
+      });
+      if (!res.ok) throw new Error('Checkout session request failed');
+      const { url } = await res.json();
+      if (!url) throw new Error('No checkout URL returned');
+      window.location.href = url;
+    } catch (err) {
+      console.error('Failed to start checkout', err);
+      window.alert('Impossible de démarrer le paiement. Réessaie dans un instant.');
+    }
   };
 
   const trySwitch = (planKey: string, storageGb: number) => {
