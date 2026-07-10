@@ -41,4 +41,29 @@ L'objectif final : une IA qui accompagne toute la gestion de projet et les commu
 
 ---
 
+## Adaptation mobile, applications natives et desktop (2026-07-10)
+
+**L'idée de départ :** Rush est aujourd'hui pensé pour un écran d'ordinateur — l'expérience sur téléphone ou tablette n'a pas été travaillée, et il n'existe aucune application native (mobile ou desktop).
+
+### 1. Version web adaptative (responsive)
+
+Adapter l'interface web actuelle pour qu'elle reste utilisable sur toutes les tailles d'écran :
+- Téléphone (portrait et paysage)
+- Tablette
+- Ordinateur (déjà couvert aujourd'hui)
+
+Ça touche potentiellement chaque écran de l'app (sidebar, tableaux de tâches, calendriers, éditeurs de fichiers) — un chantier large, à découper par section plutôt qu'à faire d'un coup.
+
+### 2. Application mobile native (Android, potentiellement iOS)
+
+Une fois la base web adaptative en place, envisager une vraie application mobile (Android en priorité, mentionné explicitement) — soit via un wrapper (ex. Capacitor) réutilisant le code web existant, soit une app native si les besoins de performance/notifications le justifient.
+
+### 3. Application desktop
+
+Envisager aussi une application desktop (ex. via Electron ou Tauri) pour une expérience installée, avec les avantages habituels (notifications système, accès hors-ligne partiel, raccourcis clavier natifs).
+
+**Pourquoi plus tard :** c'est un chantier transversal qui touche tout l'app plutôt qu'une fonctionnalité isolée, et il est plus efficace de le faire une fois l'ensemble des écrans et flux stabilisés — adapter une interface qui bouge encore beaucoup signifierait refaire le travail plusieurs fois.
+
+---
+
 *(D'autres idées pourront être ajoutées ici au fil des discussions.)*
