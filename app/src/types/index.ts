@@ -26,6 +26,7 @@ export interface Client {
   progress: number;
   status: Status;
   statusLabel: string;
+  /** ISO timestamp, formatted live via utils/timeAgo.ts — not a display label. */
   lastActivity: string;
   address?: string;
   phone?: string;
@@ -52,6 +53,7 @@ export interface Project {
   deliveryDate: string;
   status: Status;
   statusLabel: string;
+  /** ISO timestamp, formatted live via utils/timeAgo.ts — not a display label. */
   modifiedAt: string;
   budget?: number;
   description?: string;

@@ -232,7 +232,7 @@ function executeTool(
           deliveryDate: args.deliveryDate ?? 'À définir',
           status: 'info',
           statusLabel: 'En cours',
-          modifiedAt: 'À l\'instant',
+          modifiedAt: new Date().toISOString(),
         };
         addProject(project);
         setTimeout(() => navigate(`/projets/${project.id}`), 600);
