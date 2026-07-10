@@ -40,7 +40,12 @@ export function SFModal({
       {/* onMouseDown, not onClick — a text-selection drag started inside the
           dialog and released over the backdrop must not close it. */}
       <div onMouseDown={closeOnBackdrop ? onClose : undefined} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div style={{
+      {/* SFModal isn't portaled — it renders inline in whatever mounted it,
+          so a click anywhere in its content bubbles through the DOM to any
+          ancestor click handler (e.g. a clickable card behind it) unless
+          stopped here. A modal's content should never leak clicks to
+          whatever's behind it. */}
+      <div onClick={e => e.stopPropagation()} style={{
         position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)',
         borderRadius: 14, padding, width, maxHeight,
         display: 'flex', flexDirection: 'column',

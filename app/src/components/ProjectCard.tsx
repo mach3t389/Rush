@@ -98,7 +98,12 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
       // released over the backdrop would otherwise close it unintentionally.
       onMouseDown={e => { if (e.target === e.currentTarget) save(); }}
     >
-      <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* The panel renders via a portal, but React still bubbles synthetic
+          events through the component tree it was mounted from — without
+          stopping it here, any click inside (a field, the close button)
+          also reaches the card's own onClick and navigates into the
+          project instead of letting you edit it. */}
+      <div onClick={e => e.stopPropagation()} style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
