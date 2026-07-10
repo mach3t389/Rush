@@ -24,18 +24,18 @@ function planFromPriceId(priceId: string): 'studio' | 'agence' | null {
 }
 
 function storageTierFromPriceId(priceId: string): number {
-  const monthlyIdx = STRIPE_PRICE_IDS.storageMonthly.indexOf(priceId as never);
+  const monthlyIdx = (STRIPE_PRICE_IDS.storageMonthly as readonly string[]).indexOf(priceId);
   if (monthlyIdx !== -1) return monthlyIdx + 1;
-  const yearlyIdx = STRIPE_PRICE_IDS.storageYearly.indexOf(priceId as never);
+  const yearlyIdx = (STRIPE_PRICE_IDS.storageYearly as readonly string[]).indexOf(priceId);
   if (yearlyIdx !== -1) return yearlyIdx + 1;
   return 0;
 }
 
-async function syncSubscriptionToStudio(subscription: Stripe.Subscription) {
+async function syncSubscriptionToStudio(subscription: Stripe.Subscription): Promise<boolean> {
   const studioId = subscription.metadata.studioId;
   if (!studioId) {
     console.error('Stripe subscription missing studioId metadata', subscription.id);
-    return;
+    return false;
   }
 
   let plan: 'studio' | 'agence' | 'gratuit' = 'gratuit';
@@ -56,7 +56,7 @@ async function syncSubscriptionToStudio(subscription: Stripe.Subscription) {
     }
   }
 
-  const status = subscription.status === 'canceled' ? 'canceled' : subscription.status;
+  const status = subscription.status;
 
   const { error } = await supabaseAdmin
     .from('studios')
@@ -70,7 +70,11 @@ async function syncSubscriptionToStudio(subscription: Stripe.Subscription) {
     })
     .eq('id', studioId);
 
-  if (error) console.error('Failed to sync subscription to studio', studioId, error);
+  if (error) {
+    console.error('Failed to sync subscription to studio', studioId, error);
+    return false;
+  }
+  return true;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -90,17 +94,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  let success = true;
+
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
       if (typeof session.subscription === 'string') {
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
-        await syncSubscriptionToStudio(subscription);
+        success = await syncSubscriptionToStudio(subscription);
       }
       break;
     }
     case 'customer.subscription.updated': {
-      await syncSubscriptionToStudio(event.data.object as Stripe.Subscription);
+      success = await syncSubscriptionToStudio(event.data.object as Stripe.Subscription);
       break;
     }
     case 'customer.subscription.deleted': {
@@ -109,9 +115,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (studioId) {
         const { error } = await supabaseAdmin
           .from('studios')
-          .update({ plan: 'gratuit', subscription_status: 'canceled', stripe_subscription_id: null })
+          .update({
+            plan: 'gratuit',
+            subscription_status: 'canceled',
+            stripe_subscription_id: null,
+            billing_seats: 2,
+            billing_storage_tier: 0,
+          })
           .eq('id', studioId);
-        if (error) console.error('Failed to clear cancelled subscription', studioId, error);
+        if (error) {
+          console.error('Failed to clear cancelled subscription', studioId, error);
+          success = false;
+        }
+      } else {
+        console.error('Stripe subscription.deleted missing studioId metadata', subscription.id);
+        success = false;
       }
       break;
     }
@@ -125,10 +143,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : invoiceSubscription?.id;
       if (subscriptionId) {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await syncSubscriptionToStudio(subscription);
+        success = await syncSubscriptionToStudio(subscription);
       }
       break;
     }
+  }
+
+  if (!success) {
+    res.status(500).json({ error: 'Failed to sync subscription' });
+    return;
   }
 
   res.status(200).json({ received: true });
