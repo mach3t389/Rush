@@ -144,7 +144,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       deliveryDate: deliveryDate ? formatDisplay(deliveryDate) : '—',
       status: 'info',
       statusLabel: 'En cours',
-      modifiedAt: "À l'instant",
+      modifiedAt: new Date().toISOString(),
       folderStructureTemplateId: folderStructTplId ?? undefined,
     };
     if (selectedTemplate) {

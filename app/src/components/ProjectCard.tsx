@@ -8,6 +8,7 @@ import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { getCurrentSectionLabel } from '../data/taskStore';
+import { timeAgo } from '../utils/timeAgo';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
 const PROJECT_COLORS = [
@@ -452,7 +453,7 @@ export function ProjectCard({ p }: { p: Project }) {
             <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
           </button>
         </div>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{p.modifiedAt}</span>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(p.modifiedAt, t)}</span>
       </div>
 
       {/* Status dropdown */}

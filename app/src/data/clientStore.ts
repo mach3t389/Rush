@@ -189,13 +189,18 @@ export function addClient(c: Client): void {
 }
 
 export function updateClient(id: string, updates: Partial<Client>): void {
+  // Stamp a real timestamp on every edit — lastActivity is read as a plain
+  // ISO string and formatted live (see utils/timeAgo.ts), so this is what
+  // makes the "À l'instant" / "Il y a Xh" badge actually reflect reality
+  // instead of being frozen at whatever value the record was created with.
+  const stamped = { ...updates, lastActivity: new Date().toISOString() };
   if (isDemoSession()) {
-    _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...updates } };
+    _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...stamped } };
     persistOverrides();
     notify();
     return;
   }
-  void updateSupabaseClient(id, updates);
+  void updateSupabaseClient(id, stamped);
 }
 
 export function subscribeClients(fn: () => void): () => void {

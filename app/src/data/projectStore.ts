@@ -188,13 +188,18 @@ export function addProject(p: Project): void {
 }
 
 export function updateProject(id: string, updates: Partial<Project>): void {
+  // Stamp a real timestamp on every edit — modifiedAt is read as a plain
+  // ISO string and formatted live (see utils/timeAgo.ts), so this is what
+  // makes the "Il y a Xh" badge actually reflect reality instead of being
+  // frozen at whatever value the record was created with.
+  const stamped = { ...updates, modifiedAt: new Date().toISOString() };
   if (isDemoSession()) {
-    _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...updates } };
+    _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...stamped } };
     persistOverrides();
     notify();
     return;
   }
-  void updateSupabaseProject(id, updates);
+  void updateSupabaseProject(id, stamped);
 }
 
 export function subscribeProjects(fn: () => void): () => void {

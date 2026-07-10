@@ -1,5 +1,12 @@
 import type { User, Client, Project, Task, Resource, VideoComment, VideoCorrection, VideoVersion, AppNotification, ActivityItem } from '../types';
 
+// lastActivity/modifiedAt are read as ISO timestamps and formatted live (see
+// utils/timeAgo.ts) — these helpers just express the seed data's intended
+// relative offsets ("2h ago" etc.) as real timestamps instead of frozen
+// French labels that would never reflect the actual elapsed time.
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+const daysAgo  = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const USERS: Record<string, User> = {
   lea:    { id: 'lea',    name: 'Léa Marchand',   initials: 'LM', avatarColor: '#5c3d8f', role: 'Admin' },
@@ -12,12 +19,12 @@ export const USERS: Record<string, User> = {
 
 // ── Clients ───────────────────────────────────────────────────────────────────
 export const CLIENTS: Client[] = [
-  { id: 'c1', name: 'Nova Films',       initials: 'NF', avatarColor: '#3b4f8f', sector: 'Publicité',      city: 'Paris',     activeProjects: 4, pendingDeliverables: 2, since: '2023', progress: 72, status: 'ok',      statusLabel: 'Actif',    lastActivity: 'Il y a 2h' },
-  { id: 'c2', name: 'Studio Bleu',      initials: 'SB', avatarColor: '#1a6b4a', sector: 'Documentaire',   city: 'Montréal',  activeProjects: 2, pendingDeliverables: 1, since: '2022', progress: 45, status: 'ok',      statusLabel: 'Actif',    lastActivity: 'Il y a 5h' },
-  { id: 'c3', name: 'Fondation Lumière',initials: 'FL', avatarColor: '#4a3428', sector: 'Social',         city: 'Lyon',      activeProjects: 1, pendingDeliverables: 0, since: '2024', progress: 60, status: 'warn',    statusLabel: 'En pause', lastActivity: 'Il y a 3j' },
-  { id: 'c4', name: 'Maison Leroux',    initials: 'ML', avatarColor: '#2d5a7d', sector: 'Institutionnel', city: 'Bordeaux',  activeProjects: 1, pendingDeliverables: 1, since: '2023', progress: 80, status: 'ok',      statusLabel: 'Actif',    lastActivity: 'Hier' },
-  { id: 'c5', name: 'Collectif Ondes',  initials: 'CO', avatarColor: '#7d4e57', sector: 'Clip musical',   city: 'Paris',     activeProjects: 1, pendingDeliverables: 0, since: '2024', progress: 45, status: 'ok',      statusLabel: 'Actif',    lastActivity: 'Il y a 2j' },
-  { id: 'c6', name: 'Agence Vertigo',   initials: 'AV', avatarColor: '#3d3d30', sector: 'Motion design',  city: 'Paris',     activeProjects: 0, pendingDeliverables: 0, since: '2025', progress: 0,  status: 'neutral', statusLabel: 'Inactif',  lastActivity: 'Il y a 1 sem.' },
+  { id: 'c1', name: 'Nova Films',       initials: 'NF', avatarColor: '#3b4f8f', sector: 'Publicité',      city: 'Paris',     activeProjects: 4, pendingDeliverables: 2, since: '2023', progress: 72, status: 'ok',      statusLabel: 'Actif',    lastActivity: hoursAgo(2) },
+  { id: 'c2', name: 'Studio Bleu',      initials: 'SB', avatarColor: '#1a6b4a', sector: 'Documentaire',   city: 'Montréal',  activeProjects: 2, pendingDeliverables: 1, since: '2022', progress: 45, status: 'ok',      statusLabel: 'Actif',    lastActivity: hoursAgo(5) },
+  { id: 'c3', name: 'Fondation Lumière',initials: 'FL', avatarColor: '#4a3428', sector: 'Social',         city: 'Lyon',      activeProjects: 1, pendingDeliverables: 0, since: '2024', progress: 60, status: 'warn',    statusLabel: 'En pause', lastActivity: daysAgo(3) },
+  { id: 'c4', name: 'Maison Leroux',    initials: 'ML', avatarColor: '#2d5a7d', sector: 'Institutionnel', city: 'Bordeaux',  activeProjects: 1, pendingDeliverables: 1, since: '2023', progress: 80, status: 'ok',      statusLabel: 'Actif',    lastActivity: daysAgo(1) },
+  { id: 'c5', name: 'Collectif Ondes',  initials: 'CO', avatarColor: '#7d4e57', sector: 'Clip musical',   city: 'Paris',     activeProjects: 1, pendingDeliverables: 0, since: '2024', progress: 45, status: 'ok',      statusLabel: 'Actif',    lastActivity: daysAgo(2) },
+  { id: 'c6', name: 'Agence Vertigo',   initials: 'AV', avatarColor: '#3d3d30', sector: 'Motion design',  city: 'Paris',     activeProjects: 0, pendingDeliverables: 0, since: '2025', progress: 0,  status: 'neutral', statusLabel: 'Inactif',  lastActivity: daysAgo(7) },
 ];
 
 // ── Projects ──────────────────────────────────────────────────────────────────

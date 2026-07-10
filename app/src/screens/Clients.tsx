@@ -10,6 +10,7 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getDeliverables, subscribeStore as subscribeTasks } from '../data/taskStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
+import { timeAgo } from '../utils/timeAgo';
 
 // The status pill must reflect the real `archived` flag (same one the "..."
 // menu and the Archivés tab use) rather than the stored status/statusLabel,
@@ -89,7 +90,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
       progress: 0,
       status: 'ok',
       statusLabel: t('clients.statusActive'),
-      lastActivity: t('clients.justNow'),
+      lastActivity: new Date().toISOString(),
     };
     addClient(client);
     onClose();
@@ -703,7 +704,7 @@ export function Clients() {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{client.lastActivity}</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(client.lastActivity, t)}</span>
               </div>
             </SFCard>
           );
