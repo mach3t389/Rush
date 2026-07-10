@@ -9,7 +9,8 @@ import {
   type ShortcutAction, type ShortcutCombo,
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
-import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, type StudioInfo } from '../data/studioStore';
+import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
+import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
@@ -981,11 +982,13 @@ const PLATFORM_PLANS = [
 ];
 
 const STORAGE_BLOCKS = [
-  { gb: 0,    labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,  priceYearly: 0   },
-  { gb: 50,   labelKey: null, label: '+50 Go',         priceMonthly: 5,  priceYearly: 48  },
-  { gb: 200,  labelKey: null, label: '+200 Go',        priceMonthly: 15, priceYearly: 144 },
-  { gb: 500,  labelKey: null, label: '+500 Go',        priceMonthly: 35, priceYearly: 336 },
-  { gb: 1000, labelKey: null, label: '+1 To',          priceMonthly: 50, priceYearly: 480 },
+  { tier: 0, labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,   priceYearly: 0    },
+  { tier: 1, labelKey: null, label: '+50 Go',          priceMonthly: 2,   priceYearly: 19   },
+  { tier: 2, labelKey: null, label: '+200 Go',         priceMonthly: 6,   priceYearly: 58   },
+  { tier: 3, labelKey: null, label: '+500 Go',         priceMonthly: 15,  priceYearly: 144  },
+  { tier: 4, labelKey: null, label: '+1 To',           priceMonthly: 30,  priceYearly: 288  },
+  { tier: 5, labelKey: null, label: '+2 To',           priceMonthly: 60,  priceYearly: 576  },
+  { tier: 6, labelKey: null, label: '+4 To',           priceMonthly: 120, priceYearly: 1152 },
 ];
 
 const MOCK_INVOICES = [
@@ -1000,9 +1003,30 @@ function PlanSettings() {
   const [currentPlan, setCurrentPlan]     = useState('studio');
   const [currentStorage, setCurrentStorage] = useState(0);
   const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const studioId = await getStudioId();
+        const { data, error } = await supabase
+          .from('studios')
+          .select('stripe_subscription_id')
+          .eq('id', studioId)
+          .single();
+        if (!cancelled && !error) {
+          setHasActiveSubscription(!!data?.stripe_subscription_id);
+        }
+      } catch (err) {
+        console.error('Failed to load subscription status', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
-  const activeStorage = STORAGE_BLOCKS.find(s => s.gb === currentStorage)!;
+  const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
 
   const platformPrice = billing === 'monthly' ? activePlan.priceMonthly : activePlan.priceYearly;
   const storagePrice  = billing === 'monthly' ? activeStorage.priceMonthly : activeStorage.priceYearly;
@@ -1011,10 +1035,46 @@ function PlanSettings() {
   const pendingPlan    = confirming?.plan    ?? currentPlan;
   const pendingStorage = confirming?.storage ?? currentStorage;
 
-  const applyChanges = () => {
-    setCurrentPlan(confirming!.plan);
-    setCurrentStorage(confirming!.storage);
-    setConfirming(null);
+  const applyChanges = async () => {
+    const plan = confirming!.plan;
+    const storage = confirming!.storage;
+    if (plan === 'gratuit') {
+      // Rétrograder vers Gratuit : géré par le portail client Stripe
+      // (chantier C) — hors scope ici, ne rien faire de plus qu'avant.
+      setCurrentPlan(plan);
+      setCurrentStorage(storage);
+      setConfirming(null);
+      return;
+    }
+    if (hasActiveSubscription) {
+      window.alert('Vous avez déjà un abonnement actif. La modification de palier depuis cette page n\'est pas encore disponible — contactez le support pour l\'instant.');
+      return;
+    }
+    const studioId = await getStudioId();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          studioId,
+          plan,
+          billingCycle: billing,
+          seats: 2,
+          storageTier: storage,
+        }),
+      });
+      if (!res.ok) throw new Error('Checkout session request failed');
+      const { url } = await res.json();
+      if (!url) throw new Error('No checkout URL returned');
+      window.location.href = url;
+    } catch (err) {
+      console.error('Failed to start checkout', err);
+      window.alert('Impossible de démarrer le paiement. Réessaie dans un instant.');
+    }
   };
 
   const trySwitch = (planKey: string, storageGb: number) => {
@@ -1177,12 +1237,12 @@ function PlanSettings() {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {STORAGE_BLOCKS.map(block => {
-            const isSelected = block.gb === currentStorage;
+            const isSelected = block.tier === currentStorage;
             const blockPrice = billing === 'monthly' ? block.priceMonthly : block.priceYearly;
             const displayLabel = block.labelKey ? t(block.labelKey) : block.label!;
             return (
-              <div key={block.gb}
-                onClick={() => trySwitch(currentPlan, block.gb)}
+              <div key={block.tier}
+                onClick={() => trySwitch(currentPlan, block.tier)}
                 style={{
                   borderRadius: 12, border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                   background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
@@ -1264,7 +1324,7 @@ function PlanSettings() {
       {/* ── Modal de confirmation ──────────────────────────────────────── */}
       {confirming && (() => {
         const newPlan    = PLATFORM_PLANS.find(p => p.key === confirming.plan)!;
-        const newStorage = STORAGE_BLOCKS.find(s => s.gb === confirming.storage)!;
+        const newStorage = STORAGE_BLOCKS.find(s => s.tier === confirming.storage)!;
         const newPlatPrice = billing === 'monthly' ? newPlan.priceMonthly : newPlan.priceYearly;
         const newStorPrice = billing === 'monthly' ? newStorage.priceMonthly : newStorage.priceYearly;
         const newTotal = newPlatPrice + newStorPrice;
