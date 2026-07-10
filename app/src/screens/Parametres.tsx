@@ -10,6 +10,7 @@ import {
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
+import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
@@ -1002,6 +1003,27 @@ function PlanSettings() {
   const [currentPlan, setCurrentPlan]     = useState('studio');
   const [currentStorage, setCurrentStorage] = useState(0);
   const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const studioId = await getStudioId();
+        const { data, error } = await supabase
+          .from('studios')
+          .select('stripe_subscription_id')
+          .eq('id', studioId)
+          .single();
+        if (!cancelled && !error) {
+          setHasActiveSubscription(!!data?.stripe_subscription_id);
+        }
+      } catch (err) {
+        console.error('Failed to load subscription status', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
   const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
@@ -1024,15 +1046,23 @@ function PlanSettings() {
       setConfirming(null);
       return;
     }
+    if (hasActiveSubscription) {
+      window.alert('Vous avez déjà un abonnement actif. La modification de palier depuis cette page n\'est pas encore disponible — contactez le support pour l\'instant.');
+      return;
+    }
     const studioId = await getStudioId();
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           studioId,
           plan,
-          billingCycle: 'monthly',
+          billingCycle: billing,
           seats: 2,
           storageTier: storage,
         }),
