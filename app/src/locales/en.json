@@ -337,6 +337,7 @@
     "deleteProjectConfirm": "Delete this project and everything in it? This can't be undone.",
     "archivedBadge": "Archived",
     "activeBadge": "Active",
+    "edit": "Edit",
     "deliveryDate": "Delivery date",
     "optional": "(optional)",
     "chooseDate": "Choose a date…",

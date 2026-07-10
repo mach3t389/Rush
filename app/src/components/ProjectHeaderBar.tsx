@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from './ui';
-import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
+import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject } from '../data/projectStore';
+import { ProjectEditPanel } from './ProjectCard';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { useProjectTaskNotifCount, useProjectResourceNotifCount } from '../hooks/useNotifs';
 
@@ -31,6 +32,7 @@ export function ProjectHeaderBar({
   const [colorOpen, setColorOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
   const resourceNotifs = useProjectResourceNotifCount(projectId);
@@ -153,12 +155,22 @@ export function ProjectHeaderBar({
 
       {/* Right slot — actions propres à l'onglet + menu du projet */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        {/* height:32 (not just padding) so this matches the Modifier/"..."
+            buttons' height exactly instead of rendering visibly shorter. */}
         {project.archived && (
-          <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', letterSpacing: '0.05em' }}>
+          <span style={{ display: 'flex', alignItems: 'center', height: 32, fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', letterSpacing: '0.05em', boxSizing: 'border-box' }}>
             {t('projects.archivedBadge')}
           </span>
         )}
         {children}
+        <button onClick={() => setEditOpen(true)} title={t('projects.edit')}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, height: 32, padding: '0 13px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+        >
+          <SFIcon name="square-pen" size={14} color="var(--text-3)" />
+          {t('projects.edit')}
+        </button>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
             <SFIcon name="ellipsis" size={15} />
@@ -207,6 +219,20 @@ export function ProjectHeaderBar({
           )}
         </div>
       </div>
+
+      {editOpen && (
+        <ProjectEditPanel
+          p={project}
+          color={dotColor} name={project.name} status={project.status} statusLabel={project.statusLabel}
+          phase={project.phase} phaseLabel={project.phaseLabel} deliveryDate={project.deliveryDate}
+          onClose={() => setEditOpen(false)}
+          onSave={u => updateProject(project.id, {
+            name: u.name, status: u.status, statusLabel: u.statusLabel,
+            phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
+            budget: u.budget, description: u.description,
+          })}
+        />
+      )}
     </div>
   );
 }
