@@ -1039,33 +1039,33 @@ function Section({
 
   const dropLeaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // The visible line stays thin so row spacing never shifts, but the actual
+  // drop target is a much taller invisible zone straddling it — dragging
+  // precisely onto a 2px line was the exact complaint: reordering between
+  // two tasks needs a real margin to aim for, not a pixel-perfect target.
   const DropLine = ({ idx }: { idx: number }) => (
-    <div
-      onDragOver={e => {
-        if (!draggedTask) return;
-        e.preventDefault(); e.stopPropagation();
-        if (dropLeaveTimer.current) { clearTimeout(dropLeaveTimer.current); dropLeaveTimer.current = null; }
-        setTaskDragOverIdx(idx);
-      }}
-      onDragLeave={() => {
-        if (!draggedTask) return;
-        dropLeaveTimer.current = setTimeout(() => setTaskDragOverIdx(null), 80);
-      }}
-      onDrop={e => {
-        if (!draggedTask) return;
-        e.stopPropagation();
-        if (dropLeaveTimer.current) { clearTimeout(dropLeaveTimer.current); dropLeaveTimer.current = null; }
-        handleTaskSlotDrop(idx);
-      }}
-      style={{
-        height: taskDragOverIdx === idx ? 28 : 2,
-        display: 'flex', alignItems: 'center',
-        transition: 'height 0.12s',
-        margin: taskDragOverIdx === idx ? '1px 14px' : '0 14px',
-      }}
-    >
+    <div style={{ position: 'relative', height: taskDragOverIdx === idx ? 28 : 2, transition: 'height 0.12s', margin: '0 14px' }}>
+      <div
+        onDragOver={e => {
+          if (!draggedTask) return;
+          e.preventDefault(); e.stopPropagation();
+          if (dropLeaveTimer.current) { clearTimeout(dropLeaveTimer.current); dropLeaveTimer.current = null; }
+          setTaskDragOverIdx(idx);
+        }}
+        onDragLeave={() => {
+          if (!draggedTask) return;
+          dropLeaveTimer.current = setTimeout(() => setTaskDragOverIdx(null), 80);
+        }}
+        onDrop={e => {
+          if (!draggedTask) return;
+          e.stopPropagation();
+          if (dropLeaveTimer.current) { clearTimeout(dropLeaveTimer.current); dropLeaveTimer.current = null; }
+          handleTaskSlotDrop(idx);
+        }}
+        style={{ position: 'absolute', top: -8, bottom: -8, left: 0, right: 0, zIndex: 1 }}
+      />
       {taskDragOverIdx === idx && (
-        <div style={{ width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
+        <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
       )}
     </div>
   );
@@ -1810,10 +1810,19 @@ export function Travail() {
   // navigation remounts the component and re-reads the (by-then-populated)
   // cache. Re-sync whenever the store notifies (fetch completed, or any
   // other write) instead of only reading once at mount.
-  useEffect(() => subscribeStore(() => {
-    const stored = getSections(project.id);
-    setSectionsState(stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []));
-  }), [project.id]);
+  useEffect(() => {
+    const sync = () => {
+      const stored = getSections(project.id);
+      setSectionsState(stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []));
+    };
+    // Switching projects (e.g. via a pinned sidebar bookmark) keeps this same
+    // component instance mounted with a new `project.id` — without an
+    // immediate sync here, `sections` kept showing the PREVIOUS project's
+    // tasks until some unrelated store write (or a full remount via another
+    // route) happened to refresh it.
+    sync();
+    return subscribeStore(sync);
+  }, [project.id]);
 
   const setSections = (updater: SectionData[] | ((prev: SectionData[]) => SectionData[])) => {
     setSectionsState(prev => {

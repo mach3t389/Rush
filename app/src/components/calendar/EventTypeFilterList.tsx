@@ -27,17 +27,25 @@ export function EventTypeFilterList({
   const [newColor, setNewColor] = useState('#3b82f6');
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | null>(null);
 
+  // Which half of the hovered row the cursor is over decides whether the
+  // dragged type lands before or after it — dropping always inserting
+  // "before" the target made it impossible to place something after the
+  // last item, or precisely between two specific rows depending on drag
+  // direction.
   const handleDrop = (targetId: string) => {
-    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); setDragOverPos(null); return; }
     const ids = eventTypes.map(t => t.id);
     const fromIdx = ids.indexOf(dragId);
-    const toIdx = ids.indexOf(targetId);
     ids.splice(fromIdx, 1);
+    let toIdx = ids.indexOf(targetId);
+    if (dragOverPos === 'after') toIdx += 1;
     ids.splice(toIdx, 0, dragId);
     reorderEventTypes(ids);
     setDragId(null);
     setDragOverId(null);
+    setDragOverPos(null);
   };
 
   const startEdit = (et: EventType) => { setEditingId(et.id); setEditLabel(et.label); setEditColor(et.color); setShowNew(false); };
@@ -68,13 +76,23 @@ export function EventTypeFilterList({
           const isEditing = editingId === et.id;
           return (
             <div key={et.id}>
-              <div style={{ position: 'relative', display: 'flex', borderTop: dragOverId === et.id && dragId !== et.id ? '2px solid var(--accent)' : '2px solid transparent' }}
+              <div style={{
+                position: 'relative', display: 'flex',
+                borderTop: dragOverId === et.id && dragOverPos === 'before' && dragId !== et.id ? '2px solid var(--accent)' : '2px solid transparent',
+                borderBottom: dragOverId === et.id && dragOverPos === 'after' && dragId !== et.id ? '2px solid var(--accent)' : '2px solid transparent',
+              }}
                 draggable
                 onDragStart={() => setDragId(et.id)}
-                onDragOver={e => { e.preventDefault(); if (dragId && dragId !== et.id) setDragOverId(et.id); }}
-                onDragLeave={() => setDragOverId(null)}
+                onDragOver={e => {
+                  e.preventDefault();
+                  if (!dragId || dragId === et.id) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDragOverId(et.id);
+                  setDragOverPos(e.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
+                }}
+                onDragLeave={() => { setDragOverId(null); setDragOverPos(null); }}
                 onDrop={e => { e.preventDefault(); handleDrop(et.id); }}
-                onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                onDragEnd={() => { setDragId(null); setDragOverId(null); setDragOverPos(null); }}
                 onMouseEnter={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '1'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '1'; }}
                 onMouseLeave={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '0'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '0'; }}
               >
