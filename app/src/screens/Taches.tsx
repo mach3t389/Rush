@@ -537,7 +537,9 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
               <>
                 <div style={{ padding: '6px 8px 4px' }}>
                   <div style={{ position: 'relative' }}>
-                    <SFIcon name="search" size={11} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+                    <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+                      <SFIcon name="search" size={11} color="var(--text-3)" />
+                    </span>
                     <input
                       autoFocus
                       value={projSearch}
