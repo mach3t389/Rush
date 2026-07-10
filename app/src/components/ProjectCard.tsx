@@ -489,7 +489,12 @@ export function ProjectCard({ p }: { p: Project }) {
             {getClients().filter(c => !c.archived && c.id !== p.clientId && c.name.toLowerCase().includes(moveClientSearch.toLowerCase())).map(c => (
               <button
                 key={c.id}
-                onClick={() => {
+                onClick={e => {
+                  // The modal is a portal, but React still bubbles synthetic
+                  // events through the component tree — without stopping it
+                  // here, this click also reaches the card's own onClick and
+                  // navigates into the project right after moving it.
+                  e.stopPropagation();
                   updateProject(p.id, { clientId: c.id, clientName: c.name, clientColor: c.avatarColor });
                   setMoveClientOpen(false);
                   setMoveClientSearch('');

@@ -1062,7 +1062,10 @@ function Section({
           if (dropLeaveTimer.current) { clearTimeout(dropLeaveTimer.current); dropLeaveTimer.current = null; }
           handleTaskSlotDrop(idx);
         }}
-        style={{ position: 'absolute', top: -8, bottom: -8, left: 0, right: 0, zIndex: 1 }}
+        // left/right cancel the parent's 14px margin so the hit-zone reaches
+        // the full row width edge-to-edge, not just the inner content area —
+        // dropping "in the margin" (outside the visible line) must work too.
+        style={{ position: 'absolute', top: -8, bottom: -8, left: -14, right: -14, zIndex: 1 }}
       />
       {taskDragOverIdx === idx && (
         <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />

@@ -11,6 +11,15 @@ import { getDeliverables, subscribeStore as subscribeTasks } from '../data/taskS
 import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
 
+// The status pill must reflect the real `archived` flag (same one the "..."
+// menu and the Archivés tab use) rather than the stored status/statusLabel,
+// which can drift out of sync — a client archived from the menu previously
+// kept showing its old "Actif" pill since that field was never touched.
+function clientPillProps(client: Client, t: (k: string) => string): { status: Client['status']; label: string } {
+  if (client.archived) return { status: 'neutral', label: t('client.relationArchived') };
+  return { status: client.status, label: client.statusLabel };
+}
+
 // Active project count, pending deliverables, and progress are computed live
 // from real project/task data — client.activeProjects etc. are static
 // snapshot fields (set once at creation) that would otherwise never update
@@ -261,6 +270,28 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
                 onBlur={e => commit({ sector: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 placeholder={t('clients.subtitlePlaceholder')} style={inputStyle} />
+            </Field>
+            <Field label={t('client.relation')}>
+              {/* Drives the real `archived` flag directly (same one the card's
+                  "..." menu and the Archivés tab use) so the status pill never
+                  drifts out of sync with the actual archived state. */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([
+                  { archived: false, label: t('client.relationActive'),   color: 'var(--ok)' },
+                  { archived: true,  label: t('client.relationArchived'), color: 'var(--text-3)' },
+                ]).map(opt => {
+                  const active = !!client.archived === opt.archived;
+                  return (
+                    <button key={String(opt.archived)}
+                      onClick={() => { if (opt.archived) archiveClient(client.id); else unarchiveClient(client.id); }}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? opt.color : 'var(--border)'}`, background: active ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: active ? 'var(--text)' : 'var(--text-2)', fontWeight: active ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: opt.color, flexShrink: 0 }} />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </Field>
             <Field label={t('clients.avatarColor')}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -515,7 +546,7 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
 
             {/* Statut */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <SFPill status={client.status} small>{client.statusLabel}</SFPill>
+              <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
             </div>
 
             {/* Actions */}
@@ -565,10 +596,15 @@ export function Clients() {
     return true;
   });
 
+  // Re-lookup from the live `clients` list instead of using the snapshot
+  // captured when the panel opened — otherwise toggling "Archivé" inside the
+  // panel wouldn't visually reflect until the panel was closed and reopened.
+  const liveEditingClient = editingClient ? (clients.find(c => c.id === editingClient.id) ?? editingClient) : null;
+
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
       {showModal && <NewClientModal onClose={() => setShowModal(false)} />}
-      {editingClient && <ClientEditPanel client={editingClient} onClose={() => setEditingClient(null)} />}
+      {liveEditingClient && <ClientEditPanel client={liveEditingClient} onClose={() => setEditingClient(null)} />}
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
@@ -665,7 +701,7 @@ export function Clients() {
               <SFBar value={liveStats.progress} height={3} />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <SFPill status={client.status} small>{client.statusLabel}</SFPill>
+                <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{client.lastActivity}</span>
               </div>
             </SFCard>

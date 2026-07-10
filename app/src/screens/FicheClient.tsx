@@ -1450,15 +1450,24 @@ function ClientEditPanel({ client, onClose }: {
                 placeholder={t('client.subtitlePlaceholder')} style={inputStyleFC} />
             </FieldFC>
             <FieldFC label={t('client.relation')}>
+              {/* Drives the real `archived` flag directly (same one the card's
+                  "..." menu and the Archivés tab use) instead of a separate
+                  status/statusLabel pair — those used to drift out of sync,
+                  showing "Actif" on a client that was actually archived. */}
               <div style={{ display: 'flex', gap: 6 }}>
                 {([
-                  { value: 'ok' as Status,      label: t('client.relationActive'),   color: 'var(--ok)' },
-                  { value: 'neutral' as Status, label: t('client.relationArchived'), color: 'var(--text-3)' },
+                  { archived: false, label: t('client.relationActive'),   color: 'var(--ok)' },
+                  { archived: true,  label: t('client.relationArchived'), color: 'var(--text-3)' },
                 ]).map(opt => {
-                  const active = lStatus === opt.value;
+                  const active = !!client.archived === opt.archived;
                   return (
-                    <button key={opt.value}
-                      onClick={() => { setLStatus(opt.value); setLStatusLabel(opt.label); commit({ status: opt.value, statusLabel: opt.label }); }}
+                    <button key={String(opt.archived)}
+                      onClick={() => {
+                        if (opt.archived) archiveClient(client.id); else unarchiveClient(client.id);
+                        setLStatus(opt.archived ? 'neutral' : 'ok');
+                        setLStatusLabel(opt.label);
+                        commit({ status: opt.archived ? 'neutral' : 'ok', statusLabel: opt.label });
+                      }}
                       style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `1px solid ${active ? opt.color : 'var(--border)'}`, background: active ? 'var(--surface-3)' : 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: active ? 'var(--text)' : 'var(--text-2)', fontWeight: active ? 600 : 400, fontFamily: 'var(--ff-text)' }}
                     >
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: opt.color, flexShrink: 0 }} />
