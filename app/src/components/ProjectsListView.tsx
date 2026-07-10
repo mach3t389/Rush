@@ -8,7 +8,7 @@ import type { Project, Status, Phase, SectionData, Task, User } from '../types/i
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
-import { setSections } from '../data/taskStore';
+import { setSections, getCurrentSectionLabel } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
@@ -609,7 +609,7 @@ function ProjectListRow({ p }: { p: Project }) {
 
       {/* Phase */}
       <div>
-        <SFPill status="neutral" small>{phaseLabel}</SFPill>
+        <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? phaseLabel}</SFPill>
       </div>
 
       {/* Progression */}
