@@ -981,11 +981,13 @@ const PLATFORM_PLANS = [
 ];
 
 const STORAGE_BLOCKS = [
-  { gb: 0,    labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,  priceYearly: 0   },
-  { gb: 50,   labelKey: null, label: '+50 Go',         priceMonthly: 5,  priceYearly: 48  },
-  { gb: 200,  labelKey: null, label: '+200 Go',        priceMonthly: 15, priceYearly: 144 },
-  { gb: 500,  labelKey: null, label: '+500 Go',        priceMonthly: 35, priceYearly: 336 },
-  { gb: 1000, labelKey: null, label: '+1 To',          priceMonthly: 50, priceYearly: 480 },
+  { tier: 0, labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,   priceYearly: 0    },
+  { tier: 1, labelKey: null, label: '+50 Go',          priceMonthly: 2,   priceYearly: 19   },
+  { tier: 2, labelKey: null, label: '+200 Go',         priceMonthly: 6,   priceYearly: 58   },
+  { tier: 3, labelKey: null, label: '+500 Go',         priceMonthly: 15,  priceYearly: 144  },
+  { tier: 4, labelKey: null, label: '+1 To',           priceMonthly: 30,  priceYearly: 288  },
+  { tier: 5, labelKey: null, label: '+2 To',           priceMonthly: 60,  priceYearly: 576  },
+  { tier: 6, labelKey: null, label: '+4 To',           priceMonthly: 120, priceYearly: 1152 },
 ];
 
 const MOCK_INVOICES = [
@@ -1002,7 +1004,7 @@ function PlanSettings() {
   const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
 
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
-  const activeStorage = STORAGE_BLOCKS.find(s => s.gb === currentStorage)!;
+  const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
 
   const platformPrice = billing === 'monthly' ? activePlan.priceMonthly : activePlan.priceYearly;
   const storagePrice  = billing === 'monthly' ? activeStorage.priceMonthly : activeStorage.priceYearly;
@@ -1177,12 +1179,12 @@ function PlanSettings() {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {STORAGE_BLOCKS.map(block => {
-            const isSelected = block.gb === currentStorage;
+            const isSelected = block.tier === currentStorage;
             const blockPrice = billing === 'monthly' ? block.priceMonthly : block.priceYearly;
             const displayLabel = block.labelKey ? t(block.labelKey) : block.label!;
             return (
-              <div key={block.gb}
-                onClick={() => trySwitch(currentPlan, block.gb)}
+              <div key={block.tier}
+                onClick={() => trySwitch(currentPlan, block.tier)}
                 style={{
                   borderRadius: 12, border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                   background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
@@ -1264,7 +1266,7 @@ function PlanSettings() {
       {/* ── Modal de confirmation ──────────────────────────────────────── */}
       {confirming && (() => {
         const newPlan    = PLATFORM_PLANS.find(p => p.key === confirming.plan)!;
-        const newStorage = STORAGE_BLOCKS.find(s => s.gb === confirming.storage)!;
+        const newStorage = STORAGE_BLOCKS.find(s => s.tier === confirming.storage)!;
         const newPlatPrice = billing === 'monthly' ? newPlan.priceMonthly : newPlan.priceYearly;
         const newStorPrice = billing === 'monthly' ? newStorage.priceMonthly : newStorage.priceYearly;
         const newTotal = newPlatPrice + newStorPrice;
