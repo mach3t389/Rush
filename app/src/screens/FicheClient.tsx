@@ -1593,7 +1593,11 @@ export function FicheClient() {
     return <div style={{ padding: 40, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}>{t('common.loading')}</div>;
   }
 
-  const projects = getProjects().filter(p => p.clientId === client.id);
+  // Excludes archived projects — mirrors Clients.tsx's getClientLiveStats,
+  // which already excludes them from the card's "projets actifs" count.
+  // Without this, an archived project still counted toward this page's
+  // "Projets"/"actifs" KPIs even though the client card showed 0.
+  const projects = getProjects().filter(p => p.clientId === client.id && !p.archived);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
