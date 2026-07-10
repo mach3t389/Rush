@@ -67,6 +67,7 @@ interface EventTypeRow {
   color: string;
   icon: string;
   built_in: boolean | null;
+  position: number;
 }
 
 function toEventType(row: EventTypeRow): EventType {
@@ -84,7 +85,7 @@ async function fetchSupabaseEventTypes(studioId: string): Promise<void> {
     .from('event_types')
     .select('*')
     .eq('studio_id', studioId)
-    .order('created_at', { ascending: true });
+    .order('position', { ascending: true });
 
   if (error) { console.error('fetchSupabaseEventTypes failed', error); return; }
 
@@ -115,13 +116,14 @@ onLogout(resetEventTypesCache);
  * never called for demo sessions or for studios that already have types.
  */
 export async function seedBuiltInEventTypes(studioId: string): Promise<void> {
-  const rows: EventTypeRow[] = DEFAULT_TYPES.map(t => ({
+  const rows: EventTypeRow[] = DEFAULT_TYPES.map((t, i) => ({
     id: t.id,
     studio_id: studioId,
     label: t.label,
     color: t.color,
     icon: t.icon,
     built_in: t.builtIn ?? null,
+    position: i,
   }));
   const { error } = await supabase.from('event_types').insert(rows);
   if (error) console.error('seedBuiltInEventTypes failed', error);
@@ -135,6 +137,7 @@ async function addSupabaseEventType(type: EventType, studioId: string): Promise<
     color: type.color,
     icon: type.icon,
     built_in: type.builtIn ?? null,
+    position: _supabaseTypes.length,
   });
   if (error) { console.error('addSupabaseEventType failed', error); return; }
   await fetchSupabaseEventTypes(studioId);
@@ -149,6 +152,16 @@ async function updateSupabaseEventType(id: string, patch: Partial<Omit<EventType
 async function deleteSupabaseEventType(id: string, studioId: string): Promise<void> {
   const { error } = await supabase.from('event_types').delete().eq('id', id);
   if (error) { console.error('deleteSupabaseEventType failed', error); return; }
+  await fetchSupabaseEventTypes(studioId);
+}
+
+async function reorderSupabaseEventTypes(orderedIds: string[], studioId: string): Promise<void> {
+  const updates = orderedIds.map((id, i) =>
+    supabase.from('event_types').update({ position: i }).eq('id', id).eq('studio_id', studioId)
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find(r => r.error);
+  if (failed?.error) { console.error('reorderSupabaseEventTypes failed', failed.error); return; }
   await fetchSupabaseEventTypes(studioId);
 }
 
@@ -198,6 +211,22 @@ export function deleteEventType(id: string) {
     const { getStudioId } = await import('./studioStore');
     const studioId = await getStudioId();
     await deleteSupabaseEventType(id, studioId);
+  })();
+}
+
+export function reorderEventTypes(orderedIds: string[]) {
+  if (isDemoSession()) {
+    const current = getDemoEventTypes();
+    const byId = new Map(current.map(t => [t.id, t]));
+    const reordered = orderedIds.map(id => byId.get(id)).filter((t): t is EventType => !!t);
+    saveDemoEventTypes(reordered);
+    notify();
+    return;
+  }
+  void (async () => {
+    const { getStudioId } = await import('./studioStore');
+    const studioId = await getStudioId();
+    await reorderSupabaseEventTypes(orderedIds, studioId);
   })();
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SFIcon } from '../ui';
-import { addEventType, updateEventType, deleteEventType, type EventType } from '../../data/eventTypeStore';
+import { addEventType, updateEventType, deleteEventType, reorderEventTypes, type EventType } from '../../data/eventTypeStore';
 
 // Liste des types d'événements dans la sidebar calendrier — sert à la fois de
 // filtre (clic = inclure/exclure) et d'éditeur (survol = crayon pour renommer/
@@ -25,6 +25,20 @@ export function EventTypeFilterList({
   const [showNew, setShowNew] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newColor, setNewColor] = useState('#3b82f6');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const handleDrop = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
+    const ids = eventTypes.map(t => t.id);
+    const fromIdx = ids.indexOf(dragId);
+    const toIdx = ids.indexOf(targetId);
+    ids.splice(fromIdx, 1);
+    ids.splice(toIdx, 0, dragId);
+    reorderEventTypes(ids);
+    setDragId(null);
+    setDragOverId(null);
+  };
 
   const startEdit = (et: EventType) => { setEditingId(et.id); setEditLabel(et.label); setEditColor(et.color); setShowNew(false); };
   const saveEdit = () => { if (!editLabel.trim() || !editingId) return; updateEventType(editingId, { label: editLabel.trim(), color: editColor }); setEditingId(null); };
@@ -54,10 +68,19 @@ export function EventTypeFilterList({
           const isEditing = editingId === et.id;
           return (
             <div key={et.id}>
-              <div style={{ position: 'relative', display: 'flex' }}
-                onMouseEnter={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '1'; }}
-                onMouseLeave={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '0'; }}
+              <div style={{ position: 'relative', display: 'flex', borderTop: dragOverId === et.id && dragId !== et.id ? '2px solid var(--accent)' : '2px solid transparent' }}
+                draggable
+                onDragStart={() => setDragId(et.id)}
+                onDragOver={e => { e.preventDefault(); if (dragId && dragId !== et.id) setDragOverId(et.id); }}
+                onDragLeave={() => setDragOverId(null)}
+                onDrop={e => { e.preventDefault(); handleDrop(et.id); }}
+                onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                onMouseEnter={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '1'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '1'; }}
+                onMouseLeave={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '0'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '0'; }}
               >
+                <span className="et-grip" style={{ position: 'absolute', left: -14, top: '50%', transform: 'translateY(-50%)', color: 'var(--border-2)', opacity: 0, transition: 'opacity 0.12s', cursor: 'grab', display: 'flex' }}>
+                  <SFIcon name="grip-vertical" size={11} />
+                </span>
                 <button onClick={() => onToggle(et.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', paddingRight: 26, borderRadius: 8, border: 'none', background: active && hasFilter ? 'rgba(255,255,255,0.04)' : 'transparent', cursor: 'pointer', textAlign: 'left', opacity: active ? 1 : 0.35, transition: 'all 0.15s', width: '100%' }}
                 >

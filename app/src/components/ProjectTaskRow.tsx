@@ -261,7 +261,7 @@ export function ProjectTaskRow({
           setTitleDraft(task.title);
           setEditingTitle(true);
         }}
-        style={{ overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', display: 'inline-block', maxWidth: '100%', width: editingTitle ? '100%' : 'fit-content' }}
+        style={{ overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', display: 'flex', alignItems: 'center', height: '100%', maxWidth: '100%', width: editingTitle ? '100%' : 'fit-content' }}
       >
         {editingTitle ? (
           <input

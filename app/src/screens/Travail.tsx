@@ -520,7 +520,7 @@ function TaskRow({
           setEditingTitle(true);
         }}
         onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', maxWidth: '100%', width: editingTitle ? '100%' : 'fit-content' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', height: '100%', maxWidth: '100%', width: editingTitle ? '100%' : 'fit-content' }}
       >
         {task.deliverable && !editingTitle && <SFIcon name="package" size={11} color="var(--accent)" />}
         {editingTitle ? (
