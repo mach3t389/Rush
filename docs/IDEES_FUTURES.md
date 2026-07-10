@@ -66,4 +66,16 @@ Envisager aussi une application desktop (ex. via Electron ou Tauri) pour une exp
 
 ---
 
+## Nom de domaine personnalisé (2026-07-10)
+
+**L'idée de départ :** acheter une URL personnalisée (ex. `rush.studio` ou équivalent) et la connecter à Vercel, au lieu de rester sur le domaine par défaut fourni par Vercel.
+
+Concrètement :
+- Acheter le domaine chez un registraire (ex. Namecheap, Google Domains, OVH)
+- Le connecter au projet Vercel (configuration DNS + certificat SSL, gérés automatiquement par Vercel une fois les enregistrements pointés)
+
+**Pourquoi plus tard :** c'est une étape de commercialisation/lancement plutôt qu'un chantier de développement — plus logique une fois l'app prête à être présentée publiquement sous son nom final.
+
+---
+
 *(D'autres idées pourront être ajoutées ici au fil des discussions.)*
