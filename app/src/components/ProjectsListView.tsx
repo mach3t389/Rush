@@ -609,7 +609,10 @@ function ProjectListRow({ p }: { p: Project }) {
 
       {/* Phase */}
       <div>
-        <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? phaseLabel}</SFPill>
+        {/* No fallback to the static phaseLabel — a project with no sections
+            yet has no real phase, and a default like "Préproduction" was
+            misleading since that section doesn't actually exist. */}
+        {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
       </div>
 
       {/* Progression */}

@@ -841,7 +841,11 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
-          <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? p.phaseLabel}</SFPill>
+          {/* No fallback to the static phaseLabel — a project with no
+              sections yet has no real phase, and a default like
+              "Préproduction" was misleading since that section doesn't
+              actually exist. */}
+          {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
         </div>
         <SFBar value={p.progress} height={3} />
         <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
@@ -1211,7 +1215,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                        <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? p.phaseLabel}</SFPill>
+                        {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
                       </div>
                       <SFBar value={p.progress} height={3} />
                     </div>

@@ -430,7 +430,10 @@ export function ProjectCard({ p }: { p: Project }) {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <SFAvatarGroup avatars={p.members.map(m => ({ initials: m.initials, bg: m.avatarColor, name: m.name }))} size={22} />
-        <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? phaseLabel}</SFPill>
+        {/* No fallback to the static phaseLabel — a project with no sections
+            yet has no real phase, and showing a default like "Préproduction"
+            was misleading since that section doesn't actually exist. */}
+        {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
