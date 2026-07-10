@@ -3730,12 +3730,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
           {viewMode !== 'columns' && location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && !(location.scope === 'clients' && location.folderId === null) && (
             <>
               {filteredFolders.length === 0 && filteredFiles.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '60px 0', color: 'var(--text-3)' }}>
-                  <SFIcon name={isTrashView ? 'trash-2' : isArchivesView ? 'archive' : 'folder-open'} size={40} color="var(--text-3)" />
-                  <p style={{ fontSize: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '64px 0', color: 'var(--text-3)' }}>
+                  <SFIcon name={isTrashView ? 'trash-2' : isArchivesView ? 'archive' : 'folder-open'} size={32} color="var(--text-3)" />
+                  <p style={{ fontSize: 14, fontWeight: 500 }}>
                     {isTrashView ? 'La corbeille est vide' : isArchivesView ? 'Aucun élément archivé' : 'Ce dossier est vide'}
                   </p>
-                  {!isSpecialView && <SFButton variant="ghost" icon="folder-plus" onClick={() => setShowNewFolder(true)}>Nouveau dossier</SFButton>}
+                  {!isSpecialView && <SFButton variant="secondary" icon="folder-plus" onClick={() => setShowNewFolder(true)}>Nouveau dossier</SFButton>}
                 </div>
               ) : viewMode === 'grid' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

@@ -424,12 +424,10 @@ export function ProjectMembres() {
 
           {/* Member list — individual cards, sectioned */}
           {members.length === 0 ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-              <SFIcon name="users" size={28} style={{ color: 'var(--text-3)', marginBottom: 10 }} />
-              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>{t('members.noMembers')}</p>
-              <button onClick={() => setShowAdd(true)} style={{ marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
-                {t('members.addToTeam')}
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '64px 0', color: 'var(--text-3)' }}>
+              <SFIcon name="users" size={32} color="var(--text-3)" />
+              <p style={{ fontSize: 14, fontWeight: 500 }}>{t('members.noMembers')}</p>
+              <SFButton variant="secondary" icon="user-plus" onClick={() => setShowAdd(true)}>{t('members.addToTeam')}</SFButton>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
