@@ -332,6 +332,7 @@
     "projectColor": "Project color",
     "archiveProject": "Archive project",
     "unarchiveProject": "Unarchive project",
+    "moveToClient": "Move to another client",
     "deleteProjectPermanently": "Delete permanently",
     "deleteProjectConfirm": "Delete this project and everything in it? This can't be undone.",
     "archivedBadge": "Archived",

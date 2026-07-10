@@ -332,6 +332,7 @@
     "projectColor": "Couleur du projet",
     "archiveProject": "Archiver le projet",
     "unarchiveProject": "Désarchiver le projet",
+    "moveToClient": "Déplacer vers un autre client",
     "deleteProjectPermanently": "Supprimer définitivement",
     "deleteProjectConfirm": "Supprimer ce projet et tout son contenu ? Cette action est irréversible.",
     "archivedBadge": "Archivé",

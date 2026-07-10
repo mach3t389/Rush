@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
+import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
+import { getClients } from '../data/clientStore';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
 const PROJECT_COLORS = [
@@ -257,6 +258,8 @@ export function ProjectCard({ p }: { p: Project }) {
   const [editOpen, setEditOpen]     = useState(false);
   const [menuOpen, setMenuOpen]     = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [moveClientOpen, setMoveClientOpen] = useState(false);
+  const [moveClientSearch, setMoveClientSearch] = useState('');
   const dropRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -376,6 +379,13 @@ export function ProjectCard({ p }: { p: Project }) {
                   <SFIcon name={p.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
                   {p.archived ? t('projects.unarchiveProject') : t('projects.archiveProject')}
                 </button>
+                <button
+                  onClick={() => { setMoveClientOpen(true); setMenuOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name="arrow-right-left" size={13} color="var(--text-3)" />
+                  {t('projects.moveToClient')}
+                </button>
                 {p.archived && !confirmDelete && (
                   <button
                     onClick={() => setConfirmDelete(true)}
@@ -463,6 +473,39 @@ export function ProjectCard({ p }: { p: Project }) {
           onClose={() => setEditOpen(false)}
           onSave={handleSave}
         />
+      )}
+
+      {/* Move to another client */}
+      {moveClientOpen && (
+        <SFModal open onClose={() => { setMoveClientOpen(false); setMoveClientSearch(''); }} title={t('projects.moveToClient')} width={380} maxHeight="70vh">
+          <input
+            autoFocus
+            value={moveClientSearch}
+            onChange={e => setMoveClientSearch(e.target.value)}
+            placeholder={t('members.searchPlaceholder')}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', marginBottom: 10 }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 320, overflowY: 'auto' }}>
+            {getClients().filter(c => !c.archived && c.id !== p.clientId && c.name.toLowerCase().includes(moveClientSearch.toLowerCase())).map(c => (
+              <button
+                key={c.id}
+                onClick={() => {
+                  updateProject(p.id, { clientId: c.id, clientName: c.name, clientColor: c.avatarColor });
+                  setMoveClientOpen(false);
+                  setMoveClientSearch('');
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                  {c.initials}
+                </div>
+                <span style={{ fontSize: 13 }}>{c.name}</span>
+              </button>
+            ))}
+          </div>
+        </SFModal>
       )}
     </div>
   );
