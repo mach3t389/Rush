@@ -7,6 +7,7 @@ import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
+import { getCurrentSectionLabel } from '../data/taskStore';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
 const PROJECT_COLORS = [
@@ -429,7 +430,7 @@ export function ProjectCard({ p }: { p: Project }) {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <SFAvatarGroup avatars={p.members.map(m => ({ initials: m.initials, bg: m.avatarColor, name: m.name }))} size={22} />
-        <SFPill status="neutral" small>{phaseLabel}</SFPill>
+        <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? phaseLabel}</SFPill>
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

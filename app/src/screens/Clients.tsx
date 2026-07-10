@@ -591,8 +591,9 @@ export function Clients() {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.sector.toLowerCase().includes(search.toLowerCase());
     if (!matchSearch) return false;
     if (filter === 'archived') return !!c.archived;
-    if (c.archived) return false;
-    if (filter === 'active')   return c.status === 'ok' || c.status === 'info';
+    // "Tous" really means all clients, archived included — only the
+    // "Actifs" tab should hide archived ones.
+    if (filter === 'active') return !c.archived && (c.status === 'ok' || c.status === 'info');
     return true;
   });
 

@@ -21,6 +21,7 @@ import { getTeamMembers } from '../data/teamStore';
 import { createInvitation, getInvitationLink } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
+import { getCurrentSectionLabel } from '../data/taskStore';
 import { isDemoSession } from '../data/authStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 import { enterViewAs } from '../data/viewAsStore';
@@ -840,7 +841,7 @@ function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
-          <SFPill status="neutral" small>{p.phaseLabel}</SFPill>
+          <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? p.phaseLabel}</SFPill>
         </div>
         <SFBar value={p.progress} height={3} />
         <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
@@ -1210,7 +1211,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                        <SFPill status="neutral" small>{p.phaseLabel}</SFPill>
+                        <SFPill status="neutral" small>{getCurrentSectionLabel(p.id) ?? p.phaseLabel}</SFPill>
                       </div>
                       <SFBar value={p.progress} height={3} />
                     </div>

@@ -185,6 +185,16 @@ export function getSections(projectId: string): SectionData[] {
   return _supabaseSections[projectId] ?? [];
 }
 
+// A project's stored phaseLabel is set once at creation and never updated,
+// so it drifts out of sync as work progresses through sections — this reads
+// the real current section (first incomplete one, or the last section once
+// everything is done) so displays show where the project actually is.
+export function getCurrentSectionLabel(projectId: string): string | null {
+  const sections = getSections(projectId);
+  if (sections.length === 0) return null;
+  return (sections.find(s => !s.completed) ?? sections[sections.length - 1]).label;
+}
+
 export function setSections(projectId: string, sections: SectionData[]): void {
   if (isDemoSession()) {
     _store = { ..._store, [projectId]: sections };
