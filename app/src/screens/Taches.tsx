@@ -1197,7 +1197,8 @@ export function Taches() {
   const [sortDir, setSortDir]         = usePersistedState<SortDir>('sf_taches_sort_dir', 'asc');
   const [filterPriorities, setFilterPriorities] = usePersistedState<Priority[]>('sf_taches_filter_prio', []);
   const [filterStatuses, setFilterStatuses]     = usePersistedState<string[]>('sf_taches_filter_status', []);
-  const [collapsedGroups, setCollapsedGroups]   = useState<Set<string>>(new Set());
+  const [collapsedGroupsArr, setCollapsedGroupsArr] = usePersistedState<string[]>('sf_taches_collapsed_sections', []);
+  const collapsedGroups = new Set(collapsedGroupsArr);
   const [mySections, setMySections]   = useState<string[]>(getMyTaskSections);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
@@ -1212,7 +1213,7 @@ export function Taches() {
   const anchorTaskId = React.useRef<string | null>(null);
 
   const toggleGroup = (key: string) =>
-    setCollapsedGroups(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
+    setCollapsedGroupsArr(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
   const handleSort = useCallback((col: SortCol) => {
     setSortCol(prev => {

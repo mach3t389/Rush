@@ -1002,7 +1002,7 @@ function Section({
 }) {
   const done = tasks.filter(t => t.checked).length;
   const progress = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
-  const [collapsed, setCollapsed] = useState(completed);
+  const [collapsed, setCollapsed] = usePersistedState<boolean>(`sf_travail_collapsed_${projectId}_${label}`, completed);
   // Replie/déplie automatiquement quand le statut "terminée" change (le repli manuel est préservé tant que `completed` ne change pas).
   const prevCompleted = React.useRef(completed);
   React.useEffect(() => {
