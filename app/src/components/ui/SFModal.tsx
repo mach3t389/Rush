@@ -37,7 +37,9 @@ export function SFModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={closeOnBackdrop ? onClose : undefined} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      {/* onMouseDown, not onClick — a text-selection drag started inside the
+          dialog and released over the backdrop must not close it. */}
+      <div onMouseDown={closeOnBackdrop ? onClose : undefined} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{
         position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)',
         borderRadius: 14, padding, width, maxHeight,
