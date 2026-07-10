@@ -1409,7 +1409,11 @@ function ClientEditPanel({ client, onClose }: {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
       // onMouseDown, not onClick — a text-selection drag started inside the
       // panel and released over the backdrop must not close it.
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
+      // Blurring the active element first forces its onBlur (which commits
+      // the field) to run before onClose unmounts the panel — otherwise the
+      // browser's focus-change (and thus the commit) happens AFTER this
+      // handler, so unsaved text was silently discarded.
+      onMouseDown={e => { if (e.target === e.currentTarget) { (document.activeElement as HTMLElement)?.blur(); onClose(); } }}
     >
       <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
@@ -1423,7 +1427,7 @@ function ClientEditPanel({ client, onClose }: {
               <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{t('client.editClient')}</p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
+          <button onClick={() => { (document.activeElement as HTMLElement)?.blur(); onClose(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
             <SFIcon name="x" size={16} />
           </button>
         </div>

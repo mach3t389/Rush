@@ -222,7 +222,10 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
   return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
+      // Blurring the active element first forces its onBlur (which commits the
+      // field) to run before onClose unmounts the panel — otherwise typed text
+      // that was never explicitly blurred (e.g. via Enter) was silently lost.
+      onMouseDown={e => { if (e.target === e.currentTarget) { (document.activeElement as HTMLElement)?.blur(); onClose(); } }}
     >
       <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -237,7 +240,7 @@ function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => v
               <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{sector}</p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
+          <button onClick={() => { (document.activeElement as HTMLElement)?.blur(); onClose(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
             <SFIcon name="x" size={16} />
           </button>
         </div>
