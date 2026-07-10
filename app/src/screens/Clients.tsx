@@ -6,8 +6,24 @@ import { SFPill, SFCard, SFBar, SFButton, SFLoadingState } from '../components/u
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
 import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient, isClientsLoading } from '../data/clientStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
+import { getDeliverables, subscribeStore as subscribeTasks } from '../data/taskStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import type { Client } from '../types/index';
+
+// Active project count, pending deliverables, and progress are computed live
+// from real project/task data — client.activeProjects etc. are static
+// snapshot fields (set once at creation) that would otherwise never update
+// as projects are added, completed, or archived.
+function getClientLiveStats(clientId: string): { activeProjects: number; pendingDeliverables: number; progress: number } {
+  const clientProjects = getProjects().filter(p => p.clientId === clientId && !p.archived);
+  const activeProjects = clientProjects.filter(p => p.status !== 'neutral').length;
+  const pendingDeliverables = clientProjects.reduce((sum, p) => sum + getDeliverables(p.id).filter(d => d.status === 'review').length, 0);
+  const progress = clientProjects.length > 0
+    ? Math.round(clientProjects.reduce((sum, p) => sum + p.progress, 0) / clientProjects.length)
+    : 0;
+  return { activeProjects, pendingDeliverables, progress };
+}
 
 // ── Shared edit panel primitives ──────────────────────────────────────────────
 
@@ -437,6 +453,7 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
       {/* Rows */}
       {clients.map((client, i) => {
         const pinned = isPinnedClient(client.id);
+        const liveStats = getClientLiveStats(client.id);
         return (
           <div
             key={client.id}
@@ -483,14 +500,14 @@ function ClientListView({ clients, onEdit }: { clients: Client[]; onEdit: (c: Cl
 
             {/* Activité */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t('clients.activeProjects', { count: client.activeProjects })}</span>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{t('clients.deliverablesSince', { count: client.pendingDeliverables, year: client.since })}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t('clients.activeProjects', { count: liveStats.activeProjects })}</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{t('clients.deliverablesSince', { count: liveStats.pendingDeliverables, year: client.since })}</span>
             </div>
 
             {/* Progression */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <div style={{ flex: 1, minWidth: 0 }}><SFBar value={client.progress} height={4} /></div>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{client.progress}%</span>
+              <div style={{ flex: 1, minWidth: 0 }}><SFBar value={liveStats.progress} height={4} /></div>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{liveStats.progress}%</span>
             </div>
 
             {/* Statut */}
@@ -528,6 +545,13 @@ export function Clients() {
 
   useEffect(() => subscribePinnedClients(() => setClients(getClients())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
+
+  // activeProjects/pendingDeliverables/progress are computed live from
+  // project + task data (see getClientLiveStats) — re-render on either
+  // changing so the numbers never go stale.
+  const [, forceLiveStatsRefresh] = useState(0);
+  useEffect(() => subscribeProjects(() => forceLiveStatsRefresh(n => n + 1)), []);
+  useEffect(() => subscribeTasks(() => forceLiveStatsRefresh(n => n + 1)), []);
 
   const filtered = clients.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.sector.toLowerCase().includes(search.toLowerCase());
@@ -610,6 +634,7 @@ export function Clients() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {filtered.map(client => {
           const pinned = isPinnedClient(client.id);
+          const liveStats = getClientLiveStats(client.id);
           return (
             <SFCard key={client.id} padding={18} gap={12} onClick={() => navigate(`/clients/${client.id}`)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -629,12 +654,12 @@ export function Clients() {
               </div>
 
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
-                <span>{t('clients.activeProjects', { count: client.activeProjects })}</span>
-                <span>{t('clients.deliverables', { count: client.pendingDeliverables })}</span>
+                <span>{t('clients.activeProjects', { count: liveStats.activeProjects })}</span>
+                <span>{t('clients.deliverables', { count: liveStats.pendingDeliverables })}</span>
                 <span>{t('clients.since', { year: client.since })}</span>
               </div>
 
-              <SFBar value={client.progress} height={3} />
+              <SFBar value={liveStats.progress} height={3} />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <SFPill status={client.status} small>{client.statusLabel}</SFPill>
