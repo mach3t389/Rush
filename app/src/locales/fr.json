@@ -348,6 +348,8 @@
     "moreFolders_one": "+{{count}} dossier…",
     "moreFolders_other": "+{{count}} dossiers…",
     "selectMembers": "Sélectionnez les membres qui participeront à ce projet.",
+    "you": "vous",
+    "youAlwaysIncluded": "Vous faites toujours partie de vos propres projets",
     "membersSelected_one": "{{count}} membre sélectionné",
     "membersSelected_other": "{{count}} membres sélectionnés",
     "cancel": "Annuler",

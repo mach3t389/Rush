@@ -96,8 +96,11 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
   const folderStructTemplates = loadAllResourceTemplates().filter(t => t.type === 'file');
 
-  const toggleMember = (id: string) =>
+  // The creator is always a member of their own project — can't deselect yourself.
+  const toggleMember = (id: string) => {
+    if (id === defaultMemberId) return;
     setMemberIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   const canNext = step === 'start' ? true
     : step === 'info' ? name.trim().length > 0
@@ -484,13 +487,15 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {team.map(u => {
                   const on = memberIds.includes(u.id);
+                  const isYou = u.id === defaultMemberId;
                   return (
                     <button
                       key={u.id}
                       onClick={() => toggleMember(u.id)}
+                      title={isYou ? t('projects.youAlwaysIncluded') : undefined}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+                        padding: '12px 14px', borderRadius: 11, cursor: isYou ? 'default' : 'pointer',
                         border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                         background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
                         transition: 'border-color 0.12s',
@@ -498,7 +503,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     >
                       <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
                       <div style={{ textAlign: 'left', minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</p>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}{isYou ? ` (${t('projects.you')})` : ''}</p>
                         <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{u.role}</p>
                       </div>
                       <div style={{ marginLeft: 'auto', flexShrink: 0 }}>

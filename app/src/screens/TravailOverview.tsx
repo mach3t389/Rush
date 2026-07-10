@@ -293,7 +293,7 @@ export function TravailOverview() {
           </Card>
 
           {/* ── Factures ── */}
-          <Card title={t('overview.invoicesTitle')} icon="receipt" action={<SFButton variant="ghost" size="sm" icon="plus">{t('overview.newInvoice')}</SFButton>}>
+          <Card title={t('overview.invoicesTitle')} icon="receipt" action={<SFButton variant="ghost" size="sm" icon="plus" onClick={() => navigate(`/projets/${project.id}/finances`)}>{t('overview.newInvoice')}</SFButton>}>
             {/* Summary strip */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
               {[
@@ -587,11 +587,11 @@ export function TravailOverview() {
                 />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type :</span>
-                  {DELIVERABLE_TYPES.map(t => (
-                    <button key={t.value} onClick={() => setNewDlType(t.value)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlType === t.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlType === t.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlType === t.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      <SFIcon name={t.icon} size={11}  />
-                      {t.label}
+                  {DELIVERABLE_TYPES.map(dt => (
+                    <button key={dt.value} onClick={() => setNewDlType(dt.value)} title={t(dt.labelKey)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlType === dt.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlType === dt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlType === dt.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                      <SFIcon name={dt.icon} size={11} />
+                      {t(dt.labelKey)}
                     </button>
                   ))}
                 </div>

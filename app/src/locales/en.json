@@ -348,6 +348,8 @@
     "moreFolders_one": "+{{count}} folder…",
     "moreFolders_other": "+{{count}} folders…",
     "selectMembers": "Select the members who will take part in this project.",
+    "you": "you",
+    "youAlwaysIncluded": "You're always part of your own projects",
     "membersSelected_one": "{{count}} member selected",
     "membersSelected_other": "{{count}} members selected",
     "cancel": "Cancel",
