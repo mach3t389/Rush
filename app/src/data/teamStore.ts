@@ -15,6 +15,7 @@ import type { User } from '../types';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { createLoadingFlag } from './loadingFlag';
 
 export interface TeamMemberInfo extends User {
   email: string;
@@ -47,6 +48,7 @@ function toMember(row: StudioMemberRow): TeamMemberInfo {
 let _members: TeamMemberInfo[] = [];
 let _ownerId: string | null = null;
 let _fetchStarted = false;
+const _loading = createLoadingFlag();
 const _listeners = new Set<() => void>();
 
 function notify() { _listeners.forEach(fn => fn()); }
@@ -59,11 +61,12 @@ async function fetchMembers(): Promise<void> {
     .eq('studio_id', studioId)
     .order('created_at', { ascending: true });
 
-  if (error) { console.error('fetchMembers failed', error); return; }
+  if (error) { console.error('fetchMembers failed', error); _loading.markLoaded(); notify(); return; }
 
   const rows = data as StudioMemberRow[];
   _members = rows.map(toMember);
   _ownerId = rows.find(r => r.is_owner)?.user_id ?? null;
+  _loading.markLoaded();
   notify();
 }
 
@@ -73,10 +76,17 @@ function ensureFetchStarted(): void {
   void fetchMembers();
 }
 
+export function isTeamLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureFetchStarted();
+  return _loading.isLoading();
+}
+
 export function resetTeamCache(): void {
   _members = [];
   _ownerId = null;
   _fetchStarted = false;
+  _loading.reset();
 }
 
 onLogout(resetTeamCache);

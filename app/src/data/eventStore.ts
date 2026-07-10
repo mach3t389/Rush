@@ -10,6 +10,7 @@
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { createLoadingFlag } from './loadingFlag';
 
 export interface CalendarEvent {
   id: string;
@@ -70,6 +71,7 @@ function saveDemoEvents(events: CalendarEvent[]) {
 
 let _supabaseEvents: CalendarEvent[] = [];
 let _supabaseFetchStarted = false;
+const _loading = createLoadingFlag();
 
 interface EventRow {
   id: string;
@@ -127,9 +129,10 @@ async function fetchSupabaseEvents(): Promise<void> {
     .eq('studio_id', studioId)
     .order('created_at', { ascending: true });
 
-  if (error) { console.error('fetchSupabaseEvents failed', error); return; }
+  if (error) { console.error('fetchSupabaseEvents failed', error); _loading.markLoaded(); notify(); return; }
 
   _supabaseEvents = (data as EventRow[]).map(toEvent);
+  _loading.markLoaded();
   notify();
 }
 
@@ -139,9 +142,16 @@ function ensureSupabaseFetchStarted(): void {
   void fetchSupabaseEvents();
 }
 
+export function isEventsLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseFetchStarted();
+  return _loading.isLoading();
+}
+
 export function resetEventsCache(): void {
   _supabaseEvents = [];
   _supabaseFetchStarted = false;
+  _loading.reset();
 }
 
 onLogout(resetEventsCache);

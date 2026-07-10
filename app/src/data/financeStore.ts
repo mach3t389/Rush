@@ -20,6 +20,7 @@ import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { setFileContent, getFileContent, removeFileContent } from './fileContentStore';
+import { createLoadingFlag } from './loadingFlag';
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
 export type PaymentMethodType = 'bank_transfer' | 'interac' | 'stripe' | 'paypal' | 'cheque' | 'cash' | 'custom';
@@ -197,6 +198,7 @@ const _dListeners = new Set<() => void>();
 
 let _supabaseInvoices: Invoice[] = [];
 let _supabaseInvoicesFetchStarted = false;
+const _invoicesLoading = createLoadingFlag();
 let _supabaseMethods: PaymentMethod[] = [];
 let _supabaseMethodsFetchStarted = false;
 let _supabaseDefaults: InvoiceDefaults | null = null;
@@ -205,6 +207,7 @@ let _supabaseDefaultsFetchStarted = false;
 export function resetFinanceCache(): void {
   _supabaseInvoices = [];
   _supabaseInvoicesFetchStarted = false;
+  _invoicesLoading.reset();
   _supabaseMethods = [];
   _supabaseMethodsFetchStarted = false;
   _supabaseDefaults = null;
@@ -298,11 +301,14 @@ async function fetchSupabaseInvoices(): Promise<void> {
       .select('*')
       .eq('studio_id', studioId)
       .order('created_at', { ascending: false });
-    if (error) { console.error('fetchSupabaseInvoices failed', error); return; }
+    if (error) { console.error('fetchSupabaseInvoices failed', error); _invoicesLoading.markLoaded(); _iListeners.forEach(fn => fn()); return; }
     _supabaseInvoices = (data as InvoiceRow[]).map(toInvoice);
+    _invoicesLoading.markLoaded();
     _iListeners.forEach(fn => fn());
   } catch (err) {
     console.error('fetchSupabaseInvoices failed', err);
+    _invoicesLoading.markLoaded();
+    _iListeners.forEach(fn => fn());
   }
 }
 
@@ -310,6 +316,12 @@ function ensureSupabaseInvoicesFetchStarted(): void {
   if (_supabaseInvoicesFetchStarted) return;
   _supabaseInvoicesFetchStarted = true;
   void fetchSupabaseInvoices();
+}
+
+export function isInvoicesLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseInvoicesFetchStarted();
+  return _invoicesLoading.isLoading();
 }
 
 async function addSupabaseInvoice(inv: Invoice): Promise<void> {

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton } from '../components/ui';
+import { SFIcon, SFButton, SFLoadingState } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import {
   getInvoicesByProject, subscribeInvoices, removeInvoice, findInvoice,
-  setInvoiceStatus, formatMoney, type Invoice,
+  setInvoiceStatus, formatMoney, isInvoicesLoading, type Invoice,
 } from '../data/financeStore';
 import { getClients } from '../data/clientStore';
 import { findProject } from '../data/projectStore';
@@ -75,12 +75,16 @@ export function ProjetFinances() {
 
         {/* Invoice list */}
         {invoices.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 0', color: 'var(--text-3)', gap: 10 }}>
-            <SFIcon name="receipt" size={32} color="var(--text-3)" />
-            <p style={{ fontSize: 14, fontWeight: 500 }}>{t('finance.noInvoices')}</p>
-            <p style={{ fontSize: 12 }}>{t('finance.noInvoicesProject')}</p>
-            <SFButton variant="secondary" icon="plus" onClick={openAdd}>{t('finance.addInvoice')}</SFButton>
-          </div>
+          isInvoicesLoading() ? (
+            <SFLoadingState />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 0', color: 'var(--text-3)', gap: 10 }}>
+              <SFIcon name="receipt" size={32} color="var(--text-3)" />
+              <p style={{ fontSize: 14, fontWeight: 500 }}>{t('finance.noInvoices')}</p>
+              <p style={{ fontSize: 12 }}>{t('finance.noInvoicesProject')}</p>
+              <SFButton variant="secondary" icon="plus" onClick={openAdd}>{t('finance.addInvoice')}</SFButton>
+            </div>
+          )
         ) : (
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '150px 130px 1fr 130px 110px 110px 90px', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>

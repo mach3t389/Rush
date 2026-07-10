@@ -19,6 +19,7 @@ import { setSections } from './taskStore';
 import { deleteEventsForProject } from './eventStore';
 import { deleteAllFilesForProject } from './fileStore';
 import { getInvoicesByProject, removeInvoice } from './financeStore';
+import { createLoadingFlag } from './loadingFlag';
 
 const STORAGE_KEY = 'sf_added_projects';
 const OVERRIDES_KEY = 'sf_project_overrides';
@@ -34,6 +35,7 @@ function persistOverrides() { savePersisted(OVERRIDES_KEY, _overrides); }
 // ── Real (Supabase-backed) session state ──────────────────────────────────
 let _supabaseProjects: Project[] = [];
 let _supabaseFetchStarted = false;
+const _loading = createLoadingFlag();
 
 interface ProjectRow {
   id: string;
@@ -115,9 +117,10 @@ async function fetchSupabaseProjects(): Promise<void> {
     .eq('studio_id', studioId)
     .order('created_at', { ascending: false });
 
-  if (error) { console.error('fetchSupabaseProjects failed', error); return; }
+  if (error) { console.error('fetchSupabaseProjects failed', error); _loading.markLoaded(); notify(); return; }
 
   _supabaseProjects = (data as ProjectRow[]).map(toProject);
+  _loading.markLoaded();
   notify();
 }
 
@@ -127,9 +130,16 @@ function ensureSupabaseFetchStarted(): void {
   void fetchSupabaseProjects();
 }
 
+export function isProjectsLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseFetchStarted();
+  return _loading.isLoading();
+}
+
 export function resetProjectsCache(): void {
   _supabaseProjects = [];
   _supabaseFetchStarted = false;
+  _loading.reset();
 }
 
 onLogout(resetProjectsCache);

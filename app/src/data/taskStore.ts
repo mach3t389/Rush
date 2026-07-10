@@ -47,6 +47,7 @@ function persist() { savePersisted(STORAGE_KEY, _store); }
 // ── Real (Supabase-backed) session state ──────────────────────────────────
 const _supabaseSections: Record<string, SectionData[]> = {};
 const _fetchedProjectIds = new Set<string>();
+const _loadingProjectIds = new Set<string>();
 
 // setSections() fires writes fire-and-forget. Two writes to the SAME project
 // in quick succession (e.g. "add a section" immediately followed by "add a
@@ -90,7 +91,7 @@ async function fetchSupabaseSections(projectId: string): Promise<void> {
     .eq('project_id', projectId)
     .order('position', { ascending: true });
 
-  if (sectionsError) { console.error('fetchSupabaseSections: sections failed', sectionsError); return; }
+  if (sectionsError) { console.error('fetchSupabaseSections: sections failed', sectionsError); _loadingProjectIds.delete(projectId); notify(); return; }
 
   const { data: taskRows, error: tasksError } = await supabase
     .from('tasks')
@@ -98,7 +99,7 @@ async function fetchSupabaseSections(projectId: string): Promise<void> {
     .eq('studio_id', studioId)
     .eq('project_id', projectId);
 
-  if (tasksError) { console.error('fetchSupabaseSections: tasks failed', tasksError); return; }
+  if (tasksError) { console.error('fetchSupabaseSections: tasks failed', tasksError); _loadingProjectIds.delete(projectId); notify(); return; }
 
   const rows = (sectionRows ?? []) as SectionRow[];
   const trows = (taskRows ?? []) as TaskRow[];
@@ -108,12 +109,20 @@ async function fetchSupabaseSections(projectId: string): Promise<void> {
     completed: r.completed,
     tasks: trows.filter(t => t.section_id === r.id).map(t => t.data),
   }));
+  _loadingProjectIds.delete(projectId);
   notify();
+}
+
+export function isSectionsLoading(projectId: string): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseFetchStarted(projectId);
+  return _loadingProjectIds.has(projectId);
 }
 
 function ensureSupabaseFetchStarted(projectId: string): void {
   if (_fetchedProjectIds.has(projectId)) return;
   _fetchedProjectIds.add(projectId);
+  _loadingProjectIds.add(projectId);
   void fetchSupabaseSections(projectId);
 }
 

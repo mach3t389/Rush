@@ -17,6 +17,7 @@ import { getProjects, removeProject } from './projectStore';
 import { deleteAllFilesForClient } from './fileStore';
 import { getInvoicesByClient, removeInvoice } from './financeStore';
 import { setClientTeam } from './clientTeamStore';
+import { createLoadingFlag } from './loadingFlag';
 
 const STORAGE_KEY = 'sf_added_clients';
 const OVERRIDES_KEY = 'sf_client_overrides';
@@ -32,6 +33,7 @@ function persistOverrides() { savePersisted(OVERRIDES_KEY, _overrides); }
 // ── Real (Supabase-backed) session state ──────────────────────────────────
 let _supabaseClients: Client[] = [];
 let _supabaseFetchStarted = false;
+const _loading = createLoadingFlag();
 
 interface ClientRow {
   id: string;
@@ -116,9 +118,10 @@ async function fetchSupabaseClients(): Promise<void> {
     .eq('studio_id', studioId)
     .order('created_at', { ascending: true });
 
-  if (error) { console.error('fetchSupabaseClients failed', error); return; }
+  if (error) { console.error('fetchSupabaseClients failed', error); _loading.markLoaded(); notify(); return; }
 
   _supabaseClients = (data as ClientRow[]).map(toClient);
+  _loading.markLoaded();
   notify();
 }
 
@@ -128,9 +131,16 @@ function ensureSupabaseFetchStarted(): void {
   void fetchSupabaseClients();
 }
 
+export function isClientsLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseFetchStarted();
+  return _loading.isLoading();
+}
+
 export function resetClientsCache(): void {
   _supabaseClients = [];
   _supabaseFetchStarted = false;
+  _loading.reset();
 }
 
 onLogout(resetClientsCache);

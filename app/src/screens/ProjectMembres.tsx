@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFAvatar, SFIcon, SFButton, SFModal } from '../components/ui';
+import { SFAvatar, SFIcon, SFButton, SFModal, SFLoadingState } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getClientExternalTeam, addClientTeamMember } from '../data/clientTeamStore';
 import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
-import { findProject, updateProject } from '../data/projectStore';
+import { findProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
 import { isDemoSession } from '../data/authStore';
 import { getTeamMembers, isTeamOwner } from '../data/teamStore';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -329,6 +329,14 @@ export function ProjectMembres() {
   const [members, setMembers] = useState<User[]>(project?.members ?? []);
   const [showAdd, setShowAdd] = useState(false);
 
+  // project.members can still be empty when this mounts before the
+  // real session's background project fetch resolves — without this,
+  // the list never picks up the real members once they arrive.
+  useEffect(() => subscribeProjects(() => {
+    const p = findProject(projectId);
+    if (p) setMembers(p.members ?? []);
+  }), [projectId]);
+
   if (!project) {
     return (
       <div style={{ padding: 40, color: 'var(--text-3)' }}>
@@ -424,11 +432,15 @@ export function ProjectMembres() {
 
           {/* Member list — individual cards, sectioned */}
           {members.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '64px 0', color: 'var(--text-3)' }}>
-              <SFIcon name="users" size={32} color="var(--text-3)" />
-              <p style={{ fontSize: 14, fontWeight: 500 }}>{t('members.noMembers')}</p>
-              <SFButton variant="secondary" icon="user-plus" onClick={() => setShowAdd(true)}>{t('members.addToTeam')}</SFButton>
-            </div>
+            isProjectsLoading() ? (
+              <SFLoadingState />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '64px 0', color: 'var(--text-3)' }}>
+                <SFIcon name="users" size={32} color="var(--text-3)" />
+                <p style={{ fontSize: 14, fontWeight: 500 }}>{t('members.noMembers')}</p>
+                <SFButton variant="secondary" icon="user-plus" onClick={() => setShowAdd(true)}>{t('members.addToTeam')}</SFButton>
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               {/* Équipe interne — admin + internal members together */}

@@ -19,6 +19,7 @@ import { isDemoSession, onLogout, getCurrentUser } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { updateTask as updateProjectTask, subscribeStore as subscribeTaskStore } from './taskStore';
+import { createLoadingFlag } from './loadingFlag';
 
 const STORAGE_KEY = 'sf_my_tasks';
 const SECTIONS_KEY = 'sf_my_task_sections';
@@ -33,6 +34,7 @@ let _freestandingTasks: Task[] = [];
 let _assignedTasks: Task[] = [];
 let _supabaseSectionRows: { id: string; label: string }[] = [];
 let _fetchStarted = false;
+const _loading = createLoadingFlag();
 let _taskStoreUnsub: (() => void) | null = null;
 
 interface MySectionRow {
@@ -66,28 +68,35 @@ async function fetchSupabaseMyTasks(): Promise<void> {
     .eq('studio_id', studioId)
     .order('position', { ascending: true });
 
-  if (sectionsError) { console.error('fetchSupabaseMyTasks: my_sections failed', sectionsError); return; }
+  if (sectionsError) { console.error('fetchSupabaseMyTasks: my_sections failed', sectionsError); _loading.markLoaded(); notify(); return; }
 
   const { data: freestandingRows, error: freestandingError } = await supabase
     .from('my_tasks')
     .select('*')
     .eq('studio_id', studioId);
 
-  if (freestandingError) { console.error('fetchSupabaseMyTasks: my_tasks failed', freestandingError); return; }
+  if (freestandingError) { console.error('fetchSupabaseMyTasks: my_tasks failed', freestandingError); _loading.markLoaded(); notify(); return; }
 
   const { data: projectTaskRows, error: projectTasksError } = await supabase
     .from('tasks')
     .select('*')
     .eq('studio_id', studioId);
 
-  if (projectTasksError) { console.error('fetchSupabaseMyTasks: tasks failed', projectTasksError); return; }
+  if (projectTasksError) { console.error('fetchSupabaseMyTasks: tasks failed', projectTasksError); _loading.markLoaded(); notify(); return; }
 
   _supabaseSectionRows = ((sectionRows ?? []) as MySectionRow[]).map(r => ({ id: r.id, label: r.label }));
   _freestandingTasks = ((freestandingRows ?? []) as MyTaskRow[]).map(r => r.data);
   _assignedTasks = ((projectTaskRows ?? []) as ProjectTaskRow[])
     .map(r => r.data)
     .filter(t => !!myUserId && t.assignee?.id === myUserId);
+  _loading.markLoaded();
   notify();
+}
+
+export function isMyTasksLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseFetchStarted();
+  return _loading.isLoading();
 }
 
 function ensureSupabaseFetchStarted(): void {
@@ -106,6 +115,7 @@ export function resetMyTasksCache(): void {
   _assignedTasks = [];
   _supabaseSectionRows = [];
   _fetchStarted = false;
+  _loading.reset();
   _taskStoreUnsub?.();
   _taskStoreUnsub = null;
 }

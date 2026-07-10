@@ -3,6 +3,7 @@ import type { ResourceType } from '../types';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { createLoadingFlag } from './loadingFlag';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ let _demoFiles: FileItem[]     = loadPersisted<FileItem[]>(FILES_KEY, SEED_FILES
 let _supabaseFolders: FileFolder[] = [];
 let _supabaseFiles: FileItem[] = [];
 let _supabaseFetchStarted = false;
+const _loading = createLoadingFlag();
 
 const listeners = new Set<Listener>();
 const notify = () => listeners.forEach(l => l());
@@ -219,11 +221,12 @@ async function fetchSupabaseFileData(): Promise<void> {
     supabase.from('file_folders').select('*').eq('studio_id', studioId),
     supabase.from('file_items').select('*').eq('studio_id', studioId),
   ]);
-  if (foldersRes.error) { console.error('fetchSupabaseFileData (folders) failed', foldersRes.error); return; }
-  if (filesRes.error) { console.error('fetchSupabaseFileData (files) failed', filesRes.error); return; }
+  if (foldersRes.error) { console.error('fetchSupabaseFileData (folders) failed', foldersRes.error); _loading.markLoaded(); notify(); return; }
+  if (filesRes.error) { console.error('fetchSupabaseFileData (files) failed', filesRes.error); _loading.markLoaded(); notify(); return; }
 
   _supabaseFolders = (foldersRes.data as FolderRow[]).map(toFolder);
   _supabaseFiles = (filesRes.data as ItemRow[]).map(toItem);
+  _loading.markLoaded();
   notify();
 }
 
@@ -233,10 +236,17 @@ function ensureSupabaseFetchStarted(): void {
   void fetchSupabaseFileData();
 }
 
+export function isFilesLoading(): boolean {
+  if (isDemoSession()) return false;
+  ensureSupabaseFetchStarted();
+  return _loading.isLoading();
+}
+
 export function resetFileCache(): void {
   _supabaseFolders = [];
   _supabaseFiles = [];
   _supabaseFetchStarted = false;
+  _loading.reset();
 }
 
 onLogout(resetFileCache);
