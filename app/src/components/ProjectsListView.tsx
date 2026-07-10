@@ -757,7 +757,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
       {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 320, height: 36 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 340, height: 36 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <SFIcon name="search" size={14} color="var(--text-3)" />
           </div>
