@@ -1000,7 +1000,7 @@ const MOCK_INVOICES = [
 function PlanSettings() {
   const { t } = useTranslation();
   const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
-  const [currentPlan, setCurrentPlan]     = useState('studio');
+  const [currentPlan, setCurrentPlan]     = useState('gratuit');
   const [currentStorage, setCurrentStorage] = useState(0);
   const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
@@ -1012,11 +1012,13 @@ function PlanSettings() {
         const studioId = await getStudioId();
         const { data, error } = await supabase
           .from('studios')
-          .select('stripe_subscription_id')
+          .select('plan, billing_storage_tier, stripe_subscription_id')
           .eq('id', studioId)
           .single();
-        if (!cancelled && !error) {
-          setHasActiveSubscription(!!data?.stripe_subscription_id);
+        if (!cancelled && !error && data) {
+          setCurrentPlan(data.plan ?? 'gratuit');
+          setCurrentStorage(data.billing_storage_tier ?? 0);
+          setHasActiveSubscription(!!data.stripe_subscription_id);
         }
       } catch (err) {
         console.error('Failed to load subscription status', err);
