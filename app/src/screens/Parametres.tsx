@@ -991,13 +991,13 @@ const PLATFORM_PLANS = [
 ];
 
 const STORAGE_BLOCKS = [
-  { tier: 0, labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,   priceYearly: 0    },
-  { tier: 1, labelKey: null, label: '+50 Go',          priceMonthly: 2,   priceYearly: 19   },
-  { tier: 2, labelKey: null, label: '+200 Go',         priceMonthly: 6,   priceYearly: 58   },
-  { tier: 3, labelKey: null, label: '+500 Go',         priceMonthly: 15,  priceYearly: 144  },
-  { tier: 4, labelKey: null, label: '+1 To',           priceMonthly: 30,  priceYearly: 288  },
-  { tier: 5, labelKey: null, label: '+2 To',           priceMonthly: 60,  priceYearly: 576  },
-  { tier: 6, labelKey: null, label: '+4 To',           priceMonthly: 120, priceYearly: 1152 },
+  { tier: 0, labelKey: 'settings.planStorageNoExtra', priceMonthly: 0,  priceYearly: 0   },
+  { tier: 1, labelKey: null, label: '+50 Go',          priceMonthly: 2,  priceYearly: 19  },
+  { tier: 2, labelKey: null, label: '+200 Go',         priceMonthly: 7,  priceYearly: 67  },
+  { tier: 3, labelKey: null, label: '+500 Go',         priceMonthly: 15, priceYearly: 144 },
+  { tier: 4, labelKey: null, label: '+1 To',           priceMonthly: 28, priceYearly: 269 },
+  { tier: 5, labelKey: null, label: '+2 To',           priceMonthly: 52, priceYearly: 499 },
+  { tier: 6, labelKey: null, label: '+4 To',           priceMonthly: 96, priceYearly: 922 },
 ];
 
 const MOCK_INVOICES = [
