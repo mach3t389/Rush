@@ -45,6 +45,7 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
       setDragOverDay(null);
       if (!d || !d.moved) return;
       suppressClickRef.current = true;
+      setTimeout(() => { suppressClickRef.current = false; }, 0);
       const iso = dayISOAtPoint(me.clientX, me.clientY);
       if (!iso) return;
       const [y, mo, da] = iso.split('-').map(Number);
