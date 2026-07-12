@@ -100,4 +100,16 @@ Concrètement :
 
 ---
 
+## Capture par photo + création automatique de tâches par l'IA (2026-07-12)
+
+**L'idée de départ :** pouvoir prendre une photo de n'importe quel document ou information (note manuscrite, tableau blanc, document papier, etc.) et laisser l'IA en extraire le contenu pour :
+- Créer automatiquement des tâches correspondantes
+- Ajouter certaines informations dans les bons dossiers/projets
+
+**Vérification avec l'utilisateur avant d'agir :** plutôt que de créer les tâches à l'aveugle, l'IA poserait des questions de clarification à l'utilisateur (à quel projet ça appartient, quelle priorité, etc.) puis présenterait un **récapitulatif** des tâches/informations qu'elle propose de créer, pour confirmation avant exécution — évite les erreurs de classement ou des tâches créées au mauvais endroit.
+
+**Pourquoi plus tard :** ça demande une capacité de vision/OCR fiable côté IA, une logique de clarification interactive (pas juste un chatbot ponctuel), et n'a de sens qu'une fois que la gestion de tâches/dossiers de base est stable — comme les autres idées IA déjà notées plus haut (messagerie unifiée), c'est une couche avancée à construire sur des fondations solides, pas en parallèle.
+
+---
+
 *(D'autres idées pourront être ajoutées ici au fil des discussions.)*
