@@ -1645,6 +1645,7 @@
     "planAxis3Desc": "{{count}} seats included. Add extra seats as your team grows.",
     "planSeatsExtraPrice": "+{{price}} $ CA{{cycle}} per extra seat",
     "planSeatsRequiresPaidPlan": "Upgrade to a paid plan to add team members",
+    "planStorageRequiresPaidPlan": "Upgrade to a paid plan to add extra storage",
     "planSummaryTitle": "Summary",
     "planSummaryPlatform": "Platform",
     "planSummaryStorage": "Extra storage",

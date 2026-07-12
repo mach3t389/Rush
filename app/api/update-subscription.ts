@@ -70,11 +70,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const subscription = await stripe.subscriptions.retrieve(studio.stripe_subscription_id);
 
-    // Le plan Gratuit n'a pas de prix de base ni de siège payant — seul le
-    // stockage extra peut rester facturé en restant sur ce plan.
+    // Le plan Gratuit n'a ni prix de base, ni siège, ni stockage payant —
+    // un downgrade vers Gratuit retire tous les add-ons de l'abonnement.
     const planPrices = plan === 'gratuit' ? null : STRIPE_PRICE_IDS[plan];
     const storagePrices = billingCycle === 'monthly' ? STRIPE_PRICE_IDS.storageMonthly : STRIPE_PRICE_IDS.storageYearly;
     const extraSeats = planPrices ? Math.max(0, seats - 2) : 0;
+    const effectiveStorageTier = plan === 'gratuit' ? 0 : storageTier;
 
     let baseItemId: string | undefined;
     let seatItemId: string | undefined;
@@ -106,8 +107,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (seatItemId) items.push({ id: seatItemId, deleted: true });
     }
 
-    if (storageTier > 0) {
-      const storagePriceId = storagePrices[storageTier - 1];
+    if (effectiveStorageTier > 0) {
+      const storagePriceId = storagePrices[effectiveStorageTier - 1];
       items.push(storageItemId
         ? { id: storageItemId, price: storagePriceId, quantity: 1 }
         : { price: storagePriceId, quantity: 1 });

@@ -1142,9 +1142,10 @@ function PlanSettings() {
   const selectPlan = (planKey: string) => {
     setDraftPlan(planKey);
     if (planKey === 'gratuit') {
-      // Le plan Gratuit n'a pas de siège payant — impossible d'en ajouter sans upgrader.
+      // Le plan Gratuit n'a ni siège ni stockage payant — il faut upgrader pour en ajouter.
       const plan = PLATFORM_PLANS.find(p => p.key === planKey)!;
       setDraftSeats(plan.includedSeats);
+      setDraftStorage(0);
     }
   };
 
@@ -1349,19 +1350,21 @@ function PlanSettings() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {STORAGE_BLOCKS.map(block => {
             const isSelected = block.tier === draftStorage;
+            const isLocked = draftPlan === 'gratuit' && block.tier > 0;
             const blockPrice = billing === 'monthly' ? block.priceMonthly : block.priceYearly;
             const displayLabel = block.labelKey ? t(block.labelKey) : block.label!;
             return (
               <div key={block.tier}
-                onClick={() => setDraftStorage(block.tier)}
+                onClick={() => { if (!isLocked) setDraftStorage(block.tier); }}
                 style={{
                   borderRadius: 12, border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                   background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
-                  padding: '14px 20px', cursor: 'pointer', transition: 'all 0.15s',
+                  padding: '14px 20px', cursor: isLocked ? 'default' : 'pointer', transition: 'all 0.15s',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 110,
+                  opacity: isLocked ? 0.4 : 1,
                 }}
-                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                onMouseEnter={e => { if (!isSelected && !isLocked) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                onMouseLeave={e => { if (!isSelected && !isLocked) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
               >
                 <SFIcon name="hard-drive" size={18} color={isSelected ? 'var(--accent)' : 'var(--text-3)'} />
                 <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--ff-display)', color: isSelected ? 'var(--text)' : 'var(--text-2)', marginTop: 4 }}>
@@ -1379,6 +1382,11 @@ function PlanSettings() {
             );
           })}
         </div>
+        {draftPlan === 'gratuit' && (
+          <p style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginTop: 10 }}>
+            {t('settings.planStorageRequiresPaidPlan')}
+          </p>
+        )}
       </div>
 
       {/* ── Axe 3 : Sièges ─────────────────────────────────────────────── */}
