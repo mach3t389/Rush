@@ -39,6 +39,9 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
 
   const allDayDragRef = useRef<{ ev: CalEvent; startX: number; startY: number; moved: boolean } | null>(null);
   const suppressAllDayClickRef = useRef(false);
+  // Chip flottant qui suit le curseur pendant le glisser d'un événement
+  // "jour entier" — même retour visuel en temps réel que les autres surfaces.
+  const [allDayGhost, setAllDayGhost] = useState<{ x: number; y: number; title: string; color: string; id: string } | null>(null);
 
   const dayISOAtPoint = (x: number, y: number): string | null => {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -56,6 +59,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
       if (Math.abs(me.clientX - d.startX) > 4 || Math.abs(me.clientY - d.startY) > 4) d.moved = true;
       if (!d.moved) return;
       setDragOverDay(dayISOAtPoint(me.clientX, me.clientY));
+      setAllDayGhost({ x: me.clientX, y: me.clientY, title: d.ev.title, color: d.ev.eventTypeColor, id: d.ev.id });
     };
     const onUp = (me: MouseEvent) => {
       window.removeEventListener('mousemove', onMove);
@@ -63,6 +67,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
       const d = allDayDragRef.current;
       allDayDragRef.current = null;
       setDragOverDay(null);
+      setAllDayGhost(null);
       if (!d || !d.moved) return;
       suppressAllDayClickRef.current = true;
       setTimeout(() => { suppressAllDayClickRef.current = false; }, 0);
@@ -163,7 +168,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                     <div key={ev.id} data-event
                       onMouseDown={beginAllDayDrag(ev)}
                       onClick={e=>{ e.stopPropagation(); if(suppressAllDayClickRef.current){ suppressAllDayClickRef.current=false; return; } onEventClick(ev); }}
-                      style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:onEventChange?'grab':'pointer',overflow:'hidden' }}
+                      style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:onEventChange?'grab':'pointer',overflow:'hidden',opacity:allDayGhost?.id===ev.id?0.35:1 }}
                     >
                       <span style={{ fontSize:11,fontWeight:600,color:'white',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',display:'block' }}>{ev.title}</span>
                     </div>
@@ -245,6 +250,20 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
           })}
         </div>
       </div>
+
+      {/* Chip flottant suivant le curseur pendant le glisser d'un événement jour entier */}
+      {allDayGhost && (
+        <div style={{
+          position: 'fixed', left: allDayGhost.x, top: allDayGhost.y, transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', zIndex: 999,
+          padding: '6px 12px', borderRadius: 7,
+          background: `${allDayGhost.color}ee`, color: 'white', fontSize: 11, fontWeight: 700,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+          fontFamily: 'var(--ff-text)',
+        }}>
+          {allDayGhost.title}
+        </div>
+      )}
     </div>
   );
 }

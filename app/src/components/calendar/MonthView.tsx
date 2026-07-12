@@ -22,6 +22,10 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
   const dragRef = useRef<{ ev: CalEvent; startX: number; startY: number; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  // Chip flottant qui suit le curseur pendant le glisser — donne un retour
+  // visuel en temps réel (comme le glisser vertical déjà en direct en vue
+  // semaine), plutôt que de ne voir l'événement bouger qu'au relâchement.
+  const [ghost, setGhost] = useState<{ x: number; y: number; title: string; color: string; id: string } | null>(null);
 
   const dayISOAtPoint = (x: number, y: number): string | null => {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -39,6 +43,7 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
       if (Math.abs(me.clientX - d.startX) > 4 || Math.abs(me.clientY - d.startY) > 4) d.moved = true;
       if (!d.moved) return;
       setDragOverDay(dayISOAtPoint(me.clientX, me.clientY));
+      setGhost({ x: me.clientX, y: me.clientY, title: d.ev.title, color: d.ev.eventTypeColor, id: d.ev.id });
     };
     const onUp = (me: MouseEvent) => {
       window.removeEventListener('mousemove', onMove);
@@ -46,6 +51,7 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
       const d = dragRef.current;
       dragRef.current = null;
       setDragOverDay(null);
+      setGhost(null);
       if (!d || !d.moved) return;
       suppressClickRef.current = true;
       setTimeout(() => { suppressClickRef.current = false; }, 0);
@@ -101,7 +107,7 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
                 <div key={ev.id} data-event
                   onMouseDown={beginEventDrag(ev)}
                   onClick={e => { e.stopPropagation(); if (suppressClickRef.current) { suppressClickRef.current = false; return; } onEventClick(ev); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 5, background: `${ev.eventTypeColor}bb`, borderLeft: `3px solid ${ev.projectColor}`, marginBottom: 2, cursor: onEventChange ? 'grab' : 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 5, background: `${ev.eventTypeColor}bb`, borderLeft: `3px solid ${ev.projectColor}`, marginBottom: 2, cursor: onEventChange ? 'grab' : 'pointer', opacity: ghost?.id === ev.id ? 0.35 : 1 }}
                 >
                   <span style={{ fontSize: 10, fontWeight: 600, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{ev.title}</span>
                   {!ev.allDay && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>{fmtTime(ev.startDate)}</span>}
@@ -124,6 +130,20 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
           );
         })}
       </div>
+
+      {/* Chip flottant suivant le curseur pendant un glisser */}
+      {ghost && (
+        <div style={{
+          position: 'fixed', left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', zIndex: 999,
+          padding: '6px 12px', borderRadius: 7,
+          background: `${ghost.color}ee`, color: 'white', fontSize: 11, fontWeight: 700,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+          fontFamily: 'var(--ff-text)',
+        }}>
+          {ghost.title}
+        </div>
+      )}
     </div>
   );
 }

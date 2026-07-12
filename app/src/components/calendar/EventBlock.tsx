@@ -27,6 +27,10 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
   const dragRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef(false);
   const previewRef = useRef<{ start: Date; end: Date } | null>(null);
+  // Chip flottant qui suit le curseur pendant un glisser 'move' — donne un
+  // retour visuel en temps réel du jour cible, en plus de l'aperçu vertical
+  // (heure) déjà affiché sur la carte elle-même. Non utilisé en mode 'resize'.
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
 
   // Garde l'aperçu affiché jusqu'à ce que les props réelles rattrapent la
   // position prévisualisée (évite un "rebond" le temps que le store se mette à jour).
@@ -70,7 +74,10 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
         if (ne > dayEnd) { const diff = ne.getTime() - dayEnd.getTime(); ns = new Date(ns.getTime() - diff); ne = new Date(ne.getTime() - diff); }
         previewRef.current = { start: ns, end: ne };
         setPreview(previewRef.current);
-        if (d.moved) onDragDay?.(dayISOAtPoint(me.clientX, me.clientY));
+        if (d.moved) {
+          onDragDay?.(dayISOAtPoint(me.clientX, me.clientY));
+          setGhost({ x: me.clientX, y: me.clientY });
+        }
       } else {
         const minEnd = new Date(d.origStart.getTime() + 15 * 60000);
         let ne = new Date(d.origEnd.getTime() + deltaMin * 60000);
@@ -87,6 +94,7 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
       const d = dragRef.current;
       dragRef.current = null;
       onDragDay?.(null);
+      setGhost(null);
       const finalPreview = previewRef.current;
       previewRef.current = null;
       if (d?.moved && finalPreview) {
@@ -135,7 +143,7 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
       onMouseDown={beginDrag('move')}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ position: 'absolute', top, height: h, width: w, left, borderRadius: 6, padding: '4px 7px', overflow: 'hidden', cursor: onChange ? 'grab' : 'pointer', zIndex: preview ? 20 : 5,
-        background: `${ev.eventTypeColor}cc`, border: `1px solid ${ev.eventTypeColor}`, borderLeft: `3px solid ${ev.projectColor}`, boxShadow: (hov || preview) ? `0 2px 12px ${ev.eventTypeColor}66` : undefined, transition: preview ? undefined : 'box-shadow 0.15s',
+        background: `${ev.eventTypeColor}cc`, border: `1px solid ${ev.eventTypeColor}`, borderLeft: `3px solid ${ev.projectColor}`, boxShadow: (hov || preview) ? `0 2px 12px ${ev.eventTypeColor}66` : undefined, opacity: ghost ? 0.35 : 1, transition: preview ? undefined : 'box-shadow 0.15s',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -150,6 +158,22 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
           onMouseEnter={e => e.stopPropagation()}
           style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 7, cursor: 'ns-resize' }}
         />
+      )}
+
+      {/* Chip flottant suivant le curseur pendant un glisser 'move' inter-jours */}
+      {ghost && (
+        <div style={{
+          position: 'fixed', left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', zIndex: 999,
+          padding: '6px 12px', borderRadius: 7,
+          background: `${ev.eventTypeColor}ee`, color: 'white', fontSize: 11, fontWeight: 700,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+          fontFamily: 'var(--ff-text)',
+        }}>
+          {ev.title}
+          {' · '}
+          <span style={{ fontFamily: 'var(--ff-mono)', fontWeight: 400 }}>{fmtTime(start)} – {fmtTime(end)}</span>
+        </div>
       )}
     </div>
   );
