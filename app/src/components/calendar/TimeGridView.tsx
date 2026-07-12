@@ -20,7 +20,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
 }) {
   const { t } = useTranslation();
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
-  const isDay=days.length===1;
+  const dayLabel = (dd: Date) => dayNames[(dd.getDay() + 6) % 7];
   const scrollRef=useRef<HTMLDivElement>(null);
 
   // Scroll to working hours on mount / when days change
@@ -135,11 +135,10 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
             <div style={{ width:52,flexShrink:0 }} />
             {days.map((d,i)=>{
               const isToday=isSameDay(d,TODAY);
-              const dayIdx=new Date(d).getDay()===0?6:new Date(d).getDay()-1;
               return (
                 <div key={i} style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 0 6px',minWidth:0 }}>
                   <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:3 }}>
-                    {isDay ? dayNames[dayIdx] : dayNames[i]}
+                    {dayLabel(d)}
                   </span>
                   <div style={{ width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isToday?'var(--accent)':'transparent',flexShrink:0 }}>
                     <span style={{ fontFamily:'var(--ff-mono)',fontSize:14,color:isToday?'var(--on-accent)':'var(--text)',fontWeight:isToday?700:400 }}>{d.getDate()}</span>

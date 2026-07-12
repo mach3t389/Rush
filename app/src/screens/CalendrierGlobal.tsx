@@ -19,6 +19,7 @@ import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
 import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
+import { getWeekStart, subscribeWeekStart } from '../data/weekStartStore';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -410,6 +411,8 @@ function MiniCalendar({ cur, onSelect }: { cur: Date; onSelect: (d: Date) => voi
   const { t } = useTranslation();
   const months = t('calendar.months', { returnObjects: true }) as string[];
   const daysShort = t('datepicker.daysShort', { returnObjects: true }) as string[];
+  const weekStart = getWeekStart();
+  const orderedDaysShort = Array.from({ length: 7 }, (_, i) => daysShort[(((weekStart + i) % 7) + 6) % 7]);
   const [mini, setMini] = useState(new Date(TODAY));
   const days = getMonthGrid(mini);
   const prevM = () => setMini(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
@@ -423,7 +426,7 @@ function MiniCalendar({ cur, onSelect }: { cur: Date; onSelect: (d: Date) => voi
         <button onClick={nextM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-right" size={13} /></button>
       </div>
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1,marginBottom:4 }}>
-        {daysShort.map((d,i)=>(
+        {orderedDaysShort.map((d,i)=>(
           <div key={i} style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textAlign:'center',padding:'2px 0' }}>{d}</div>
         ))}
       </div>
@@ -626,6 +629,9 @@ export function CalendrierGlobal() {
     const unsub2 = subscribeEventTypes(() => { const et = getEventTypes(); setEventTypes(et); setEvents(resolveEvents(et)); });
     return () => { unsub1(); unsub2(); };
   }, []);
+
+  const [, forceWeekStart] = useState(0);
+  useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);
 
   // Build task chips from MY_TASKS
   const taskChips = MY_TASKS.flatMap(t=>{

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TODAY, isSameDay, getMonthGrid, fmt2, fmtTime, type CalEvent } from './calendarUtils';
+import { getWeekStart } from '../../data/weekStartStore';
 
 export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick, onEventChange }: {
   cur: Date;
@@ -13,6 +14,8 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
 }) {
   const { t } = useTranslation();
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
+  const weekStart = getWeekStart();
+  const orderedDayNames = Array.from({ length: 7 }, (_, i) => dayNames[(((weekStart + i) % 7) + 6) % 7]);
   const days = getMonthGrid(cur);
 
   const toISO = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth() + 1)}-${fmt2(d.getDate())}`;
@@ -67,7 +70,7 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Day headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        {dayNames.map((d, i) => (
+        {orderedDayNames.map((d, i) => (
           <div key={i} style={{ padding: '10px 0 8px', textAlign: 'center', fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{d}</div>
         ))}
       </div>

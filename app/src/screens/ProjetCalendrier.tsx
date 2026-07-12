@@ -21,6 +21,7 @@ import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
 import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
+import { subscribeWeekStart } from '../data/weekStartStore';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -463,6 +464,9 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
     const unsub2 = subscribeEventTypes(() => { setEventTypes(getEventTypes()); refresh(); });
     return () => { unsub1(); unsub2(); };
   }, [activeProjectIds.join(',')]);
+
+  const [, forceWeekStart] = useState(0);
+  useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

@@ -10,11 +10,20 @@ export const END_HOUR     = 24;
 export const SCROLL_TO_HOUR = 8; // heure affichée en haut au chargement de la vue jour/semaine
 export const HOURS        = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
+import { getWeekStart } from '../../data/weekStartStore';
+
 export type CalView = 'month' | 'week' | 'day';
 
 export function addDays(d: Date, n: number): Date { const r=new Date(d); r.setDate(r.getDate()+n); return r; }
 export function isSameDay(a: Date, b: Date) { return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
-export function startOfWeek(d: Date): Date { const r=new Date(d); const dow=r.getDay(); r.setDate(r.getDate()-(dow===0?6:dow-1)); r.setHours(0,0,0,0); return r; }
+export function startOfWeek(d: Date, weekStart: number = getWeekStart()): Date {
+  const r = new Date(d);
+  const dow = r.getDay();
+  const diff = (dow - weekStart + 7) % 7;
+  r.setDate(r.getDate() - diff);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
 export function fmt2(n: number) { return String(n).padStart(2,'0'); }
 export function fmtTime(d: Date) { return `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`; }
 export function timeToY(d: Date) { return (d.getHours()-START_HOUR+d.getMinutes()/60)*HOUR_H; }
@@ -36,21 +45,20 @@ export function parseFrDate(s: string): Date | null {
   return null;
 }
 
-export function getMonthGrid(date: Date): Date[] {
-  const year=date.getFullYear(), month=date.getMonth();
-  const first=new Date(year,month,1);
-  const last=new Date(year,month+1,0);
-  const dow=first.getDay();
-  const pad=dow===0?6:dow-1;
-  const days: Date[]=[];
-  for(let i=-pad;i<last.getDate();i++) days.push(new Date(year,month,1+i));
-  while(days.length%7!==0) days.push(new Date(days[days.length-1].getTime()+86400000));
+export function getMonthGrid(date: Date, weekStart: number = getWeekStart()): Date[] {
+  const year = date.getFullYear(), month = date.getMonth();
+  const last = new Date(year, month + 1, 0);
+  const firstDow = new Date(year, month, 1).getDay();
+  const pad = (firstDow - weekStart + 7) % 7;
+  const days: Date[] = [];
+  for (let i = -pad; i < last.getDate(); i++) days.push(new Date(year, month, 1 + i));
+  while (days.length % 7 !== 0) days.push(new Date(days[days.length - 1].getTime() + 86400000));
   return days;
 }
 
-export function getWeekDays(date: Date): Date[] {
-  const start=startOfWeek(date);
-  return Array.from({length:7},(_,i)=>addDays(start,i));
+export function getWeekDays(date: Date, weekStart: number = getWeekStart()): Date[] {
+  const start = startOfWeek(date, weekStart);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
 export interface CalEvent {
