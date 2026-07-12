@@ -5,7 +5,7 @@ import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, Da
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, deleteTask } from '../data/taskStore';
+import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, deleteTask, convertTasksToSubtasks } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -19,6 +19,7 @@ import { getTeamMembers } from '../data/teamStore';
 import { TravailBoard } from './TravailBoard';
 import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
+import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { showToast } from '../data/toastStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -341,7 +342,14 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
 
 // ── Task row ──────────────────────────────────────────────────────────────────
 
-function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number; y: number }; onDelete: () => void; onOpen: () => void; onClose: () => void }) {
+function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose }: {
+  pos: { x: number; y: number };
+  onDelete: () => void;
+  onOpen: () => void;
+  onMove?: () => void;
+  onConvert: () => void;
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -356,8 +364,10 @@ function TaskContextMenu({ pos, onDelete, onOpen, onClose }: { pos: { x: number;
     >{label}</button>
   );
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>Ouvrir le détail</span></>, onOpen)}
+      {onMove && item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>Déplacer vers...</span></>, onMove)}
+      {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>Convertir en sous-tâche de...</span></>, onConvert)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
     </div>,
@@ -420,6 +430,7 @@ function TaskRow({
   allSections,
   onMoveToSection,
   onDelete,
+  onConvertRequest,
 }: {
   task: Task;
   selected: boolean;
@@ -430,6 +441,7 @@ function TaskRow({
   allSections?: SectionData[];
   onMoveToSection?: (toSectionLabel: string) => void;
   onDelete?: () => void;
+  onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
 }) {
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
@@ -441,7 +453,7 @@ function TaskRow({
   const [startTime, setStartTime] = useState(task.startTime ?? '');
   const [endTime, setEndTime] = useState(task.endTime ?? '');
   const { projectId: rowProjectId } = useParams<{ projectId: string }>();
-  const [open, setOpen] = useState<'priority' | 'assignee' | 'status' | 'dueDate' | 'context' | null>(null);
+  const [open, setOpen] = useState<'priority' | 'assignee' | 'status' | 'dueDate' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const [hovered, setHovered] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
@@ -699,26 +711,6 @@ function TaskRow({
       >
         <SFIcon name="trash-2" size={13} />
       </button>
-
-      {/* Context menu "..." */}
-      <div style={{ position: 'relative' }}>
-        <button
-          onClick={e => openDrop('context', e)}
-          style={{ color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 5 }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-        >
-          <SFIcon name="ellipsis" size={14} />
-        </button>
-        {open === 'context' && (
-          <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
-            {ddItem(() => { onSelect(task); setOpen(null); }, <><SFIcon name="maximize-2" size={13} color="var(--text-3)" />Ouvrir le détail</>)}
-            {allSections && allSections.length > 1 && ddItem(() => { setOpen(null); setShowMoveModal(true); }, <><SFIcon name="move-right" size={13} color="var(--text-3)" />Déplacer vers...</>)}
-            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-            {ddItem(() => { onDelete?.(); setOpen(null); }, <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}><SFIcon name="trash-2" size={13} color="var(--danger)" />Supprimer</span>)}
-          </InlineDropdown>
-        )}
-      </div>
     </div>
     {showMoveModal && allSections && onMoveToSection && (
       <MoveTaskModal
@@ -733,6 +725,8 @@ function TaskRow({
         pos={ctxPos}
         onDelete={() => { onDelete?.(); setCtxPos(null); }}
         onOpen={() => { onSelect(task); setCtxPos(null); }}
+        onMove={allSections && allSections.length > 1 ? () => { setCtxPos(null); setShowMoveModal(true); } : undefined}
+        onConvert={() => { onConvertRequest(task, ctxPos); setCtxPos(null); }}
         onClose={() => setCtxPos(null)}
       />
     )}
@@ -973,7 +967,7 @@ function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
   onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
-  draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection,
+  draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
 }: {
   label: string;
   tasks: Task[];
@@ -999,6 +993,7 @@ function Section({
   onTaskDrop: (task: Task, fromSectionLabel: string, toSectionLabel: string, beforeTaskId?: string) => void;
   allSections: SectionData[];
   onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
+  onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
 }) {
   const done = tasks.filter(t => t.checked).length;
   const progress = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
@@ -1268,6 +1263,7 @@ function Section({
                 allSections={allSections}
                 onMoveToSection={toLabel => onMoveTaskToSection(task, label, toLabel)}
                 onDelete={() => onDeleteTask(task.id)}
+                onConvertRequest={onConvertRequest}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
@@ -1836,8 +1832,13 @@ export function Travail() {
   };
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
+  const handleConvertRequest = (task: Task, pos: { x: number; y: number }) => {
+    const ids = multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id];
+    setConvertRequest({ taskIds: ids, pos });
+  };
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
+  const [convertRequest, setConvertRequest] = useState<{ taskIds: string[]; pos: { x: number; y: number } } | null>(null);
   const [sectionMoveLabel, setSectionMoveLabel] = useState<string | null>(null);
   const [sectionCopyLabel, setSectionCopyLabel] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -2134,6 +2135,7 @@ export function Travail() {
           sections={visibleSections}
           selectedTask={selectedTask}
           multiSelIds={multiSelIds}
+          onConvertRequest={handleConvertRequest}
           onSelectTask={handleSelectTask}
           onUpdateTask={(taskId, patch) => {
             updateTask(projectId!, taskId, patch);
@@ -2185,6 +2187,7 @@ export function Travail() {
                 onMoveSection={() => setSectionMoveLabel(section.label)}
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
+                onConvertRequest={handleConvertRequest}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
             </React.Fragment>
@@ -2324,6 +2327,21 @@ export function Travail() {
             setMultiSelIds(new Set());
           }}
           onClose={() => setBulkCopyOpen(false)}
+        />
+      )}
+
+      {/* Convert to subtask picker */}
+      {convertRequest && (
+        <SubtaskTargetPicker
+          pos={convertRequest.pos}
+          candidates={sections.flatMap(s => s.tasks).filter(t => !convertRequest.taskIds.includes(t.id))}
+          onPick={targetId => {
+            convertTasksToSubtasks(project.id, convertRequest.taskIds, targetId);
+            setSections(getSections(project.id));
+            setMultiSelIds(new Set());
+            setConvertRequest(null);
+          }}
+          onClose={() => setConvertRequest(null)}
         />
       )}
 

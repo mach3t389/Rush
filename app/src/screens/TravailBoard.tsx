@@ -171,6 +171,7 @@ interface Props {
   onDeleteTask: (task: Task) => void;
   onDeleteSection: (sectionLabel: string) => void;
   onRenameSection: (oldLabel: string, newLabel: string) => void;
+  onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void;
   projectId: string;
   projectName: string;
   projectColor: string;
