@@ -58,6 +58,7 @@ interface ProjectRow {
   folder_structure_template_id: string | null;
   members: Project['members'];
   archived: boolean;
+  completed: boolean;
 }
 
 function toProject(row: ProjectRow): Project {
@@ -81,6 +82,7 @@ function toProject(row: ProjectRow): Project {
     description: row.description ?? undefined,
     folderStructureTemplateId: row.folder_structure_template_id ?? undefined,
     archived: row.archived,
+    completed: row.completed,
   };
 }
 
@@ -106,6 +108,7 @@ function toRow(p: Project, studioId: string): ProjectRow {
     folder_structure_template_id: p.folderStructureTemplateId ?? null,
     members: p.members,
     archived: p.archived ?? false,
+    completed: p.completed ?? false,
   };
 }
 

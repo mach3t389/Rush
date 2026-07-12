@@ -57,6 +57,7 @@ interface ClientRow {
   website: string | null;
   notes: string | null;
   archived: boolean;
+  approver_id: string | null;
 }
 
 function toClient(row: ClientRow): Client {
@@ -81,6 +82,7 @@ function toClient(row: ClientRow): Client {
     website: row.website ?? undefined,
     notes: row.notes ?? undefined,
     archived: row.archived,
+    approverId: row.approver_id ?? undefined,
   };
 }
 
@@ -107,6 +109,7 @@ function toRow(c: Client, studioId: string): ClientRow {
     website: c.website ?? null,
     notes: c.notes ?? null,
     archived: c.archived ?? false,
+    approver_id: c.approverId ?? null,
   };
 }
 

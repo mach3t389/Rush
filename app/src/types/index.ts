@@ -35,6 +35,8 @@ export interface Client {
   website?: string;
   notes?: string;
   archived?: boolean;
+  /** id of the client_contacts row designated to approve this client's deliverables. */
+  approverId?: string;
 }
 
 // ── Project ───────────────────────────────────────────────────────────────────
@@ -59,6 +61,8 @@ export interface Project {
   description?: string;
   folderStructureTemplateId?: string;
   archived?: boolean;
+  /** Marked done from the project's Aperçu tab — a real status, like `archived`. */
+  completed?: boolean;
 }
 
 // ── Task ──────────────────────────────────────────────────────────────────────

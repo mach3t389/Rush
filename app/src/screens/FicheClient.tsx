@@ -26,25 +26,14 @@ import { isDemoSession } from '../data/authStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 import { enterViewAs } from '../data/viewAsStore';
 
-function getStoredApprover(clientId: string): string | null {
-  try { return localStorage.getItem(`sf_approver_id_${clientId}`); } catch { return null; }
-}
-function setStoredApprover(clientId: string, member: ClientMember | null) {
-  try {
-    if (member) {
-      localStorage.setItem(`sf_approver_id_${clientId}`, member.id);
-      localStorage.setItem(`sf_approver_data_${clientId}`, JSON.stringify(member));
-    } else {
-      localStorage.removeItem(`sf_approver_id_${clientId}`);
-      localStorage.removeItem(`sf_approver_data_${clientId}`);
-    }
-  } catch { /* noop */ }
-}
+// The approver is stored as a plain id on the client record (client.approverId,
+// synced via updateClient like every other client field) — the actual
+// contact object is looked up live from clientTeamStore rather than cached,
+// so it always reflects the contact's current name/permissions/etc.
 export function getClientApprover(clientId: string): ClientMember | null {
-  try {
-    const raw = localStorage.getItem(`sf_approver_data_${clientId}`);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  const approverId = findClient(clientId)?.approverId;
+  if (!approverId) return null;
+  return getClientTeam(clientId).find(m => m.id === approverId) ?? null;
 }
 
 
@@ -245,21 +234,21 @@ function EquipeTab({ clientId }: { clientId: string }) {
   const [members, setMembers] = useState<ClientMember[]>(() => getClientTeam(clientId));
   const [showInvite, setShowInvite] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
-  const [approverId, setApproverId] = useState<string | null>(() => getStoredApprover(clientId));
+  const [approverId, setApproverId] = useState<string | undefined>(() => findClient(clientId)?.approverId);
 
   useEffect(() => subscribeClientTeam(() => setMembers(getClientTeam(clientId))), [clientId]);
 
   const removeMember = (id: string) => {
     removeClientTeamMember(clientId, id);
     setMembers(getClientTeam(clientId));
-    if (approverId === id) { setApproverId(null); setStoredApprover(clientId, null); }
+    if (approverId === id) { setApproverId(undefined); updateClient(clientId, { approverId: undefined }); }
   };
 
   const toggleApprover = (m: ClientMember) => {
     const isRemoving = approverId === m.id;
-    const next = isRemoving ? null : m.id;
+    const next = isRemoving ? undefined : m.id;
     setApproverId(next);
-    setStoredApprover(clientId, isRemoving ? null : m);
+    updateClient(clientId, { approverId: next });
   };
 
   const clientMembers = members.filter(m => !m.internal);
@@ -1153,8 +1142,12 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
   const deliverables = projects.reduce((n, p) => n + p.deliverableCount, 0);
   const avgProgress = projects.length ? Math.round(projects.reduce((n, p) => n + p.progress, 0) / projects.length) : 0;
 
-  const [notes, setNotes] = useState(() => { try { return localStorage.getItem(`sf_client_notes_${clientId}`) ?? ''; } catch { return ''; } });
-  const saveNotes = (v: string) => { setNotes(v); try { localStorage.setItem(`sf_client_notes_${clientId}`, v); } catch { /* noop */ } };
+  // This is the same field as the "Notes internes" textarea in the client
+  // edit panel (client.notes, synced via updateClient) — it used to be a
+  // second, entirely separate copy stored only in this browser's
+  // localStorage, so edits made here never matched what showed in the edit
+  // panel, let alone synced across devices.
+  const [notes, setNotes] = useState(client.notes ?? '');
 
   const paidPct = finance.billed ? (finance.paid / finance.billed) * 100 : 0;
 
@@ -1337,7 +1330,8 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
             <p style={{ ...cardTitleStyle, marginBottom: 10 }}>{t('client.internalNotes')}</p>
             <textarea
               value={notes}
-              onChange={e => saveNotes(e.target.value)}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={e => updateClient(clientId, { notes: e.target.value })}
               placeholder={t('client.notesApercuPlaceholder')}
               rows={4}
               style={{ width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', resize: 'vertical', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box', lineHeight: 1.5 }}

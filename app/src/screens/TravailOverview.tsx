@@ -93,10 +93,6 @@ const ACTIVITY_COLOR: Record<string, string> = {
 // ── Shared ─────────────────────────────────────────────────────────────────────
 
 
-function loadCompleted(projectId: string): boolean {
-  try { return JSON.parse(localStorage.getItem(`sf_project_completed_${projectId}`) ?? 'false'); } catch { return false; }
-}
-
 function VisionField({ label, placeholder, value, onChange, multiline }: {
   label: string; placeholder: string; value: string;
   onChange: (v: string) => void; multiline?: boolean;
@@ -168,7 +164,7 @@ export function TravailOverview() {
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
   const project = findProject(projectId ?? '') ?? getProjects()[0];
 
-  const [completed, setCompleted] = useState(() => loadCompleted(project.id));
+  const completed = !!project.completed;
   const [editOpen, setEditOpen] = useState(false);
 
   const [approvalModal, setApprovalModal] = useState(false);
@@ -203,9 +199,7 @@ export function TravailOverview() {
   const [notes, setNotes] = useState('');
 
   const toggleCompleted = () => {
-    const next = !completed;
-    setCompleted(next);
-    localStorage.setItem(`sf_project_completed_${project.id}`, JSON.stringify(next));
+    updateProject(project.id, { completed: !completed });
   };
 
   // Phase dérivée des sections de Tâches : la phase courante = la 1re section non terminée.
