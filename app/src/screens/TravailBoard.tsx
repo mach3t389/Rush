@@ -118,7 +118,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onConvert, onClose, sections, 
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
-      {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>Convertir en sous-tâche de...</span></>, onConvert)}
+      {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
 
       {otherSections.length > 0 && !showMove && (
         <button

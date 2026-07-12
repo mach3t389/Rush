@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { SFIcon } from './ui';
 import type { Task } from '../types';
 
@@ -11,6 +12,7 @@ interface SubtaskTargetPickerProps {
 }
 
 export function SubtaskTargetPicker({ pos, candidates, onPick, onClose }: SubtaskTargetPickerProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,13 +52,13 @@ export function SubtaskTargetPicker({ pos, candidates, onPick, onClose }: Subtas
           ref={inputRef}
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Convertir en sous-tâche de..."
+          placeholder={t('board.convertToSubtask')}
           style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)' }}
         />
       </div>
       <div style={{ maxHeight: 260, overflowY: 'auto', padding: '4px 0' }}>
         {filtered.length === 0 && (
-          <p style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>Aucune tâche disponible</p>
+          <p style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{t('board.noTaskAvailable')}</p>
         )}
         {filtered.map(t => (
           <button
