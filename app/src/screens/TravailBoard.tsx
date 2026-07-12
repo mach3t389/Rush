@@ -491,7 +491,7 @@ export function TravailBoard({
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
                             {task.statusLabel
-                              ? <SFPill status={task.status} small>{task.statusLabel}</SFPill>
+                              ? <SFPill status={task.status} small>{t(STATUS_OPTIONS.find(o => o.value === task.status)?.labelKey ?? 'tasks.noStatus')}</SFPill>
                               : <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border-2)', flexShrink: 0, display: 'block' }} />
                             }
                           </button>

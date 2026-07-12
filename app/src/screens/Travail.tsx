@@ -38,11 +38,11 @@ const PRIORITY_COLOR: Record<Priority, string> = {
   low:    'var(--info)',
   none:   'var(--border-2)',
 };
-const PRIORITY_LABEL: Record<Priority, string> = {
-  high:   'Élevée',
-  normal: 'Moyenne',
-  low:    'Basse',
-  none:   'Aucune',
+const PRIORITY_LABEL_KEY: Record<Priority, string> = {
+  high:   'priority.high',
+  normal: 'priority.medium',
+  low:    'priority.low',
+  none:   'priority.none',
 };
 const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 
@@ -451,7 +451,6 @@ function TaskRow({
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [assignee, setAssignee] = useState<User | null>(task.assignee);
   const [status, setStatus] = useState(task.status as string);
-  const [statusLabel, setStatusLabel] = useState(task.statusLabel);
   const [dueDate, setDueDate] = useState(task.dueDate);
   const [endDate, setEndDate] = useState(task.endDate ?? '');
   const [startTime, setStartTime] = useState(task.startTime ?? '');
@@ -645,13 +644,13 @@ function TaskRow({
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 20 }}
         >
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
-          {priority !== 'none' && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{PRIORITY_LABEL[priority]}</span>}
+          {priority !== 'none' && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>}
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
         {open === 'priority' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect}>
-            {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { priority: p, priorityLabel: PRIORITY_LABEL[p] }); },
-              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+            {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); },
+              <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
               priority === p
             ))}
           </InlineDropdown>
@@ -665,14 +664,14 @@ function TaskRow({
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 20, display: 'flex', alignItems: 'center', gap: 6 }}
         >
           {status
-            ? <SFPill status={status as Task['status']} small>{statusLabel}</SFPill>
+            ? <SFPill status={status as Task['status']} small>{t(STATUS_OPTIONS.find(o => o.value === status)?.labelKey ?? 'tasks.noStatus')}</SFPill>
             : <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--border-2)', flexShrink: 0, display: 'block' }} />
           }
           <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
         </button>
         {open === 'status' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect}>
-            {STATUS_OPTIONS.map(o => ddItem(() => { const lbl = t(o.labelKey); setStatus(o.value); setStatusLabel(lbl); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { status: o.value as Task['status'], statusLabel: lbl }); },
+            {STATUS_OPTIONS.map(o => ddItem(() => { const lbl = t(o.labelKey); setStatus(o.value); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { status: o.value as Task['status'], statusLabel: lbl }); },
               <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
               status === o.value
             ))}
@@ -774,15 +773,15 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
     setAdding(false);
   };
 
-  const buildTask = (t: string): Task => ({
+  const buildTask = (taskTitle: string): Task => ({
     id: `task-${Date.now()}`,
-    title: t,
+    title: taskTitle,
     projectId, projectName, projectColor,
     assignee,
     status: status as Task['status'],
     statusLabel,
     priority,
-    priorityLabel: PRIORITY_LABEL[priority],
+    priorityLabel: t(PRIORITY_LABEL_KEY[priority]),
     dueDate: dueDate || '—',
     dueDateRed: false,
     checked: false,
@@ -882,13 +881,13 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('priority', e)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{PRIORITY_LABEL[priority]}</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
           </button>
           {openField === 'priority' && (
             <InlineDropdown onClose={() => setOpenField(null)} anchorRect={addDropRect}>
               {PRIORITY_OPTIONS.map(p => ddItem(() => { setPriority(p); setOpenField(null); },
-                <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{PRIORITY_LABEL[p]}</>,
+                <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
                 priority === p
               ))}
             </InlineDropdown>
@@ -900,7 +899,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('status', e)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
             {status
-              ? <SFPill status={status as Task['status']} small>{statusLabel}</SFPill>
+              ? <SFPill status={status as Task['status']} small>{t(STATUS_OPTIONS.find(o => o.value === status)?.labelKey ?? 'tasks.noStatus')}</SFPill>
               : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>Aucun</span>
             }
             <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
@@ -1539,6 +1538,7 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
   sections: SectionData[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState(projectName);
   const [description, setDescription] = useState('');
@@ -1621,17 +1621,17 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
         <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {step === 2 && (
             <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
-              <SFIcon name="arrow-left" size={11} />Retour
+              <SFIcon name="arrow-left" size={11} />{t('templateModal.back')}
             </button>
           )}
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 15, fontWeight: 700 }}>
-              {step === 1 ? 'Enregistrer comme modèle' : 'Options de sauvegarde'}
+              {step === 1 ? t('templateModal.titleStep1') : t('templateModal.titleStep2')}
             </h2>
             <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
               {step === 1
-                ? `${sections.length} section${sections.length > 1 ? 's' : ''} · ${totalTasks} tâche${totalTasks > 1 ? 's' : ''}`
-                : 'Choisissez ce que vous souhaitez conserver dans le modèle'}
+                ? `${t('templateModal.sectionsCount', { count: sections.length })} · ${t('templateModal.tasksCount', { count: totalTasks })}`
+                : t('templateModal.subtitleStep2')}
             </p>
           </div>
           {/* Step indicator */}
@@ -1649,16 +1649,16 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
         {step === 1 && (
           <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={lStyle}>Nom du modèle</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="ex. Campagne vidéo corporative" style={fStyle} autoFocus />
+              <label style={lStyle}>{t('templateModal.nameLabel')}</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder={t('templateModal.namePlaceholder')} style={fStyle} autoFocus />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={lStyle}>Description (optionnelle)</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Décrivez l'usage de ce modèle…" style={{ ...fStyle, resize: 'none' }} />
+              <label style={lStyle}>{t('templateModal.descriptionLabel')}</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('templateModal.descriptionPlaceholder')} style={{ ...fStyle, resize: 'none' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={lStyle}>Couleur</label>
+                <label style={lStyle}>{t('templateModal.colorLabel')}</label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {TEMPLATE_COLORS.map(c => (
                     <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none' }} />
@@ -1666,18 +1666,18 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={lStyle}>Tags (séparés par virgule)</label>
-                <input value={tags} onChange={e => setTags(e.target.value)} placeholder="ex. Vidéo, Corporate" style={fStyle} />
+                <label style={lStyle}>{t('templateModal.tagsLabel')}</label>
+                <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('templateModal.tagsPlaceholder')} style={fStyle} />
               </div>
             </div>
             {/* Sections preview */}
             <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <p style={{ ...lStyle, marginBottom: 4 }}>Contenu inclus</p>
+              <p style={{ ...lStyle, marginBottom: 4 }}>{t('templateModal.contentIncluded')}</p>
               {sections.map((s, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
                   <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{s.label}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{s.tasks.length} tâche{s.tasks.length > 1 ? 's' : ''}</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('templateModal.tasksCount', { count: s.tasks.length })}</span>
                 </div>
               ))}
             </div>
@@ -1688,60 +1688,60 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
         {step === 2 && (
           <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 10, overflow: 'auto' }}>
             <ToggleRow
-              label="Conserver les priorités"
-              sublabel="Élevée / Normale / Basse seront mémorisées sur chaque tâche"
+              label={t('board.keepPriorities')}
+              sublabel={t('templateModal.keepPrioritiesSublabel')}
               value={keepPriorities}
               onChange={setKeepPriorities}
             />
             <ToggleRow
-              label="Conserver les statuts"
-              sublabel="En cours, En attente, Complété, etc. seront inclus dans le modèle"
+              label={t('board.keepStatuses')}
+              sublabel={t('templateModal.keepStatusesSublabel')}
               value={keepStatuses}
               onChange={setKeepStatuses}
             />
             <ToggleRow
-              label="Conserver les échéances"
-              sublabel="Les dates actuelles seront copiées telles quelles dans le modèle"
+              label={t('templateModal.keepDueDates')}
+              sublabel={t('templateModal.keepDueDatesSublabel')}
               value={keepDueDates}
               onChange={setKeepDueDates}
             />
             <ToggleRow
-              label="Conserver les descriptions"
-              sublabel="Les notes et descriptions de chaque tâche seront incluses"
+              label={t('templateModal.keepDescriptions')}
+              sublabel={t('templateModal.keepDescriptionsSublabel')}
               value={keepDescriptions}
               onChange={setKeepDescriptions}
             />
             <ToggleRow
-              label="Conserver les sous-tâches"
-              sublabel="La structure de sous-tâches de chaque tâche sera préservée"
+              label={t('board.keepSubtasksLabel')}
+              sublabel={t('board.keepSubtasksHint')}
               value={keepSubtasks}
               onChange={setKeepSubtasks}
             />
             {/* Live preview of first section's tasks */}
             {sections[0]?.tasks.length > 0 && (
               <div style={{ marginTop: 4, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <p style={{ ...lStyle, marginBottom: 8 }}>Aperçu — {sections[0].label}</p>
-                {sections[0].tasks.slice(0, 4).map((t, i) => (
+                <p style={{ ...lStyle, marginBottom: 8 }}>{t('templateModal.previewLabel', { section: sections[0].label })}</p>
+                {sections[0].tasks.slice(0, 4).map((pt, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0', borderBottom: i < Math.min(sections[0].tasks.length, 4) - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-2)' }}>{t.title}</span>
+                    <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-2)' }}>{pt.title}</span>
                     {keepPriorities && (
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' }[t.priority ?? 'normal'], flexShrink: 0, display: 'block' }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' }[pt.priority ?? 'normal'], flexShrink: 0, display: 'block' }} />
                     )}
-                    {keepStatuses && t.statusLabel && (
-                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '1px 5px', borderRadius: 4, background: `${STATUS_DOT[t.status ?? 'neutral']}22`, color: STATUS_DOT[t.status ?? 'neutral'], border: `1px solid ${STATUS_DOT[t.status ?? 'neutral']}44`, whiteSpace: 'nowrap' }}>{t.statusLabel}</span>
+                    {keepStatuses && pt.statusLabel && (
+                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '1px 5px', borderRadius: 4, background: `${STATUS_DOT[pt.status ?? 'neutral']}22`, color: STATUS_DOT[pt.status ?? 'neutral'], border: `1px solid ${STATUS_DOT[pt.status ?? 'neutral']}44`, whiteSpace: 'nowrap' }}>{t(STATUS_OPTIONS.find(o => o.value === pt.status)?.labelKey ?? 'tasks.noStatus')}</span>
                     )}
-                    {keepDueDates && t.dueDate && (
-                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: isOverdue(t.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)' }}>{t.dueDate}</span>
+                    {keepDueDates && pt.dueDate && (
+                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: isOverdue(pt.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)' }}>{pt.dueDate}</span>
                     )}
-                    {keepSubtasks && t.subtasks?.length ? (
+                    {keepSubtasks && pt.subtasks?.length ? (
                       <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <SFIcon name="git-branch" size={9} />{t.subtasks.length}
+                        <SFIcon name="git-branch" size={9} />{pt.subtasks.length}
                       </span>
                     ) : null}
                   </div>
                 ))}
                 {sections[0].tasks.length > 4 && (
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 4 }}>+{sections[0].tasks.length - 4} autres tâches</p>
+                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 4 }}>{t('templateModal.moreTasksCount', { count: sections[0].tasks.length - 4 })}</p>
                 )}
               </div>
             )}
@@ -1750,16 +1750,16 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
 
         {/* Footer */}
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>Annuler</SFButton>
+          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('tasks.cancel')}</SFButton>
           {step === 1 ? (
             <SFButton variant="primary" size="sm" icon="arrow-right" onClick={() => setStep(2)} style={{ opacity: name.trim() ? 1 : 0.5 }}>
-              Suivant
+              {t('templateModal.next')}
             </SFButton>
           ) : saved ? (
-            <SFButton variant="primary" size="sm" icon="check" style={{ background: 'var(--ok)' }}>Modèle enregistré !</SFButton>
+            <SFButton variant="primary" size="sm" icon="check" style={{ background: 'var(--ok)' }}>{t('templateModal.templateSaved')}</SFButton>
           ) : (
             <SFButton variant="primary" size="sm" icon="layout-template" onClick={handleSave}>
-              Créer le modèle
+              {t('templateModal.createTemplate')}
             </SFButton>
           )}
         </div>
@@ -2284,15 +2284,19 @@ export function Travail() {
       {/* Multi-select floating action bar */}
       {multiSelIds.size > 0 && createPortal(
         <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
-          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{multiSelIds.size} tâche{multiSelIds.size > 1 ? 's' : ''}</span>
+          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('board.selectedTasksCount', { count: multiSelIds.size })}</span>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
           <button onClick={() => setBulkMoveOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="move-right" size={13} />
-            Déplacer
+            {t('board.move')}
           </button>
           <button onClick={() => setBulkCopyOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="copy" size={13} />
-            Copier
+            {t('board.copy')}
+          </button>
+          <button onClick={e => setConvertRequest({ taskIds: [...multiSelIds], pos: (() => { const r = e.currentTarget.getBoundingClientRect(); return { x: r.left, y: r.top }; })() })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="git-branch" size={13} />
+            {t('board.convertToSubtask')}
           </button>
           <button onClick={() => {
             const ids = [...multiSelIds];
@@ -2300,7 +2304,7 @@ export function Travail() {
             setMultiSelIds(new Set());
           }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="trash-2" size={13} />
-            Supprimer
+            {t('tasks.delete')}
           </button>
           <button onClick={() => setMultiSelIds(new Set())} style={{ display: 'flex', alignItems: 'center', padding: '4px', borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
             <SFIcon name="x" size={14} />
@@ -2312,7 +2316,7 @@ export function Travail() {
       {/* Bulk move tasks modal */}
       {bulkMoveOpen && (
         <BulkMoveModal
-          title={`Déplacer ${multiSelIds.size} tâche${multiSelIds.size > 1 ? 's' : ''}`}
+          title={t('board.moveTasksTitle', { count: multiSelIds.size })}
           mode="move"
           onMove={(toProjectId, toSectionLabel) => {
             moveTasks(project.id, [...multiSelIds], toProjectId, toSectionLabel);
@@ -2326,7 +2330,7 @@ export function Travail() {
       {/* Bulk copy tasks modal */}
       {bulkCopyOpen && (
         <BulkMoveModal
-          title={`Copier ${multiSelIds.size} tâche${multiSelIds.size > 1 ? 's' : ''}`}
+          title={t('board.copyTasksTitle', { count: multiSelIds.size })}
           mode="copy"
           onMove={(toProjectId, toSectionLabel) => {
             copyTasks([...multiSelIds], project.id, toProjectId, toSectionLabel);

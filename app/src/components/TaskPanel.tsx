@@ -349,7 +349,6 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
   const [editStatus, setEditStatus] = useState(task.status as string);
-  const [editStatusLabel, setEditStatusLabel] = useState(task.statusLabel);
   const [editAssignee, setEditAssignee] = useState<typeof TEAM[0] | null>(task.assignee);
   const [linkedResources, setLinkedResources] = useState<string[]>(task.linkedResources ?? []);
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
@@ -690,14 +689,14 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 <button onClick={e => openPanelDrop('status', e)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                   {editStatus
-                    ? <SFPill status={editStatus as Task['status']} small>{editStatusLabel}</SFPill>
+                    ? <SFPill status={editStatus as Task['status']} small>{t(PANEL_STATUS_OPTIONS.find(o => o.value === editStatus)?.labelKey ?? 'tasks.noStatus')}</SFPill>
                     : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('taskPanel.none')}</span>
                   }
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
                 {panelOpen === 'status' && (
                   <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
-                    {PANEL_STATUS_OPTIONS.map(o => ddItem(() => { setEditStatus(o.value); setEditStatusLabel(t(o.labelKey)); setPanelOpen(null); onUpdate?.({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); },
+                    {PANEL_STATUS_OPTIONS.map(o => ddItem(() => { setEditStatus(o.value); setPanelOpen(null); onUpdate?.({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); },
                       <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
                       editStatus === o.value
                     ))}
