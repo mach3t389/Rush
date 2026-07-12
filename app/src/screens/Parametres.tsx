@@ -939,6 +939,7 @@ const PLATFORM_PLANS = [
     priceYearly: 0,
     storageIncluded: '5 Go',
     includedSeats: 2,
+    maxSeats: 2,
     seatPriceMonthly: 0,
     seatPriceYearly: 0,
     features: [
@@ -960,11 +961,12 @@ const PLATFORM_PLANS = [
     popular: true,
     storageIncluded: '50 Go',
     includedSeats: 2,
+    maxSeats: 10,
     seatPriceMonthly: 3,
     seatPriceYearly: 29,
     features: [
       { labelKey: 'settings.planFeatUnlimitedProjects', included: true },
-      { labelKey: 'settings.planFeatUnlimitedMembers',  included: true },
+      { labelKey: 'settings.planFeatUpTo10Members',     included: true },
       { labelKey: 'settings.planFeatPortalWhiteLabel',  included: true },
       { labelKey: 'settings.planFeatTemplatesPreset',   included: true },
       { labelKey: 'settings.planFeatTemplatesCustom',   included: true },
@@ -980,6 +982,7 @@ const PLATFORM_PLANS = [
     priceYearly: 470,
     storageIncluded: '50 Go',
     includedSeats: 2,
+    maxSeats: 50,
     seatPriceMonthly: 2,
     seatPriceYearly: 19,
     features: [
@@ -1141,11 +1144,14 @@ function PlanSettings() {
 
   const selectPlan = (planKey: string) => {
     setDraftPlan(planKey);
+    const plan = PLATFORM_PLANS.find(p => p.key === planKey)!;
     if (planKey === 'gratuit') {
       // Le plan Gratuit n'a ni siège ni stockage payant — il faut upgrader pour en ajouter.
-      const plan = PLATFORM_PLANS.find(p => p.key === planKey)!;
       setDraftSeats(plan.includedSeats);
       setDraftStorage(0);
+    } else {
+      // Redescendre au plafond du plan visé si on venait d'un plan qui en permettait plus (ex. Agence -> Studio).
+      setDraftSeats(s => Math.min(s, plan.maxSeats));
     }
   };
 
@@ -1417,11 +1423,13 @@ function PlanSettings() {
             </button>
             <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-mono)', minWidth: 24, textAlign: 'center' }}>{draftSeats}</span>
             <button
-              onClick={() => setDraftSeats(s => s + 1)}
-              disabled={draftPlan === 'gratuit'}
+              onClick={() => setDraftSeats(s => Math.min(draftPlanObj.maxSeats, s + 1))}
+              disabled={draftPlan === 'gratuit' || draftSeats >= draftPlanObj.maxSeats}
               style={{
                 width: 24, height: 24, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)',
-                cursor: draftPlan === 'gratuit' ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                cursor: draftPlan === 'gratuit' || draftSeats >= draftPlanObj.maxSeats ? 'default' : 'pointer',
+                opacity: draftSeats >= draftPlanObj.maxSeats ? 0.4 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
               }}>
               <SFIcon name="plus" size={12} color="var(--text-2)" />
             </button>
@@ -1429,6 +1437,10 @@ function PlanSettings() {
           {draftPlan === 'gratuit' ? (
             <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
               {t('settings.planSeatsRequiresPaidPlan')}
+            </span>
+          ) : draftSeats >= draftPlanObj.maxSeats ? (
+            <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+              {t(draftPlan === 'studio' ? 'settings.planSeatsMaxReachedStudio' : 'settings.planSeatsMaxReached', { count: draftPlanObj.maxSeats })}
             </span>
           ) : draftSeats > draftPlanObj.includedSeats && (
             <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>

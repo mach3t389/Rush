@@ -399,13 +399,13 @@ export function Pricing() {
               </div>
               <div style={{ ...colStyle(1), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Stepper
-                  editable value={studioSeats} min={2} max={50}
+                  editable value={studioSeats} min={2} max={10}
                   label={String(studioSeats)}
                   onChangeValue={setStudioSeats}
                   onDec={() => setStudioSeats(s => Math.max(2, s - 1))}
-                  onInc={() => setStudioSeats(s => Math.min(50, s + 1))}
+                  onInc={() => setStudioSeats(s => Math.min(10, s + 1))}
                   disableDec={studioSeats <= 2}
-                  disableInc={studioSeats >= 50}
+                  disableInc={studioSeats >= 10}
                 />
               </div>
               <div style={{ ...colStyle(2), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
