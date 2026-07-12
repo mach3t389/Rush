@@ -86,10 +86,11 @@ function DItem({ label, active, danger, onClick }: { label: React.ReactNode; act
 
 // ── Context menu ──────────────────────────────────────────────────────────────
 
-function CardContextMenu({ pos, onOpen, onDelete, onClose, sections, currentSectionIdx, onMoveToSection }: {
+function CardContextMenu({ pos, onOpen, onDelete, onConvert, onClose, sections, currentSectionIdx, onMoveToSection }: {
   pos: { x: number; y: number };
   onOpen: () => void;
   onDelete: () => void;
+  onConvert: () => void;
   onClose: () => void;
   sections: SectionData[];
   currentSectionIdx: number;
@@ -117,6 +118,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onClose, sections, currentSect
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
+      {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>Convertir en sous-tâche de...</span></>, onConvert)}
 
       {otherSections.length > 0 && !showMove && (
         <button
@@ -162,6 +164,7 @@ interface Props {
   sections: SectionData[];
   selectedTask: Task | null;
   multiSelIds?: Set<string>;
+  onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
   onSelectTask: (t: Task, e?: React.MouseEvent) => void;
   onUpdateTask: (taskId: string, patch: Partial<Task>) => void;
   onToggleSectionComplete: (sectionLabel: string) => void;
@@ -171,7 +174,6 @@ interface Props {
   onDeleteTask: (task: Task) => void;
   onDeleteSection: (sectionLabel: string) => void;
   onRenameSection: (oldLabel: string, newLabel: string) => void;
-  onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -180,7 +182,7 @@ interface Props {
 // ── Board ──────────────────────────────────────────────────────────────────────
 
 export function TravailBoard({
-  sections, selectedTask, multiSelIds,
+  sections, selectedTask, multiSelIds, onConvertRequest,
   onSelectTask, onUpdateTask, onToggleSectionComplete,
   onAddTask, onMoveTask, onAddSection,
   onDeleteTask, onDeleteSection, onRenameSection,
@@ -611,6 +613,7 @@ export function TravailBoard({
           pos={{ x: ctxMenu.x, y: ctxMenu.y }}
           onOpen={() => { onSelectTask(ctxMenu.task); setCtxMenu(null); }}
           onDelete={() => { onDeleteTask(ctxMenu.task); setCtxMenu(null); }}
+          onConvert={() => { onConvertRequest(ctxMenu.task, { x: ctxMenu.x, y: ctxMenu.y }); setCtxMenu(null); }}
           onClose={() => setCtxMenu(null)}
           sections={sections}
           currentSectionIdx={ctxMenu.sectionIdx}
