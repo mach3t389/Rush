@@ -1582,6 +1582,8 @@
     "sectionHistory": "History",
     "planTitle": "Your subscription",
     "planDesc": "Manage your Rush plan and upgrade at any time.",
+    "planCheckoutSuccess": "Payment successful — your subscription is active.",
+    "planCheckoutCancelled": "Payment cancelled — no changes were made.",
     "planCurrentBadge": "Current plan",
     "planPopularBadge": "Popular",
     "planUpgrade": "Switch to this plan",

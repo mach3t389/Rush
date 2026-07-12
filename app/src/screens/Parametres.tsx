@@ -1004,6 +1004,16 @@ function PlanSettings() {
   const [currentStorage, setCurrentStorage] = useState(0);
   const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [checkoutResult, setCheckoutResult] = useState(() =>
+    new URLSearchParams(window.location.search).get('checkout')
+  );
+
+  useEffect(() => {
+    if (!checkoutResult) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('checkout');
+    window.history.replaceState({}, '', url);
+  }, [checkoutResult]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1088,6 +1098,27 @@ function PlanSettings() {
 
   return (
     <div>
+      {checkoutResult && (checkoutResult === 'success' || checkoutResult === 'cancelled') && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          borderRadius: 10, padding: '12px 16px', marginBottom: 24,
+          background: checkoutResult === 'success' ? 'rgba(0,210,120,0.08)' : 'var(--surface-2)',
+          border: `1px solid ${checkoutResult === 'success' ? 'rgba(0,210,120,0.3)' : 'var(--border)'}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <SFIcon name={checkoutResult === 'success' ? 'check-circle' : 'info'} size={16}
+              color={checkoutResult === 'success' ? 'var(--ok)' : 'var(--text-2)'} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+              {t(checkoutResult === 'success' ? 'settings.planCheckoutSuccess' : 'settings.planCheckoutCancelled')}
+            </span>
+          </div>
+          <button onClick={() => setCheckoutResult(null)} style={{
+            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4,
+          }}>
+            <SFIcon name="x" size={14} color="var(--text-3)" />
+          </button>
+        </div>
+      )}
       <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.planTitle')}</h2>
       <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 32 }}>{t('settings.planDesc')}</p>
 

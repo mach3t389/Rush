@@ -1595,6 +1595,8 @@
     "sectionHistory": "Historique",
     "planTitle": "Votre abonnement",
     "planDesc": "Gérez votre plan Rush et passez à une formule supérieure à tout moment.",
+    "planCheckoutSuccess": "Paiement réussi — votre abonnement est actif.",
+    "planCheckoutCancelled": "Paiement annulé — aucun changement n'a été effectué.",
     "planCurrentBadge": "Plan actuel",
     "planPopularBadge": "Populaire",
     "planUpgrade": "Passer à ce plan",
