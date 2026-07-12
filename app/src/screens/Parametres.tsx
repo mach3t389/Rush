@@ -1144,8 +1144,10 @@ function PlanSettings() {
     setDraftSeats(currentSeats);
   };
 
+  const [planSubTab, setPlanSubTab] = useState<'overview' | 'history'>('overview');
+
   return (
-    <div>
+    <div style={{ paddingBottom: hasChanges ? 88 : 0 }}>
       {checkoutResult && (checkoutResult === 'success' || checkoutResult === 'cancelled' || checkoutResult === 'updated') && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
@@ -1170,7 +1172,22 @@ function PlanSettings() {
         </div>
       )}
       <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.planTitle')}</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 32 }}>{t('settings.planDesc')}</p>
+      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 24 }}>{t('settings.planDesc')}</p>
+
+      {/* ── Sous-onglets ───────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 32 }}>
+        {(['overview', 'history'] as const).map(tab => (
+          <button key={tab} onClick={() => setPlanSubTab(tab)} style={{
+            padding: '10px 4px', marginRight: 24, border: 'none', borderBottom: `2px solid ${planSubTab === tab ? 'var(--accent)' : 'transparent'}`,
+            background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)',
+            color: planSubTab === tab ? 'var(--text)' : 'var(--text-3)', transition: 'color 0.15s, border-color 0.15s',
+          }}>
+            {t(tab === 'overview' ? 'settings.planSubTabOverview' : 'settings.planSubTabHistory')}
+          </button>
+        ))}
+      </div>
+
+      {planSubTab === 'overview' && <>
 
       {/* ── Billing toggle ─────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
@@ -1401,9 +1418,11 @@ function PlanSettings() {
       {/* ── Barre de changements en attente ─────────────────────────────── */}
       {hasChanges && (
         <div style={{
-          position: 'sticky', bottom: 16, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-          borderRadius: 12, padding: '14px 20px', marginBottom: 32,
-          background: 'var(--surface)', border: '1px solid var(--accent)', boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+          position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          borderRadius: 12, padding: '14px 20px', width: 'min(640px, calc(100vw - 48px))',
+          background: 'var(--surface)', border: '1px solid var(--accent)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(12px)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <SFIcon name="repeat" size={16} color="var(--accent)" />
@@ -1452,30 +1471,34 @@ function PlanSettings() {
         <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 12 }}>{t('settings.planCancelAnytime')}</p>
       </div>
 
-      {/* ── Historique des paiements ───────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 6 }}>{t('settings.planHistoryTitle')}</h3>
-        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18 }}>{t('settings.planHistoryDesc')}</p>
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '9px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-            {['planHistoryDate','planHistoryAmount','planHistoryStatus','planHistoryDownload'].map(k => (
-              <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(`settings.${k}`)}</span>
+      </>}
+
+      {/* ── Historique des paiements (sous-onglet) ──────────────────────── */}
+      {planSubTab === 'history' && (
+        <div>
+          <h3 style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 6 }}>{t('settings.planHistoryTitle')}</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18 }}>{t('settings.planHistoryDesc')}</p>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '9px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+              {['planHistoryDate','planHistoryAmount','planHistoryStatus','planHistoryDownload'].map(k => (
+                <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(`settings.${k}`)}</span>
+              ))}
+            </div>
+            {MOCK_INVOICES.map((inv, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '11px 16px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>{inv.date}</span>
+                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{inv.amount}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', borderRadius: 5, padding: '3px 8px', display: 'inline-block' }}>
+                  {t(`settings.planHistory${inv.status === 'paid' ? 'Paid' : 'Pending'}`)}
+                </span>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                  <SFIcon name="download" size={14} />
+                </button>
+              </div>
             ))}
           </div>
-          {MOCK_INVOICES.map((inv, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '11px 16px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>{inv.date}</span>
-              <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{inv.amount}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', borderRadius: 5, padding: '3px 8px', display: 'inline-block' }}>
-                {t(`settings.planHistory${inv.status === 'paid' ? 'Paid' : 'Pending'}`)}
-              </span>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                <SFIcon name="download" size={14} />
-              </button>
-            </div>
-          ))}
         </div>
-      </div>
+      )}
 
       {/* ── Modal de confirmation ──────────────────────────────────────── */}
       {confirming && (

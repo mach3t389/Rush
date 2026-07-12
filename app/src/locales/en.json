@@ -1585,6 +1585,8 @@
     "planCheckoutSuccess": "Payment successful — your subscription is active.",
     "planCheckoutCancelled": "Payment cancelled — no changes were made.",
     "planCheckoutUpdated": "Subscription updated — changes will reflect shortly.",
+    "planSubTabOverview": "Subscription",
+    "planSubTabHistory": "Payment history",
     "planCurrentBadge": "Current plan",
     "planPopularBadge": "Popular",
     "planUpgrade": "Switch to this plan",
