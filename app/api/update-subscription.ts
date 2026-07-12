@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface UpdateBody {
   studioId: string;
-  plan: 'studio' | 'agence';
+  plan: 'gratuit' | 'studio' | 'agence';
   billingCycle: 'monthly' | 'yearly';
   seats: number;
   storageTier: number;
@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { studioId, plan, billingCycle, seats, storageTier } = req.body as UpdateBody;
-  if (!studioId || (plan !== 'studio' && plan !== 'agence')) {
+  if (!studioId || (plan !== 'gratuit' && plan !== 'studio' && plan !== 'agence')) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
   }
@@ -70,11 +70,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const subscription = await stripe.subscriptions.retrieve(studio.stripe_subscription_id);
 
-    const planPrices = STRIPE_PRICE_IDS[plan];
-    const basePriceId = billingCycle === 'monthly' ? planPrices.monthly : planPrices.yearly;
-    const seatPriceId = billingCycle === 'monthly' ? planPrices.seatMonthly : planPrices.seatYearly;
+    // Le plan Gratuit n'a pas de prix de base ni de siège payant — seul le
+    // stockage extra peut rester facturé en restant sur ce plan.
+    const planPrices = plan === 'gratuit' ? null : STRIPE_PRICE_IDS[plan];
     const storagePrices = billingCycle === 'monthly' ? STRIPE_PRICE_IDS.storageMonthly : STRIPE_PRICE_IDS.storageYearly;
-    const extraSeats = Math.max(0, seats - 2);
+    const extraSeats = planPrices ? Math.max(0, seats - 2) : 0;
 
     let baseItemId: string | undefined;
     let seatItemId: string | undefined;
@@ -87,16 +87,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       else if (kind === 'storage') storageItemId = item.id;
     }
 
-    const items: Stripe.SubscriptionUpdateParams.Item[] = [
-      baseItemId ? { id: baseItemId, price: basePriceId, quantity: 1 } : { price: basePriceId, quantity: 1 },
-    ];
+    const items: Stripe.SubscriptionUpdateParams.Item[] = [];
 
-    if (extraSeats > 0) {
-      items.push(seatItemId
-        ? { id: seatItemId, price: seatPriceId, quantity: extraSeats }
-        : { price: seatPriceId, quantity: extraSeats });
-    } else if (seatItemId) {
-      items.push({ id: seatItemId, deleted: true });
+    if (planPrices) {
+      const basePriceId = billingCycle === 'monthly' ? planPrices.monthly : planPrices.yearly;
+      items.push(baseItemId ? { id: baseItemId, price: basePriceId, quantity: 1 } : { price: basePriceId, quantity: 1 });
+
+      if (extraSeats > 0) {
+        const seatPriceId = billingCycle === 'monthly' ? planPrices.seatMonthly : planPrices.seatYearly;
+        items.push(seatItemId
+          ? { id: seatItemId, price: seatPriceId, quantity: extraSeats }
+          : { price: seatPriceId, quantity: extraSeats });
+      } else if (seatItemId) {
+        items.push({ id: seatItemId, deleted: true });
+      }
+    } else {
+      if (baseItemId) items.push({ id: baseItemId, deleted: true });
+      if (seatItemId) items.push({ id: seatItemId, deleted: true });
     }
 
     if (storageTier > 0) {
@@ -106,6 +113,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : { price: storagePriceId, quantity: 1 });
     } else if (storageItemId) {
       items.push({ id: storageItemId, deleted: true });
+    }
+
+    const remainingItems = items.filter(i => !('deleted' in i && i.deleted));
+    if (remainingItems.length === 0) {
+      // Plus rien à facturer : annuler l'abonnement plutôt que d'envoyer une
+      // liste d'items vide à Stripe. Le webhook customer.subscription.deleted
+      // remet le studio sur le plan Gratuit sans add-ons.
+      await stripe.subscriptions.cancel(subscription.id);
+      res.status(200).json({ ok: true, cancelled: true });
+      return;
     }
 
     await stripe.subscriptions.update(subscription.id, {

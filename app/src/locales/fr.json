@@ -1657,6 +1657,7 @@
     "planAxis3": "Sièges",
     "planAxis3Desc": "{{count}} sièges inclus. Ajoutez des sièges supplémentaires si votre équipe grandit.",
     "planSeatsExtraPrice": "+{{price}} $ CA{{cycle}} par siège supplémentaire",
+    "planSeatsRequiresPaidPlan": "Passez à un plan payant pour ajouter des membres",
     "planSummaryTitle": "Récapitulatif",
     "planSummaryPlatform": "Plateforme",
     "planSummaryStorage": "Stockage extra",

@@ -7,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface CheckoutBody {
   studioId: string;
-  plan: 'studio' | 'agence';
+  plan: 'gratuit' | 'studio' | 'agence';
   billingCycle: 'monthly' | 'yearly';
   seats: number;
   storageTier: number;
@@ -20,8 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { studioId, plan, billingCycle, seats, storageTier } = req.body as CheckoutBody;
-  if (!studioId || (plan !== 'studio' && plan !== 'agence')) {
+  if (!studioId || (plan !== 'gratuit' && plan !== 'studio' && plan !== 'agence')) {
     res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  if (plan === 'gratuit' && storageTier <= 0) {
+    // Rien à facturer : le plan Gratuit n'a pas de siège payant, seul le
+    // stockage extra peut être acheté sans changer de plan.
+    res.status(400).json({ error: 'Nothing to purchase' });
     return;
   }
 
@@ -56,18 +62,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const planPrices = STRIPE_PRICE_IDS[plan];
-  const basePriceId = billingCycle === 'monthly' ? planPrices.monthly : planPrices.yearly;
-  const seatPriceId = billingCycle === 'monthly' ? planPrices.seatMonthly : planPrices.seatYearly;
+  const planPrices = plan === 'gratuit' ? null : STRIPE_PRICE_IDS[plan];
   const storagePrices = billingCycle === 'monthly' ? STRIPE_PRICE_IDS.storageMonthly : STRIPE_PRICE_IDS.storageYearly;
 
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-    { price: basePriceId, quantity: 1 },
-  ];
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
-  const extraSeats = Math.max(0, seats - 2);
-  if (extraSeats > 0) {
-    lineItems.push({ price: seatPriceId, quantity: extraSeats });
+  if (planPrices) {
+    const basePriceId = billingCycle === 'monthly' ? planPrices.monthly : planPrices.yearly;
+    lineItems.push({ price: basePriceId, quantity: 1 });
+
+    const seatPriceId = billingCycle === 'monthly' ? planPrices.seatMonthly : planPrices.seatYearly;
+    const extraSeats = Math.max(0, seats - 2);
+    if (extraSeats > 0) {
+      lineItems.push({ price: seatPriceId, quantity: extraSeats });
+    }
   }
 
   if (storageTier > 0) {

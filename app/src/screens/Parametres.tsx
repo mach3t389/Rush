@@ -1075,9 +1075,10 @@ function PlanSettings() {
   const hasChanges = draftPlan !== currentPlan || draftStorage !== currentStorage || draftSeats !== currentSeats;
 
   const applyChanges = async () => {
-    if (draftPlan === 'gratuit') {
-      // Rétrograder vers Gratuit : géré par le portail client Stripe
-      // (chantier C) — hors scope ici, ne rien faire de plus qu'avant.
+    if (draftPlan === 'gratuit' && draftStorage === 0) {
+      // Gratuit sans aucun ajout payant : rien à facturer, changement local
+      // (le retrait d'un abonnement existant est géré par le portail client
+      // Stripe, chantier C — hors scope ici).
       setCurrentPlan(draftPlan);
       setCurrentStorage(draftStorage);
       setCurrentSeats(draftSeats);
@@ -1135,6 +1136,15 @@ function PlanSettings() {
       window.alert(t('settings.planUpdateFailed'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const selectPlan = (planKey: string) => {
+    setDraftPlan(planKey);
+    if (planKey === 'gratuit') {
+      // Le plan Gratuit n'a pas de siège payant — impossible d'en ajouter sans upgrader.
+      const plan = PLATFORM_PLANS.find(p => p.key === planKey)!;
+      setDraftSeats(plan.includedSeats);
     }
   };
 
@@ -1226,7 +1236,7 @@ function PlanSettings() {
             const isFree = price === 0;
             return (
               <div key={plan.key}
-                onClick={() => setDraftPlan(plan.key)}
+                onClick={() => selectPlan(plan.key)}
                 style={{
                   borderRadius: 14,
                   border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
@@ -1294,7 +1304,7 @@ function PlanSettings() {
 
                 <button
                   disabled={isSelected}
-                  onClick={e => { e.stopPropagation(); setDraftPlan(plan.key); }}
+                  onClick={e => { e.stopPropagation(); selectPlan(plan.key); }}
                   style={{
                     width: '100%', padding: '9px', borderRadius: 9, border: isSelected ? '1px solid var(--border)' : 'none',
                     background: isSelected ? 'transparent' : plan.popular ? 'var(--accent)' : 'var(--surface-3)',
@@ -1382,13 +1392,16 @@ function PlanSettings() {
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 26 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', background: 'var(--surface)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px',
+            background: 'var(--surface)', opacity: draftPlan === 'gratuit' ? 0.45 : 1,
+          }}>
             <button
               onClick={() => setDraftSeats(s => Math.max(draftPlanObj.includedSeats, s - 1))}
-              disabled={draftSeats <= draftPlanObj.includedSeats}
+              disabled={draftPlan === 'gratuit' || draftSeats <= draftPlanObj.includedSeats}
               style={{
                 width: 24, height: 24, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)',
-                cursor: draftSeats <= draftPlanObj.includedSeats ? 'default' : 'pointer',
+                cursor: draftPlan === 'gratuit' || draftSeats <= draftPlanObj.includedSeats ? 'default' : 'pointer',
                 opacity: draftSeats <= draftPlanObj.includedSeats ? 0.4 : 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
               }}>
@@ -1397,14 +1410,19 @@ function PlanSettings() {
             <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-mono)', minWidth: 24, textAlign: 'center' }}>{draftSeats}</span>
             <button
               onClick={() => setDraftSeats(s => s + 1)}
+              disabled={draftPlan === 'gratuit'}
               style={{
                 width: 24, height: 24, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                cursor: draftPlan === 'gratuit' ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
               }}>
               <SFIcon name="plus" size={12} color="var(--text-2)" />
             </button>
           </div>
-          {draftSeats > draftPlanObj.includedSeats && (
+          {draftPlan === 'gratuit' ? (
+            <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+              {t('settings.planSeatsRequiresPaidPlan')}
+            </span>
+          ) : draftSeats > draftPlanObj.includedSeats && (
             <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
               {t('settings.planSeatsExtraPrice', {
                 price: billing === 'monthly' ? draftPlanObj.seatPriceMonthly : draftPlanObj.seatPriceYearly,
