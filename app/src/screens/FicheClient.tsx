@@ -57,7 +57,7 @@ function getInternalTeam() {
 function InviteModal({ existingEmails, onClose, onInvite }: {
   existingEmails: string[];
   onClose: () => void;
-  onInvite: (m: ClientMember) => string;
+  onInvite: (m: ClientMember) => Promise<string>;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
@@ -79,8 +79,8 @@ function InviteModal({ existingEmails, onClose, onInvite }: {
     }
     const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     const id = `ext${Date.now()}`;
-    const generatedLink = onInvite({ id, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f', portalPermissions: portalPerms });
-    setLink(generatedLink);
+    void onInvite({ id, name: name.trim(), role: role.trim() || t('client.defaultClientContactRole'), email: email.trim(), status: 'invited', initials, color: '#3b4f8f', portalPermissions: portalPerms })
+      .then(setLink);
   };
 
   const copyLink = () => {
@@ -340,10 +340,11 @@ function EquipeTab({ clientId }: { clientId: string }) {
     const [linkCopied, setLinkCopied] = useState(false);
 
     const handleResend = () => {
-      const invitation = createInvitation(clientId, m.id);
-      setResendLink(getInvitationLink(invitation.token));
-      setResent(true);
-      setTimeout(() => setResent(false), 2000);
+      void createInvitation(clientId, m.id).then(invitation => {
+        setResendLink(getInvitationLink(invitation.token));
+        setResent(true);
+        setTimeout(() => setResent(false), 2000);
+      });
     };
 
     const copyResendLink = () => {
@@ -769,10 +770,10 @@ function EquipeTab({ clientId }: { clientId: string }) {
         <InviteModal
           existingEmails={members.map(m => m.email.toLowerCase())}
           onClose={() => setShowInvite(false)}
-          onInvite={m => {
+          onInvite={async m => {
             addClientTeamMember(clientId, m);
             setMembers(getClientTeam(clientId));
-            const invitation = createInvitation(clientId, m.id);
+            const invitation = await createInvitation(clientId, m.id);
             return getInvitationLink(invitation.token);
           }}
         />

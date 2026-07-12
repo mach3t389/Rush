@@ -1,13 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
-import { getInvitation, resolveInvitation } from '../data/invitationStore';
-import { findClient } from '../data/clientStore';
-import { getClientTeam, setClientTeam, removeClientTeamMember } from '../data/clientTeamStore';
-import { STUDIO_NAME_KEY } from '../data/authStore';
+import { getInvitationDetails, acceptInvitation, declineInvitation, type InvitationDetails } from '../data/invitationStore';
+import { isDemoSession } from '../data/authStore';
 import { addNotif } from '../data/notificationStore';
-import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -29,47 +26,44 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function InvalidCard({ t }: { t: (k: string) => string }) {
+  return (
+    <>
+      <SFIcon name="link-2-off" size={40} color="var(--text-3)" />
+      <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', margin: '20px 0 10px' }}>
+        {t('invitation.invalidTitle')}
+      </h1>
+      <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 24 }}>
+        {t('invitation.invalidDesc')}
+      </p>
+      <Link to="/login" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+        {t('invitation.backToLogin')}
+      </Link>
+    </>
+  );
+}
+
 export function InvitationAccept() {
   const { token } = useParams<{ token: string }>();
   const { t } = useTranslation();
 
-  const [snapshot] = useState(() => {
-    if (!token) return null;
-    const invitation = getInvitation(token);
-    if (!invitation) return null;
-    const client = findClient(invitation.clientId);
-    if (!client) return null;
-    const contact = getClientTeam(invitation.clientId).find(c => c.id === invitation.contactId);
-    // A resolved invitation's contact may no longer exist in the live store
-    // (declined invitations remove the contact) — only a still-pending
-    // invitation needs the contact record to render (name, permissions).
-    if (invitation.outcome === 'pending' && !contact) return null;
-    return { invitation, client, contact };
-  });
+  // The invited contact opens this route fully unauthenticated, often on a
+  // device that never had the studio's own browser storage — the details
+  // must be fetched live (from Supabase for real sessions), not read
+  // synchronously from local state.
+  const [details, setDetails] = useState<InvitationDetails | null | undefined>(() => (token ? undefined : null));
 
-  const [outcome, setOutcome] = useState<'pending' | 'accepted' | 'declined'>(
-    snapshot?.invitation.outcome ?? 'pending'
-  );
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void getInvitationDetails(token).then(d => { if (!cancelled) setDetails(d); });
+    return () => { cancelled = true; };
+  }, [token]);
 
-  if (!snapshot) {
-    return (
-      <Shell>
-        <SFIcon name="link-2-off" size={40} color="var(--text-3)" />
-        <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', margin: '20px 0 10px' }}>
-          {t('invitation.invalidTitle')}
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 24 }}>
-          {t('invitation.invalidDesc')}
-        </p>
-        <Link to="/login" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
-          {t('invitation.backToLogin')}
-        </Link>
-      </Shell>
-    );
-  }
+  if (details === undefined) return <Shell><SFIcon name="loader" size={32} color="var(--text-3)" /></Shell>;
+  if (!details || !token) return <Shell><InvalidCard t={t} /></Shell>;
 
-  const { invitation, client, contact } = snapshot;
-  const studioName = localStorage.getItem(STUDIO_NAME_KEY) ?? 'StudioFlow Production';
+  const { outcome, clientId, clientName, contactId, contactName, portalPermissions, studioName } = details;
 
   if (outcome === 'accepted') {
     return (
@@ -81,7 +75,7 @@ export function InvitationAccept() {
           {t('invitation.acceptedTitle')}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6 }}>
-          {t('invitation.acceptedDesc', { client: client.name })}
+          {t('invitation.acceptedDesc', { client: clientName })}
         </p>
       </Shell>
     );
@@ -103,51 +97,29 @@ export function InvitationAccept() {
     );
   }
 
-  if (!contact) {
-    return (
-      <Shell>
-        <SFIcon name="link-2-off" size={40} color="var(--text-3)" />
-        <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', margin: '20px 0 10px' }}>
-          {t('invitation.invalidTitle')}
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 24 }}>
-          {t('invitation.invalidDesc')}
-        </p>
-        <Link to="/login" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
-          {t('invitation.backToLogin')}
-        </Link>
-      </Shell>
-    );
-  }
-
-  const perms = contact.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS;
-
   const accept = () => {
-    setClientTeam(
-      invitation.clientId,
-      getClientTeam(invitation.clientId).map(m => (m.id === contact.id ? { ...m, status: 'active' as const } : m))
-    );
-    resolveInvitation(invitation.token, 'accepted');
-    addNotif({
-      kind: 'invitation',
-      actor: contact.name,
-      text: `a rejoint l'équipe de ${client.name}`,
-      clientId: client.id,
-      timestamp: Date.now(),
+    void acceptInvitation(clientId, contactId, token).then(() => {
+      // Real sessions: skipped — the anonymous invitee has no studio
+      // session, and addNotif's Supabase path requires one (getStudioId()).
+      // The studio still sees the contact's status flip to "active" live
+      // via clientTeamStore; only the activity-feed toast is skipped.
+      if (isDemoSession()) {
+        addNotif({ kind: 'invitation', actor: contactName, text: `a rejoint l'équipe de ${clientName}`, clientId, timestamp: Date.now() });
+      }
+      setDetails(d => (d ? { ...d, outcome: 'accepted' } : d));
     });
-    setOutcome('accepted');
   };
 
   const decline = () => {
-    removeClientTeamMember(invitation.clientId, contact.id);
-    resolveInvitation(invitation.token, 'declined');
-    setOutcome('declined');
+    void declineInvitation(clientId, contactId, token).then(() => {
+      setDetails(d => (d ? { ...d, outcome: 'declined' } : d));
+    });
   };
 
   const permRows: { active: boolean; label: string }[] = [
-    { active: perms.approve, label: t('invitation.permApprove') },
-    { active: perms.comment, label: t('invitation.permComment') },
-    { active: perms.download, label: t('invitation.permDownload') },
+    { active: portalPermissions.approve, label: t('invitation.permApprove') },
+    { active: portalPermissions.comment, label: t('invitation.permComment') },
+    { active: portalPermissions.download, label: t('invitation.permDownload') },
   ].filter(p => p.active);
 
   return (
@@ -156,7 +128,7 @@ export function InvitationAccept() {
         {t('invitation.pendingTitle')}
       </h1>
       <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 24 }}>
-        {t('invitation.pendingDesc', { contact: contact.name, client: client.name, studio: studioName })}
+        {t('invitation.pendingDesc', { contact: contactName, client: clientName, studio: studioName })}
       </p>
 
       {permRows.length > 0 && (
