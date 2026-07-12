@@ -1373,7 +1373,9 @@ function PlanSettings() {
 
 export function Parametres() {
   const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState('infos');
+  const [activeSection, setActiveSection] = useState(() =>
+    new URLSearchParams(window.location.search).has('checkout') ? 'plan' : 'infos'
+  );
   const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
   useEffect(() => subscribeStudioInfo(() => setStudioInfo(getStudioInfo())), []);
   const saveStudioField = (field: keyof StudioInfo, value: string) => updateStudioInfo({ [field]: value });
