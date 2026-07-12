@@ -498,9 +498,14 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
 
   const handleDeleteEvent = (id: string) => { deleteEvent(id); setSelectedEvent(null); };
 
-  // Glisser-déplacer un événement (change l'heure) ou étirer sa poignée du bas (change la durée)
+  // Glisser-déplacer un événement (change l'heure et/ou le jour) ou étirer sa poignée du bas (change la durée)
   const handleEventChange = (ev: CalEvent, newStart: Date, newEnd: Date) => {
-    updateEvent(ev.id, { start: newStart.toISOString(), end: newEnd.toISOString() });
+    if (ev.allDay) {
+      const d = `${newStart.getFullYear()}-${fmt2(newStart.getMonth() + 1)}-${fmt2(newStart.getDate())}`;
+      updateEvent(ev.id, { start: d, end: d });
+    } else {
+      updateEvent(ev.id, { start: newStart.toISOString(), end: newEnd.toISOString() });
+    }
   };
 
   const prev = () => {
@@ -680,6 +685,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
             onDayClick={d=>{setCur(d);setView('day');}}
             onEventClick={setSelectedEvent}
             onCellClick={handleCellClick}
+            onEventChange={handleEventChange}
           />
         )}
         {view==='week' && (
