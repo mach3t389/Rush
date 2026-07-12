@@ -4,6 +4,7 @@ import { fmtTime, timeToY, durationH, HOUR_H, type CalEvent } from './calendarUt
 
 interface DragState {
   mode: 'move' | 'resize';
+  startX: number;
   startY: number;
   origStart: Date;
   origEnd: Date;
@@ -53,13 +54,13 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
     e.preventDefault();
     const dayStart = new Date(ev.startDate); dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart.getTime() + 24 * 3600000);
-    dragRef.current = { mode, startY: e.clientY, origStart: ev.startDate, origEnd: ev.endDate, moved: false };
+    dragRef.current = { mode, startX: e.clientX, startY: e.clientY, origStart: ev.startDate, origEnd: ev.endDate, moved: false };
 
     const onMouseMove = (me: MouseEvent) => {
       const d = dragRef.current;
       if (!d) return;
       const deltaY = me.clientY - d.startY;
-      if (Math.abs(deltaY) > 3) d.moved = true;
+      if (Math.abs(me.clientX - d.startX) > 3 || Math.abs(deltaY) > 3) d.moved = true;
       const deltaMin = snapMinutes((deltaY / HOUR_H) * 60);
 
       if (d.mode === 'move') {
