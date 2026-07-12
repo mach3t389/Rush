@@ -938,6 +938,9 @@ const PLATFORM_PLANS = [
     priceMonthly: 0,
     priceYearly: 0,
     storageIncluded: '5 Go',
+    includedSeats: 2,
+    seatPriceMonthly: 0,
+    seatPriceYearly: 0,
     features: [
       { labelKey: 'settings.planFeat3Projects',      included: true  },
       { labelKey: 'settings.planFeat5Members',        included: true  },
@@ -956,6 +959,9 @@ const PLATFORM_PLANS = [
     priceYearly: 182,
     popular: true,
     storageIncluded: '50 Go',
+    includedSeats: 2,
+    seatPriceMonthly: 3,
+    seatPriceYearly: 29,
     features: [
       { labelKey: 'settings.planFeatUnlimitedProjects', included: true },
       { labelKey: 'settings.planFeatUnlimitedMembers',  included: true },
@@ -973,6 +979,9 @@ const PLATFORM_PLANS = [
     priceMonthly: 49,
     priceYearly: 470,
     storageIncluded: '50 Go',
+    includedSeats: 2,
+    seatPriceMonthly: 2,
+    seatPriceYearly: 19,
     features: [
       { labelKey: 'settings.planFeatEverythingStudio', included: true },
       { labelKey: 'settings.planFeatPrioritySupport',  included: true },
@@ -1002,7 +1011,12 @@ function PlanSettings() {
   const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
   const [currentPlan, setCurrentPlan]     = useState('gratuit');
   const [currentStorage, setCurrentStorage] = useState(0);
-  const [confirming, setConfirming]   = useState<{ plan: string; storage: number } | null>(null);
+  const [currentSeats, setCurrentSeats] = useState(2);
+  const [draftPlan, setDraftPlan]     = useState('gratuit');
+  const [draftStorage, setDraftStorage] = useState(0);
+  const [draftSeats, setDraftSeats]   = useState(2);
+  const [confirming, setConfirming]   = useState(false);
+  const [saving, setSaving]           = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(() =>
     new URLSearchParams(window.location.search).get('checkout')
@@ -1022,12 +1036,16 @@ function PlanSettings() {
         const studioId = await getStudioId();
         const { data, error } = await supabase
           .from('studios')
-          .select('plan, billing_storage_tier, stripe_subscription_id')
+          .select('plan, billing_storage_tier, billing_seats, stripe_subscription_id')
           .eq('id', studioId)
           .single();
         if (!cancelled && !error && data) {
           setCurrentPlan(data.plan ?? 'gratuit');
           setCurrentStorage(data.billing_storage_tier ?? 0);
+          setCurrentSeats(data.billing_seats ?? 2);
+          setDraftPlan(data.plan ?? 'gratuit');
+          setDraftStorage(data.billing_storage_tier ?? 0);
+          setDraftSeats(data.billing_seats ?? 2);
           setHasActiveSubscription(!!data.stripe_subscription_id);
         }
       } catch (err) {
@@ -1039,44 +1057,73 @@ function PlanSettings() {
 
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
   const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
+  const draftPlanObj    = PLATFORM_PLANS.find(p => p.key === draftPlan)!;
+  const draftStorageObj = STORAGE_BLOCKS.find(s => s.tier === draftStorage)!;
+
+  const draftPlatformPrice = billing === 'monthly' ? draftPlanObj.priceMonthly : draftPlanObj.priceYearly;
+  const draftStoragePrice  = billing === 'monthly' ? draftStorageObj.priceMonthly : draftStorageObj.priceYearly;
+  const draftSeatPrice     = (billing === 'monthly' ? draftPlanObj.seatPriceMonthly : draftPlanObj.seatPriceYearly)
+    * Math.max(0, draftSeats - draftPlanObj.includedSeats);
+  const draftTotalPrice    = draftPlatformPrice + draftStoragePrice + draftSeatPrice;
 
   const platformPrice = billing === 'monthly' ? activePlan.priceMonthly : activePlan.priceYearly;
   const storagePrice  = billing === 'monthly' ? activeStorage.priceMonthly : activeStorage.priceYearly;
-  const totalPrice    = platformPrice + storagePrice;
+  const seatPrice     = (billing === 'monthly' ? activePlan.seatPriceMonthly : activePlan.seatPriceYearly)
+    * Math.max(0, currentSeats - activePlan.includedSeats);
+  const totalPrice    = platformPrice + storagePrice + seatPrice;
 
-  const pendingPlan    = confirming?.plan    ?? currentPlan;
-  const pendingStorage = confirming?.storage ?? currentStorage;
+  const hasChanges = draftPlan !== currentPlan || draftStorage !== currentStorage || draftSeats !== currentSeats;
 
   const applyChanges = async () => {
-    const plan = confirming!.plan;
-    const storage = confirming!.storage;
-    if (plan === 'gratuit') {
+    if (draftPlan === 'gratuit') {
       // Rétrograder vers Gratuit : géré par le portail client Stripe
       // (chantier C) — hors scope ici, ne rien faire de plus qu'avant.
-      setCurrentPlan(plan);
-      setCurrentStorage(storage);
-      setConfirming(null);
+      setCurrentPlan(draftPlan);
+      setCurrentStorage(draftStorage);
+      setCurrentSeats(draftSeats);
+      setConfirming(false);
       return;
     }
-    if (hasActiveSubscription) {
-      window.alert('Vous avez déjà un abonnement actif. La modification de palier depuis cette page n\'est pas encore disponible — contactez le support pour l\'instant.');
-      return;
-    }
+
+    setSaving(true);
     const studioId = await getStudioId();
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      };
+
+      if (hasActiveSubscription) {
+        const res = await fetch('/api/update-subscription', {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({
+            studioId,
+            plan: draftPlan,
+            billingCycle: billing,
+            seats: draftSeats,
+            storageTier: draftStorage,
+          }),
+        });
+        if (!res.ok) throw new Error('Update subscription request failed');
+        setCurrentPlan(draftPlan);
+        setCurrentStorage(draftStorage);
+        setCurrentSeats(draftSeats);
+        setConfirming(false);
+        setCheckoutResult('updated');
+        return;
+      }
+
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           studioId,
-          plan,
+          plan: draftPlan,
           billingCycle: billing,
-          seats: 2,
-          storageTier: storage,
+          seats: draftSeats,
+          storageTier: draftStorage,
         }),
       });
       if (!res.ok) throw new Error('Checkout session request failed');
@@ -1084,32 +1131,35 @@ function PlanSettings() {
       if (!url) throw new Error('No checkout URL returned');
       window.location.href = url;
     } catch (err) {
-      console.error('Failed to start checkout', err);
-      window.alert('Impossible de démarrer le paiement. Réessaie dans un instant.');
+      console.error('Failed to apply plan changes', err);
+      window.alert(t('settings.planUpdateFailed'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const trySwitch = (planKey: string, storageGb: number) => {
-    if (planKey === currentPlan && storageGb === currentStorage) return;
-    setConfirming({ plan: planKey, storage: storageGb });
+  const discardChanges = () => {
+    setDraftPlan(currentPlan);
+    setDraftStorage(currentStorage);
+    setDraftSeats(currentSeats);
   };
-
-  const hasUnsaved = pendingPlan !== currentPlan || pendingStorage !== currentStorage;
 
   return (
     <div>
-      {checkoutResult && (checkoutResult === 'success' || checkoutResult === 'cancelled') && (
+      {checkoutResult && (checkoutResult === 'success' || checkoutResult === 'cancelled' || checkoutResult === 'updated') && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
           borderRadius: 10, padding: '12px 16px', marginBottom: 24,
-          background: checkoutResult === 'success' ? 'rgba(0,210,120,0.08)' : 'var(--surface-2)',
-          border: `1px solid ${checkoutResult === 'success' ? 'rgba(0,210,120,0.3)' : 'var(--border)'}`,
+          background: checkoutResult !== 'cancelled' ? 'rgba(0,210,120,0.08)' : 'var(--surface-2)',
+          border: `1px solid ${checkoutResult !== 'cancelled' ? 'rgba(0,210,120,0.3)' : 'var(--border)'}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <SFIcon name={checkoutResult === 'success' ? 'check-circle' : 'info'} size={16}
-              color={checkoutResult === 'success' ? 'var(--ok)' : 'var(--text-2)'} />
+            <SFIcon name={checkoutResult !== 'cancelled' ? 'check-circle' : 'info'} size={16}
+              color={checkoutResult !== 'cancelled' ? 'var(--ok)' : 'var(--text-2)'} />
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-              {t(checkoutResult === 'success' ? 'settings.planCheckoutSuccess' : 'settings.planCheckoutCancelled')}
+              {t(checkoutResult === 'success' ? 'settings.planCheckoutSuccess'
+                : checkoutResult === 'updated' ? 'settings.planCheckoutUpdated'
+                : 'settings.planCheckoutCancelled')}
             </span>
           </div>
           <button onClick={() => setCheckoutResult(null)} style={{
@@ -1153,31 +1203,32 @@ function PlanSettings() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {PLATFORM_PLANS.map(plan => {
-            const isCurrent = plan.key === currentPlan;
+            const isActive = plan.key === currentPlan;
+            const isSelected = plan.key === draftPlan;
             const price = billing === 'monthly' ? plan.priceMonthly : plan.priceYearly;
             const isFree = price === 0;
             return (
               <div key={plan.key}
-                onClick={() => trySwitch(plan.key, currentStorage)}
+                onClick={() => setDraftPlan(plan.key)}
                 style={{
                   borderRadius: 14,
-                  border: `2px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
-                  background: isCurrent ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
+                  border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                  background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
                   padding: '20px 18px', display: 'flex', flexDirection: 'column',
-                  cursor: isCurrent ? 'default' : 'pointer',
+                  cursor: isSelected ? 'default' : 'pointer',
                   transition: 'border-color 0.2s, background 0.2s',
                 }}
-                onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-                onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
               >
                 {/* Badge */}
                 <div style={{ height: 22, marginBottom: 12 }}>
-                  {isCurrent && (
+                  {isActive && (
                     <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--on-accent)', background: 'var(--accent)', borderRadius: 5, padding: '3px 7px' }}>
                       {t('settings.planCurrentBadge')}
                     </span>
                   )}
-                  {plan.popular && !isCurrent && (
+                  {plan.popular && !isActive && (
                     <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-2)', background: 'var(--surface-3)', borderRadius: 5, padding: '3px 7px' }}>
                       {t('settings.planPopularBadge')}
                     </span>
@@ -1225,16 +1276,16 @@ function PlanSettings() {
                 </div>
 
                 <button
-                  disabled={isCurrent}
-                  onClick={e => { e.stopPropagation(); trySwitch(plan.key, currentStorage); }}
+                  disabled={isSelected}
+                  onClick={e => { e.stopPropagation(); setDraftPlan(plan.key); }}
                   style={{
-                    width: '100%', padding: '9px', borderRadius: 9, border: isCurrent ? '1px solid var(--border)' : 'none',
-                    background: isCurrent ? 'transparent' : plan.popular ? 'var(--accent)' : 'var(--surface-3)',
-                    color: isCurrent ? 'var(--text-3)' : plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
+                    width: '100%', padding: '9px', borderRadius: 9, border: isSelected ? '1px solid var(--border)' : 'none',
+                    background: isSelected ? 'transparent' : plan.popular ? 'var(--accent)' : 'var(--surface-3)',
+                    color: isSelected ? 'var(--text-3)' : plan.popular ? 'var(--on-accent)' : 'var(--text-2)',
                     fontSize: 12, fontWeight: 700, fontFamily: 'var(--ff-text)',
-                    cursor: isCurrent ? 'default' : 'pointer', transition: 'all 0.15s',
+                    cursor: isSelected ? 'default' : 'pointer', transition: 'all 0.15s',
                   }}>
-                  {isCurrent ? t('settings.planCurrent') : t('settings.planCTASubscribe')}
+                  {isSelected ? t('settings.planCurrent') : t('settings.planCTASubscribe')}
                 </button>
               </div>
             );
@@ -1264,18 +1315,18 @@ function PlanSettings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 26, marginBottom: 20, padding: '6px 12px', borderRadius: 8, background: 'rgba(249,255,0,0.06)', border: '1px solid rgba(249,255,0,0.18)', width: 'fit-content' }}>
           <SFIcon name="hard-drive" size={12} color="var(--accent)" />
           <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 600, color: 'var(--accent)' }}>
-            {t('settings.planStorageBaseInfo', { storage: activePlan.storageIncluded })}
+            {t('settings.planStorageBaseInfo', { storage: draftPlanObj.storageIncluded })}
           </span>
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {STORAGE_BLOCKS.map(block => {
-            const isSelected = block.tier === currentStorage;
+            const isSelected = block.tier === draftStorage;
             const blockPrice = billing === 'monthly' ? block.priceMonthly : block.priceYearly;
             const displayLabel = block.labelKey ? t(block.labelKey) : block.label!;
             return (
               <div key={block.tier}
-                onClick={() => trySwitch(currentPlan, block.tier)}
+                onClick={() => setDraftStorage(block.tier)}
                 style={{
                   borderRadius: 12, border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                   background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
@@ -1302,6 +1353,78 @@ function PlanSettings() {
           })}
         </div>
       </div>
+
+      {/* ── Axe 3 : Sièges ─────────────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 36, marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent)' }}>03</span>
+          <h3 style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--ff-display)', color: 'var(--text)' }}>{t('settings.planAxis3')}</h3>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 20, marginLeft: 26 }}>
+          {t('settings.planAxis3Desc', { count: draftPlanObj.includedSeats })}
+        </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 26 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', background: 'var(--surface)' }}>
+            <button
+              onClick={() => setDraftSeats(s => Math.max(draftPlanObj.includedSeats, s - 1))}
+              disabled={draftSeats <= draftPlanObj.includedSeats}
+              style={{
+                width: 24, height: 24, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)',
+                cursor: draftSeats <= draftPlanObj.includedSeats ? 'default' : 'pointer',
+                opacity: draftSeats <= draftPlanObj.includedSeats ? 0.4 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+              }}>
+              <SFIcon name="minus" size={12} color="var(--text-2)" />
+            </button>
+            <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-mono)', minWidth: 24, textAlign: 'center' }}>{draftSeats}</span>
+            <button
+              onClick={() => setDraftSeats(s => s + 1)}
+              style={{
+                width: 24, height: 24, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+              }}>
+              <SFIcon name="plus" size={12} color="var(--text-2)" />
+            </button>
+          </div>
+          {draftSeats > draftPlanObj.includedSeats && (
+            <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+              {t('settings.planSeatsExtraPrice', {
+                price: billing === 'monthly' ? draftPlanObj.seatPriceMonthly : draftPlanObj.seatPriceYearly,
+                cycle: billing === 'monthly' ? '/mois' : '/an',
+              })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Barre de changements en attente ─────────────────────────────── */}
+      {hasChanges && (
+        <div style={{
+          position: 'sticky', bottom: 16, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          borderRadius: 12, padding: '14px 20px', marginBottom: 32,
+          background: 'var(--surface)', border: '1px solid var(--accent)', boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <SFIcon name="repeat" size={16} color="var(--accent)" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{t('settings.planPendingBarText')}</p>
+              <p style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>
+                {t(draftPlanObj.nameKey)} · {draftStorageObj.label} · {draftSeats} {t('settings.planSummarySeats').toLowerCase()} —{' '}
+                {draftTotalPrice === 0 ? t('settings.planSummaryFree') : `${draftTotalPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={discardChanges} style={{ padding: '9px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              {t('settings.planPendingBarDiscard')}
+            </button>
+            <button onClick={() => setConfirming(true)} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              {t('settings.planPendingBarConfirm')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Récapitulatif ──────────────────────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32, marginBottom: 40 }}>
@@ -1355,49 +1478,46 @@ function PlanSettings() {
       </div>
 
       {/* ── Modal de confirmation ──────────────────────────────────────── */}
-      {confirming && (() => {
-        const newPlan    = PLATFORM_PLANS.find(p => p.key === confirming.plan)!;
-        const newStorage = STORAGE_BLOCKS.find(s => s.tier === confirming.storage)!;
-        const newPlatPrice = billing === 'monthly' ? newPlan.priceMonthly : newPlan.priceYearly;
-        const newStorPrice = billing === 'monthly' ? newStorage.priceMonthly : newStorage.priceYearly;
-        const newTotal = newPlatPrice + newStorPrice;
-        return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}
-            onClick={() => setConfirming(null)}>
-            <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '32px', maxWidth: 380, width: '90%', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
-                <SFIcon name="repeat" size={20} color="var(--accent)" />
+      {confirming && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}
+          onClick={() => !saving && setConfirming(false)}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '32px', maxWidth: 380, width: '90%', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+              <SFIcon name="repeat" size={20} color="var(--accent)" />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 16 }}>{t('settings.planUpgrade')}</h3>
+            <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummaryPlatform')}</span>
+                <span style={{ fontWeight: 600 }}>{t(draftPlanObj.nameKey)}</span>
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 16 }}>{t('settings.planUpgrade')}</h3>
-              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummaryPlatform')}</span>
-                  <span style={{ fontWeight: 600 }}>{t(newPlan.nameKey)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummaryStorage')}</span>
-                  <span style={{ fontWeight: 600 }}>{newStorage.label}</span>
-                </div>
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{t('settings.planSummaryTotal')}</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--accent)' }}>
-                    {newTotal === 0 ? t('settings.planSummaryFree') : `${newTotal} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
-                  </span>
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummaryStorage')}</span>
+                <span style={{ fontWeight: 600 }}>{draftStorageObj.label}</span>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setConfirming(null)} style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  {t('common.cancel') || 'Annuler'}
-                </button>
-                <button onClick={applyChanges} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  Confirmer
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-3)' }}>{t('settings.planSummarySeats')}</span>
+                <span style={{ fontWeight: 600 }}>{draftSeats}</span>
+              </div>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{t('settings.planSummaryTotal')}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--accent)' }}>
+                  {draftTotalPrice === 0 ? t('settings.planSummaryFree') : `${draftTotalPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
+                </span>
               </div>
             </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button disabled={saving} onClick={() => setConfirming(false)} style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', fontFamily: 'var(--ff-text)', opacity: saving ? 0.5 : 1 }}>
+                {t('common.cancel') || 'Annuler'}
+              </button>
+              <button disabled={saving} onClick={applyChanges} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer', fontFamily: 'var(--ff-text)', opacity: saving ? 0.6 : 1 }}>
+                Confirmer
+              </button>
+            </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }

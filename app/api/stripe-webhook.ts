@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { STRIPE_PRICE_IDS } from '../src/data/stripePriceIds.js';
+import { classifyPriceId, planFromPriceId, storageTierFromPriceId } from './_lib/stripePriceHelpers.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -15,20 +15,6 @@ async function readRawBody(req: VercelRequest): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks);
-}
-
-function planFromPriceId(priceId: string): 'studio' | 'agence' | null {
-  if (priceId === STRIPE_PRICE_IDS.studio.monthly || priceId === STRIPE_PRICE_IDS.studio.yearly) return 'studio';
-  if (priceId === STRIPE_PRICE_IDS.agence.monthly || priceId === STRIPE_PRICE_IDS.agence.yearly) return 'agence';
-  return null;
-}
-
-function storageTierFromPriceId(priceId: string): number {
-  const monthlyIdx = (STRIPE_PRICE_IDS.storageMonthly as readonly string[]).indexOf(priceId);
-  if (monthlyIdx !== -1) return monthlyIdx + 1;
-  const yearlyIdx = (STRIPE_PRICE_IDS.storageYearly as readonly string[]).indexOf(priceId);
-  if (yearlyIdx !== -1) return yearlyIdx + 1;
-  return 0;
 }
 
 async function syncSubscriptionToStudio(subscription: Stripe.Subscription): Promise<boolean> {
@@ -47,8 +33,7 @@ async function syncSubscriptionToStudio(subscription: Stripe.Subscription): Prom
     const detectedPlan = planFromPriceId(priceId);
     if (detectedPlan) {
       plan = detectedPlan;
-    } else if (priceId === STRIPE_PRICE_IDS.studio.seatMonthly || priceId === STRIPE_PRICE_IDS.studio.seatYearly
-      || priceId === STRIPE_PRICE_IDS.agence.seatMonthly || priceId === STRIPE_PRICE_IDS.agence.seatYearly) {
+    } else if (classifyPriceId(priceId) === 'seat') {
       seats = 2 + item.quantity!;
     } else {
       const tier = storageTierFromPriceId(priceId);
