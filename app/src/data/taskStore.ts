@@ -325,6 +325,25 @@ export function moveTasks(fromProjectId: string, taskIds: string[], toProjectId:
   }
 }
 
+export function convertTasksToSubtasks(projectId: string, taskIds: string[], targetTaskId: string): void {
+  const idSet = new Set(taskIds);
+  const movedTasks: Task[] = [];
+  const withoutMoved = getSections(projectId).map(s => {
+    const kept: Task[] = [];
+    s.tasks.forEach(t => { if (idSet.has(t.id)) movedTasks.push(t); else kept.push(t); });
+    return { ...s, tasks: kept };
+  });
+  if (!movedTasks.length) return;
+
+  const next = withoutMoved.map(s => ({
+    ...s,
+    tasks: s.tasks.map(t => t.id === targetTaskId
+      ? { ...t, subtasks: [...(t.subtasks ?? []), ...movedTasks] }
+      : t),
+  }));
+  setSections(projectId, next);
+}
+
 export function subscribeStore(fn: () => void): () => void {
   _listeners.add(fn);
   return () => { _listeners.delete(fn); };
