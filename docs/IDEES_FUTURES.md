@@ -94,6 +94,7 @@ Concrètement :
 **Recommandation :** ne pas renommer l'entité — la **typer**. Garder "Client" comme terme par défaut (facturation, portail — le cas d'usage principal), mais permettre un type `Personnel`/`Interne` distinct :
 - Permettre de créer un projet sans client réel, rattaché à un espace marqué comme personnel plutôt qu'à un faux client.
 - Adapter l'UI selon le type : un espace personnel n'a pas besoin d'onglet Finances/Facturation, de portail client, ni de secteur d'activité — ces champs concernent uniquement la relation client réelle.
+- Permettre de **basculer le type après coup** (Personnel ↔ Client) — un projet perso peut devenir un mandat facturé, et l'inverse arrive aussi. Ne pas supprimer les données propres au type client (secteur, contacts, factures) en repassant en Personnel : les garder en mémoire mais les cacher, pour ne rien perdre si l'utilisateur rebascule plus tard.
 
 **Pourquoi plus tard :** ça touche la structure de données `Client`/`Project` et plusieurs écrans (fiche client, création de projet, filtres) — un chantier de fond à faire une fois le reste stabilisé, pas une retouche ponctuelle.
 
