@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
-import { PERMISSION_DEFS, DEFAULT_PERMISSIONS, PERMISSION_PRESETS, matchPreset, type PermissionKey } from '../components/profile/ProfileEditPanel';
+import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { ProjectsListView } from '../components/ProjectsListView';
 import { ActivityFeed } from '../components/ActivityFeed';
@@ -316,14 +316,15 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
   const MemberEditPanel = ({ m, canBeApprover, onClose }: { m: ClientMember; canBeApprover?: boolean; onClose: () => void }) => {
     const isApprover = approverId === m.id;
-    const storageKey = `sf_client_member_${m.id}`;
-    const permKey = `sf_client_perms_${m.id}`;
-    const photoKey = `sf_client_photo_${m.id}`;
+    // Internal members' studio permissions live on their real studio_members
+    // row (teamStore.ts), keyed by their real user id (m.userId) — not this
+    // client_contacts row's own id, which is a different id space entirely.
+    const permId = m.userId ?? m.id;
 
     const [name, setName] = useState(m.name);
     const [email, setEmail] = useState(m.email);
     const [role, setRole] = useState(m.role);
-    const [photo, setPhoto] = useState<string | null>(() => { try { return localStorage.getItem(photoKey); } catch { return null; } });
+    const [photo, setPhoto] = useState<string | null>(m.photoUrl ?? null);
     const [resent, setResent] = useState(false);
     const [resendLink, setResendLink] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
@@ -343,13 +344,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [activeTab, setActiveTab] = useState<'profil' | 'permissions'>('profil');
     // Studio permissions (internal members only)
-    const [perms, setPerms] = useState<PermissionKey[]>(() => {
-      try {
-        const raw = localStorage.getItem(permKey);
-        if (raw) return JSON.parse(raw);
-      } catch { /* noop */ }
-      return DEFAULT_PERMISSIONS[m.role] ?? ['request_approval'];
-    });
+    const [perms, setPerms] = useState<PermissionKey[]>(() => loadPermissions(permId, m.role));
     // Portal permissions (external contacts only)
     const [portalPerms, setPortalPerms] = useState<PortalPermissions>(() => m.portalPermissions);
     const photoRef = useRef<HTMLInputElement>(null);
@@ -377,11 +372,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
     }, [m, clientId, navigate, onClose]);
 
     const save = () => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({ name, email, role }));
-        if (m.internal) localStorage.setItem(permKey, JSON.stringify(perms));
-      } catch { /* noop */ }
-      setClientTeam(clientId, getClientTeam(clientId).map(x => x.id === m.id ? { ...x, name, email, role, portalPermissions: m.internal ? x.portalPermissions : portalPerms } : x));
+      if (m.internal) savePermissions(permId, perms);
+      setClientTeam(clientId, getClientTeam(clientId).map(x => x.id === m.id ? { ...x, name, email, role, photoUrl: photo ?? undefined, portalPermissions: m.internal ? x.portalPermissions : portalPerms } : x));
       setMembers(getClientTeam(clientId));
       onClose();
     };
@@ -390,11 +382,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
       const f = e.target.files?.[0];
       if (!f) return;
       const reader = new FileReader();
-      reader.onload = ev => {
-        const url = ev.target?.result as string;
-        setPhoto(url);
-        try { localStorage.setItem(photoKey, url); } catch { /* noop */ }
-      };
+      reader.onload = ev => setPhoto(ev.target?.result as string);
       reader.readAsDataURL(f);
     };
 

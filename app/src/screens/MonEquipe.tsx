@@ -85,8 +85,14 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
   const submit = async () => {
     if (!name.trim() || !email.trim()) return;
     setSending(true);
-    savePermissions(email.trim(), perms);
-    const result = await createInvitation(email.trim(), role.trim() || 'Membre');
+    // Demo sessions never really create a member row to attach permissions
+    // to, so keep saving them under the invite email — matches prior
+    // behavior. Real sessions pass the chosen permissions straight through
+    // createInvitation so they land on the studio_members row once accepted
+    // (they used to be saved under the invite email, a key nothing ever
+    // read back once the real member existed under their own user id).
+    if (isDemoSession()) savePermissions(email.trim(), perms);
+    const result = await createInvitation(email.trim(), role.trim() || 'Membre', perms);
     setLink(result.link);
     setSending(false);
     if (isDemoSession()) setTimeout(onClose, 1500);

@@ -34,6 +34,7 @@ export interface ClientContact {
   internal?: boolean;
   userId?: string; // links to USERS key if internal studio member (demo sessions only)
   portalPermissions: PortalPermissions;
+  photoUrl?: string;
 }
 
 // Seed/demo data intentionally omits `portalPermissions` — it's filled in with

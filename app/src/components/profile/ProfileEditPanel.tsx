@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from '../ui';
+import { isDemoSession } from '../../data/authStore';
+import { findTeamMember, updateMemberFields } from '../../data/teamStore';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 
@@ -75,20 +77,34 @@ export function matchPreset(perms: PermissionKey[]): string | null {
   return null;
 }
 
+// Demo sessions: unchanged localStorage-only behavior, exactly as before
+// this migration. Real sessions: backed by the studio_members table (see
+// teamStore.ts's updateMemberFields/findTeamMember) — profile fields,
+// permissions, and photo were previously three separate localStorage-only
+// copies that never matched what teamStore.ts actually displayed elsewhere
+// (the team roster), and used a different key (contact/email id) than the
+// one used to store/read the real record.
 const PERM_STORAGE_KEY = (id: string) => `sf_perms_${id}`;
 const PROFILE_STORAGE_KEY = (id: string) => `sf_profile_${id}`;
 const PHOTO_STORAGE_KEY = (id: string) => `sf_photo_${id}`;
 
 export function loadPermissions(userId: string, role: string): PermissionKey[] {
-  try {
-    const raw = localStorage.getItem(PERM_STORAGE_KEY(userId));
-    if (raw) return JSON.parse(raw);
-  } catch { /* noop */ }
-  return DEFAULT_PERMISSIONS[role] ?? [];
+  if (isDemoSession()) {
+    try {
+      const raw = localStorage.getItem(PERM_STORAGE_KEY(userId));
+      if (raw) return JSON.parse(raw);
+    } catch { /* noop */ }
+    return DEFAULT_PERMISSIONS[role] ?? [];
+  }
+  return (findTeamMember(userId)?.permissions as PermissionKey[] | undefined) ?? DEFAULT_PERMISSIONS[role] ?? [];
 }
 
 export function savePermissions(userId: string, perms: PermissionKey[]) {
-  try { localStorage.setItem(PERM_STORAGE_KEY(userId), JSON.stringify(perms)); } catch { /* noop */ }
+  if (isDemoSession()) {
+    try { localStorage.setItem(PERM_STORAGE_KEY(userId), JSON.stringify(perms)); } catch { /* noop */ }
+    return;
+  }
+  updateMemberFields(userId, { permissions: perms });
 }
 
 export interface ProfileOverrides {
@@ -99,22 +115,37 @@ export interface ProfileOverrides {
 }
 
 export function loadProfile(userId: string): ProfileOverrides {
-  try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY(userId));
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+  if (isDemoSession()) {
+    try {
+      const raw = localStorage.getItem(PROFILE_STORAGE_KEY(userId));
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  }
+  const m = findTeamMember(userId);
+  return m ? { name: m.name, role: m.role, email: m.email, phone: m.phone } : {};
 }
 
 export function saveProfile(userId: string, data: ProfileOverrides) {
-  try { localStorage.setItem(PROFILE_STORAGE_KEY(userId), JSON.stringify(data)); } catch { /* noop */ }
+  if (isDemoSession()) {
+    try { localStorage.setItem(PROFILE_STORAGE_KEY(userId), JSON.stringify(data)); } catch { /* noop */ }
+    return;
+  }
+  updateMemberFields(userId, data);
 }
 
 export function loadPhoto(userId: string): string | null {
-  try { return localStorage.getItem(PHOTO_STORAGE_KEY(userId)); } catch { return null; }
+  if (isDemoSession()) {
+    try { return localStorage.getItem(PHOTO_STORAGE_KEY(userId)); } catch { return null; }
+  }
+  return findTeamMember(userId)?.photoUrl ?? null;
 }
 
 export function savePhoto(userId: string, dataUrl: string) {
-  try { localStorage.setItem(PHOTO_STORAGE_KEY(userId), dataUrl); } catch { /* noop */ }
+  if (isDemoSession()) {
+    try { localStorage.setItem(PHOTO_STORAGE_KEY(userId), dataUrl); } catch { /* noop */ }
+    return;
+  }
+  updateMemberFields(userId, { photoUrl: dataUrl });
 }
 
 // ── Role list ─────────────────────────────────────────────────────────────────

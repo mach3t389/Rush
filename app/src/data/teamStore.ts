@@ -20,6 +20,9 @@ import { createLoadingFlag } from './loadingFlag';
 export interface TeamMemberInfo extends User {
   email: string;
   joinedAt: string;
+  phone?: string;
+  photoUrl?: string;
+  permissions?: string[];
 }
 
 interface StudioMemberRow {
@@ -31,6 +34,9 @@ interface StudioMemberRow {
   avatar_color: string;
   is_owner: boolean;
   created_at: string;
+  phone: string | null;
+  photo_url: string | null;
+  permissions: string[] | null;
 }
 
 function toMember(row: StudioMemberRow): TeamMemberInfo {
@@ -42,6 +48,9 @@ function toMember(row: StudioMemberRow): TeamMemberInfo {
     role: row.role,
     email: row.email,
     joinedAt: row.created_at,
+    phone: row.phone ?? undefined,
+    photoUrl: row.photo_url ?? undefined,
+    permissions: row.permissions ?? undefined,
   };
 }
 
@@ -57,7 +66,7 @@ async function fetchMembers(): Promise<void> {
   const studioId = await getStudioId();
   const { data, error } = await supabase
     .from('studio_members')
-    .select('user_id, name, email, role, initials, avatar_color, is_owner, created_at')
+    .select('user_id, name, email, role, initials, avatar_color, is_owner, created_at, phone, photo_url, permissions')
     .eq('studio_id', studioId)
     .order('created_at', { ascending: true });
 
@@ -109,11 +118,43 @@ export function isTeamOwner(userId: string): boolean {
   return userId === _ownerId;
 }
 
+export function findTeamMember(userId: string): TeamMemberInfo | undefined {
+  return getTeamMembers().find(m => m.id === userId);
+}
+
+async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions'>>): Promise<void> {
+  const studioId = await getStudioId();
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined)        row.name = patch.name;
+  if (patch.email !== undefined)       row.email = patch.email;
+  if (patch.role !== undefined)        row.role = patch.role;
+  if (patch.phone !== undefined)       row.phone = patch.phone;
+  if (patch.photoUrl !== undefined)    row.photo_url = patch.photoUrl;
+  if (patch.permissions !== undefined) row.permissions = patch.permissions;
+
+  const { error } = await supabase.from('studio_members').update(row).eq('studio_id', studioId).eq('user_id', userId);
+  if (error) { console.error('upsertSupabaseMemberFields failed', error); return; }
+  await fetchMembers();
+}
+
+// Used by ProfileEditPanel.tsx's loadProfile/saveProfile/loadPhoto/savePhoto/
+// loadPermissions/savePermissions for real sessions — demo sessions keep
+// their own separate localStorage-only path (unchanged). Silently no-ops if
+// userId doesn't match any real studio member (e.g. an external client
+// contact id, or an invitee's email before they've accepted) — same
+// no-real-effect outcome those callers already had before this migration.
+export function updateMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions'>>): void {
+  if (isDemoSession()) return;
+  _members = _members.map(m => (m.id === userId ? { ...m, ...patch } : m));
+  notify();
+  void upsertSupabaseMemberFields(userId, patch);
+}
+
 function makeToken(): string {
   return `tinv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function createInvitation(email: string, role: string): Promise<{ token: string; link: string }> {
+export async function createInvitation(email: string, role: string, permissions?: string[]): Promise<{ token: string; link: string }> {
   const token = makeToken();
   const link = `${window.location.origin}/invitation-equipe/${token}`;
 
@@ -125,6 +166,7 @@ export async function createInvitation(email: string, role: string): Promise<{ t
     studio_id: studioId,
     email: email.trim().toLowerCase(),
     role: role.trim() || 'Membre',
+    permissions: permissions ?? null,
   });
   if (error) throw error;
   return { token, link };
