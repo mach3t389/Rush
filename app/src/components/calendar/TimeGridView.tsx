@@ -34,6 +34,8 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   const dragRef = useRef<{ colIdx: number; day: Date; startY: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<{ colIdx: number; top: number; height: number } | null>(null);
   const timeGridRef = useRef<HTMLDivElement>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const toISO = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth() + 1)}-${fmt2(d.getDate())}`;
 
   // La modale de création se referme (créé ou annulé) → on peut effacer le
   // surlignage laissé par le glisser-déposer.
@@ -148,7 +150,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
             const laid=layoutEvents(dayEvs);
             const isDragging=dragSel?.colIdx===di;
             return (
-              <div key={di}
+              <div key={di} data-cal-day={toISO(d)}
                 onMouseDown={e=>{
                   if((e.target as HTMLElement).closest('[data-event]')) return;
                   const gridRect=timeGridRef.current!.getBoundingClientRect();
@@ -165,6 +167,10 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                 }}
                 style={{ flex:1,borderLeft:'1px solid var(--border)',position:'relative',cursor:'cell',userSelect:'none' }}
               >
+                {/* Surbrillance de la colonne cible pendant un glisser inter-jours */}
+                {dragOverDay===toISO(d) && (
+                  <div style={{ position:'absolute',inset:0,background:'rgba(249,255,0,0.06)',boxShadow:'inset 0 0 0 2px var(--accent)',pointerEvents:'none',zIndex:3 }} />
+                )}
                 {/* Hour lines */}
                 {HOURS.map(h=>(
                   <div key={h} style={{ position:'absolute',top:((h-START_HOUR)*HOUR_H),left:0,right:0,borderTop:'1px solid var(--border)',pointerEvents:'none' }} />
@@ -190,7 +196,8 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                 {/* Events */}
                 {laid.map(ev=>(
                   <EventBlock key={ev.id} ev={ev} col={ev.col} numCols={ev.numCols} onClick={()=>onEventClick(ev)}
-                    onChange={onEventChange ? (s,e)=>onEventChange(ev,s,e) : undefined} />
+                    onChange={onEventChange ? (s,e)=>onEventChange(ev,s,e) : undefined}
+                    onDragDay={setDragOverDay} />
                 ))}
               </div>
             );
