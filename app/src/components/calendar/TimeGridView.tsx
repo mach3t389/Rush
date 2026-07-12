@@ -37,6 +37,43 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const toISO = (d: Date) => `${d.getFullYear()}-${fmt2(d.getMonth() + 1)}-${fmt2(d.getDate())}`;
 
+  const allDayDragRef = useRef<{ ev: CalEvent; startX: number; startY: number; moved: boolean } | null>(null);
+  const suppressAllDayClickRef = useRef(false);
+
+  const dayISOAtPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    return el?.closest('[data-cal-day]')?.getAttribute('data-cal-day') ?? null;
+  };
+
+  const beginAllDayDrag = (ev: CalEvent) => (e: React.MouseEvent) => {
+    if (!onEventChange || e.button !== 0) return;
+    e.stopPropagation();
+    allDayDragRef.current = { ev, startX: e.clientX, startY: e.clientY, moved: false };
+    const onMove = (me: MouseEvent) => {
+      const d = allDayDragRef.current;
+      if (!d) return;
+      if (Math.abs(me.clientX - d.startX) > 4 || Math.abs(me.clientY - d.startY) > 4) d.moved = true;
+      if (!d.moved) return;
+      setDragOverDay(dayISOAtPoint(me.clientX, me.clientY));
+    };
+    const onUp = (me: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const d = allDayDragRef.current;
+      allDayDragRef.current = null;
+      setDragOverDay(null);
+      if (!d || !d.moved) return;
+      suppressAllDayClickRef.current = true;
+      const iso = dayISOAtPoint(me.clientX, me.clientY);
+      if (!iso) return;
+      const [y, mo, da] = iso.split('-').map(Number);
+      const ns = new Date(y, mo - 1, da);
+      onEventChange?.(d.ev, ns, ns);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   // La modale de création se referme (créé ou annulé) → on peut effacer le
   // surlignage laissé par le glisser-déposer.
   useEffect(() => {
@@ -117,12 +154,15 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
             {days.map((d,i)=>{
               const dayAllDay=events.filter(ev=>isSameDay(ev.startDate,d)&&ev.allDay);
               return (
-                <div key={i} onClick={()=>onAllDayClick?.(d)}
-                  style={{ flex:1,padding:'3px 4px',minWidth:0,display:'flex',flexDirection:'column',gap:2,minHeight:24,cursor:'pointer' }}
+                <div key={i} data-cal-day={toISO(d)}
+                  onClick={()=>{ if(suppressAllDayClickRef.current){ suppressAllDayClickRef.current=false; return; } onAllDayClick?.(d); }}
+                  style={{ flex:1,padding:'3px 4px',minWidth:0,display:'flex',flexDirection:'column',gap:2,minHeight:24,cursor:'pointer',background:dragOverDay===toISO(d)?'rgba(249,255,0,0.08)':undefined }}
                 >
                   {dayAllDay.map(ev=>(
-                    <div key={ev.id} onClick={e=>{e.stopPropagation();onEventClick(ev);}}
-                      style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:'pointer',overflow:'hidden' }}
+                    <div key={ev.id} data-event
+                      onMouseDown={beginAllDayDrag(ev)}
+                      onClick={e=>{ e.stopPropagation(); if(suppressAllDayClickRef.current){ suppressAllDayClickRef.current=false; return; } onEventClick(ev); }}
+                      style={{ width:'100%',padding:'2px 8px',borderRadius:4,background:`${ev.eventTypeColor}cc`,cursor:onEventChange?'grab':'pointer',overflow:'hidden' }}
                     >
                       <span style={{ fontSize:11,fontWeight:600,color:'white',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',display:'block' }}>{ev.title}</span>
                     </div>
