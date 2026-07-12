@@ -48,6 +48,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   const beginAllDayDrag = (ev: CalEvent) => (e: React.MouseEvent) => {
     if (!onEventChange || e.button !== 0) return;
     e.stopPropagation();
+    e.preventDefault();
     allDayDragRef.current = { ev, startX: e.clientX, startY: e.clientY, moved: false };
     const onMove = (me: MouseEvent) => {
       const d = allDayDragRef.current;
@@ -64,6 +65,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
       setDragOverDay(null);
       if (!d || !d.moved) return;
       suppressAllDayClickRef.current = true;
+      setTimeout(() => { suppressAllDayClickRef.current = false; }, 0);
       const iso = dayISOAtPoint(me.clientX, me.clientY);
       if (!iso) return;
       const [y, mo, da] = iso.split('-').map(Number);
