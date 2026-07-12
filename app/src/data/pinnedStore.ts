@@ -1,33 +1,132 @@
+// Sidebar preferences: pinned projects, pinned clients, per-project color
+// overrides.
+//
+// Demo sessions (isDemoSession() === true): unchanged localStorage behavior,
+// exactly as before this migration.
+//
+// Real sessions: backed by the `sidebar_prefs` table, scoped by the
+// authenticated user's own id (auth.uid()) — these are per-user preferences
+// (each teammate can pin their own projects), not per-studio data, so they
+// follow the same pattern as notifPrefsStore.ts rather than clientStore.ts.
+// Every exported function keeps its exact existing signature and stays
+// synchronous — a background fetch populates an in-memory cache, and
+// subscribers are notified once it resolves.
+
 import { loadPersisted, savePersisted } from './persist';
+import { isDemoSession, onLogout } from './authStore';
+import { supabase } from './supabaseClient';
 
 const PINNED_PROJECTS_KEY = 'sf_pinned_projects';
 const PINNED_CLIENTS_KEY  = 'sf_pinned_clients';
 const PROJECT_COLORS_KEY  = 'sf_project_colors';
 
-// --- Pinned projects ---
+interface SidebarPrefsRow {
+  pinned_project_ids: string[];
+  pinned_client_ids: string[];
+  project_colors: Record<string, string>;
+}
+
+// ── Demo-session state (unchanged) ─────────────────────────────────────────
 let _pinnedIds: string[] = loadPersisted(PINNED_PROJECTS_KEY, ['pj1', 'pj4', 'pj2']);
+let _pinnedClientIds: string[] = loadPersisted(PINNED_CLIENTS_KEY, []);
+const _projectColors: Record<string, string> = loadPersisted(PROJECT_COLORS_KEY, {});
+
+// ── Real-session in-memory cache ───────────────────────────────────────────
+let _realPinnedIds: string[] = [];
+let _realPinnedClientIds: string[] = [];
+let _realProjectColors: Record<string, string> = {};
+let _fetchStarted = false;
+
+async function fetchSidebarPrefs(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from('sidebar_prefs')
+    .select('pinned_project_ids, pinned_client_ids, project_colors')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) { console.error('fetchSidebarPrefs failed', error); return; }
+
+  const row = data as SidebarPrefsRow | null;
+  _realPinnedIds = row?.pinned_project_ids ?? [];
+  _realPinnedClientIds = row?.pinned_client_ids ?? [];
+  _realProjectColors = row?.project_colors ?? {};
+  notify();
+  notifyClients();
+}
+
+function ensureFetchStarted(): void {
+  if (_fetchStarted) return;
+  _fetchStarted = true;
+  void fetchSidebarPrefs();
+}
+
+async function saveSidebarPrefs(patch: Partial<SidebarPrefsRow>): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase.from('sidebar_prefs').upsert({
+    user_id: user.id,
+    pinned_project_ids: _realPinnedIds,
+    pinned_client_ids: _realPinnedClientIds,
+    project_colors: _realProjectColors,
+    updated_at: new Date().toISOString(),
+    ...patch,
+  });
+  if (error) console.error('saveSidebarPrefs failed', error);
+}
+
+function resetSidebarPrefsCache(): void {
+  _realPinnedIds = [];
+  _realPinnedClientIds = [];
+  _realProjectColors = {};
+  _fetchStarted = false;
+}
+onLogout(resetSidebarPrefsCache);
+
+// --- Pinned projects ---
 const _listeners = new Set<() => void>();
 const notify = () => _listeners.forEach(fn => fn());
 
-export const getPinnedIds = (): string[] => [..._pinnedIds];
-export const isPinned = (id: string): boolean => _pinnedIds.includes(id);
+export const getPinnedIds = (): string[] => {
+  if (isDemoSession()) return [..._pinnedIds];
+  ensureFetchStarted();
+  return [..._realPinnedIds];
+};
+
+export const isPinned = (id: string): boolean => getPinnedIds().includes(id);
 
 export function togglePin(id: string): void {
-  _pinnedIds = _pinnedIds.includes(id)
-    ? _pinnedIds.filter(x => x !== id)
-    : [..._pinnedIds, id];
-  savePersisted(PINNED_PROJECTS_KEY, _pinnedIds);
+  if (isDemoSession()) {
+    _pinnedIds = _pinnedIds.includes(id) ? _pinnedIds.filter(x => x !== id) : [..._pinnedIds, id];
+    savePersisted(PINNED_PROJECTS_KEY, _pinnedIds);
+    notify();
+    return;
+  }
+  _realPinnedIds = _realPinnedIds.includes(id) ? _realPinnedIds.filter(x => x !== id) : [..._realPinnedIds, id];
   notify();
+  void saveSidebarPrefs({ pinned_project_ids: _realPinnedIds });
 }
 
 export function movePinned(fromIdx: number, toIdx: number): void {
   if (fromIdx === toIdx) return;
-  const next = [..._pinnedIds];
+  if (isDemoSession()) {
+    const next = [..._pinnedIds];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    _pinnedIds = next;
+    savePersisted(PINNED_PROJECTS_KEY, _pinnedIds);
+    notify();
+    return;
+  }
+  const next = [..._realPinnedIds];
   const [moved] = next.splice(fromIdx, 1);
   next.splice(toIdx, 0, moved);
-  _pinnedIds = next;
-  savePersisted(PINNED_PROJECTS_KEY, _pinnedIds);
+  _realPinnedIds = next;
   notify();
+  void saveSidebarPrefs({ pinned_project_ids: _realPinnedIds });
 }
 
 export function subscribePinned(fn: () => void): () => void {
@@ -36,41 +135,65 @@ export function subscribePinned(fn: () => void): () => void {
 }
 
 // --- Project color overrides (per-project color shown in sidebar) ---
-const _projectColors: Record<string, string> = loadPersisted(PROJECT_COLORS_KEY, {});
 
-export const getProjectColor = (id: string, fallback: string): string =>
-  _projectColors[id] ?? fallback;
+export const getProjectColor = (id: string, fallback: string): string => {
+  const colors = isDemoSession() ? _projectColors : (ensureFetchStarted(), _realProjectColors);
+  return colors[id] ?? fallback;
+};
 
 export function setProjectColor(id: string, color: string): void {
-  _projectColors[id] = color;
-  savePersisted(PROJECT_COLORS_KEY, _projectColors);
+  if (isDemoSession()) {
+    _projectColors[id] = color;
+    savePersisted(PROJECT_COLORS_KEY, _projectColors);
+    notify();
+    return;
+  }
+  _realProjectColors = { ..._realProjectColors, [id]: color };
   notify();
+  void saveSidebarPrefs({ project_colors: _realProjectColors });
 }
 
 // --- Pinned clients ---
-let _pinnedClientIds: string[] = loadPersisted(PINNED_CLIENTS_KEY, []);
 const _clientListeners = new Set<() => void>();
 const notifyClients = () => _clientListeners.forEach(fn => fn());
 
-export const getPinnedClientIds = (): string[] => [..._pinnedClientIds];
-export const isPinnedClient = (id: string): boolean => _pinnedClientIds.includes(id);
+export const getPinnedClientIds = (): string[] => {
+  if (isDemoSession()) return [..._pinnedClientIds];
+  ensureFetchStarted();
+  return [..._realPinnedClientIds];
+};
+
+export const isPinnedClient = (id: string): boolean => getPinnedClientIds().includes(id);
 
 export function togglePinClient(id: string): void {
-  _pinnedClientIds = _pinnedClientIds.includes(id)
-    ? _pinnedClientIds.filter(x => x !== id)
-    : [..._pinnedClientIds, id];
-  savePersisted(PINNED_CLIENTS_KEY, _pinnedClientIds);
+  if (isDemoSession()) {
+    _pinnedClientIds = _pinnedClientIds.includes(id) ? _pinnedClientIds.filter(x => x !== id) : [..._pinnedClientIds, id];
+    savePersisted(PINNED_CLIENTS_KEY, _pinnedClientIds);
+    notifyClients();
+    return;
+  }
+  _realPinnedClientIds = _realPinnedClientIds.includes(id) ? _realPinnedClientIds.filter(x => x !== id) : [..._realPinnedClientIds, id];
   notifyClients();
+  void saveSidebarPrefs({ pinned_client_ids: _realPinnedClientIds });
 }
 
 export function movePinnedClient(fromIdx: number, toIdx: number): void {
   if (fromIdx === toIdx) return;
-  const next = [..._pinnedClientIds];
+  if (isDemoSession()) {
+    const next = [..._pinnedClientIds];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    _pinnedClientIds = next;
+    savePersisted(PINNED_CLIENTS_KEY, _pinnedClientIds);
+    notifyClients();
+    return;
+  }
+  const next = [..._realPinnedClientIds];
   const [moved] = next.splice(fromIdx, 1);
   next.splice(toIdx, 0, moved);
-  _pinnedClientIds = next;
-  savePersisted(PINNED_CLIENTS_KEY, _pinnedClientIds);
+  _realPinnedClientIds = next;
   notifyClients();
+  void saveSidebarPrefs({ pinned_client_ids: _realPinnedClientIds });
 }
 
 export function subscribePinnedClients(fn: () => void): () => void {
