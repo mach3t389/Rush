@@ -64,6 +64,13 @@ Envisager aussi une application desktop (ex. via Electron ou Tauri) pour une exp
 
 **Pourquoi plus tard :** c'est un chantier transversal qui touche tout l'app plutôt qu'une fonctionnalité isolée, et il est plus efficace de le faire une fois l'ensemble des écrans et flux stabilisés — adapter une interface qui bouge encore beaucoup signifierait refaire le travail plusieurs fois.
 
+### 4. Vue tâches mobile épurée (style Rappels iOS)
+
+Sur mobile spécifiquement, la vue des tâches ne devrait **pas** ressembler à Asana (formulaire de création avec dix champs visibles). Plutôt s'inspirer de l'app Rappels d'iPhone :
+- Liste simple, ajout rapide en une ligne de texte
+- Un petit bouton "i" (info) sur chaque tâche pour accéder aux détails complets (assigné, priorité, statut, date…) sans les afficher tous par défaut
+- Priorité à la rapidité de saisie plutôt qu'à l'exhaustivité des champs visibles
+
 ---
 
 ## Nom de domaine personnalisé (2026-07-10)
@@ -75,6 +82,20 @@ Concrètement :
 - Le connecter au projet Vercel (configuration DNS + certificat SSL, gérés automatiquement par Vercel une fois les enregistrements pointés)
 
 **Pourquoi plus tard :** c'est une étape de commercialisation/lancement plutôt qu'un chantier de développement — plus logique une fois l'app prête à être présentée publiquement sous son nom final.
+
+---
+
+## Projets personnels vs "Client" (2026-07-10)
+
+**Le problème identifié :** l'app suppose que tout projet appartient à un "Client" (secteur d'activité, portail, facturation…). Pour des projets purement personnels, l'utilisateur a dû créer un faux client nommé "Projets personnels" comme contournement — ce n'est pas une fonctionnalité prévue, juste un bricolage qui fonctionne parce que rien n'empêche de créer un client fictif.
+
+**Piste envisagée et rejetée :** renommer "Client" en "Équipe" pour couvrir aussi bien les vrais clients que les espaces personnels. **Rejetée** parce que "Équipe" désigne déjà deux choses différentes dans l'app (les membres internes du studio via `MonEquipe`, et les contacts d'un client via l'onglet "Équipe" d'une fiche client) — réutiliser le mot pour une troisième notion créerait de la confusion.
+
+**Recommandation :** ne pas renommer l'entité — la **typer**. Garder "Client" comme terme par défaut (facturation, portail — le cas d'usage principal), mais permettre un type `Personnel`/`Interne` distinct :
+- Permettre de créer un projet sans client réel, rattaché à un espace marqué comme personnel plutôt qu'à un faux client.
+- Adapter l'UI selon le type : un espace personnel n'a pas besoin d'onglet Finances/Facturation, de portail client, ni de secteur d'activité — ces champs concernent uniquement la relation client réelle.
+
+**Pourquoi plus tard :** ça touche la structure de données `Client`/`Project` et plusieurs écrans (fiche client, création de projet, filtres) — un chantier de fond à faire une fois le reste stabilisé, pas une retouche ponctuelle.
 
 ---
 
