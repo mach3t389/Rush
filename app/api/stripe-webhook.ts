@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { STRIPE_PRICE_IDS } from '../src/data/stripePriceIds';
+import { STRIPE_PRICE_IDS } from '../src/data/stripePriceIds.js';
 
 export const config = { api: { bodyParser: false } };
 

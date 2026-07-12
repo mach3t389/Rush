@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { STRIPE_PRICE_IDS } from '../src/data/stripePriceIds';
+import { STRIPE_PRICE_IDS } from '../src/data/stripePriceIds.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
