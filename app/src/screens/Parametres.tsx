@@ -9,6 +9,7 @@ import {
   type ShortcutAction, type ShortcutCombo,
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
+import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
 import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
@@ -678,6 +679,49 @@ function LanguageSettings() {
             <span style={{ fontSize: 20 }}>{option.flag}</span>
             <span>{option.label}</span>
             {selectedLanguage === option.code && (
+              <span style={{ marginLeft: 'auto' }}>
+                <SFIcon name="check" size={14} color="var(--accent)" />
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WeekStartSettings() {
+  const { t } = useTranslation();
+  const [ws, setWs] = useState<WeekStart>(getWeekStart());
+  const choose = (v: WeekStart) => { setWs(v); setWeekStart(v); };
+  const OPTIONS: { value: WeekStart; label: string }[] = [
+    { value: 0, label: t('settings.weekStartSunday') },
+    { value: 1, label: t('settings.weekStartMonday') },
+  ];
+
+  return (
+    <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div>
+        <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.weekStartTitle')}</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.weekStartDesc')}</p>
+      </div>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {OPTIONS.map(o => (
+          <button
+            key={o.value}
+            onClick={() => choose(o.value)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10,
+              border: `2px solid ${ws === o.value ? 'var(--accent)' : 'var(--border)'}`,
+              background: ws === o.value ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+              cursor: 'pointer', transition: 'all 0.15s', fontSize: 14, fontWeight: 500,
+              color: ws === o.value ? 'var(--text)' : 'var(--text-2)', fontFamily: 'var(--ff-text)',
+            }}
+            onMouseEnter={e => { if (ws !== o.value) (e.currentTarget as HTMLElement).style.borderColor = 'var(--text-3)'; }}
+            onMouseLeave={e => { if (ws !== o.value) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+          >
+            <span>{o.label}</span>
+            {ws === o.value && (
               <span style={{ marginLeft: 'auto' }}>
                 <SFIcon name="check" size={14} color="var(--accent)" />
               </span>
@@ -1928,6 +1972,11 @@ export function Parametres() {
             {/* ── Langue ── */}
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
               <LanguageSettings />
+            </div>
+
+            {/* ── Premier jour de la semaine ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
+              <WeekStartSettings />
             </div>
 
             {/* ── Raccourcis ── */}
