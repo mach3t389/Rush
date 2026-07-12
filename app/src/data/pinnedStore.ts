@@ -67,11 +67,17 @@ async function saveSidebarPrefs(patch: Partial<SidebarPrefsRow>): Promise<void> 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
+  // N'envoyer QUE le(s) champ(s) réellement modifié(s) — jamais les valeurs
+  // en cache des deux autres champs. Le cache local part à vide tant que le
+  // fetch initial (ensureFetchStarted) n'a pas résolu ; si un upsert incluait
+  // ces valeurs pas-encore-à-jour, il écraserait silencieusement les vraies
+  // valeurs distantes des colonnes non concernées par ce changement (bug
+  // vécu : épingler un projet juste après un rechargement de page pouvait
+  // effacer les clients épinglés). Le mode "merge-duplicates" de l'upsert
+  // Postgrest ne touche que les colonnes présentes dans la requête ; les
+  // valeurs par défaut de la table ('{}') couvrent la toute première ligne.
   const { error } = await supabase.from('sidebar_prefs').upsert({
     user_id: user.id,
-    pinned_project_ids: _realPinnedIds,
-    pinned_client_ids: _realPinnedClientIds,
-    project_colors: _realProjectColors,
     updated_at: new Date().toISOString(),
     ...patch,
   });
