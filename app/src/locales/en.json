@@ -1871,6 +1871,9 @@
     "thisSection": "This section"
   },
   "finance": {
+    "lockedTitle": "Finances locked",
+    "lockedBody": "The Finances & billing module is available on a paid plan. Upgrade to Studio or Agence to create and track invoices.",
+    "lockedCta": "View plans",
     "title": "Invoices",
     "newInvoice": "New invoice",
     "addInvoice": "Add invoice",

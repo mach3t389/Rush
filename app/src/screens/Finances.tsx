@@ -12,6 +12,9 @@ import {
   type Invoice, type InvoiceStatus, type InvoiceComment, type TaxLine,
 } from '../data/financeStore';
 import { subscribeUploadStatus } from '../data/fileContentStore';
+import { Link } from 'react-router-dom';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -939,6 +942,24 @@ const STATUS_FILTERS: Array<{ key: InvoiceStatus | 'all'; labelKey: string }> = 
   { key: 'overdue', labelKey: 'finance.filterOverdue' },
 ];
 
+function FinancesLocked() {
+  const { t } = useTranslation();
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+      <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <SFIcon name="lock" size={24} color="var(--accent)" />
+      </div>
+      <div style={{ textAlign: 'center', maxWidth: 360 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 8 }}>{t('finance.lockedTitle')}</h2>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('finance.lockedBody')}</p>
+      </div>
+      <Link to="/parametres?section=plan" style={{ padding: '11px 20px', borderRadius: 9, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, textDecoration: 'none', fontFamily: 'var(--ff-text)' }}>
+        {t('finance.lockedCta')}
+      </Link>
+    </div>
+  );
+}
+
 export function Finances() {
   const { t } = useTranslation();
   const [invoices,      setInvoices]      = useState<Invoice[]>(getInvoices);
@@ -957,6 +978,11 @@ export function Finances() {
   const [deleteId,      setDeleteId]      = useState<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoices())), []);
+
+  const plan = usePlan();
+  if (!canUseFeature(plan, 'finances')) {
+    return <FinancesLocked />;
+  }
 
   const allClients  = getClients();
   const allProjects = getProjects();
