@@ -23,7 +23,7 @@ function rewriteHtml(html: string, pageUrl: string, proxyBase: string): string {
   const origin = new URL(pageUrl).origin;
 
   // Rewrite <link> tags: stylesheets go through proxy (so fonts can be rewritten too); others get absolute URL
-  html = html.replace(/<link([^>]*?)(\/?)?>/gis, (tag: string, attrs: string, selfClose: string) => {
+  html = html.replace(/<link([^>]*?)(\/?)?>/gis, (_tag: string, attrs: string, selfClose: string) => {
     const isStylesheet = /rel=["']stylesheet["']/i.test(attrs) || /type=["']text\/css["']/i.test(attrs);
     const rewritten = attrs.replace(/(href)=(["'])([^"']*)\2/gi, (_m: string, attr: string, q: string, val: string) => {
       const abs = resolveUrl(val, pageUrl);
@@ -34,7 +34,7 @@ function rewriteHtml(html: string, pageUrl: string, proxyBase: string): string {
   });
 
   // Rewrite <script src> — absolute (blocked by sandbox but needed for URL resolution)
-  html = html.replace(/<script([^>]*?)>/gis, (tag: string, attrs: string) => {
+  html = html.replace(/<script([^>]*?)>/gis, (_tag: string, attrs: string) => {
     const rewritten = attrs.replace(/(src)=(["'])([^"']*)\2/gi, (_m: string, attr: string, q: string, val: string) =>
       `${attr}=${q}${resolveUrl(val, pageUrl)}${q}`
     );
@@ -42,13 +42,13 @@ function rewriteHtml(html: string, pageUrl: string, proxyBase: string): string {
   });
 
   // Rewrite <img>, <source>, <video>, <audio>, <input> src/poster
-  html = html.replace(/<(img|source|video|audio|input)([^>]*?)(\/?)?>/gis, (tag: string, tagName: string, attrs: string, selfClose: string) => {
+  html = html.replace(/<(img|source|video|audio|input)([^>]*?)(\/?)?>/gis, (_tag: string, tagName: string, attrs: string, selfClose: string) => {
     const rewritten = attrs
       .replace(/(src|poster|data-src|data-lazy)=(["'])([^"']*)\2/gi, (_m: string, attr: string, q: string, val: string) =>
         `${attr}=${q}${resolveUrl(val, pageUrl)}${q}`
       )
       .replace(/srcset=(["'])([^"']*)\2/gi, (_m: string, q: string, val: string) => {
-        const rw = val.replace(/([^\s,]+)(\s+\S+)?/g, (part: string, url: string, descriptor: string) =>
+        const rw = val.replace(/([^\s,]+)(\s+\S+)?/g, (_part: string, url: string, descriptor: string) =>
           resolveUrl(url, pageUrl) + (descriptor ?? '')
         );
         return `srcset=${q}${rw}${q}`;
@@ -57,7 +57,7 @@ function rewriteHtml(html: string, pageUrl: string, proxyBase: string): string {
   });
 
   // Rewrite <form action>
-  html = html.replace(/<form([^>]*?)>/gis, (tag: string, attrs: string) => {
+  html = html.replace(/<form([^>]*?)>/gis, (_tag: string, attrs: string) => {
     const rewritten = attrs.replace(/(action)=(["'])([^"']*)\2/gi, (_m: string, attr: string, q: string, val: string) =>
       `${attr}=${q}${resolveUrl(val, pageUrl)}${q}`
     );
@@ -65,7 +65,7 @@ function rewriteHtml(html: string, pageUrl: string, proxyBase: string): string {
   });
 
   // Rewrite <a href> through proxy for navigation
-  html = html.replace(/<a([^>]*?)>/gis, (tag: string, attrs: string) => {
+  html = html.replace(/<a([^>]*?)>/gis, (_tag: string, attrs: string) => {
     const rewritten = attrs.replace(/(href)=(["'])([^"']*)\2/gi, (_m: string, attr: string, q: string, val: string) => {
       if (!val || val.startsWith('#') || val.startsWith('javascript:') || val.startsWith('mailto:') || val.startsWith('tel:')) return `${attr}=${q}${val}${q}`;
       const abs = resolveUrl(val, pageUrl);
