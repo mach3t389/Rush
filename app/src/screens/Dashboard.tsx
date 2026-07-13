@@ -16,6 +16,15 @@ const DAYS_FR   = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sep', 'oct', 'nov', 'déc'];
 const TODAY = new Date();
 
+// Une date-heure ISO complète se parse correctement telle quelle, mais une
+// date seule ("AAAA-MM-JJ", cas des événements allDay — voir CalendrierGlobal/
+// ProjetCalendrier) est interprétée par `new Date()` comme minuit UTC, ce qui
+// la décale d'un jour en arrière dans un fuseau négatif (ex. Québec) — même
+// correctif que les écrans calendrier.
+function parseEventDate(s: string): Date {
+  return s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+}
+
 function addDays(d: Date, n: number) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r;
 }
@@ -39,7 +48,7 @@ function parseFrDate(s: string): Date | null {
 }
 
 function fmtEventTime(ev: CalendarEvent): string {
-  const start = new Date(ev.start);
+  const start = parseEventDate(ev.start);
   const now = new Date();
   const isToday = isSameDay(start, now);
   const isTomorrow = isSameDay(start, addDays(now, 1));
@@ -53,7 +62,7 @@ function fmtEventTime(ev: CalendarEvent): string {
 
 function isEventNow(ev: CalendarEvent): boolean {
   const now = Date.now();
-  return new Date(ev.start).getTime() <= now && new Date(ev.end).getTime() >= now;
+  return parseEventDate(ev.start).getTime() <= now && parseEventDate(ev.end).getTime() >= now;
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -216,8 +225,8 @@ export function Dashboard() {
   const now = new Date();
   const in14Days = addDays(now, 14);
   const upcomingEvents = events
-    .filter(ev => new Date(ev.end) >= now && new Date(ev.start) <= in14Days)
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    .filter(ev => parseEventDate(ev.end) >= now && parseEventDate(ev.start) <= in14Days)
+    .sort((a, b) => parseEventDate(a.start).getTime() - parseEventDate(b.start).getTime())
     .slice(0, 6);
 
   // Next 7 days for deadlines strip
