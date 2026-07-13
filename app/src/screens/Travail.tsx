@@ -1786,7 +1786,7 @@ export function Travail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const project = findProject(projectId ?? '') ?? findProject('pj1')!;
+  const project = findProject(projectId ?? '') ?? getProjects()[0]!;
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);
 

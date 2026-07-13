@@ -37,6 +37,7 @@ import { Register } from './screens/Register';
 import { ForgotPassword } from './screens/ForgotPassword';
 import { Onboarding } from './screens/Onboarding';
 import { Pricing } from './screens/Pricing';
+import { RouteErrorPage } from './screens/RouteErrorPage';
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 const authLoader = async () => {
@@ -57,7 +58,7 @@ const router = createBrowserRouter([
   { path: '/pricing', element: <Pricing /> },
 
   // Portail client — sans sidebar (route standalone)
-  { path: '/portail/:projectId', element: <Portail /> },
+  { path: '/portail/:projectId', element: <Portail />, errorElement: <RouteErrorPage /> },
 
   // Invitation contact client — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation/:token', element: <InvitationAccept /> },
@@ -69,6 +70,7 @@ const router = createBrowserRouter([
     path: '/',
     element: <AppShell />,
     loader: authLoader,
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'taches', element: <Taches /> },

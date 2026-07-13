@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { GlobalTopBar } from './GlobalTopBar';
+import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
 import { triggerAIToggle, triggerAIClose } from '../aiChatBridge';
@@ -66,7 +67,9 @@ export function AppShell() {
         <ViewAsBanner />
         <GlobalTopBar onSearch={() => setCmdOpen(true)} />
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </div>
       </main>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />

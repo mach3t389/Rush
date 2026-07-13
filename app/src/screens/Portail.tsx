@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VIDEO_CORRECTIONS } from '../data/mock';
-import { findProject } from '../data/projectStore';
+import { findProject, getProjects } from '../data/projectStore';
 import { addNotif } from '../data/notificationStore';
 import { getDeliverables, updateTask, subscribeStore } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
@@ -94,7 +94,7 @@ export function Portail() {
   const { t } = useTranslation();
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const project = findProject(projectId ?? '') ?? findProject('pj1')!;
+  const project = findProject(projectId ?? '') ?? getProjects()[0]!;
 
   const [showMessage, setShowMessage] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
