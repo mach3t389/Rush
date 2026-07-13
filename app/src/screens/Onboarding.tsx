@@ -154,9 +154,7 @@ export function Onboarding() {
 
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 48 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <SFIcon name="play" size={14} color="#0b0b0b" />
-        </div>
+        <img src="/favicon.svg" alt="Rush" style={{ width: 32, height: 32 }} />
         <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
       </div>
 

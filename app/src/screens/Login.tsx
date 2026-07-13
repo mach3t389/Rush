@@ -53,13 +53,7 @@ export function Login() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <SFIcon name="play" size={16} color="#0b0b0b" />
-          </div>
+          <img src="/favicon.svg" alt="Rush" style={{ width: 36, height: 36 }} />
           <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>
             Rush
           </span>
