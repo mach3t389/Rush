@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { registerAIToggle, registerAIClose } from './aiChatBridge';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 import { getShortcuts as getShortcutsFn, matchesShortcut as matchesShortcutFn } from '../data/shortcutsStore';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
@@ -563,7 +566,17 @@ export function AIChat() {
     }
   };
 
-  const toggle = useCallback(() => setOpen(o => !o), []);
+  const plan = usePlan();
+  const toggle = useCallback(() => {
+    setOpen(o => {
+      if (o) return false; // always allow closing
+      if (!canUseFeature(plan, 'ai')) {
+        requestUpgrade({ feature: 'ai' });
+        return false;
+      }
+      return true;
+    });
+  }, [plan]);
   const close  = useCallback(() => setOpen(false), []);
   useEffect(() => {
     registerAIToggle(toggle);
