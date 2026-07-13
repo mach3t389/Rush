@@ -2341,6 +2341,7 @@ export function Travail() {
       <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column' }}>
         {selectedTask && (
           <TaskPanel
+            key={selectedTask.id}
             inline
             task={selectedTask}
             sectionLabel={sections.find(s => s.tasks.some(t => t.id === selectedTask.id))?.label}
@@ -2405,8 +2406,12 @@ export function Travail() {
           title={t('board.moveTasksTitle', { count: multiSelIds.size })}
           mode="move"
           onMove={(toProjectId, toSectionLabel) => {
+            // moveTasks() already writes the store; the subscribeStore sync
+            // effect above picks up the change. Re-reading and re-writing
+            // sections here raced the async Supabase write and could clobber
+            // it back to the pre-move snapshot (same bug as the convert-to-
+            // subtask picker below).
             moveTasks(project.id, [...multiSelIds], toProjectId, toSectionLabel);
-            setSections(getSections(project.id));
             setMultiSelIds(new Set());
           }}
           onClose={() => setBulkMoveOpen(false)}
@@ -2432,8 +2437,10 @@ export function Travail() {
           pos={convertRequest.pos}
           candidates={sections.flatMap(s => s.tasks).filter(t => !convertRequest.taskIds.includes(t.id))}
           onPick={targetId => {
+            // convertTasksToSubtasks() already writes the store; don't
+            // re-read+re-write sections here — see note on the bulk-move
+            // handler above for why that clobbers the async write.
             convertTasksToSubtasks(project.id, convertRequest.taskIds, targetId);
-            setSections(getSections(project.id));
             setMultiSelIds(new Set());
             setConvertRequest(null);
           }}
@@ -2446,8 +2453,8 @@ export function Travail() {
         <SectionMoveModal
           sectionLabel={sectionMoveLabel}
           onMove={toProjectId => {
+            // moveSection() already writes the store — see note above.
             moveSection(project.id, sectionMoveLabel, toProjectId);
-            setSections(getSections(project.id));
             setSectionMoveLabel(null);
           }}
           onClose={() => setSectionMoveLabel(null)}

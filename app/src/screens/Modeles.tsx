@@ -1938,6 +1938,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
             };
             return (
               <TaskPanel
+                key={adaptedTask.id}
                 task={adaptedTask}
                 onClose={() => setSelectedTask(null)}
                 sectionLabel="Modèle"

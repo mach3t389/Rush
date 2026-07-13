@@ -1698,6 +1698,7 @@ export function Taches() {
       <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column' }}>
         {selectedTask && (
           <TaskPanel
+            key={selectedTask.id}
             inline
             task={selectedTask}
             sectionLabel={
