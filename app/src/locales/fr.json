@@ -1708,6 +1708,7 @@
     "planAxis2Desc": "Chaque plan inclut un quota de base. Ajoutez des blocs supplémentaires selon vos besoins.",
     "planStorageBaseInfo": "{{storage}} inclus avec votre plan",
     "planStorageUsageLabel": "Espace utilisé",
+    "aiUsageLabel": "Assistant IA — utilisation ce mois-ci",
     "planStorageNoExtra": "Aucun extra",
     "planStorageIncluded": "inclus",
     "planStorageSelected": "sélectionné",

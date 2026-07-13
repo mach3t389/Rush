@@ -12,6 +12,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_QUOTAS } from '../src/data/aiQuota.js';
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1024;
@@ -20,10 +21,6 @@ const MAX_TOKENS = 1024;
 // tool-calling loop is a separate Anthropic API call and counts as one unit
 // here — that tracks actual API cost more closely than counting only the
 // user-visible turns.
-const QUOTAS: Record<string, number> = {
-  studio: 300,
-  agence: 1000,
-};
 
 interface OpenAIStyleTool {
   type: 'function';
@@ -163,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const limit = QUOTAS[studio.plan];
+  const limit = AI_QUOTAS[studio.plan];
   if (!limit) {
     // Gratuit (or any unrecognized plan) has no AI access — mirrors
     // canUseFeature(plan, 'ai') client-side, enforced again here since real

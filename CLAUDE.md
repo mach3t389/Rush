@@ -235,20 +235,22 @@ Panneau flottant propulsé par **l'API Anthropic (Claude Haiku)** côté serveur
 - Outils disponibles : `list_projects`, `list_clients`, `list_tasks`, `create_project`, `create_event`, `create_resource`, `navigate`
 - Reconnaissance vocale via Web Speech API (Chrome/Edge uniquement)
 - Rendu markdown dans les réponses assistant (gras, listes, blocs de code)
+- **Idée future (pas commencée) :** laisser chaque studio choisir son propre fournisseur IA — clé API personnelle (ChatGPT/OpenAI ou Anthropic, coût à leur charge) ou un Ollama auto-hébergé pour les studios techniques. Nécessiterait une couche de traduction par fournisseur (chacun a son propre format d'outils/function-calling), en plus de celle qui existe déjà pour Anthropic dans `ai-chat.ts`. Volontairement pas prioritaire tant qu'aucun client ne le demande — un seul fournisseur avec quota est plus simple et moins cher à opérer.
 
 ### IA dans DocumentView (`app/src/screens/ResourceDetail.tsx`)
 
 Le panneau droit de `DocumentView` (éditeur de texte riche) est tabulé : **Commentaires** / **IA**.
 
-⚠️ **Pas encore migré** — contrairement à `AIChat.tsx` ci-dessus, cet onglet et la génération d'images du storyboard (section suivante) appellent toujours Ollama en local (`http://localhost:11434/api/chat`) et ne sont pas gatés par plan. À migrer vers `/api/ai-chat` dans un chantier séparé si on veut que ça fonctionne pour de vrais utilisateurs.
+Migré vers `/api/ai-chat` (Claude Haiku, même backend qu'`AIChat.tsx`) via le client partagé `app/src/data/aiClient.ts` (`sendAiChat`) — pas de boucle d'outils ici, juste system prompt + historique. Gaté par plan : cliquer l'onglet IA sur un plan Gratuit déclenche `requestUpgrade` au lieu de changer d'onglet. Même chose pour `DocumentReview.tsx` (`app/src/screens/DocumentReview.tsx`, l'éditeur pour les fichiers uploadés réels, `mediaSubtype: 'file'`) — logique identique, mais ce fichier n'a pas d'i18n du tout (convention préexistante), donc ses messages d'erreur sont des chaînes françaises en dur plutôt que des clés `t()`.
 
-- Onglet IA : chat Ollama contextualisé sur le contenu du document (2000 premiers caractères injectés en system prompt)
+- Onglet IA : chat contextualisé sur le contenu du document (2000 premiers caractères injectés en system prompt)
 - Actions rapides : Structurer, Continuer, Résumer, Reformuler formellement, Améliorer le style
 - Dictée vocale (Web Speech API, `fr-FR`)
-- Sélecteur de modèle Ollama (liste statique locale : llama3.2, llama3.1, llama3, mistral, gemma2, phi3, deepseek-r1)
 - État `rightTab` local (non persisté) — réinitialisé à `'comments'` à chaque ouverture
 
 ### Génération IA dans StoryboardView (`app/src/screens/ResourceDetail.tsx`)
+
+⚠️ **Mock, pas un vrai appel IA** — `generateImage()` ne contacte aucun backend : un `setTimeout` de 2,2s renvoie une image Unsplash aléatoire (ou le croquis dessiné par l'utilisateur, tel quel). Claude (Anthropic) ne fait pas de génération d'image ; une vraie implémentation demanderait un autre fournisseur (ex. l'API image d'OpenAI) avec son propre modèle de coût/quota — chantier séparé, pas commencé.
 
 Le modal de génération IA du storyboard (`StoryboardView`) supporte trois modes de prompt accessibles depuis un toggle **Texte / Dessin** :
 

@@ -1,6 +1,10 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { defaultSpeechLang } from '../i18n/useI18n';
+import { sendAiChat, AiChatError } from '../data/aiClient';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
@@ -2465,7 +2469,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiListening, setAiListening] = useState(false);
-  const [aiModel, setAiModel] = useState('llama3.2');
+  const plan = usePlan();
   const aiInputRef = useRef<HTMLInputElement>(null);
   const aiRecognitionRef = useRef<any>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
@@ -2634,29 +2638,22 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const sendAiMessage = async (userText?: string) => {
     const text = (userText ?? aiInput).trim();
     if (!text || aiLoading) return;
+    if (!canUseFeature(plan, 'ai')) { requestUpgrade({ feature: 'ai' }); return; }
     setAiInput('');
     const userMsg: AiMsg = { role: 'user', content: text };
     const newHistory = [...aiMessages, userMsg];
     setAiMessages(newHistory);
     setAiLoading(true);
     try {
-      const resp = await fetch('http://localhost:11434/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: aiModel,
-          stream: false,
-          messages: [
-            { role: 'system', content: getDocContext() },
-            ...newHistory.map(m => ({ role: m.role, content: m.content })),
-          ],
-        }),
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      setAiMessages(prev => [...prev, { role: 'assistant', content: data.message?.content ?? '' }]);
-    } catch {
-      setAiMessages(prev => [...prev, { role: 'assistant', content: "⚠️ Impossible de contacter Ollama. Vérifie qu'il tourne (`ollama serve`)." }]);
+      const result = await sendAiChat(getDocContext(), newHistory.map(m => ({ role: m.role, content: m.content })));
+      setAiMessages(prev => [...prev, { role: 'assistant', content: result.content }]);
+    } catch (e) {
+      const code = e instanceof AiChatError ? e.code : 'error';
+      const key = code === 'demo' ? 'ai.demoNotice'
+        : code === 'plan_gated' ? 'ai.planRequired'
+        : code === 'quota_exceeded' ? 'ai.quotaExceeded'
+        : 'ai.assistantError';
+      setAiMessages(prev => [...prev, { role: 'assistant', content: t(key) }]);
     } finally {
       setAiLoading(false);
     }
@@ -3081,7 +3078,10 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
           {/* Tabs */}
           <div style={{ display:'flex', flexShrink:0, borderBottom:'1px solid var(--border)' }}>
             {(['comments','ai'] as const).map(tab => (
-              <button key={tab} onClick={() => setRightTab(tab)}
+              <button key={tab} onClick={() => {
+                if (tab === 'ai' && !canUseFeature(plan, 'ai')) { requestUpgrade({ feature: 'ai' }); return; }
+                setRightTab(tab);
+              }}
                 style={{ flex:1, padding:'9px 6px', border:'none', background:'transparent', cursor:'pointer', fontSize:11, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontWeight: rightTab===tab ? 700 : 400, color: rightTab===tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab===tab ? '2px solid var(--accent)' : '2px solid transparent', display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontFamily:'var(--ff-text)', transition:'color 0.1s' }}>
                 <SFIcon name={tab==='comments' ? 'message-circle' : 'sparkles'} size={12} color={rightTab===tab ? 'var(--accent)' : 'var(--text-3)'} />
                 {tab==='comments' ? t('activity.comments') + ` (${comments.length})` : 'IA'}
@@ -3108,16 +3108,8 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
           {/* AI tab */}
           {rightTab==='ai' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-              {/* Model + language selector */}
+              {/* Language selector */}
               <div style={{ padding:'6px 10px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                <SFIcon name="cpu" size={11} color="var(--text-3)" />
-                <select value={aiModel} onChange={e => setAiModel(e.target.value)}
-                  style={{ flex:1, fontSize:10, border:'none', background:'transparent', color:'var(--text-2)', cursor:'pointer', outline:'none', fontFamily:'var(--ff-mono)' }}>
-                  {['llama3.2','llama3.1','llama3','mistral','gemma2','phi3','deepseek-r1'].map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-                <div style={{ width:1, height:12, background:'var(--border)', flexShrink:0 }} />
                 <SFIcon name="mic" size={11} color="var(--text-3)" />
                 <select value={dictLang} onChange={e => setDictLang(e.target.value)}
                   style={{ fontSize:10, border:'none', background:'transparent', color:'var(--text-2)', cursor:'pointer', outline:'none', fontFamily:'var(--ff-mono)' }}>

@@ -9,6 +9,10 @@ import { getResourceContent, setResourceContent } from '../data/resourceContentS
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
+import { sendAiChat, AiChatError } from '../data/aiClient';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
@@ -235,7 +239,7 @@ export function DocumentReview() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiListening, setAiListening] = useState(false);
-  const [aiModel, setAiModel] = useState('llama3.2');
+  const plan = usePlan();
   const aiInputRef = useRef<HTMLInputElement>(null);
   const aiRecognitionRef = useRef<any>(null);
   const aiMessagesEndRef = useRef<HTMLDivElement>(null);
@@ -388,29 +392,25 @@ export function DocumentReview() {
   const sendAiMessage = async (userText?: string) => {
     const text = (userText ?? aiInput).trim();
     if (!text || aiLoading) return;
+    if (!canUseFeature(plan, 'ai')) { requestUpgrade({ feature: 'ai' }); return; }
     setAiInput('');
     const userMsg: AiMsg = { role: 'user', content: text };
-    setAiMessages(prev => [...prev, userMsg]);
+    const newHistory = [...aiMessages, userMsg];
+    setAiMessages(newHistory);
     setAiLoading(true);
     try {
-      const resp = await fetch('http://localhost:11434/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: aiModel,
-          stream: false,
-          messages: [
-            { role: 'system', content: getDocContext() },
-            ...aiMessages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content: text },
-          ],
-        }),
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      setAiMessages(prev => [...prev, { role: 'assistant', content: data.message?.content ?? '' }]);
-    } catch {
-      setAiMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Impossible de contacter Ollama. Vérifie qu\'il tourne (`ollama serve`).' }]);
+      const result = await sendAiChat(getDocContext(), newHistory.map(m => ({ role: m.role, content: m.content })));
+      setAiMessages(prev => [...prev, { role: 'assistant', content: result.content }]);
+    } catch (e) {
+      const code = e instanceof AiChatError ? e.code : 'error';
+      const content = code === 'demo'
+        ? "L'assistant IA utilise de vraies données et n'est pas disponible en mode démo. Crée un compte pour l'essayer."
+        : code === 'plan_gated'
+        ? "L'assistant IA nécessite un forfait Studio ou Agence."
+        : code === 'quota_exceeded'
+        ? 'Limite mensuelle de messages IA atteinte pour ton forfait. Elle sera réinitialisée le mois prochain.'
+        : '⚠️ Une erreur est survenue en contactant l\'assistant. Réessaie dans un instant.';
+      setAiMessages(prev => [...prev, { role: 'assistant', content }]);
     } finally {
       setAiLoading(false);
     }
@@ -751,7 +751,10 @@ export function DocumentReview() {
           {/* Tab headers */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {(['comments', 'ai'] as const).map(tab => (
-              <button key={tab} onClick={() => setRightTab(tab)}
+              <button key={tab} onClick={() => {
+                if (tab === 'ai' && !canUseFeature(plan, 'ai')) { requestUpgrade({ feature: 'ai' }); return; }
+                setRightTab(tab);
+              }}
                 style={{ flex: 1, padding: '10px 8px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: rightTab === tab ? 700 : 400, color: rightTab === tab ? 'var(--text)' : 'var(--text-3)', borderBottom: rightTab === tab ? '2px solid var(--accent)' : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontFamily: 'var(--ff-text)', transition: 'color 0.1s' }}>
                 <SFIcon name={tab === 'comments' ? 'message-circle' : 'sparkles'} size={13} color={rightTab === tab ? 'var(--accent)' : 'var(--text-3)'} />
                 {tab === 'comments' ? `Commentaires${comments.length > 0 ? ` (${comments.length})` : ''}` : 'IA'}
@@ -792,17 +795,6 @@ export function DocumentReview() {
           {/* AI tab */}
           {rightTab === 'ai' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {/* Model selector */}
-              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                <SFIcon name="cpu" size={11} color="var(--text-3)" />
-                <select value={aiModel} onChange={e => setAiModel(e.target.value)}
-                  style={{ flex: 1, fontSize: 11, border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', outline: 'none', fontFamily: 'var(--ff-mono)' }}>
-                  {['llama3.2','llama3.1','llama3','mistral','gemma2','phi3','deepseek-r1'].map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
               {/* Quick actions — only show if no messages yet */}
               {aiMessages.length === 0 && (
                 <div style={{ padding: '10px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>

@@ -15,6 +15,7 @@ import { canUseFeature, PLAN_FEATURES, getStorageLimitGB, type PlanKey } from '.
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
+import { AI_QUOTAS } from '../data/aiQuota';
 import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
@@ -1074,6 +1075,7 @@ function PlanSettings() {
   );
   const [storageUsedBytes, setStorageUsedBytes] = useState(getTotalStorageUsedBytes);
   useEffect(() => subscribeStorageUsage(() => setStorageUsedBytes(getTotalStorageUsedBytes())), []);
+  const [aiUsage, setAiUsage] = useState<{ used: number; limit: number } | null>(null);
 
   useEffect(() => {
     if (!checkoutResult) return;
@@ -1107,6 +1109,29 @@ function PlanSettings() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!AI_QUOTAS[currentPlan]) { setAiUsage(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const studioId = await getStudioId();
+        const month = new Date().toISOString().slice(0, 7);
+        const { data, error } = await supabase
+          .from('ai_usage')
+          .select('message_count')
+          .eq('studio_id', studioId)
+          .eq('month', month)
+          .maybeSingle();
+        if (!cancelled && !error) {
+          setAiUsage({ used: data?.message_count ?? 0, limit: AI_QUOTAS[currentPlan] });
+        }
+      } catch (err) {
+        console.error('Failed to load AI usage', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentPlan]);
 
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
   const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
@@ -1425,6 +1450,21 @@ function PlanSettings() {
           </div>
           <SFBar value={storageUsedGB} max={storageLimitGB} height={6} color={storageUsedPct >= 90 ? 'var(--danger)' : 'var(--accent)'} />
         </div>
+
+        {aiUsage && (
+          <div style={{ marginLeft: 26, marginBottom: 24, maxWidth: 420 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <SFIcon name="sparkles" size={11} color="var(--text-3)" />
+                {t('settings.aiUsageLabel')}
+              </span>
+              <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 600, color: aiUsage.used / aiUsage.limit >= 0.9 ? 'var(--danger)' : 'var(--text-2)' }}>
+                {t('ai.usageCount', { used: aiUsage.used, limit: aiUsage.limit })}
+              </span>
+            </div>
+            <SFBar value={aiUsage.used} max={aiUsage.limit} height={6} color={aiUsage.used / aiUsage.limit >= 0.9 ? 'var(--danger)' : 'var(--accent)'} />
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {STORAGE_BLOCKS.map(block => {
