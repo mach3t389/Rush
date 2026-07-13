@@ -1541,7 +1541,7 @@ function loadViewPref<T>(key: string, fallback: T): T {
 
 // ── Save as template modal ─────────────────────────────────────────────────────
 
-const TEMPLATE_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#a85f3e', '#2a7a8a', '#7a6a2a'];
+const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
 
 const STATUS_DOT: Record<string, string> = {
   ok: 'var(--ok)', warn: 'var(--warn)', info: 'var(--info)',

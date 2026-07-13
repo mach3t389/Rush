@@ -1335,7 +1335,7 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
 
 // ── Client Edit Panel ─────────────────────────────────────────────────────────
 
-const AVATAR_COLORS_FC = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
+const AVATAR_COLORS_FC = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8', '#5BE8A8', '#8A6FF5'];
 const inputStyleFC: React.CSSProperties = { width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
 function SectionFC({ label, children }: { label: string; children: React.ReactNode }) {
   return (

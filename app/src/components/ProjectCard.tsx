@@ -12,9 +12,9 @@ import { timeAgo } from '../utils/timeAgo';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
 const PROJECT_COLORS = [
-  '#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8',
-  '#a85f3e', '#2a7a8a', '#7a6a2a', '#404040',
-  '#c0392b', '#e67e22', '#16a085', '#8e44ad',
+  '#5B8AF5', '#34C98A', '#A05BE8', '#F5975B',
+  '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8',
+  '#5BE8A8', '#8A6FF5', '#C4E85B', '#F55B6B',
 ];
 
 

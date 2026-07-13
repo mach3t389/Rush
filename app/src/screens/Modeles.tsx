@@ -241,7 +241,7 @@ const FORM_FIELD_TYPE_ICONS: Record<FormFieldType, string> = {
   multi: 'check-square', rating: 'star', date: 'calendar', number: 'hash', file: 'paperclip',
 };
 
-const COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#a85f3e', '#2a7a8a', '#7a6a2a', '#4a3428', '#2d5a7d'];
+const COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8', '#5BE8A8'];
 
 // Simulated project context for AI pre-fill
 const SAMPLE_AI_CONTEXT: Record<string, string> = {

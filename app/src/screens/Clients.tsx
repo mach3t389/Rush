@@ -59,7 +59,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ── New client modal ──────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
+const AVATAR_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8', '#5BE8A8', '#8A6FF5'];
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -578,8 +578,14 @@ export function Clients() {
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
   const changeFilter = (f: 'all' | 'active' | 'archived') => { setFilter(f); savePersisted(FILTER_KEY, f); };
 
-  useEffect(() => subscribePinnedClients(() => setClients(getClients())), []);
-  useEffect(() => subscribeClients(() => setClients(getClients())), []);
+  // Real (Supabase) sessions: getClients() returns the same cached array
+  // reference until the client list itself changes, so a pin toggle (which
+  // only touches pinnedStore, not clientStore) passed React the identical
+  // reference and got silently bailed out — the star stayed the old color
+  // until something else forced a remount. Spread into a fresh array so
+  // React always sees a change.
+  useEffect(() => subscribePinnedClients(() => setClients([...getClients()])), []);
+  useEffect(() => subscribeClients(() => setClients([...getClients()])), []);
 
   // activeProjects/pendingDeliverables/progress are computed live from
   // project + task data (see getClientLiveStats) — re-render on either
