@@ -774,7 +774,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
   };
 
   const buildTask = (taskTitle: string): Task => ({
-    id: `task-${Date.now()}`,
+    id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title: taskTitle,
     projectId, projectName, projectColor,
     assignee,

@@ -1259,7 +1259,7 @@ export function Taches() {
       ? USERS.lea
       : { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role };
     const newTask: Task = {
-      id: `my-${Date.now()}`,
+      id: `my-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title,
       projectId: opts.project?.id ?? 'int',
       projectName: opts.project?.name ?? 'Interne',
