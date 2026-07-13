@@ -1791,7 +1791,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         setPersistedNav(resolved);
       }
     : setPersistedNav;
-  const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'grid');
+  const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'list');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortOpen, setSortOpen] = useState(false);
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
@@ -3299,7 +3299,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
-          {([['grid', 'layout-grid'], ['list', 'list'], ['columns', 'columns-3'], ['stockage', 'chart-bar']] as [ViewMode, string][]).map(([m, icon]) => (
+          {([['list', 'list'], ['grid', 'layout-grid'], ['columns', 'columns-3'], ['stockage', 'chart-bar']] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
               border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
