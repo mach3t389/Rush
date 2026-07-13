@@ -203,18 +203,18 @@ function EventTypeSelector({ value, onChange }: { value: string; onChange: (id: 
         {types.map(et => (
           <div key={et.id} style={{ position: 'relative', display: 'inline-flex' }}
             onMouseEnter={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '0')}
+            onMouseLeave={e => (e.currentTarget.querySelector<HTMLElement>('.et-edit')!.style.opacity = '0.55')}
           >
             <button onClick={() => { onChange(et.id); setEditingId(null); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', paddingRight: editingId === et.id ? '10px' : '24px', borderRadius: 8, border: `1px solid ${value === et.id ? et.color : 'var(--border)'}`, background: value === et.id ? `${et.color}22` : 'transparent', color: value === et.id ? et.color : 'var(--text-2)', cursor: 'pointer', fontSize: 11, fontWeight: 500, transition: 'all 0.12s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', paddingRight: editingId === et.id ? '10px' : '26px', borderRadius: 8, border: `1px solid ${value === et.id ? et.color : 'var(--border)'}`, background: value === et.id ? `${et.color}22` : 'transparent', color: value === et.id ? et.color : 'var(--text-2)', cursor: 'pointer', fontSize: 11, fontWeight: 500, transition: 'all 0.12s' }}
             >
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: et.color, flexShrink: 0 }} />
               {et.label}
             </button>
-            <button className="et-edit" onClick={e => { e.stopPropagation(); editingId === et.id ? setEditingId(null) : startEdit(et); }}
-              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0, transition: 'opacity 0.12s', padding: 2, display: 'flex', alignItems: 'center' }}
+            <button className="et-edit" title="Renommer / recolorer" onClick={e => { e.stopPropagation(); editingId === et.id ? setEditingId(null) : startEdit(et); }}
+              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0.55, transition: 'opacity 0.12s', padding: 3, display: 'flex', alignItems: 'center' }}
             >
-              <SFIcon name="pencil" size={10} />
+              <SFIcon name="pencil" size={12} />
             </button>
           </div>
         ))}

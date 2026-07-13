@@ -94,7 +94,7 @@ export function EventTypeFilterList({
                 onDrop={e => { e.preventDefault(); handleDrop(et.id); }}
                 onDragEnd={() => { setDragId(null); setDragOverId(null); setDragOverPos(null); }}
                 onMouseEnter={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '1'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '1'; }}
-                onMouseLeave={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '0'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '0'; }}
+                onMouseLeave={e => { const b = e.currentTarget.querySelector<HTMLElement>('.et-edit'); if (b) b.style.opacity = '0.55'; const g = e.currentTarget.querySelector<HTMLElement>('.et-grip'); if (g) g.style.opacity = '0'; }}
               >
                 <span className="et-grip" style={{ position: 'absolute', left: -14, top: '50%', transform: 'translateY(-50%)', color: 'var(--border-2)', opacity: 0, transition: 'opacity 0.12s', cursor: 'grab', display: 'flex' }}>
                   <SFIcon name="grip-vertical" size={11} />
@@ -106,10 +106,10 @@ export function EventTypeFilterList({
                   <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{et.label}</span>
                   {active && hasFilter && <SFIcon name="check" size={11} color="var(--text-3)" />}
                 </button>
-                <button className="et-edit" onClick={e => { e.stopPropagation(); isEditing ? setEditingId(null) : startEdit(et); }}
-                  style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0, transition: 'opacity 0.12s', padding: 2, display: 'flex', alignItems: 'center' }}
+                <button className="et-edit" title="Renommer / recolorer" onClick={e => { e.stopPropagation(); isEditing ? setEditingId(null) : startEdit(et); }}
+                  style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0.55, transition: 'opacity 0.12s', padding: 3, display: 'flex', alignItems: 'center' }}
                 >
-                  <SFIcon name="pencil" size={10} />
+                  <SFIcon name="pencil" size={12} />
                 </button>
               </div>
               {isEditing && (
