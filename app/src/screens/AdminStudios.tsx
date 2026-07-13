@@ -88,7 +88,9 @@ export function AdminStudios() {
       });
       if (!res.ok) throw new Error('Request failed');
       setMessage('Plan mis à jour.');
-      setSelected({ ...selected, plan: newPlan, billing_seats: newSeats, billing_storage_tier: newStorageTier, manual_grant_note: note });
+      const updated = { ...selected, plan: newPlan, billing_seats: newSeats, billing_storage_tier: newStorageTier, manual_grant_note: note };
+      setSelected(updated);
+      setResults(prev => prev.map(r => (r.id === updated.id ? updated : r)));
     } catch (err) {
       console.error('Failed to set plan', err);
       setMessage('Échec de la mise à jour.');
