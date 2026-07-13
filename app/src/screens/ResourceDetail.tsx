@@ -1,5 +1,6 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { defaultSpeechLang } from '../i18n/useI18n';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
@@ -2430,7 +2431,7 @@ function saveCustomStyles(styles: CustomStyle[]) {
 }
 
 export function DocumentView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedHTML, contentRef, persistKey }: { resource: Resource; seedHTML?: string; persistKey?: string; contentRef?: React.MutableRefObject<(() => string) | null> } & EditableProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Contenu persisté par ressource (corps HTML + commentaires). Absent en mode
   // modèle (persistKey non fourni) — on retombe alors sur seedHTML / mock.
   const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[] }>(persistKey) : undefined;
@@ -2452,7 +2453,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [dictating, setDictating] = useState(false);
   const dictationRef = useRef<any>(null);
   const savedRangeRef = useRef<Range | null>(null);
-  const [dictLang, setDictLang] = useState('fr-FR');
+  const [dictLang, setDictLang] = useState(() => defaultSpeechLang(i18n.language));
   const [showStyleForm, setShowStyleForm] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
@@ -4947,7 +4948,7 @@ const MOCK_SB_SCENES: SBScene[] = [
 const SB_ASPECT = 16 / 9;
 
 function StoryboardView(_props: { resource: Resource; scriptScenes: ScriptScene[] }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [scenes, setScenes] = useState<SBScene[]>(MOCK_SB_SCENES);
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string>(MOCK_SB_SCENES[0].id);
@@ -5110,7 +5111,7 @@ function StoryboardView(_props: { resource: Resource; scriptScenes: ScriptScene[
     if (!SpeechAPI) { alert(t('resourceDetail.storyboardView.speechUnsupported')); return; }
     if (sbListening) { sbRecognitionRef.current?.stop(); return; }
     const recognition = new SpeechAPI();
-    recognition.lang = 'fr-FR';
+    recognition.lang = defaultSpeechLang(i18n.language);
     recognition.continuous = false;
     recognition.interimResults = true;
     let final = '';

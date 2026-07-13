@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { defaultSpeechLang } from '../i18n/useI18n';
 import { registerAIToggle, registerAIClose } from './aiChatBridge';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
@@ -368,7 +369,7 @@ const SpeechRecognitionAPI =
 // ── Composant principal ───────────────────────────────────────────────────────
 
 export function AIChat() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -377,7 +378,7 @@ export function AIChat() {
   const [listening, setListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [model, setModel] = useState('llama3.2');
-  const [speechLang, setSpeechLang] = useState('fr-FR');
+  const [speechLang, setSpeechLang] = useState(() => defaultSpeechLang(i18n.language));
   const [autoSend, setAutoSend] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -487,7 +488,7 @@ export function AIChat() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 260) + 'px';
+    el.style.height = Math.max(60, Math.min(el.scrollHeight, 260)) + 'px';
   };
 
   const send = async (text?: string) => {
@@ -842,11 +843,11 @@ export function AIChat() {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
                 }}
                 placeholder={t('ai.placeholder')}
-                rows={1}
+                rows={3}
                 style={{
                   flex: 1, border: 'none', background: 'none', resize: 'none',
                   fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)',
-                  outline: 'none', lineHeight: 1.5, minHeight: 22,
+                  outline: 'none', lineHeight: 1.5, minHeight: 60,
                 }}
               />
               <div style={{ position: 'relative', flexShrink: 0 }}>
