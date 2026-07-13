@@ -226,22 +226,26 @@ Utilisé par `WebReview.tsx` pour afficher des sites externes dans un `<iframe>`
 
 ### Assistant IA (`app/src/components/AIChat.tsx`)
 
-Panneau flottant connecté à **Ollama** en local (`http://localhost:11434/api/chat`). Boucle agentique : appel Ollama → si `tool_calls` présents → exécution locale → reboucle jusqu'à réponse textuelle.
+Panneau flottant propulsé par **l'API Anthropic (Claude Haiku)** côté serveur, via `app/api/ai-chat.ts` (Vercel). Boucle agentique inchangée côté client : appel `/api/ai-chat` → si `tool_calls` présents → exécution locale (contre les stores en mémoire du client, pas de données envoyées au serveur au-delà du prompt) → reboucle jusqu'à réponse textuelle.
 
-- Modèle configurable dans les paramètres du panneau (défaut : `llama3.2`)
+- Gating : `canUseFeature(plan, 'ai')` bloque l'ouverture du panneau pour le plan Gratuit ; `ai-chat.ts` revérifie le plan côté serveur (defense in depth, le coût API est réel).
+- Quota mensuel par studio (table Supabase `ai_usage`, voir `docs/superpowers/specs/2026-07-13-ai-usage-migration.sql`) : 300 messages/mois (Studio), 1000/mois (Agence). Un appel = une requête Anthropic (donc un aller-retour d'outil = 1 unité de quota), pas un "tour" utilisateur.
+- Nécessite la variable d'environnement `ANTHROPIC_API_KEY` dans Vercel (clé obtenue sur console.anthropic.com) — sans elle, l'endpoint répond 500.
+- Sessions démo : jamais de vrai appel réseau (pas de session Supabase à authentifier) — message explicatif statique à la place (`ai.demoNotice`).
 - Outils disponibles : `list_projects`, `list_clients`, `list_tasks`, `create_project`, `create_event`, `create_resource`, `navigate`
 - Reconnaissance vocale via Web Speech API (Chrome/Edge uniquement)
 - Rendu markdown dans les réponses assistant (gras, listes, blocs de code)
-- Prérequis : Ollama installé + `ollama pull llama3.2`
 
 ### IA dans DocumentView (`app/src/screens/ResourceDetail.tsx`)
 
 Le panneau droit de `DocumentView` (éditeur de texte riche) est tabulé : **Commentaires** / **IA**.
 
+⚠️ **Pas encore migré** — contrairement à `AIChat.tsx` ci-dessus, cet onglet et la génération d'images du storyboard (section suivante) appellent toujours Ollama en local (`http://localhost:11434/api/chat`) et ne sont pas gatés par plan. À migrer vers `/api/ai-chat` dans un chantier séparé si on veut que ça fonctionne pour de vrais utilisateurs.
+
 - Onglet IA : chat Ollama contextualisé sur le contenu du document (2000 premiers caractères injectés en system prompt)
 - Actions rapides : Structurer, Continuer, Résumer, Reformuler formellement, Améliorer le style
 - Dictée vocale (Web Speech API, `fr-FR`)
-- Sélecteur de modèle Ollama (même liste que AIChat)
+- Sélecteur de modèle Ollama (liste statique locale : llama3.2, llama3.1, llama3, mistral, gemma2, phi3, deepseek-r1)
 - État `rightTab` local (non persisté) — réinitialisé à `'comments'` à chaque ouverture
 
 ### Génération IA dans StoryboardView (`app/src/screens/ResourceDetail.tsx`)

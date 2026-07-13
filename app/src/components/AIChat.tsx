@@ -6,6 +6,8 @@ import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getShortcuts as getShortcutsFn, matchesShortcut as matchesShortcutFn } from '../data/shortcutsStore';
+import { isDemoSession } from '../data/authStore';
+import { supabase } from '../data/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
 import { getProjects, addProject } from '../data/projectStore';
@@ -20,7 +22,8 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'tool';
   content: string;
   name?: string;
-  tool_calls?: { function: { name: string; arguments: any } }[];
+  toolUseId?: string;
+  tool_calls?: { id: string; function: { name: string; arguments: any } }[];
   // display-only
   _toolLabel?: string;
 }
@@ -377,22 +380,12 @@ export function AIChat() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [model, setModel] = useState('llama3.2');
   const [speechLang, setSpeechLang] = useState(() => defaultSpeechLang(i18n.language));
   const [autoSend, setAutoSend] = useState(false);
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
-
-  const MODELS = [
-    { id: 'llama3.2', label: 'Llama 3.2' },
-    { id: 'llama3.1', label: 'Llama 3.1' },
-    { id: 'llama3', label: 'Llama 3' },
-    { id: 'mistral', label: 'Mistral' },
-    { id: 'gemma2', label: 'Gemma 2' },
-    { id: 'phi3', label: 'Phi-3' },
-    { id: 'deepseek-r1', label: 'DeepSeek R1' },
-  ];
 
   const LANGS = [
     { id: 'fr-FR', label: 'Français' },
@@ -502,6 +495,12 @@ export function AIChat() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setLoading(true);
 
+    if (isDemoSession()) {
+      setMessages(prev => [...prev, { role: 'assistant', content: t('ai.demoNotice') }]);
+      setLoading(false);
+      return;
+    }
+
     // Build API payload (strip display-only fields)
     let apiMsgs = [
       { role: 'system', content: buildSystemPrompt() },
@@ -509,6 +508,7 @@ export function AIChat() {
         role: m.role,
         content: m.content,
         ...(m.name ? { name: m.name } : {}),
+        ...(m.toolUseId ? { toolUseId: m.toolUseId } : {}),
         ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
       })),
     ];
@@ -516,17 +516,32 @@ export function AIChat() {
     let displayMsgs = [...allMessages];
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('no_session');
+
       // Agentic loop — keep going until we get a text response
       while (true) {
-        const resp = await fetch('http://localhost:11434/api/chat', {
+        const resp = await fetch('/api/ai-chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages: apiMsgs, tools: TOOLS, stream: false }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ messages: apiMsgs, tools: TOOLS }),
         });
 
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) {
+          const errBody = await resp.json().catch(() => ({}));
+          if (resp.status === 403) throw new Error('plan_gated');
+          if (resp.status === 429) {
+            setQuota({ used: errBody.used, limit: errBody.limit });
+            throw new Error('quota_exceeded');
+          }
+          throw new Error(`HTTP ${resp.status}`);
+        }
         const data = await resp.json();
         const msg = data.message as ChatMessage;
+        if (data.usage) setQuota(data.usage);
 
         apiMsgs.push({ role: msg.role, content: msg.content ?? '', ...(msg.tool_calls ? { tool_calls: msg.tool_calls } : {}) });
 
@@ -540,10 +555,10 @@ export function AIChat() {
             const result = executeTool(toolName, toolArgs, navigate);
 
             // Tool result for API
-            apiMsgs.push({ role: 'tool', content: result, name: toolName });
+            apiMsgs.push({ role: 'tool', content: result, name: toolName, toolUseId: tc.id });
 
             // Show in UI
-            const toolMsg: ChatMessage = { role: 'tool', content: result, name: toolName, _toolLabel: toolName };
+            const toolMsg: ChatMessage = { role: 'tool', content: result, name: toolName, toolUseId: tc.id, _toolLabel: toolName };
             displayMsgs = [...displayMsgs, toolMsg];
             setMessages([...displayMsgs]);
           }
@@ -557,10 +572,10 @@ export function AIChat() {
         }
       }
     } catch (e: any) {
-      const errMsg: ChatMessage = {
-        role: 'assistant',
-        content: t('ai.ollamaError'),
-      };
+      const key = e?.message === 'plan_gated' ? 'ai.planRequired'
+        : e?.message === 'quota_exceeded' ? 'ai.quotaExceeded'
+        : 'ai.assistantError';
+      const errMsg: ChatMessage = { role: 'assistant', content: t(key) };
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setLoading(false);
@@ -617,7 +632,7 @@ export function AIChat() {
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('ai.title')}</p>
               <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em' }}>
-                {MODELS.find(m => m.id === model)?.label.toUpperCase()} · LOCAL
+                CLAUDE HAIKU
               </p>
             </div>
             {messages.length > 0 && (
@@ -662,29 +677,13 @@ export function AIChat() {
               padding: '14px 16px',
               display: 'flex', flexDirection: 'column', gap: 14,
             }}>
-              {/* Model */}
-              <div>
-                <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 8 }}>{t('ai.ollamaModel')}</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {MODELS.map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => setModel(m.id)}
-                      style={{
-                        fontSize: 11, padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
-                        fontFamily: 'var(--ff-text)',
-                        background: model === m.id ? 'var(--accent)' : 'var(--surface-3)',
-                        color: model === m.id ? '#0a0a00' : 'var(--text-2)',
-                        border: model === m.id ? 'none' : '1px solid var(--border)',
-                        fontWeight: model === m.id ? 600 : 400,
-                        transition: 'background 0.12s',
-                      }}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
+              {/* Usage quota */}
+              {quota && (
+                <div>
+                  <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 8 }}>{t('ai.usageThisMonth')}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('ai.usageCount', { used: quota.used, limit: quota.limit })}</p>
                 </div>
-              </div>
+              )}
 
               {/* Voice language */}
               <div>
