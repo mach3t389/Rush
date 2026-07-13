@@ -165,7 +165,11 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
 
 // ── SubTask grid constants ─────────────────────────────────────────────────────
 
-const SUB_GRID = '22px 1fr 32px 90px 100px 24px';
+// minmax(80px, …) keeps the title column from being squeezed down to
+// almost nothing in the narrower inline panel (Mes tâches split view) —
+// without it, a growing multi-line title wraps into a near-single-column
+// wall of text instead of a few readable lines.
+const SUB_GRID = '22px minmax(80px, 1fr) 32px 90px 100px 24px';
 
 const subColLabel = (label: string) => (
   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block' }}>{label}</span>
@@ -186,6 +190,17 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
   const [hovered, setHovered] = useState(false);
   const [dropOpen, setDropOpen] = useState<'assignee' | 'priority' | 'date' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
+  const editTitleRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the title field to fit its content — same fix as the main
+  // task title, so a long subtask title doesn't get clipped while editing.
+  useEffect(() => {
+    if (editing && editTitleRef.current) {
+      const el = editTitleRef.current;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+  }, [editing, editTitle]);
 
   const openDrop = (key: typeof dropOpen, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -213,10 +228,13 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
 
       {/* Title */}
       {editing ? (
-        <input autoFocus value={editTitle}
+        <textarea ref={editTitleRef} autoFocus value={editTitle} rows={1}
           onChange={e => setEditTitle(e.target.value)}
           onBlur={() => { onUpdate({ title: editTitle }); setEditing(false); }}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { onUpdate({ title: editTitle }); setEditing(false); } }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onUpdate({ title: editTitle }); setEditing(false); }
+            if (e.key === 'Escape') { onUpdate({ title: editTitle }); setEditing(false); }
+          }}
           onPaste={e => {
             const text = e.clipboardData.getData('text');
             const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
@@ -226,7 +244,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%' }}
+          style={{ gridColumn: '2 / 6', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
@@ -235,7 +253,11 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
         </span>
       )}
 
-      {/* Priority */}
+      {/* Priority / Assignee / Date — hidden while editing so the title
+          field can borrow their columns' width instead of being squeezed
+          into the narrow title track alone. */}
+      {!editing && (
+        <>
       <div style={{ position: 'relative' }}>
         <button onClick={e => openDrop('priority', e)} title={`${t('tasks.priority')} : ${t(PRIORITY_LABEL_KEY[sub.priority])}`}
           style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%' }}>
@@ -251,7 +273,6 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
         )}
       </div>
 
-      {/* Assignee */}
       <div style={{ position: 'relative' }}>
         <button onClick={e => openDrop('assignee', e)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
           {sub.assignee
@@ -273,7 +294,6 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
         )}
       </div>
 
-      {/* Date */}
       <div style={{ position: 'relative' }}>
         <button onClick={e => openDrop('date', e)}
           style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -284,6 +304,8 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
           <DatePickerDropdown value={sub.dueDate} onChange={v => { onUpdate({ dueDate: v }); setDropOpen(null); }} onClose={() => setDropOpen(null)} anchorRect={dropRect} zIndex={600} />
         )}
       </div>
+        </>
+      )}
 
       {/* Delete */}
       <button onClick={e => { e.stopPropagation(); onDelete(); }} title={t('tasks.delete')}

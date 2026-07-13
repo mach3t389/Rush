@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask } from '../data/myTaskStore';
+import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
@@ -248,7 +249,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
   );
 }
 
-function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onDelete: () => void; onClose: () => void }) {
+function TaskContextMenu({ pos, onOpen, onConvert, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onConvert?: () => void; onDelete: () => void; onClose: () => void }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -266,6 +267,7 @@ function TaskContextMenu({ pos, onOpen, onDelete, onClose }: { pos: { x: number;
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
+      {onConvert && item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
     </div>,
@@ -300,7 +302,7 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
   );
 }
 
-function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void }) {
+function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, onConvertRequest }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void; onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [checked, setChecked] = useState(task.checked);
@@ -773,6 +775,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete }:
         <TaskContextMenu
           pos={ctxPos}
           onOpen={() => { onSelect(task); setCtxPos(null); }}
+          onConvert={onConvertRequest ? () => { onConvertRequest(task, ctxPos); setCtxPos(null); } : undefined}
           onDelete={() => { onDelete?.(); setCtxPos(null); }}
           onClose={() => setCtxPos(null)}
         />
@@ -1208,6 +1211,10 @@ export function Taches() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
   const [flashId, setFlashId]         = useState<string | null>(null);
+  const [convertRequest, setConvertRequest] = useState<{ taskId: string; pos: { x: number; y: number } } | null>(null);
+  const handleConvertRequest = useCallback((task: Task, pos: { x: number; y: number }) => {
+    setConvertRequest({ taskId: task.id, pos });
+  }, []);
   const [sortCol, setSortCol]         = usePersistedState<SortCol | null>('sf_taches_sort_col', null);
   const [sortDir, setSortDir]         = usePersistedState<SortDir>('sf_taches_sort_dir', 'asc');
   const [filterPriorities, setFilterPriorities] = usePersistedState<Priority[]>('sf_taches_filter_prio', []);
@@ -1506,7 +1513,7 @@ export function Taches() {
                           <ColHeader {...colHeaderProps} />
                         </div>
                         {g.tasks.map(task => (
-                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
+                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
                         ))}
                         <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} />
                       </>
@@ -1530,7 +1537,7 @@ export function Taches() {
                 <ColHeader {...colHeaderProps} />
               </div>
               {noSectionTasks.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
               ))}
               <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
             </div>
@@ -1554,7 +1561,7 @@ export function Taches() {
                         <ColHeader {...colHeaderProps} />
                       </div>
                       {g.tasks.map(task => (
-                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
+                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
                       ))}
                       <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} />
                     </>
@@ -1667,6 +1674,22 @@ export function Taches() {
             setBulkCopyOpen(false);
           }}
           onClose={() => setBulkCopyOpen(false)}
+        />
+      )}
+
+      {/* Convert to subtask picker — restricted to freestanding personal
+          tasks on both ends: an assigned (project) task is mutated through
+          taskStore.ts, not myTaskStore, so mixing the two here would desync
+          from the project's own task list. */}
+      {convertRequest && (
+        <SubtaskTargetPicker
+          pos={convertRequest.pos}
+          candidates={tasks.filter(t => t.id !== convertRequest.taskId && !isAssignedTask(t.id))}
+          onPick={targetId => {
+            convertMyTaskToSubtask(convertRequest.taskId, targetId);
+            setConvertRequest(null);
+          }}
+          onClose={() => setConvertRequest(null)}
         />
       )}
 

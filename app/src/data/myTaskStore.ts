@@ -299,6 +299,20 @@ export function isAssignedTask(taskId: string): boolean {
   return _assignedTasks.some(t => t.id === taskId);
 }
 
+// Nests `sourceId` as a subtask of `targetId` and removes it from the
+// top-level list — mirrors taskStore.ts's convertTasksToSubtasks(), but for
+// freestanding personal tasks (assigned/project tasks are converted from
+// their project view instead, since mutating them here would desync from
+// the project's own task list).
+export function convertMyTaskToSubtask(sourceId: string, targetId: string): void {
+  const tasks = getMyTasks();
+  const source = tasks.find(t => t.id === sourceId);
+  const target = tasks.find(t => t.id === targetId);
+  if (!source || !target) return;
+  updateMyTask(targetId, { subtasks: [...(target.subtasks ?? []), source] });
+  removeMyTask(sourceId);
+}
+
 export function subscribeMyTasks(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);
