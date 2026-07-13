@@ -2390,6 +2390,8 @@
     "seatsTitle": "Seat limit reached",
     "seatsBody": "You've reached the number of seats already purchased for your team. Buy one more seat to invite this person.",
     "cta": "View plans",
-    "customLogoLabel": "Custom logo"
+    "customLogoLabel": "Custom logo",
+    "projectsTitle": "Project limit reached",
+    "projectsBody": "The Gratuit plan allows 3 active projects at a time. Upgrade to Studio for unlimited projects."
   }
 }

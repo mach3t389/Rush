@@ -2403,6 +2403,8 @@
     "seatsTitle": "Limite de sièges atteinte",
     "seatsBody": "Tu as atteint le nombre de sièges déjà achetés pour ton équipe. Achète un siège de plus pour inviter cette personne.",
     "cta": "Voir les plans",
-    "customLogoLabel": "Le logo personnalisé"
+    "customLogoLabel": "Le logo personnalisé",
+    "projectsTitle": "Limite de projets atteinte",
+    "projectsBody": "Le plan Gratuit permet 3 projets actifs à la fois. Passe à Studio pour créer des projets illimités."
   }
 }
