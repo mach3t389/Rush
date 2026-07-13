@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { MY_TASKS, USERS } from '../data/mock';
+import { USERS } from '../data/mock';
+import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
@@ -468,6 +469,12 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
   const [, forceWeekStart] = useState(0);
   useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);
 
+  // Task-deadline chips — were reading the frozen demo seed (MY_TASKS from
+  // mock.ts) even in real sessions, so a real user's actual due dates never
+  // showed up here. Read the live personal-tasks store instead.
+  const [myTasks, setMyTasks] = useState(getMyTasks);
+  useEffect(() => subscribeMyTasks(() => setMyTasks(getMyTasks())), []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setShowCreate(false); setSelectedEvent(null); return; }
@@ -481,7 +488,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const taskChips = MY_TASKS
+  const taskChips = myTasks
     .filter(t => activeProjectIds.includes(t.projectId ?? ''))
     .flatMap(t => {
       const d = parseFrDate(t.dueDate);

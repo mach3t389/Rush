@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
-import { MY_TASKS, USERS } from '../data/mock';
+import { USERS } from '../data/mock';
+import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
@@ -633,8 +634,12 @@ export function CalendrierGlobal() {
   const [, forceWeekStart] = useState(0);
   useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);
 
-  // Build task chips from MY_TASKS
-  const taskChips = MY_TASKS.flatMap(t=>{
+  // Task-deadline chips — were reading the frozen demo seed (MY_TASKS from
+  // mock.ts) even in real sessions, so a real user's actual due dates never
+  // showed up here. Read the live personal-tasks store instead.
+  const [myTasks, setMyTasks] = useState(getMyTasks);
+  useEffect(() => subscribeMyTasks(() => setMyTasks(getMyTasks())), []);
+  const taskChips = myTasks.flatMap(t=>{
     const d=parseFrDate(t.dueDate);
     return d&&!t.checked?[{date:d,title:t.title,color:t.projectColor}]:[];
   });
