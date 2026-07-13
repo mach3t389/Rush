@@ -40,7 +40,7 @@ function mapSupabaseUser(user: { id: string; email?: string; user_metadata?: Rec
   const studioName = (user.user_metadata?.studio_name as string) || localStorage.getItem(STUDIO_NAME_KEY) || 'Mon studio';
   const parts = fullName.trim().split(' ').filter(Boolean);
   const initials = parts.map(p => p[0]).join('').toUpperCase().slice(0, 2) || '??';
-  const palette = ['#5c3d8f', '#3b4f8f', '#1a6b4a', '#7d4e57', '#a85f3e'];
+  const palette = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8', '#5BE8A8', '#8A6FF5'];
   const avatarColor = palette[(user.email ?? '').length % palette.length];
   return {
     id: user.id,

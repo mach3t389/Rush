@@ -25,7 +25,7 @@ async function insertOwnerMembership(studioId: string, user: SupabaseUserLike): 
       email: user.email ?? '',
       role: 'Admin',
       initials,
-      avatar_color: '#5c3d8f',
+      avatar_color: '#5B8AF5',
       is_owner: true,
     },
     { onConflict: 'user_id' }
