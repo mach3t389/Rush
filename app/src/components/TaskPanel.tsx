@@ -394,6 +394,16 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     }
   }, [editingTitle]);
 
+  // Keep the textarea grown to fit the full title, instead of clipping to
+  // the initial 2-row height — re-measure on open and on every keystroke.
+  useEffect(() => {
+    if (editingTitle && titleInputRef.current) {
+      const el = titleInputRef.current;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+  }, [editingTitle, titleValue]);
+
   const commitTitle = () => {
     const val = titleValue.trim() || task.title;
     setTitleValue(val);
