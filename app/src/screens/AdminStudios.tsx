@@ -10,8 +10,12 @@ interface StudioResult {
   id: string;
   name: string;
   plan: string;
+  billing_seats: number;
+  billing_storage_tier: number;
   manual_grant_note: string | null;
 }
+
+const STORAGE_TIER_LABELS = ['Aucun extra', '+50 Go', '+200 Go', '+500 Go', '+1 To', '+2 To', '+4 To'];
 
 export function AdminStudios() {
   const user = getCurrentUser();
@@ -25,6 +29,8 @@ export function AdminStudios() {
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<StudioResult | null>(null);
   const [newPlan, setNewPlan] = useState<'gratuit' | 'studio' | 'agence'>('gratuit');
+  const [newSeats, setNewSeats] = useState(2);
+  const [newStorageTier, setNewStorageTier] = useState(0);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -59,6 +65,8 @@ export function AdminStudios() {
   const selectStudio = (s: StudioResult) => {
     setSelected(s);
     setNewPlan(s.plan as 'gratuit' | 'studio' | 'agence');
+    setNewSeats(s.billing_seats ?? 2);
+    setNewStorageTier(s.billing_storage_tier ?? 0);
     setNote(s.manual_grant_note ?? '');
     setMessage(null);
   };
@@ -75,11 +83,11 @@ export function AdminStudios() {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ studioId: selected.id, plan: newPlan, note }),
+        body: JSON.stringify({ studioId: selected.id, plan: newPlan, seats: newSeats, storageTier: newStorageTier, note }),
       });
       if (!res.ok) throw new Error('Request failed');
       setMessage('Plan mis à jour.');
-      setSelected({ ...selected, plan: newPlan, manual_grant_note: note });
+      setSelected({ ...selected, plan: newPlan, billing_seats: newSeats, billing_storage_tier: newStorageTier, manual_grant_note: note });
     } catch (err) {
       console.error('Failed to set plan', err);
       setMessage('Échec de la mise à jour.');
@@ -97,7 +105,8 @@ export function AdminStudios() {
   }
 
   return (
-    <div style={{ padding: 40, maxWidth: 640, margin: '0 auto', fontFamily: 'var(--ff-text)' }}>
+    <div style={{ height: '100%', overflowY: 'auto', padding: 40, boxSizing: 'border-box' }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', fontFamily: 'var(--ff-text)' }}>
       <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 700, marginBottom: 20 }}>
         Octroi manuel d'accès
       </h1>
@@ -171,6 +180,37 @@ export function AdminStudios() {
           </select>
 
           <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginBottom: 6, textTransform: 'uppercase' }}>
+            Nombre de sièges
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={newSeats}
+            onChange={e => setNewSeats(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            style={{
+              width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)',
+              background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, marginBottom: 16,
+              boxSizing: 'border-box',
+            }}
+          />
+
+          <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginBottom: 6, textTransform: 'uppercase' }}>
+            Stockage extra
+          </label>
+          <select
+            value={newStorageTier}
+            onChange={e => setNewStorageTier(parseInt(e.target.value, 10))}
+            style={{
+              width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)',
+              background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, marginBottom: 16,
+              boxSizing: 'border-box',
+            }}>
+            {STORAGE_TIER_LABELS.map((label, tier) => (
+              <option key={tier} value={tier}>{label}</option>
+            ))}
+          </select>
+
+          <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginBottom: 6, textTransform: 'uppercase' }}>
             Note (optionnelle)
           </label>
           <textarea
@@ -194,6 +234,7 @@ export function AdminStudios() {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }

@@ -7,6 +7,8 @@ const ADMIN_EMAIL = 'info@alexismorel.ca';
 interface SetPlanBody {
   studioId: string;
   plan: 'gratuit' | 'studio' | 'agence';
+  seats?: number;
+  storageTier?: number;
   note?: string;
 }
 
@@ -16,9 +18,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { studioId, plan, note } = req.body as SetPlanBody;
+  const { studioId, plan, seats, storageTier, note } = req.body as SetPlanBody;
   if (!studioId || (plan !== 'gratuit' && plan !== 'studio' && plan !== 'agence')) {
     res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  if (seats !== undefined && (!Number.isInteger(seats) || seats < 1)) {
+    res.status(400).json({ error: 'Invalid seats value' });
+    return;
+  }
+  if (storageTier !== undefined && (!Number.isInteger(storageTier) || storageTier < 0 || storageTier > 6)) {
+    res.status(400).json({ error: 'Invalid storageTier value' });
     return;
   }
 
@@ -47,7 +57,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { error } = await supabaseAdmin
     .from('studios')
-    .update({ plan, manual_grant_note: note ?? null })
+    .update({
+      plan,
+      manual_grant_note: note ?? null,
+      ...(seats !== undefined ? { billing_seats: seats } : {}),
+      ...(storageTier !== undefined ? { billing_storage_tier: storageTier } : {}),
+    })
     .eq('id', studioId);
 
   if (error) {
