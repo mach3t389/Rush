@@ -1,6 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFAvatar, SFButton, SFIcon } from './ui';
+import { SFAvatar, SFIcon } from './ui';
 import { USERS } from '../data/mock';
 
 const TEAM = Object.values(USERS);
@@ -440,7 +440,7 @@ export function RevisionCommentSidebar({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {filtered.map((c, i) => (
+            {filtered.map((c) => (
               <CommentCard
                 key={c.id}
                 comment={c}

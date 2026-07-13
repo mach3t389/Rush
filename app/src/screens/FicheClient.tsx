@@ -2,11 +2,10 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
-import { SFPill, SFBar, SFAvatarGroup, SFButton, SFIcon, SFAvatar } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
-import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { ProjectsListView } from '../components/ProjectsListView';
 import { ActivityFeed } from '../components/ActivityFeed';
 import { ProjetCalendrier } from './ProjetCalendrier';
@@ -266,7 +265,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
   const [panelMember, setPanelMember] = useState<ClientMember | null>(null);
 
-  const MemberRow = ({ m, canBeApprover }: { m: ClientMember; canBeApprover?: boolean }) => {
+  const MemberRow = ({ m }: { m: ClientMember; canBeApprover?: boolean }) => {
     const isApprover = approverId === m.id;
     return (
       <div
@@ -768,139 +767,6 @@ function EquipeTab({ clientId }: { clientId: string }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-
-const PROJECT_STATUS_OPTIONS = [
-  { value: 'info',    labelKey: 'statusInProgress'    },
-  { value: 'ok',      labelKey: 'statusAhead'         },
-  { value: 'warn',    labelKey: 'statusWaitingClient' },
-  { value: 'danger',  labelKey: 'statusLate'          },
-  { value: 'review',  labelKey: 'statusInReview'      },
-  { value: 'neutral', labelKey: 'statusCompleted'     },
-] as const;
-
-const PROJECT_STATUS_COLOR: Record<string, string> = {
-  info: 'var(--info)', ok: 'var(--ok)', warn: 'var(--warn)',
-  danger: 'var(--danger)', review: 'var(--review)', neutral: 'var(--text-3)',
-};
-
-function ClientProjectRow({ p, status, statusLabel, onNavigate, onStatusChange, onArchive }: {
-  p: typeof PROJECTS[0];
-  status: string; statusLabel: string;
-  onNavigate: () => void;
-  onStatusChange: (status: string, label: string) => void;
-  onArchive: () => void;
-}) {
-  const { t } = useTranslation();
-  const [hovered, setHovered] = useState(false);
-  const [pinned, setPinned] = useState(() => isPinned(p.id));
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [statusSubOpen, setStatusSubOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => subscribePinned(() => setPinned(isPinned(p.id))), [p.id]);
-
-  useEffect(() => {
-    if (!menuOpen) { setStatusSubOpen(false); return; }
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [menuOpen]);
-
-  return (
-    <div
-      onClick={onNavigate}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: `1px solid ${hovered ? 'var(--border-2)' : 'var(--border)'}`, padding: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'border-color 0.12s', position: 'relative' }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
-          {/* No fallback to the static phaseLabel — a project with no
-              sections yet has no real phase, and a default like
-              "Préproduction" was misleading since that section doesn't
-              actually exist. */}
-          {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
-        </div>
-        <SFBar value={p.progress} height={3} />
-        <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
-          <span>{p.taskCount} tâches</span>
-          <span>{p.deliverableCount} livrables</span>
-          <span>{p.members.length} membres</span>
-        </div>
-      </div>
-      <SFAvatarGroup avatars={p.members.map(m => ({ initials: m.initials, bg: m.avatarColor, name: m.name }))} size={24} />
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <SFPill status={status as any} small>{statusLabel}</SFPill>
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>{p.deliveryDate}</p>
-      </div>
-      {/* Star pin button */}
-      <button
-        onClick={e => { e.stopPropagation(); togglePin(p.id); }}
-        title={pinned ? t('client.unpin') : t('client.pinSidebar')}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, color: pinned ? 'var(--accent)' : 'var(--text-3)', opacity: pinned || hovered ? 1 : 0, transition: 'opacity 0.15s, color 0.15s', display: 'flex', flexShrink: 0 }}
-      >
-        <SFIcon name="star" size={15} fill={pinned ? 'currentColor' : 'none'} />
-      </button>
-      {/* ⋯ menu */}
-      <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-        <button
-          onClick={() => setMenuOpen(v => !v)}
-          style={{ background: menuOpen ? 'var(--surface-3)' : 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: 'var(--text-3)', opacity: menuOpen || hovered ? 1 : 0, transition: 'opacity 0.15s', display: 'flex' }}
-        >
-          <SFIcon name="ellipsis" size={15} />
-        </button>
-        {menuOpen && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 190, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-            {/* Status submenu trigger */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setStatusSubOpen(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: statusSubOpen ? 'var(--surface-2)' : 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}
-                onMouseEnter={e => { if (!statusSubOpen) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { if (!statusSubOpen) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SFIcon name="circle" size={13} color="var(--text-3)" />
-                  {t('client.changeStatus')}
-                </div>
-                <SFIcon name="chevron-right" size={11} color="var(--text-3)" />
-              </button>
-              {statusSubOpen && (
-                <div style={{ position: 'absolute', top: 0, right: 'calc(100% + 4px)', background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 170, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', zIndex: 201 }}>
-                  {PROJECT_STATUS_OPTIONS.map(o => (
-                    <button key={o.value} onClick={() => { onStatusChange(o.value, t(`client.${o.labelKey}`)); setMenuOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: status === o.value ? 'var(--surface-2)' : 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = status === o.value ? 'var(--surface-2)' : 'transparent'; }}
-                    >
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: PROJECT_STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />
-                      {t(`client.${o.labelKey}`)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-            <button
-              onClick={() => { onArchive(); setMenuOpen(false); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--danger) 10%, transparent)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              <SFIcon name="archive" size={13} />
-              {t('client.archiveProject')}
-            </button>
-          </div>
-        )}
-      </div>
-      <SFIcon name="chevron-right" size={16} color="var(--text-3)" />
-    </div>
-  );
-}
 
 // ── Activité tab ──────────────────────────────────────────────────────────────
 

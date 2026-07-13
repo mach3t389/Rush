@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { icons, type LucideIcon } from 'lucide-react';
 
 interface SFIconProps {
@@ -7,9 +8,10 @@ interface SFIconProps {
   fill?: string;
   strokeWidth?: number;
   className?: string;
+  style?: CSSProperties;
 }
 
-export function SFIcon({ name, size = 16, color = 'currentColor', fill = 'none', strokeWidth = 1.6, className }: SFIconProps) {
+export function SFIcon({ name, size = 16, color = 'currentColor', fill = 'none', strokeWidth = 1.6, className, style }: SFIconProps) {
   if (!name) return null;
   const iconName = name
     .split('-')
@@ -27,7 +29,7 @@ export function SFIcon({ name, size = 16, color = 'currentColor', fill = 'none',
       fill={fill}
       strokeWidth={strokeWidth}
       className={className}
-      style={{ flexShrink: 0, display: 'block' }}
+      style={{ flexShrink: 0, display: 'block', ...style }}
     />
   );
 }

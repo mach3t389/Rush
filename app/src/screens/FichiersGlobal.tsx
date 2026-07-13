@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, SFBar, SFLoadingState } from '../components/ui';
 import {
   getFolders, getFiles, addFolder, deleteFolder, renameFolder,
   addFile, deleteFile, renameFile, subscribeFileStore,
-  getChildFolders, getRootFoldersForProject, getRootFoldersForClient,
-  getGlobalRootFolders, getFilesInFolder, getFolderPath, formatFileSize,
+  getChildFolders, getRootFoldersForProject,
+  getFolderPath, formatFileSize,
   fileTypeFromExt, moveFile, moveFolder,
   trashFolder, trashFile, archiveFolder, archiveFile,
   restoreFolder, restoreFile, emptyTrash,
@@ -18,12 +18,12 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
+import { loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import { addResource, getResources, subscribeResources, updateResource } from '../data/resourceStore';
 import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
-import { setFileContent, getFileContent, removeFileContent, hasFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
+import { setFileContent, getFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ const RESOURCE_STATUS_OPTIONS: { status: import('../types').Status; labelKey: st
   { status: 'neutral', labelKey: 'files.statusWaiting' },
 ];
 
-function StatusDropdown({ resourceId, status, statusLabel, onClose }: { resourceId: string; status: string; statusLabel: string; onClose: () => void }) {
+function StatusDropdown({ resourceId, status, onClose }: { resourceId: string; status: string; onClose: () => void }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -297,7 +297,7 @@ function InlineStatusPicker({ resourceId, status, statusLabel }: { resourceId: s
         <span style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>{statusLabel}</span>
         <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
       </button>
-      {open && <StatusDropdown resourceId={resourceId} status={status} statusLabel={statusLabel} onClose={() => setOpen(false)} />}
+      {open && <StatusDropdown resourceId={resourceId} status={status} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -704,50 +704,6 @@ function AddFileModal({ onSave, onClose }: { onSave: (name: string, type: FileIt
           <SFButton variant="primary" onClick={handleSave} disabled={!name.trim()}>{t('files.add')}</SFButton>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Tree node ──────────────────────────────────────────────────────────────────
-
-function TreeNode({
-  folder, depth, selected, onSelect, collapsed, projectColor,
-}: {
-  folder: FileFolder;
-  depth: number;
-  selected: boolean;
-  onSelect: (f: FileFolder) => void;
-  collapsed: boolean;
-  projectColor?: string;
-}) {
-  const allFolders = getFolders();
-  const children = allFolders.filter(f => f.parentId === folder.id);
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div>
-      <div
-        onClick={() => { setExpanded(e => !e); onSelect(folder); }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: `5px 8px 5px ${12 + depth * 14}px`,
-          borderRadius: 7, cursor: 'pointer',
-          background: selected ? 'var(--surface-3)' : 'transparent',
-          borderLeft: selected ? '2px solid var(--accent)' : '2px solid transparent',
-        }}
-        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
-      >
-        {children.length > 0 && (
-          <SFIcon name={expanded ? 'chevron-down' : 'chevron-right'} size={10} color="var(--text-3)" />
-        )}
-        {children.length === 0 && <div style={{ width: 10 }} />}
-        <SFIcon name="folder" size={13} color={projectColor ?? 'var(--text-3)'} />
-        {!collapsed && <span style={{ fontSize: 12, color: selected ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{folder.name}</span>}
-      </div>
-      {expanded && children.map(child => (
-        <TreeNode key={child.id} folder={child} depth={depth + 1} selected={selected && false} onSelect={onSelect} collapsed={collapsed} projectColor={projectColor} />
-      ))}
     </div>
   );
 }
@@ -1480,7 +1436,7 @@ export function StorageView({
                     <div style={{ width: 8, height: 8, borderRadius: 2, background: cat.color, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 11, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>{f.name}</p>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', marginTop: 1 }}>{fmtSz(f.size)}</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--accent)', marginTop: 1 }}>{fmtSz(f.size ?? 0)}</p>
                     </div>
                   </div>
                 );
@@ -1815,7 +1771,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 
-export function FileBrowser({ initialNav, embedded = false, locked = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean }) {
+export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean }) {
   const { t } = useTranslation();
   const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
   const lockedScope: NavLocation | undefined = locked && initialNav ? initialNav : undefined;
@@ -2056,15 +2012,6 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     return [];
   })();
 
-  // Root view: show projects + clients as virtual top-level "folders"
-  const rootProjects = projects;
-  const rootClients  = clients;
-  // Filter out "Modèles" and "Archives" from the main list - they're in sidebar instead
-  const globalRootFolders = allFolders.filter(f =>
-    !f.projectId && !f.clientId && f.parentId === null &&
-    f.name !== 'Modèles' && f.name !== 'Archives'
-  );
-
   // Filter & sort files
   const filteredFiles = currentFiles.filter(f => {
     if (filterType !== 'all' && f.type !== filterType) return false;
@@ -2080,61 +2027,6 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
   const filteredFolders = currentFolders.filter(f =>
     !search || f.name.toLowerCase().includes(search.toLowerCase())
   );
-
-  // ── Breadcrumb ───────────────────────────────────────────────────────────────
-
-  const buildBreadcrumb = (): { label: string; onClick: () => void }[] => {
-    const crumbs: { label: string; onClick: () => void }[] = [
-      { label: 'Fichiers', onClick: () => setLocation({ scope: 'root', folderId: null }) },
-    ];
-
-    if (location.scope === 'project') {
-      const p = projects.find(p => p.id === location.scopeId);
-      const c = p ? clients.find(c => c.id === p.clientId) : null;
-
-      // Add client first
-      if (c) {
-        crumbs.push({
-          label: c.name,
-          onClick: () => setLocation({ scope: 'client', scopeId: c.id, folderId: null })
-        });
-      }
-      // Then add project
-      if (p) {
-        crumbs.push({
-          label: p.name,
-          onClick: () => setLocation({ scope: 'project', scopeId: p.id, folderId: null })
-        });
-      }
-    } else if (location.scope === 'client') {
-      const c = clients.find(c => c.id === location.scopeId);
-      if (c) {
-        crumbs.push({
-          label: c.name,
-          onClick: () => setLocation({ scope: 'client', scopeId: c.id, folderId: null })
-        });
-      }
-    } else if (location.scope === 'global') {
-      const f = allFolders.find(f => f.id === location.folderId);
-      if (f) {
-        crumbs.push({
-          label: f.name,
-          onClick: () => setLocation({ scope: 'global', folderId: f.id })
-        });
-      }
-    }
-
-    if (location.folderId) {
-      const path = getFolderPath(location.folderId);
-      path.forEach((f, i) => {
-        crumbs.push({
-          label: f.name,
-          onClick: () => setLocation({ ...location, folderId: i === path.length - 1 ? f.id : (path[i].parentId ?? null) }),
-        });
-      });
-    }
-    return crumbs;
-  };
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -2307,10 +2199,6 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     } else {
       setLocation(loc => ({ ...loc, folderId: folder.id }));
     }
-  };
-
-  const handleNavigateProject = (p: Project) => {
-    setLocation({ scope: 'project', scopeId: p.id, folderId: null });
   };
 
   // ── "Nouveau" menu items (shared between the + button dropdown and the
@@ -2615,7 +2503,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
             </button>
             {statusDropOpen && file.resourceId && (
-              <StatusDropdown resourceId={file.resourceId} status={resource.status} statusLabel={resource.statusLabel} onClose={() => setStatusDropOpen(false)} />
+              <StatusDropdown resourceId={file.resourceId} status={resource.status} onClose={() => setStatusDropOpen(false)} />
             )}
           </div>
         ) : (
@@ -2812,7 +2700,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
       (!search || f.name.toLowerCase().includes(search.toLowerCase()))
     );
     const [hoveredColProjectId, setHoveredColProjectId] = React.useState<string | null>(null);
-    const [localSelectedFileId, setLocalSelectedFileId] = React.useState<string | null>(null);
+    const [localSelectedFileId] = React.useState<string | null>(null);
 
     const folderColor = (f: FileFolder) => {
       if (f.projectId) return projectColor(f.projectId);
@@ -2910,13 +2798,12 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
         {loc.scope === 'client' && loc.folderId === null && columnProjects && columnProjects.length > 0 && (
           <>{columnProjects.map(p => {
             const id = 'proj-' + p.id;
-            const isPinned = pinnedIds.includes(p.id);
             const isHovered = hoveredColProjectId === p.id;
             return (
               <div key={id}
                 style={rowStyle(id)}
                 onMouseDown={noSelectOnModifier}
-                onClick={e => handleColClick(e, id, () => onSelect({ scope: 'project', scopeId: p.id, folderId: null }, id))}
+                onClick={e => handleColClick(e, id, () => onSelect({ scope: 'project', scopeId: p.id, folderId: null }))}
                 onMouseEnter={e => { setHoveredColProjectId(p.id); if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'var(--surface-2)'; }}
                 onMouseLeave={e => { setHoveredColProjectId(null); if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'transparent'; }}
               >
@@ -2961,7 +2848,6 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
               (!f.projectId && !f.clientId)
                 ? { scope: 'global', folderId: f.id }
                 : { ...loc, folderId: f.id },
-              f.id,
             ))}
             onContextMenu={e => handleFolderCtx(e, f)}
             onMouseEnter={e => { if (selectedId !== f.id && !isColSel(f.id) && !isDO) e.currentTarget.style.background = 'var(--surface-2)'; }}

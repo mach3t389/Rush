@@ -135,7 +135,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onConvert, onClose, sections, 
         </button>
       )}
 
-      {showMove && otherSections.map((s, i) => {
+      {showMove && otherSections.map((s) => {
         const realIdx = sections.findIndex(sec => sec.label === s.label);
         return (
           <button

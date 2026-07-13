@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFAvatar, SFButton, SFPill } from '../components/ui';
+import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
@@ -59,14 +59,6 @@ function resolveEvents(eventTypes: EventType[]): CalEvent[] {
   });
 }
 
-const PROJECT_SECTIONS: Record<string, { id: string; label: string }[]> = {
-  pj1: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj2: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj3: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj4: [{ id:'preproduction', label:'Préproduction' }, { id:'production', label:'Production' }, { id:'postproduction', label:'Postproduction' }, { id:'livraison', label:'Livraison' }],
-  pj5: [{ id:'conception', label:'Conception' }, { id:'production', label:'Production' }, { id:'revisions', label:'Révisions' }, { id:'livraison', label:'Livraison' }],
-  pj6: [{ id:'production', label:'Production' }, { id:'livraison', label:'Livraison' }],
-};
 
 // ── Layout helper for overlapping events ──────────────────────────────────────
 

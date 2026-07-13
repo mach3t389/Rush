@@ -717,7 +717,6 @@ export function DocumentReview() {
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
             {pages.map((pg, idx) => {
               const pgNum = idx + 1;
-              const pgComments = comments.filter(c => c.annotation?.page === pgNum);
               return (
                 <div key={pg.id} data-page={pgNum} style={{ width: '100%', maxWidth: 680, flexShrink: 0 }}>
                   {/* Page label */}

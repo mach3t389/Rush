@@ -66,12 +66,6 @@ const PRIORITY_COLOR: Record<string, string> = {
 const PRIORITY_LABEL_KEY: Record<string, string> = {
   urgent: 'priority.urgent', high: 'priority.high', normal: 'priority.medium', low: 'priority.low', none: 'priority.none',
 };
-const STATUS_BG: Record<string, string> = {
-  danger: '#3a1515', warn: '#3a2f10', info: '#102a3a', ok: '#0f2f1a', review: '#2a1a3a', neutral: 'var(--surface-3)',
-};
-const STATUS_COLOR: Record<string, string> = {
-  danger: 'var(--danger)', warn: 'var(--warn)', info: 'var(--info)', ok: 'var(--ok)', review: 'var(--review)', neutral: 'var(--text-3)',
-};
 
 // Icône + couleurs par type d'activité — même langage visuel que le flux d'activité (/activite)
 const ACTIVITY_ICON: Record<string, { icon: string; color: string; bg: string }> = {
@@ -214,7 +208,7 @@ export function Dashboard() {
   const myTasks    = isDemoSession() ? TODAY_TASKS : getMyTasks();
   const activeProjects = projects.filter(p => p.status !== 'neutral');
   const lateProjects   = projects.filter(p => p.status === 'danger').length;
-  const urgentToday    = myTasks.filter(t => t.priority === 'urgent').length;
+  const urgentToday    = myTasks.filter(t => t.priority === 'high').length;
 
   const [events, setEvents] = useState<CalendarEvent[]>(getEvents);
   useEffect(() => subscribeEvents(() => setEvents(getEvents())), []);
@@ -315,7 +309,7 @@ export function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '10px 16px', gap: 4 }}>
               {tasksByDay.map(({ day, tasks: dayTasks }, i) => {
                 const isToday = i === 0;
-                const hasUrgent = dayTasks.some(t => t.priority === 'urgent');
+                const hasUrgent = dayTasks.some(t => t.priority === 'high');
                 return (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: isToday ? 'var(--accent)' : 'var(--text-3)', textTransform: 'uppercase' }}>

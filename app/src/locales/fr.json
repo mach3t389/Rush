@@ -298,7 +298,8 @@
     "checklist": "Checklist",
     "inspirations": "Inspirations",
     "file": "Fichier",
-    "form": "Formulaire"
+    "form": "Formulaire",
+    "webReview": "Révision web"
   },
   "approval": {
     "requestApproval": "Demander approbation",
@@ -1397,6 +1398,7 @@
     "resChecklist": "Liste de contrôle",
     "resInspirations": "Inspirations",
     "resFile": "Fichier",
+    "resWebReview": "Révision web",
     "untitled": "Sans titre",
     "saveCopy": "Enregistrer une copie",
     "saveDirty": "Enregistrer *",
@@ -1404,6 +1406,7 @@
     "resTypeScreenplay": "Scénario",
     "resTypeVideoReview": "Révision vidéo",
     "resTypeFile": "Fichier",
+    "resTypeWebReview": "Révision web",
     "resTypeLabel": "Modèle de type"
   },
   "review": {

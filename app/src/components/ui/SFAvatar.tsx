@@ -1,19 +1,23 @@
 interface SFAvatarProps {
   initials: string;
-  bg: string;
+  bg?: string;
+  color?: string;
   size?: number;
   title?: string;
+  name?: string;
 }
 
-export function SFAvatar({ initials, bg, size = 28, title }: SFAvatarProps) {
+export function SFAvatar({ initials, bg, color, size = 28, title, name }: SFAvatarProps) {
+  const resolvedBg = bg ?? color ?? 'var(--surface-3)';
+  const resolvedTitle = title ?? name;
   return (
     <span
-      title={title}
+      title={resolvedTitle}
       style={{
         width: size,
         height: size,
         borderRadius: '50%',
-        background: bg,
+        background: resolvedBg,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',

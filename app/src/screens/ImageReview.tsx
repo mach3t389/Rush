@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFAvatar, SFButton, SFIcon, SFModal } from '../components/ui';
+import { SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
@@ -13,7 +13,6 @@ import { setFileContent, getFileContent } from '../data/fileContentStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
-  annoColor,
 } from '../components/RevisionComments';
 import type { Status } from '../types';
 
@@ -49,11 +48,6 @@ const TODAY_FR = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month:
 const SEED_ROUNDS: LocalRound[] = [
   { v: 'R1', label: 'Ronde initiale', date: TODAY_FR, author: USERS.lea, status: 'review', images: [] },
 ];
-
-const STATUS_LABEL: Record<Status, string> = {
-  ok: 'Approuvé', warn: 'À réviser', danger: 'Bloqué',
-  info: 'En cours', review: 'En révision', neutral: 'En attente',
-};
 
 interface ImageReviewContent {
   rounds?: LocalRound[];

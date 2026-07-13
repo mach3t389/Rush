@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFButton, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
+import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';

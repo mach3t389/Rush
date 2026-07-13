@@ -63,7 +63,7 @@ export function AppShell() {
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', background: 'var(--bg)' }}>
-      <Sidebar onSearch={() => setCmdOpen(true)} />
+      <Sidebar />
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <ViewAsBanner />
         <GlobalTopBar onSearch={() => setCmdOpen(true)} />

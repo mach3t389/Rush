@@ -237,7 +237,7 @@ interface TimePickerDropdownProps {
   zIndex?: number;
 }
 
-export function TimePickerDropdown({ value, onChange, onClose, anchorRect, placeholder = '—', zIndex = 300 }: TimePickerDropdownProps) {
+export function TimePickerDropdown({ value, onChange, onClose, anchorRect, zIndex = 300 }: TimePickerDropdownProps) {
   const { t } = useTranslation();
   const [h, setH] = useState(() => value ? parseInt(value.split(':')[0]) : -1);
   const [m, setM] = useState(() => value ? parseInt(value.split(':')[1]) : -1);
@@ -466,7 +466,7 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
     setTimeRect(e.currentTarget.getBoundingClientRect());
   };
 
-  const timeTrigger = (label: string, value: string, which: 'start' | 'end', ref: React.RefObject<HTMLButtonElement>): React.ReactNode => {
+  const timeTrigger = (label: string, value: string, which: 'start' | 'end', ref: React.RefObject<HTMLButtonElement | null>): React.ReactNode => {
     const isActive = timeOpen === which;
     const display = fmtTime(value);
     return (

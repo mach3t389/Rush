@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getToast, subscribeToast, dismissToast } from '../data/toastStore';
 import { SFIcon } from './ui';
@@ -9,7 +9,10 @@ export function ToastBar() {
   const [visible, setVisible] = useState(false);
   const prevId = useRef<string | null>(null);
 
-  useEffect(() => subscribeToast(() => setToast(getToast())), []);
+  useEffect(() => {
+    const unsubscribe = subscribeToast(() => setToast(getToast()));
+    return () => { unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     if (toast) {

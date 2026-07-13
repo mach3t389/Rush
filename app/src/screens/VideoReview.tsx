@@ -134,7 +134,7 @@ function AnnotationLayer({
     if (ann.tool === 'circle') {
       const cx = (ann.x1 + ann.x2) / 2 * 100; const cy = (ann.y1 + ann.y2) / 2 * 100;
       const rx = Math.abs(ann.x2 - ann.x1) / 2 * 100; const ry = Math.abs(ann.y2 - ann.y1) / 2 * 100;
-      return <ellipse key={key} cx={`${cx}%`} cy={`${cy}%`} rx={`${rx}%`} ry={`${ry}%`} fill={ann.color} fillOpacity={0.1} {...strokeProps} />;
+      return <ellipse key={key} cx={`${cx}%`} cy={`${cy}%`} rx={`${rx}%`} ry={`${ry}%`} fillOpacity={0.1} {...strokeProps} fill={ann.color} />;
     }
     if (ann.tool === 'arrow') {
       const markerId = `arrow-${key.replace(/[^a-z0-9]/gi, '')}`;
@@ -548,7 +548,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setCommentText('');
     setPendingAnnotation(null);
     setActiveCommentId(newC.id);
-    if (resourceId) incrementCommentCount(resourceId);
+    if (resource.id) incrementCommentCount(resource.id);
   };
 
   const cycleCommentStatus = (id: string) =>

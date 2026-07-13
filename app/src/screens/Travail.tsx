@@ -1,36 +1,27 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, TimePickerDropdown, TimeButton, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue, TODAY_DP } from '../components/ui';
+import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, deleteTask, convertTasksToSubtasks } from '../data/taskStore';
+import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, convertTasksToSubtasks } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { updateResource, getResources, subscribeResources } from '../data/resourceStore';
-import { loadCustomTemplates, saveCustomTemplates, BUILT_IN_TEMPLATES } from '../data/templates';
+import { loadCustomTemplates, saveCustomTemplates } from '../data/templates';
 import type { ProjectTemplate } from '../data/templates';
-import type { Task, Priority, ResourceType, SectionData, Status, Project, User } from '../types';
+import type { Task, Priority, ResourceType, SectionData, User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { TravailBoard } from './TravailBoard';
-import { ResourceBody } from './ResourceDetail';
 import { TaskPanel } from '../components/TaskPanel';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { showToast } from '../data/toastStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const PHASES = [
-  { key: 'preproduction',  label: 'Préproduction' },
-  { key: 'production',     label: 'Production' },
-  { key: 'postproduction', label: 'Postproduction' },
-  { key: 'livraison',      label: 'Livraison' },
-];
 
 const PRIORITY_COLOR: Record<Priority, string> = {
   high:   'var(--danger)',
@@ -55,16 +46,8 @@ const TYPE_ICON: Record<ResourceType, string> = {
   inspirations: 'image',
   file:         'hard-drive',
   form:         'clipboard-list',
+  web_review:   'globe',
 };
-
-const RESOURCE_STATUS_OPTIONS: { status: Status; label: string }[] = [
-  { status: 'ok',      label: 'Terminé'     },
-  { status: 'info',    label: 'En cours'    },
-  { status: 'warn',    label: 'À faire'     },
-  { status: 'review',  label: 'En révision' },
-  { status: 'danger',  label: 'Bloqué'      },
-  { status: 'neutral', label: 'En attente'  },
-];
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -1042,7 +1025,6 @@ function Section({
   const sectionDragHandleActive = React.useRef(false);
 
   const isExternalTaskDrag = draggedTask !== null && draggedTask.fromSectionLabel !== label;
-  const isSameTaskDrag = draggedTask !== null && draggedTask.fromSectionLabel === label;
 
   const handleTaskSlotDrop = (insertIdx: number) => {
     if (!draggedTask) return;
@@ -1444,8 +1426,8 @@ export function ResourcePreviewContent({ res }: { res: typeof RESOURCES[0] }) {
     );
   }
 
-  if (res.type === 'script' || res.type === 'document') {
-    const content = res.type === 'script' ? MOCK_SCRIPT : MOCK_DOCUMENT;
+  if (res.type === 'screenplay' || res.type === 'document') {
+    const content = res.type === 'screenplay' ? MOCK_SCRIPT : MOCK_DOCUMENT;
     return (
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
@@ -1786,7 +1768,6 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
 export function Travail() {
   const { t } = useTranslation();
   const { projectId } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const project = findProject(projectId ?? '') ?? getProjects()[0]!;
 
@@ -1866,7 +1847,6 @@ export function Travail() {
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
   const [view, setView] = usePersistedState<'list' | 'board'>('sf_view_travail', 'list');
   const [viewOpen, setViewOpen] = useState(false);
@@ -1964,11 +1944,6 @@ export function Travail() {
   };
 
   const handleDragStart = (idx: number) => setDraggedIdx(idx);
-
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    setDragOverIdx(idx);
-  };
 
   // Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) undo/redo — scoped to task additions,
   // so pasting a big checklist and changing your mind doesn't mean deleting
@@ -2082,22 +2057,6 @@ export function Travail() {
     handleTaskDrop(task, fromLabel, toLabel);
   };
 
-  const handleDrop = (targetIdx: number) => {
-    if (draggedIdx === null || draggedIdx === targetIdx) {
-      setDraggedIdx(null);
-      setDragOverIdx(null);
-      return;
-    }
-    setSections(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(draggedIdx, 1);
-      next.splice(targetIdx, 0, moved);
-      return next;
-    });
-    setDraggedIdx(null);
-    setDragOverIdx(null);
-  };
-
   const handleSectionInsertAt = (beforeVisibleIdx: number) => {
     if (draggedIdx === null) return;
     setSections(prev => {
@@ -2115,7 +2074,6 @@ export function Travail() {
       return next;
     });
     setDraggedIdx(null);
-    setDragOverIdx(null);
   };
 
   return (

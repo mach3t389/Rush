@@ -1,23 +1,23 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { SFButton, SFIcon, formatDisplay } from '../components/ui';
+import { SFButton, SFIcon } from '../components/ui';
 import { USERS } from '../data/mock';
 import { addProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
-import type { ProjectTemplate, TemplateSection, TemplateTask, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, ChecklistItem, DocumentSection, SceneBlock, ReviewRound, FolderNode, MoodboardRef } from '../data/templates';
-import { loadAllTemplates, loadCustomTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, loadCustomFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates } from '../data/templates';
+import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, ChecklistItem, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
+import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
-import type { Priority, ResourceType, Resource, Task, User, Project, SectionData } from '../types';
+import type { Priority, ResourceType, Resource, Task, Project, SectionData } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
-import { ChecklistView, DocumentView, ScreenplayView, MoodboardView, FileView, FormView, InspirationsView, mkQ as mkFormQ } from './ResourceDetail';
+import { ChecklistView, DocumentView, ScreenplayView, MoodboardView, FileView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
 
@@ -189,8 +189,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
         {tpl.type === 'file' && <FileView resource={fakeResource} seedFolderStructure={tpl.folderStructure} />}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
-        {tpl.type === 'inspirations' && <InspirationsView resource={fakeResource} />}
-        {tpl.type === 'form' && <FormView resource={fakeResource} templateMode initialQuestions={fieldsToQuestions(tpl.fields ?? [])} />}
       </div>
     </div>
   );
@@ -198,7 +196,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 
 // ── Shared constants ───────────────────────────────────────────────────────────
 
-const PRIORITY_LABEL_KEY: Record<Priority, string> = { high: 'models.priorityHigh', normal: 'models.priorityNormal', low: 'models.priorityLow', none: 'models.priorityNone' };
 const PRIORITY_COLOR: Record<Priority, string> = { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' };
 const STATUS_OPTIONS: { value: string; labelKey: string; color: string }[] = [
   { value: '', labelKey: 'models.statusNone', color: 'var(--text-3)' },
@@ -208,15 +205,16 @@ const STATUS_OPTIONS: { value: string; labelKey: string; color: string }[] = [
   { value: 'danger', labelKey: 'models.statusOverdue', color: 'var(--danger)' },
   { value: 'review', labelKey: 'models.statusInReview', color: 'var(--text-2)' },
 ];
-const USERS_LIST = Object.values(USERS);
 
 const RESOURCE_LABEL_KEYS: Record<ResourceType, string> = {
   screenplay: 'models.resScript', video_review: 'models.resReviewShort', moodboard: 'models.resMoodboard',
   document: 'models.resDocument', checklist: 'models.resChecklist', inspirations: 'models.resInspirations', file: 'models.resFile', form: 'models.resForm',
+  web_review: 'models.resWebReview',
 };
 const RESOURCE_ICON: Record<ResourceType, string> = {
   screenplay: 'file-text', video_review: 'video', moodboard: 'grid-2x2',
   document: 'file', checklist: 'list-checks', inspirations: 'image', file: 'paperclip', form: 'clipboard-list',
+  web_review: 'globe',
 };
 
 const TAG_COLORS: Record<string, string> = {
@@ -295,245 +293,6 @@ function InlineEditable({ value, onChange, onBlur, multiline, fontSize, fontWeig
           <SFIcon name="square-pen" size={11} color="var(--text-3)" />
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Project Template Editor (modal) ────────────────────────────────────────────
-
-function TemplateEditor({ template, onSave, onClose }: {
-  template: Partial<ProjectTemplate>;
-  onSave: (t: ProjectTemplate) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [name, setName] = useState(template.name ?? '');
-  const [description, setDescription] = useState(template.description ?? '');
-  const [color, setColor] = useState(template.color ?? '#3b4f8f');
-  const [tags, setTags] = useState(template.tags?.join(', ') ?? '');
-  const [sections, setSections] = useState<TemplateSection[]>(template.sections ?? []);
-  const [newSectionLabel, setNewSectionLabel] = useState('');
-  const [expandedSection, setExpandedSection] = useState<number | null>(0);
-  const [expandedTask, setExpandedTask] = useState<Record<string, boolean>>({});
-  const [newTaskTitle, setNewTaskTitle] = useState<Record<number, string>>({});
-
-  const addSection = () => {
-    if (!newSectionLabel.trim()) return;
-    setSections(p => [...p, { label: newSectionLabel.trim(), tasks: [] }]);
-    setNewSectionLabel('');
-    setExpandedSection(sections.length);
-  };
-
-  const removeSection = (i: number) => setSections(p => p.filter((_, idx) => idx !== i));
-
-  const addTask = (sIdx: number) => {
-    const title = newTaskTitle[sIdx]?.trim();
-    if (!title) return;
-    setSections(p => p.map((s, i) => i === sIdx ? { ...s, tasks: [...s.tasks, { title, priority: 'normal' as Priority }] } : s));
-    setNewTaskTitle(p => ({ ...p, [sIdx]: '' }));
-  };
-
-  const removeTask = (sIdx: number, tIdx: number) =>
-    setSections(p => p.map((s, i) => i === sIdx ? { ...s, tasks: s.tasks.filter((_, ti) => ti !== tIdx) } : s));
-
-  const updateTask = (sIdx: number, tIdx: number, patch: Partial<TemplateTask>) =>
-    setSections(p => p.map((s, i) => i === sIdx ? { ...s, tasks: s.tasks.map((t, ti) => ti === tIdx ? { ...t, ...patch } : t) } : s));
-
-  const toggleTask = (sIdx: number, tIdx: number) => {
-    const key = `${sIdx}-${tIdx}`;
-    setExpandedTask(p => ({ ...p, [key]: !p[key] }));
-  };
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    onSave({
-      id: template.id ?? `tpl-${Date.now()}`,
-      name: name.trim(), description: description.trim(), color,
-      icon: template.icon ?? 'folder',
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      sections, resources: template.resources ?? [],
-      builtIn: false,
-      createdAt: template.createdAt ?? new Date().toISOString().split('T')[0],
-    });
-  };
-
-  const [editingName, setEditingName] = useState(false);
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column', background: 'var(--bg)', overflow: 'hidden' }}>
-      {/* Topbar */}
-      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-          <SFIcon name="arrow-left" size={13} />{t('nav.models')}
-        </button>
-        <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: 'var(--surface-3)', color: 'var(--text-2)', fontSize: 10, fontFamily: 'var(--ff-mono)', border: '1px solid var(--border-2)', flexShrink: 0 }}>
-          <SFIcon name="layout-template" size={10} />{t('models.badgeProject')}
-        </span>
-        {editingName ? (
-          <input autoFocus value={name} onChange={e => setName(e.target.value)}
-            onBlur={() => setEditingName(false)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false); }}
-            style={{ flex: 1, fontSize: 15, fontWeight: 600, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 7, padding: '4px 10px', color: 'var(--text)', fontFamily: 'var(--ff-text)', outline: 'none' }}
-          />
-        ) : (
-          <span onClick={() => setEditingName(true)}
-            style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: 'text', padding: '4px 6px', borderRadius: 7, color: name ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >{name || t('models.templateNamePlaceholder')}</span>
-        )}
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('models.cancel')}</SFButton>
-          <SFButton variant="primary" size="sm" icon="check" onClick={handleSave} style={{ opacity: name.trim() ? 1 : 0.5 }}>{template.id ? t('models.saveAction') : t('models.createTemplate')}</SFButton>
-        </div>
-      </div>
-      {/* Body */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '28px 0' }}>
-        <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle()}>{t('models.description')}</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('models.describeTemplateShort')} style={fieldStyle({ resize: 'none' })} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={labelStyle()}>{t('models.color')}</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {COLORS.map(c => (
-                  <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none', flexShrink: 0 }} />
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle()}>{t('models.tagsComma')}</label>
-              <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('models.tagsPlaceholderVideo')} style={fieldStyle()} />
-            </div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <label style={labelStyle()}>{t('models.sectionsAndTasks')}</label>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('models.tasksDotSections', { tasks: sections.reduce((s, sec) => s + sec.tasks.length, 0), sections: sections.length })}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {sections.map((sec, sIdx) => (
-                <div key={sIdx} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-                  <div onClick={() => setExpandedSection(expandedSection === sIdx ? null : sIdx)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--surface-2)', cursor: 'pointer' }}>
-                    <SFIcon name={expandedSection === sIdx ? 'chevron-down' : 'chevron-right'} size={13} color="var(--text-3)" />
-                    <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{sec.label}</span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('models.tasksCount', { count: sec.tasks.length })}</span>
-                    <button onClick={e => { e.stopPropagation(); removeSection(sIdx); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-                      <SFIcon name="x" size={13} />
-                    </button>
-                  </div>
-                  {expandedSection === sIdx && (
-                    <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {sec.tasks.map((tk, tIdx) => {
-                        const taskKey = `${sIdx}-${tIdx}`;
-                        const isExp = !!expandedTask[taskKey];
-                        const statusOpt = STATUS_OPTIONS.find(o => o.value === (tk.status ?? '')) ?? STATUS_OPTIONS[0];
-                        const selStyle: React.CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 11, padding: '3px 5px', colorScheme: 'dark', cursor: 'pointer', fontFamily: 'var(--ff-text)' };
-                        return (
-                          <div key={tIdx} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: isExp ? 'var(--surface-2)' : 'transparent' }}>
-                            {/* Row header */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px' }}>
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[tk.priority], flexShrink: 0, display: 'block' }} />
-                              <input
-                                value={tk.title}
-                                onChange={e => updateTask(sIdx, tIdx, { title: e.target.value })}
-                                style={{ flex: 1, fontSize: 12, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontFamily: 'var(--ff-text)' }}
-                                placeholder={t('models.taskTitlePlaceholder')}
-                              />
-                              {tk.assignee && (
-                                <span title={tk.assignee.name} style={{ width: 18, height: 18, borderRadius: '50%', background: tk.assignee.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700, flexShrink: 0 }}>
-                                  {tk.assignee.initials}
-                                </span>
-                              )}
-                              {tk.status && (
-                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusOpt.color, flexShrink: 0, display: 'block' }} title={t(statusOpt.labelKey)} />
-                              )}
-                              {tk.dueDate && (
-                                <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{tk.dueDate}</span>
-                              )}
-                              <button onClick={() => toggleTask(sIdx, tIdx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 2, transition: 'transform 0.15s', transform: isExp ? 'rotate(180deg)' : 'none' }}>
-                                <SFIcon name="chevron-down" size={11} />
-                              </button>
-                              <button onClick={() => removeTask(sIdx, tIdx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--border-2)', display: 'flex', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--border-2)')}>
-                                <SFIcon name="x" size={12} />
-                              </button>
-                            </div>
-                            {/* Expanded detail */}
-                            {isExp && (
-                              <div style={{ padding: '0 10px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border)' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, paddingTop: 8 }}>
-                                  {/* Priority */}
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.priorityLabel')}</span>
-                                    <select value={tk.priority} onChange={e => updateTask(sIdx, tIdx, { priority: e.target.value as Priority })} style={selStyle}>
-                                      {(['high', 'normal', 'low'] as Priority[]).map(p => <option key={p} value={p}>{t(PRIORITY_LABEL_KEY[p])}</option>)}
-                                    </select>
-                                  </div>
-                                  {/* Status */}
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.statusLabel')}</span>
-                                    <select value={tk.status ?? ''} onChange={e => {
-                                      const opt = STATUS_OPTIONS.find(o => o.value === e.target.value);
-                                      updateTask(sIdx, tIdx, { status: opt?.value || undefined, statusLabel: opt ? t(opt.labelKey) : undefined });
-                                    }} style={selStyle}>
-                                      {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
-                                    </select>
-                                  </div>
-                                  {/* Assignee */}
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.assigneeLabel')}</span>
-                                    <select value={tk.assignee?.id ?? ''} onChange={e => {
-                                      const u = USERS_LIST.find(u => u.id === e.target.value);
-                                      updateTask(sIdx, tIdx, { assignee: u ? { id: u.id, name: u.name, initials: u.initials, avatarColor: u.avatarColor } : undefined });
-                                    }} style={selStyle}>
-                                      <option value="">{t('models.assigneeNone')}</option>
-                                      {USERS_LIST.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                                    </select>
-                                  </div>
-                                  {/* Due date */}
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.dueDateLabel')}</span>
-                                    <input
-                                      value={tk.dueDate ?? ''}
-                                      onChange={e => updateTask(sIdx, tIdx, { dueDate: e.target.value || undefined })}
-                                      placeholder={t('models.dueDatePlaceholder')}
-                                      style={{ ...selStyle, border: '1px solid var(--border)', borderRadius: 6 }}
-                                    />
-                                  </div>
-                                </div>
-                                {/* Description */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('models.description')}</span>
-                                  <textarea
-                                    value={tk.description ?? ''}
-                                    onChange={e => updateTask(sIdx, tIdx, { description: e.target.value || undefined })}
-                                    rows={2}
-                                    placeholder={t('models.taskNotesPlaceholder')}
-                                    style={{ width: '100%', padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'vertical', colorScheme: 'dark', boxSizing: 'border-box' }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                        <input value={newTaskTitle[sIdx] ?? ''} onChange={e => setNewTaskTitle(p => ({ ...p, [sIdx]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addTask(sIdx); }} placeholder={t('models.addTaskPlaceholder')} style={{ flex: 1, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
-                        <button onClick={() => addTask(sIdx)} style={{ padding: '5px 10px', borderRadius: 7, border: 'none', background: 'var(--surface-3)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}><SFIcon name="plus" size={12} /></button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input value={newSectionLabel} onChange={e => setNewSectionLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addSection(); }} placeholder={t('models.newSectionPlaceholder')} style={{ flex: 1, padding: '7px 10px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }} />
-                <SFButton variant="secondary" size="sm" icon="plus" onClick={addSection}>{t('models.section')}</SFButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -858,211 +617,6 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
   );
 }
 
-// ── Form Template Editor (modal) ───────────────────────────────────────────────
-
-function FormTemplateEditor({ template, onSave, onClose }: {
-  template: Partial<FormTemplate>;
-  onSave: (t: FormTemplate) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [name, setName] = useState(template.name ?? '');
-  const [description, setDescription] = useState(template.description ?? '');
-  const [color, setColor] = useState(template.color ?? '#3b4f8f');
-  const [tags, setTags] = useState(template.tags?.join(', ') ?? '');
-  const [fields, setFields] = useState<FormField[]>(template.fields ?? []);
-  const [editingField, setEditingField] = useState<FormField | null>(null);
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [addType, setAddType] = useState<FormFieldType>('text');
-
-  const openNewField = () => {
-    const newF: FormField = { id: `f-${Date.now()}`, type: addType, label: '' };
-    setEditingField(newF);
-    setEditingIdx(null);
-  };
-
-  const openEditField = (f: FormField, idx: number) => {
-    setEditingField({ ...f });
-    setEditingIdx(idx);
-  };
-
-  const saveField = () => {
-    if (!editingField || !editingField.label.trim()) return;
-    if (editingIdx !== null) {
-      setFields(p => p.map((f, i) => i === editingIdx ? editingField : f));
-    } else {
-      setFields(p => [...p, editingField]);
-    }
-    setEditingField(null);
-    setEditingIdx(null);
-  };
-
-  const removeField = (i: number) => setFields(p => p.filter((_, idx) => idx !== i));
-  const moveField = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= fields.length) return;
-    const arr = [...fields];
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    setFields(arr);
-  };
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    onSave({
-      id: template.id ?? `form-${Date.now()}`,
-      name: name.trim(), description: description.trim(), color,
-      icon: template.icon ?? 'clipboard-list',
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      fields, builtIn: false,
-      createdAt: template.createdAt ?? new Date().toISOString().split('T')[0],
-    });
-  };
-
-  const [editingName, setEditingName] = useState(false);
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column', background: 'var(--bg)', overflow: 'hidden' }}>
-      {/* Topbar */}
-      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-          <SFIcon name="arrow-left" size={13} />{t('nav.models')}
-        </button>
-        <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, background: 'var(--surface-3)', color: 'var(--text-2)', fontSize: 10, fontFamily: 'var(--ff-mono)', border: '1px solid var(--border-2)', flexShrink: 0 }}>
-          <SFIcon name="clipboard-list" size={10} />{t('models.resForm')}
-        </span>
-        {editingName ? (
-          <input autoFocus value={name} onChange={e => setName(e.target.value)}
-            onBlur={() => setEditingName(false)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false); }}
-            style={{ flex: 1, fontSize: 15, fontWeight: 600, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 7, padding: '4px 10px', color: 'var(--text)', fontFamily: 'var(--ff-text)', outline: 'none' }}
-          />
-        ) : (
-          <span onClick={() => setEditingName(true)}
-            style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: 'text', padding: '4px 6px', borderRadius: 7, color: name ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >{name || t('models.formNamePlaceholder')}</span>
-        )}
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('models.cancel')}</SFButton>
-          <SFButton variant="primary" size="sm" icon="check" onClick={handleSave} style={{ opacity: name.trim() ? 1 : 0.5 }}>{template.id ? t('models.saveAction') : t('models.createForm')}</SFButton>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '28px 0' }}>
-        <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle()}>{t('models.description')}</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('models.describeFormUsage')} style={fieldStyle({ resize: 'none' })} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={labelStyle()}>{t('models.color')}</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {COLORS.map(c => <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none', flexShrink: 0 }} />)}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle()}>{t('models.tagsComma')}</label>
-              <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('models.tagsPlaceholderClient')} style={fieldStyle()} />
-            </div>
-          </div>
-
-          {/* Fields list */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <label style={labelStyle()}>{t('models.fieldsCount', { count: fields.length })}</label>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {fields.map((f, i) => (
-                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <SFIcon name={FORM_FIELD_TYPE_ICONS[f.type]} size={11} color={color} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label || <em style={{ color: 'var(--text-3)' }}>{t('models.untitled')}</em>}</p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t(FORM_FIELD_TYPE_LABEL_KEYS[f.type])}{f.required ? ` · ${t('models.requiredSuffix')}` : ''}</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 2 }}>
-                    <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'var(--border-2)' : 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="chevron-up" size={12} /></button>
-                    <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} style={{ background: 'none', border: 'none', cursor: i === fields.length - 1 ? 'default' : 'pointer', color: i === fields.length - 1 ? 'var(--border-2)' : 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="chevron-down" size={12} /></button>
-                    <button onClick={() => openEditField(f, i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3 }}><SFIcon name="square-pen" size={12} /></button>
-                    <button onClick={() => removeField(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 3 }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}><SFIcon name="x" size={12} /></button>
-                  </div>
-                </div>
-              ))}
-              {/* Add field row */}
-              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                <select value={addType} onChange={e => setAddType(e.target.value as FormFieldType)} style={{ flex: 1, padding: '7px 10px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text)', fontSize: 12, outline: 'none', colorScheme: 'dark', cursor: 'pointer' }}>
-                  {(Object.keys(FORM_FIELD_TYPE_LABEL_KEYS) as FormFieldType[]).map(ft => (
-                    <option key={ft} value={ft}>{t(FORM_FIELD_TYPE_LABEL_KEYS[ft])}</option>
-                  ))}
-                </select>
-                <SFButton variant="secondary" size="sm" icon="plus" onClick={openNewField}>{t('models.addField')}</SFButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Field editor sub-modal */}
-      {editingField && (
-        <>
-          <div onClick={() => setEditingField(null)} style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 460, zIndex: 211, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 16px 60px rgba(0,0,0,0.8)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700 }}>{editingIdx !== null ? t('models.editField') : t('models.newField')}</h3>
-              <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={15} /></button>
-            </div>
-            <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle()}>{t('models.typeLabel')}</label>
-                <select value={editingField.type} onChange={e => setEditingField(f => f ? { ...f, type: e.target.value as FormFieldType, options: undefined } : f)} style={fieldStyle({ cursor: 'pointer' })}>
-                  {(Object.keys(FORM_FIELD_TYPE_LABEL_KEYS) as FormFieldType[]).map(ft => <option key={ft} value={ft}>{t(FORM_FIELD_TYPE_LABEL_KEYS[ft])}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle()}>{t('models.questionLabelRequired')}</label>
-                <input value={editingField.label} onChange={e => setEditingField(f => f ? { ...f, label: e.target.value } : f)} placeholder={t('models.questionLabelPlaceholder')} style={fieldStyle()} autoFocus />
-              </div>
-              {(editingField.type === 'text' || editingField.type === 'textarea' || editingField.type === 'number') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle()}>{t('models.placeholderLabel')}</label>
-                  <input value={editingField.placeholder ?? ''} onChange={e => setEditingField(f => f ? { ...f, placeholder: e.target.value } : f)} placeholder={t('models.placeholderFieldPlaceholder')} style={fieldStyle()} />
-                </div>
-              )}
-              {(editingField.type === 'choice' || editingField.type === 'multi') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle()}>{t('models.optionsOnePerLine')}</label>
-                  <textarea value={(editingField.options ?? []).join('\n')} onChange={e => setEditingField(f => f ? { ...f, options: e.target.value.split('\n') } : f)} rows={5} placeholder={'Option A\nOption B\nOption C'} style={fieldStyle({ resize: 'vertical' })} />
-                </div>
-              )}
-              {editingField.type === 'rating' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle()}>{t('models.maximum')}</label>
-                  <select value={editingField.ratingMax ?? 5} onChange={e => setEditingField(f => f ? { ...f, ratingMax: Number(e.target.value) } : f)} style={fieldStyle({ cursor: 'pointer' })}>
-                    {[3, 4, 5, 7, 10].map(n => <option key={n} value={n}>{t('models.starsCount', { count: n })}</option>)}
-                  </select>
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={!!editingField.required} onChange={e => setEditingField(f => f ? { ...f, required: e.target.checked } : f)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('models.requiredField')}</span>
-                </label>
-              </div>
-            </div>
-            <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <SFButton variant="ghost" size="sm" onClick={() => setEditingField(null)}>{t('models.cancel')}</SFButton>
-              <SFButton variant="primary" size="sm" icon="check" onClick={saveField} style={{ opacity: editingField.label.trim() ? 1 : 0.5 }}>{t('models.saveAction')}</SFButton>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ── Form Filler (modal) ────────────────────────────────────────────────────────
 
 function FormFiller({ template, instance, onClose }: {
@@ -1079,7 +633,7 @@ function FormFiller({ template, instance, onClose }: {
   const [responses, setResponses] = useState<FormResponse[]>(initResponses);
   const [aiApplied, setAiApplied] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
-  const [status, setStatus] = useState<'draft' | 'completed'>(instance?.status ?? 'draft');
+  const [, setStatus] = useState<'draft' | 'completed'>(instance?.status ?? 'draft');
 
   const getValue = (fieldId: string): FormFieldValue => {
     return responses.find(r => r.fieldId === fieldId)?.value ?? '';
@@ -1261,7 +815,7 @@ function FormFiller({ template, instance, onClose }: {
 
 // ── Form Instances panel ───────────────────────────────────────────────────────
 
-function FormInstancesPanel({ templateId, templateName, templateColor, onFillNew, onEditInstance }: {
+function FormInstancesPanel({ templateId, onFillNew, onEditInstance }: {
   templateId: string;
   templateName: string;
   templateColor: string;
@@ -1481,7 +1035,6 @@ function lTaskToTask(lt: LTask): Task {
     dueDate: lt.dueDate ?? '',
     dueDateRed: false,
     checked: false,
-    description: lt.description,
     subtasks: lt.subtasks?.map(lTaskToTask),
     activityCount: 0,
   };
@@ -1506,21 +1059,21 @@ type LResource = { id: string; type: ResourceType; title: string; templateId?: s
 const RESOURCE_TYPE_ICONS_TPV: Record<ResourceType, string> = {
   screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
   document: 'file-text', checklist: 'list-checks', inspirations: 'lightbulb',
-  file: 'folder', form: 'clipboard-list',
+  file: 'folder', form: 'clipboard-list', web_review: 'globe',
 };
-const RESOURCE_TYPE_LABEL_KEYS_TPV: Record<ResourceType, string> = {
+const RESOURCE_TYPE_LABELS_TPV: Record<ResourceType, string> = {
   screenplay: 'models.resTypeScreenplay', video_review: 'models.resTypeVideoReview', moodboard: 'models.resMoodboard',
   document: 'models.resDocument', checklist: 'models.resChecklist', inspirations: 'models.resInspirations',
-  file: 'models.resTypeFile', form: 'models.resForm',
+  file: 'models.resTypeFile', form: 'models.resForm', web_review: 'models.resTypeWebReview',
 };
 
 // Priority badge for board cards
 function TPVPriBadge({ priority }: { priority: Priority }) {
   const MAP: Record<Priority, { label: string; color: string }> = {
-    urgent: { label: 'Urgent', color: '#ef4444' },
     high: { label: 'Élevée', color: '#f97316' },
     normal: { label: 'Normale', color: '#6b7280' },
     low: { label: 'Faible', color: '#3b82f6' },
+    none: { label: 'Aucune', color: '#6b7280' },
   };
   const { label, color } = MAP[priority] ?? MAP.normal;
   return (
@@ -1533,6 +1086,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
   onClose: () => void;
   onSave: (updated: ProjectTemplate) => void;
 }) {
+  const { t } = useTranslation();
   const [sections, setSections] = useState<LSection[]>(() => toLocalSections(initialTpl.sections));
   const [tplName, setTplName] = useState(initialTpl.name);
   const [tplDescription, setTplDescription] = useState(initialTpl.description ?? '');
@@ -1849,7 +1403,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                             <TPVPriBadge priority={task.priority} />
                             {task.status && (() => {
                               const opt = STATUS_OPTIONS.find(o => o.value === task.status) ?? STATUS_OPTIONS[0];
-                              return <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${opt.color}22`, color: opt.color, border: `1px solid ${opt.color}44` }}>{task.statusLabel ?? opt.label}</span>;
+                              return <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${opt.color}22`, color: opt.color, border: `1px solid ${opt.color}44` }}>{task.statusLabel ?? t(opt.labelKey)}</span>;
                             })()}
                             {task.assignee && (
                               <span title={task.assignee.name} style={{ width: 18, height: 18, borderRadius: '50%', background: task.assignee.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700, flexShrink: 0 }}>{task.assignee.initials}</span>
@@ -1908,7 +1462,6 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
               title: selectedTask.title,
               priority: selectedTask.priority,
               priorityLabel: selectedTask.priority,
-              description: selectedTask.description,
               subtasks: (selectedTask.subtasks ?? []).map(s => ({
                 id: s.id,
                 title: s.title,
@@ -2205,7 +1758,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
         {tpl.type === 'screenplay' && (tpl.sceneBlocks ?? []).map((scene, i) => (
           <div key={i} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
             <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: tpl.color }}>Scène {i + 1}</p>
-            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{scene.heading}</p>
+            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{scene.location}</p>
             {scene.action && <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{scene.action}</p>}
           </div>
         ))}
@@ -2214,7 +1767,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
             <div style={{ width: 22, height: 22, borderRadius: 6, background: `${tpl.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700, color: tpl.color }}>{i + 1}</span>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text)' }}>{round.name}</span>
+            <span style={{ fontSize: 12, color: 'var(--text)' }}>{round.label}</span>
           </div>
         ))}
         {tpl.type === 'file' && (tpl.folderStructure ?? []).map((folder, i) => (
@@ -2236,7 +1789,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
             <div style={{ width: 32, height: 24, borderRadius: 5, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <SFIcon name="image" size={12} color="var(--text-3)" />
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ref.label || ref.url || `Référence ${i + 1}`}</span>
+            <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ref.title || ref.note || `Référence ${i + 1}`}</span>
           </div>
         ))}
         {itemCount === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucun contenu dans ce modèle.</p>}
@@ -2482,6 +2035,7 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
 ];
 
 export function Modeles() {
+  const { t } = useTranslation();
   const plan = usePlan();
   const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>('projets');
   const [searchQuery, setSearchQuery] = useState('');
@@ -2499,8 +2053,6 @@ export function Modeles() {
   // ── Project templates state
   const [templates, setTemplates] = useState(loadAllTemplates);
   const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => { const all = loadAllTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
-  const [tplEditorOpen, setTplEditorOpen] = useState(false);
-  const [tplEditorData, setTplEditorData] = useState<Partial<ProjectTemplate>>({});
   const [createProjectFrom, setCreateProjectFrom] = useState<ProjectTemplate | null>(null);
   const [previewTpl, setPreviewTpl] = useState<ProjectTemplate | null>(null);
   const [builtInsCollapsed, setBuiltInsCollapsed] = useState(false);
@@ -2719,7 +2271,7 @@ export function Modeles() {
     ? `${templates.length} modèles de projets`
     : typeFilter === 'formulaires'
     ? `${formTemplates.length} modèles de formulaires`
-    : `${resourceTemplates.filter(t => t.type === typeFilter).length} modèles — ${TYPE_PILLS.find(p => p.key === typeFilter)?.label}`;
+    : `${resourceTemplates.filter(r => r.type === typeFilter).length} modèles — ${(() => { const p = TYPE_PILLS.find(p => p.key === typeFilter); return p ? t(p.labelKey) : ''; })()}`;
 
   const searchInputStyle: React.CSSProperties = {
     width: '100%', padding: '7px 10px 7px 30px', borderRadius: 9,
@@ -2728,25 +2280,9 @@ export function Modeles() {
     fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box',
   };
 
-  const pillStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', gap: 5,
-    padding: '4px 9px', borderRadius: 7, border: 'none', cursor: 'pointer',
-    fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.05em', textTransform: 'uppercase',
-    background: active ? 'var(--accent)' : 'var(--surface-3)',
-    color: active ? 'var(--on-accent)' : 'var(--text-3)',
-    transition: 'all 0.1s', whiteSpace: 'nowrap',
-  });
-
   const sectionLabelStyle: React.CSSProperties = {
     fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
     textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 8px 4px',
-  };
-
-  const emptyCreateStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-    padding: '9px 10px', borderRadius: 9, border: '1px dashed var(--border-2)',
-    background: 'transparent', color: 'var(--text-3)', fontSize: 12,
-    cursor: 'pointer', marginTop: 6, fontFamily: 'var(--ff-text)',
   };
 
   const collapsibleBtnStyle: React.CSSProperties = {
@@ -3041,7 +2577,6 @@ export function Modeles() {
       {/* Modals */}
       {formViewOpen && (() => {
         const tpl = formViewData as FormTemplate;
-        const isNew = !tpl.id;
         const fakeResource = { id: tpl.id ?? 'new', title: tpl.name ?? 'Nouveau formulaire', type: 'form' as const, status: 'info' as const, projectId: '', projectName: '', projectColor: '', linkedResources: [], createdAt: '' };
         const handleSaveTemplate = (questions: FormQuestion[]) => {
           const fields = questionsToFields(questions);

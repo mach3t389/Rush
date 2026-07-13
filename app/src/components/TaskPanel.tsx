@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, fmtTaskDate, isOverdue } from './ui';
+import { SFPill, SFAvatar, SFBar, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
@@ -75,6 +75,7 @@ const RESOURCE_TYPE_LABEL_KEY: Record<ResourceType, string> = {
   inspirations: 'resources.inspirations',
   file:         'resources.file',
   form:         'resources.form',
+  web_review:   'resources.webReview',
 };
 
 const TYPE_ICON: Record<ResourceType, string> = {
@@ -86,6 +87,7 @@ const TYPE_ICON: Record<ResourceType, string> = {
   inspirations: 'image',
   file:         'hard-drive',
   form:         'clipboard-list',
+  web_review:   'globe',
 };
 
 const TEAM = Object.values(USERS);
@@ -510,7 +512,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   };
 
   const convertToSubtask = (c: CommentObj) => {
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'normal', status: '', statusLabel: '', assignee: task.assignee ?? null, comments: [] };
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'normal', status: '', statusLabel: '', assignee: task.assignee ?? null, dueDate: '', comments: [] };
     setLocalSubtasks(prev => [...prev, sub]);
     setComments(prev => prev.filter(x => x.id !== c.id));
   };

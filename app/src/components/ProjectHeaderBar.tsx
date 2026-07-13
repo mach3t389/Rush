@@ -5,7 +5,7 @@ import { SFIcon } from './ui';
 import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject } from '../data/projectStore';
 import { ProjectEditPanel } from './ProjectCard';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
-import { useProjectTaskNotifCount, useProjectResourceNotifCount } from '../hooks/useNotifs';
+import { useProjectTaskNotifCount } from '../hooks/useNotifs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,7 +36,6 @@ export function ProjectHeaderBar({
   const [editOpen, setEditOpen] = useState(false);
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
-  const resourceNotifs = useProjectResourceNotifCount(projectId);
 
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
 

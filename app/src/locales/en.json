@@ -298,7 +298,8 @@
     "checklist": "Checklist",
     "inspirations": "Inspirations",
     "file": "File",
-    "form": "Form"
+    "form": "Form",
+    "webReview": "Web Review"
   },
   "approval": {
     "requestApproval": "Request Approval",
@@ -1385,13 +1386,15 @@
     "resChecklist": "Checklist",
     "resInspirations": "Inspirations",
     "resFile": "File",
+    "resWebReview": "Web review",
     "untitled": "Untitled",
     "saveCopy": "Save a copy",
     "saveDirty": "Save *",
     "save": "Save",
     "resTypeScreenplay": "Screenplay",
     "resTypeVideoReview": "Video review",
-    "resTypeFile": "File"
+    "resTypeFile": "File",
+    "resTypeWebReview": "Web review"
   },
   "review": {
     "statusOpen": "Open",

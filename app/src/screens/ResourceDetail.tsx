@@ -49,12 +49,12 @@ interface InspiItem { id: string; title: string; url: string; bg: string; imageU
 const TYPE_ICON: Record<ResourceType, string> = {
   screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
   document: 'file', checklist: 'list-checks', inspirations: 'image', file: 'hard-drive',
-  form: 'clipboard-list',
+  form: 'clipboard-list', web_review: 'globe',
 };
 const TYPE_LABEL_KEY: Record<ResourceType, string> = {
   screenplay: 'resources.scenography', video_review: 'resources.review', moodboard: 'resources.moodboard',
   document: 'resources.document', checklist: 'resources.checklist', inspirations: 'resources.inspirations', file: 'resources.file',
-  form: 'resources.form',
+  form: 'resources.form', web_review: 'resources.webReview',
 };
 
 const EL_CFG: Record<ScriptElType, { labelKey: string; abbr: string; placeholderKey: string; ml: string; w: string; upper: boolean; right: boolean; italic: boolean; color: string }> = {
@@ -321,7 +321,7 @@ function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string 
   );
 }
 
-function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, setActiveVersionId, panelTab, setPanelTab, propItems, setPropItems }: ScriptViewProps) {
+function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, panelTab, setPanelTab, propItems, setPropItems }: ScriptViewProps) {
   const { t } = useTranslation();
   const [newProp, setNewProp] = useState('');
   const [propSceneFilter, setPropSceneFilter] = useState<string | 'all'>('all');
@@ -1425,8 +1425,6 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                   const ep2 = resolveEp(arrow, 'to');
                   if (!ep1 || !ep2) return null;
                   const isSel = selectedArrow === arrow.id;
-                  const mx = (ep1.x + ep2.x) / 2;
-                  const my = (ep1.y + ep2.y) / 2;
                   // Petits ronds aux endpoints libres (non attachés)
                   const showDot1 = !arrow.from;
                   const showDot2 = !arrow.to;
@@ -1694,10 +1692,10 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
           const files = Array.from(e.target.files ?? []);
           if (!files.length) return;
-          files.forEach((file, i) => {
+          files.forEach((file) => {
             const blobUrl = URL.createObjectURL(file);
             if (file.type.startsWith('image/')) {
-              addAtCenter({ type:'image', w:260, h:190, imageUrl:blobUrl, x: undefined as unknown as number });
+              addAtCenter({ type:'image', w:260, h:190, imageUrl:blobUrl });
             } else if (file.type.startsWith('video/')) {
               addAtCenter({ type:'video', w:280, h:190, videoUrl:blobUrl });
             }
@@ -1845,7 +1843,7 @@ function folderNodesToFsFolders(nodes: { id: string; name: string; children?: { 
   return folders;
 }
 
-export function FileView({ resource, seedFolderStructure }: { resource: Resource; seedFolderStructure?: any[] }) {
+export function FileView({ seedFolderStructure }: { resource: Resource; seedFolderStructure?: any[] }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [folders, setFolders] = useState<FsFolder[]>(seedFolderStructure ? folderNodesToFsFolders(seedFolderStructure) : INIT_FOLDERS);
@@ -1925,7 +1923,7 @@ export function FileView({ resource, seedFolderStructure }: { resource: Resource
     setCtx(null);
   };
 
-  const startRename = (id: string, kind: 'folder'|'file', currentName: string) => {
+  const startRename = (id: string, _kind: 'folder'|'file', currentName: string) => {
     setRenamingId(id);
     setRenameVal(currentName);
     setCtx(null);
@@ -4580,7 +4578,7 @@ const MOCK_SHOTLIST: ShotRow[] = [
 
 interface ScriptScene { id: string; number: number; label: string; }
 
-function ShotlistView({ resource, scriptScenes }: { resource: Resource; scriptScenes: ScriptScene[] }) {
+function ShotlistView({ scriptScenes }: { resource: Resource; scriptScenes: ScriptScene[] }) {
   const { t } = useTranslation();
   const [shots, setShots] = useState<ShotRow[]>(MOCK_SHOTLIST);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -4948,7 +4946,7 @@ const MOCK_SB_SCENES: SBScene[] = [
 
 const SB_ASPECT = 16 / 9;
 
-function StoryboardView({ resource, scriptScenes }: { resource: Resource; scriptScenes: ScriptScene[] }) {
+function StoryboardView(_props: { resource: Resource; scriptScenes: ScriptScene[] }) {
   const { t } = useTranslation();
   const [scenes, setScenes] = useState<SBScene[]>(MOCK_SB_SCENES);
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
@@ -5487,7 +5485,6 @@ function StoryboardView({ resource, scriptScenes }: { resource: Resource; script
 type ScreenplayTab = 'script' | 'shotlist' | 'storyboard';
 
 export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef, persistKey }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null>; persistKey?: string } & EditableProps) {
-  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
   const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[] }>(persistKey) : undefined;
   const [versions, setVersions] = useState<ScriptVersion[]>(() => {

@@ -1,8 +1,7 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFButton, SFIcon, TaskDatePopover, DatePickerDropdown, toYMD, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
+import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask } from '../data/myTaskStore';
@@ -11,7 +10,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
-import type { Task, Priority, ResourceType, User } from '../types';
+import type { Task, Priority, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -304,7 +303,6 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
 
 function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, onConvertRequest }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void; onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [status, setStatus] = useState(task.status as string);
@@ -319,7 +317,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   const [projSearch, setProjSearch] = useState('');
   const [pendingProjId, setPendingProjId] = useState<string | null>(null);
   const projSecBtnRef = useRef<HTMLButtonElement>(null);
-  const taskSections = getSections(task.projectId);
   const isFlashing = flashId === task.id;
 
   const assigneeBtnRef = useRef<HTMLButtonElement>(null);
@@ -1210,7 +1207,7 @@ export function Taches() {
   const [filter, setFilter]           = usePersistedState<Filter>('sf_taches_filter', 'all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
-  const [flashId, setFlashId]         = useState<string | null>(null);
+  const [flashId]                     = useState<string | null>(null);
   const [convertRequest, setConvertRequest] = useState<{ taskId: string; pos: { x: number; y: number } } | null>(null);
   const handleConvertRequest = useCallback((task: Task, pos: { x: number; y: number }) => {
     setConvertRequest({ taskId: task.id, pos });
@@ -1348,11 +1345,6 @@ export function Taches() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const flash = useCallback((id: string) => {
-    setFlashId(id);
-    setTimeout(() => setFlashId(null), 1500);
-  }, []);
-
   // Apply date filter ↑' priority filter ↑' status filter ↑' sort
   let visible = filterTasks(tasks, filter);
   if (filterPrioritiesSet.size > 0) visible = visible.filter(t => filterPrioritiesSet.has(t.priority));
@@ -1469,8 +1461,8 @@ export function Taches() {
             filterStatuses={filterStatusesSet}
             onTogglePriority={togglePriorityFilter}
             onToggleStatus={toggleStatusFilter}
-            onClearPriority={() => setFilterPriorities(new Set())}
-            onClearStatus={() => setFilterStatuses(new Set())}
+            onClearPriority={() => setFilterPriorities([])}
+            onClearStatus={() => setFilterStatuses([])}
           />
           </div>
         </div>

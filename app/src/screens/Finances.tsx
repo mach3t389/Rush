@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, parseYMD, toYMD } from '../components/ui';
+import { SFIcon, SFButton, DatePickerDropdown, formatDisplay } from '../components/ui';
 import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
+import { getCurrentUser } from '../data/authStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import {
   getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices, findInvoice,
@@ -331,7 +332,8 @@ export function InvoiceDetailPanel({
   const handleComment = () => {
     const text = commentText.trim();
     if (!text) return;
-    const profile = loadProfile();
+    const currentUser = getCurrentUser();
+    const profile = currentUser ? loadProfile(currentUser.id) : null;
     const name = profile?.name ?? 'Léa Marchand';
     const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
     const comment: InvoiceComment = {

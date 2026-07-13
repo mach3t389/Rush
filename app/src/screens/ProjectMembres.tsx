@@ -312,12 +312,6 @@ function MemberCard({ user, onRemove, isOwner, selected, onToggleSelect }: {
   );
 }
 
-const sectionLabel = (text: string) => (
-  <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 4 }}>
-    {text}
-  </p>
-);
-
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function ProjectMembres() {

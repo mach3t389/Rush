@@ -92,7 +92,7 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
   );
 }
 
-export function Sidebar({ onSearch }: { onSearch?: () => void }) {
+export function Sidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
