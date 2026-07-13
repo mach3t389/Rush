@@ -60,14 +60,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── New client modal ──────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#3b4f8f', '#1a6b4a', '#7d4e57', '#5b3ea8', '#2d5a7d', '#a85f3e', '#2a7a8a', '#404040', '#8a2a6e', '#4a7a2a'];
-const SECTOR_KEYS = ['advertising', 'musicClip', 'documentary', 'corporate', 'motionDesign', 'social', 'other'] as const;
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const SECTORS = SECTOR_KEYS.map(k => t(`clients.${k}`));
   const [name,   setName]   = useState('');
-  const [sector, setSector] = useState(SECTORS[0]);
+  const [sector, setSector] = useState('');
   const [city,   setCity]   = useState('');
   const [color,  setColor]  = useState(AVATAR_COLORS[0]);
 

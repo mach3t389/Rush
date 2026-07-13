@@ -1031,6 +1031,18 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
     cancel();
   };
 
+  // Pasting multi-line text (e.g. a checklist copied from an email) creates
+  // one task per non-empty line instead of dumping it all in one title.
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length <= 1) return;
+    e.preventDefault();
+    lines.forEach(line => onAdd(line, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project }));
+    clearFields();
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   const ddItem = (onClick: () => void, children: React.ReactNode, active?: boolean) => (
     <button onMouseDown={e => e.preventDefault()} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
@@ -1070,6 +1082,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') submitAndContinue(); if (e.key === 'Escape') cancel(); }}
+          onPaste={handlePaste}
           onBlur={commitOnBlur}
           placeholder={t('taskPanel.taskNamePlaceholder')}
           style={{ width: '100%', padding: '4px 0', background: 'transparent', border: 'none', borderBottom: '1px solid var(--accent)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}

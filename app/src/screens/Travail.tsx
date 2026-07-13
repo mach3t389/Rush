@@ -806,6 +806,18 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
     cancel();
   };
 
+  // Pasting multi-line text (e.g. a checklist copied from an email) creates
+  // one task per non-empty line instead of dumping it all in one title.
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length <= 1) return;
+    e.preventDefault();
+    lines.forEach(line => onAdd(buildTask(line)));
+    clearFields();
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
   if (!adding) {
     return (
       <button
@@ -840,6 +852,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
+          onPaste={handlePaste}
           onBlur={commitOnBlur}
           placeholder="Nom de la tâche..."
           style={{

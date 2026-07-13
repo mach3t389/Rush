@@ -173,11 +173,12 @@ const subColLabel = (label: string) => (
 
 // ── SubTaskRow ────────────────────────────────────────────────────────────────
 
-function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
+function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
   sub: LocalSubtask;
   onToggle: () => void;
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
+  onPasteMultiple: (lines: string[]) => void;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(sub.title === '');
@@ -216,6 +217,14 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete }: {
           onChange={e => setEditTitle(e.target.value)}
           onBlur={() => { onUpdate({ title: editTitle }); setEditing(false); }}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { onUpdate({ title: editTitle }); setEditing(false); } }}
+          onPaste={e => {
+            const text = e.clipboardData.getData('text');
+            const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
+            if (lines.length <= 1) return;
+            e.preventDefault();
+            setEditing(false);
+            onPasteMultiple(lines);
+          }}
           placeholder={t('tasks.newSubtask')}
           style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%' }}
         />
@@ -415,6 +424,22 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'normal', status: '', statusLabel: '', assignee: null, dueDate: '', comments: [] };
     setLocalSubtasks(prev => {
       const next = [...prev, sub];
+      onUpdate?.({ subtasks: next as unknown as Task[] });
+      return next;
+    });
+  };
+
+  // Pasting multi-line text (e.g. a checklist from a client email) into a
+  // subtask title creates one subtask per non-empty line, replacing the
+  // row that received the paste.
+  const addSubtasksFromLines = (lines: string[], replaceId: string) => {
+    setLocalSubtasks(prev => {
+      const base = prev.filter(s => s.id !== replaceId);
+      const newSubs: LocalSubtask[] = lines.map((title, i) => ({
+        id: `sub-${Date.now()}-${i}`, title, checked: false, priority: 'normal',
+        status: '', statusLabel: '', assignee: null, dueDate: '', comments: [],
+      }));
+      const next = [...base, ...newSubs];
       onUpdate?.({ subtasks: next as unknown as Task[] });
       return next;
     });
@@ -1089,6 +1114,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 }}
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => setLocalSubtasks(prev => prev.filter(s => s.id !== sub.id))}
+                onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
               />
             ))}
             <button onClick={addSubtask}
