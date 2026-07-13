@@ -106,60 +106,69 @@ export function AdminStudios() {
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 40, boxSizing: 'border-box' }}>
-    <div style={{ maxWidth: 640, margin: '0 auto', fontFamily: 'var(--ff-text)' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: 'var(--ff-text)' }}>
       <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 700, marginBottom: 20 }}>
         Octroi manuel d'accès
       </h1>
 
-      <input
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Rechercher un studio par nom… (laisser vide pour voir tous les studios)"
-        style={{
-          width: '100%', padding: '10px 14px', borderRadius: 9, border: '1px solid var(--border)',
-          background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, marginBottom: 16,
-          boxSizing: 'border-box',
-        }}
-      />
+      <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Rechercher un studio par nom… (laisser vide pour voir tous les studios)"
+            style={{
+              width: '100%', padding: '10px 14px', borderRadius: 9, border: '1px solid var(--border)',
+              background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, marginBottom: 16,
+              boxSizing: 'border-box',
+            }}
+          />
 
-      {results.length > 0 && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 24 }}>
-          {results.map(s => (
-            <button
-              key={s.id}
-              onClick={() => selectStudio(s)}
-              style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
-                padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--border)',
-                background: selected?.id === s.id ? 'var(--surface-3)' : 'var(--surface)',
-                color: 'var(--text)', cursor: 'pointer', fontSize: 13, textAlign: 'left',
-              }}>
-              <span>{s.name}</span>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{s.plan}</span>
-            </button>
-          ))}
+          {results.length > 0 && (
+            <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 24 }}>
+              {results.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => selectStudio(s)}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
+                    padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--border)',
+                    background: selected?.id === s.id ? 'var(--surface-3)' : 'var(--surface)',
+                    color: 'var(--text)', cursor: 'pointer', fontSize: 13, textAlign: 'left',
+                  }}>
+                  <span>{s.name}</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{s.plan}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {results.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>Aucun studio trouvé.</p>
+          )}
+
+          {total > PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <SFButton variant="secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
+                Précédent
+              </SFButton>
+              <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+                Page {page + 1} / {totalPages}
+              </span>
+              <SFButton variant="secondary" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
+                Suivant
+              </SFButton>
+            </div>
+          )}
         </div>
-      )}
 
-      {results.length === 0 && (
-        <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>Aucun studio trouvé.</p>
-      )}
-
-      {total > PAGE_SIZE && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <SFButton variant="secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
-            Précédent
-          </SFButton>
-          <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
-            Page {page + 1} / {totalPages}
-          </span>
-          <SFButton variant="secondary" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
-            Suivant
-          </SFButton>
-        </div>
-      )}
-
-      {selected && (
+        <div style={{ width: 320, flexShrink: 0, position: 'sticky', top: 0 }}>
+          {!selected && (
+            <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: 20, textAlign: 'center' }}>
+              <p style={{ fontSize: 13, color: 'var(--text-3)' }}>Sélectionne un studio dans la liste pour modifier son plan.</p>
+            </div>
+          )}
+          {selected && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 20, background: 'var(--surface)' }}>
           <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{selected.name}</p>
 
@@ -233,7 +242,9 @@ export function AdminStudios() {
             <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 12 }}>{message}</p>
           )}
         </div>
-      )}
+          )}
+        </div>
+      </div>
     </div>
     </div>
   );
