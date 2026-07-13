@@ -9,6 +9,9 @@ import {
   type ShortcutAction, type ShortcutCombo,
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
 import { supabase } from '../data/supabaseClient';
@@ -21,9 +24,10 @@ import {
   TAX_PRESETS, type TaxLine,
 } from '../data/financeStore';
 
-function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, setter }: {
+function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, setter, locked, onLockedClick }: {
   label: string; hint: string; aspectLabel: string; previewW: number; previewH: number;
   getter: () => string | null; setter: (v: string | null) => void;
+  locked?: boolean; onLockedClick?: () => void;
 }) {
   const { t } = useTranslation();
   const [src, setSrc] = useState<string | null>(getter);
@@ -42,11 +46,11 @@ function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, se
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, opacity: locked ? 0.5 : 1 }}>
       <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', fontWeight: 600 }}>{label}</p>
       <input ref={inputRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
       <div
-        onClick={() => inputRef.current?.click()}
+        onClick={() => { if (locked) { onLockedClick?.(); return; } inputRef.current?.click(); }}
         style={{
           borderRadius: 9, border: `1.5px dashed ${src ? 'var(--accent)' : 'var(--border-2)'}`,
           background: 'var(--surface-2)', cursor: 'pointer',
@@ -54,9 +58,14 @@ function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, se
           gap: 8, padding: '20px 12px', minHeight: 96, position: 'relative',
           transition: 'border-color 0.15s',
         }}
-        onMouseEnter={e => { if (!src) (e.currentTarget as HTMLElement).style.borderColor = 'var(--text-3)'; }}
-        onMouseLeave={e => { if (!src) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+        onMouseEnter={e => { if (!src && !locked) (e.currentTarget as HTMLElement).style.borderColor = 'var(--text-3)'; }}
+        onMouseLeave={e => { if (!src && !locked) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
       >
+        {locked && (
+          <div style={{ position: 'absolute', top: 6, right: 6 }}>
+            <SFIcon name="lock" size={12} color="var(--text-3)" />
+          </div>
+        )}
         {src ? (
           <>
             <img src={src} alt={label} style={{ maxWidth: previewW, maxHeight: previewH, objectFit: 'contain', borderRadius: 4 }} />
@@ -1634,6 +1643,7 @@ export function Parametres() {
     if (params.has('checkout')) return 'plan';
     return params.get('section') || 'infos';
   });
+  const plan = usePlan();
   const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
   useEffect(() => subscribeStudioInfo(() => setStudioInfo(getStudioInfo())), []);
   const saveStudioField = (field: keyof StudioInfo, value: string) => updateStudioInfo({ [field]: value });
@@ -1750,6 +1760,8 @@ export function Parametres() {
                   previewH={48}
                   getter={getLogoFull}
                   setter={setLogoFull}
+                  locked={!canUseFeature(plan, 'customLogo')}
+                  onLockedClick={() => requestUpgrade({ feature: 'customLogo' })}
                 />
                 {/* Icône carrée */}
                 <LogoUploader
@@ -1760,6 +1772,8 @@ export function Parametres() {
                   previewH={48}
                   getter={getLogoSquare}
                   setter={setLogoSquare}
+                  locked={!canUseFeature(plan, 'customLogo')}
+                  onLockedClick={() => requestUpgrade({ feature: 'customLogo' })}
                 />
               </div>
             </div>
