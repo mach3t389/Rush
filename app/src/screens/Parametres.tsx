@@ -1056,12 +1056,6 @@ const STORAGE_BLOCKS = [
   { tier: 6, labelKey: null, label: '+4 To',           priceMonthly: 96, priceYearly: 922 },
 ];
 
-const MOCK_INVOICES = [
-  { date: '2026-05-01', amount: '19,00 $ CA', status: 'paid' },
-  { date: '2026-04-01', amount: '19,00 $ CA', status: 'paid' },
-  { date: '2026-03-01', amount: '19,00 $ CA', status: 'paid' },
-];
-
 function PlanSettings() {
   const { t } = useTranslation();
   const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
@@ -1214,7 +1208,31 @@ function PlanSettings() {
     setDraftSeats(currentSeats);
   };
 
-  const [planSubTab, setPlanSubTab] = useState<'overview' | 'history'>('overview');
+  const [openingPortal, setOpeningPortal] = useState(false);
+
+  const openBillingPortal = async () => {
+    setOpeningPortal(true);
+    try {
+      const studioId = await getStudioId();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ studioId }),
+      });
+      if (!res.ok) throw new Error('Portal session request failed');
+      const { url } = await res.json();
+      if (!url) throw new Error('No portal URL returned');
+      window.location.href = url;
+    } catch (err) {
+      console.error('Failed to open billing portal', err);
+      window.alert(t('settings.planPortalFailed'));
+      setOpeningPortal(false);
+    }
+  };
 
   return (
     <div style={{ paddingBottom: hasChanges ? 88 : 0 }}>
@@ -1243,21 +1261,6 @@ function PlanSettings() {
       )}
       <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('settings.planTitle')}</h2>
       <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 24 }}>{t('settings.planDesc')}</p>
-
-      {/* ── Sous-onglets ───────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 32 }}>
-        {(['overview', 'history'] as const).map(tab => (
-          <button key={tab} onClick={() => setPlanSubTab(tab)} style={{
-            padding: '10px 4px', marginRight: 24, border: 'none', borderBottom: `2px solid ${planSubTab === tab ? 'var(--accent)' : 'transparent'}`,
-            background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)',
-            color: planSubTab === tab ? 'var(--text)' : 'var(--text-3)', transition: 'color 0.15s, border-color 0.15s',
-          }}>
-            {t(tab === 'overview' ? 'settings.planSubTabOverview' : 'settings.planSubTabHistory')}
-          </button>
-        ))}
-      </div>
-
-      {planSubTab === 'overview' && <>
 
       {/* ── Billing toggle ─────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
@@ -1562,32 +1565,22 @@ function PlanSettings() {
         <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 12 }}>{t('settings.planCancelAnytime')}</p>
       </div>
 
-      </>}
-
-      {/* ── Historique des paiements (sous-onglet) ──────────────────────── */}
-      {planSubTab === 'history' && (
-        <div>
-          <h3 style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 6 }}>{t('settings.planHistoryTitle')}</h3>
-          <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 18 }}>{t('settings.planHistoryDesc')}</p>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '9px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-              {['planHistoryDate','planHistoryAmount','planHistoryStatus','planHistoryDownload'].map(k => (
-                <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(`settings.${k}`)}</span>
-              ))}
-            </div>
-            {MOCK_INVOICES.map((inv, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', padding: '11px 16px', borderBottom: i < MOCK_INVOICES.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)' }}>{inv.date}</span>
-                <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{inv.amount}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--ok)', background: 'rgba(0,210,120,0.1)', borderRadius: 5, padding: '3px 8px', display: 'inline-block' }}>
-                  {t(`settings.planHistory${inv.status === 'paid' ? 'Paid' : 'Pending'}`)}
-                </span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                  <SFIcon name="download" size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
+      {hasActiveSubscription && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32, marginBottom: 40 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 6 }}>{t('settings.planManageTitle')}</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 16 }}>{t('settings.planManageDesc')}</p>
+          <button
+            onClick={openBillingPortal}
+            disabled={openingPortal}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 9,
+              border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)',
+              fontSize: 13, fontWeight: 700, fontFamily: 'var(--ff-text)',
+              cursor: openingPortal ? 'default' : 'pointer', opacity: openingPortal ? 0.6 : 1,
+            }}>
+            <SFIcon name="external-link" size={14} color="var(--text)" />
+            {t('settings.planManageCta')}
+          </button>
         </div>
       )}
 
