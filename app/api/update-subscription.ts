@@ -62,8 +62,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('id', studioId)
     .single();
 
-  if (studioError || !studio?.stripe_subscription_id) {
-    res.status(400).json({ error: 'No active subscription for this studio' });
+  if (studioError) {
+    res.status(500).json({ error: 'Failed to fetch studio' });
+    return;
+  }
+
+  if (!studio?.stripe_subscription_id) {
+    // No real Stripe subscription — e.g. a plan granted manually (chantier C3)
+    // rather than through Checkout. Nothing to cancel/update on Stripe's side;
+    // only a downgrade to Gratuit is valid here (there's no billing entity to
+    // upgrade a paid plan through without a real subscription).
+    if (plan !== 'gratuit') {
+      res.status(400).json({ error: 'No active subscription for this studio' });
+      return;
+    }
+    const { error: resetError } = await supabaseAdmin
+      .from('studios')
+      .update({ plan: 'gratuit', billing_seats: 2, billing_storage_tier: 0 })
+      .eq('id', studioId);
+    if (resetError) {
+      console.error('Failed to reset studio to Gratuit:', resetError);
+      res.status(500).json({ error: 'Failed to update plan' });
+      return;
+    }
+    res.status(200).json({ ok: true });
     return;
   }
 

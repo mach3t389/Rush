@@ -1125,13 +1125,8 @@ function PlanSettings() {
   const hasChanges = draftPlan !== currentPlan || draftStorage !== currentStorage || draftSeats !== currentSeats;
 
   const applyChanges = async () => {
-    if (draftPlan === 'gratuit' && draftStorage === 0) {
-      // Gratuit sans aucun ajout payant : rien à facturer, changement local
-      // (le retrait d'un abonnement existant est géré par le portail client
-      // Stripe, chantier C — hors scope ici).
-      setCurrentPlan(draftPlan);
-      setCurrentStorage(draftStorage);
-      setCurrentSeats(draftSeats);
+    if (draftPlan === 'gratuit' && draftStorage === 0 && currentPlan === 'gratuit') {
+      // Déjà sur Gratuit sans ajout payant : rien à persister.
       setConfirming(false);
       return;
     }
@@ -1145,7 +1140,10 @@ function PlanSettings() {
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       };
 
-      if (hasActiveSubscription) {
+      // Un retour à Gratuit passe toujours par update-subscription (même sans
+      // abonnement Stripe réel — ex. un octroi manuel — cette route gère aussi
+      // ce cas en écrivant directement le studio sans appeler Stripe).
+      if (hasActiveSubscription || draftPlan === 'gratuit') {
         const res = await fetch('/api/update-subscription', {
           method: 'POST',
           headers: authHeaders,
