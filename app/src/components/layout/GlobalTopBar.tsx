@@ -196,7 +196,18 @@ export function GlobalTopBar({ onSearch }: Props) {
               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
 
               {/* Déconnexion */}
-              <MenuRow icon="log-out" label={t('auth.logout')} danger onClick={() => { setShowUserMenu(false); void logout(); navigate('/login', { replace: true }); }} />
+              <MenuRow icon="log-out" label={t('auth.logout')} danger onClick={() => {
+                setShowUserMenu(false);
+                // navigate('/login') was firing immediately after logout()
+                // without waiting for it — the /login route's guestLoader
+                // re-checks isAuthenticated() on entry, and if Supabase's
+                // async signOut() hadn't resolved yet, that check still saw
+                // a valid session and bounced straight back to '/', landing
+                // the user on whatever account state was still cached
+                // (requiring a second manual logout to actually land on the
+                // login screen). Wait for logout to fully finish first.
+                void logout().then(() => navigate('/login', { replace: true }));
+              }} />
             </div>
           )}
         </div>
