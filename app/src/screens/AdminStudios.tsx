@@ -17,15 +17,19 @@ export function AdminStudios() {
   const user = getCurrentUser();
   const isAdmin = user?.email === ADMIN_EMAIL;
 
+  const PAGE_SIZE = 20;
+
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
   const [results, setResults] = useState<StudioResult[]>([]);
+  const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<StudioResult | null>(null);
   const [newPlan, setNewPlan] = useState<'gratuit' | 'studio' | 'agence'>('gratuit');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const search = useCallback(async (q: string) => {
+  const search = useCallback(async (q: string, p: number) => {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch('/api/admin-search-studios', {
       method: 'POST',
@@ -33,17 +37,24 @@ export function AdminStudios() {
         'Content-Type': 'application/json',
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
-      body: JSON.stringify({ query: q }),
+      body: JSON.stringify({ query: q, page: p }),
     });
-    if (!res.ok) { setResults([]); return; }
+    if (!res.ok) { setResults([]); setTotal(0); return; }
     const data = await res.json();
     setResults(data.studios ?? []);
+    setTotal(data.total ?? 0);
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => { void search(query); }, 300);
+    setPage(0);
+  }, [query]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => { void search(query, page); }, 300);
     return () => clearTimeout(timer);
-  }, [query, search]);
+  }, [query, page, search]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const selectStudio = (s: StudioResult) => {
     setSelected(s);
@@ -123,6 +134,20 @@ export function AdminStudios() {
 
       {results.length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>Aucun studio trouvé.</p>
+      )}
+
+      {total > PAGE_SIZE && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <SFButton variant="secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
+            Précédent
+          </SFButton>
+          <span style={{ fontSize: 12, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+            Page {page + 1} / {totalPages}
+          </span>
+          <SFButton variant="secondary" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
+            Suivant
+          </SFButton>
+        </div>
       )}
 
       {selected && (

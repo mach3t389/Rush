@@ -4,8 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 
 const ADMIN_EMAIL = 'info@alexismorel.ca';
 
+const PAGE_SIZE = 20;
+
 interface SearchBody {
   query: string;
+  page?: number;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -14,11 +17,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { query } = req.body as SearchBody;
+  const { query, page } = req.body as SearchBody;
   if (typeof query !== 'string') {
     res.status(400).json({ error: 'Invalid request body' });
     return;
   }
+  const pageIndex = typeof page === 'number' && page >= 0 ? page : 0;
+  const from = pageIndex * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -43,12 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error, count } = await supabaseAdmin
     .from('studios')
-    .select('id, name, plan, manual_grant_note')
+    .select('id, name, plan, manual_grant_note', { count: 'exact' })
     .ilike('name', `%${query}%`)
     .order('name')
-    .limit(100);
+    .range(from, to);
 
   if (error) {
     console.error('Failed to search studios:', error);
@@ -56,5 +62,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  res.status(200).json({ studios: data ?? [] });
+  res.status(200).json({ studios: data ?? [], total: count ?? 0 });
 }
