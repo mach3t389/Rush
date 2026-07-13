@@ -37,6 +37,7 @@ import { Register } from './screens/Register';
 import { ForgotPassword } from './screens/ForgotPassword';
 import { Onboarding } from './screens/Onboarding';
 import { Pricing } from './screens/Pricing';
+import { AdminStudios } from './screens/AdminStudios';
 import { RouteErrorPage } from './screens/RouteErrorPage';
 
 // ── Route guards ──────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ const router = createBrowserRouter([
 
   // Page tarification publique — sans authentification requise
   { path: '/pricing', element: <Pricing /> },
+  { path: '/admin/studios', element: <AdminStudios />, loader: authLoader },
 
   // Portail client — sans sidebar (route standalone)
   { path: '/portail/:projectId', element: <Portail />, errorElement: <RouteErrorPage /> },
