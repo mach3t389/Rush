@@ -1715,7 +1715,7 @@
     "planUpdateFailed": "Couldn't update the subscription. Try again shortly.",
     "planCTASubscribe": "Choose this plan",
     "planFeat3Projects": "3 active projects",
-    "planFeat5Members": "Up to 5 team members",
+    "planFeat5Members": "Up to 2 team members",
     "planFeatUnlimitedProjects": "Unlimited projects",
     "planFeatUnlimitedMembers": "Unlimited members",
     "planFeatUpTo10Members": "Up to 10 team members",
@@ -1871,6 +1871,9 @@
     "thisSection": "This section"
   },
   "finance": {
+    "lockedTitle": "Finances locked",
+    "lockedBody": "The Finances & billing module is available on a paid plan. Upgrade to Studio or Agence to create and track invoices.",
+    "lockedCta": "View plans",
     "title": "Invoices",
     "newInvoice": "New invoice",
     "addInvoice": "Add invoice",
@@ -2380,5 +2383,17 @@
     "openPricing": "View pricing page →",
     "monthly": "/ mo",
     "yearly": "/ yr"
+  },
+  "upgradePrompt": {
+    "featureTitle": "Feature locked",
+    "featureBody": "{{feature}} is available on a paid plan. Upgrade to Studio or Agence to unlock it.",
+    "seatsTitle": "Seat limit reached",
+    "seatsBody": "You've reached the number of seats already purchased for your team. Buy one more seat to invite this person.",
+    "cta": "View plans",
+    "customLogoLabel": "Custom logo",
+    "projectsTitle": "Project limit reached",
+    "projectsBody": "The Gratuit plan allows 3 active projects at a time. Upgrade to Studio for unlimited projects.",
+    "membersGratuitTitle": "Member limit reached",
+    "membersGratuitBody": "The Gratuit plan allows 2 team members. Upgrade to Studio or Agence to invite more people."
   }
 }

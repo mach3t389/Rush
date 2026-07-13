@@ -1728,7 +1728,7 @@
     "planUpdateFailed": "Impossible de mettre à jour l'abonnement. Réessaie dans un instant.",
     "planCTASubscribe": "Choisir ce plan",
     "planFeat3Projects": "3 projets actifs",
-    "planFeat5Members": "Jusqu'à 5 membres d'équipe",
+    "planFeat5Members": "Jusqu'à 2 membres d'équipe",
     "planFeatUnlimitedProjects": "Projets illimités",
     "planFeatUnlimitedMembers": "Membres illimités",
     "planFeatUpTo10Members": "Jusqu'à 10 membres d'équipe",
@@ -1884,6 +1884,9 @@
     "thisSection": "Cette section"
   },
   "finance": {
+    "lockedTitle": "Finances verrouillées",
+    "lockedBody": "Le module Finances & facturation est disponible avec un plan payant. Passe à Studio ou Agence pour créer et suivre tes factures.",
+    "lockedCta": "Voir les plans",
     "title": "Factures",
     "newInvoice": "Nouvelle facture",
     "addInvoice": "Ajouter une facture",
@@ -2393,5 +2396,17 @@
     "openPricing": "Voir la page tarification →",
     "monthly": "/ mois",
     "yearly": "/ an"
+  },
+  "upgradePrompt": {
+    "featureTitle": "Fonctionnalité verrouillée",
+    "featureBody": "{{feature}} est disponible avec un plan payant. Passe à Studio ou Agence pour en profiter.",
+    "seatsTitle": "Limite de sièges atteinte",
+    "seatsBody": "Tu as atteint le nombre de sièges déjà achetés pour ton équipe. Achète un siège de plus pour inviter cette personne.",
+    "cta": "Voir les plans",
+    "customLogoLabel": "Le logo personnalisé",
+    "projectsTitle": "Limite de projets atteinte",
+    "projectsBody": "Le plan Gratuit permet 3 projets actifs à la fois. Passe à Studio pour créer des projets illimités.",
+    "membersGratuitTitle": "Limite de membres atteinte",
+    "membersGratuitBody": "Le plan Gratuit permet 2 membres d'équipe. Passe à Studio ou Agence pour inviter plus de monde."
   }
 }

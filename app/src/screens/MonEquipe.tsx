@@ -8,6 +8,9 @@ import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
 import { getTeamMembers, subscribeTeam, createInvitation } from '../data/teamStore';
 import { getProjects } from '../data/projectStore';
+import { usePlan, getCurrentBillingSeats } from '../data/planStore';
+import { PLAN_LIMITS } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 
 // ── Mock extra info for team members ─────────────────────────────────────────
 
@@ -308,6 +311,7 @@ function SFPillSmall({ status, children }: { status: string; children: React.Rea
 
 export function MonEquipe() {
   const { t } = useTranslation();
+  const plan = usePlan();
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showInvite, setShowInvite] = useState(false);
@@ -316,6 +320,18 @@ export function MonEquipe() {
   useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
 
   const team = isDemoSession() ? INTERNAL_TEAM : getRealTeam();
+
+  const openInviteModal = () => {
+    // Gratuit has no paid seats at all — hard cap at PLAN_LIMITS.gratuit.maxSeats (2).
+    // Studio/Agence: the real ceiling is what's already been purchased via billing,
+    // not the plan's maximum — buying more seats (chantier A) raises this.
+    const seatLimit = plan === 'gratuit' ? PLAN_LIMITS.gratuit.maxSeats : getCurrentBillingSeats();
+    if (team.length >= seatLimit) {
+      requestUpgrade(plan === 'gratuit' ? { reason: 'membersGratuit' } : { reason: 'seats' });
+      return;
+    }
+    setShowInvite(true);
+  };
   const filtered = team.filter(m =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||
     m.role.toLowerCase().includes(search.toLowerCase())
@@ -331,7 +347,7 @@ export function MonEquipe() {
             {t('team.subtitle', { count: team.length })}
           </p>
         </div>
-        <SFButton variant="primary" icon="user-plus" onClick={() => setShowInvite(true)}>{t('team.inviteMember')}</SFButton>
+        <SFButton variant="primary" icon="user-plus" onClick={() => openInviteModal()}>{t('team.inviteMember')}</SFButton>
       </div>
 
       {/* Search */}
@@ -383,7 +399,7 @@ export function MonEquipe() {
 
           {/* Invite placeholder card */}
           <div
-            onClick={() => setShowInvite(true)}
+            onClick={() => openInviteModal()}
             style={{ background: 'transparent', borderRadius: 14, border: '1.5px dashed var(--border-2)', padding: '18px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)', minHeight: 90, transition: 'border-color 0.12s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}

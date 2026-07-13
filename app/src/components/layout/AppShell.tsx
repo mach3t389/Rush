@@ -7,6 +7,7 @@ import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
 import { triggerAIToggle, triggerAIClose } from '../aiChatBridge';
 import { ToastBar } from '../ToastBar';
+import { UpgradePromptModal } from '../UpgradePromptModal';
 import { ViewAsBanner } from '../ViewAsBanner';
 import { getShortcuts, subscribeShortcuts, matchesShortcut } from '../../data/shortcutsStore';
 import { initAnalytics } from '../../analytics';
@@ -75,6 +76,7 @@ export function AppShell() {
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <AIChat />
       <ToastBar />
+      <UpgradePromptModal />
     </div>
   );
 }

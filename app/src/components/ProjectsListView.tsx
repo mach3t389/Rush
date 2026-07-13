@@ -14,6 +14,9 @@ import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
+import { usePlan } from '../data/planStore';
+import { PLAN_LIMITS } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -684,6 +687,7 @@ const FILTER_KEY = 'sf_projects_filter';
 
 export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
+  const plan = usePlan();
   const [search, setSearch] = useState('');
   // Only persisted for the main /projets page — a filter picked while
   // looking at one client's own Projets tab (clientId set) shouldn't leak
@@ -692,6 +696,16 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [sortOpen, setSortOpen] = useState(false);
+
+  const openNewProjectModal = () => {
+    const maxProjects = PLAN_LIMITS[plan].maxProjects;
+    const activeCount = getProjects().filter(p => !p.archived).length;
+    if (maxProjects !== null && activeCount >= maxProjects) {
+      requestUpgrade({ reason: 'projects' });
+      return;
+    }
+    setShowModal(true);
+  };
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const [allProjects, setAllProjects] = useState(getProjects);
   const [showModal, setShowModal] = useState(false);
@@ -750,7 +764,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
               {t('projects.countsSummary', { total: projects.length, active: projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length, late: projects.filter(p => p.status === 'danger').length })}
             </p>
           </div>
-          <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
+          <SFButton variant="primary" icon="plus" onClick={() => openNewProjectModal()}>{t('projects.newProject')}</SFButton>
         </div>
       )}
 
@@ -912,7 +926,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
 
           {/* New project button — in client context, sits in the controls row */}
           {clientId && (
-            <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
+            <SFButton variant="primary" icon="plus" onClick={() => openNewProjectModal()}>{t('projects.newProject')}</SFButton>
           )}
         </div>
       </div>
@@ -925,7 +939,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
             <SFIcon name="folder-open" size={36} color="var(--text-3)" />
             <p style={{ fontSize: 14 }}>{t('projects.noProjectsFound')}</p>
-            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('projects.newProject')}</SFButton>
+            <SFButton variant="ghost" icon="plus" onClick={() => openNewProjectModal()}>{t('projects.newProject')}</SFButton>
           </div>
         )
       )}
