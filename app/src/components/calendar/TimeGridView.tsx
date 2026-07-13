@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TODAY, isSameDay, HOUR_H, START_HOUR, END_HOUR, HOURS, SCROLL_TO_HOUR, fmt2, timeToY, layoutEvents, type CalEvent } from './calendarUtils';
+import { isSameDay, HOUR_H, START_HOUR, END_HOUR, HOURS, SCROLL_TO_HOUR, fmt2, timeToY, layoutEvents, type CalEvent } from './calendarUtils';
 import { EventBlock } from './EventBlock';
 
 export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick, onEventChange, createModalOpen }: {
@@ -22,6 +22,17 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const dayLabel = (dd: Date) => dayNames[(dd.getDay() + 6) % 7];
   const scrollRef=useRef<HTMLDivElement>(null);
+
+  // TODAY (from calendarUtils) is a module-level `new Date()` evaluated once
+  // when the app bundle first loads — it never advances, so the "current
+  // time" line froze at whatever moment the tab was opened. Track a live
+  // clock instead, ticking once a minute (plenty for a line whose position
+  // only needs to be accurate to the pixel/minute).
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Scroll to working hours on mount / when days change
   useEffect(() => {
@@ -139,7 +150,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
           <div style={{ display:'flex' }}>
             <div style={{ width:52,flexShrink:0 }} />
             {days.map((d,i)=>{
-              const isToday=isSameDay(d,TODAY);
+              const isToday=isSameDay(d,now);
               return (
                 <div key={i} style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 0 6px',minWidth:0 }}>
                   <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:3 }}>
@@ -234,8 +245,8 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                   );
                 })()}
                 {/* Current time indicator */}
-                {isSameDay(d,TODAY) && (
-                  <div style={{ position:'absolute',top:timeToY(TODAY),left:0,right:0,height:2,background:'var(--danger)',zIndex:6,pointerEvents:'none' }}>
+                {isSameDay(d,now) && (
+                  <div style={{ position:'absolute',top:timeToY(now),left:0,right:0,height:2,background:'var(--danger)',zIndex:6,pointerEvents:'none' }}>
                     <div style={{ position:'absolute',left:-4,top:-4,width:10,height:10,borderRadius:'50%',background:'var(--danger)' }} />
                   </div>
                 )}
