@@ -13,6 +13,7 @@ interface StudioResult {
   billing_seats: number;
   billing_storage_tier: number;
   manual_grant_note: string | null;
+  stripe_subscription_id: string | null;
 }
 
 const STORAGE_TIER_LABELS = ['Aucun extra', '+50 Go', '+200 Go', '+500 Go', '+1 To', '+2 To', '+4 To'];
@@ -137,7 +138,17 @@ export function AdminStudios() {
                     color: 'var(--text)', cursor: 'pointer', fontSize: 13, textAlign: 'left',
                   }}>
                   <span>{s.name}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{s.plan}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {s.plan !== 'gratuit' && !s.stripe_subscription_id && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.05em',
+                        color: 'var(--on-accent)', background: 'var(--accent)', borderRadius: 4, padding: '2px 6px',
+                      }}>
+                        Manuel
+                      </span>
+                    )}
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{s.plan}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -170,7 +181,15 @@ export function AdminStudios() {
           )}
           {selected && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 20, background: 'var(--surface)' }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{selected.name}</p>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: selected.plan !== 'gratuit' && !selected.stripe_subscription_id ? 4 : 16 }}>
+            {selected.name}
+          </p>
+
+          {selected.plan !== 'gratuit' && !selected.stripe_subscription_id && (
+            <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--accent)', marginBottom: 16 }}>
+              ⚠ Accès offert manuellement — aucun abonnement Stripe réel.
+            </p>
+          )}
 
           <label style={{ display: 'block', fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginBottom: 6, textTransform: 'uppercase' }}>
             Plan

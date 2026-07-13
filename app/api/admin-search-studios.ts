@@ -51,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data, error, count } = await supabaseAdmin
     .from('studios')
-    .select('id, name, plan, billing_seats, billing_storage_tier, manual_grant_note', { count: 'exact' })
+    .select('id, name, plan, billing_seats, billing_storage_tier, manual_grant_note, stripe_subscription_id', { count: 'exact' })
     .ilike('name', `%${query}%`)
     .order('name')
     .range(from, to);
