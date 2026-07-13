@@ -19,7 +19,7 @@ const STORAGE_KEY = 'sf_notifs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type NotifKind = 'comment' | 'mention' | 'status' | 'annotation' | 'version' | 'approval' | 'invitation' | 'deliverableApproved';
+export type NotifKind = 'comment' | 'mention' | 'status' | 'annotation' | 'version' | 'approval' | 'invitation' | 'deliverableApproved' | 'storageLimit';
 
 export interface AppNotif {
   id: string;
@@ -51,6 +51,7 @@ function seedNotifs(): AppNotif[] {
     approval:   ['a demandé une approbation'],
     invitation: [], // jamais généré par ce seed — les notifs d'invitation viennent d'InvitationAccept.tsx
     deliverableApproved: [], // jamais généré par ce seed — vient de Portail.tsx handleApprove
+    storageLimit: [], // jamais généré par ce seed — vient de storageStore.checkStorageThreshold
   };
   const actors = ['Sarah Martin', 'Thomas Robert', 'Julie Bernard', 'Marc Dufour'];
 

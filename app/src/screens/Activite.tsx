@@ -7,6 +7,7 @@ import { ActivityFeed } from '../components/ActivityFeed';
 import type { AppNotif, NotifKind } from '../data/notificationStore';
 import { subscribeNotifs, getNotifHistory, markAllRead } from '../data/notificationStore';
 import { isDemoSession } from '../data/authStore';
+import { savePersisted } from '../data/persist';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ const KIND_LABEL_KEY: Record<NotifKind, string> = {
   approval:   'activity.approval',
   invitation: 'activity.invitation',
   deliverableApproved: 'activity.deliverableApproved',
+  storageLimit: 'activity.storageLimit',
 };
 
 import type { Status } from '../types';
@@ -44,6 +46,7 @@ const KIND_STATUS: Record<NotifKind, Status> = {
   approval:   'review',
   invitation: 'ok',
   deliverableApproved: 'ok',
+  storageLimit: 'warn',
 };
 
 const ACTOR_COLOR: Record<string, string> = {
@@ -124,6 +127,7 @@ function actorSummary(actors: string[], count: number, kind: NotifKind, t: TFunc
     approval:   t('activity.verbApproval'),
     invitation: t('activity.verbInvitation'),
     deliverableApproved: t('activity.verbDeliverableApproved'),
+    storageLimit: t('activity.verbStorageLimit'),
   };
   const verb = verbMap[kind];
   if (actors.length === 1) return t('activity.actorSummaryOne', { actor: actors[0], verb });
@@ -143,17 +147,19 @@ const NOTIF_ICON: Record<NotifKind, { icon: string; color: string; bg: string }>
   approval:   { icon: 'shield-check',   color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)' },
   invitation: { icon: 'user-plus',      color: '#2a7a8a', bg: 'rgba(42,122,138,0.15)' },
   deliverableApproved: { icon: 'check-circle', color: 'var(--ok)', bg: 'rgba(0,200,100,0.12)' },
+  storageLimit: { icon: 'hard-drive', color: 'var(--warn)', bg: 'rgba(245,151,91,0.15)' },
 };
 
 function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {
   const { t } = useTranslation();
   const { unread, actors, kind, count, latestTimestamp, taskId, resourceId, projectId } = group;
   const meta = NOTIF_ICON[kind] ?? NOTIF_ICON.comment;
-  const clickable = !!(taskId || resourceId);
+  const clickable = !!(taskId || resourceId || kind === 'storageLimit');
 
   const handleClick = () => {
     if (taskId)          navigate(`/projets/${projectId}?openTask=${taskId}&focus=comments`);
     else if (resourceId) navigate(`/projets/${projectId}/ressources/${resourceId}?focus=comments`);
+    else if (kind === 'storageLimit') { savePersisted('sf_view_fichiers', 'stockage'); navigate('/fichiers'); }
   };
 
   return (

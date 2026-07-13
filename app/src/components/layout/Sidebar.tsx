@@ -13,7 +13,7 @@ import {
 } from '../../data/pinnedStore';
 import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
 import { getViewAsUser, subscribeViewAs } from '../../data/viewAsStore';
-import { getTotalStorageUsedBytes, subscribeStorageUsage } from '../../data/storageStore';
+import { getTotalStorageUsedBytes, subscribeStorageUsage, checkStorageThreshold } from '../../data/storageStore';
 import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
 import { getStorageLimitGB } from '../../data/planFeatures';
 import { savePersisted } from '../../data/persist';
@@ -31,6 +31,8 @@ function SidebarStorageBar({ collapsed }: { collapsed: boolean }) {
   const usedGB = usedBytes / (1024 ** 3);
   const limitGB = getStorageLimitGB(plan, storageTier);
   const pct = Math.min(100, (usedGB / limitGB) * 100);
+
+  useEffect(() => { checkStorageThreshold(usedGB, limitGB); }, [usedGB, limitGB]);
 
   const openStorageView = () => {
     savePersisted('sf_view_fichiers', 'stockage');

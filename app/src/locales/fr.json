@@ -202,6 +202,7 @@
     "approval": "APPROBATION",
     "invitation": "INVITATION",
     "deliverableApproved": "LIVRABLE APPROUVÉ",
+    "storageLimit": "STOCKAGE",
     "unreadCount": "Non lues ({{count}})",
     "markAllRead": "Tout marquer comme lu",
     "noNotifications": "Aucune notification",
@@ -220,6 +221,7 @@
     "verbApproval": "a demandé une approbation",
     "verbInvitation": "a rejoint l'équipe",
     "verbDeliverableApproved": "a approuvé le livrable",
+    "verbStorageLimit": "vous avertit : le stockage approche la limite de votre plan",
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} et {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"
