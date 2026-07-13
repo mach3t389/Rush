@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon } from '../components/ui';
+import { SFButton, SFIcon, SFBar } from '../components/ui';
+import { getStorageUsedBytes, subscribeFileStore } from '../data/fileStore';
 import { MonEquipe } from './MonEquipe';
 import {
   getShortcuts, setShortcut, resetAllShortcuts, subscribeShortcuts,
@@ -1071,6 +1072,8 @@ function PlanSettings() {
   const [checkoutResult, setCheckoutResult] = useState(() =>
     new URLSearchParams(window.location.search).get('checkout')
   );
+  const [storageUsedBytes, setStorageUsedBytes] = useState(getStorageUsedBytes);
+  useEffect(() => subscribeFileStore(() => setStorageUsedBytes(getStorageUsedBytes())), []);
 
   useEffect(() => {
     if (!checkoutResult) return;
@@ -1107,6 +1110,13 @@ function PlanSettings() {
 
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
   const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
+
+  // Espace additionnel (Go) apporté par chaque palier de STORAGE_BLOCKS, aligné
+  // index-à-index. Base : 5 Go (Gratuit) ou 50 Go (Studio/Agence), voir storageIncluded.
+  const STORAGE_TIER_EXTRA_GB = [0, 50, 200, 500, 1000, 2000, 4000];
+  const storageLimitGB = (currentPlan === 'gratuit' ? 5 : 50) + STORAGE_TIER_EXTRA_GB[currentStorage];
+  const storageUsedGB = storageUsedBytes / (1024 ** 3);
+  const storageUsedPct = Math.min(100, (storageUsedGB / storageLimitGB) * 100);
   const draftPlanObj    = PLATFORM_PLANS.find(p => p.key === draftPlan)!;
   const draftStorageObj = STORAGE_BLOCKS.find(s => s.tier === draftStorage)!;
 
@@ -1405,6 +1415,18 @@ function PlanSettings() {
           <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 600, color: 'var(--accent)' }}>
             {t('settings.planStorageBaseInfo', { storage: draftPlanObj.storageIncluded })}
           </span>
+        </div>
+
+        <div style={{ marginLeft: 26, marginBottom: 24, maxWidth: 420 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+              {t('settings.planStorageUsageLabel')}
+            </span>
+            <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 600, color: storageUsedPct >= 90 ? 'var(--danger)' : 'var(--text-2)' }}>
+              {storageUsedGB.toFixed(storageUsedGB < 1 ? 2 : 1)} / {storageLimitGB} Go
+            </span>
+          </div>
+          <SFBar value={storageUsedGB} max={storageLimitGB} height={6} color={storageUsedPct >= 90 ? 'var(--danger)' : 'var(--accent)'} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

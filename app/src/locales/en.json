@@ -1687,6 +1687,7 @@
     "planAxis2": "Cloud storage",
     "planAxis2Desc": "Each plan includes a base quota. Add extra blocks as needed.",
     "planStorageBaseInfo": "{{storage}} included with your plan",
+    "planStorageUsageLabel": "Storage used",
     "planStorageNoExtra": "No extra",
     "planStorageIncluded": "included",
     "planStorageSelected": "selected",

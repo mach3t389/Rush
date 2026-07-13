@@ -267,6 +267,14 @@ export function getFiles(): FileItem[] {
 
 export function getAllFiles(): FileItem[] { return getFiles(); }
 
+// Somme des tailles de tous les fichiers du studio (octets), corbeille incluse
+// puisqu'ils occupent toujours de l'espace réel sur R2 tant qu'ils ne sont pas
+// purgés définitivement. Utilisé par la barre d'utilisation du stockage
+// (Paramètres → Plan et abonnement).
+export function getStorageUsedBytes(): number {
+  return getFiles().reduce((sum, f) => sum + (f.size ?? 0), 0);
+}
+
 // ── Folders: writes ──────────────────────────────────────────────────────────────
 
 export function addFolder(f: Omit<FileFolder, 'id' | 'createdAt'>): FileFolder {
