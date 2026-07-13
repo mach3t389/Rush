@@ -983,7 +983,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
   );
 }
 
-function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void }) {
+function AddTaskRow({ defaultPriority, onAdd, onAddMany }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void }) {
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(false);
@@ -1038,7 +1038,7 @@ function AddTaskRow({ defaultPriority, onAdd }: { defaultPriority: Priority; onA
     const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length <= 1) return;
     e.preventDefault();
-    lines.forEach(line => onAdd(line, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project }));
+    onAddMany(lines, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project });
     clearFields();
     setTimeout(() => inputRef.current?.focus(), 0);
   };
@@ -1253,12 +1253,12 @@ export function Taches() {
 
   const clearFilters = () => { setFilterPriorities([]); setFilterStatuses([]); };
 
-  const addTask = useCallback((title: string, opts: AddOpts & { mySection?: string }) => {
+  const buildTask = useCallback((title: string, opts: AddOpts & { mySection?: string }): Task => {
     const authUser = getCurrentUser();
     const defaultAssignee = isDemoSession() || !authUser
       ? USERS.lea
       : { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role };
-    const newTask: Task = {
+    return {
       id: `my-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title,
       projectId: opts.project?.id ?? 'int',
@@ -1275,7 +1275,70 @@ export function Taches() {
       subtasks: [],
       mySection: opts.mySection,
     };
+  }, [t]);
+
+  const addTask = useCallback((title: string, opts: AddOpts & { mySection?: string }) => {
+    const newTask = buildTask(title, opts);
     addMyTask(newTask);
+    undoStackRef.current.push({ taskIds: [newTask.id], tasks: [newTask] });
+    redoStackRef.current = [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildTask]);
+
+  // Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) undo/redo — scoped to task additions,
+  // so pasting a big checklist and changing your mind doesn't mean deleting
+  // every row by hand. Same pattern as Travail.tsx's project-task list.
+  type AddUndoEntry = { taskIds: string[]; tasks: Task[] };
+  const undoStackRef = useRef<AddUndoEntry[]>([]);
+  const redoStackRef = useRef<AddUndoEntry[]>([]);
+
+  const addTaskMany = useCallback((titles: string[], opts: AddOpts & { mySection?: string }) => {
+    if (!titles.length) return;
+    const newTasks = titles.map(title => buildTask(title, opts));
+    newTasks.forEach(addMyTask);
+    undoStackRef.current.push({ taskIds: newTasks.map(t => t.id), tasks: newTasks });
+    redoStackRef.current = [];
+    showToast({
+      type: 'section',
+      message: `${newTasks.length} tâches créées`,
+      subMessage: 'Collées depuis le presse-papiers',
+      onUndo: () => undoLastAdd(),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildTask]);
+
+  const undoLastAdd = () => {
+    const entry = undoStackRef.current.pop();
+    if (!entry) return;
+    entry.taskIds.forEach(removeMyTask);
+    redoStackRef.current.push(entry);
+  };
+
+  const redoLastAdd = () => {
+    const entry = redoStackRef.current.pop();
+    if (!entry) return;
+    entry.tasks.forEach(addMyTask);
+    undoStackRef.current.push(entry);
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement;
+      const inTextField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if (inTextField) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoLastAdd();
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        redoLastAdd();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const flash = useCallback((id: string) => {
@@ -1445,7 +1508,7 @@ export function Taches() {
                         {g.tasks.map(task => (
                           <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
                         ))}
-                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} />
+                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} />
                       </>
                     )}
                   </div>
@@ -1454,7 +1517,7 @@ export function Taches() {
               {priorityGroups.length === 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                   <ColHeader {...colHeaderProps} />
-                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} />
+                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
                 </div>
               )}
             </>
@@ -1469,7 +1532,7 @@ export function Taches() {
               {noSectionTasks.map(task => (
                 <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
               ))}
-              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} />
+              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
             </div>
 
             {/* Named sections */}
@@ -1493,7 +1556,7 @@ export function Taches() {
                       {g.tasks.map(task => (
                         <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} />
                       ))}
-                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} />
+                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} />
                     </>
                   )}
                 </div>

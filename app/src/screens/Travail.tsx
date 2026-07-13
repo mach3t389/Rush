@@ -739,11 +739,12 @@ function TaskRow({
 
 // ── Add task row ───────────────────────────────────────────────────────────────
 
-function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
+function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany }: {
   projectId: string;
   projectName: string;
   projectColor: string;
   onAdd: (task: Task) => void;
+  onAddMany: (tasks: Task[]) => void;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -813,7 +814,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd }: {
     const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length <= 1) return;
     e.preventDefault();
-    lines.forEach(line => onAdd(buildTask(line)));
+    onAddMany(lines.map(buildTask));
     clearFields();
     setTimeout(() => titleInputRef.current?.focus(), 0);
   };
@@ -982,7 +983,7 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 
 function Section({
   label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
-  onDragStart, isDragging, onAddTask, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
+  onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
 }: {
@@ -995,6 +996,7 @@ function Section({
   onDragStart: () => void;
   isDragging: boolean;
   onAddTask: (task: Task) => void;
+  onAddTaskMany: (tasks: Task[]) => void;
   onDelete: () => void;
   onDeleteTask: (taskId: string) => void;
   onMoveSection: () => void;
@@ -1285,7 +1287,7 @@ function Section({
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} />
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} />
         </>
       )}
     </div>
@@ -1968,11 +1970,81 @@ export function Travail() {
     setDragOverIdx(idx);
   };
 
-  const handleAddTask = (sectionIdx: number, task: Task) => {
+  // Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) undo/redo — scoped to task additions,
+  // so pasting a big checklist and changing your mind doesn't mean deleting
+  // every row by hand. Each entry covers one "add" action (a single Enter,
+  // or one whole paste), so undoing a 15-line paste removes all 15 at once.
+  type AddUndoEntry = { sectionIdx: number; taskIds: string[]; tasks: Task[] };
+  const undoStackRef = useRef<AddUndoEntry[]>([]);
+  const redoStackRef = useRef<AddUndoEntry[]>([]);
+
+  const removeTasksFromSection = (sectionIdx: number, taskIds: string[]) => {
     setSections(prev => prev.map((s, i) =>
-      i === sectionIdx ? { ...s, tasks: [...s.tasks, task] } : s
+      i === sectionIdx ? { ...s, tasks: s.tasks.filter(t => !taskIds.includes(t.id)) } : s
     ));
   };
+
+  const insertTasksIntoSection = (sectionIdx: number, tasks: Task[]) => {
+    setSections(prev => prev.map((s, i) =>
+      i === sectionIdx ? { ...s, tasks: [...s.tasks, ...tasks] } : s
+    ));
+  };
+
+  const handleAddTask = (sectionIdx: number, task: Task) => {
+    insertTasksIntoSection(sectionIdx, [task]);
+    undoStackRef.current.push({ sectionIdx, taskIds: [task.id], tasks: [task] });
+    redoStackRef.current = [];
+  };
+
+  const handleAddTasks = (sectionIdx: number, tasks: Task[]) => {
+    if (!tasks.length) return;
+    insertTasksIntoSection(sectionIdx, tasks);
+    undoStackRef.current.push({ sectionIdx, taskIds: tasks.map(t => t.id), tasks });
+    redoStackRef.current = [];
+    showToast({
+      type: 'section',
+      message: `${tasks.length} tâches créées`,
+      subMessage: 'Collées depuis le presse-papiers',
+      onUndo: () => undoLastAdd(),
+    });
+  };
+
+  const undoLastAdd = () => {
+    const entry = undoStackRef.current.pop();
+    if (!entry) return;
+    removeTasksFromSection(entry.sectionIdx, entry.taskIds);
+    redoStackRef.current.push(entry);
+  };
+
+  const redoLastAdd = () => {
+    const entry = redoStackRef.current.pop();
+    if (!entry) return;
+    insertTasksIntoSection(entry.sectionIdx, entry.tasks);
+    undoStackRef.current.push(entry);
+  };
+
+  // Ignore the shortcut while typing (Ctrl+Z should undo text edits in a
+  // field, not the task list) — mirrors the global-shortcut guard pattern
+  // used in AppShell.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement;
+      const inTextField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if (inTextField) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoLastAdd();
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        redoLastAdd();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleMoveTask = (task: Task, fromIdx: number, toIdx: number) => {
     setSections(prev => {
@@ -2191,6 +2263,7 @@ export function Travail() {
                 onDragStart={() => handleDragStart(globalIdx)}
                 isDragging={draggedIdx === globalIdx}
                 onAddTask={task => handleAddTask(globalIdx, task)}
+                onAddTaskMany={tasks => handleAddTasks(globalIdx, tasks)}
                 onDelete={() => handleDeleteSection(globalIdx)}
                 onRename={newLabel => handleRenameSection(globalIdx, newLabel)}
                 onDeleteTask={taskId => setSections(prev => prev.map((s, i) => i === globalIdx ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s))}
