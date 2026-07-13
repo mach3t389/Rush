@@ -7,7 +7,7 @@ import { USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, subscribeStore, getSections } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
-import { getProjectColor, setProjectColor } from '../data/pinnedStore';
+import { getProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
 import { getProjectActivities } from './ProjectActivite';
@@ -813,7 +813,7 @@ export function TravailOverview() {
       {editOpen && (
         <ProjectEditPanel
           p={project}
-          color={getProjectColor(project.id, project.clientColor)}
+          color={project.clientColor}
           name={project.name}
           status={project.status}
           statusLabel={project.statusLabel}
@@ -822,9 +822,13 @@ export function TravailOverview() {
           deliveryDate={project.deliveryDate}
           onClose={() => setEditOpen(false)}
           onSave={(u: EditUpdates) => {
-            setProjectColor(project.id, u.color);
+            // Same shared project.clientColor field as the other project
+            // edit panels (ProjectCard/ProjectsListView/ProjectHeaderBar) —
+            // this used to write to the per-user sidebar color override
+            // (pinnedStore) instead, so it "worked" but silently diverged
+            // from what everyone else on the team saw for this project.
             updateProject(project.id, {
-              name: u.name, status: u.status, statusLabel: u.statusLabel,
+              name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
               deliveryDate: u.deliveryDate, budget: u.budget, description: u.description,
             });
             forceUpdate(n => n + 1);

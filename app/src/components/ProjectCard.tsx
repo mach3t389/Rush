@@ -307,7 +307,7 @@ export function ProjectCard({ p }: { p: Project }) {
     setPhase(u.phase); setPhaseLabel(u.phaseLabel);
     setDeliveryDate(u.deliveryDate);
     updateProject(p.id, {
-      name: u.name, status: u.status, statusLabel: u.statusLabel,
+      name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
       phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
       budget: u.budget, description: u.description,
     });

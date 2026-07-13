@@ -227,7 +227,7 @@ export function ProjectHeaderBar({
           phase={project.phase} phaseLabel={project.phaseLabel} deliveryDate={project.deliveryDate}
           onClose={() => setEditOpen(false)}
           onSave={u => updateProject(project.id, {
-            name: u.name, status: u.status, statusLabel: u.statusLabel,
+            name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
             phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
             budget: u.budget, description: u.description,
           })}

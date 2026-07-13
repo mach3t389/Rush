@@ -20,6 +20,7 @@ import { deleteEventsForProject } from './eventStore';
 import { deleteAllFilesForProject } from './fileStore';
 import { getInvoicesByProject, removeInvoice } from './financeStore';
 import { createLoadingFlag } from './loadingFlag';
+import { showToast } from './toastStore';
 
 const STORAGE_KEY = 'sf_added_projects';
 const OVERRIDES_KEY = 'sf_project_overrides';
@@ -150,17 +151,51 @@ onLogout(resetProjectsCache);
 async function addSupabaseProject(p: Project): Promise<void> {
   const studioId = await getStudioId();
   const { error } = await supabase.from('projects').insert(toRow(p, studioId));
-  if (error) { console.error('addSupabaseProject failed', error); return; }
+  if (error) {
+    console.error('addSupabaseProject failed', error);
+    showToast({ type: 'section', message: "Le projet n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
   await fetchSupabaseProjects();
 }
 
+// Maps only the provided fields to their column names — unlike toRow(),
+// this never requires a full Project object, so it can't silently no-op
+// when the local cache hasn't populated yet (e.g. an edit fired right
+// after route entry, before the background fetch resolved) and it can't
+// clobber unrelated columns with a stale cached copy of the rest of the
+// row (the "stale cache upsert clobber" bug this codebase has hit before).
+function toRowPatch(updates: Partial<Project>): Partial<ProjectRow> {
+  const patch: Partial<ProjectRow> = {};
+  if (updates.name !== undefined) patch.name = updates.name;
+  if (updates.clientId !== undefined) patch.client_id = updates.clientId;
+  if (updates.clientName !== undefined) patch.client_name = updates.clientName;
+  if (updates.clientColor !== undefined) patch.client_color = updates.clientColor;
+  if (updates.phase !== undefined) patch.phase = updates.phase;
+  if (updates.phaseLabel !== undefined) patch.phase_label = updates.phaseLabel;
+  if (updates.progress !== undefined) patch.progress = updates.progress;
+  if (updates.taskCount !== undefined) patch.task_count = updates.taskCount;
+  if (updates.deliverableCount !== undefined) patch.deliverable_count = updates.deliverableCount;
+  if (updates.deliveryDate !== undefined) patch.delivery_date = updates.deliveryDate;
+  if (updates.status !== undefined) patch.status = updates.status;
+  if (updates.statusLabel !== undefined) patch.status_label = updates.statusLabel;
+  if (updates.modifiedAt !== undefined) patch.modified_at = updates.modifiedAt;
+  if (updates.budget !== undefined) patch.budget = updates.budget ?? null;
+  if (updates.description !== undefined) patch.description = updates.description ?? null;
+  if (updates.folderStructureTemplateId !== undefined) patch.folder_structure_template_id = updates.folderStructureTemplateId ?? null;
+  if (updates.members !== undefined) patch.members = updates.members;
+  if (updates.archived !== undefined) patch.archived = updates.archived;
+  if (updates.completed !== undefined) patch.completed = updates.completed;
+  return patch;
+}
+
 async function updateSupabaseProject(id: string, updates: Partial<Project>): Promise<void> {
-  const studioId = await getStudioId();
-  const current = _supabaseProjects.find(p => p.id === id);
-  if (!current) { console.error('updateSupabaseProject: project not found in cache', id); return; }
-  const merged = { ...current, ...updates };
-  const { error } = await supabase.from('projects').update(toRow(merged, studioId)).eq('id', id);
-  if (error) { console.error('updateSupabaseProject failed', error); return; }
+  const { error } = await supabase.from('projects').update(toRowPatch(updates)).eq('id', id);
+  if (error) {
+    console.error('updateSupabaseProject failed', error);
+    showToast({ type: 'section', message: "La modification n'a pas pu être enregistrée", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
   await fetchSupabaseProjects();
 }
 
