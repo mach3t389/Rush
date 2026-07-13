@@ -11,6 +11,9 @@ import type { ProjectTemplate, TemplateSection, TemplateTask, FormTemplate, Form
 import { loadAllTemplates, loadCustomTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, loadCustomFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 import type { Priority, ResourceType, Resource, Task, User, Project, SectionData } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
@@ -2478,6 +2481,7 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
 ];
 
 export function Modeles() {
+  const plan = usePlan();
   const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>('projets');
   const [searchQuery, setSearchQuery] = useState('');
   const [resNavExpanded, setResNavExpanded] = useState(true);
@@ -2701,6 +2705,10 @@ export function Modeles() {
   });
 
   const handleNew = () => {
+    if (!canUseFeature(plan, 'customTemplates')) {
+      requestUpgrade({ feature: 'customTemplates' });
+      return;
+    }
     if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], sections: [], resources: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
