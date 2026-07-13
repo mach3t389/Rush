@@ -26,7 +26,6 @@ export function AdminStudios() {
   const [message, setMessage] = useState<string | null>(null);
 
   const search = useCallback(async (q: string) => {
-    if (!q.trim()) { setResults([]); return; }
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch('/api/admin-search-studios', {
       method: 'POST',
@@ -95,7 +94,7 @@ export function AdminStudios() {
       <input
         value={query}
         onChange={e => setQuery(e.target.value)}
-        placeholder="Rechercher un studio par nom…"
+        placeholder="Rechercher un studio par nom… (laisser vide pour voir tous les studios)"
         style={{
           width: '100%', padding: '10px 14px', borderRadius: 9, border: '1px solid var(--border)',
           background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, marginBottom: 16,
@@ -122,7 +121,7 @@ export function AdminStudios() {
         </div>
       )}
 
-      {query.trim() && results.length === 0 && (
+      {results.length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>Aucun studio trouvé.</p>
       )}
 

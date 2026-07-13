@@ -47,7 +47,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .from('studios')
     .select('id, name, plan, manual_grant_note')
     .ilike('name', `%${query}%`)
-    .limit(20);
+    .order('name')
+    .limit(100);
 
   if (error) {
     console.error('Failed to search studios:', error);
