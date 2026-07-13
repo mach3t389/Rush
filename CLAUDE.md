@@ -25,7 +25,7 @@ Il n'y a pas de tests automatisés. La vérification se fait via le serveur de p
 
 ### Stack
 
-React 19 + TypeScript + Vite 8 + Tailwind v4 (via `@tailwindcss/vite`). SPA sans backend — tout l'état est en mémoire avec persistance `localStorage` optionnelle. Routeur : `react-router-dom` v7 en mode **data router** (`createBrowserRouter`).
+React 19 + TypeScript + Vite 8 + Tailwind v4 (via `@tailwindcss/vite`). SPA avec backend **Supabase** (Postgres + auth + storage) pour les sessions réelles, doublée d'un mode démo 100 % local (mock + `localStorage`) — voir « Couche données » ci-dessous. Routeur : `react-router-dom` v7 en mode **data router** (`createBrowserRouter`).
 
 ### Structure des routes (`app/src/main.tsx`)
 
@@ -73,25 +73,47 @@ Un unique `useEffect` dans `AppShell` attache un listener `keydown` global (phas
 
 ### Couche données (`app/src/data/`)
 
-**Pattern commun à tous les stores :**
-- Les données de seed viennent de `mock.ts` et ne sont jamais modifiées.
-- Les données ajoutées par l'utilisateur sont stockées séparément via `persist.ts` (`localStorage`).
-- Chaque store expose `get*()`, `add*()`, `subscribe*(fn)` → retourne un unsubscribe.
-- La réactivité est manuelle : les composants s'abonnent dans un `useEffect` et appellent `setState` dans le callback.
+**Pattern commun à (presque) tous les stores — deux chemins selon la session :**
+- **Session démo** (`isDemoSession()` === true, via `authStore.ts`) : données de seed figées dans `mock.ts` (jamais modifiées) + ajouts utilisateur persistés en `localStorage` via `persist.ts` (`loadPersisted`/`savePersisted`), ou parfois un simple cache en mémoire pour la durée de l'onglet.
+- **Session réelle** (compte inscrit) : backend **Supabase**. Chaque store real-session interroge une table Postgres, garde un **cache en mémoire synchrone** peuplé par un fetch en arrière-plan (`ensureFetchStarted()`), et notifie ses abonnés quand le fetch résout — `get*()` reste donc toujours synchrone (peut renvoyer `[]`/vide le temps du premier fetch).
+- Dans les deux cas : chaque store expose `get*()` / `add*()` / `update*()` / `subscribe*(fn)` (→ retourne un unsubscribe). La réactivité est manuelle : les composants s'abonnent dans un `useEffect` et appellent `setState` dans le callback.
+- **⚠️ Une table Supabase référencée par un store n'existe pas forcément vraiment** — voir l'encadré migrations plus bas. Un store qui « ne persiste pas » en session réelle est souvent une table jamais créée, pas un bug de code.
+
+**Infrastructure commune :**
 
 ```
-persist.ts            → loadPersisted<T>(key, fallback) / savePersisted(key, value)
-mock.ts               → PROJECTS, CLIENTS, USERS, MY_TASKS, … (données de seed statiques)
-projectStore.ts       → getProjects / addProject / subscribeProjects
-eventStore.ts         → getEvents / addEvent / subscribeEvents
-resourceStore.ts      → getResources / addResource / subscribeResources
-taskStore.ts          → store de tâches par projet (get/setSections, moveTask(s), copyTasks, moveSection, copySection, deleteTask)
-myTaskStore.ts        → tâches perso « Mes tâches » + sections perso (getMyTaskSections / add / remove)
-clientStore.ts        → store clients
-fileStore.ts          → dossiers + fichiers (FileFolder, FileItem) ; soft-delete (trashed/archived) ; addFolderTree
-fileContentStore.ts   → contenu réel des fichiers importés (blob URLs en mémoire + base64 localStorage ≤ 3 Mo)
-status.ts             → utilitaires de mapping Status → couleur/label
+persist.ts            → loadPersisted<T>(key, fallback) / savePersisted(key, value) — localStorage, utilisé par les deux chemins
+supabaseClient.ts      → client Supabase partagé (createClient), lu depuis VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+mock.ts                → PROJECTS, CLIENTS, USERS, MY_TASKS, … (données de seed statiques, source des sessions démo)
+authStore.ts           → isDemoSession() / getCurrentUser() / login / logout / register — fondation dont dépendent tous les autres stores
+studioStore.ts         → getStudioId() (résout et cache le studio_id du compte réel) — clé de portée de la plupart des tables ci-dessous
 ```
+
+**Stores Supabase par studio** (table scopée par `studio_id`, données partagées par toute l'équipe) :
+
+| Store | Table(s) Supabase |
+|-------|--------------------|
+| `projectStore.ts` | `projects` |
+| `clientStore.ts` | `clients` |
+| `clientTeamStore.ts` | `client_contacts` |
+| `taskStore.ts` | `sections`, `tasks` |
+| `myTaskStore.ts` | `my_tasks`, `my_sections` |
+| `eventStore.ts` | `events` |
+| `eventTypeStore.ts` | `event_types` |
+| `resourceStore.ts` / `resourceContentStore.ts` | `resources` / `resource_content` |
+| `fileStore.ts` | `file_folders`, `file_items` |
+| `fileContentStore.ts` | Supabase Storage (bucket, pas une table) |
+| `formStore.ts` | `form_instances` |
+| `financeStore.ts` | `invoices`, `payment_methods`, `invoice_defaults` |
+| `notificationStore.ts` | `notifications`, `notification_reads` |
+| `teamStore.ts` | `studio_members`, `studio_invitations` |
+| `invitationStore.ts` | `client_invitations` |
+| `studioLogoStore.ts` | `studios` (colonnes logo) |
+| `templates.ts` | `custom_project_templates`, `custom_form_templates`, `custom_resource_templates` (modèles intégrés = statiques ; masquage de modèle = localStorage local, pas Supabase) |
+
+**Stores Supabase par utilisateur** (préférence personnelle, pas partagée par le studio) : `notifPrefsStore.ts` (`notif_prefs`), `pinnedStore.ts` (`sidebar_prefs` — projets/clients épinglés, couleurs), `templateFavoritesStore.ts` (`template_favorites`).
+
+**Stores locaux uniquement** (jamais Supabase, même en session réelle — préférence UI ou état éphémère d'onglet) : `weekStartStore.ts`, `shortcutsStore.ts`, `viewAsStore.ts`, `toastStore.ts`, `commentStore.ts`, `clientContactsStore.ts`, `loadingFlag.ts`, `planFeatures.ts`, `stripePriceIds.ts`, `status.ts`, `deliverableStatus.ts`.
 
 **Tâches — parité des vues.** Les actions tâches/sections (créer, supprimer, déplacer, copier, multi-sélection `Ctrl`/`Shift`+clic, menu clic droit) doivent rester cohérentes entre les 3 surfaces : `Travail.tsx` (liste), `TravailBoard.tsx` (Kanban) et `Taches.tsx` (Mes tâches). Déplacer/copier en masse passe par `BulkMoveModal` (sélecteur projet → section). Toute nouvelle action de tâche doit être ajoutée aux 3 endroits.
 
