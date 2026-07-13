@@ -4,7 +4,7 @@ import { getCurrentUser } from '../data/authStore';
 import { supabase } from '../data/supabaseClient';
 import { SFButton } from '../components/ui';
 
-const ADMIN_EMAIL = 'alexismorel11@hotmail.ca';
+const ADMIN_EMAIL = 'info@alexismorel.ca';
 
 interface StudioResult {
   id: string;

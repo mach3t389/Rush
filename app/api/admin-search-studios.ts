@@ -2,7 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const ADMIN_EMAIL = 'alexismorel11@hotmail.ca';
+const ADMIN_EMAIL = 'info@alexismorel.ca';
 
 interface SearchBody {
   query: string;
