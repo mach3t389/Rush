@@ -137,6 +137,10 @@ Composant unique partagé entre toutes les surfaces fichiers :
 
 **Prochains événements** dans `CalendrierGlobal` : 3 affichés par défaut, bouton "X de plus" / "Réduire" pour étendre.
 
+**Glisser-déposer entre les jours** (`MonthView.tsx`, `TimeGridView.tsx`, `EventBlock.tsx`) : un événement peut être glissé vers un autre jour (vue mois, événements « jour entier » en vue semaine) ou vers un autre jour **et** une autre heure en même temps (événements horaires en vue semaine, `EventBlock`). Mécanisme commun : chaque case/colonne-jour porte `data-cal-day="AAAA-MM-JJ"` ; `document.elementFromPoint` résout le jour sous le curseur pendant le glisser. Un chip flottant suit le curseur en temps réel (état `ghost`/`allDayGhost`) pendant que l'original s'estompe à 35 % d'opacité — même sensation que le glisser vertical (changement d'heure) déjà en direct dans une journée. Seuil de mouvement (~4 px) pour distinguer clic et glisser ; le drapeau de suppression du clic qui suit (`suppressClickRef`) doit être remis à `false` via `setTimeout(…, 0)`, jamais seulement par un `onClick` gardé — un glisser inter-cases fait atterrir le `click` du navigateur sur l'ancêtre commun, pas sur un élément gardé (bug rencontré 2× : `MonthView` puis `TimeGridView`). La sauvegarde (`handleEventChange`, dans les deux écrans) écrit en date seule (`AAAA-MM-JJ`) pour un événement `allDay`, en ISO complet sinon.
+
+**Premier jour de la semaine** (réglable, Dimanche par défaut) : store `weekStartStore.ts` (`sf_week_start`, `0`=dimanche/`1`=lundi, préférence locale — pas de Supabase). `startOfWeek`/`getMonthGrid`/`getWeekDays` dans `calendarUtils.ts` prennent un paramètre `weekStart` par défaut `getWeekStart()`. Les tableaux `calendar.daysShort`/`datepicker.daysShort` restent stockés **lundi-d'abord** dans les locales — les en-têtes sont réordonnés au rendu (`MonthView`, `MiniCalendar`) ou dérivés de la vraie date (`TimeGridView.dayLabel`), jamais en réécrivant les tableaux de traduction. Réglage dans Paramètres → Personnalisation.
+
 ### Composants UI (`app/src/components/ui/`)
 
 Composants primitifs réutilisables — toujours préférer ces composants aux éléments HTML bruts :
@@ -292,8 +296,13 @@ i18n.changeLanguage('en'); // Persiste automatiquement dans localStorage
 | `sf_nav_global` | Dernière position de navigation dans FileBrowser global |
 | `sf_nav_project_<id>` | Dernière position par projet (dossier actif) |
 | `sf_fc_<fileId>` | Contenu base64 des fichiers importés ≤ 3 Mo |
+| `sf_week_start` | Premier jour de la semaine dans le calendrier (`0`=dimanche déf., `1`=lundi) |
 
 ---
+
+### ⚠️ Migrations Supabase — exécution manuelle requise
+
+Les fichiers `docs/superpowers/specs/*-migration.sql` sont des **specs**, pas des preuves qu'ils ont été appliqués. Chaque migration doit être collée et exécutée à la main dans **Supabase → SQL Editor** — rien ne le fait automatiquement (pas de CLI/CI de migration dans ce projet). Un incident vécu (2026-07-12) : la migration de `sidebar_prefs` (projets/clients épinglés, couleurs de projet) avait été écrite début juillet mais jamais exécutée — chaque lecture/écriture réelle (session non-démo) échouait silencieusement en 404 (`PGRST205: table not found`), masqué par la mise à jour optimiste du cache local (l'app semblait fonctionner jusqu'au prochain rechargement). **Avant de soupçonner un bug de code sur une fonctionnalité Supabase qui "ne persiste pas"**, vérifier d'abord que la table existe réellement (`fetch` un `select` sur `/rest/v1/<table>?limit=1` avec un vrai token de session, ou demander à l'utilisateur de vérifier dans le dashboard).
 
 ## Conventions
 
