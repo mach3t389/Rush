@@ -124,3 +124,18 @@ export function subscribeResourceContent(fn: () => void): () => void {
   _listeners.add(fn);
   return () => { _listeners.delete(fn); };
 }
+
+// Estimation en octets de tout le contenu ressource du studio (corps de
+// document, commentaires de révision, items de checklist, etc.) — utilisé par
+// la barre de stockage globale aux côtés de fileStore.getStorageUsedBytes().
+// Approximation via la taille UTF-8 du JSON ; suffisant, ce contenu est
+// presque toujours du texte/petites structures, pas des médias volumineux
+// (ceux-ci passent par fileStore/R2).
+export function getResourceContentSizeBytes(): number {
+  const map = isDemoSession() ? _demoContent : _supabaseContent;
+  let total = 0;
+  for (const value of Object.values(map)) {
+    try { total += new Blob([JSON.stringify(value)]).size; } catch { /* noop */ }
+  }
+  return total;
+}

@@ -23,18 +23,20 @@ export function subscribePlan(fn: Listener): () => void {
 // would overwrite it.
 let _plan: PlanKey = 'agence';
 let _billingSeats = 50;
+let _storageTier = 6;
 let _fetchStarted = false;
 
 async function fetchPlan(): Promise<void> {
   const studioId = await getStudioId();
   const { data, error } = await supabase
     .from('studios')
-    .select('plan, billing_seats')
+    .select('plan, billing_seats, billing_storage_tier')
     .eq('id', studioId)
     .single();
   if (error) { console.error('fetchPlan failed', error); return; }
   _plan = (data.plan as PlanKey) ?? 'gratuit';
   _billingSeats = data.billing_seats ?? 2;
+  _storageTier = data.billing_storage_tier ?? 0;
   notify();
 }
 
@@ -52,6 +54,7 @@ function ensureFetchStarted(): void {
 export function resetPlanCache(): void {
   _plan = 'agence';
   _billingSeats = 50;
+  _storageTier = 6;
   _fetchStarted = false;
 }
 
@@ -65,6 +68,12 @@ export function getCurrentBillingSeats(): number {
   if (isDemoSession()) return 50;
   ensureFetchStarted();
   return _billingSeats;
+}
+
+export function getCurrentStorageTier(): number {
+  if (isDemoSession()) return 6;
+  ensureFetchStarted();
+  return _storageTier;
 }
 
 export function usePlan(): PlanKey {

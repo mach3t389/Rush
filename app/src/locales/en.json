@@ -20,7 +20,8 @@
     "forward": "Forward",
     "pinnedProjects": "Pinned projects",
     "pinnedClients": "Pinned clients",
-    "finances": "Finances"
+    "finances": "Finances",
+    "viewStorage": "View storage usage"
   },
   "search": {
     "placeholder": "Search a project, client, task…",

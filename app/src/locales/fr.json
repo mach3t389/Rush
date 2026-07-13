@@ -20,7 +20,8 @@
     "forward": "Avancer",
     "pinnedProjects": "Projets épinglés",
     "pinnedClients": "Clients épinglés",
-    "finances": "Finances"
+    "finances": "Finances",
+    "viewStorage": "Voir l'utilisation du stockage"
   },
   "search": {
     "placeholder": "Rechercher un projet, client, tâche…",

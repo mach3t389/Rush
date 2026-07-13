@@ -23,3 +23,12 @@ export const PLAN_LIMITS: Record<PlanKey, { maxProjects: number | null; maxSeats
 export function canUseFeature(plan: PlanKey, feature: GatedFeature): boolean {
   return PLAN_FEATURES[plan][feature];
 }
+
+// Extra Go added by each storage add-on tier (index = studios.billing_storage_tier),
+// aligned with STORAGE_BLOCKS in Parametres.tsx / Pricing.tsx.
+export const STORAGE_TIER_EXTRA_GB = [0, 50, 200, 500, 1000, 2000, 4000];
+
+export function getStorageLimitGB(plan: PlanKey, storageTier: number): number {
+  const base = plan === 'gratuit' ? 5 : 50;
+  return base + (STORAGE_TIER_EXTRA_GB[storageTier] ?? 0);
+}

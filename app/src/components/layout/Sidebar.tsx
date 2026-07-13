@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
+import { SFBar } from '../ui/SFBar';
 import { getProjects, subscribeProjects } from '../../data/projectStore';
 import { getClients, subscribeClients } from '../../data/clientStore';
 import { useProjectTotalNotifCount, useClientTotalNotifCount } from '../../hooks/useNotifs';
@@ -12,6 +13,60 @@ import {
 } from '../../data/pinnedStore';
 import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
 import { getViewAsUser, subscribeViewAs } from '../../data/viewAsStore';
+import { getTotalStorageUsedBytes, subscribeStorageUsage } from '../../data/storageStore';
+import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
+import { getStorageLimitGB } from '../../data/planFeatures';
+import { savePersisted } from '../../data/persist';
+
+function SidebarStorageBar({ collapsed }: { collapsed: boolean }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [usedBytes, setUsedBytes] = useState(getTotalStorageUsedBytes);
+  const [plan, setPlan] = useState(getCurrentPlan);
+  const [storageTier, setStorageTier] = useState(getCurrentStorageTier);
+
+  useEffect(() => subscribeStorageUsage(() => setUsedBytes(getTotalStorageUsedBytes())), []);
+  useEffect(() => subscribePlan(() => { setPlan(getCurrentPlan()); setStorageTier(getCurrentStorageTier()); }), []);
+
+  const usedGB = usedBytes / (1024 ** 3);
+  const limitGB = getStorageLimitGB(plan, storageTier);
+  const pct = Math.min(100, (usedGB / limitGB) * 100);
+
+  const openStorageView = () => {
+    savePersisted('sf_view_fichiers', 'stockage');
+    navigate('/fichiers');
+  };
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={openStorageView}
+        title={`${usedGB.toFixed(usedGB < 1 ? 2 : 1)} / ${limitGB} Go`}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', color: pct >= 90 ? 'var(--danger)' : 'var(--text-3)' }}
+      >
+        <SFIcon name="hard-drive" size={15} />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={openStorageView}
+      title={t('nav.viewStorage')}
+      style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', padding: '8px 12px', borderRadius: 9, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <SFIcon name="hard-drive" size={13} color="var(--text-3)" />
+        <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>
+          {usedGB.toFixed(usedGB < 1 ? 2 : 1)} / {limitGB} Go
+        </span>
+      </div>
+      <SFBar value={usedGB} max={limitGB} height={4} color={pct >= 90 ? 'var(--danger)' : 'var(--accent)'} />
+    </button>
+  );
+}
 
 function PinnedBadge({ count }: { count: number }) {
   if (count === 0) return null;
@@ -517,6 +572,11 @@ export function Sidebar() {
 
       {/* Separator */}
       <div style={{ height: 1, background: 'var(--border)', margin: '10px 0' }} />
+
+      {/* Stockage */}
+      <div style={{ padding: collapsed ? '0 6px' : '0 8px', marginBottom: 8 }}>
+        <SidebarStorageBar collapsed={collapsed} />
+      </div>
 
       {/* Bottom */}
       <div style={{ padding: collapsed ? '0 6px 12px' : '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>

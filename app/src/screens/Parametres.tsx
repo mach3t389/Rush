@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFBar } from '../components/ui';
-import { getStorageUsedBytes, subscribeFileStore } from '../data/fileStore';
+import { getTotalStorageUsedBytes, subscribeStorageUsage } from '../data/storageStore';
 import { MonEquipe } from './MonEquipe';
 import {
   getShortcuts, setShortcut, resetAllShortcuts, subscribeShortcuts,
@@ -11,7 +11,7 @@ import {
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
 import { usePlan } from '../data/planStore';
-import { canUseFeature, PLAN_FEATURES } from '../data/planFeatures';
+import { canUseFeature, PLAN_FEATURES, getStorageLimitGB, type PlanKey } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
@@ -1072,8 +1072,8 @@ function PlanSettings() {
   const [checkoutResult, setCheckoutResult] = useState(() =>
     new URLSearchParams(window.location.search).get('checkout')
   );
-  const [storageUsedBytes, setStorageUsedBytes] = useState(getStorageUsedBytes);
-  useEffect(() => subscribeFileStore(() => setStorageUsedBytes(getStorageUsedBytes())), []);
+  const [storageUsedBytes, setStorageUsedBytes] = useState(getTotalStorageUsedBytes);
+  useEffect(() => subscribeStorageUsage(() => setStorageUsedBytes(getTotalStorageUsedBytes())), []);
 
   useEffect(() => {
     if (!checkoutResult) return;
@@ -1111,10 +1111,7 @@ function PlanSettings() {
   const activePlan    = PLATFORM_PLANS.find(p => p.key === currentPlan)!;
   const activeStorage = STORAGE_BLOCKS.find(s => s.tier === currentStorage)!;
 
-  // Espace additionnel (Go) apporté par chaque palier de STORAGE_BLOCKS, aligné
-  // index-à-index. Base : 5 Go (Gratuit) ou 50 Go (Studio/Agence), voir storageIncluded.
-  const STORAGE_TIER_EXTRA_GB = [0, 50, 200, 500, 1000, 2000, 4000];
-  const storageLimitGB = (currentPlan === 'gratuit' ? 5 : 50) + STORAGE_TIER_EXTRA_GB[currentStorage];
+  const storageLimitGB = getStorageLimitGB(currentPlan as PlanKey, currentStorage);
   const storageUsedGB = storageUsedBytes / (1024 ** 3);
   const storageUsedPct = Math.min(100, (storageUsedGB / storageLimitGB) * 100);
   const draftPlanObj    = PLATFORM_PLANS.find(p => p.key === draftPlan)!;
