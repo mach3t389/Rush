@@ -10,7 +10,7 @@ import {
 } from '../data/shortcutsStore';
 import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
 import { usePlan } from '../data/planStore';
-import { canUseFeature } from '../data/planFeatures';
+import { canUseFeature, PLAN_FEATURES } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
@@ -1000,9 +1000,9 @@ const PLATFORM_PLANS = [
       { labelKey: 'settings.planFeat5Members',        included: true  },
       { labelKey: 'settings.planFeatPortalBranded',   included: true  },
       { labelKey: 'settings.planFeatTemplatesPreset', included: true  },
-      { labelKey: 'settings.planFeatTemplatesCustom', included: false },
-      { labelKey: 'settings.planFeatAI',              included: false },
-      { labelKey: 'settings.planFeatFinances',        included: false },
+      { labelKey: 'settings.planFeatTemplatesCustom', included: PLAN_FEATURES.gratuit.customTemplates },
+      { labelKey: 'settings.planFeatAI',              included: PLAN_FEATURES.gratuit.ai },
+      { labelKey: 'settings.planFeatFinances',        included: PLAN_FEATURES.gratuit.finances },
     ],
   },
   {
@@ -1022,9 +1022,9 @@ const PLATFORM_PLANS = [
       { labelKey: 'settings.planFeatUpTo10Members',     included: true },
       { labelKey: 'settings.planFeatPortalWhiteLabel',  included: true },
       { labelKey: 'settings.planFeatTemplatesPreset',   included: true },
-      { labelKey: 'settings.planFeatTemplatesCustom',   included: true },
-      { labelKey: 'settings.planFeatAI',                included: true },
-      { labelKey: 'settings.planFeatFinances',          included: true },
+      { labelKey: 'settings.planFeatTemplatesCustom',   included: PLAN_FEATURES.studio.customTemplates },
+      { labelKey: 'settings.planFeatAI',                included: PLAN_FEATURES.studio.ai },
+      { labelKey: 'settings.planFeatFinances',          included: PLAN_FEATURES.studio.finances },
     ],
   },
   {
