@@ -2393,5 +2393,13 @@
     "openPricing": "Voir la page tarification →",
     "monthly": "/ mois",
     "yearly": "/ an"
+  },
+  "upgradePrompt": {
+    "featureTitle": "Fonctionnalité verrouillée",
+    "featureBody": "{{feature}} est disponible avec un plan payant. Passe à Studio ou Agence pour en profiter.",
+    "seatsTitle": "Limite de sièges atteinte",
+    "seatsBody": "Tu as atteint le nombre de sièges déjà achetés pour ton équipe. Achète un siège de plus pour inviter cette personne.",
+    "cta": "Voir les plans",
+    "customLogoLabel": "Le logo personnalisé"
   }
 }

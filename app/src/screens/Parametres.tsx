@@ -1629,9 +1629,11 @@ function PlanSettings() {
 
 export function Parametres() {
   const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState(() =>
-    new URLSearchParams(window.location.search).has('checkout') ? 'plan' : 'infos'
-  );
+  const [activeSection, setActiveSection] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('checkout')) return 'plan';
+    return params.get('section') || 'infos';
+  });
   const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
   useEffect(() => subscribeStudioInfo(() => setStudioInfo(getStudioInfo())), []);
   const saveStudioField = (field: keyof StudioInfo, value: string) => updateStudioInfo({ [field]: value });

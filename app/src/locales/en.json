@@ -2380,5 +2380,13 @@
     "openPricing": "View pricing page →",
     "monthly": "/ mo",
     "yearly": "/ yr"
+  },
+  "upgradePrompt": {
+    "featureTitle": "Feature locked",
+    "featureBody": "{{feature}} is available on a paid plan. Upgrade to Studio or Agence to unlock it.",
+    "seatsTitle": "Seat limit reached",
+    "seatsBody": "You've reached the number of seats already purchased for your team. Buy one more seat to invite this person.",
+    "cta": "View plans",
+    "customLogoLabel": "Custom logo"
   }
 }
