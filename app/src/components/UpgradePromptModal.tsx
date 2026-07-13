@@ -24,9 +24,11 @@ export function UpgradePromptModal() {
   const reason = 'reason' in prompt ? prompt.reason : null;
   const title = reason === 'seats' ? t('upgradePrompt.seatsTitle')
     : reason === 'projects' ? t('upgradePrompt.projectsTitle')
+    : reason === 'membersGratuit' ? t('upgradePrompt.membersGratuitTitle')
     : t('upgradePrompt.featureTitle');
   const body = reason === 'seats' ? t('upgradePrompt.seatsBody')
     : reason === 'projects' ? t('upgradePrompt.projectsBody')
+    : reason === 'membersGratuit' ? t('upgradePrompt.membersGratuitBody')
     : t('upgradePrompt.featureBody', { feature: t(FEATURE_LABEL_KEYS[(prompt as { feature: GatedFeature }).feature]) });
 
   return (

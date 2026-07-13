@@ -2392,6 +2392,8 @@
     "cta": "View plans",
     "customLogoLabel": "Custom logo",
     "projectsTitle": "Project limit reached",
-    "projectsBody": "The Gratuit plan allows 3 active projects at a time. Upgrade to Studio for unlimited projects."
+    "projectsBody": "The Gratuit plan allows 3 active projects at a time. Upgrade to Studio for unlimited projects.",
+    "membersGratuitTitle": "Member limit reached",
+    "membersGratuitBody": "The Gratuit plan allows 2 team members. Upgrade to Studio or Agence to invite more people."
   }
 }

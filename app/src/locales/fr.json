@@ -2405,6 +2405,8 @@
     "cta": "Voir les plans",
     "customLogoLabel": "Le logo personnalisé",
     "projectsTitle": "Limite de projets atteinte",
-    "projectsBody": "Le plan Gratuit permet 3 projets actifs à la fois. Passe à Studio pour créer des projets illimités."
+    "projectsBody": "Le plan Gratuit permet 3 projets actifs à la fois. Passe à Studio pour créer des projets illimités.",
+    "membersGratuitTitle": "Limite de membres atteinte",
+    "membersGratuitBody": "Le plan Gratuit permet 2 membres d'équipe. Passe à Studio ou Agence pour inviter plus de monde."
   }
 }

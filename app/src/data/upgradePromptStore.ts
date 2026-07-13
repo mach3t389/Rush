@@ -3,7 +3,7 @@
 
 import type { GatedFeature } from './planFeatures';
 
-export type UpgradeReason = { feature: GatedFeature } | { reason: 'seats' } | { reason: 'projects' };
+export type UpgradeReason = { feature: GatedFeature } | { reason: 'seats' } | { reason: 'projects' } | { reason: 'membersGratuit' };
 
 let current: UpgradeReason | null = null;
 const listeners: (() => void)[] = [];
