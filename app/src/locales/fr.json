@@ -2338,6 +2338,7 @@
     "invalidDesc": "Ce lien n'existe pas, a expiré, ou a déjà été utilisé. Contactez la personne qui vous a invité(e) pour en obtenir un nouveau.",
     "pendingTitle": "Rejoindre l'équipe",
     "pendingDesc": "Vous êtes invité(e) à rejoindre {{studio}} en tant que {{role}}. Créez votre compte pour continuer.",
+    "pendingDescLoggedIn": "Vous êtes invité(e) à rejoindre {{studio}} en tant que {{role}}.",
     "joinButton": "Rejoindre l'organisation",
     "joinFailed": "Votre compte a été créé, mais l'ajout à l'équipe a échoué. Contactez la personne qui vous a invité(e).",
     "backToLogin": "Retour à la connexion",

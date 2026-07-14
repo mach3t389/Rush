@@ -2325,6 +2325,7 @@
     "invalidDesc": "This link doesn't exist, has expired, or was already used. Contact the person who invited you for a new one.",
     "pendingTitle": "Join the team",
     "pendingDesc": "You've been invited to join {{studio}} as {{role}}. Create your account to continue.",
+    "pendingDescLoggedIn": "You've been invited to join {{studio}} as {{role}}.",
     "joinButton": "Join the organization",
     "joinFailed": "Your account was created, but joining the team failed. Contact the person who invited you.",
     "backToLogin": "Back to login",

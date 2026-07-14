@@ -192,7 +192,7 @@ export function TeamInvitationAccept() {
           {t('teamInvitation.pendingTitle')}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 28, textAlign: 'center' }}>
-          {t('teamInvitation.pendingDesc', { studio: invitation!.studioName, role: invitation!.role })}
+          {t('teamInvitation.pendingDescLoggedIn', { studio: invitation!.studioName, role: invitation!.role })}
         </p>
         {error && (
           <div style={{ padding: '10px 14px', borderRadius: 9, marginBottom: 16, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.25)', display: 'flex', alignItems: 'center', gap: 8 }}>
