@@ -108,14 +108,27 @@ function MoveTaskModal({ task, sections, onMove, onClose }: {
 // ── Column header ──────────────────────────────────────────────────────────────
 
 const GRID = '28px 1fr 80px 65px 120px 75px 95px 85px 24px';
+// Quand le panneau de détail est ouvert, ces infos sont déjà visibles à
+// droite — les cacher dans la liste centrale libère toute la largeur pour
+// lire le titre en entier (checkbox + titre + suppression seulement).
+const GRID_COMPACT = '28px 1fr 24px';
 
 const COL_STYLE: React.CSSProperties = {
   fontFamily: 'var(--ff-mono)', fontSize: 10,
   color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase',
 };
 
-function ColHeader() {
+function ColHeader({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
+  if (compact) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
+        <span />
+        <span style={COL_STYLE}>{t('tasks.title')}</span>
+        <span />
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
@@ -417,6 +430,7 @@ function TaskRow({
   onMoveToSection,
   onDelete,
   onConvertRequest,
+  compact,
 }: {
   task: Task;
   selected: boolean;
@@ -428,6 +442,7 @@ function TaskRow({
   onMoveToSection?: (toSectionLabel: string) => void;
   onDelete?: () => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
@@ -480,7 +495,7 @@ function TaskRow({
       onDragEnd={() => { dragHandleActive.current = false; onTaskDragEnd?.(); }}
       style={{
         display: 'grid',
-        gridTemplateColumns: GRID,
+        gridTemplateColumns: compact ? GRID_COMPACT : GRID,
         alignItems: 'center',
         gap: 12,
         padding: '8px 16px',
@@ -576,6 +591,8 @@ function TaskRow({
         )}
       </div>
 
+      {!compact && (
+      <>
       {/* Sous-tâches */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         {hasSubtasks ? (
@@ -686,6 +703,8 @@ function TaskRow({
           />
         )}
       </div>
+      </>
+      )}
 
       {/* Delete button — visible on hover */}
       <button
@@ -722,12 +741,13 @@ function TaskRow({
 
 // ── Add task row ───────────────────────────────────────────────────────────────
 
-function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany }: {
+function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, compact }: {
   projectId: string;
   projectName: string;
   projectColor: string;
   onAdd: (task: Task) => void;
   onAddMany: (tasks: Task[]) => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -824,7 +844,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany }: 
 
   return (
     <div style={{ background: 'rgba(249,255,0,0.03)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: compact ? GRID_COMPACT : GRID, alignItems: 'center', gap: 12, padding: '8px 16px' }}>
 
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
@@ -846,6 +866,8 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany }: 
           }}
         />
 
+        {!compact && (
+        <>
         <span />{/* Sous-tâches */}
         <span />{/* Activité */}
 
@@ -927,6 +949,8 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany }: 
             />
           )}
         </div>
+        </>
+        )}
 
         {/* Cancel only — X deletes the row */}
         <button
@@ -1250,7 +1274,7 @@ function Section({
 
       {!collapsed && (
         <>
-          <ColHeader />
+          <ColHeader compact={!!selectedTask} />
           <DropLine idx={0} />
           {tasks.map((task, i) => (
             <React.Fragment key={task.id}>
@@ -1265,11 +1289,12 @@ function Section({
                 onMoveToSection={toLabel => onMoveTaskToSection(task, label, toLabel)}
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
+                compact={!!selectedTask}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} />
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} compact={!!selectedTask} />
         </>
       )}
     </div>
