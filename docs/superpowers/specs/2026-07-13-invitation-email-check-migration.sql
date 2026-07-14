@@ -3,8 +3,12 @@
 --
 -- MANUAL STEP REQUIRED: paste this whole file into Supabase → SQL Editor and
 -- run it. Nothing in this project applies migrations automatically — see
--- CLAUDE.md's "Migrations Supabase" section. Both statements below are
--- idempotent `create or replace function` calls, safe to run more than once.
+-- CLAUDE.md's "Migrations Supabase" section. `accept_studio_invitation`'s
+-- return type is unchanged (still `returns void`), so its `create or
+-- replace` is safe to run more than once. `get_studio_invitation` changes
+-- its `returns table` column list, which Postgres does NOT allow via
+-- `create or replace` (it errors with "cannot change return type of
+-- existing function") — that one is dropped first, below.
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Fix 1 (Critical): accept_studio_invitation never checked that the caller's
@@ -70,7 +74,15 @@ grant execute on function accept_studio_invitation(text) to authenticated;
 -- looking at the old one). Widening a security-definer function's return
 -- columns to include a public, non-sensitive identifier is safe — studio_id
 -- is already implicitly disclosed via studio_name.
+--
+-- Dropped and recreated rather than `create or replace` — Postgres rejects
+-- changing a RETURNS TABLE column list in place. Safe: this function is
+-- only ever called from the client (no other database object depends on
+-- it), so there's no dependent-object error like the one client_contacts
+-- hit in the original multi-org migration.
 -- ─────────────────────────────────────────────────────────────────────────
+
+drop function if exists get_studio_invitation(text);
 
 create or replace function get_studio_invitation(p_token text)
 returns table (email text, role text, studio_name text, status text, studio_id uuid)
