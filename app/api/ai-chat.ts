@@ -207,12 +207,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await anthropicRes.json();
     const message = fromAnthropicResponse(data);
 
-    await supabaseAdmin
+    const { error: usageError } = await supabaseAdmin
       .from('ai_usage')
       .upsert(
         { studio_id: studioId, month, message_count: used + 1, updated_at: new Date().toISOString() },
         { onConflict: 'studio_id,month' }
       );
+    if (usageError) console.error('Failed to record ai_usage:', usageError);
 
     res.status(200).json({ message, usage: { used: used + 1, limit } });
   } catch (error) {
