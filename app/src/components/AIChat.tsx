@@ -386,6 +386,7 @@ export function AIChat() {
   const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputBoxRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
   const LANGS = [
@@ -423,24 +424,16 @@ export function AIChat() {
     return () => window.removeEventListener('keydown', handler, true);
   }, [open, listening, speechLang]);
 
+  // The input box grows with its content purely via CSS (a hidden mirror
+  // div sizes a grid cell the textarea overlays — see the input JSX) so its
+  // height can never fall behind rapid dictation updates the way a
+  // JS-measured resize did. All that's left is keeping the box scrolled to
+  // the bottom once the text passes its max height, so the line currently
+  // being dictated stays visible.
   useEffect(() => {
-    const raf = requestAnimationFrame(autoResize);
-    return () => cancelAnimationFrame(raf);
+    const el = inputBoxRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [input]);
-
-  // While actively dictating, keep resizing every frame regardless of
-  // exactly when/how often the browser's SpeechRecognition delivers
-  // onresult events — polling continuously is more robust than depending
-  // on each result event to individually trigger a resize (which visibly
-  // fell behind during rapid bursts of speech and only caught up once the
-  // user stopped talking).
-  useEffect(() => {
-    if (!listening) return;
-    let raf: number;
-    const loop = () => { autoResize(); raf = requestAnimationFrame(loop); };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [listening]);
 
   const toggleListening = () => {
     if (!SpeechRecognitionAPI) {
@@ -493,17 +486,6 @@ export function AIChat() {
     recognition.start();
   };
 
-  // Auto-resize textarea — also scrolls to the bottom on every resize so
-  // the line currently being typed/dictated never ends up hidden above or
-  // below the visible area once the text exceeds the max height.
-  const autoResize = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.max(60, Math.min(el.scrollHeight, 400)) + 'px';
-    el.scrollTop = el.scrollHeight;
-  };
-
   const send = async (text?: string) => {
     const content = (text ?? input).trim();
     if (!content || loading) return;
@@ -512,7 +494,6 @@ export function AIChat() {
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
     setInput('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setLoading(true);
 
     if (isDemoSession()) {
@@ -854,21 +835,39 @@ export function AIChat() {
               background: 'var(--surface-2)', border: '1px solid var(--border-2)',
               borderRadius: 13, padding: '8px 8px 8px 13px',
             }}>
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={e => { setInput(e.target.value); autoResize(); }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-                }}
-                placeholder={t('ai.placeholder')}
-                rows={3}
-                style={{
-                  flex: 1, border: 'none', background: 'none', resize: 'none',
-                  fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)',
-                  outline: 'none', lineHeight: 1.5, minHeight: 60, overflowY: 'auto',
-                }}
-              />
+              {/* Auto-grow input: a hidden mirror div holds the same text and
+                  sizes the grid cell; the textarea overlays the same cell and
+                  stretches to fill it. The box height is therefore driven by
+                  the actual text via layout — it grows in perfect sync with
+                  dictation, with no JS measurement that could lag behind. The
+                  outer div caps the height and scrolls once exceeded. */}
+              <div ref={inputBoxRef} style={{
+                flex: 1, display: 'grid', minHeight: 60, maxHeight: 200, overflowY: 'auto',
+              }}>
+                <div aria-hidden="true" style={{
+                  gridArea: '1 / 1 / 2 / 2',
+                  visibility: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  fontSize: 13, fontFamily: 'var(--ff-text)', lineHeight: 1.5,
+                  padding: 0, margin: 0, border: 'none',
+                }}>
+                  {input + '\n'}
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+                  }}
+                  placeholder={t('ai.placeholder')}
+                  style={{
+                    gridArea: '1 / 1 / 2 / 2',
+                    width: '100%', border: 'none', background: 'none', resize: 'none',
+                    fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)',
+                    outline: 'none', lineHeight: 1.5, padding: 0, margin: 0, overflow: 'hidden',
+                  }}
+                />
+              </div>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <button
                   onClick={toggleListening}
