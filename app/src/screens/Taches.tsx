@@ -421,6 +421,10 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         alignItems: 'center',
         gap: 12,
         padding: '8px 16px',
+        // Fixed regardless of compact/full mode — without it, closing the
+        // status/priority pills in compact mode shrinks the row's natural
+        // height, making the whole list jump shorter every time the panel opens.
+        minHeight: 44,
         borderBottom: '1px solid var(--border)',
         opacity: checked ? 0.4 : 1,
         background: isFlashing ? 'rgba(249,255,0,0.15)' : multiSelected ? 'rgba(249,255,0,0.08)' : selected ? 'rgba(249,255,0,0.04)' : 'transparent',
@@ -1118,7 +1122,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact }: { defaultPri
 
   return (
     <div style={{ borderTop: '1px solid var(--border)', background: 'rgba(249,255,0,0.03)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: compact ? GRID_COMPACT : GRID, alignItems: 'center', gap: 12, padding: '8px 16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: compact ? GRID_COMPACT : GRID, alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
 
