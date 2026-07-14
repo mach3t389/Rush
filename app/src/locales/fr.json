@@ -1623,6 +1623,13 @@
     "copied": "Copié !",
     "noPaymentMethods": "Aucune méthode de paiement disponible."
   },
+  "noOrganization": {
+    "title": "Aucune organisation",
+    "desc": "Tu ne fais partie d'aucune organisation pour le moment. Crée-en une, ou demande à quelqu'un de t'inviter dans la sienne.",
+    "namePlaceholder": "Nom de l'organisation",
+    "createButton": "Créer mon organisation",
+    "logout": "Se déconnecter"
+  },
   "settings": {
     "groupStudio": "Organisation",
     "groupAccount": "Compte",
@@ -1747,6 +1754,11 @@
     "planFeatAPIAccess": "Accès API (bientôt)",
     "planFeatEverythingStudio": "Tout le plan Studio",
     "studioName": "Nom de l'organisation",
+    "leaveOrgTitle": "Quitter cette organisation",
+    "leaveOrgDesc": "Tu perdras l'accès à tous les projets, clients et fichiers de cette organisation. Cette action est immédiate.",
+    "leaveOrgButton": "Quitter l'organisation",
+    "leaveOrgConfirm": "Oui, quitter",
+    "leaveOrgCancel": "Annuler",
     "studioSector": "Secteur d'activité",
     "videoproduction": "Production vidéo",
     "sectionPaymentMethods": "Méthodes de paiement",

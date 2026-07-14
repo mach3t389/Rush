@@ -14,7 +14,9 @@ import { usePlan } from '../data/planStore';
 import { canUseFeature, PLAN_FEATURES, getStorageLimitGB, type PlanKey } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
-import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, type StudioInfo } from '../data/studioStore';
+import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, leaveCurrentStudio, type StudioInfo } from '../data/studioStore';
+import { getCurrentUser } from '../data/authStore';
+import { isTeamOwner } from '../data/teamStore';
 import { AI_QUOTAS } from '../data/aiQuota';
 import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
@@ -1686,6 +1688,55 @@ function PlanSettings() {
   );
 }
 
+function LeaveOrganizationCard() {
+  const { t } = useTranslation();
+  const [confirming, setConfirming] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const handleLeave = async () => {
+    setLeaving(true);
+    try {
+      const remaining = await leaveCurrentStudio();
+      window.location.href = remaining.length > 0 ? '/' : '/mes-organisations';
+    } catch (err) {
+      console.error('Failed to leave organisation', err);
+      setLeaving(false);
+    }
+  };
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--danger)', padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('settings.leaveOrgTitle')}</p>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('settings.leaveOrgDesc')}</p>
+      {!confirming ? (
+        <button
+          onClick={() => setConfirming(true)}
+          style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 8, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+        >
+          {t('settings.leaveOrgButton')}
+        </button>
+      ) : (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleLeave}
+            disabled={leaving}
+            style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: leaving ? 'not-allowed' : 'pointer' }}
+          >
+            {leaving ? '…' : t('settings.leaveOrgConfirm')}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            disabled={leaving}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}
+          >
+            {t('settings.leaveOrgCancel')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Parametres() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState(() => {
@@ -1867,6 +1918,12 @@ export function Parametres() {
               </div>
               <SFButton variant="secondary" icon="square-pen" onClick={() => setProfileOpen(true)}>{t('settings.edit')}</SFButton>
             </div>
+
+            {(() => {
+              const currentUser = getCurrentUser();
+              if (!currentUser || isTeamOwner(currentUser.id)) return null;
+              return <LeaveOrganizationCard />;
+            })()}
           </div>
         )}
 

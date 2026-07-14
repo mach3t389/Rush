@@ -1610,6 +1610,13 @@
     "copied": "Copied!",
     "noPaymentMethods": "No payment methods available."
   },
+  "noOrganization": {
+    "title": "No organization",
+    "desc": "You don't belong to any organization yet. Create one, or ask someone to invite you to theirs.",
+    "namePlaceholder": "Organization name",
+    "createButton": "Create my organization",
+    "logout": "Sign out"
+  },
   "settings": {
     "groupStudio": "Organization",
     "groupAccount": "Account",
@@ -1734,6 +1741,11 @@
     "planFeatAPIAccess": "API access (coming soon)",
     "planFeatEverythingStudio": "Everything in Studio",
     "studioName": "Organization name",
+    "leaveOrgTitle": "Leave this organization",
+    "leaveOrgDesc": "You'll lose access to all of this organization's projects, clients, and files. This action is immediate.",
+    "leaveOrgButton": "Leave organization",
+    "leaveOrgConfirm": "Yes, leave",
+    "leaveOrgCancel": "Cancel",
     "studioSector": "Business sector",
     "videoproduction": "Video production",
     "sectionPaymentMethods": "Payment Methods",

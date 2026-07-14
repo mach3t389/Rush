@@ -38,6 +38,7 @@ import { Onboarding } from './screens/Onboarding';
 import { Pricing } from './screens/Pricing';
 import { AdminStudios } from './screens/AdminStudios';
 import { RouteErrorPage } from './screens/RouteErrorPage';
+import { NoOrganization } from './screens/NoOrganization';
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 const authLoader = async () => {
@@ -66,6 +67,10 @@ const router = createBrowserRouter([
 
   // Invitation membre d'équipe — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation-equipe/:token', element: <TeamInvitationAccept /> },
+
+  // Écran "aucune organisation" — atteint uniquement après avoir quitté sa
+  // dernière organisation (voir leaveCurrentStudio dans studioStore.ts).
+  { path: '/mes-organisations', element: <NoOrganization />, loader: authLoader },
 
   {
     path: '/',
