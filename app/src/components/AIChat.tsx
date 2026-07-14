@@ -477,12 +477,15 @@ export function AIChat() {
     recognition.start();
   };
 
-  // Auto-resize textarea
+  // Auto-resize textarea — also scrolls to the bottom on every resize so
+  // the line currently being typed/dictated never ends up hidden above or
+  // below the visible area once the text exceeds the max height.
   const autoResize = () => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.max(60, Math.min(el.scrollHeight, 260)) + 'px';
+    el.style.height = Math.max(60, Math.min(el.scrollHeight, 400)) + 'px';
+    el.scrollTop = el.scrollHeight;
   };
 
   const send = async (text?: string) => {
@@ -847,7 +850,7 @@ export function AIChat() {
                 style={{
                   flex: 1, border: 'none', background: 'none', resize: 'none',
                   fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)',
-                  outline: 'none', lineHeight: 1.5, minHeight: 60,
+                  outline: 'none', lineHeight: 1.5, minHeight: 60, overflowY: 'auto',
                 }}
               />
               <div style={{ position: 'relative', flexShrink: 0 }}>

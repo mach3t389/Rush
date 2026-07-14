@@ -42,7 +42,6 @@ export function AppShell() {
 
       const t = e.target as HTMLElement;
       const inTextField = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
-      const inAIPanel = !!t.closest?.('[data-ai-panel]');
 
       // Raccourci Recherche
       if (matchesShortcut(e, shortcuts.search) && !inTextField) {
@@ -51,8 +50,11 @@ export function AppShell() {
         return;
       }
 
-      // Raccourci IA toggle
-      if (matchesShortcut(e, shortcuts.ai_toggle) && (!inTextField || inAIPanel)) {
+      // Raccourci IA toggle — comme tout raccourci une-touche, ignoré pendant
+      // la frappe n'importe où, y compris dans le champ de message du
+      // panneau IA lui-même (taper un mot contenant "i" ne doit pas fermer
+      // le panneau en plein milieu de la rédaction d'un message).
+      if (matchesShortcut(e, shortcuts.ai_toggle) && !inTextField) {
         e.preventDefault();
         triggerAIToggle();
       }
