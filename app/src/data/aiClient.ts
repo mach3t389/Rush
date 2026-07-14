@@ -6,6 +6,7 @@
 
 import { supabase } from './supabaseClient';
 import { isDemoSession } from './authStore';
+import { getStudioId } from './studioStore';
 
 export type AiChatErrorCode = 'demo' | 'plan_gated' | 'quota_exceeded' | 'error';
 
@@ -42,6 +43,7 @@ export async function sendAiChat(
     body: JSON.stringify({
       messages: [{ role: 'system', content: systemPrompt }, ...history],
       tools: [],
+      studioId: await getStudioId(),
     }),
   });
 

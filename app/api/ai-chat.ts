@@ -102,8 +102,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { messages, tools } = req.body as ChatBody;
-  if (!Array.isArray(messages) || !Array.isArray(tools)) {
+  const { messages, tools, studioId } = req.body as ChatBody & { studioId?: string };
+  if (!Array.isArray(messages) || !Array.isArray(tools) || !studioId) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
   }
@@ -126,26 +126,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Resolve the caller's studio — same lookup as studioStore.ts (member row,
-  // falling back to legacy owner_user_id).
-  const { data: membership } = await supabaseAdmin
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('studio_members')
-    .select('studio_id')
+    .select('id')
     .eq('user_id', user.id)
+    .eq('studio_id', studioId)
     .maybeSingle();
 
-  let studioId = membership?.studio_id as string | undefined;
-  if (!studioId) {
-    const { data: owned } = await supabaseAdmin
-      .from('studios')
-      .select('id')
-      .eq('owner_user_id', user.id)
-      .maybeSingle();
-    studioId = owned?.id;
-  }
-
-  if (!studioId) {
-    res.status(403).json({ error: 'no_studio' });
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'not_a_member' });
     return;
   }
 

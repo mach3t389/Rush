@@ -7,6 +7,7 @@ import { canUseFeature } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getShortcuts as getShortcutsFn, matchesShortcut as matchesShortcutFn } from '../data/shortcutsStore';
 import { isDemoSession } from '../data/authStore';
+import { getStudioId } from '../data/studioStore';
 import { supabase } from '../data/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { SFIcon } from './ui';
@@ -527,7 +528,7 @@ export function AIChat() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ messages: apiMsgs, tools: TOOLS }),
+          body: JSON.stringify({ messages: apiMsgs, tools: TOOLS, studioId: await getStudioId() }),
         });
 
         if (!resp.ok) {
