@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFModal, SFButton } from '../ui';
 import { isDemoSession } from '../../data/authStore';
@@ -12,7 +13,10 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (isDemoSession()) return;
@@ -25,13 +29,21 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    if (!open || !dropdownRef.current || !anchorRect) return;
+    const el = dropdownRef.current;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const h = el.offsetHeight;
+    const w = el.offsetWidth;
+    const spaceBelow = vh - anchorRect.bottom - 6;
+    const top = spaceBelow >= h
+      ? anchorRect.bottom + 4
+      : Math.max(8, anchorRect.top - h - 4);
+    const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
+    el.style.top = `${top}px`;
+    el.style.left = `${left}px`;
+    el.style.visibility = 'visible';
+  }, [open, anchorRect]);
 
   if (isDemoSession()) return null;
 
@@ -53,7 +65,11 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   return (
     <div ref={menuRef} style={{ position: 'relative', padding: collapsed ? '0 6px 8px' : '0 12px 8px' }}>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={buttonRef}
+        onClick={() => {
+          if (!open) setAnchorRect(buttonRef.current?.getBoundingClientRect() ?? null);
+          setOpen(o => !o);
+        }}
         title={collapsed ? (active?.name ?? t('orgSwitcher.title')) : undefined}
         style={{
           display: 'flex', alignItems: 'center', gap: 8, width: '100%',
@@ -75,12 +91,14 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
         {!collapsed && <SFIcon name={open ? 'chevron-up' : 'chevron-down'} size={12} color="var(--text-3)" />}
       </button>
 
-      {open && (
-        <div style={{
-          position: 'absolute', top: '100%', left: collapsed ? 0 : 12, right: collapsed ? 'auto' : 12,
-          marginTop: 4, zIndex: 60, background: 'var(--surface)', border: '1px solid var(--border-2)',
-          borderRadius: 10, padding: 5, boxShadow: '0 12px 32px rgba(0,0,0,0.5)', minWidth: 200,
-        }}>
+      {open && createPortal(
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 59 }} />
+          <div ref={dropdownRef} style={{
+            position: 'fixed', visibility: 'hidden', zIndex: 60,
+            background: 'var(--surface)', border: '1px solid var(--border-2)',
+            borderRadius: 10, padding: 5, boxShadow: '0 12px 32px rgba(0,0,0,0.5)', minWidth: 200,
+          }}>
           {orgs.map(org => (
             <button
               key={org.studioId}
@@ -111,7 +129,9 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
             <SFIcon name="plus" size={13} color="var(--accent)" />
             {t('orgSwitcher.createOrg')}
           </button>
-        </div>
+          </div>
+        </>,
+        document.body
       )}
 
       <SFModal open={showCreate} onClose={() => setShowCreate(false)} title={t('orgSwitcher.createOrgTitle')} width={380}>
