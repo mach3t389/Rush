@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
 import { SFBar } from '../ui/SFBar';
+import { OrgSwitcher } from './OrgSwitcher';
 import { getProjects, subscribeProjects } from '../../data/projectStore';
 import { getClients, subscribeClients } from '../../data/clientStore';
 import { useProjectTotalNotifCount, useClientTotalNotifCount } from '../../hooks/useNotifs';
@@ -312,6 +313,9 @@ export function Sidebar() {
           <SFIcon name="chevron-right" size={13} />
         </button>
       )}
+
+      {/* Organisation switcher */}
+      <OrgSwitcher collapsed={collapsed} />
 
       {/* Scrollable middle section */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>

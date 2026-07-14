@@ -2281,6 +2281,14 @@
     "feature2Desc": "Partagez des ressources avec vos clients.",
     "feature3Desc": "Centralisez tous vos médias de production."
   },
+  "orgSwitcher": {
+    "title": "Organisation",
+    "createOrg": "Créer une organisation",
+    "createOrgTitle": "Nouvelle organisation",
+    "createOrgDesc": "Crée une organisation distincte — utile si tu gères plusieurs studios ou agences séparément.",
+    "createOrgPlaceholder": "Nom de l'organisation",
+    "createOrgSubmit": "Créer"
+  },
   "viewAs": {
     "banner": "Vous visualisez en tant que",
     "internalLabel": "Membre",
