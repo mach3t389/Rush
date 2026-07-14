@@ -204,7 +204,9 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
           })}
         </div>
 
-        {/* Shortcuts */}
+        {/* Shortcuts + clear — same layout as TaskDatePopover: the clear
+            button sits inline as a small trash icon right after the
+            shortcuts, not on its own row below. */}
         <div style={{ display: 'flex', gap: 6, marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
           {[
             { key: 'today',     label: t('datepicker.today'),       d: TODAY_DP },
@@ -216,18 +218,13 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
               {s.label}
             </button>
           ))}
+          {value && (
+            <button onClick={() => { onChange(''); onClose(); }} title={t('datepicker.clear')}
+              style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--danger)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>
+              <SFIcon name="trash-2" size={11} />
+            </button>
+          )}
         </div>
-
-        {/* Clear — only shown once a date is actually set */}
-        {value && (
-          <button onClick={() => { onChange(''); onClose(); }}
-            style={{ width: '100%', marginTop: 6, padding: '5px 4px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-          >
-            {t('datepicker.clear')}
-          </button>
-        )}
       </div>
     </>,
     document.body
