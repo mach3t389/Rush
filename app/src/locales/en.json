@@ -2324,7 +2324,12 @@
     "pendingDesc": "You've been invited to join {{studio}} as {{role}}. Create your account to continue.",
     "joinButton": "Join the organization",
     "joinFailed": "Your account was created, but joining the team failed. Contact the person who invited you.",
-    "backToLogin": "Back to login"
+    "backToLogin": "Back to login",
+    "wrongAccountTitle": "Wrong account signed in",
+    "wrongAccountDesc": "This invitation is for {{invited}} — you're signed in as {{current}}.",
+    "switchAccount": "Sign out and switch account",
+    "haveAccount": "I already have an account",
+    "createAccount": "Create an account"
   },
   "pricing": {
     "title": "Transparent pricing",

@@ -2337,7 +2337,12 @@
     "pendingDesc": "Vous êtes invité(e) à rejoindre {{studio}} en tant que {{role}}. Créez votre compte pour continuer.",
     "joinButton": "Rejoindre l'organisation",
     "joinFailed": "Votre compte a été créé, mais l'ajout à l'équipe a échoué. Contactez la personne qui vous a invité(e).",
-    "backToLogin": "Retour à la connexion"
+    "backToLogin": "Retour à la connexion",
+    "wrongAccountTitle": "Mauvais compte connecté",
+    "wrongAccountDesc": "Cette invitation est pour {{invited}} — tu es connecté(e) en tant que {{current}}.",
+    "switchAccount": "Se déconnecter et changer de compte",
+    "haveAccount": "J'ai déjà un compte",
+    "createAccount": "Créer un compte"
   },
   "pricing": {
     "title": "Tarification transparente",
