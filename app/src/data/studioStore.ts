@@ -190,6 +190,22 @@ export async function leaveCurrentStudio(): Promise<MyOrganization[]> {
   if (!user) throw new Error('leaveCurrentStudio called without an authenticated Supabase user');
 
   const studioId = await getStudioId();
+
+  // Defense in depth: the UI already hides the "leave" button from owners
+  // (isTeamOwner check in Parametres.tsx), but that's a UI-only guard with a
+  // known race window on first paint. Re-check at the data layer so an
+  // owner's membership row can never be deleted this way — doing so would
+  // leave the organisation with studios.owner_user_id pointing at someone
+  // with no membership and no roster owner.
+  const { data: membership, error: fetchError } = await supabase
+    .from('studio_members')
+    .select('is_owner')
+    .eq('studio_id', studioId)
+    .eq('user_id', user.id)
+    .single();
+  if (fetchError) throw fetchError;
+  if (membership.is_owner) throw new Error('owner_cannot_leave');
+
   const { error } = await supabase
     .from('studio_members')
     .delete()

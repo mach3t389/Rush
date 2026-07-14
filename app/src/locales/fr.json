@@ -1759,6 +1759,8 @@
     "leaveOrgButton": "Quitter l'organisation",
     "leaveOrgConfirm": "Oui, quitter",
     "leaveOrgCancel": "Annuler",
+    "leaveOrgOwnerError": "Impossible de quitter : tu es propriétaire de cette organisation. Transfère la propriété à un autre membre avant de partir.",
+    "leaveOrgGenericError": "Une erreur est survenue. Réessaie dans un instant.",
     "studioSector": "Secteur d'activité",
     "videoproduction": "Production vidéo",
     "sectionPaymentMethods": "Méthodes de paiement",

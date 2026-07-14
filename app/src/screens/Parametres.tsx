@@ -1692,14 +1692,21 @@ function LeaveOrganizationCard() {
   const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLeave = async () => {
     setLeaving(true);
+    setError('');
     try {
       const remaining = await leaveCurrentStudio();
       window.location.href = remaining.length > 0 ? '/' : '/mes-organisations';
     } catch (err) {
-      console.error('Failed to leave organisation', err);
+      if (err instanceof Error && err.message === 'owner_cannot_leave') {
+        setError(t('settings.leaveOrgOwnerError'));
+      } else {
+        console.error('Failed to leave organisation', err);
+        setError(t('settings.leaveOrgGenericError'));
+      }
       setLeaving(false);
     }
   };
@@ -1708,6 +1715,9 @@ function LeaveOrganizationCard() {
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--danger)', padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('settings.leaveOrgTitle')}</p>
       <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('settings.leaveOrgDesc')}</p>
+      {error && (
+        <p style={{ fontSize: 12, color: 'var(--danger)', lineHeight: 1.5 }}>{error}</p>
+      )}
       {!confirming ? (
         <button
           onClick={() => setConfirming(true)}

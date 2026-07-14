@@ -1746,6 +1746,8 @@
     "leaveOrgButton": "Leave organization",
     "leaveOrgConfirm": "Yes, leave",
     "leaveOrgCancel": "Cancel",
+    "leaveOrgOwnerError": "Can't leave: you own this organization. Transfer ownership to another member before leaving.",
+    "leaveOrgGenericError": "Something went wrong. Please try again in a moment.",
     "studioSector": "Business sector",
     "videoproduction": "Video production",
     "sectionPaymentMethods": "Payment Methods",

@@ -1167,6 +1167,8 @@ git add app/src/screens/TeamInvitationAccept.tsx app/src/locales/fr.json app/src
 git commit -m "fix: let existing accounts join a second organisation via invitation"
 ```
 
+> **Post-review addendum (2026-07-13, Critical fix):** the "already logged in, matching email" path added above relies on a React-only email check — the underlying `accept_studio_invitation` RPC never verified the caller's email server-side, so anyone with a valid token could call the RPC directly and join an organisation not addressed to them. Closed by `docs/superpowers/specs/2026-07-13-invitation-email-check-migration.sql` (must be run manually in Supabase SQL editor, same as prior migrations).
+
 ---
 
 ### Task 6: Fix `ai-chat.ts` for multi-organization callers

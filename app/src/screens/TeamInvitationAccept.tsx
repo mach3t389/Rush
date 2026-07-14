@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
 import { getInvitationByToken, acceptInvitation, type TeamInvitationInfo } from '../data/teamStore';
 import { register, login, logout } from '../data/authStore';
+import { switchActiveStudio } from '../data/studioStore';
 import { supabase } from '../data/supabaseClient';
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -75,7 +76,14 @@ export function TeamInvitationAccept() {
     setError('');
     try {
       await acceptInvitation(token);
-      navigate('/', { replace: true });
+      // Make the organisation just joined the active one. switchActiveStudio
+      // writes the active-org localStorage key AND does a full page reload
+      // (window.location.href = '/') — required so every one of the ~19
+      // organisation-scoped data stores starts fresh instead of still
+      // showing whatever organisation was active before (see Finding 3 of
+      // the 2026-07-13 final review). A plain react-router navigate() here
+      // would leave the old organisation active.
+      await switchActiveStudio(invitation!.studioId);
     } catch {
       setError(t('teamInvitation.joinFailed'));
       setSubmitting(false);

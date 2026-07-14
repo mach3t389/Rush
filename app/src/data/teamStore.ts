@@ -178,6 +178,7 @@ export interface TeamInvitationInfo {
   role: string;
   studioName: string;
   status: 'pending' | 'accepted';
+  studioId: string;
 }
 
 export async function getInvitationByToken(token: string): Promise<TeamInvitationInfo | null> {
@@ -185,7 +186,7 @@ export async function getInvitationByToken(token: string): Promise<TeamInvitatio
   if (error) { console.error('getInvitationByToken failed', error); return null; }
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
-  return { email: row.email, role: row.role, studioName: row.studio_name, status: row.status };
+  return { email: row.email, role: row.role, studioName: row.studio_name, status: row.status, studioId: row.studio_id };
 }
 
 export async function acceptInvitation(token: string): Promise<void> {
