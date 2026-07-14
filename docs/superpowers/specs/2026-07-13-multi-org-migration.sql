@@ -4,6 +4,20 @@
 -- can have more than one studio_members row, which the database currently
 -- forbids outright.
 
+-- 0. client_contacts.studio_member_id currently has a foreign key that
+--    (incorrectly, per the original design in
+--    2026-07-07-branding-contacts-notifprefs-supabase-migration-design.md,
+--    which intended `references studio_members(id)`) ended up pointing at
+--    studio_members(user_id) instead — which is exactly the column whose
+--    uniqueness this migration needs to relax, so it must be fixed first.
+--    Confirmed with the user (a read-only count query) that this column is
+--    entirely empty today (0 rows), so there is no data to migrate — this
+--    just repoints the foreign key at the correct column before anything
+--    could ever be stored against the wrong one.
+alter table client_contacts drop constraint if exists client_contacts_studio_member_id_fkey;
+alter table client_contacts add constraint client_contacts_studio_member_id_fkey
+  foreign key (studio_member_id) references studio_members(id) on delete set null;
+
 -- 1. Relax the uniqueness rule on studio_members: today it's unique on
 --    user_id alone (confirmed by insertOwnerMembership()'s use of
 --    `onConflict: 'user_id'` in studioStore.ts), which physically prevents
