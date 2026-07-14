@@ -423,8 +423,16 @@ export function AIChat() {
     return () => window.removeEventListener('keydown', handler, true);
   }, [open, listening, speechLang]);
 
+  // rAF-batched: dictation fires onresult many times per second while
+  // actively speaking, each one calling setInput — without batching, every
+  // single one forces its own synchronous layout (autoResize reads
+  // scrollHeight right after resetting height), which under a burst of
+  // rapid updates can visibly fall behind and only catch up once results
+  // stop coming in (i.e. right when the user stops talking). Coalescing to
+  // once per animation frame keeps growth visibly continuous instead.
   useEffect(() => {
-    autoResize();
+    const raf = requestAnimationFrame(autoResize);
+    return () => cancelAnimationFrame(raf);
   }, [input]);
 
   const toggleListening = () => {
@@ -458,7 +466,8 @@ export function AIChat() {
       }
       const prefix = baseText ? baseText + ' ' : '';
       setInput(prefix + spokenFinal + interim);
-      setTimeout(autoResize, 0);
+      // Resize is already handled by the rAF-batched effect on `input` —
+      // no need to also schedule it here.
     };
 
     recognition.onend = () => {
