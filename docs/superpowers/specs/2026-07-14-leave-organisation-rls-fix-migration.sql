@@ -1,0 +1,35 @@
+-- Fixes a third live bug found during the multi-organization feature's
+-- final manual walkthrough (2026-07-14): "Quitter cette organisation"
+-- silently does nothing. leaveCurrentStudio() (studioStore.ts) issues a
+-- plain `.delete().eq('studio_id', ...).eq('user_id', ...)` against
+-- studio_members and reports success with no thrown error — but the row
+-- is never actually removed. Confirmed live: after calling
+-- leaveCurrentStudio() as a non-owner member of two organisations, both
+-- studio_members rows still existed in the database.
+--
+-- Root cause: the only existing delete policy on studio_members,
+-- `members_delete_by_owner` (2026-07-05-team-invitations-design.md), reads:
+--
+--   using (studio_id in (select id from studios where owner_user_id = auth.uid()))
+--
+-- This lets an ORGANISATION OWNER delete any member's row (for removing a
+-- teammate) — it does NOT let a member delete their OWN row to leave
+-- voluntarily. Supabase/Postgres row-level security silently filters a
+-- DELETE's matched rows down to what the policy allows; if that leaves
+-- zero rows, the delete still "succeeds" (0 rows affected is not an
+-- error), which is exactly why this shipped without any visible failure.
+--
+-- Fix: add a second, additive delete policy allowing a member to delete
+-- their own row. Postgres OR's multiple permissive policies together, so
+-- this only ever grants MORE ability (self-removal) — it does not change
+-- or replace the existing owner-removes-anyone policy. The owner is still
+-- prevented from leaving their own organisation, but that's enforced in
+-- application code (studioStore.ts's leaveCurrentStudio() checks is_owner
+-- and throws before attempting the delete) — the same trust model already
+-- used elsewhere in this codebase (e.g. removeMember()'s owner guard).
+--
+-- MANUAL STEP REQUIRED: paste and run this whole file in the Supabase SQL
+-- editor.
+
+create policy "members_delete_self" on studio_members for delete
+  using (user_id = auth.uid());
