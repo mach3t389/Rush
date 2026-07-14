@@ -11,15 +11,30 @@
 --    composite uniqueness on (user_id, studio_id) — one row per person PER
 --    organisation, not per person overall.
 --
---    IMPORTANT: the exact constraint name below (studio_members_user_id_key)
---    is Postgres's default naming for a single-column unique constraint
---    added via `unique` in a `create table` statement, which is how this
---    table was originally defined. Before running this, check it's correct:
---    in the Supabase dashboard, go to Database → Tables → studio_members →
---    scroll to "Constraints", and confirm the unique constraint on user_id
---    has this exact name. If it's different, replace it in the command
---    below before running.
-alter table studio_members drop constraint if exists studio_members_user_id_key;
+--    This looks up the existing unique constraint on user_id by its actual
+--    behavior (a unique constraint covering exactly that one column) rather
+--    than by a guessed name, so it works regardless of what it happens to
+--    be called.
+do $$
+declare
+  cname text;
+begin
+  select tc.constraint_name into cname
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on tc.constraint_name = ccu.constraint_name and tc.table_schema = ccu.table_schema
+  where tc.table_name = 'studio_members'
+    and tc.table_schema = 'public'
+    and tc.constraint_type = 'UNIQUE'
+  group by tc.constraint_name
+  having count(*) = 1 and bool_or(ccu.column_name = 'user_id')
+  limit 1;
+
+  if cname is not null then
+    execute format('alter table studio_members drop constraint %I', cname);
+  end if;
+end $$;
+
 alter table studio_members add constraint studio_members_user_id_studio_id_key unique (user_id, studio_id);
 
 -- 2. Let any member read their own organisation's row, not just the owner.
