@@ -1913,7 +1913,7 @@ export function Travail() {
     .filter(s => showCompletedSections || !s.completed)
     .map(s => ({
       ...s,
-      tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked && t.status !== 'ok'),
+      tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked),
     }));
 
   const anchorTaskId = React.useRef<string | null>(null);

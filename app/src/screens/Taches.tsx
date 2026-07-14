@@ -1385,7 +1385,7 @@ export function Taches() {
   if (filterStatusesSet.size > 0)   visible = visible.filter(t => filterStatusesSet.has(t.status as string));
   // Les tâches terminées disparaissent de Mes tâches (elles restent dans leur projet).
   visible = visible.filter(t => !t.checked);
-  if (hideCompleted) visible = visible.filter(t => t.status !== 'ok');
+  if (hideCompleted) visible = visible.filter(t => !t.checked);
 
   const activeTasks = tasks.filter(t => !t.checked);
   const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
