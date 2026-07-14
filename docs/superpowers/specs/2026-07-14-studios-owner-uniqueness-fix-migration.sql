@@ -1,0 +1,29 @@
+-- Fixes a second live bug found during the multi-organization feature's
+-- final manual walkthrough (2026-07-14): creating an ADDITIONAL organisation
+-- for a person who already owns one fails outright, with the browser
+-- console showing:
+--
+--   { code: '23505', message: 'duplicate key value violates unique
+--     constraint "studios_owner_user_id_key"' }
+--
+-- Root cause: `studios.owner_user_id` was declared `unique` in the very
+-- first studios migration (2026-07-04-projects-supabase-migration), back
+-- when "one person = one organisation, forever" was the whole point — see
+-- that migration's `owner_user_id uuid not null unique references
+-- auth.users(id)`. The 2026-07-13 multi-org migration relaxed
+-- studio_members' uniqueness (one row per person PER organisation) but
+-- missed this SEPARATE constraint on studios itself, which still means a
+-- single person can only ever OWN one organisation — directly blocking
+-- "Créer une organisation" (createAdditionalStudio) and the zero-organisation
+-- screen's create action for anyone who already owns one.
+--
+-- Fix: drop the uniqueness. Nothing else depends on owner_user_id being
+-- unique — every existing RLS policy on `studios` (studios_select_own,
+-- studios_insert_own, studios_update_own, studios_select_member) filters by
+-- `owner_user_id = auth.uid()` per-row, which works identically whether
+-- that matches one row or several.
+--
+-- MANUAL STEP REQUIRED: paste and run this whole file in the Supabase SQL
+-- editor.
+
+alter table studios drop constraint if exists studios_owner_user_id_key;
