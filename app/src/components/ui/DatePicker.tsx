@@ -217,6 +217,17 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
             </button>
           ))}
         </div>
+
+        {/* Clear — only shown once a date is actually set */}
+        {value && (
+          <button onClick={() => { onChange(''); onClose(); }}
+            style={{ width: '100%', marginTop: 6, padding: '5px 4px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+          >
+            {t('datepicker.clear')}
+          </button>
+        )}
       </div>
     </>,
     document.body

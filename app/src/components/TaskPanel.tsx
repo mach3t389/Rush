@@ -171,7 +171,7 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
 // almost nothing in the narrower inline panel (Mes tâches split view) —
 // without it, a growing multi-line title wraps into a near-single-column
 // wall of text instead of a few readable lines.
-const SUB_GRID = '22px minmax(80px, 1fr) 32px 90px 100px 24px';
+const SUB_GRID = '22px minmax(80px, 1fr) 32px 50px 85px 24px';
 
 const subColLabel = (label: string) => (
   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block' }}>{label}</span>
@@ -220,7 +220,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
-      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 16, padding: '6px 8px', borderRadius: 8, background: hovered ? 'var(--surface-2)' : 'transparent', transition: 'background 0.1s' }}
+      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: hovered ? 'var(--surface-2)' : 'transparent', transition: 'background 0.1s' }}
     >
       {/* Checkbox */}
       <button onClick={onToggle}
@@ -1135,7 +1135,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               )}
             </div>
             {localSubtasks.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: SUB_GRID, gap: 16, padding: '4px 8px 6px', marginBottom: 4, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: SUB_GRID, gap: 10, padding: '4px 8px 6px', marginBottom: 4, borderBottom: '1px solid var(--border)' }}>
                 <span />{subColLabel(t('tasks.title'))}{subColLabel(t('taskPanel.prio'))}{subColLabel(t('tasks.assigned'))}{subColLabel(t('tasks.dueDate'))}<span />
               </div>
             )}
