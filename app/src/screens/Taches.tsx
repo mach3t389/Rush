@@ -19,6 +19,10 @@ import { usePersistedState } from '../hooks/usePersistedState';
 
 // cb | titre | sous-tâches | activité | projet | assigné(avatar) | priorité | statut | échéance | more
 const GRID = '28px 1fr 80px 65px 140px 36px 75px 95px 85px 24px 28px';
+// Quand le panneau de détail est ouvert, ces infos sont déjà visibles à
+// droite — les cacher dans la liste centrale libère toute la largeur pour
+// lire le titre en entier (checkbox + titre + suppression seulement).
+const GRID_COMPACT = '28px 1fr 24px';
 
 type Filter = 'today' | 'week' | 'late' | 'all';
 type SortCol = 'title' | 'priority' | 'status' | 'dueDate';
@@ -73,7 +77,7 @@ function sortTasks(tasks: Task[], col: SortCol, dir: SortDir): Task[] {
 
 // �"?�"? Col header �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir }; onSort: (col: SortCol) => void }) {
+function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir: SortDir }; onSort: (col: SortCol) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const plain = (label: string) => (
     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -91,6 +95,15 @@ function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir
       </button>
     );
   };
+  if (compact) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
+        <span />
+        {sortable(t('tasks.task'), 'title')}
+        <span />
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
@@ -301,7 +314,7 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
   );
 }
 
-function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, onConvertRequest }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void; onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void }) {
+function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, onConvertRequest, compact }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void; onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
@@ -382,7 +395,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: GRID,
+        gridTemplateColumns: compact ? GRID_COMPACT : GRID,
         alignItems: 'center',
         gap: 12,
         padding: '8px 16px',
@@ -461,6 +474,8 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         )}
       </div>
 
+      {!compact && (
+      <>
       {/* Sous-tâches */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         {task.subtasks?.length ? (
@@ -745,6 +760,8 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
           />
         )}
       </div>
+      </>
+      )}
 
       {/* Delete — supprime la tâche de Mes tâches */}
       {onDelete && (
@@ -760,12 +777,14 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
       )}
 
       {/* More — opens panel */}
-      <button
-        onClick={e => onSelect(task, e)}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-      >
-        <SFIcon name="ellipsis" size={14} color="var(--text-3)" />
-      </button>
+      {!compact && (
+        <button
+          onClick={e => onSelect(task, e)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+        >
+          <SFIcon name="ellipsis" size={14} color="var(--text-3)" />
+        </button>
+      )}
 
       {/* Right-click context menu */}
       {ctxPos && (
@@ -983,7 +1002,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
   );
 }
 
-function AddTaskRow({ defaultPriority, onAdd, onAddMany }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void }) {
+function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(false);
@@ -1071,7 +1090,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany }: { defaultPriority: Pr
 
   return (
     <div style={{ borderTop: '1px solid var(--border)', background: 'rgba(249,255,0,0.03)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: compact ? GRID_COMPACT : GRID, alignItems: 'center', gap: 12, padding: '8px 16px' }}>
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
 
@@ -1088,6 +1107,8 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany }: { defaultPriority: Pr
           style={{ width: '100%', padding: '4px 0', background: 'transparent', border: 'none', borderBottom: '1px solid var(--accent)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
         />
 
+        {!compact && (
+        <>
         <span />{/* Sous-tâches */}
         <span />{/* Activité */}
 
@@ -1187,6 +1208,8 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany }: { defaultPriority: Pr
             <DatePickerDropdown value={dueDate} onChange={v => { setDueDate(formatDisplay(v)); setOpenField(null); }} onClose={() => setOpenField(null)} anchorRect={dropRect} />
           )}
         </div>
+        </>
+        )}
 
         {/* Cancel */}
         <button onMouseDown={e => e.preventDefault()} onClick={cancel}
@@ -1397,7 +1420,7 @@ export function Taches() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noSectionTasks, sectionGroups]);
 
-  const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort };
+  const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort, compact: !!selectedTask };
 
   const filterTabBtn = (f: { key: Filter; labelKey: string }) => (
     <button
@@ -1505,9 +1528,9 @@ export function Taches() {
                           <ColHeader {...colHeaderProps} />
                         </div>
                         {g.tasks.map(task => (
-                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
+                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={!!selectedTask} />
                         ))}
-                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} />
+                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} compact={!!selectedTask} />
                       </>
                     )}
                   </div>
@@ -1516,7 +1539,7 @@ export function Taches() {
               {priorityGroups.length === 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                   <ColHeader {...colHeaderProps} />
-                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
+                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={!!selectedTask} />
                 </div>
               )}
             </>
@@ -1529,9 +1552,9 @@ export function Taches() {
                 <ColHeader {...colHeaderProps} />
               </div>
               {noSectionTasks.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={!!selectedTask} />
               ))}
-              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
+              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={!!selectedTask} />
             </div>
 
             {/* Named sections */}
@@ -1553,9 +1576,9 @@ export function Taches() {
                         <ColHeader {...colHeaderProps} />
                       </div>
                       {g.tasks.map(task => (
-                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
+                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={!!selectedTask} />
                       ))}
-                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} />
+                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} compact={!!selectedTask} />
                     </>
                   )}
                 </div>
