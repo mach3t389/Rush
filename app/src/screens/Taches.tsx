@@ -18,7 +18,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
 // cb | titre | sous-tâches | activité | projet | assigné(avatar) | priorité | statut | échéance | more
-const GRID = '28px 1fr 80px 65px 160px 36px 110px 130px 90px 24px 28px';
+const GRID = '28px 1fr 80px 65px 140px 36px 75px 95px 85px 24px 28px';
 
 type Filter = 'today' | 'week' | 'late' | 'all';
 type SortCol = 'title' | 'priority' | 'status' | 'dueDate';

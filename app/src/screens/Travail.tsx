@@ -107,7 +107,7 @@ function MoveTaskModal({ task, sections, onMove, onClose }: {
 
 // ── Column header ──────────────────────────────────────────────────────────────
 
-const GRID = '28px 1fr 80px 65px 160px 110px 130px 90px 24px 28px';
+const GRID = '28px 1fr 80px 65px 120px 75px 95px 85px 24px 28px';
 
 const COL_STYLE: React.CSSProperties = {
   fontFamily: 'var(--ff-mono)', fontSize: 10,
