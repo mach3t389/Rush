@@ -464,6 +464,26 @@ function TaskRow({
   const [titleDraft, setTitleDraft] = useState(task.title);
   const titleInputRef = React.useRef<HTMLInputElement>(null);
 
+  // The fields above are local (optimistic) copies of `task`, seeded once at
+  // mount — editing them from THIS row also calls updateTask() so they stay
+  // in sync here. But an edit made elsewhere (the detail panel on the right,
+  // which shares the same task.id) updates the store and this component
+  // re-renders with a fresh `task` prop, yet these useState calls never
+  // re-read it — the row kept showing stale values until it happened to
+  // unmount. Re-sync whenever the incoming task object actually changes.
+  React.useEffect(() => {
+    setChecked(task.checked);
+    setPriority(task.priority);
+    setAssignee(task.assignee);
+    setStatus(task.status as string);
+    setDueDate(task.dueDate);
+    setEndDate(task.endDate ?? '');
+    setStartTime(task.startTime ?? '');
+    setEndTime(task.endTime ?? '');
+    if (!editingTitle) setTitleDraft(task.title);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task]);
+
   React.useEffect(() => {
     if (editingTitle) titleInputRef.current?.select();
   }, [editingTitle]);
