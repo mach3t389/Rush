@@ -1229,6 +1229,17 @@ export function Taches() {
   const { t } = useTranslation();
   const [filter, setFilter]           = usePersistedState<Filter>('sf_taches_filter', 'all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Collapsing the list columns tracks the panel opening instantly, but on
+  // close it stays collapsed until the panel's width transition (0.2s)
+  // finishes — flipping back to the full grid immediately made the title
+  // column visibly snap tiny (squeezed into the still-narrow container)
+  // before growing back once the panel had actually collapsed.
+  const [compactColumns, setCompactColumns] = useState(false);
+  useEffect(() => {
+    if (selectedTask) { setCompactColumns(true); return; }
+    const timer = setTimeout(() => setCompactColumns(false), 200);
+    return () => clearTimeout(timer);
+  }, [selectedTask]);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
   const [flashId]                     = useState<string | null>(null);
   const [convertRequest, setConvertRequest] = useState<{ taskId: string; pos: { x: number; y: number } } | null>(null);
@@ -1420,7 +1431,7 @@ export function Taches() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noSectionTasks, sectionGroups]);
 
-  const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort, compact: !!selectedTask };
+  const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort, compact: compactColumns };
 
   const filterTabBtn = (f: { key: Filter; labelKey: string }) => (
     <button
@@ -1528,9 +1539,9 @@ export function Taches() {
                           <ColHeader {...colHeaderProps} />
                         </div>
                         {g.tasks.map(task => (
-                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={!!selectedTask} />
+                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
                         ))}
-                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} compact={!!selectedTask} />
+                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} compact={compactColumns} />
                       </>
                     )}
                   </div>
@@ -1539,7 +1550,7 @@ export function Taches() {
               {priorityGroups.length === 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                   <ColHeader {...colHeaderProps} />
-                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={!!selectedTask} />
+                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={compactColumns} />
                 </div>
               )}
             </>
@@ -1552,9 +1563,9 @@ export function Taches() {
                 <ColHeader {...colHeaderProps} />
               </div>
               {noSectionTasks.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={!!selectedTask} />
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
               ))}
-              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={!!selectedTask} />
+              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={compactColumns} />
             </div>
 
             {/* Named sections */}
@@ -1576,9 +1587,9 @@ export function Taches() {
                         <ColHeader {...colHeaderProps} />
                       </div>
                       {g.tasks.map(task => (
-                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={!!selectedTask} />
+                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
                       ))}
-                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} compact={!!selectedTask} />
+                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} compact={compactColumns} />
                     </>
                   )}
                 </div>

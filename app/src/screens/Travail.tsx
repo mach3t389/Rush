@@ -989,7 +989,7 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 }
 
 function Section({
-  label, tasks, completed, selectedTask, onSelectTask, onToggleComplete,
+  label, tasks, completed, selectedTask, compactColumns, onSelectTask, onToggleComplete,
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
@@ -998,6 +998,7 @@ function Section({
   tasks: Task[];
   completed: boolean;
   selectedTask: Task | null;
+  compactColumns: boolean;
   onSelectTask: (t: Task, e?: React.MouseEvent) => void;
   onToggleComplete: () => void;
   onDragStart: () => void;
@@ -1274,7 +1275,7 @@ function Section({
 
       {!collapsed && (
         <>
-          <ColHeader compact={!!selectedTask} />
+          <ColHeader compact={compactColumns} />
           <DropLine idx={0} />
           {tasks.map((task, i) => (
             <React.Fragment key={task.id}>
@@ -1289,12 +1290,12 @@ function Section({
                 onMoveToSection={toLabel => onMoveTaskToSection(task, label, toLabel)}
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
-                compact={!!selectedTask}
+                compact={compactColumns}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} compact={!!selectedTask} />
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} compact={compactColumns} />
         </>
       )}
     </div>
@@ -1858,6 +1859,17 @@ export function Travail() {
     });
   };
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Collapsing the list columns tracks the panel opening instantly, but on
+  // close it stays collapsed until the panel's width transition (0.2s)
+  // finishes — flipping back to the full grid immediately made the title
+  // column visibly snap tiny (squeezed into the still-narrow container)
+  // before growing back once the panel had actually collapsed.
+  const [compactColumns, setCompactColumns] = useState(false);
+  useEffect(() => {
+    if (selectedTask) { setCompactColumns(true); return; }
+    const timer = setTimeout(() => setCompactColumns(false), 200);
+    return () => clearTimeout(timer);
+  }, [selectedTask]);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
   const handleConvertRequest = (task: Task, pos: { x: number; y: number }) => {
     const ids = multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id];
@@ -2241,6 +2253,7 @@ export function Travail() {
                 tasks={section.tasks}
                 completed={!!section.completed}
                 selectedTask={selectedTask}
+                compactColumns={compactColumns}
                 onSelectTask={handleSelectTask}
                 onToggleComplete={() => handleToggleComplete(globalIdx)}
                 onDragStart={() => handleDragStart(globalIdx)}
