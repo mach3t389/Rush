@@ -115,6 +115,7 @@ export function subscribeTeam(fn: () => void): () => void {
 
 export function isTeamOwner(userId: string): boolean {
   if (isDemoSession()) return userId === USERS.lea.id;
+  ensureFetchStarted();
   return userId === _ownerId;
 }
 

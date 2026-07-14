@@ -16,7 +16,7 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, leaveCurrentStudio, type StudioInfo } from '../data/studioStore';
 import { getCurrentUser } from '../data/authStore';
-import { isTeamOwner } from '../data/teamStore';
+import { isTeamOwner, subscribeTeam } from '../data/teamStore';
 import { AI_QUOTAS } from '../data/aiQuota';
 import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
@@ -1747,6 +1747,8 @@ export function Parametres() {
   const plan = usePlan();
   const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
   useEffect(() => subscribeStudioInfo(() => setStudioInfo(getStudioInfo())), []);
+  const [, forceTeamRerender] = useState(0);
+  useEffect(() => subscribeTeam(() => forceTeamRerender(n => n + 1)), []);
   const saveStudioField = (field: keyof StudioInfo, value: string) => updateStudioInfo({ [field]: value });
   const [uiFonts, setUiFonts] = useState(loadUiFonts);
   const [customHeadings, setCustomHeadings] = useState<typeof HEADING_FONTS>([]);
