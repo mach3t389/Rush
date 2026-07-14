@@ -581,7 +581,11 @@ function TaskRow({
           setEditingTitle(true);
         }}
         onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', height: '100%', maxWidth: '100%', width: editingTitle ? '100%' : 'fit-content' }}
+        // maxWidth stops just short of 100% (rather than 100%) so a long,
+        // truncated title never eats the whole column — leaving a sliver of
+        // row background past the "…" that's always clickable to open the
+        // detail panel, instead of every click landing on title-edit mode.
+        style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', height: '100%', maxWidth: editingTitle ? '100%' : 'calc(100% - 28px)', width: editingTitle ? '100%' : 'fit-content' }}
       >
         {task.deliverable && !editingTitle && <SFIcon name="package" size={11} color="var(--accent)" />}
         {editingTitle ? (
