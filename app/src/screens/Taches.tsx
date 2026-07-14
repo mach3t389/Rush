@@ -456,6 +456,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
             onClick={e => e.stopPropagation()}
             style={{
               fontSize: 13, fontWeight: 500, padding: '2px 6px',
+              boxSizing: 'content-box',
               width: `${Math.max(2, titleDraft.length + 1)}ch`, maxWidth: '100%',
               borderRadius: 6, border: '1px solid var(--accent)',
               background: 'var(--surface-3)', color: 'var(--text)',
@@ -961,7 +962,8 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
             onClick={e => e.stopPropagation()}
             style={{
               fontFamily: 'var(--ff-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-              fontWeight: 600, padding: '2px 6px', width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 300,
+              fontWeight: 600, padding: '2px 6px', boxSizing: 'content-box',
+              width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 300,
               borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none',
             }}
           />

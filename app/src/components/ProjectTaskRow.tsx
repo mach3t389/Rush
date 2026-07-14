@@ -277,6 +277,7 @@ export function ProjectTaskRow({
             onClick={e => e.stopPropagation()}
             style={{
               fontSize: 13, fontWeight: 500, padding: '2px 6px',
+              boxSizing: 'content-box',
               width: `${Math.max(2, titleDraft.length + 1)}ch`, maxWidth: '100%',
               borderRadius: 6, border: '1px solid var(--accent)',
               background: 'var(--surface-3)', color: 'var(--text)',

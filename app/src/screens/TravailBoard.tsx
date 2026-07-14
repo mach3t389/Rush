@@ -322,6 +322,7 @@ export function TravailBoard({
                       style={{
                         fontWeight: 600, fontSize: 13, color: 'var(--text)', background: 'var(--surface-2)',
                         border: '1px solid var(--accent)', borderRadius: 5, padding: '1px 5px',
+                        boxSizing: 'content-box',
                         width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 180, fontFamily: 'var(--ff-text)',
                       }}
                     />
