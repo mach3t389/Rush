@@ -22,6 +22,7 @@ import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
+import { getGoogleCalendarStatus, startGoogleCalendarConnect, disconnectGoogleCalendar, type GoogleCalendarStatus } from '../data/googleCalendarStore';
 import {
   getPaymentMethods, updatePaymentMethod, addPaymentMethod, removePaymentMethod, subscribePaymentMethods, type PaymentMethod, type PaymentMethodType,
   getInvoiceDefaults, setInvoiceDefaults, subscribeInvoiceDefaults, type InvoiceDefaults,
@@ -1773,6 +1774,126 @@ function LeaveOrganizationCard() {
   );
 }
 
+function GoogleCalendarCard() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const s = await getGoogleCalendarStatus();
+      if (!cancelled) setStatus(s);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('google');
+    if (result) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('google');
+      window.history.replaceState({}, '', url);
+      if (result === 'connected') {
+        void getGoogleCalendarStatus().then(setStatus);
+      }
+    }
+  }, []);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      await startGoogleCalendarConnect();
+    } catch (err) {
+      console.error('Failed to start Google Calendar connection', err);
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      await disconnectGoogleCalendar();
+      setStatus({ connected: false, lastSyncedAt: null });
+    } catch (err) {
+      console.error('Failed to disconnect Google Calendar', err);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" fill="#fff" stroke="#dadce0" strokeWidth="1.5"/>
+            <rect x="3" y="3" width="18" height="5" rx="2" fill="#4285F4"/>
+            <rect x="3" y="6" width="18" height="2" fill="#4285F4"/>
+            <text x="12" y="18" textAnchor="middle" fontFamily="sans-serif" fontWeight="700" fontSize="8" fill="#4285F4">31</text>
+            <line x1="8" y1="3" x2="8" y2="6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+            <line x1="16" y1="3" x2="16" y2="6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Google Calendar</p>
+            {status?.connected && (
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(52,201,138,0.12)', border: '1px solid rgba(52,201,138,0.3)', color: 'var(--ok)', letterSpacing: '0.06em' }}>
+                {t('settings.gcalConnected')}
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+            {status?.connected && status.lastSyncedAt
+              ? t('settings.gcalLastSynced', { time: new Date(status.lastSyncedAt).toLocaleString() })
+              : t('settings.googleCalendarDesc')}
+          </p>
+        </div>
+      </div>
+
+      {!status?.connected && (
+        <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border)' }}>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.whatThisEnables')}</p>
+          {[
+            { icon: 'calendar', text: t('settings.gcalFeatureAutoAdd') },
+            { icon: 'refresh-cw', text: t('settings.gcalFeatureBidirectional') },
+            { icon: 'bell', text: t('settings.gcalFeatureReminders') },
+          ].map(item => (
+            <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <SFIcon name={item.icon as any} size={13} color="var(--text-3)" />
+              <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{item.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {status?.connected ? (
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 13, cursor: disconnecting ? 'not-allowed' : 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 500 }}
+          >
+            {disconnecting ? '…' : t('settings.gcalDisconnect')}
+          </button>
+        ) : (
+          <button
+            onClick={handleConnect}
+            disabled={connecting || status === null}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, cursor: connecting ? 'not-allowed' : 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 500 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+            {connecting ? '…' : t('settings.connectGoogleCalendar')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Parametres() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState(() => {
@@ -2155,51 +2276,7 @@ export function Parametres() {
             </div>
 
             {/* Google Calendar */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {/* Google Calendar logo mark */}
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                    <rect x="3" y="3" width="18" height="18" rx="2" fill="#fff" stroke="#dadce0" strokeWidth="1.5"/>
-                    <rect x="3" y="3" width="18" height="5" rx="2" fill="#4285F4"/>
-                    <rect x="3" y="6" width="18" height="2" fill="#4285F4"/>
-                    <text x="12" y="18" textAnchor="middle" fontFamily="sans-serif" fontWeight="700" fontSize="8" fill="#4285F4">31</text>
-                    <line x1="8" y1="3" x2="8" y2="6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
-                    <line x1="16" y1="3" x2="16" y2="6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Google Calendar</p>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.25)', color: 'var(--accent)', letterSpacing: '0.06em' }}>{t('settings.comingSoon')}</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('settings.googleCalendarDesc')}</p>
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border)' }}>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.whatThisEnables')}</p>
-                {[
-                  { icon: 'calendar', text: t('settings.gcalFeatureAutoAdd') },
-                  { icon: 'refresh-cw', text: t('settings.gcalFeatureBidirectional') },
-                  { icon: 'users', text: t('settings.gcalFeatureShare') },
-                  { icon: 'bell', text: t('settings.gcalFeatureReminders') },
-                ].map(item => (
-                  <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <SFIcon name={item.icon as any} size={13} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{item.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button disabled style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 13, cursor: 'not-allowed', fontFamily: 'var(--ff-text)', fontWeight: 500, opacity: 0.6 }}>
-                  <svg width="14" height="14" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-                  {t('settings.connectGoogleCalendar')}
-                </button>
-                <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('settings.availableNextUpdate')}</p>
-              </div>
-            </div>
+            <GoogleCalendarCard />
 
             {/* Placeholder for future integrations */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
