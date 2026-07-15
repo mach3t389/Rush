@@ -224,9 +224,7 @@ export function Pricing() {
         padding: '0 40px', height: 56,
       }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SFIcon name="play" size={12} color="#0b0b0b" />
-          </div>
+          <img src="/favicon.svg" alt="Rush" style={{ width: 24, height: 24, objectFit: 'contain' }} />
           <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -312,10 +310,15 @@ export function Pricing() {
                   {isFree ? (
                     <span style={{ fontSize: 36, fontWeight: 900, fontFamily: 'var(--ff-display)' }}>{t('settings.planFree')}</span>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                      <span style={{ fontSize: 36, fontWeight: 900, fontFamily: 'var(--ff-display)' }}>{price} $</span>
-                      <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA</span>
-                    </div>
+                    <>
+                      <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
+                        {t('pricing.startingFrom')}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <span style={{ fontSize: 36, fontWeight: 900, fontFamily: 'var(--ff-display)' }}>{price} $</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{t(billing === 'monthly' ? 'pricing.monthly' : 'pricing.yearly')} CA</span>
+                      </div>
+                    </>
                   )}
                   <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginTop: 3, visibility: billing === 'yearly' && !isFree ? 'visible' : 'hidden' }}>
                     {t('pricing.billedYearly')}

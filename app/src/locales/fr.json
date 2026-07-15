@@ -2358,6 +2358,7 @@
   "pricing": {
     "title": "Tarification transparente",
     "subtitle": "Commencez gratuitement. Évoluez à votre rythme.",
+    "startingFrom": "À partir de",
     "startFree": "Commencer gratuitement",
     "choosePlan": "Essayer Studio gratuitement",
     "chooseAgency": "Essayer Agence gratuitement",

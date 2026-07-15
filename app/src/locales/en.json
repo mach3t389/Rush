@@ -2345,6 +2345,7 @@
   "pricing": {
     "title": "Transparent pricing",
     "subtitle": "Start free. Grow at your own pace.",
+    "startingFrom": "Starting from",
     "startFree": "Start for free",
     "choosePlan": "Try Studio for free",
     "chooseAgency": "Try Agency for free",
