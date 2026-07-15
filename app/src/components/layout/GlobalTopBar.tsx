@@ -8,6 +8,7 @@ import { USERS } from '../../data/mock';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../profile/ProfileEditPanel';
 import { getShortcuts, subscribeShortcuts, formatCombo } from '../../data/shortcutsStore';
 import { getCurrentUser, logout } from '../../data/authStore';
+import { getMyAccessLevel } from '../../data/teamStore';
 
 interface Props {
   onSearch: () => void;
@@ -223,7 +224,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           initialInitials={me.initials}
           initialColor={me.avatarColor}
           isSelf
-          isAdmin
+          isAdmin={getMyAccessLevel() !== 'member'}
           onClose={() => setShowProfile(false)}
         />
       )}
