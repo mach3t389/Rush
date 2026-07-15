@@ -25,6 +25,7 @@ export async function startGoogleCalendarConnect(): Promise<void> {
   const resp = await fetch(`/api/google-calendar-oauth-start?studioId=${studioId}`, { headers });
   if (!resp.ok) throw new Error('Failed to start Google Calendar connection');
   const { url } = await resp.json();
+  if (!url) throw new Error('No Google Calendar authorization URL returned');
   window.location.href = url;
 }
 

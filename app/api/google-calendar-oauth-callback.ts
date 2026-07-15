@@ -68,6 +68,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .limit(1)
       .maybeSingle();
 
+    if (!anyMember) {
+      // Should be unreachable — oauth-start already verified the caller is
+      // a studio member before this flow began — but guard explicitly since
+      // connected_by_user_id is a NOT NULL column.
+      console.error('No studio member found for studio during Google OAuth callback:', verified.studioId);
+      res.redirect(302, `${redirectBase}/parametres?section=integrations&google=error`);
+      return;
+    }
+
     const { error: upsertError } = await supabaseAdmin
       .from('google_calendar_connections')
       .upsert({
@@ -76,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         refresh_token: tokens.refresh_token,
         access_token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
         google_calendar_id: 'primary',
-        connected_by_user_id: anyMember?.user_id ?? null,
+        connected_by_user_id: anyMember.user_id,
         connected_at: new Date().toISOString(),
         sync_token: null, // force a fresh full sync on the next pull
       }, { onConflict: 'studio_id' });

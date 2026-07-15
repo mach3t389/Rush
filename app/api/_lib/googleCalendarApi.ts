@@ -77,13 +77,17 @@ export async function googleCalendarRequest(
 
   if (method === 'DELETE') {
     if (!resp.ok && resp.status !== 410 && resp.status !== 404) {
-      throw new Error(`Google Calendar API ${method} ${path} failed: ${resp.status}`);
+      const err = new Error(`Google Calendar API ${method} ${path} failed: ${resp.status}`) as Error & { status?: number };
+      err.status = resp.status;
+      throw err;
     }
     return null;
   }
 
   if (!resp.ok) {
-    throw new Error(`Google Calendar API ${method} ${path} failed: ${resp.status} ${await resp.text()}`);
+    const err = new Error(`Google Calendar API ${method} ${path} failed: ${resp.status} ${await resp.text()}`) as Error & { status?: number };
+    err.status = resp.status;
+    throw err;
   }
   return resp.json();
 }

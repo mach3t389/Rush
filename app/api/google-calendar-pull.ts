@@ -57,27 +57,59 @@ async function pullForStudio(
   const token = await getValidAccessToken(supabaseAdmin, studioId);
   if (!token) return 'not_connected';
 
-  const params = new URLSearchParams();
+  try {
+    return await runSync(supabaseAdmin, studioId, syncToken, calendarId, token);
+  } catch (err) {
+    if ((err as Error & { status?: number }).status === 410) {
+      // Stale/invalidated sync token — Google requires dropping it and
+      // starting a fresh full sync, not retrying with the same token.
+      return runSync(supabaseAdmin, studioId, null, calendarId, token);
+    }
+    throw err;
+  }
+}
+
+async function runSync(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  studioId: string,
+  syncToken: string | null,
+  calendarId: string,
+  token: { accessToken: string; calendarId: string }
+): Promise<string> {
+  const params = new URLSearchParams({ singleEvents: 'true' });
   if (syncToken) {
     params.set('syncToken', syncToken);
   } else {
-    // First sync ever for this studio — Google requires a bounded time
-    // window instead of a syncToken. Six months back is enough to catch
-    // anything a team would plausibly want to see in Rush.
+    // First sync ever for this studio (or a resync after a stale token) —
+    // Google requires a bounded time window instead of a syncToken. Six
+    // months back is enough to catch anything a team would plausibly want
+    // to see in Rush.
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     params.set('timeMin', sixMonthsAgo.toISOString());
-    params.set('singleEvents', 'true');
   }
 
-  const data = await googleCalendarRequest(
-    token.accessToken,
-    calendarId,
-    'GET',
-    `/events?${params.toString()}`
-  );
+  let allItems: GoogleEventItem[] = [];
+  let nextSyncToken: string | undefined;
+  let pageToken: string | undefined;
 
-  for (const item of (data.items ?? []) as GoogleEventItem[]) {
+  do {
+    if (pageToken) params.set('pageToken', pageToken);
+    else params.delete('pageToken');
+
+    const data = await googleCalendarRequest(
+      token.accessToken,
+      calendarId,
+      'GET',
+      `/events?${params.toString()}`
+    );
+
+    allItems = allItems.concat((data.items ?? []) as GoogleEventItem[]);
+    nextSyncToken = data.nextSyncToken;
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  for (const item of allItems) {
     if (item.status === 'cancelled') {
       await supabaseAdmin.from('events').delete().eq('google_event_id', item.id).eq('studio_id', studioId);
       continue;
@@ -118,7 +150,7 @@ async function pullForStudio(
 
   await supabaseAdmin
     .from('google_calendar_connections')
-    .update({ sync_token: data.nextSyncToken, last_synced_at: new Date().toISOString() })
+    .update({ sync_token: nextSyncToken, last_synced_at: new Date().toISOString() })
     .eq('studio_id', studioId);
 
   return 'ok';
