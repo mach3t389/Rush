@@ -12,7 +12,7 @@
 
 import { USERS } from './mock';
 import type { User } from '../types';
-import { isDemoSession, onLogout } from './authStore';
+import { isDemoSession, onLogout, getCurrentUser } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
@@ -133,7 +133,42 @@ export function findTeamMember(userId: string): TeamMemberInfo | undefined {
   return getTeamMembers().find(m => m.id === userId);
 }
 
-async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions'>>): Promise<void> {
+export function getMyAccessLevel(): AccessLevel {
+  const user = getCurrentUser();
+  if (!user) return 'member';
+  if (isDemoSession()) return user.id === USERS.lea.id ? 'owner' : 'member';
+  ensureFetchStarted();
+  return findTeamMember(user.id)?.accessLevel ?? 'member';
+}
+
+const ACCESS_LEVEL_STORAGE_KEY = (id: string) => `sf_access_${id}`;
+
+// Mirrors loadProfile/loadPermissions in ProfileEditPanel.tsx: demo sessions
+// persist to localStorage (never Supabase), real sessions read the live
+// studio_members cache via findTeamMember. Unlike getMyAccessLevel() above,
+// this reads ANY member's level (used when an admin views someone else's
+// profile), not just the signed-in user's own.
+export function loadAccessLevel(userId: string): AccessLevel {
+  if (isDemoSession()) {
+    try {
+      const raw = localStorage.getItem(ACCESS_LEVEL_STORAGE_KEY(userId));
+      if (raw === 'owner' || raw === 'admin' || raw === 'member') return raw;
+    } catch { /* noop */ }
+    return userId === USERS.lea.id ? 'owner' : 'member';
+  }
+  return findTeamMember(userId)?.accessLevel ?? 'member';
+}
+
+export function saveAccessLevel(userId: string, accessLevel: AccessLevel): void {
+  if (isDemoSession()) {
+    if (userId === USERS.lea.id) return; // demo owner can't be demoted
+    try { localStorage.setItem(ACCESS_LEVEL_STORAGE_KEY(userId), accessLevel); } catch { /* noop */ }
+    return;
+  }
+  updateMemberFields(userId, { accessLevel });
+}
+
+async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions' | 'accessLevel'>>): Promise<void> {
   const studioId = await getStudioId();
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined)        row.name = patch.name;
@@ -142,6 +177,7 @@ async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<Te
   if (patch.phone !== undefined)       row.phone = patch.phone;
   if (patch.photoUrl !== undefined)    row.photo_url = patch.photoUrl;
   if (patch.permissions !== undefined) row.permissions = patch.permissions;
+  if (patch.accessLevel !== undefined) row.access_level = patch.accessLevel;
 
   const { error } = await supabase.from('studio_members').update(row).eq('studio_id', studioId).eq('user_id', userId);
   if (error) { console.error('upsertSupabaseMemberFields failed', error); return; }
@@ -154,7 +190,7 @@ async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<Te
 // userId doesn't match any real studio member (e.g. an external client
 // contact id, or an invitee's email before they've accepted) — same
 // no-real-effect outcome those callers already had before this migration.
-export function updateMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions'>>): void {
+export function updateMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions' | 'accessLevel'>>): void {
   if (isDemoSession()) return;
   _members = _members.map(m => (m.id === userId ? { ...m, ...patch } : m));
   notify();
