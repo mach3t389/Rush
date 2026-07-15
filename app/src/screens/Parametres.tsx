@@ -1073,6 +1073,8 @@ function PlanSettings() {
   const [confirming, setConfirming]   = useState(false);
   const [saving, setSaving]           = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [manualGrantNote, setManualGrantNote] = useState<string | null>(null);
+  const [grantInfoOpen, setGrantInfoOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(() =>
     new URLSearchParams(window.location.search).get('checkout')
   );
@@ -1095,7 +1097,7 @@ function PlanSettings() {
         const studioId = await getStudioId();
         const { data, error } = await supabase
           .from('studios')
-          .select('plan, billing_storage_tier, billing_seats, stripe_subscription_id')
+          .select('plan, billing_storage_tier, billing_seats, stripe_subscription_id, manual_grant_note')
           .eq('id', studioId)
           .single();
         if (!cancelled && !error && data) {
@@ -1106,6 +1108,7 @@ function PlanSettings() {
           setDraftStorage(data.billing_storage_tier ?? 0);
           setDraftSeats(data.billing_seats ?? 2);
           setHasActiveSubscription(!!data.stripe_subscription_id);
+          setManualGrantNote(data.manual_grant_note ?? null);
         }
       } catch (err) {
         console.error('Failed to load subscription status', err);
@@ -1157,6 +1160,11 @@ function PlanSettings() {
   const seatPrice     = (billing === 'monthly' ? activePlan.seatPriceMonthly : activePlan.seatPriceYearly)
     * Math.max(0, currentSeats - activePlan.includedSeats);
   const totalPrice    = platformPrice + storagePrice + seatPrice;
+  // A paid plan with no real Stripe subscription behind it means the studio
+  // got this access offered manually (via the admin grant tool) — the total
+  // above still reflects the plan's real dollar value, which would
+  // misleadingly look like an active charge if shown as-is.
+  const isManuallyGranted = currentPlan !== 'gratuit' && !hasActiveSubscription;
 
   const hasChanges = draftPlan !== currentPlan || draftStorage !== currentStorage || draftSeats !== currentSeats;
 
@@ -1641,11 +1649,47 @@ function PlanSettings() {
               <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', fontWeight: 700, color: 'var(--text-2)' }}>{row.value}</span>
             </div>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'var(--surface-2)', position: 'relative' }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{t('settings.planSummaryTotal')}</span>
-            <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', color: totalPrice === 0 ? 'var(--ok)' : 'var(--accent)' }}>
-              {totalPrice === 0 ? t('settings.planSummaryFree') : `${totalPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
-            </span>
+            {isManuallyGranted ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textDecoration: 'line-through' }}>
+                  {totalPrice} $ CA{billing === 'monthly' ? '/mois' : '/an'}
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', color: 'var(--ok)' }}>
+                  {t('settings.planSummaryFree')}
+                </span>
+                <button
+                  onClick={() => setGrantInfoOpen(v => !v)}
+                  title={t('settings.planManualGrantInfoTitle')}
+                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: grantInfoOpen ? 'var(--accent)' : 'var(--text-3)' }}
+                >
+                  <SFIcon name="info" size={13} />
+                </button>
+              </span>
+            ) : (
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--ff-display)', color: totalPrice === 0 ? 'var(--ok)' : 'var(--accent)' }}>
+                {totalPrice === 0 ? t('settings.planSummaryFree') : `${totalPrice} $ CA${billing === 'monthly' ? '/mois' : '/an'}`}
+              </span>
+            )}
+            {grantInfoOpen && (
+              <>
+                <div onClick={() => setGrantInfoOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 91,
+                  width: 300, padding: '12px 14px', borderRadius: 10,
+                  background: 'var(--surface-3)', border: '1px solid var(--border-2)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                    {t('settings.planManualGrantInfoTitle')}
+                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    {manualGrantNote || t('settings.planManualGrantInfoBody')}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 12 }}>{t('settings.planCancelAnytime')}</p>

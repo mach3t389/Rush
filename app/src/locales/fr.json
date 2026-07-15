@@ -1736,6 +1736,8 @@
     "planSummaryTotal": "Total estimé",
     "planSummaryFree": "Gratuit",
     "planSummaryNone": "Aucun",
+    "planManualGrantInfoTitle": "Accès offert gratuitement",
+    "planManualGrantInfoBody": "Cet abonnement a été offert gratuitement par Rush — aucun montant n'est facturé pour l'instant.",
     "planPendingBarText": "Modifications non appliquées",
     "planPendingBarConfirm": "Confirmer les changements",
     "planPendingBarDiscard": "Annuler",

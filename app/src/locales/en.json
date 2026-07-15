@@ -1723,6 +1723,8 @@
     "planSummaryTotal": "Estimated total",
     "planSummaryFree": "Free",
     "planSummaryNone": "None",
+    "planManualGrantInfoTitle": "Access offered for free",
+    "planManualGrantInfoBody": "This subscription was offered for free by Rush — no amount is currently being charged.",
     "planPendingBarText": "Unsaved changes",
     "planPendingBarConfirm": "Confirm changes",
     "planPendingBarDiscard": "Discard",
