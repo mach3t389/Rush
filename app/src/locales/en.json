@@ -494,6 +494,8 @@
     "subtasksCount": "{{done}}/{{total}} subtasks",
     "openResource": "Open {{title}}",
     "remove": "Remove",
+    "editTitle": "Click to rename",
+    "deleteDeliverable": "Delete deliverable",
     "linkExistingResource": "Link existing resource",
     "existingResources": "Available resources",
     "noResourcesHint": "No resources in this project",

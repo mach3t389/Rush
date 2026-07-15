@@ -494,6 +494,8 @@
     "subtasksCount": "{{done}}/{{total}} sous-tâches",
     "openResource": "Ouvrir {{title}}",
     "remove": "Retirer",
+    "editTitle": "Cliquer pour renommer",
+    "deleteDeliverable": "Supprimer le livrable",
     "linkExistingResource": "Lier une ressource existante",
     "existingResources": "Ressources disponibles",
     "noResourcesHint": "Aucune ressource dans ce projet",

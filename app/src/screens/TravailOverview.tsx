@@ -5,7 +5,7 @@ import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
-import { getDeliverables, addDeliverable, updateTask, subscribeStore, getSections } from '../data/taskStore';
+import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { getProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
@@ -15,6 +15,7 @@ import { getResources, subscribeResources } from '../data/resourceStore';
 import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice } from '../data/financeStore';
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
+import { showToast } from '../data/toastStore';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType } from '../types';
 
 // Icônes par type de ressource (pour les ressources liées aux livrables)
@@ -180,6 +181,8 @@ export function TravailOverview() {
   const [newDlType, setNewDlType] = useState<DeliverableType>('video');
   const [formatPickerOpen, setFormatPickerOpen] = useState<string | null>(null);
   const [typePickerOpen, setTypePickerOpen] = useState<string | null>(null);
+  const [editingDlId, setEditingDlId] = useState<string | null>(null);
+  const [dlTitleDraft, setDlTitleDraft] = useState('');
 
   useEffect(() => {
     return subscribeStore(() => setDeliverables(getDeliverables(project.id)));
@@ -338,8 +341,8 @@ export function TravailOverview() {
             }
           >
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-              {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), '', t('overview.colStatus'), ''].map((h, i) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px 28px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+              {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), '', t('overview.colStatus'), '', ''].map((h, i) => (
                 <span key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
               ))}
             </div>
@@ -367,8 +370,23 @@ export function TravailOverview() {
               const toggleResource = (rid: string) => updateTask(project.id, dl.id, {
                 linkedResources: linkedIds.includes(rid) ? linkedIds.filter(id => id !== rid) : [...linkedIds, rid],
               });
+              const isEditingTitle = editingDlId === dl.id;
+              const commitDlTitle = () => {
+                const val = dlTitleDraft.trim();
+                setEditingDlId(null);
+                if (val && val !== dl.title) updateTask(project.id, dl.id, { title: val });
+              };
+              const handleDeleteDl = () => {
+                const snapshot = dl;
+                deleteTask(project.id, dl.id);
+                showToast({
+                  type: 'task',
+                  message: 'Livrable supprimé',
+                  onUndo: () => addDeliverable(project.id, snapshot),
+                });
+              };
               return (
-                <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
+                <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px 28px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -380,7 +398,27 @@ export function TravailOverview() {
                         <SFIcon name={st.icon} size={13} color={st.color} />
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dl.title}</p>
+                        {isEditingTitle ? (
+                          <input
+                            autoFocus
+                            value={dlTitleDraft}
+                            onChange={e => setDlTitleDraft(e.target.value)}
+                            onBlur={commitDlTitle}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { e.preventDefault(); commitDlTitle(); }
+                              if (e.key === 'Escape') setEditingDlId(null);
+                              e.stopPropagation();
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ fontSize: 13, fontWeight: 500, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'content-box', width: `${Math.max(4, dlTitleDraft.length + 1)}ch`, maxWidth: '100%' }}
+                          />
+                        ) : (
+                          <p
+                            onClick={e => { e.stopPropagation(); setDlTitleDraft(dl.title); setEditingDlId(dl.id); }}
+                            title={t('overview.editTitle')}
+                            style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
+                          >{dl.title}</p>
+                        )}
                         {dl.subtasks && dl.subtasks.length > 0 && (
                           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 1 }}>
                             {t('overview.subtasksCount', { done: dl.subtasks.filter(s => s.checked).length, total: dl.subtasks.length })}
@@ -538,6 +576,16 @@ export function TravailOverview() {
                     <SFIcon name="list-checks" size={11} />
                     Tâches
                   </button>
+
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDeleteDl(); }}
+                    title={t('overview.deleteDeliverable')}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 7, padding: 6, cursor: 'pointer', color: 'var(--text-3)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    <SFIcon name="trash-2" size={13} />
+                  </button>
                 </div>
               );
             })}
@@ -545,40 +593,51 @@ export function TravailOverview() {
             {/* Inline add form */}
             {addingDeliverable && (
               <div style={{ padding: '12px 18px', borderTop: deliverables.length ? '1px solid var(--border)' : 'none', background: 'rgba(249,255,0,0.03)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input
-                  autoFocus
-                  value={newDlTitle}
-                  onChange={e => setNewDlTitle(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && newDlTitle.trim()) {
-                      const task: Task = {
-                        id: `dl-${Date.now()}`,
-                        title: newDlTitle.trim(),
-                        projectId: project.id,
-                        projectName: project.name,
-                        projectColor: project.clientColor,
-                        assignee: USERS.lea,
-                        status: 'warn',
-                        statusLabel: 'À livrer',
-                        priority: 'normal',
-                        priorityLabel: 'Moyenne',
-                        dueDate: '—',
-                        dueDateRed: false,
-                        checked: false,
-                        subtasks: [],
-                        deliverable: true,
-                        deliverableType: newDlType,
-                        format: newDlFormat,
-                      };
-                      addDeliverable(project.id, task);
-                      setAddingDeliverable(false);
-                      setNewDlTitle('');
-                    }
-                    if (e.key === 'Escape') setAddingDeliverable(false);
-                  }}
-                  placeholder="Nom du livrable… (Entrée pour valider)"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box' }}
-                />
+                {(() => {
+                  const submitNewDl = () => {
+                    if (!newDlTitle.trim()) return;
+                    const task: Task = {
+                      id: `dl-${Date.now()}`,
+                      title: newDlTitle.trim(),
+                      projectId: project.id,
+                      projectName: project.name,
+                      projectColor: project.clientColor,
+                      assignee: USERS.lea,
+                      status: 'warn',
+                      statusLabel: 'À livrer',
+                      priority: 'normal',
+                      priorityLabel: 'Moyenne',
+                      dueDate: '—',
+                      dueDateRed: false,
+                      checked: false,
+                      subtasks: [],
+                      deliverable: true,
+                      deliverableType: newDlType,
+                      format: newDlFormat,
+                    };
+                    addDeliverable(project.id, task);
+                    setAddingDeliverable(false);
+                    setNewDlTitle('');
+                  };
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        autoFocus
+                        value={newDlTitle}
+                        onChange={e => setNewDlTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); submitNewDl(); }
+                          if (e.key === 'Escape') setAddingDeliverable(false);
+                        }}
+                        placeholder="Nom du livrable…"
+                        style={{ flex: 1, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                      <SFButton variant="primary" size="sm" icon="check" disabled={!newDlTitle.trim()} onClick={submitNewDl}>
+                        {t('overview.add')}
+                      </SFButton>
+                    </div>
+                  );
+                })()}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type :</span>
                   {DELIVERABLE_TYPES.map(dt => (
