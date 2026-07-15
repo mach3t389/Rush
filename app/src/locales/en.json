@@ -2351,6 +2351,27 @@
     "haveAccount": "I already have an account",
     "createAccount": "Create an account"
   },
+  "clientInvitation": {
+    "pendingTitle": "Join the client portal",
+    "pendingDesc": "You've been invited by {{studio}} to access the client portal.",
+    "pendingDescLoggedIn": "Signed in — join {{studio}}'s client portal.",
+    "haveAccount": "I already have an account",
+    "createAccount": "Create an account",
+    "joinButton": "Join",
+    "joinFailed": "Couldn't join the portal. Please try again.",
+    "invalidTitle": "Invalid invitation",
+    "invalidDesc": "This invitation link is no longer valid or has already been used.",
+    "backToLogin": "Back to login",
+    "wrongAccountTitle": "Wrong account",
+    "wrongAccountDesc": "This invitation was sent to {{invited}}, but you're signed in as {{current}}.",
+    "switchAccount": "Switch account"
+  },
+  "clientHome": {
+    "title": "Your projects",
+    "subtitle": "Projects you have access to",
+    "empty": "No projects have been shared with you yet.",
+    "logout": "Log out"
+  },
   "pricing": {
     "title": "Transparent pricing",
     "subtitle": "Start free. Grow at your own pace.",

@@ -2364,6 +2364,27 @@
     "haveAccount": "J'ai déjà un compte",
     "createAccount": "Créer un compte"
   },
+  "clientInvitation": {
+    "pendingTitle": "Rejoindre le portail client",
+    "pendingDesc": "Vous avez été invité·e par {{studio}} à accéder au portail client.",
+    "pendingDescLoggedIn": "Connecté·e — rejoignez le portail client de {{studio}}.",
+    "haveAccount": "J'ai déjà un compte",
+    "createAccount": "Créer un compte",
+    "joinButton": "Rejoindre",
+    "joinFailed": "Impossible de rejoindre le portail. Réessayez.",
+    "invalidTitle": "Invitation invalide",
+    "invalidDesc": "Ce lien d'invitation n'est plus valide ou a déjà été utilisé.",
+    "backToLogin": "Retour à la connexion",
+    "wrongAccountTitle": "Mauvais compte",
+    "wrongAccountDesc": "Cette invitation a été envoyée à {{invited}}, mais vous êtes connecté·e en tant que {{current}}.",
+    "switchAccount": "Changer de compte"
+  },
+  "clientHome": {
+    "title": "Vos projets",
+    "subtitle": "Projets auxquels vous avez accès",
+    "empty": "Aucun projet ne vous a été partagé pour le moment.",
+    "logout": "Se déconnecter"
+  },
   "pricing": {
     "title": "Tarification transparente",
     "subtitle": "Commencez gratuitement. Évoluez à votre rythme.",
