@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal, SFLoadingState } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getClientExternalTeam, addClientTeamMember } from '../data/clientTeamStore';
+import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
 import { findProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
 import { isDemoSession } from '../data/authStore';
@@ -364,6 +365,7 @@ export function ProjectMembres() {
   const persistMembers = (updated: User[]) => {
     setMembers(updated);
     updateProject(projectId, { members: updated });
+    syncProjectClientAccess(projectId, project.clientId, updated);
   };
 
   const handleAdd = (users: User[]) => {
