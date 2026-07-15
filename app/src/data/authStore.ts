@@ -147,6 +147,47 @@ export async function register(data: {
   return { ok: true };
 }
 
+// Client-contact registration — distinct from register() above, which
+// creates a NEW STUDIO for its caller (register() writes studio_name into
+// the auth user_metadata, which getStudioId() later reads to provision a
+// studio for a first-time studio owner). A client must never trigger studio
+// provisioning, so this omits studio_name entirely — the resulting
+// auth.users row has no studio_name in its metadata, and the client-session
+// detection layer (clientSessionStore.ts) routes this account away from any
+// code path that would call getStudioId() in the first place.
+export async function registerClient(data: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!data.name.trim() || !data.email.trim() || !data.password.trim())
+    return { ok: false, error: 'auth.requiredFields' };
+  if (data.password.length < 8)
+    return { ok: false, error: 'auth.passwordTooShort' };
+
+  const lower = data.email.toLowerCase().trim();
+  if (DEMO_EMAIL_MAP[lower]) return { ok: false, error: 'auth.emailTaken' };
+
+  const { error } = await supabase.auth.signUp({
+    email: lower,
+    password: data.password,
+    options: {
+      data: {
+        full_name: data.name.trim(),
+      },
+    },
+  });
+
+  if (error) {
+    if (error.message.toLowerCase().includes('already registered')) {
+      return { ok: false, error: 'auth.emailTaken' };
+    }
+    return { ok: false, error: 'auth.requiredFields' };
+  }
+
+  return { ok: true };
+}
+
 export async function logout(): Promise<void> {
   localStorage.removeItem(AUTH_KEY);
   resetStudioIdCache();
