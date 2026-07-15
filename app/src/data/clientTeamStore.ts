@@ -44,6 +44,7 @@ interface ClientContactRow {
   color: string;
   internal: boolean;
   studio_member_id: string | null;
+  user_id: string | null;
   portal_permissions: { approve: boolean; comment: boolean; download: boolean };
   photo_url: string | null;
 }
@@ -59,6 +60,7 @@ function toContact(row: ClientContactRow): ClientContact {
     color: row.color,
     internal: row.internal,
     userId: row.studio_member_id ?? undefined,
+    authUserId: row.user_id ?? undefined,
     portalPermissions: row.portal_permissions,
     photoUrl: row.photo_url ?? undefined,
   };
@@ -77,6 +79,7 @@ function toRow(c: ClientContact, clientId: string, studioId: string): ClientCont
     color: c.color,
     internal: !!c.internal,
     studio_member_id: c.userId ?? null,
+    user_id: c.authUserId ?? null,
     portal_permissions: c.portalPermissions,
     photo_url: c.photoUrl ?? null,
   };
