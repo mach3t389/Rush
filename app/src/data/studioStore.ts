@@ -40,6 +40,7 @@ async function insertOwnerMembership(studioId: string, user: SupabaseUserLike): 
       initials,
       avatar_color: '#5B8AF5',
       is_owner: true,
+      access_level: 'owner',
     },
     { onConflict: 'user_id,studio_id' }
   );
