@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
+import { AI_QUOTAS } from '../data/aiQuota';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ export function Pricing() {
       rows: [
         { label: t('pricing.featTemplatesPreset'), desc: t('pricing.descTemplatesPreset'), values: [true, true, true] as [boolean, boolean, boolean] },
         { label: t('pricing.featTemplatesCustom'), desc: t('pricing.descTemplatesCustom'), values: [false, true, true] as [boolean, boolean, boolean] },
-        { label: t('pricing.featAI'),              desc: t('pricing.descAI'),              values: [false, true, true] as [boolean, boolean, boolean] },
+        { label: t('pricing.featAI'),              desc: t('pricing.descAI'),              values: [false, t('pricing.aiCredits', { count: AI_QUOTAS.studio }), t('pricing.aiCredits', { count: AI_QUOTAS.agence })] as [boolean, string, string] },
         { label: t('pricing.featFinances'),        desc: t('pricing.descFinances'),        values: [false, true, true] as [boolean, boolean, boolean] },
       ],
     },
@@ -332,9 +333,17 @@ export function Pricing() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 24, width: 'fit-content' }}>
-                  <SFIcon name="hard-drive" size={11} color="var(--text-3)" />
-                  <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{plan.storage} {t('pricing.storageIncluded')}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', width: 'fit-content' }}>
+                    <SFIcon name="hard-drive" size={11} color="var(--text-3)" />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{plan.storage} {t('pricing.storageIncluded')}</span>
+                  </div>
+                  {!isFree && AI_QUOTAS[plan.key] && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', width: 'fit-content' }}>
+                      <SFIcon name="sparkles" size={11} color="var(--text-3)" />
+                      <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-2)', fontWeight: 600 }}>{t('pricing.aiCredits', { count: AI_QUOTAS[plan.key] })}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ flex: 1 }} />

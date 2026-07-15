@@ -2366,6 +2366,7 @@
     "alreadyAccount": "Déjà un compte ?",
     "billedYearly": "facturé annuellement",
     "storageIncluded": "inclus",
+    "aiCredits": "{{count}} crédits IA/mois",
     "compareTitle": "Comparaison détaillée",
     "compareSubtitle": "Tout ce qui est inclus dans chaque plan",
     "sectionProjects": "Projets & équipe",

@@ -2353,6 +2353,7 @@
     "alreadyAccount": "Already have an account?",
     "billedYearly": "billed annually",
     "storageIncluded": "included",
+    "aiCredits": "{{count}} AI credits/mo",
     "compareTitle": "Detailed comparison",
     "compareSubtitle": "Everything included in each plan",
     "sectionProjects": "Projects & team",
