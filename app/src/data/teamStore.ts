@@ -201,7 +201,12 @@ function makeToken(): string {
   return `tinv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function createInvitation(email: string, role: string, permissions?: string[]): Promise<{ token: string; link: string }> {
+// Narrower than AccessLevel: an invitation can never grant 'owner' — there
+// is exactly one owner per studio, assigned automatically at studio
+// creation (see studioStore.ts's insertOwnerMembership).
+export type InvitableAccessLevel = 'admin' | 'member';
+
+export async function createInvitation(email: string, role: string, accessLevel: InvitableAccessLevel, permissions?: string[]): Promise<{ token: string; link: string }> {
   const token = makeToken();
   const link = `${window.location.origin}/invitation-equipe/${token}`;
 
@@ -213,6 +218,7 @@ export async function createInvitation(email: string, role: string, permissions?
     studio_id: studioId,
     email: email.trim().toLowerCase(),
     role: role.trim() || 'Membre',
+    access_level: accessLevel,
     permissions: permissions ?? null,
   });
   if (error) throw error;
