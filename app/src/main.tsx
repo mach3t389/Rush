@@ -12,8 +12,9 @@ import { Dashboard } from './screens/Dashboard';
 import { Taches } from './screens/Taches';
 import { Projets } from './screens/Projets';
 import { Travail } from './screens/Travail';
-import { Portail } from './screens/Portail';
-import { InvitationAccept } from './screens/InvitationAccept';
+import { ClientInvitationAccept } from './screens/ClientInvitationAccept';
+import { ClientHome } from './screens/ClientHome';
+import { isClientSession } from './data/clientSessionStore';
 import { TeamInvitationAccept } from './screens/TeamInvitationAccept';
 import { Clients } from './screens/Clients';
 import { FicheClient } from './screens/FicheClient';
@@ -43,10 +44,22 @@ import { NoOrganization } from './screens/NoOrganization';
 // ── Route guards ──────────────────────────────────────────────────────────────
 const authLoader = async () => {
   if (!(await isAuthenticated())) return redirect('/login');
+  // A client-authenticated session must never reach the studio AppShell —
+  // every screen under it eventually calls a studio-scoped store, and
+  // getStudioId() would silently auto-provision a brand-new empty studio
+  // for a user with no studio_members row (see studioStore.ts's
+  // resolveStudioId, step 3) instead of failing loudly. Route them to their
+  // own minimal space before that can happen.
+  if (await isClientSession()) return redirect('/mon-espace');
   await preloadResourceContent();
   return null;
 };
 const guestLoader = async () => { if (await isAuthenticated()) return redirect('/'); return null; };
+const clientLoader = async () => {
+  if (!(await isAuthenticated())) return redirect('/login');
+  if (!(await isClientSession())) return redirect('/');
+  return null;
+};
 
 const router = createBrowserRouter([
   // Auth routes (standalone, no sidebar)
@@ -59,11 +72,8 @@ const router = createBrowserRouter([
   { path: '/pricing', element: <Pricing /> },
   { path: '/admin/studios', element: <AdminStudios />, loader: authLoader },
 
-  // Portail client — sans sidebar (route standalone)
-  { path: '/portail/:projectId', element: <Portail />, errorElement: <RouteErrorPage /> },
-
   // Invitation contact client — sans sidebar, accessible sans compte (route standalone)
-  { path: '/invitation/:token', element: <InvitationAccept /> },
+  { path: '/invitation/:token', element: <ClientInvitationAccept /> },
 
   // Invitation membre d'équipe — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation-equipe/:token', element: <TeamInvitationAccept /> },
@@ -71,6 +81,11 @@ const router = createBrowserRouter([
   // Écran "aucune organisation" — atteint uniquement après avoir quitté sa
   // dernière organisation (voir leaveCurrentStudio dans studioStore.ts).
   { path: '/mes-organisations', element: <NoOrganization />, loader: authLoader },
+
+  // Espace client — sans sidebar (route standalone), réservé aux comptes
+  // client (voir clientLoader ci-dessus). Écran minimal pour cette étape —
+  // le vrai tableau de bord client est un chantier séparé.
+  { path: '/mon-espace', element: <ClientHome />, loader: clientLoader, errorElement: <RouteErrorPage /> },
 
   {
     path: '/',
