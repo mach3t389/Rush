@@ -12,6 +12,22 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
 
+async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update' | 'delete', googleEventId?: string): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    await fetch('/api/google-calendar-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ studioId, eventId, action, googleEventId }),
+    });
+  } catch (err) {
+    // Fire-and-forget — a push failure must never block the Rush-side write.
+    console.error('pushToGoogleCalendar failed', err);
+  }
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -24,6 +40,7 @@ export interface CalendarEvent {
   location?: string;
   meetingUrl?: string;
   memberIds?: string[];
+  googleEventId?: string;
 }
 
 const STORAGE_KEY = 'sf_calendar_events';
@@ -86,6 +103,7 @@ interface EventRow {
   location: string | null;
   meeting_url: string | null;
   member_ids: string[];
+  google_event_id: string | null;
 }
 
 function toEvent(row: EventRow): CalendarEvent {
@@ -101,10 +119,11 @@ function toEvent(row: EventRow): CalendarEvent {
     location: row.location ?? undefined,
     meetingUrl: row.meeting_url ?? undefined,
     memberIds: row.member_ids ?? undefined,
+    googleEventId: row.google_event_id ?? undefined,
   };
 }
 
-function toRow(e: CalendarEvent, studioId: string): Omit<EventRow, 'end'> & { end: string } {
+function toRow(e: CalendarEvent, studioId: string): Omit<EventRow, 'end' | 'google_event_id'> & { end: string } {
   return {
     id: e.id,
     studio_id: studioId,
@@ -160,6 +179,7 @@ async function addSupabaseEvent(ev: CalendarEvent): Promise<void> {
   const studioId = await getStudioId();
   const { error } = await supabase.from('events').insert(toRow(ev, studioId));
   if (error) { console.error('addSupabaseEvent failed', error); return; }
+  void pushToGoogleCalendar(ev.id, 'create');
   await fetchSupabaseEvents();
 }
 
@@ -170,12 +190,15 @@ async function updateSupabaseEvent(id: string, patch: Partial<Omit<CalendarEvent
   const merged = { ...current, ...patch };
   const { error } = await supabase.from('events').update(toRow(merged, studioId)).eq('id', id);
   if (error) { console.error('updateSupabaseEvent failed', error); return; }
+  void pushToGoogleCalendar(id, 'update');
   await fetchSupabaseEvents();
 }
 
 async function deleteSupabaseEvent(id: string): Promise<void> {
+  const existing = _supabaseEvents.find(e => e.id === id);
   const { error } = await supabase.from('events').delete().eq('id', id);
   if (error) { console.error('deleteSupabaseEvent failed', error); return; }
+  void pushToGoogleCalendar(id, 'delete', existing?.googleEventId);
   await fetchSupabaseEvents();
 }
 
