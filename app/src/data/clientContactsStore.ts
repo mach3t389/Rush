@@ -33,6 +33,7 @@ export interface ClientContact {
   color: string;
   internal?: boolean;
   userId?: string; // links to USERS key if internal studio member (demo sessions only)
+  authUserId?: string; // links to the contact's own Supabase Auth account, once registered (Step B) — distinct from `userId` above
   portalPermissions: PortalPermissions;
   photoUrl?: string;
 }
