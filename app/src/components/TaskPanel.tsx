@@ -970,7 +970,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
           {divider}
 
-          {/* Description */}
+          {/* Description — persistée via onUpdate (voir onChange plus bas) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {secLabel(t('taskPanel.description'))}
             <textarea
