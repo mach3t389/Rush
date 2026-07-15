@@ -6,7 +6,7 @@ import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
-import { getTeamMembers, subscribeTeam, createInvitation } from '../data/teamStore';
+import { getTeamMembers, subscribeTeam, createInvitation, getMyAccessLevel, type InvitableAccessLevel } from '../data/teamStore';
 import { getProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
@@ -80,6 +80,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
+  const [accessLevel, setAccessLevel] = useState<InvitableAccessLevel>('member');
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
@@ -95,7 +96,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
     // (they used to be saved under the invite email, a key nothing ever
     // read back once the real member existed under their own user id).
     if (isDemoSession()) savePermissions(email.trim(), perms);
-    const result = await createInvitation(email.trim(), role.trim() || 'Membre', perms);
+    const result = await createInvitation(email.trim(), role.trim() || 'Membre', accessLevel, perms);
     setLink(result.link);
     setSending(false);
     if (isDemoSession()) setTimeout(onClose, 1500);
@@ -150,6 +151,14 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
                   style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
               </div>
             ))}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('team.accessLevel')}</label>
+              <select value={accessLevel} onChange={e => setAccessLevel(e.target.value as InvitableAccessLevel)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}>
+                <option value="member">{t('team.accessLevelMember')}</option>
+                <option value="admin">{t('team.accessLevelAdmin')}</option>
+              </select>
+            </div>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>
                 {t('team.permissions')}
@@ -292,7 +301,7 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
           initialPhone={member.phone}
           initialInitials={member.initials}
           initialColor={member.avatarColor}
-          isAdmin
+          isAdmin={getMyAccessLevel() !== 'member'}
           onClose={() => setShowEdit(false)}
         />
       )}
