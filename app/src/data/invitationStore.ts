@@ -41,6 +41,7 @@ export interface InvitationDetails {
   clientName: string;
   contactId: string;
   contactName: string;
+  contactEmail: string;
   portalPermissions: PortalPermissions;
   studioName: string;
 }
@@ -117,6 +118,7 @@ export async function getInvitationDetails(token: string): Promise<InvitationDet
       clientName: client.name,
       contactId: invitation.contactId,
       contactName: contact?.name ?? '',
+      contactEmail: contact?.email ?? '',
       portalPermissions: contact?.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS,
       studioName: localStorage.getItem(STUDIO_NAME_KEY) ?? 'Rush',
     };
@@ -133,6 +135,7 @@ export async function getInvitationDetails(token: string): Promise<InvitationDet
     clientName: row.client_name,
     contactId: row.contact_id,
     contactName: row.contact_name,
+    contactEmail: row.contact_email ?? '',
     portalPermissions: row.portal_permissions ?? DEFAULT_PORTAL_PERMISSIONS,
     studioName: row.studio_name ?? 'Rush',
   };
@@ -151,6 +154,17 @@ export async function acceptInvitation(clientId: string, contactId: string, toke
   }
   const { error } = await supabase.rpc('resolve_client_invitation', { p_token: token, p_outcome: 'accepted' });
   if (error) console.error('acceptInvitation failed', error);
+}
+
+// Called after the invited client has just authenticated (registered or
+// logged in) on ClientInvitationAccept.tsx — links their new Supabase Auth
+// account to this client_contacts row via the accept_client_invitation RPC
+// (checks the caller's email matches the invitation server-side). Distinct
+// from acceptInvitation() above, which only flips status to 'active' and is
+// still used by the studio-side flows that don't involve account creation.
+export async function acceptClientAccount(token: string): Promise<void> {
+  const { error } = await supabase.rpc('accept_client_invitation', { p_token: token });
+  if (error) throw error;
 }
 
 export async function declineInvitation(clientId: string, contactId: string, token: string): Promise<void> {
