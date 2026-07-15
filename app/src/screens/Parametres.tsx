@@ -16,7 +16,7 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, leaveCurrentStudio, type StudioInfo } from '../data/studioStore';
 import { getCurrentUser } from '../data/authStore';
-import { isTeamOwner, subscribeTeam } from '../data/teamStore';
+import { isTeamOwner, subscribeTeam, findTeamMember, getMyAccessLevel } from '../data/teamStore';
 import { AI_QUOTAS } from '../data/aiQuota';
 import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
@@ -1956,7 +1956,22 @@ export function Parametres() {
   const [customBodies, setCustomBodies] = useState<typeof BODY_FONTS>([]);
 
   // ── Compte ──────────────────────────────────────────────────────────────────
-  const me = USERS.lea; // utilisateur courant (cf. Sidebar)
+  // Was hardcoded to USERS.lea (a demo-only stand-in) even in real sessions.
+  // findTeamMember() resolves the real signed-in user's row in both session
+  // kinds (its demo branch keys team members by the same ids as USERS), so
+  // the USERS.lea fallback below now only fires while a real session's first
+  // team fetch is still in flight — hence the explicit 'member' accessLevel
+  // default there, the most restrictive option, so no elevated UI ever
+  // flashes before the real value loads.
+  const authUser = getCurrentUser();
+  const me = (authUser && findTeamMember(authUser.id)) ?? {
+    id: authUser?.id ?? USERS.lea.id,
+    name: authUser?.name ?? USERS.lea.name,
+    initials: authUser?.initials ?? USERS.lea.initials,
+    avatarColor: authUser?.avatarColor ?? USERS.lea.avatarColor,
+    role: authUser?.role ?? USERS.lea.role,
+    accessLevel: 'member' as const,
+  };
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState(() => {
     const o = loadProfile(me.id);
@@ -2461,7 +2476,7 @@ export function Parametres() {
           initialInitials={me.initials}
           initialColor={me.avatarColor}
           isSelf
-          isAdmin={me.role === 'Admin'}
+          isAdmin={getMyAccessLevel() !== 'member'}
           onClose={() => setProfileOpen(false)}
           onSave={data => setProfile({ name: data.name, role: data.role, email: data.email, phone: data.phone, photo: data.photoUrl })}
         />
