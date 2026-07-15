@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from '../ui';
 import { isDemoSession } from '../../data/authStore';
-import { findTeamMember, updateMemberFields } from '../../data/teamStore';
+import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 
@@ -182,11 +182,16 @@ export function ProfileEditPanel({
   const [phone, setPhone] = useState(overrides.phone ?? initialPhone);
   const [photo, setPhoto] = useState<string | null>(loadPhoto(userId));
   const [permissions, setPermissions] = useState<PermissionKey[]>(() => loadPermissions(userId, overrides.role ?? initialRole));
+  const [memberAccessLevel, setMemberAccessLevel] = useState<AccessLevel>(() => loadAccessLevel(userId));
   const [tab, setTab] = useState<'info' | 'permissions'>('info');
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const isAdminRole = role === 'Admin';
+  // Owner and Admin both get full permissions by construction (see the
+  // Step A design doc) — 'isAdminRole' kept its name so the diff against
+  // every other reference below stays obvious, but it now reads the
+  // structured access level instead of comparing the free-text role string.
+  const isAdminRole = memberAccessLevel !== 'member';
   const canEditPerms = isAdmin;
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,6 +214,7 @@ export function ProfileEditPanel({
   const handleSave = () => {
     saveProfile(userId, { name, role, email, phone });
     savePermissions(userId, permissions);
+    if (isAdmin && memberAccessLevel !== 'owner') saveAccessLevel(userId, memberAccessLevel);
     if (photo) savePhoto(userId, photo);
     setSaved(true);
     setTimeout(() => {
@@ -312,6 +318,26 @@ export function ProfileEditPanel({
                   {ROLES.map(r => <option key={r} value={r} />)}
                 </datalist>
               </div>
+
+              {isAdmin && memberAccessLevel !== 'owner' && (
+                <div>
+                  {label(t('profile.accessLevel'))}
+                  <select
+                    value={memberAccessLevel}
+                    onChange={e => setMemberAccessLevel(e.target.value as AccessLevel)}
+                    style={inputStyle}
+                  >
+                    <option value="member">{t('profile.accessLevelMember')}</option>
+                    <option value="admin">{t('profile.accessLevelAdmin')}</option>
+                  </select>
+                </div>
+              )}
+              {memberAccessLevel === 'owner' && (
+                <div>
+                  {label(t('profile.accessLevel'))}
+                  <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('profile.accessLevelOwner')}</p>
+                </div>
+              )}
 
               <div>
                 {label(t('profile.email'))}
