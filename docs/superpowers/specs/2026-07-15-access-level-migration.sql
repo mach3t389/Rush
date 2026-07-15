@@ -11,7 +11,10 @@
 -- No new RLS policy is needed: the existing "members_update_self_or_owner"
 -- policy (added in 2026-07-12-profile-permissions-supabase-migration.sql)
 -- already lets the studio owner UPDATE any row in studio_members, which
--- covers this new column with no extra grant.
+-- covers this new column with no extra grant. That policy has no WITH
+-- CHECK clause though, so it also lets a plain Member UPDATE their own
+-- row unrestricted — including access_level. Section 4 below adds a
+-- BEFORE UPDATE trigger (not an RLS policy) to close that specific gap.
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 1. New column on studio_members, backfilled from existing data so no
@@ -84,3 +87,46 @@ begin
 end;
 $$;
 grant execute on function accept_studio_invitation(text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 4. Trigger: block non-owner changes to access_level. The existing
+--    "members_update_self_or_owner" RLS policy (see header comment above)
+--    has a USING clause but no WITH CHECK, so Postgres reuses USING as the
+--    check too — which means a plain Member can UPDATE their own
+--    studio_members row (user_id = auth.uid() is true for their own row),
+--    and nothing at the database layer stops them from setting their own
+--    access_level to 'admin'. The app's UI never offers that button to a
+--    Member, but RLS alone does not enforce it — a direct REST/JS call
+--    could. This trigger is a belt-and-suspenders check at the DB layer:
+--    it only rejects UPDATEs that actually change access_level, and only
+--    when the caller isn't the studio's owner. Ordinary self-profile edits
+--    (name, phone, role, photo, permissions) never touch access_level, so
+--    they pass through untouched. The studio owner can still change any
+--    member's access_level (including their own row, e.g. the
+--    insertOwnerMembership upsert in app/src/data/studioStore.ts, which
+--    sets access_level = 'owner' on the owner's own row at studio-creation
+--    time — the caller is the studio's owner by construction there).
+--    is_owner is intentionally left unprotected here — out of scope for
+--    this fix.
+-- ─────────────────────────────────────────────────────────────────────────
+
+create or replace function prevent_access_level_self_escalation()
+returns trigger
+language plpgsql security definer as $$
+begin
+  if new.access_level is distinct from old.access_level then
+    if not exists (
+      select 1 from studios
+      where id = new.studio_id and owner_user_id = auth.uid()
+    ) then
+      raise exception 'only_owner_can_change_access_level';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_access_level_self_escalation on studio_members;
+create trigger trg_prevent_access_level_self_escalation
+  before update on studio_members
+  for each row execute function prevent_access_level_self_escalation();
