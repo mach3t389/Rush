@@ -6,7 +6,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const code = req.query.code as string | undefined;
   const state = req.query.state as string | undefined;
 
-  const redirectBase = req.headers.origin || 'https://rush.app';
+  const redirectBase = process.env.GOOGLE_OAUTH_REDIRECT_URI!.replace('/api/google-calendar-oauth-callback', '');
 
   if (!code || !state) {
     res.redirect(302, `${redirectBase}/parametres?section=integrations&google=error`);

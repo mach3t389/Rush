@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes — plenty for a consent-screen round trip
@@ -16,7 +16,9 @@ export function verifyOAuthState(state: string): { studioId: string } | null {
     if (!studioId || !tsStr || !sig) return null;
     const payload = `${studioId}.${tsStr}`;
     const expectedSig = createHmac('sha256', SECRET).update(payload).digest('hex');
-    if (sig !== expectedSig) return null;
+    const sigBuf = Buffer.from(sig, 'hex');
+    const expectedBuf = Buffer.from(expectedSig, 'hex');
+    if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) return null;
     if (Date.now() - Number(tsStr) > MAX_AGE_MS) return null;
     return { studioId };
   } catch {
