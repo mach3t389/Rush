@@ -1078,6 +1078,7 @@ function PlanSettings() {
   const [storageUsedBytes, setStorageUsedBytes] = useState(getTotalStorageUsedBytes);
   useEffect(() => subscribeStorageUsage(() => setStorageUsedBytes(getTotalStorageUsedBytes())), []);
   const [aiUsage, setAiUsage] = useState<{ used: number; limit: number } | null>(null);
+  const [aiInfoOpen, setAiInfoOpen] = useState(false);
 
   useEffect(() => {
     if (!checkoutResult) return;
@@ -1454,17 +1455,42 @@ function PlanSettings() {
         </div>
 
         {aiUsage && (
-          <div style={{ marginLeft: 26, marginBottom: 24, maxWidth: 420 }}>
+          <div style={{ marginLeft: 26, marginBottom: 24, maxWidth: 420, position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
               <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <SFIcon name="sparkles" size={11} color="var(--text-3)" />
                 {t('settings.aiUsageLabel')}
+                <button
+                  onClick={() => setAiInfoOpen(v => !v)}
+                  title={t('settings.aiCreditsInfoTitle')}
+                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: aiInfoOpen ? 'var(--accent)' : 'var(--text-3)' }}
+                >
+                  <SFIcon name="info" size={12} />
+                </button>
               </span>
               <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', fontWeight: 600, color: aiUsage.used / aiUsage.limit >= 0.9 ? 'var(--danger)' : 'var(--text-2)' }}>
                 {t('ai.usageCount', { used: aiUsage.used, limit: aiUsage.limit })}
               </span>
             </div>
             <SFBar value={aiUsage.used} max={aiUsage.limit} height={6} color={aiUsage.used / aiUsage.limit >= 0.9 ? 'var(--danger)' : 'var(--accent)'} />
+            {aiInfoOpen && (
+              <>
+                <div onClick={() => setAiInfoOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, marginTop: 8, zIndex: 91,
+                  width: 300, padding: '12px 14px', borderRadius: 10,
+                  background: 'var(--surface-3)', border: '1px solid var(--border-2)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                    {t('settings.aiCreditsInfoTitle')}
+                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    {t('settings.aiCreditsInfoBody')}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
