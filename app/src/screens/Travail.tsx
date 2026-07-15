@@ -1023,13 +1023,16 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 }
 
 function Section({
-  label, tasks, completed, selectedTask, compactColumns, onSelectTask, onToggleComplete,
+  label, tasks, allTasks, completed, selectedTask, compactColumns, onSelectTask, onToggleComplete,
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
 }: {
   label: string;
   tasks: Task[];
+  // Tâches non filtrées de la section — sert au compteur/barre de progression,
+  // qui ne doit pas varier quand "Tâches terminées" masque des lignes de `tasks`.
+  allTasks?: Task[];
   completed: boolean;
   selectedTask: Task | null;
   compactColumns: boolean;
@@ -1056,8 +1059,9 @@ function Section({
   onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
 }) {
-  const done = tasks.filter(t => t.checked).length;
-  const progress = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
+  const countedTasks = allTasks ?? tasks;
+  const done = countedTasks.filter(t => t.checked).length;
+  const progress = countedTasks.length > 0 ? (done / countedTasks.length) * 100 : 0;
   const [collapsed, setCollapsed] = usePersistedState<boolean>(`sf_travail_collapsed_${projectId}_${label}`, completed);
   // Replie/déplie automatiquement quand le statut "terminée" change (le repli manuel est préservé tant que `completed` ne change pas).
   const prevCompleted = React.useRef(completed);
@@ -1244,11 +1248,11 @@ function Section({
           </span>
         )}
 
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({tasks.length} tâches)</span>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({countedTasks.length} tâches)</span>
         <div style={{ flex: 1, maxWidth: 140 }}>
           <SFBar value={completed ? 100 : progress} height={3} />
         </div>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{done}/{tasks.length}</span>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{done}/{countedTasks.length}</span>
 
         {/* Copy section */}
         <button
@@ -2286,6 +2290,7 @@ export function Travail() {
               <Section
                 label={section.label}
                 tasks={section.tasks}
+                allTasks={sections[globalIdx]?.tasks}
                 completed={!!section.completed}
                 selectedTask={selectedTask}
                 compactColumns={compactColumns}

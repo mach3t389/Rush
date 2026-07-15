@@ -102,6 +102,15 @@ export interface Task {
   correctionsRequested?: boolean;  // le client a demandé des changements sur ce livrable
   sectionLabel?: string;
   mySection?: string;
+  description?: string;
+  comments?: TaskComment[];
+}
+
+export interface TaskComment {
+  id: string;
+  text: string;
+  author: { initials: string; bg: string; name: string };
+  replies: TaskComment[];
 }
 
 // ── Resource ──────────────────────────────────────────────────────────────────

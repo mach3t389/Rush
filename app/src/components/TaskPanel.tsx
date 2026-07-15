@@ -6,7 +6,7 @@ import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
-import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status } from '../types';
+import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status, TaskComment } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
 
@@ -94,12 +94,7 @@ const TEAM = Object.values(USERS);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface CommentObj {
-  id: string;
-  text: string;
-  author: { initials: string; bg: string; name: string };
-  replies: CommentObj[];
-}
+export type CommentObj = TaskComment;
 
 export interface LocalSubtask {
   id: string;
@@ -334,7 +329,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   const { t } = useTranslation();
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(task.description ?? '');
   const [dateDebut, setDateDebut] = useState(task.dueDate ?? '');
   const [heureDebut, setHeureDebut] = useState(task.startTime ?? '');
   const [dateFin, setDateFin] = useState(task.endDate ?? '');
@@ -342,7 +337,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   const [datePickerOpen, setDatePickerOpen] = useState<'debut' | 'fin' | null>(null);
   const [datePickerRect, setDatePickerRect] = useState<DOMRect | null>(null);
   const [comment, setComment] = useState('');
-  const [comments, setComments] = useState<CommentObj[]>([]);
+  const [comments, setComments] = useState<CommentObj[]>(task.comments ?? []);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionRect, setMentionRect] = useState<DOMRect | null>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
@@ -447,6 +442,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     setPanelDropRect((e.currentTarget as HTMLButtonElement).getBoundingClientRect());
   };
 
+  const toggleLinkedResource = (id: string) =>
+    setLinkedResources(prev => {
+      const next = prev.includes(id) ? prev.filter(rid => rid !== id) : [...prev, id];
+      onUpdate?.({ linkedResources: next });
+      return next;
+    });
+
   const updateSub = (id: string, patch: Partial<LocalSubtask>) =>
     setLocalSubtasks(prev => {
       const next = prev.map(s => s.id === id ? { ...s, ...patch } : s);
@@ -496,25 +498,41 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
   const submitComment = () => {
     if (!comment.trim()) return;
-    setComments(prev => [...prev, { id: `c-${Date.now()}`, text: comment.trim(), author: ME, replies: [] }]);
+    setComments(prev => {
+      const next = [...prev, { id: `c-${Date.now()}`, text: comment.trim(), author: ME, replies: [] }];
+      onUpdate?.({ comments: next });
+      return next;
+    });
     setComment('');
     setMentionQuery(null);
   };
 
   const submitReply = (commentId: string) => {
     if (!replyText.trim()) return;
-    setComments(prev => prev.map(c => c.id === commentId
-      ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: replyText.trim(), author: ME, replies: [] }] }
-      : c
-    ));
+    setComments(prev => {
+      const next = prev.map(c => c.id === commentId
+        ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: replyText.trim(), author: ME, replies: [] }] }
+        : c
+      );
+      onUpdate?.({ comments: next });
+      return next;
+    });
     setReplyText('');
     setReplyingTo(null);
   };
 
   const convertToSubtask = (c: CommentObj) => {
     const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'normal', status: '', statusLabel: '', assignee: task.assignee ?? null, dueDate: '', comments: [] };
-    setLocalSubtasks(prev => [...prev, sub]);
-    setComments(prev => prev.filter(x => x.id !== c.id));
+    setLocalSubtasks(prev => {
+      const next = [...prev, sub];
+      onUpdate?.({ subtasks: next as unknown as Task[] });
+      return next;
+    });
+    setComments(prev => {
+      const next = prev.filter(x => x.id !== c.id);
+      onUpdate?.({ comments: next });
+      return next;
+    });
   };
 
   const renderMentions = (text: string) => text.split(/(@\S+)/g).map((part, i) =>
@@ -817,7 +835,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               {secLabel(t('taskPanel.clientDeliverable'))}
               {!isDeliverable ? (
                 <button
-                  onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); }}
+                  onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); onUpdate?.({ deliverable: true }); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                 >
                   <SFIcon name="package" size={12} />
@@ -852,7 +870,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   </button>
                   {/* Disable button */}
                   <button
-                    onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); }}
+                    onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
                     title={t('taskPanel.disableDeliverable')}
                     style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
@@ -870,7 +888,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 {/* Type pills */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {DELIVERABLE_TYPE_OPTIONS.map(opt => (
-                    <button key={opt.value} onClick={() => setDeliverableType(opt.value)}
+                    <button key={opt.value} onClick={() => { setDeliverableType(opt.value); onUpdate?.({ deliverableType: opt.value }); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${deliverableType === opt.value ? 'var(--accent)' : 'var(--border)'}`, background: deliverableType === opt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
                       <SFIcon name={opt.icon} size={11} color={deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)'} />
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{t(opt.labelKey)}</span>
@@ -881,17 +899,17 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 {(deliverableType === 'video' || deliverableType === 'photo') && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
                     {FORMAT_OPTIONS.map(f => (
-                      <button key={f.value} onClick={() => setFormat(f.value)}
+                      <button key={f.value} onClick={() => { setFormat(f.value); onUpdate?.({ format: f.value }); }}
                         style={{ padding: '3px 9px', borderRadius: 7, border: `1px solid ${format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', fontSize: 9, color: format === f.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em' }}>
                         {f.labelKey ? t(f.labelKey) : f.label}
                       </button>
                     ))}
                     {format === 'custom' && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginTop: 4 }}>
-                        <input type="number" value={customW} onChange={e => setCustomW(Number(e.target.value))}
+                        <input type="number" value={customW} onChange={e => { const v = Number(e.target.value); setCustomW(v); onUpdate?.({ customWidth: v }); }}
                           style={{ width: 72, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
                         <span style={{ color: 'var(--text-3)', fontSize: 12 }}>×</span>
-                        <input type="number" value={customH} onChange={e => setCustomH(Number(e.target.value))}
+                        <input type="number" value={customH} onChange={e => { const v = Number(e.target.value); setCustomH(v); onUpdate?.({ customHeight: v }); }}
                           style={{ width: 72, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
                         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>px</span>
                       </div>
@@ -906,7 +924,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                       <input
                         type="text"
                         value={deliverableDuration}
-                        onChange={e => setDeliverableDuration(e.target.value)}
+                        onChange={e => { setDeliverableDuration(e.target.value); onUpdate?.({ deliverableDuration: e.target.value }); }}
                         placeholder={t('taskPanel.durationPlaceholder')}
                         style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
@@ -919,7 +937,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         type="number"
                         min={1}
                         value={deliverableQuantity}
-                        onChange={e => setDeliverableQuantity(Number(e.target.value))}
+                        onChange={e => { const v = Number(e.target.value); setDeliverableQuantity(v); onUpdate?.({ deliverableQuantity: v }); }}
                         style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
                       <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.photos')}</span>
@@ -929,7 +947,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68, paddingTop: 5 }}>{t('taskPanel.note')}</span>
                     <textarea
                       value={deliverableNote}
-                      onChange={e => setDeliverableNote(e.target.value)}
+                      onChange={e => { setDeliverableNote(e.target.value); onUpdate?.({ deliverableNote: e.target.value }); }}
                       placeholder={deliverableType === 'document' || deliverableType === 'web' ? t('taskPanel.notePlaceholderPages') : t('taskPanel.notePlaceholderCustom')}
                       rows={2}
                       style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5 }}
@@ -958,7 +976,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             <textarea
               ref={descRef}
               value={description}
-              onChange={e => { setDescription(e.target.value); }}
+              onChange={e => { setDescription(e.target.value); onUpdate?.({ description: e.target.value }); }}
               placeholder={t('tasks.addDescription')}
               rows={2}
               style={{
@@ -1009,7 +1027,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                           {resources.map(r => {
                             const linked = linkedResources.includes(r.id);
                             return (
-                              <button key={r.id} onClick={() => { setLinkedResources(prev => linked ? prev.filter(id => id !== r.id) : [...prev, r.id]); }}
+                              <button key={r.id} onClick={() => toggleLinkedResource(r.id)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: linked ? 'rgba(249,255,0,0.06)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
                                 onMouseEnter={e => { if (!linked) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                                 onMouseLeave={e => { if (!linked) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
@@ -1088,7 +1106,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         <SFIcon name="maximize-2" size={13} />
                       </button>
                       <button
-                        onClick={e => { e.stopPropagation(); setLinkedResources(prev => prev.filter(id => id !== r.id)); }}
+                        onClick={e => { e.stopPropagation(); toggleLinkedResource(r.id); }}
                         title={t('taskPanel.removeResource')}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,60,60,0.08)'; }}
@@ -1188,7 +1206,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                       >
                         <SFIcon name="git-branch" size={11} />{t('taskPanel.toSubtask')}
                       </button>
-                      <button onClick={() => { setComments(prev => prev.filter(x => x.id !== c.id)); }}
+                      <button onClick={() => { setComments(prev => { const next = prev.filter(x => x.id !== c.id); onUpdate?.({ comments: next }); return next; }); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
