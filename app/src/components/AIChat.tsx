@@ -453,28 +453,34 @@ export function AIChat() {
 
     // Preserve text already in the input before dictation starts
     const baseText = (textareaRef.current?.value ?? '').trimEnd();
-    let spokenFinal = '';
+    let latestFull = baseText;
 
     recognition.onstart = () => setListening(true);
 
+    // Rebuild the full transcript from scratch on every event by iterating
+    // ALL results from index 0 — do NOT try to incrementally `+=` an
+    // accumulator from `e.resultIndex`. The old accumulator approach lost
+    // finalized phrases so each new spoken phrase visually REPLACED the
+    // previous one (box only ever showed the last few words) instead of
+    // appending — `e.results` already holds the complete running transcript
+    // for the session, so reading it whole is both simpler and correct.
     recognition.onresult = (e: any) => {
+      let finalText = '';
       let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      for (let i = 0; i < e.results.length; i++) {
         const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) spokenFinal += chunk;
-        else interim = chunk;
+        if (e.results[i].isFinal) finalText += chunk;
+        else interim += chunk;
       }
       const prefix = baseText ? baseText + ' ' : '';
-      setInput(prefix + spokenFinal + interim);
-      // Resize is already handled by the rAF-batched effect on `input` —
-      // no need to also schedule it here.
+      latestFull = prefix + finalText + interim;
+      setInput(latestFull);
     };
 
     recognition.onend = () => {
       setListening(false);
-      if (spokenFinal.trim() && autoSend) {
-        const prefix = baseText ? baseText + ' ' : '';
-        setTimeout(() => send((prefix + spokenFinal).trim()), 400);
+      if (latestFull.trim() && latestFull.trim() !== baseText.trim() && autoSend) {
+        setTimeout(() => send(latestFull.trim()), 400);
       }
     };
 
