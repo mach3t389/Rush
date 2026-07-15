@@ -17,12 +17,15 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
 
+export type AccessLevel = 'owner' | 'admin' | 'member';
+
 export interface TeamMemberInfo extends User {
   email: string;
   joinedAt: string;
   phone?: string;
   photoUrl?: string;
   permissions?: string[];
+  accessLevel: AccessLevel;
 }
 
 interface StudioMemberRow {
@@ -37,6 +40,7 @@ interface StudioMemberRow {
   phone: string | null;
   photo_url: string | null;
   permissions: string[] | null;
+  access_level: AccessLevel;
 }
 
 function toMember(row: StudioMemberRow): TeamMemberInfo {
@@ -51,6 +55,7 @@ function toMember(row: StudioMemberRow): TeamMemberInfo {
     phone: row.phone ?? undefined,
     photoUrl: row.photo_url ?? undefined,
     permissions: row.permissions ?? undefined,
+    accessLevel: row.access_level,
   };
 }
 
@@ -66,7 +71,7 @@ async function fetchMembers(): Promise<void> {
   const studioId = await getStudioId();
   const { data, error } = await supabase
     .from('studio_members')
-    .select('user_id, name, email, role, initials, avatar_color, is_owner, created_at, phone, photo_url, permissions')
+    .select('user_id, name, email, role, initials, avatar_color, is_owner, created_at, phone, photo_url, permissions, access_level')
     .eq('studio_id', studioId)
     .order('created_at', { ascending: true });
 
@@ -102,7 +107,12 @@ onLogout(resetTeamCache);
 
 export function getTeamMembers(): TeamMemberInfo[] {
   if (isDemoSession()) {
-    return Object.values(USERS).map(u => ({ ...u, email: '', joinedAt: '' }));
+    return Object.values(USERS).map(u => ({
+      ...u,
+      email: '',
+      joinedAt: '',
+      accessLevel: (u.id === USERS.lea.id ? 'owner' : 'member') as AccessLevel,
+    }));
   }
   ensureFetchStarted();
   return _members;
