@@ -444,6 +444,7 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (isDemoSession()) return;
     let cancelled = false;
     (async () => {
       const status = await getGoogleCalendarStatus();
