@@ -617,29 +617,33 @@ function EquipeTab({ clientId }: { clientId: string }) {
           </div>
 
           {/* Footer */}
-          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {confirmDelete ? (
-              <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1 }}>
                   {m.internal ? t('client.removeInternalConfirm') : t('client.removeContactConfirm')}
                 </span>
                 <SFButton variant="ghost" onClick={() => setConfirmDelete(false)}>{t('client.cancel')}</SFButton>
                 <SFButton variant="ghost" onClick={() => { removeMember(m.id); onClose(); }} style={{ color: 'var(--danger)' }}>{t('client.remove')}</SFButton>
-              </>
+              </div>
             ) : (
               <>
-                <button onClick={() => setConfirmDelete(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12, fontFamily: 'var(--ff-text)', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,60,60,0.08)'; el.style.borderColor = 'var(--danger)'; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.borderColor = 'var(--border)'; }}>
-                  <SFIcon name="user-minus" size={13} color="var(--danger)" />
-                  {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
-                </button>
-                <div style={{ flex: 1 }} />
-                {!m.internal && (
-                  <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
-                )}
-                <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
-                <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button onClick={() => setConfirmDelete(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12, fontFamily: 'var(--ff-text)', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,60,60,0.08)'; el.style.borderColor = 'var(--danger)'; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.borderColor = 'var(--border)'; }}>
+                    <SFIcon name="user-minus" size={13} color="var(--danger)" />
+                    {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
+                  </button>
+                  <div style={{ flex: 1 }} />
+                  {!m.internal && (
+                    <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                  <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+                  <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
+                </div>
               </>
             )}
 
