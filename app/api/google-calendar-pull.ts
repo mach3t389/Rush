@@ -1,6 +1,7 @@
+// app/api/google-calendar-pull.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getValidAccessToken, googleCalendarRequest } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, googleCalendarRequest } from './_lib/googleCalendarApi.js';
 
 interface GoogleEventItem {
   id: string;
@@ -26,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data: connections, error } = await supabaseAdmin
     .from('google_calendar_connections')
-    .select('studio_id, sync_token, google_calendar_id');
+    .select('studio_id');
 
   if (error) {
     console.error('Failed to load Google Calendar connections:', error);
@@ -37,50 +38,104 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const results: Record<string, string> = {};
 
   for (const conn of connections ?? []) {
+    const studioId = conn.studio_id as string;
+
+    let accessToken: string | null = null;
     try {
-      results[conn.studio_id] = await pullForStudio(supabaseAdmin, conn.studio_id, conn.sync_token, conn.google_calendar_id);
+      accessToken = await getValidAccessToken(supabaseAdmin, studioId);
     } catch (err) {
-      console.error(`Pull failed for studio ${conn.studio_id}:`, err);
-      results[conn.studio_id] = 'error';
+      console.error(`Failed to get access token for studio ${studioId}:`, err);
+    }
+    if (!accessToken) {
+      results[`studio:${studioId}:default`] = 'not_connected';
+      continue;
+    }
+
+    try {
+      const orgCalendarId = await getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
+      if (orgCalendarId) {
+        const { data: connRow } = await supabaseAdmin
+          .from('google_calendar_connections')
+          .select('sync_token')
+          .eq('studio_id', studioId)
+          .maybeSingle();
+
+        results[`studio:${studioId}:default`] = await pullCalendar({
+          supabaseAdmin, studioId, calendarId: orgCalendarId, accessToken, insertProjectId: null,
+          syncToken: connRow?.sync_token ?? null,
+          persistSyncToken: async (token) => {
+            await supabaseAdmin
+              .from('google_calendar_connections')
+              .update({ sync_token: token ?? null, last_synced_at: new Date().toISOString() })
+              .eq('studio_id', studioId);
+          },
+        });
+      }
+    } catch (err) {
+      console.error(`Pull failed for studio ${studioId} default calendar:`, err);
+      results[`studio:${studioId}:default`] = 'error';
+    }
+
+    const { data: projectCals } = await supabaseAdmin
+      .from('project_google_calendars')
+      .select('project_id, google_calendar_id, sync_token')
+      .eq('studio_id', studioId)
+      .eq('active', true);
+
+    for (const pc of projectCals ?? []) {
+      const projectId = pc.project_id as string;
+      try {
+        results[`project:${projectId}`] = await pullCalendar({
+          supabaseAdmin, studioId, calendarId: pc.google_calendar_id as string, accessToken, insertProjectId: projectId,
+          syncToken: pc.sync_token as string | null,
+          persistSyncToken: async (token) => {
+            await supabaseAdmin
+              .from('project_google_calendars')
+              .update({ sync_token: token ?? null, last_synced_at: new Date().toISOString() })
+              .eq('project_id', projectId);
+          },
+        });
+      } catch (err) {
+        console.error(`Pull failed for project calendar ${projectId}:`, err);
+        results[`project:${projectId}`] = 'error';
+      }
     }
   }
 
   res.status(200).json({ ok: true, results });
 }
 
-async function pullForStudio(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  studioId: string,
-  syncToken: string | null,
-  calendarId: string
-): Promise<string> {
-  const token = await getValidAccessToken(supabaseAdmin, studioId);
-  if (!token) return 'not_connected';
+interface PullCalendarOpts {
+  supabaseAdmin: ReturnType<typeof createClient>;
+  studioId: string;
+  calendarId: string;
+  accessToken: string;
+  insertProjectId: string | null;
+  syncToken: string | null;
+  persistSyncToken: (token: string | undefined) => Promise<void>;
+}
 
+async function pullCalendar(opts: PullCalendarOpts): Promise<string> {
   try {
-    return await runSync(supabaseAdmin, studioId, syncToken, calendarId, token);
+    return await runSync(opts, opts.syncToken);
   } catch (err) {
     if ((err as Error & { status?: number }).status === 410) {
       // Stale/invalidated sync token — Google requires dropping it and
       // starting a fresh full sync, not retrying with the same token.
-      return runSync(supabaseAdmin, studioId, null, calendarId, token);
+      return runSync(opts, null);
     }
     throw err;
   }
 }
 
-async function runSync(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  studioId: string,
-  syncToken: string | null,
-  calendarId: string,
-  token: { accessToken: string; calendarId: string }
-): Promise<string> {
+async function runSync(opts: PullCalendarOpts, syncToken: string | null): Promise<string> {
+  const { supabaseAdmin, studioId, calendarId, accessToken, insertProjectId, persistSyncToken } = opts;
+
   const params = new URLSearchParams({ singleEvents: 'true' });
   if (syncToken) {
     params.set('syncToken', syncToken);
   } else {
-    // First sync ever for this studio (or a resync after a stale token) —
+    // First sync ever for this calendar (or a resync after a stale token) —
     // Google requires a bounded time window instead of a syncToken. Six
     // months back is enough to catch anything a team would plausibly want
     // to see in Rush.
@@ -97,12 +152,7 @@ async function runSync(
     if (pageToken) params.set('pageToken', pageToken);
     else params.delete('pageToken');
 
-    const data = await googleCalendarRequest(
-      token.accessToken,
-      calendarId,
-      'GET',
-      `/events?${params.toString()}`
-    );
+    const data = await googleCalendarRequest(accessToken, calendarId, 'GET', `/events?${params.toString()}`);
 
     allItems = allItems.concat((data.items ?? []) as GoogleEventItem[]);
     nextSyncToken = data.nextSyncToken;
@@ -137,10 +187,15 @@ async function runSync(
     };
 
     if (existing) {
+      // Never touch project_id here — an event already in Rush keeps
+      // whichever project it's already assigned to (e.g. one just moved
+      // into this calendar by the activate endpoint), a pull only updates
+      // its content fields.
       await supabaseAdmin.from('events').update(fields).eq('id', existing.id);
     } else {
       await supabaseAdmin.from('events').insert({
         studio_id: studioId,
+        project_id: insertProjectId, // null for the org default calendar, the specific project otherwise
         event_type_id: 'autre', // default type for events pulled in from Google — see eventTypeStore.ts
         member_ids: [],
         ...fields,
@@ -148,10 +203,6 @@ async function runSync(
     }
   }
 
-  await supabaseAdmin
-    .from('google_calendar_connections')
-    .update({ sync_token: nextSyncToken, last_synced_at: new Date().toISOString() })
-    .eq('studio_id', studioId);
-
+  await persistSyncToken(nextSyncToken);
   return 'ok';
 }
