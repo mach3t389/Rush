@@ -24,6 +24,7 @@ import { findClient } from './clientStore';
 import { getClientTeam, setClientTeam, removeClientTeamMember } from './clientTeamStore';
 import { STUDIO_NAME_KEY } from './authStore';
 import { DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from './clientContactsStore';
+import { getLogoFull, getLogoSquare } from './studioLogoStore';
 
 const STORAGE_KEY = 'sf_client_invitations';
 
@@ -44,6 +45,8 @@ export interface InvitationDetails {
   contactEmail: string;
   portalPermissions: PortalPermissions;
   studioName: string;
+  studioLogoFull: string | null;
+  studioLogoSquare: string | null;
 }
 
 let _invitations: ClientInvitation[] = loadPersisted<ClientInvitation[]>(STORAGE_KEY, []);
@@ -121,6 +124,8 @@ export async function getInvitationDetails(token: string): Promise<InvitationDet
       contactEmail: contact?.email ?? '',
       portalPermissions: contact?.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS,
       studioName: localStorage.getItem(STUDIO_NAME_KEY) ?? 'Rush',
+      studioLogoFull: getLogoFull(),
+      studioLogoSquare: getLogoSquare(),
     };
   }
 
@@ -138,6 +143,8 @@ export async function getInvitationDetails(token: string): Promise<InvitationDet
     contactEmail: row.contact_email ?? '',
     portalPermissions: row.portal_permissions ?? DEFAULT_PORTAL_PERMISSIONS,
     studioName: row.studio_name ?? 'Rush',
+    studioLogoFull: row.studio_logo_full ?? null,
+    studioLogoSquare: row.studio_logo_square ?? null,
   };
 }
 
