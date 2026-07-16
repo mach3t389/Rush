@@ -344,6 +344,13 @@ export function ProjectMembres() {
   }
 
   const currentIds = new Set(members.map(m => m.id));
+  // Which of `members` are external client contacts vs internal team —
+  // determined by id membership in the client's contact pool, not by
+  // comparing `role` to the literal string 'Cliente'. An external contact's
+  // `role` is their own job title (e.g. "Vidéaste"), never actually the
+  // string "Cliente" outside of demo/mock data, so the old role-string
+  // check misclassified every real external contact as internal.
+  const externalIds = new Set(getClientExternalTeam(project.clientId).map(c => c.id));
   const isOwnerId = (id: string) => isDemoSession() ? id === USERS.lea.id : isTeamOwner(id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -440,7 +447,7 @@ export function ProjectMembres() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               {/* Équipe interne — admin + internal members together */}
-              {members.filter(m => m.role !== 'Cliente').length > 0 && (
+              {members.filter(m => !externalIds.has(m.id)).length > 0 && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div>
@@ -452,21 +459,21 @@ export function ProjectMembres() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {members.filter(m => m.role !== 'Cliente').map(m => (
+                    {members.filter(m => !externalIds.has(m.id)).map(m => (
                       <MemberCard key={m.id} user={m} onRemove={() => handleRemove(m.id)} isOwner={isOwnerId(m.id)} selected={selected.has(m.id)} onToggleSelect={() => toggleSelect(m.id)} />
                     ))}
                   </div>
                 </div>
               )}
               {/* Contacts client */}
-              {members.filter(m => m.role === 'Cliente').length > 0 && (
+              {members.filter(m => externalIds.has(m.id)).length > 0 && (
                 <div>
                   <div style={{ marginBottom: 12 }}>
                     <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('members.clientContacts')}</p>
                     <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('members.clientContactsDesc')}</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {members.filter(m => m.role === 'Cliente').map(m => (
+                    {members.filter(m => externalIds.has(m.id)).map(m => (
                       <MemberCard key={m.id} user={m} onRemove={() => handleRemove(m.id)} isOwner={false} selected={selected.has(m.id)} onToggleSelect={() => toggleSelect(m.id)} />
                     ))}
                   </div>

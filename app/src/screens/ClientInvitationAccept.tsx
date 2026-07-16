@@ -5,6 +5,7 @@ import { SFIcon } from '../components/ui';
 import { getInvitationDetails, acceptClientAccount, type InvitationDetails } from '../data/invitationStore';
 import { registerClient, login, logout } from '../data/authStore';
 import { supabase } from '../data/supabaseClient';
+import { resetClientSessionCache } from '../data/clientSessionStore';
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -75,6 +76,13 @@ export function ClientInvitationAccept() {
     setError('');
     try {
       await acceptClientAccount(token);
+      // The client-identity cache (clientSessionStore.ts) may have already
+      // resolved "not a client" earlier in this tab's session — e.g. if this
+      // same browser tab visited the studio AppShell first under the same
+      // Supabase account before accepting this invitation. That stale
+      // negative would otherwise persist and send this now-linked client
+      // account back into the studio shell instead of /mon-espace.
+      resetClientSessionCache();
       navigate('/mon-espace', { replace: true });
     } catch {
       setError(t('clientInvitation.joinFailed'));
@@ -122,6 +130,9 @@ export function ClientInvitationAccept() {
       return;
     }
 
+    // See the matching comment in acceptAsCurrentSession above — the
+    // client-identity cache may already hold a stale "not a client" result.
+    resetClientSessionCache();
     navigate('/mon-espace', { replace: true });
   };
 
