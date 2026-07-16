@@ -12,7 +12,7 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
 
-async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update' | 'delete', googleEventId?: string): Promise<void> {
+async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update' | 'delete', projectId?: string, googleEventId?: string): Promise<void> {
   try {
     const studioId = await getStudioId();
     const { data: { session } } = await supabase.auth.getSession();
@@ -20,7 +20,7 @@ async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update'
     await fetch('/api/google-calendar-push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ studioId, eventId, action, googleEventId }),
+      body: JSON.stringify({ studioId, eventId, action, projectId, googleEventId }),
     });
   } catch (err) {
     // Fire-and-forget — a push failure must never block the Rush-side write.
@@ -179,7 +179,7 @@ async function addSupabaseEvent(ev: CalendarEvent): Promise<void> {
   const studioId = await getStudioId();
   const { error } = await supabase.from('events').insert(toRow(ev, studioId));
   if (error) { console.error('addSupabaseEvent failed', error); return; }
-  void pushToGoogleCalendar(ev.id, 'create');
+  void pushToGoogleCalendar(ev.id, 'create', ev.projectId);
   await fetchSupabaseEvents();
 }
 
@@ -190,7 +190,7 @@ async function updateSupabaseEvent(id: string, patch: Partial<Omit<CalendarEvent
   const merged = { ...current, ...patch };
   const { error } = await supabase.from('events').update(toRow(merged, studioId)).eq('id', id);
   if (error) { console.error('updateSupabaseEvent failed', error); return; }
-  void pushToGoogleCalendar(id, 'update');
+  void pushToGoogleCalendar(id, 'update', merged.projectId);
   await fetchSupabaseEvents();
 }
 
@@ -198,7 +198,7 @@ async function deleteSupabaseEvent(id: string): Promise<void> {
   const existing = _supabaseEvents.find(e => e.id === id);
   const { error } = await supabase.from('events').delete().eq('id', id);
   if (error) { console.error('deleteSupabaseEvent failed', error); return; }
-  void pushToGoogleCalendar(id, 'delete', existing?.googleEventId);
+  void pushToGoogleCalendar(id, 'delete', existing?.projectId, existing?.googleEventId);
   await fetchSupabaseEvents();
 }
 

@@ -1,11 +1,13 @@
+// app/api/google-calendar-push.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getValidAccessToken, googleCalendarRequest, toGoogleEventBody } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody } from './_lib/googleCalendarApi.js';
 
 interface PushBody {
   studioId: string;
   eventId: string;
   action: 'create' | 'update' | 'delete';
+  projectId?: string | null;
   googleEventId?: string; // required for 'delete' — the Rush row is already gone by the time this runs
 }
 
@@ -15,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { studioId, eventId, action, googleEventId } = req.body as PushBody;
+  const { studioId, eventId, action, projectId, googleEventId } = req.body as PushBody;
   if (!studioId || !eventId || !action) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
@@ -52,8 +54,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const conn = await getValidAccessToken(supabaseAdmin, studioId);
-    if (!conn) {
+    const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+    if (!accessToken) {
       // No Google Calendar connected for this studio — nothing to push, not an error.
       res.status(200).json({ ok: true, skipped: 'not_connected' });
       return;
@@ -61,7 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (action === 'delete') {
       if (googleEventId) {
-        await googleCalendarRequest(conn.accessToken, conn.calendarId, 'DELETE', `/events/${googleEventId}`);
+        const calendarId = await resolveEventCalendarId(supabaseAdmin, studioId, projectId ?? null, accessToken);
+        if (calendarId) {
+          await googleCalendarRequest(accessToken, calendarId, 'DELETE', `/events/${googleEventId}`);
+        }
       }
       res.status(200).json({ ok: true });
       return;
@@ -69,13 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: eventRow, error: eventError } = await supabaseAdmin
       .from('events')
-      .select('title, start, "end", all_day, description, location, google_event_id')
+      .select('title, start, "end", all_day, description, location, google_event_id, project_id')
       .eq('id', eventId)
       .eq('studio_id', studioId)
       .single();
 
     if (eventError || !eventRow) {
       res.status(200).json({ ok: true, skipped: 'event_not_found' });
+      return;
+    }
+
+    const calendarId = await resolveEventCalendarId(supabaseAdmin, studioId, eventRow.project_id, accessToken);
+    if (!calendarId) {
+      res.status(200).json({ ok: true, skipped: 'no_calendar' });
       return;
     }
 
@@ -89,9 +100,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (eventRow.google_event_id) {
-      await googleCalendarRequest(conn.accessToken, conn.calendarId, 'PUT', `/events/${eventRow.google_event_id}`, body);
+      await googleCalendarRequest(accessToken, calendarId, 'PUT', `/events/${eventRow.google_event_id}`, body);
     } else {
-      const created = await googleCalendarRequest(conn.accessToken, conn.calendarId, 'POST', '/events', body);
+      const created = await googleCalendarRequest(accessToken, calendarId, 'POST', '/events', body);
       await supabaseAdmin.from('events').update({ google_event_id: created.id }).eq('id', eventId);
     }
 
@@ -99,9 +110,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Failed to push event to Google Calendar:', error);
     // Do not fail the response with a 500 that the client would surface as
-    // an error toast — per the design, a push failure never blocks or rolls
-    // back the Rush-side write, it just means Google is out of sync until
-    // the connection is fixed.
+    // an error toast — a push failure never blocks or rolls back the
+    // Rush-side write, it just means Google is out of sync until the
+    // connection (or calendar) is fixed.
     res.status(200).json({ ok: false, error: 'push_failed' });
   }
 }
