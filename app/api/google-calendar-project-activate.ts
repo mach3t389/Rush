@@ -85,17 +85,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (existingRow) {
       calendarId = existingRow.google_calendar_id as string;
       if (!existingRow.active) {
-        await supabaseAdmin.from('project_google_calendars').update({ active: true }).eq('project_id', projectId);
+        const { error: reactivateError } = await supabaseAdmin
+          .from('project_google_calendars')
+          .update({ active: true })
+          .eq('project_id', projectId);
+        if (reactivateError) {
+          console.error(`Failed to reactivate project_google_calendars row for project ${projectId}:`, reactivateError);
+          res.status(500).json({ error: 'Failed to activate' });
+          return;
+        }
       }
     } else {
       calendarId = await createGoogleCalendar(accessToken, project.name as string);
-      await supabaseAdmin.from('project_google_calendars').insert({
+      const { error: insertError } = await supabaseAdmin.from('project_google_calendars').insert({
         project_id: projectId,
         studio_id: studioId,
         google_calendar_id: calendarId,
         active: true,
         shared_contact_ids: [],
       });
+      if (insertError) {
+        if ((insertError as { code?: string }).code === '23505') {
+          // Another concurrent activate request already inserted this project's row.
+          // The calendar we just created via createGoogleCalendar is now an orphan —
+          // abandon it in favour of the row the other request landed, and log it so
+          // it's discoverable for future cleanup.
+          console.error(
+            `Race on project_google_calendars insert for project ${projectId}: unique violation. ` +
+            `Abandoning duplicate Google calendar ${calendarId} created by this request; re-selecting existing row.`
+          );
+          const { data: raceRow, error: raceSelectError } = await supabaseAdmin
+            .from('project_google_calendars')
+            .select('google_calendar_id')
+            .eq('project_id', projectId)
+            .maybeSingle();
+          if (raceSelectError || !raceRow) {
+            console.error(`Failed to re-select project_google_calendars row after race for project ${projectId}:`, raceSelectError);
+            res.status(500).json({ error: 'Failed to activate' });
+            return;
+          }
+          calendarId = raceRow.google_calendar_id as string;
+        } else {
+          console.error(`Failed to insert project_google_calendars row for project ${projectId}:`, insertError);
+          res.status(500).json({ error: 'Failed to activate' });
+          return;
+        }
+      }
     }
 
     // Move any already-synced events for this project from the org default
@@ -120,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('client_contact_id')
       .eq('project_id', projectId);
     const contactIds = (access ?? []).map(row => row.client_contact_id as string);
+    const sharedIds: string[] = [];
 
     if (contactIds.length > 0) {
       const { data: contacts } = await supabaseAdmin
@@ -130,16 +166,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!contact.email) continue;
         try {
           await shareGoogleCalendar(accessToken, calendarId, contact.email as string);
+          sharedIds.push(contact.id as string);
         } catch (err) {
           console.error(`Failed to share calendar with ${contact.email}:`, err);
         }
       }
     }
 
-    await supabaseAdmin
+    const { error: shareUpdateError } = await supabaseAdmin
       .from('project_google_calendars')
-      .update({ shared_contact_ids: contactIds })
+      .update({ shared_contact_ids: sharedIds })
       .eq('project_id', projectId);
+    if (shareUpdateError) {
+      console.error(`Failed to persist shared_contact_ids for project ${projectId}:`, shareUpdateError);
+      res.status(500).json({ error: 'Failed to activate' });
+      return;
+    }
 
     res.status(200).json({ ok: true, calendarId });
   } catch (error) {

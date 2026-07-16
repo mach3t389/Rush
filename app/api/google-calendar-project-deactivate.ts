@@ -72,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const orgDefaultCalendarId = await getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
 
     const contactIds = (row.shared_contact_ids ?? []) as string[];
+    const stillSharedIds: string[] = [];
     if (contactIds.length > 0) {
       const { data: contacts } = await supabaseAdmin
         .from('client_contacts')
@@ -83,6 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, contact.email as string);
         } catch (err) {
           console.error(`Failed to unshare calendar with ${contact.email}:`, err);
+          stillSharedIds.push(contact.id as string);
         }
       }
     }
@@ -103,10 +105,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    await supabaseAdmin
+    const { error: deactivateUpdateError } = await supabaseAdmin
       .from('project_google_calendars')
-      .update({ active: false, shared_contact_ids: [] })
+      .update({ active: false, shared_contact_ids: stillSharedIds })
       .eq('project_id', projectId);
+    if (deactivateUpdateError) {
+      console.error(`Failed to persist deactivation for project ${projectId}:`, deactivateUpdateError);
+      res.status(500).json({ error: 'Failed to deactivate' });
+      return;
+    }
 
     res.status(200).json({ ok: true });
   } catch (error) {
