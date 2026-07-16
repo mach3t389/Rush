@@ -231,6 +231,8 @@ export interface TeamInvitationInfo {
   studioName: string;
   status: 'pending' | 'accepted';
   studioId: string;
+  studioLogoFull: string | null;
+  studioLogoSquare: string | null;
 }
 
 export async function getInvitationByToken(token: string): Promise<TeamInvitationInfo | null> {
@@ -238,7 +240,15 @@ export async function getInvitationByToken(token: string): Promise<TeamInvitatio
   if (error) { console.error('getInvitationByToken failed', error); return null; }
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
-  return { email: row.email, role: row.role, studioName: row.studio_name, status: row.status, studioId: row.studio_id };
+  return {
+    email: row.email,
+    role: row.role,
+    studioName: row.studio_name,
+    status: row.status,
+    studioId: row.studio_id,
+    studioLogoFull: row.studio_logo_full ?? null,
+    studioLogoSquare: row.studio_logo_square ?? null,
+  };
 }
 
 export async function acceptInvitation(token: string): Promise<void> {
