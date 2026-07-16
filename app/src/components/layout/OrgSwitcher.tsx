@@ -21,11 +21,24 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   useEffect(() => {
     if (isDemoSession()) return;
     let cancelled = false;
-    (async () => {
-      const [list, current] = await Promise.all([listMyOrganizations(), getStudioId()]);
-      if (!cancelled) { setOrgs(list); setActiveId(current); }
-    })();
-    return () => { cancelled = true; };
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    const load = async (attempt: number) => {
+      try {
+        const [list, current] = await Promise.all([listMyOrganizations(), getStudioId()]);
+        if (!cancelled) { setOrgs(list); setActiveId(current); }
+      } catch (err) {
+        console.error('OrgSwitcher: failed to resolve organisations', err);
+        // Transient failures (e.g. a slow first request) shouldn't leave the
+        // switcher permanently blank — retry a few times with backoff.
+        if (!cancelled && attempt < 3) {
+          retryTimer = setTimeout(() => load(attempt + 1), 1000 * (attempt + 1));
+        }
+      }
+    };
+    void load(0);
+
+    return () => { cancelled = true; clearTimeout(retryTimer); };
   }, []);
 
   useEffect(() => {
