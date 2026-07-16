@@ -39,3 +39,37 @@ export async function disconnectGoogleCalendar(): Promise<void> {
   });
   if (!resp.ok) throw new Error('Failed to disconnect Google Calendar');
 }
+
+export interface ProjectGoogleCalendarStatus {
+  active: boolean;
+}
+
+export async function getProjectGoogleCalendarStatus(projectId: string): Promise<ProjectGoogleCalendarStatus> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch(`/api/google-calendar-project-status?studioId=${studioId}&projectId=${projectId}`, { headers });
+  if (!resp.ok) return { active: false };
+  return resp.json();
+}
+
+export async function activateProjectGoogleCalendar(projectId: string): Promise<void> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch('/api/google-calendar-project-activate', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studioId, projectId }),
+  });
+  if (!resp.ok) throw new Error('Failed to activate project Google Calendar');
+}
+
+export async function deactivateProjectGoogleCalendar(projectId: string): Promise<void> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch('/api/google-calendar-project-deactivate', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studioId, projectId }),
+  });
+  if (!resp.ok) throw new Error('Failed to deactivate project Google Calendar');
+}

@@ -10,6 +10,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading } from '../data/eventStore';
+import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { MeetingField } from './CalendrierGlobal';
@@ -436,6 +437,71 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   );
 }
 
+function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: string; clientName: string }) {
+  const { t } = useTranslation();
+  const [orgConnected, setOrgConnected] = useState<boolean | null>(null);
+  const [active, setActive] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const status = await getGoogleCalendarStatus();
+      if (cancelled) return;
+      setOrgConnected(status.connected);
+      if (status.connected) {
+        const projectStatus = await getProjectGoogleCalendarStatus(projectId);
+        if (!cancelled) setActive(projectStatus.active);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  if (isDemoSession() || orgConnected !== true || active === null) return null;
+
+  const handleActivate = async () => {
+    setBusy(true);
+    try {
+      await activateProjectGoogleCalendar(projectId);
+      setActive(true);
+    } catch (err) {
+      console.error('Failed to activate project Google Calendar', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    setBusy(true);
+    try {
+      await deactivateProjectGoogleCalendar(projectId);
+      setActive(false);
+    } catch (err) {
+      console.error('Failed to deactivate project Google Calendar', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <SFIcon name="calendar" size={13} color={active ? 'var(--ok)' : 'var(--text-3)'} />
+        <span style={{ fontSize:12, color:'var(--text-2)', flex:1 }}>
+          {active ? t('calendar.gcalProjectShared', { client: clientName }) : t('calendar.gcalProjectSharePrompt', { client: clientName })}
+        </span>
+      </div>
+      <button
+        onClick={active ? handleDeactivate : handleActivate}
+        disabled={busy}
+        style={{ alignSelf:'flex-start', padding:'6px 12px', borderRadius:8, border: active ? '1px solid var(--danger)' : '1px solid var(--border)', background:'transparent', color: active ? 'var(--danger)' : 'var(--text)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
+      >
+        {busy ? '…' : active ? t('calendar.gcalProjectStopSharing') : t('calendar.gcalProjectShareAction')}
+      </button>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedded?: boolean; projectIds?: string[] } = {}) {
@@ -602,6 +668,11 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
               </div>
             </div>
           );
+        })()}
+
+        {!embedded && projectId && (() => {
+          const project = getProjects().find(p => p.id === projectId);
+          return project?.clientId ? <GoogleProjectCalendarCard projectId={projectId} clientName={project.clientName} /> : null;
         })()}
 
         {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer */}
