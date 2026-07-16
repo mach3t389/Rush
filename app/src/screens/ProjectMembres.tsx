@@ -76,10 +76,20 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
     return next;
   });
 
+  // The permission-preset picker below writes to the internal PermissionKey
+  // system (manage_projects, manage_files, etc.) — a client contact's real
+  // permissions (approve/comment/download) live entirely separately, in
+  // ClientContact.portalPermissions, set when they're added to the client's
+  // own team in FicheClient.tsx. Showing this picker (and silently writing
+  // an inert value) for a purely-external selection was confusing with no
+  // effect — only apply/show it when at least one INTERNAL member is picked.
+  const internalIds = new Set(internalTeam.map(u => u.id));
+  const hasInternalPick = [...picked].some(id => internalIds.has(id));
+
   const handleConfirm = () => {
     const users = [...picked].map(id => allUsers[id]).filter(Boolean);
     if (users.length > 0) {
-      users.forEach(u => savePermissions(u.id, perms));
+      users.filter(u => internalIds.has(u.id)).forEach(u => savePermissions(u.id, perms));
       onAdd(users);
     }
   };
@@ -188,33 +198,35 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
           )}
         </div>
 
-        {/* Permission presets */}
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-          <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
-            {t('members.permissions')}
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5 }}>
-            {PERMISSION_PRESETS.map(p => {
-              const active = JSON.stringify([...perms].sort()) === JSON.stringify([...p.perms].sort());
-              return (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => setPerms(p.perms)}
-                  style={{
-                    padding: '7px 9px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
-                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                    background: active ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  <p style={{ fontSize: 10, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)', margin: 0 }}>{t(p.labelKey)}</p>
-                  <p style={{ fontSize: 9, color: 'var(--text-3)', margin: '1px 0 0', fontFamily: 'var(--ff-mono)', lineHeight: 1.35 }}>{t(p.descKey)}</p>
-                </button>
-              );
-            })}
+        {/* Permission presets — internal members only, see hasInternalPick above */}
+        {hasInternalPick && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+              {t('members.permissions')}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5 }}>
+              {PERMISSION_PRESETS.map(p => {
+                const active = JSON.stringify([...perms].sort()) === JSON.stringify([...p.perms].sort());
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setPerms(p.perms)}
+                    style={{
+                      padding: '7px 9px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                      background: active ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+                      transition: 'all 0.1s',
+                    }}
+                  >
+                    <p style={{ fontSize: 10, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)', margin: 0 }}>{t(p.labelKey)}</p>
+                    <p style={{ fontSize: 9, color: 'var(--text-3)', margin: '1px 0 0', fontFamily: 'var(--ff-mono)', lineHeight: 1.35 }}>{t(p.descKey)}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Footer confirm */}
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
