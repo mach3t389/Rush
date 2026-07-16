@@ -14,6 +14,22 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import type { User } from '../types';
 
+async function syncGoogleCalendarProjectAccess(projectId: string): Promise<void> {
+  try {
+    const studioId = await getStudioId();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    await fetch('/api/google-calendar-project-sync-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ studioId, projectId }),
+    });
+  } catch (err) {
+    // Fire-and-forget — this must never block the project_client_access write.
+    console.error('syncGoogleCalendarProjectAccess failed', err);
+  }
+}
+
 export function syncProjectClientAccess(projectId: string, clientId: string, members: User[]): void {
   if (isDemoSession()) return;
   void doSync(projectId, clientId, members);
@@ -67,4 +83,6 @@ async function doSync(projectId: string, clientId: string, members: User[]): Pro
       .insert(toAdd.map(clientContactId => ({ project_id: projectId, client_contact_id: clientContactId, studio_id: studioId })));
     if (error) console.error('syncProjectClientAccess insert failed', error);
   }
+
+  void syncGoogleCalendarProjectAccess(projectId);
 }
