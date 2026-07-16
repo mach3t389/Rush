@@ -50,14 +50,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { data: row } = await supabaseAdmin
+  const { data: row, error: rowError } = await supabaseAdmin
     .from('project_google_calendars')
     .select('google_calendar_id, active, shared_contact_ids')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
 
-  if (!row || !row.active) {
+  if (rowError || !row || !row.active) {
     res.status(200).json({ ok: true, skipped: 'not_active' });
     return;
   }
@@ -86,23 +86,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .in('id', [...toAdd, ...toRemove]);
       const emailById = new Map((contacts ?? []).map(c => [c.id as string, c.email as string]));
 
+      const finalIds = new Set(previousIds);
       for (const id of toAdd) {
         const email = emailById.get(id);
         if (!email) continue;
-        try { await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email); }
-        catch (err) { console.error(`Failed to share calendar with ${email}:`, err); }
+        try {
+          await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+          finalIds.add(id);
+        } catch (err) {
+          console.error(`Failed to share calendar with ${email}:`, err);
+        }
       }
       for (const id of toRemove) {
         const email = emailById.get(id);
         if (!email) continue;
-        try { await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email); }
-        catch (err) { console.error(`Failed to unshare calendar with ${email}:`, err); }
+        try {
+          await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+          finalIds.delete(id);
+        } catch (err) {
+          console.error(`Failed to unshare calendar with ${email}:`, err);
+        }
       }
 
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from('project_google_calendars')
-        .update({ shared_contact_ids: currentIds })
+        .update({ shared_contact_ids: Array.from(finalIds) })
         .eq('project_id', projectId);
+      if (updateError) {
+        console.error(`Failed to persist shared_contact_ids for project ${projectId}:`, updateError);
+        res.status(500).json({ error: 'Failed to sync access' });
+        return;
+      }
     }
 
     res.status(200).json({ ok: true });
