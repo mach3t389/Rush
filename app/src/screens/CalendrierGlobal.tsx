@@ -10,7 +10,7 @@ import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
-import { usePersistedState } from '../hooks/usePersistedState';
+import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import {
   TODAY, END_HOUR, type CalView,
   addDays, isSameDay, startOfWeek, fmt2, fmtTime, parseFrDate,
@@ -604,7 +604,7 @@ export function CalendrierGlobal() {
   const { t } = useTranslation();
   const months = t('calendar.months', { returnObjects: true }) as string[];
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
-  const [view, setView]             = usePersistedState<CalView>('sf_view_calendrier', 'month');
+  const [view, setView]             = useSyncedViewState<CalView>('sf_view_calendrier', 'month');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
   const [events, setEvents]         = useState<CalEvent[]>(() => resolveEvents(getEventTypes()));

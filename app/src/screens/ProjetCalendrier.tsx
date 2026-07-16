@@ -11,7 +11,7 @@ import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
-import { usePersistedState } from '../hooks/usePersistedState';
+import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { MeetingField } from './CalendrierGlobal';
 import {
   TODAY, END_HOUR, type CalView,
@@ -446,7 +446,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
   const projectId = embedded ? undefined : params.projectId;
   const activeProjectIds = overrideIds ?? (projectId ? [projectId] : []);
 
-  const [view, setView]             = usePersistedState<CalView>('sf_view_projet_calendrier', 'week');
+  const [view, setView]             = useSyncedViewState<CalView>('sf_view_projet_calendrier', 'week');
   const [cur, setCur]               = useState(new Date(TODAY));
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
   const [events, setEvents]         = useState<CalEvent[]>(() => resolveProjectEvents(activeProjectIds, getEventTypes()));

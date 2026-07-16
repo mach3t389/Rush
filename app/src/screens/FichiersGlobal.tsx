@@ -18,6 +18,7 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import { addResource, getResources, subscribeResources, updateResource } from '../data/resourceStore';
 import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
@@ -1791,7 +1792,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         setPersistedNav(resolved);
       }
     : setPersistedNav;
-  const [viewMode, setViewMode] = usePersistedState<ViewMode>('sf_view_fichiers', 'list');
+  const [viewMode, setViewMode] = useSyncedViewState<ViewMode>('sf_view_fichiers', 'list');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortOpen, setSortOpen] = useState(false);
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');

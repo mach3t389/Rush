@@ -10,6 +10,7 @@ import { getSections, setSections as setSections_store, subscribeStore, updateTa
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { loadCustomTemplates, saveCustomTemplates } from '../data/templates';
 import type { ProjectTemplate } from '../data/templates';
@@ -1582,10 +1583,6 @@ export function ResourcePreviewContent({ res }: { res: typeof RESOURCES[0] }) {
 
 
 
-function loadViewPref<T>(key: string, fallback: T): T {
-  try { return JSON.parse(localStorage.getItem(key) ?? '') ?? fallback; } catch { return fallback; }
-}
-
 // ── Save as template modal ─────────────────────────────────────────────────────
 
 const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
@@ -1924,10 +1921,10 @@ export function Travail() {
   const [newSectionLabel, setNewSectionLabel] = useState('');
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
-  const [view, setView] = usePersistedState<'list' | 'board'>('sf_view_travail', 'list');
+  const [view, setView] = useSyncedViewState<'list' | 'board'>('sf_view_travail', 'list');
   const [viewOpen, setViewOpen] = useState(false);
-  const [showCompletedSections, setShowCompletedSections] = useState(() => loadViewPref('sf_showCompletedSections', true));
-  const [showCompletedTasks, setShowCompletedTasks] = useState(() => loadViewPref('sf_showCompletedTasks', true));
+  const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
+  const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
   // Escape — ferme le panneau de détail de tâche
@@ -1941,8 +1938,6 @@ export function Travail() {
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
   }, [selectedTask]);
-
-  const togglePref = (key: string, value: boolean) => localStorage.setItem(key, JSON.stringify(value));
 
   const baseSections = activeSection
     ? sections.filter(s => s.label === activeSection)
@@ -2189,8 +2184,8 @@ export function Travail() {
               <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: '6px', minWidth: 240, boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px 4px' }}>{t('board.viewFilters')}</p>
                 {[
-                  { label: t('board.completedSections'),    key: 'sf_showCompletedSections', value: showCompletedSections, set: (v: boolean) => { setShowCompletedSections(v); togglePref('sf_showCompletedSections', v); } },
-                  { label: t('board.completedTasksToggle'), key: 'sf_showCompletedTasks',    value: showCompletedTasks,    set: (v: boolean) => { setShowCompletedTasks(v);    togglePref('sf_showCompletedTasks',    v); } },
+                  { label: t('board.completedSections'),    key: 'sf_showCompletedSections', value: showCompletedSections, set: setShowCompletedSections },
+                  { label: t('board.completedTasksToggle'), key: 'sf_showCompletedTasks',    value: showCompletedTasks,    set: setShowCompletedTasks },
                 ].map(opt => (
                   <button key={opt.key} onClick={() => opt.set(!opt.value)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}

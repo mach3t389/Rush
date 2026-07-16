@@ -14,6 +14,7 @@ import type { Task, Priority, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { useSyncedViewState } from '../hooks/useSyncedViewState';
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
@@ -1291,7 +1292,7 @@ export function Taches() {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [groupByPriority, setGroupByPriority] = usePersistedState<boolean>('sf_taches_group_prio', false);
-  const [hideCompleted, setHideCompleted] = usePersistedState<boolean>('sf_taches_hide_completed', false);
+  const [hideCompleted, setHideCompleted] = useSyncedViewState<boolean>('sf_taches_hide_completed', false);
 
   React.useEffect(() => subscribeMyTasks(() => { setTasks(getMyTasks()); setMySections(getMyTaskSections()); }), []);
 
