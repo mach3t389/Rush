@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Build log artifacts (accidentally committed by an implementer subagent)
+build-output.txt
+
 # Environment variables (secrets — never commit)
 .env
 .env.local

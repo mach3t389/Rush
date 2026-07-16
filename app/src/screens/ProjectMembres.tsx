@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal, SFLoadingState } from '../components/ui';
 import { USERS } from '../data/mock';
-import { getClientExternalTeam, addClientTeamMember } from '../data/clientTeamStore';
+import { getClientExternalTeam, addClientTeamMember, subscribeClientTeam } from '../data/clientTeamStore';
 import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
 import { findProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
@@ -331,6 +331,14 @@ export function ProjectMembres() {
     const p = findProject(projectId);
     if (p) setMembers(p.members ?? []);
   }), [projectId]);
+
+  // externalIds below is recomputed from getClientExternalTeam(project.clientId)
+  // on every render, but that cache is populated by a background fetch — without
+  // subscribing here, a fresh page load can render the Contacts client / Équipe
+  // interne split using a stale/empty pool until some unrelated re-render happens
+  // to pick up the resolved cache.
+  const [, forceClientTeamRerender] = useState(0);
+  useEffect(() => subscribeClientTeam(() => forceClientTeamRerender(n => n + 1)), [projectId]);
 
   if (!project) {
     return (

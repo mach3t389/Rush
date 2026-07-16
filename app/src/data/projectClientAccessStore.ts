@@ -34,7 +34,24 @@ async function doSync(projectId: string, clientId: string, members: User[]): Pro
   const toRemove = existingIds.filter(id => !nextContactIds.includes(id));
   const toAdd = nextContactIds.filter(id => !existingIds.includes(id));
 
-  if (toRemove.length > 0) {
+  // Guard against a race with clientTeamStore's background fetch: getClientExternalTeam()
+  // returns [] synchronously both when a client genuinely has zero contacts AND when that
+  // client's contact-team cache simply hasn't finished loading yet (see ensureFetchStarted
+  // in clientTeamStore.ts). If we can't tell those apart and there are pre-existing
+  // project_client_access rows, treating "pool empty" as "revoke everyone" would silently
+  // wipe every client contact's access on an unrelated member edit that just happened to
+  // race the fetch. So: an empty pool with pre-existing rows skips the delete pass entirely
+  // rather than assuming the pool is authoritative. (The insert pass is unaffected — an
+  // empty pool naturally yields an empty toAdd too, so it doesn't need this guard.)
+  const poolLooksUnloaded = externalContactIds.size === 0 && existingIds.length > 0;
+  if (poolLooksUnloaded) {
+    console.warn(
+      `syncProjectClientAccess: skipping delete pass for project ${projectId} — ` +
+      `client ${clientId}'s contact pool came back empty while ${existingIds.length} ` +
+      `project_client_access row(s) already exist. Assuming the contact-team cache ` +
+      `hasn't finished loading yet rather than revoking all access.`
+    );
+  } else if (toRemove.length > 0) {
     const { error } = await supabase
       .from('project_client_access')
       .delete()
