@@ -108,10 +108,39 @@ export async function getOrgDefaultCalendarId(
     }
   }
 
-  await supabaseAdmin
+  // Compare-and-swap: only persist if the row is still "primary". Two
+  // concurrent callers (e.g. a push racing the 15-minute cron pull) can both
+  // read "primary" above and both create their own dedicated calendar — the
+  // `.eq('google_calendar_id', 'primary')` filter here ensures only the
+  // first update to actually run wins the migration; the loser detects that
+  // it affected zero rows and defers to whatever the winner persisted,
+  // instead of silently overwriting it and orphaning the winner's calendar.
+  const { data: updated, error: updateError } = await supabaseAdmin
     .from('google_calendar_connections')
     .update({ google_calendar_id: newCalendarId })
-    .eq('studio_id', studioId);
+    .eq('studio_id', studioId)
+    .eq('google_calendar_id', 'primary')
+    .select('google_calendar_id');
+
+  if (updateError) {
+    console.error(`Failed to persist dedicated calendar for studio ${studioId}:`, updateError);
+    return newCalendarId; // best-effort: at least this call's events were moved to a real calendar
+  }
+
+  if (!updated || updated.length === 0) {
+    // Lost the race — another concurrent call already migrated this studio off
+    // "primary" between our initial read and this update. Abandon the calendar
+    // we just created (log it clearly so it's discoverable/cleanable later —
+    // do not attempt automated deletion here) and use whichever calendar the
+    // winning call actually persisted.
+    console.error(`Abandoned duplicate calendar ${newCalendarId} for studio ${studioId} — another concurrent request already migrated this studio's default calendar.`);
+    const { data: winner } = await supabaseAdmin
+      .from('google_calendar_connections')
+      .select('google_calendar_id')
+      .eq('studio_id', studioId)
+      .maybeSingle();
+    return (winner?.google_calendar_id as string) ?? newCalendarId;
+  }
 
   return newCalendarId;
 }
