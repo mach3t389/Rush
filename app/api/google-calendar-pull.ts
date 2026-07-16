@@ -45,6 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       accessToken = await getValidAccessToken(supabaseAdmin, studioId);
     } catch (err) {
       console.error(`Failed to get access token for studio ${studioId}:`, err);
+      results[`studio:${studioId}:default`] = 'error';
+      continue;
     }
     if (!accessToken) {
       results[`studio:${studioId}:default`] = 'not_connected';
@@ -76,11 +78,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       results[`studio:${studioId}:default`] = 'error';
     }
 
-    const { data: projectCals } = await supabaseAdmin
+    const { data: projectCals, error: projectCalsError } = await supabaseAdmin
       .from('project_google_calendars')
       .select('project_id, google_calendar_id, sync_token')
       .eq('studio_id', studioId)
       .eq('active', true);
+
+    if (projectCalsError) {
+      console.error(`Failed to load project calendars for studio ${studioId}:`, projectCalsError);
+      results[`studio:${studioId}:projects`] = 'error';
+      continue;
+    }
 
     for (const pc of projectCals ?? []) {
       const projectId = pc.project_id as string;
