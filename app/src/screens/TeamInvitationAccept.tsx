@@ -7,7 +7,7 @@ import { register, login, logout } from '../data/authStore';
 import { switchActiveStudio } from '../data/studioStore';
 import { supabase } from '../data/supabaseClient';
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, logoUrl }: { children: React.ReactNode; logoUrl?: string | null }) {
   return (
     <div style={{
       minHeight: '100vh', background: 'var(--bg)',
@@ -16,10 +16,16 @@ function Shell({ children }: { children: React.ReactNode }) {
     }}>
       <div style={{ width: '100%', maxWidth: 440 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 40 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SFIcon name="play" size={14} color="#0b0b0b" />
-          </div>
-          <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt="" style={{ height: 32, maxWidth: 240, objectFit: 'contain' }} />
+          ) : (
+            <>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SFIcon name="play" size={14} color="#0b0b0b" />
+              </div>
+              <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+            </>
+          )}
         </div>
         {children}
       </div>
@@ -138,12 +144,12 @@ export function TeamInvitationAccept() {
   };
 
   if (loadState === 'loading' || sessionEmail === undefined) {
-    return <Shell><p style={{ textAlign: 'center', color: 'var(--text-3)' }}>…</p></Shell>;
+    return <Shell logoUrl={invitation?.studioLogoFull}><p style={{ textAlign: 'center', color: 'var(--text-3)' }}>…</p></Shell>;
   }
 
   if (loadState === 'invalid') {
     return (
-      <Shell>
+      <Shell logoUrl={invitation?.studioLogoFull}>
         <div style={{ textAlign: 'center' }}>
           <SFIcon name="link-2-off" size={40} color="var(--text-3)" />
           <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', margin: '20px 0 10px' }}>
@@ -166,7 +172,7 @@ export function TeamInvitationAccept() {
 
     if (!emailMatches) {
       return (
-        <Shell>
+        <Shell logoUrl={invitation?.studioLogoFull}>
           <div style={{ textAlign: 'center' }}>
             <SFIcon name="circle-alert" size={36} color="var(--danger)" />
             <h1 style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--ff-display)', margin: '18px 0 10px' }}>
@@ -187,7 +193,7 @@ export function TeamInvitationAccept() {
     }
 
     return (
-      <Shell>
+      <Shell logoUrl={invitation?.studioLogoFull}>
         <h1 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 6, textAlign: 'center', letterSpacing: '-0.4px' }}>
           {t('teamInvitation.pendingTitle')}
         </h1>
@@ -219,7 +225,7 @@ export function TeamInvitationAccept() {
   // Not logged in — choose login or register, then choice-specific form.
   if (mode === 'choose') {
     return (
-      <Shell>
+      <Shell logoUrl={invitation?.studioLogoFull}>
         <h1 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 6, textAlign: 'center', letterSpacing: '-0.4px' }}>
           {t('teamInvitation.pendingTitle')}
         </h1>
@@ -246,7 +252,7 @@ export function TeamInvitationAccept() {
 
   if (mode === 'login') {
     return (
-      <Shell>
+      <Shell logoUrl={invitation?.studioLogoFull}>
         <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 20, textAlign: 'center' }}>
           {t('auth.loginTitle')}
         </h1>
@@ -284,7 +290,7 @@ export function TeamInvitationAccept() {
 
   // mode === 'register' — identical to the original always-register flow.
   return (
-    <Shell>
+    <Shell logoUrl={invitation?.studioLogoFull}>
       <h1 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 6, textAlign: 'center', letterSpacing: '-0.4px' }}>
         {t('teamInvitation.pendingTitle')}
       </h1>
