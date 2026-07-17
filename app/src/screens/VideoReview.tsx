@@ -620,6 +620,10 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const goNextComment = () => { const next = timedComments.find(c => c.timeSeconds! > currentTime + 0.3); if (next) jumpToComment(next); };
   const goPrevComment = () => { const prev = [...timedComments].reverse().find(c => c.timeSeconds! < currentTime - 0.3); if (prev) jumpToComment(prev); };
 
+  const sortedChapters = [...(activeVer?.chapters ?? [])].sort((a, b) => a.timeSeconds - b.timeSeconds);
+  const goNextChapter = () => { const next = sortedChapters.find(c => c.timeSeconds > currentTime + 0.3); if (next) seekTo(next.timeSeconds); };
+  const goPrevChapter = () => { const prev = [...sortedChapters].reverse().find(c => c.timeSeconds < currentTime - 0.3); if (prev) seekTo(prev.timeSeconds); };
+
   const showControls = () => {
     setControlsVisible(true);
     if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
@@ -1050,6 +1054,12 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
               {/* Center: transport controls */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {/* Prev chapter */}
+                <button onClick={goPrevChapter} title={t('review.prevChapter')}
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: sortedChapters.some(c => c.timeSeconds < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: sortedChapters.some(c => c.timeSeconds < currentTime - 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="chevron-left" size={12} />
+                  <SFIcon name="bookmark" size={13} />
+                </button>
                 {/* Prev comment */}
                 <button onClick={goPrevComment} title={t('review.prevComment')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 1 : 0.35 }}>
@@ -1077,6 +1087,12 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <button onClick={goNextComment} title={t('review.nextComment')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 1 : 0.35 }}>
                   <SFIcon name="message-circle" size={13} />
+                  <SFIcon name="chevron-right" size={12} />
+                </button>
+                {/* Next chapter */}
+                <button onClick={goNextChapter} title={t('review.nextChapter')}
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: sortedChapters.some(c => c.timeSeconds > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: sortedChapters.some(c => c.timeSeconds > currentTime + 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="bookmark" size={13} />
                   <SFIcon name="chevron-right" size={12} />
                 </button>
               </div>
