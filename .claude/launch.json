@@ -100,6 +100,16 @@
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
+    },
+    {
+      "name": "video-chapters-timecode-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/video-chapters-timecode/app", "--", "--port", "5255", "--strictPort"],
+      "port": 5255,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
     }
   ]
 }
