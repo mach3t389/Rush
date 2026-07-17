@@ -1029,6 +1029,14 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   const secs = m * 60 + s;
                   return <div key={t.id} title={t.title} style={{ position: 'absolute', top: '50%', left: `${(secs / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', border: '2px solid var(--bg)', zIndex: 1 }} />;
                 })}
+                {/* Chapter markers */}
+                {(activeVer?.chapters ?? []).map(chap => (
+                  <div key={chap.id}
+                    title={chap.label}
+                    onClick={e => { e.stopPropagation(); seekTo(chap.timeSeconds); }}
+                    style={{ position: 'absolute', top: 0, bottom: 0, left: `${(chap.timeSeconds / TOTAL) * 100}%`, width: 2, background: 'var(--text-3)', cursor: 'pointer', zIndex: 1 }}
+                  />
+                ))}
                 {/* Playhead thumb */}
                 <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '3px solid var(--bg)', zIndex: 2, boxShadow: '0 0 8px rgba(249,255,0,0.5)' }} />
               </div>
