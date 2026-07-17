@@ -1472,6 +1472,7 @@
     "repositionHint": "Drag to reposition",
     "prevComment": "Previous comment",
     "prevChapter": "Previous chapter",
+    "editTimecode": "Click to enter an exact time",
     "rewind15": "Rewind 15 seconds",
     "pauseSpace": "Pause (Space)",
     "playSpace": "Play (Space)",

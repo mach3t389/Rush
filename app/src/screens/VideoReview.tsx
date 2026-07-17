@@ -84,6 +84,18 @@ function secsToLabel(s: number): string {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+// Accepte "SS", "MM:SS" ou "H:MM:SS" — chaque segment séparé par ":" décale
+// le total précédent d'un facteur 60. Retourne null si le format est invalide.
+function parseTimecode(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(':').map(p => p.trim());
+  if (parts.some(p => p === '' || Number.isNaN(Number(p)))) return null;
+  let seconds = 0;
+  for (const part of parts) seconds = seconds * 60 + Number(part);
+  return seconds;
+}
+
 const DEFAULT_TOTAL = 208;
 
 // Plausible upload dates for the seeded versions
@@ -240,6 +252,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [muted, setMuted]         = useState(false);
   const [volume, setVolume]       = useState(1);
   const [showVolume, setShowVolume] = useState(false);
+  const [editingTimecode, setEditingTimecode] = useState(false);
+  const [timecodeDraft, setTimecodeDraft] = useState('');
 
   // Versions (local, so they can be added / removed)
   const [versions, setVersions] = useState<LocalVersion[]>(() => {
@@ -1048,9 +1062,30 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             {/* Transport controls — 3 sections */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               {/* Left: timecode */}
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 96 }}>
-                {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
-              </span>
+              {editingTimecode ? (
+                <input
+                  autoFocus
+                  value={timecodeDraft}
+                  onChange={e => setTimecodeDraft(e.target.value)}
+                  onBlur={() => setEditingTimecode(false)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const parsed = parseTimecode(timecodeDraft);
+                      if (parsed !== null) seekTo(parsed);
+                      setEditingTimecode(false);
+                    }
+                    if (e.key === 'Escape') setEditingTimecode(false);
+                  }}
+                  style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text)', background: 'var(--surface-3)', border: '1px solid var(--accent)', borderRadius: 4, padding: '1px 4px', flexShrink: 0, minWidth: 96, width: 96, outline: 'none' }}
+                />
+              ) : (
+                <span
+                  onClick={() => { setTimecodeDraft(secsToLabel(currentTime)); setEditingTimecode(true); }}
+                  title={t('review.editTimecode')}
+                  style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 96, cursor: 'text' }}>
+                  {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
+                </span>
+              )}
 
               {/* Center: transport controls */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
