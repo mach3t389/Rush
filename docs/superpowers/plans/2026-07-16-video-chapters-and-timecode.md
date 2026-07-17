@@ -17,7 +17,19 @@
 
 ---
 
-### Task 1: Add the `mp4box` dependency and its type declarations
+### Task 1: Add the `mp4box` dependency and its type declarations — COMPLETE
+
+> **Resolved during execution:** mp4box v2.4.1 ships its own real TypeScript
+> types (`node_modules/mp4box/dist/all-JrUeGBJv.d.mts`). No custom ambient
+> `mp4box.d.ts` was needed or created. Verified real exports: `createFile`,
+> `MP4BoxBuffer` (with a `MP4BoxBuffer.fromArrayBuffer(buffer, fileStart)`
+> helper), and types `ISOFile`, `Movie`, `Track`, `Sample`. Critically,
+> `Track.references: Array<{ track_ids: ArrayLike<number>; type: string }>`
+> is a real, documented public field — Task 2 below has been rewritten to
+> use it directly instead of the raw-box-tree fallback originally planned.
+> Committed as `61fba72` (cherry-picked onto this worktree branch after the
+> Task 1 implementer accidentally committed to `master` — caught before any
+> push, master was reset back clean).
 
 **Files:**
 - Modify: `app/package.json` (via `npm install`)
@@ -107,11 +119,18 @@ cd "D:/Vibe Coding/Rush" && git add app/package.json app/package-lock.json app/s
 
 ### Task 2: `videoChapters.ts` — MP4 chapter-track extraction module
 
+> **Note:** this task's code below was rewritten after Task 1 confirmed
+> mp4box's real, bundled types — it uses the documented `Track.references`
+> field directly instead of the raw-box-tree fallback originally planned.
+> Real, verified types: `createFile`, `MP4BoxBuffer.fromArrayBuffer(buffer,
+> fileStart)`, `ISOFile`, `Movie`, `Track`, `Sample` — all confirmed present
+> in `app/node_modules/mp4box/dist/all-JrUeGBJv.d.mts`.
+
 **Files:**
 - Create: `app/src/data/videoChapters.ts`
 
 **Interfaces:**
-- Consumes: `MP4Box` default export + `MP4File`/`MP4Info`/`MP4Sample` types from `mp4box` (Task 1).
+- Consumes: `createFile`, `MP4BoxBuffer` (value imports) + `ISOFile`, `Movie`, `Sample`, `Track` (type imports) from `mp4box` (Task 1).
 - Produces: `export interface Chapter { id: string; label: string; timeSeconds: number }` and `export async function extractChapters(url: string): Promise<Chapter[]>` — consumed by Task 3.
 
 - [ ] **Step 1: Write the module**
@@ -127,8 +146,8 @@ Create `app/src/data/videoChapters.ts`:
 // octets récupérés, on ne trouve aucun chapitre — pas de deuxième tentative
 // sur la fin du fichier (voir le design doc).
 
-import MP4Box from 'mp4box';
-import type { MP4File, MP4Info, MP4Sample } from 'mp4box';
+import { createFile, MP4BoxBuffer } from 'mp4box';
+import type { ISOFile, Movie, Sample, Track } from 'mp4box';
 
 export interface Chapter {
   id: string;
@@ -180,26 +199,15 @@ async function fetchHeadBytes(url: string, maxBytes: number): Promise<ArrayBuffe
 }
 
 // Trouve l'id de la piste de chapitres QuickTime : une piste vidéo/audio la
-// référence via une boîte `tref` de sous-type `chap`. mp4box.js l'expose
-// soit via le champ public documenté `track.references`, soit seulement
-// dans l'arbre de boîtes brut `moov` selon la version — on essaie les deux.
-function findChapterTrackId(mp4boxFile: MP4File, info: MP4Info): number | null {
-  for (const track of info.tracks) {
-    const ref = track.references?.find(r => r.type === 'chap');
-    if (ref && ref.track_ids.length > 0) return ref.track_ids[0];
+// référence via `track.references` (champ public documenté du type `Track`)
+// avec une entrée de type `chap`.
+function findChapterTrackId(info: Movie): number | null {
+  for (const track of info.tracks as Track[]) {
+    const ref = track.references.find(r => r.type === 'chap');
+    if (!ref) continue;
+    const ids = Array.from(ref.track_ids);
+    if (ids.length > 0) return ids[0];
   }
-
-  const moovBoxes = (mp4boxFile.moov as { boxes?: unknown[] } | undefined)?.boxes ?? [];
-  for (const trak of moovBoxes as Array<{ type?: string; boxes?: unknown[] }>) {
-    if (trak.type !== 'trak') continue;
-    const tref = (trak.boxes ?? []).find((b): b is { type: string; boxes?: unknown[] } =>
-      typeof b === 'object' && b !== null && (b as { type?: string }).type === 'tref');
-    if (!tref) continue;
-    const chap = (tref.boxes ?? []).find((b): b is { type: string; track_ids?: number[] } =>
-      typeof b === 'object' && b !== null && (b as { type?: string }).type === 'chap');
-    if (chap?.track_ids?.length) return chap.track_ids[0];
-  }
-
   return null;
 }
 
@@ -218,7 +226,7 @@ export async function extractChapters(url: string): Promise<Chapter[]> {
   if (!buffer) return [];
 
   return new Promise<Chapter[]>(resolve => {
-    const mp4boxFile = MP4Box.createFile();
+    const mp4boxFile: ISOFile = createFile();
     let settled = false;
     const finish = (chapters: Chapter[]) => {
       if (settled) return;
@@ -228,13 +236,14 @@ export async function extractChapters(url: string): Promise<Chapter[]> {
 
     mp4boxFile.onError = () => finish([]);
 
-    mp4boxFile.onReady = (info: MP4Info) => {
-      const trackId = findChapterTrackId(mp4boxFile, info);
+    mp4boxFile.onReady = (info: Movie) => {
+      const trackId = findChapterTrackId(info);
       if (trackId === null) { finish([]); return; }
 
-      mp4boxFile.onSamples = (_id: number, _user: unknown, samples: MP4Sample[]) => {
+      mp4boxFile.onSamples = (_id: number, _user: unknown, samples: Sample[]) => {
         const chapters: Chapter[] = [];
         for (const sample of samples) {
+          if (!sample.data) continue;
           const label = decodeTextSample(sample.data);
           if (!label) continue;
           chapters.push({
@@ -247,13 +256,11 @@ export async function extractChapters(url: string): Promise<Chapter[]> {
         finish(chapters);
       };
 
-      mp4boxFile.setExtractionOptions(trackId, null, { nbSamples: Infinity });
+      mp4boxFile.setExtractionOptions(trackId, undefined, { nbSamples: Infinity });
       mp4boxFile.start();
     };
 
-    const mp4boxBuffer = buffer as ArrayBuffer & { fileStart: number };
-    mp4boxBuffer.fileStart = 0;
-    mp4boxFile.appendBuffer(mp4boxBuffer);
+    mp4boxFile.appendBuffer(MP4BoxBuffer.fromArrayBuffer(buffer, 0));
     mp4boxFile.flush();
 
     // `onReady` n'est déclenché que si les métadonnées (moov) ont été
