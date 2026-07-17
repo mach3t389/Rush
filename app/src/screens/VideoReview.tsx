@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { extractChapters, type Chapter } from '../data/videoChapters';
 import { VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -63,6 +64,7 @@ interface LocalVersion {
   mediaFileId?: string; // clé fileContentStore du média réel déposé (vidéo/audio)
   mediaName?: string;
   mediaType?: string;   // type MIME du média déposé
+  chapters?: Chapter[]; // résultat (mis en cache) de l'extraction automatique — undefined = pas encore tenté
 }
 
 // Tailles plausibles par type d'upload + index de version (déterministe → stable).
@@ -277,6 +279,24 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
   // Réinitialise la durée/lecture au changement de version (média différent)
   useEffect(() => { setMediaDuration(null); setCurrentTime(0); setPlaying(false); }, [activeVersion]);
+
+  // Extraction automatique des chapitres (piste QuickTime) — une seule fois
+  // par version ; le résultat (même vide) est mis en cache dans `versions`,
+  // qui est déjà persisté via le snapshot existant plus bas.
+  useEffect(() => {
+    if (!mediaUrl || !activeVer || activeVer.chapters !== undefined) return;
+    let cancelled = false;
+    extractChapters(mediaUrl)
+      .then(chapters => {
+        if (cancelled) return;
+        setVersions(prev => prev.map(v => v.v === activeVersion ? { ...v, chapters } : v));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setVersions(prev => prev.map(v => v.v === activeVersion ? { ...v, chapters: [] } : v));
+      });
+    return () => { cancelled = true; };
+  }, [mediaUrl, activeVersion, activeVer]);
 
   const [addVersionOpen, setAddVersionOpen] = useState(false);
   const [newVersionNote, setNewVersionNote] = useState('');
