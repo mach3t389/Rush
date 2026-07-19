@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { extractChapters, type Chapter } from '../data/videoChapters';
 import { VIDEO_COMMENTS, VIDEO_VERSIONS, USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
@@ -63,6 +64,7 @@ interface LocalVersion {
   mediaFileId?: string; // clé fileContentStore du média réel déposé (vidéo/audio)
   mediaName?: string;
   mediaType?: string;   // type MIME du média déposé
+  chapters?: Chapter[]; // résultat (mis en cache) de l'extraction automatique — undefined = pas encore tenté
 }
 
 // Tailles plausibles par type d'upload + index de version (déterministe → stable).
@@ -80,6 +82,18 @@ function secsToLabel(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+// Accepte "SS", "MM:SS" ou "H:MM:SS" — chaque segment séparé par ":" décale
+// le total précédent d'un facteur 60. Retourne null si le format est invalide.
+function parseTimecode(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(':').map(p => p.trim());
+  if (parts.some(p => p === '' || Number.isNaN(Number(p)))) return null;
+  let seconds = 0;
+  for (const part of parts) seconds = seconds * 60 + Number(part);
+  return seconds;
 }
 
 const DEFAULT_TOTAL = 208;
@@ -238,6 +252,8 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [muted, setMuted]         = useState(false);
   const [volume, setVolume]       = useState(1);
   const [showVolume, setShowVolume] = useState(false);
+  const [editingTimecode, setEditingTimecode] = useState(false);
+  const [timecodeDraft, setTimecodeDraft] = useState('');
 
   // Versions (local, so they can be added / removed)
   const [versions, setVersions] = useState<LocalVersion[]>(() => {
@@ -277,6 +293,24 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
 
   // Réinitialise la durée/lecture au changement de version (média différent)
   useEffect(() => { setMediaDuration(null); setCurrentTime(0); setPlaying(false); }, [activeVersion]);
+
+  // Extraction automatique des chapitres (piste QuickTime) — une seule fois
+  // par version ; le résultat (même vide) est mis en cache dans `versions`,
+  // qui est déjà persisté via le snapshot existant plus bas.
+  useEffect(() => {
+    if (!mediaUrl || !activeVer || activeVer.chapters !== undefined) return;
+    let cancelled = false;
+    extractChapters(mediaUrl)
+      .then(chapters => {
+        if (cancelled) return;
+        setVersions(prev => prev.map(v => v.v === activeVersion ? { ...v, chapters } : v));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setVersions(prev => prev.map(v => v.v === activeVersion ? { ...v, chapters: [] } : v));
+      });
+    return () => { cancelled = true; };
+  }, [mediaUrl, activeVersion, activeVer]);
 
   const [addVersionOpen, setAddVersionOpen] = useState(false);
   const [newVersionNote, setNewVersionNote] = useState('');
@@ -599,6 +633,10 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const timedComments = versionComments.filter(c => c.timeSeconds !== null && c.status !== 'resolved').sort((a, b) => a.timeSeconds! - b.timeSeconds!);
   const goNextComment = () => { const next = timedComments.find(c => c.timeSeconds! > currentTime + 0.3); if (next) jumpToComment(next); };
   const goPrevComment = () => { const prev = [...timedComments].reverse().find(c => c.timeSeconds! < currentTime - 0.3); if (prev) jumpToComment(prev); };
+
+  const sortedChapters = [...(activeVer?.chapters ?? [])].sort((a, b) => a.timeSeconds - b.timeSeconds);
+  const goNextChapter = () => { const next = sortedChapters.find(c => c.timeSeconds > currentTime + 0.3); if (next) seekTo(next.timeSeconds); };
+  const goPrevChapter = () => { const prev = [...sortedChapters].reverse().find(c => c.timeSeconds < currentTime - 0.3); if (prev) seekTo(prev.timeSeconds); };
 
   const showControls = () => {
     setControlsVisible(true);
@@ -1009,6 +1047,14 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                   const secs = m * 60 + s;
                   return <div key={t.id} title={t.title} style={{ position: 'absolute', top: '50%', left: `${(secs / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', border: '2px solid var(--bg)', zIndex: 1 }} />;
                 })}
+                {/* Chapter markers */}
+                {(activeVer?.chapters ?? []).map(chap => (
+                  <div key={chap.id}
+                    title={chap.label}
+                    onClick={e => { e.stopPropagation(); seekTo(chap.timeSeconds); }}
+                    style={{ position: 'absolute', top: 0, bottom: 0, left: `${(chap.timeSeconds / TOTAL) * 100}%`, width: 2, background: 'var(--text-3)', cursor: 'pointer', zIndex: 1 }}
+                  />
+                ))}
                 {/* Playhead thumb */}
                 <div style={{ position: 'absolute', top: '50%', left: `${(currentTime / TOTAL) * 100}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '3px solid var(--bg)', zIndex: 2, boxShadow: '0 0 8px rgba(249,255,0,0.5)' }} />
               </div>
@@ -1016,12 +1062,39 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
             {/* Transport controls — 3 sections */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               {/* Left: timecode */}
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 96 }}>
-                {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
-              </span>
+              {editingTimecode ? (
+                <input
+                  autoFocus
+                  value={timecodeDraft}
+                  onChange={e => setTimecodeDraft(e.target.value)}
+                  onBlur={() => setEditingTimecode(false)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const parsed = parseTimecode(timecodeDraft);
+                      if (parsed !== null) seekTo(parsed);
+                      setEditingTimecode(false);
+                    }
+                    if (e.key === 'Escape') setEditingTimecode(false);
+                  }}
+                  style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text)', background: 'var(--surface-3)', border: '1px solid var(--accent)', borderRadius: 4, padding: '1px 4px', flexShrink: 0, minWidth: 96, width: 96, outline: 'none' }}
+                />
+              ) : (
+                <span
+                  onClick={() => { setTimecodeDraft(secsToLabel(currentTime)); setEditingTimecode(true); }}
+                  title={t('review.editTimecode')}
+                  style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, minWidth: 96, cursor: 'text' }}>
+                  {secsToLabel(currentTime)} / {secsToLabel(TOTAL)}
+                </span>
+              )}
 
               {/* Center: transport controls */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {/* Prev chapter */}
+                <button onClick={goPrevChapter} title={t('review.prevChapter')}
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: sortedChapters.some(c => c.timeSeconds < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: sortedChapters.some(c => c.timeSeconds < currentTime - 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="chevron-left" size={12} />
+                  <SFIcon name="bookmark" size={13} />
+                </button>
                 {/* Prev comment */}
                 <button onClick={goPrevComment} title={t('review.prevComment')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! < currentTime - 0.3) ? 1 : 0.35 }}>
@@ -1049,6 +1122,12 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
                 <button onClick={goNextComment} title={t('review.nextComment')}
                   style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: timedComments.some(c => c.timeSeconds! > currentTime + 0.3) ? 1 : 0.35 }}>
                   <SFIcon name="message-circle" size={13} />
+                  <SFIcon name="chevron-right" size={12} />
+                </button>
+                {/* Next chapter */}
+                <button onClick={goNextChapter} title={t('review.nextChapter')}
+                  style={{ height: 32, padding: '0 10px', borderRadius: 8, background: 'var(--surface-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, cursor: sortedChapters.some(c => c.timeSeconds > currentTime + 0.3) ? 'pointer' : 'default', flexShrink: 0, color: 'var(--text-2)', opacity: sortedChapters.some(c => c.timeSeconds > currentTime + 0.3) ? 1 : 0.35 }}>
+                  <SFIcon name="bookmark" size={13} />
                   <SFIcon name="chevron-right" size={12} />
                 </button>
               </div>
