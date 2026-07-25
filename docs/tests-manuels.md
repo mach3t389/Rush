@@ -30,6 +30,14 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 
 ---
 
+## Autres fonctionnalités déjà livrées, en attente de test
+
+- [ ] **Chapitres vidéo (extraction automatique depuis un fichier réel)** : livré le 2026-07-17 — marqueurs de chapitres sur la barre de lecture, boutons précédent/suivant, saisie manuelle du temps. Tout a été testé en direct SAUF l'extraction automatique elle-même, jamais essayée avec un vrai fichier exporté avec des chapitres (Premiere/Final Cut/DaVinci).
+  - Pourquoi : aucun fichier de ce type n'était disponible pendant le développement. Le code ne plante jamais (repli propre sur « aucun chapitre trouvé » en cas de problème), mais la détection réelle n'est pas confirmée.
+  - Comment tester : dépose un fichier vidéo avec chapitres dans une ressource vidéo (écran `VideoReview.tsx`), confirme que les chapitres apparaissent bien comme marqueurs/arrêts de navigation.
+
+---
+
 ## Prochains chantiers (à compléter au fur et à mesure)
 
 - Étape C — Tableau de bord client : pas encore commencée.
