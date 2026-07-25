@@ -18,6 +18,7 @@ import { supabase } from './supabaseClient';
 import { setSections } from './taskStore';
 import { deleteEventsForProject } from './eventStore';
 import { deleteAllFilesForProject } from './fileStore';
+import { syncNewProjectAcrossClientContacts } from './projectClientAccessStore';
 import { getInvoicesByProject, removeInvoice } from './financeStore';
 import { createLoadingFlag } from './loadingFlag';
 import { showToast } from './toastStore';
@@ -157,6 +158,7 @@ async function addSupabaseProject(p: Project): Promise<void> {
     return;
   }
   await fetchSupabaseProjects();
+  syncNewProjectAcrossClientContacts(p.id, p.clientId);
 }
 
 // Maps only the provided fields to their column names — unlike toRow(),
