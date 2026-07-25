@@ -313,6 +313,38 @@ export function convertMyTaskToSubtask(sourceId: string, targetId: string): void
   removeMyTask(sourceId);
 }
 
+// Promotes a subset of `parentTaskId`'s subtasks into standalone personal
+// tasks, in the same mySection as their (former) parent. Restricted to
+// freestanding parents, same reasoning as convertMyTaskToSubtask above —
+// an assigned (project) task's subtasks must be converted from its project
+// view instead, via taskStore.ts's convertSubtasksToTasks.
+export function convertMySubtasksToTasks(parentTaskId: string, subtaskIds: string[]): void {
+  if (isAssignedTask(parentTaskId)) {
+    console.warn('convertMySubtasksToTasks: refusing — assigned project task, convert from its project view instead', parentTaskId);
+    return;
+  }
+  const parent = getMyTasks().find(t => t.id === parentTaskId);
+  if (!parent) return;
+  const idSet = new Set(subtaskIds);
+  const chosen = (parent.subtasks ?? []).filter(s => idSet.has(s.id));
+  if (!chosen.length) return;
+
+  updateMyTask(parentTaskId, { subtasks: (parent.subtasks ?? []).filter(s => !idSet.has(s.id)) });
+
+  const promoted = chosen.map(s => ({
+    ...s,
+    projectId: parent.projectId,
+    projectName: parent.projectName,
+    projectColor: parent.projectColor,
+    priorityLabel: s.priorityLabel || '',
+    dueDate: s.dueDate || '—',
+    dueDateRed: false,
+    subtasks: [],
+    mySection: parent.mySection,
+  }));
+  promoted.forEach(t => addMyTask(t));
+}
+
 export function subscribeMyTasks(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);

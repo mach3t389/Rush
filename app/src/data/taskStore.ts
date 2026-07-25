@@ -344,6 +344,86 @@ export function convertTasksToSubtasks(projectId: string, taskIds: string[], tar
   setSections(projectId, next);
 }
 
+// Fills in the top-level fields a promoted subtask needs to behave like a
+// real task (it only ever carried a LocalSubtask-shaped subset before) —
+// see convertSubtasksToTasks/copySubtasksAsTasks below.
+function promoteSubtask(sub: Task, parent: Task, newId?: string): Task {
+  return {
+    ...sub,
+    id: newId ?? sub.id,
+    projectId: parent.projectId,
+    projectName: parent.projectName,
+    projectColor: parent.projectColor,
+    priorityLabel: sub.priorityLabel || '',
+    dueDate: sub.dueDate || '—',
+    dueDateRed: false,
+    subtasks: [],
+  };
+}
+
+function insertIntoSection(toProjectId: string, toSectionLabel: string, tasks: Task[]): void {
+  const toSections = getSections(toProjectId);
+  const idx = toSections.findIndex(s => s.label === toSectionLabel);
+  if (idx >= 0) {
+    setSections(toProjectId, toSections.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, ...tasks] } : s));
+  } else {
+    setSections(toProjectId, [...toSections, { label: toSectionLabel, tasks }]);
+  }
+}
+
+// Promotes a subset of `parentTaskId`'s subtasks into standalone tasks,
+// removing them from the parent. With no `destination`, they land in the
+// same section as their (former) parent; otherwise in the given
+// project/section — mirrors moveTasks()'s remove-then-insert shape.
+export function convertSubtasksToTasks(
+  projectId: string,
+  parentTaskId: string,
+  subtaskIds: string[],
+  destination?: { projectId: string; sectionLabel: string },
+): void {
+  const sections = getSections(projectId);
+  const parent = sections.flatMap(s => s.tasks).find(t => t.id === parentTaskId);
+  if (!parent) return;
+  const idSet = new Set(subtaskIds);
+  const chosen = (parent.subtasks ?? []).filter(s => idSet.has(s.id));
+  if (!chosen.length) return;
+
+  const withoutSubtasks = sections.map(s => ({
+    ...s,
+    tasks: s.tasks.map(t => t.id === parentTaskId
+      ? { ...t, subtasks: (t.subtasks ?? []).filter(x => !idSet.has(x.id)) }
+      : t),
+  }));
+  setSections(projectId, withoutSubtasks);
+
+  const promoted = chosen.map(s => promoteSubtask(s, parent));
+  const toProjectId = destination?.projectId ?? projectId;
+  const toSectionLabel = destination?.sectionLabel
+    ?? withoutSubtasks.find(s => s.tasks.some(t => t.id === parentTaskId))?.label;
+  if (!toSectionLabel) return;
+  insertIntoSection(toProjectId, toSectionLabel, promoted);
+}
+
+// Same as convertSubtasksToTasks, but the chosen subtasks stay on the
+// parent — the promoted copies get fresh ids, like copyTasks() does.
+export function copySubtasksAsTasks(
+  projectId: string,
+  parentTaskId: string,
+  subtaskIds: string[],
+  toProjectId: string,
+  toSectionLabel: string,
+): void {
+  const sections = getSections(projectId);
+  const parent = sections.flatMap(s => s.tasks).find(t => t.id === parentTaskId);
+  if (!parent) return;
+  const idSet = new Set(subtaskIds);
+  const chosen = (parent.subtasks ?? []).filter(s => idSet.has(s.id));
+  if (!chosen.length) return;
+
+  const copies = chosen.map(s => promoteSubtask(s, parent, `${s.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2)}`));
+  insertIntoSection(toProjectId, toSectionLabel, copies);
+}
+
 export function subscribeStore(fn: () => void): () => void {
   _listeners.add(fn);
   return () => { _listeners.delete(fn); };

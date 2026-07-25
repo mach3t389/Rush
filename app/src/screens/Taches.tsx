@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks } from '../data/myTaskStore';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
@@ -1778,6 +1778,7 @@ export function Taches() {
                 setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
               }
             }}
+            onConvertSubtasks={isAssignedTask(selectedTask.id) ? undefined : subtaskIds => convertMySubtasksToTasks(selectedTask.id, subtaskIds)}
           />
         )}
       </div>

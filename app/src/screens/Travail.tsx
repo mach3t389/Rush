@@ -6,7 +6,7 @@ import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, pa
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, convertTasksToSubtasks } from '../data/taskStore';
+import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, convertTasksToSubtasks, convertSubtasksToTasks, copySubtasksAsTasks } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -1914,6 +1914,10 @@ export function Travail() {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [convertRequest, setConvertRequest] = useState<{ taskIds: string[]; pos: { x: number; y: number } } | null>(null);
+  // Déplacer/copier des sous-tâches vers un projet+section — TaskPanel
+  // demande juste l'action, cet écran choisit la destination puis appelle
+  // taskStore.ts (voir le rendu de BulkMoveModal plus bas).
+  const [subtaskDest, setSubtaskDest] = useState<{ mode: 'move' | 'copy'; parentTaskId: string; subtaskIds: string[] } | null>(null);
   const [sectionMoveLabel, setSectionMoveLabel] = useState<string | null>(null);
   const [sectionCopyLabel, setSectionCopyLabel] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -2386,6 +2390,9 @@ export function Travail() {
               moveTask(projectId!, selectedTask.id, newProjectId, newSectionLabel);
               setSelectedTask(null);
             }}
+            onConvertSubtasks={subtaskIds => convertSubtasksToTasks(projectId!, selectedTask.id, subtaskIds)}
+            onMoveSubtasksAsTask={subtaskIds => setSubtaskDest({ mode: 'move', parentTaskId: selectedTask.id, subtaskIds })}
+            onCopySubtasksAsTask={subtaskIds => setSubtaskDest({ mode: 'copy', parentTaskId: selectedTask.id, subtaskIds })}
           />
         )}
       </div>
@@ -2459,6 +2466,23 @@ export function Travail() {
             setMultiSelIds(new Set());
           }}
           onClose={() => setBulkCopyOpen(false)}
+        />
+      )}
+
+      {/* Déplacer/copier des sous-tâches promues en tâches vers un projet+section */}
+      {subtaskDest && (
+        <BulkMoveModal
+          title={t(subtaskDest.mode === 'copy' ? 'board.copyTasksTitle' : 'board.moveTasksTitle', { count: subtaskDest.subtaskIds.length })}
+          mode={subtaskDest.mode}
+          onMove={(toProjectId, toSectionLabel) => {
+            if (subtaskDest.mode === 'move') {
+              convertSubtasksToTasks(project.id, subtaskDest.parentTaskId, subtaskDest.subtaskIds, { projectId: toProjectId, sectionLabel: toSectionLabel });
+            } else {
+              copySubtasksAsTasks(project.id, subtaskDest.parentTaskId, subtaskDest.subtaskIds, toProjectId, toSectionLabel);
+            }
+            setSubtaskDest(null);
+          }}
+          onClose={() => setSubtaskDest(null)}
         />
       )}
 

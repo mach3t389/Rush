@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFBar, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
@@ -174,12 +175,15 @@ const subColLabel = (label: string) => (
 
 // ── SubTaskRow ────────────────────────────────────────────────────────────────
 
-function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
+function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, selected, onSelect, onContextMenu }: {
   sub: LocalSubtask;
   onToggle: () => void;
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
   onPasteMultiple: (lines: string[]) => void;
+  selected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(sub.title === '');
@@ -215,7 +219,17 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
-      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: hovered ? 'var(--surface-2)' : 'transparent', transition: 'background 0.1s' }}
+      onClick={e => {
+        if (editing) return;
+        if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+        onSelect?.(e);
+      }}
+      onContextMenu={e => {
+        if (!onContextMenu) return;
+        e.preventDefault();
+        onContextMenu(e);
+      }}
+      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined }}
     >
       {/* Checkbox */}
       <button onClick={onToggle}
@@ -315,9 +329,52 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple }: {
   );
 }
 
+// ── SubtaskContextMenu ───────────────────────────────────────────────────────
+// Right-click / bulk-action menu for one or more selected subtasks — mirrors
+// Travail.tsx's TaskContextMenu, but scoped to what makes sense for a
+// subtask (no "open detail", since subtasks don't have one).
+
+function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, onClose }: {
+  pos: { x: number; y: number };
+  count: number;
+  onConvert: () => void;
+  onMove?: () => void;
+  onCopy?: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
+      {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('taskPanel.convertSubtaskToTask', { count })}</span></>, onConvert)}
+      {onMove && item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('board.moveTo')}</span></>, onMove)}
+      {onCopy && item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>{t('taskPanel.copyTo')}</span></>, onCopy)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
+
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
-export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, inline }: {
+export function TaskPanel({
+  task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, inline,
+  onConvertSubtasks, onMoveSubtasksAsTask, onCopySubtasksAsTask,
+}: {
   task: Task;
   onClose: () => void;
   onUpdate?: (patch: Partial<Task>) => void;
@@ -325,6 +382,11 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   sectionLabel?: string;
   autoFocusComments?: boolean;
   inline?: boolean;
+  // Sous-tâches → tâches (multi-select + menu clic droit). Non fournis =
+  // fonctionnalité masquée pour cet écran hôte (ex. Modèles).
+  onConvertSubtasks?: (subtaskIds: string[]) => void;
+  onMoveSubtasksAsTask?: (subtaskIds: string[]) => void;
+  onCopySubtasksAsTask?: (subtaskIds: string[]) => void;
 }) {
   const { t } = useTranslation();
   const [resources, setResources] = useState(getResources);
@@ -374,6 +436,13 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
     })) ?? []
   );
   const [hideCompletedSubs, setHideCompletedSubs] = useState(false);
+  const [selectedSubIds, setSelectedSubIds] = useState<Set<string>>(new Set());
+  const [subCtxPos, setSubCtxPos] = useState<{ x: number; y: number } | null>(null);
+  const subAnchorRef = useRef<string | null>(null);
+  // Convert is the baseline capability required to turn on subtask
+  // multi-select/right-click at all (Travail + Mes tâches both provide it).
+  // Move/Copy are extra, host-screen-specific menu items gated separately.
+  const subtaskActionsEnabled = !!onConvertSubtasks;
 
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
   const [editStatus, setEditStatus] = useState(task.status as string);
@@ -479,6 +548,48 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
       onUpdate?.({ subtasks: next as unknown as Task[] });
       return next;
     });
+  };
+
+  const deleteSubtasks = (ids: string[]) => {
+    const idSet = new Set(ids);
+    setLocalSubtasks(prev => {
+      const next = prev.filter(s => !idSet.has(s.id));
+      onUpdate?.({ subtasks: next as unknown as Task[] });
+      return next;
+    });
+    setSelectedSubIds(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+  };
+
+  // Ctrl/Cmd = toggle one, Shift = range from the last-clicked row, plain
+  // click = select just this one (subtasks have no detail view to open,
+  // unlike a full task row's plain click).
+  const selectSubtask = (subId: string, e: React.MouseEvent) => {
+    const orderedIds = localSubtasks.map(s => s.id);
+    if (e.shiftKey && subAnchorRef.current) {
+      const a = orderedIds.indexOf(subAnchorRef.current);
+      const b = orderedIds.indexOf(subId);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        setSelectedSubIds(new Set(orderedIds.slice(lo, hi + 1)));
+        return;
+      }
+    }
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedSubIds(prev => {
+        const next = new Set(prev);
+        if (next.has(subId)) next.delete(subId); else next.add(subId);
+        return next;
+      });
+      subAnchorRef.current = subId;
+      return;
+    }
+    setSelectedSubIds(new Set([subId]));
+    subAnchorRef.current = subId;
+  };
+
+  const openSubtaskContextMenu = (subId: string, e: React.MouseEvent) => {
+    if (!selectedSubIds.has(subId)) setSelectedSubIds(new Set([subId]));
+    setSubCtxPos({ x: e.clientX, y: e.clientY });
   };
 
   const ME = { initials: USERS.lea.initials, bg: USERS.lea.avatarColor, name: USERS.lea.name };
@@ -1138,7 +1249,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
 
           {/* Sous-tâches */}
           {divider}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               {panelSectionLabel(`${t('tasks.subtasks')}${localSubtasks.length ? ` (${localSubtasks.filter(s => s.checked).length}/${localSubtasks.length})` : ''}`)}
               {localSubtasks.some(s => s.checked) && (
@@ -1165,8 +1276,11 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   if (next) showToast({ type: 'subtask', message: t('taskPanel.subtaskCompleted') });
                 }}
                 onUpdate={patch => updateSub(sub.id, patch)}
-                onDelete={() => setLocalSubtasks(prev => prev.filter(s => s.id !== sub.id))}
+                onDelete={() => deleteSubtasks([sub.id])}
                 onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
+                selected={subtaskActionsEnabled ? selectedSubIds.has(sub.id) : undefined}
+                onSelect={subtaskActionsEnabled ? e => selectSubtask(sub.id, e) : undefined}
+                onContextMenu={subtaskActionsEnabled ? e => openSubtaskContextMenu(sub.id, e) : undefined}
               />
             ))}
             <button onClick={addSubtask}
@@ -1176,6 +1290,48 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
             >
               <SFIcon name="plus" size={12} />{t('taskPanel.addSubtask')}
             </button>
+
+            {/* Barre d'actions groupées — plusieurs sous-tâches sélectionnées */}
+            {subtaskActionsEnabled && selectedSubIds.size > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, padding: '6px 10px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('taskPanel.selectedSubtasksCount', { count: selectedSubIds.size })}</span>
+                <button onClick={() => { onConvertSubtasks?.([...selectedSubIds]); setSelectedSubIds(new Set()); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
+                  <SFIcon name="git-branch" size={11} />{t('taskPanel.convertSubtaskToTask', { count: selectedSubIds.size })}
+                </button>
+                {onMoveSubtasksAsTask && (
+                  <button onClick={() => { onMoveSubtasksAsTask([...selectedSubIds]); setSelectedSubIds(new Set()); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
+                    <SFIcon name="move-right" size={11} />{t('board.moveTo')}
+                  </button>
+                )}
+                {onCopySubtasksAsTask && (
+                  <button onClick={() => { onCopySubtasksAsTask([...selectedSubIds]); setSelectedSubIds(new Set()); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
+                    <SFIcon name="copy" size={11} />{t('taskPanel.copyTo')}
+                  </button>
+                )}
+                <button onClick={() => deleteSubtasks([...selectedSubIds])}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--danger)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
+                  <SFIcon name="trash-2" size={11} />{t('tasks.delete')}
+                </button>
+                <button onClick={() => setSelectedSubIds(new Set())} style={{ display: 'flex', padding: 4, borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', marginLeft: 'auto' }}>
+                  <SFIcon name="x" size={13} />
+                </button>
+              </div>
+            )}
+
+            {subCtxPos && (
+              <SubtaskContextMenu
+                pos={subCtxPos}
+                count={selectedSubIds.size}
+                onConvert={() => onConvertSubtasks?.([...selectedSubIds])}
+                onMove={onMoveSubtasksAsTask ? () => onMoveSubtasksAsTask([...selectedSubIds]) : undefined}
+                onCopy={onCopySubtasksAsTask ? () => onCopySubtasksAsTask([...selectedSubIds]) : undefined}
+                onDelete={() => deleteSubtasks([...selectedSubIds])}
+                onClose={() => setSubCtxPos(null)}
+              />
+            )}
           </div>
 
           {divider}
