@@ -211,6 +211,10 @@ export function getProjects(): Project[] {
   return _supabaseProjects;
 }
 
+export function getProjectsByClient(clientId: string): Project[] {
+  return getProjects().filter(p => p.clientId === clientId);
+}
+
 export function findProject(id: string): Project | undefined {
   return getProjects().find(p => p.id === id);
 }
