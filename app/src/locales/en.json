@@ -2487,5 +2487,12 @@
     "projectsBody": "The Gratuit plan allows 3 active projects at a time. Upgrade to Studio for unlimited projects.",
     "membersGratuitTitle": "Member limit reached",
     "membersGratuitBody": "The Gratuit plan allows 2 team members. Upgrade to Studio or Agence to invite more people."
+  },
+  "clientProject": {
+    "back": "Back to my projects",
+    "tabOverview": "Overview",
+    "tabFiles": "Files",
+    "tabCalendar": "Calendar",
+    "tabFinance": "Invoices"
   }
 }
