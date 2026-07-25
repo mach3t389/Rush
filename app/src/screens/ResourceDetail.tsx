@@ -6,7 +6,7 @@ import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
+import { SFPill, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
