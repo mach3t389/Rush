@@ -21,7 +21,7 @@ import type { Task, DeliverableFormat, DeliverableType, ResourceType } from '../
 // Icônes par type de ressource (pour les ressources liées aux livrables)
 const RES_ICON: Record<ResourceType, string> = {
   screenplay: 'scroll-text', video_review: 'clapperboard', moodboard: 'layout-grid',
-  document: 'file-text', checklist: 'list-checks', inspirations: 'sparkles',
+  document: 'file-text', inspirations: 'sparkles',
   file: 'folder', form: 'clipboard-list', web_review: 'globe',
 };
 

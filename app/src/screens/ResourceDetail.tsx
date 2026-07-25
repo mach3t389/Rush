@@ -53,12 +53,12 @@ interface InspiItem { id: string; title: string; url: string; bg: string; imageU
 
 const TYPE_ICON: Record<ResourceType, string> = {
   screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file', checklist: 'list-checks', inspirations: 'image', file: 'hard-drive',
+  document: 'file', inspirations: 'image', file: 'hard-drive',
   form: 'clipboard-list', web_review: 'globe',
 };
 const TYPE_LABEL_KEY: Record<ResourceType, string> = {
   screenplay: 'resources.scenography', video_review: 'resources.review', moodboard: 'resources.moodboard',
-  document: 'resources.document', checklist: 'resources.checklist', inspirations: 'resources.inspirations', file: 'resources.file',
+  document: 'resources.document', inspirations: 'resources.inspirations', file: 'resources.file',
   form: 'resources.form', web_review: 'resources.webReview',
 };
 
@@ -95,17 +95,6 @@ const INITIAL_ELEMENTS: ScriptEl[] = [
   { id: 'e14', type: 'parenthetical', text: '(V.O.)' },
   { id: 'e15', type: 'dialogue',      text: 'L\'été 2025 ne ressemble à aucun autre.\nC\'est l\'été de l\'audace.' },
   { id: 'e16', type: 'transition',    text: 'LOGO — FONDU AU NOIR' },
-];
-
-const CHECKLIST_ITEMS_MOCK = [
-  { id:'ck1', text:'Vérifier le matériel (caméra, batteries, cartes mémoire)', done:true,  initials:'LM', color:'#5c3d8f', due:'3 mai' },
-  { id:'ck2', text:'Confirmer les autorisations de tournage sur les lieux',    done:true,  initials:'TR', color:'#5c3d8f', due:'5 mai' },
-  { id:'ck3', text:'Préparer les costumes et accessoires avec la styliste',    done:true,  initials:'SM', color:'#3b4f8f', due:'6 mai' },
-  { id:'ck4', text:'Briefer l\'équipe technique sur le plan de tournage',      done:true,  initials:'TR', color:'#5c3d8f', due:'7 mai' },
-  { id:'ck5', text:'Installer et tester le matériel d\'éclairage',             done:false, initials:'JB', color:'#1a6b4a', due:'8 mai' },
-  { id:'ck6', text:'Confirmer la présence des acteurs principaux',             done:false, initials:'MD', color:'#7d4e57', due:'8 mai' },
-  { id:'ck7', text:'Vérifier le groupe électrogène de secours',               done:false, initials:'LM', color:'#5c3d8f', due:'9 mai' },
-  { id:'ck8', text:'Préparer le plateau et les fonds de scène',               done:false, initials:'JB', color:'#1a6b4a', due:'9 mai' },
 ];
 
 const INITIAL_MB_ITEMS: MBItem[] = [];
@@ -258,10 +247,14 @@ const INITIAL_VERSIONS: ScriptVersion[] = [
 ];
 
 // ── Accessoires / props (liste de breakdown rattachée au scénario) ──────────────
-interface PropItem { id: string; text: string; scene?: string; toBring: boolean; sourceElId?: string; }
+// `sceneId` links a prop to a scene by the scene element's own stable id
+// (see ShotRow.sceneId for the identical reasoning) — a prop used to store
+// the scene's label text directly, so renaming a scene orphaned every prop
+// attached to it (stale badge, dropped from the per-scene filter).
+interface PropItem { id: string; text: string; sceneId?: string; toBring: boolean; sourceElId?: string; }
 const INITIAL_PROPS: PropItem[] = [
-  { id: 'pr1', text: 'Robe de créatrice (mannequin)',  scene: 'INT. LOFT PARISIEN — JOUR', toBring: true  },
-  { id: 'pr2', text: 'Mannequins de présentation',      scene: 'INT. LOFT PARISIEN — JOUR', toBring: true  },
+  { id: 'pr1', text: 'Robe de créatrice (mannequin)',  sceneId: 'e1', toBring: true  },
+  { id: 'pr2', text: 'Mannequins de présentation',      sceneId: 'e1', toBring: true  },
   { id: 'pr3', text: 'Bijoux et accessoires de mode',   toBring: false },
 ];
 
@@ -330,7 +323,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
   const taRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const elRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string; scene?: string; sourceElId?: string } | null>(null);
+  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string; scene?: string; sceneId?: string; sourceElId?: string } | null>(null);
   const [propPopup, setPropPopup] = useState<{ x: number; y: number; propId: string } | null>(null);
 
   const activeVersion = versions.find(v => v.id === activeVersionId)!;
@@ -435,13 +428,14 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
     e.preventDefault();
     const elId = [...taRefs.current.entries()].find(([, ref]) => ref === ta)?.[0];
     let scene: string | undefined;
+    let sceneId: string | undefined;
     if (elId) {
       const elIdx = elements.findIndex(el => el.id === elId);
       for (let i = elIdx; i >= 0; i--) {
-        if (elements[i].type === 'scene') { scene = elements[i].text; break; }
+        if (elements[i].type === 'scene') { scene = elements[i].text; sceneId = elements[i].id; break; }
       }
     }
-    setSelectionPopup({ x: e.clientX, y: e.clientY, text: selected, scene, sourceElId: elId });
+    setSelectionPopup({ x: e.clientX, y: e.clientY, text: selected, scene, sceneId, sourceElId: elId });
   };
   const signCount = elements.reduce((a, e) => a + e.text.replace(/\s/g, '').length, 0);
   const allCharacters = [...new Set(elements.filter(e => e.type === 'character').map(e => e.text.trim()).filter(Boolean))];
@@ -555,7 +549,11 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
         )}
 
         {panelTab === 'props' && (() => {
-          const sceneLabels = scenes.map(s => s.text).filter(Boolean);
+          // Scene options for the filter/assign dropdowns, and a live
+          // id→label lookup so a renamed scene's props show the current
+          // name instead of whatever it was called when assigned.
+          const sceneOptions = scenes.filter(s => s.text).map(s => ({ id: s.id, label: s.text }));
+          const sceneLabelById = new Map(sceneOptions.map(s => [s.id, s.label]));
           const addProp = () => {
             const t = newProp.trim();
             if (!t) return;
@@ -563,17 +561,19 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
             setNewProp('');
             onEdit?.();
           };
-          const filteredProps = propSceneFilter === 'all' ? propItems : propItems.filter(p => p.scene === propSceneFilter);
+          const filteredProps = propSceneFilter === 'all' ? propItems
+            : propSceneFilter === '__none__' ? propItems.filter(p => !p.sceneId)
+            : propItems.filter(p => p.sceneId === propSceneFilter);
           return (
             <div style={{ flex:1, overflow:'auto', padding:'10px 10px', display:'flex', flexDirection:'column' }}>
               {/* Scene filter */}
-              {sceneLabels.length > 0 && (
+              {sceneOptions.length > 0 && (
                 <div style={{ marginBottom:8 }}>
                   <select value={propSceneFilter} onChange={e => setPropSceneFilter(e.target.value)}
                     style={{ width:'100%', padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color: propSceneFilter === 'all' ? 'var(--text-3)' : 'var(--text)', fontSize:10, fontFamily:'var(--ff-mono)', outline:'none', colorScheme:'dark', cursor:'pointer' }}>
                     <option value="all">Toutes les scènes</option>
                     <option value="__none__">Sans scène</option>
-                    {sceneLabels.map(s => <option key={s} value={s}>{s.length > 38 ? s.slice(0, 38) + '…' : s}</option>)}
+                    {sceneOptions.map(s => <option key={s.id} value={s.id}>{s.label.length > 38 ? s.label.slice(0, 38) + '…' : s.label}</option>)}
                   </select>
                 </div>
               )}
@@ -602,19 +602,19 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                       {/* Scène rattachée */}
                       <div style={{ position:'relative', marginTop:4 }}>
                         <button onClick={() => setPropSceneOpen(o => o === p.id ? null : p.id)}
-                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'1px 6px', borderRadius:5, border:'1px solid var(--border)', background:'var(--surface-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:7, color: p.scene ? '#86efac' : 'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.04em', maxWidth:'100%' }}>
-                          <SFIcon name="clapperboard" size={9} color={p.scene ? '#86efac' : 'var(--text-3)'} />
-                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.scene ?? t('resourceDetail.noSceneLinked')}</span>
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'1px 6px', borderRadius:5, border:'1px solid var(--border)', background:'var(--surface-3)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:7, color: p.sceneId ? '#86efac' : 'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.04em', maxWidth:'100%' }}>
+                          <SFIcon name="clapperboard" size={9} color={p.sceneId ? '#86efac' : 'var(--text-3)'} />
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{(p.sceneId && sceneLabelById.get(p.sceneId)) ?? t('resourceDetail.noSceneLinked')}</span>
                         </button>
                         {propSceneOpen === p.id && (
                           <>
                             <div onClick={() => setPropSceneOpen(null)} style={{ position:'fixed', inset:0, zIndex:90 }} />
                             <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:100, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:9, padding:4, minWidth:180, maxHeight:200, overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,0.5)' }}>
-                              <button onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, scene: undefined } : x)); setPropSceneOpen(null); onEdit?.(); }}
+                              <button onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, sceneId: undefined } : x)); setPropSceneOpen(null); onEdit?.(); }}
                                 style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background:'transparent', cursor:'pointer', fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{t('resourceDetail.noSceneLinked')}</button>
-                              {sceneLabels.map((s, si) => (
-                                <button key={si} onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, scene: s } : x)); setPropSceneOpen(null); onEdit?.(); }}
-                                  style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background: p.scene === s ? 'var(--surface-2)' : 'transparent', cursor:'pointer', fontSize:11, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{s}</button>
+                              {sceneOptions.map(s => (
+                                <button key={s.id} onClick={() => { setPropItems(prev => prev.map(x => x.id === p.id ? { ...x, sceneId: s.id } : x)); setPropSceneOpen(null); onEdit?.(); }}
+                                  style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 8px', borderRadius:6, border:'none', background: p.sceneId === s.id ? 'var(--surface-2)' : 'transparent', cursor:'pointer', fontSize:11, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{s.label}</button>
                               ))}
                             </div>
                           </>
@@ -667,7 +667,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
               style={{ position:'fixed', left: selectionPopup.x, top: selectionPopup.y, zIndex:300, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:10, padding:4, boxShadow:'0 8px 24px rgba(0,0,0,0.5)', minWidth:200, pointerEvents:'all' }}>
               <button
                 onClick={() => {
-                  setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, scene: selectionPopup.scene, toBring: true, sourceElId: selectionPopup.sourceElId }]);
+                  setPropItems(prev => [...prev, { id:`pr${Date.now()}`, text: selectionPopup.text, sceneId: selectionPopup.sceneId, toBring: true, sourceElId: selectionPopup.sourceElId }]);
                   setPanelTab('props');
                   setSelectionPopup(null);
                   onEdit?.();
@@ -700,7 +700,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
                   <SFIcon name="package" size={12} color="var(--accent)" />
                   <span style={{ fontSize:12, color:'var(--text)', fontFamily:'var(--ff-text)', flex:1, fontWeight:500 }}>{prop.text}</span>
                 </div>
-                {prop.scene && <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)' }}>{prop.scene}</span>}
+                {prop.sceneId && <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'var(--ff-mono)' }}>{scenes.find(s => s.id === prop.sceneId)?.text ?? prop.sceneId}</span>}
                 <button
                   onClick={() => { setPropItems(prev => prev.filter(x => x.id !== propPopup.propId)); setPropPopup(null); onEdit?.(); }}
                   style={{ display:'flex', alignItems:'center', gap:6, background:'color-mix(in srgb, var(--danger) 12%, transparent)', border:'1px solid color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius:7, padding:'5px 9px', cursor:'pointer', color:'var(--danger)', fontSize:11, fontFamily:'var(--ff-text)', marginTop:2 }}
@@ -2283,86 +2283,6 @@ export function FileView({ seedFolderStructure }: { resource: Resource; seedFold
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Checklist View ────────────────────────────────────────────────────────────
-
-export function ChecklistView({ resource, seedItems, contentRef, persistKey }: { resource: Resource; seedItems?: { id: string; text: string }[]; contentRef?: React.MutableRefObject<(() => { id: string; text: string }[]) | null>; persistKey?: string }) {
-  const { t } = useTranslation();
-  const [items, setItems] = useState(() => {
-    const persisted = persistKey ? getResourceContent<{ items: typeof CHECKLIST_ITEMS_MOCK }>(persistKey) : undefined;
-    if (persisted?.items) return persisted.items;
-    if (seedItems) return seedItems.map(i => ({ id: i.id, text: i.text, done: false, initials: '', color: 'var(--accent)', due: '—' }));
-    return CHECKLIST_ITEMS_MOCK;
-  });
-  const ckPersistTimer = useRef<number | null>(null);
-  useEffect(() => {
-    if (!persistKey) return;
-    if (ckPersistTimer.current) clearTimeout(ckPersistTimer.current);
-    ckPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { items });
-    }, 400);
-  }, [items, persistKey]);
-  useEffect(() => () => { if (ckPersistTimer.current) clearTimeout(ckPersistTimer.current); }, []);
-  useEffect(() => {
-    if (contentRef) contentRef.current = () => items.map(i => ({ id: i.id, text: i.text }));
-  });
-
-  const [newItem, setNewItem] = useState('');
-  const done = items.filter(i => i.done).length;
-  const progress = items.length ? Math.round((done / items.length) * 100) : 0;
-  const toggle = (id: string) => setItems(p => p.map(i => i.id===id ? {...i,done:!i.done} : i));
-  const remove = (id: string) => setItems(p => p.filter(i => i.id !== id));
-  const addItem = () => {
-    if (!newItem.trim()) return;
-    setItems(p => [...p, { id:`ck${Date.now()}`, text:newItem.trim(), done:false, initials:'LM', color:'#5c3d8f', due:'—' }]);
-    setNewItem('');
-  };
-  return (
-    <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
-    <div style={{ flex:1, overflow:'auto', padding:24 }}>
-      <div style={{ maxWidth:720, margin:'0 auto' }}>
-        <div style={{ marginBottom:20, padding:'16px 20px', background:'var(--surface)', borderRadius:'var(--radius)', border:'1px solid var(--border)' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:10 }}>
-            <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.progress')}</p>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--text-2)' }}>{t('resourceDetail.checklistProgress', { done, total: items.length, progress })}</span>
-          </div>
-          <SFBar value={progress} height={6} />
-        </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-          {items.map(item => (
-            <div key={item.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', borderRadius:10, border:'1px solid var(--border)', opacity:item.done ? 0.5 : 1, transition:'opacity 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.querySelector('.ck-del') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.ck-del') as HTMLElement).style.opacity = '1')}
-              onMouseLeave={e => (e.currentTarget.querySelector('.ck-del') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.ck-del') as HTMLElement).style.opacity = '0')}
-            >
-              <button onClick={()=>toggle(item.id)} style={{ width:18, height:18, borderRadius:'50%', flexShrink:0, border:item.done?'none':'1.5px solid var(--border-2)', background:item.done?'var(--ok)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                {item.done && <SFIcon name="check" size={10} color="white" />}
-              </button>
-              <span style={{ flex:1, fontSize:13, fontWeight:500, textDecoration:item.done?'line-through':'none', color:item.done?'var(--text-3)':'var(--text)' }}>{item.text}</span>
-              <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', flexShrink:0 }}>{item.due}</span>
-              <div style={{ width:24, height:24, borderRadius:'50%', background:item.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'white', fontWeight:700 }}>{item.initials}</span>
-              </div>
-              <button className="ck-del" onClick={()=>remove(item.id)}
-                style={{ opacity:0, transition:'opacity 0.12s', display:'flex', padding:4, borderRadius:6, border:'none', background:'transparent', color:'var(--danger)', cursor:'pointer', flexShrink:0 }}>
-                <SFIcon name="trash-2" size={13} />
-              </button>
-            </div>
-          ))}
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', background:'var(--surface)', borderRadius:10, border:'1px dashed var(--border-2)' }}>
-            <SFIcon name="plus" size={16} color="var(--text-3)" />
-            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') addItem(); }}
-              placeholder={t('resourceDetail.addItemPlaceholder')}
-              style={{ flex:1, background:'transparent', border:'none', color:'var(--text)', fontSize:13, outline:'none', fontFamily:'var(--ff-text)' }}
-            />
-            {newItem.trim() && <button onClick={addItem} style={{ padding:'4px 10px', borderRadius:7, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:11, fontWeight:600, cursor:'pointer' }}>{t('resourceDetail.add')}</button>}
-          </div>
-        </div>
-      </div>
-    </div>
-    <ScriptCommentSidebar resourceId={resource.id} />
     </div>
   );
 }
@@ -4671,18 +4591,42 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
   const dropShot = (e: React.DragEvent, targetId: string) => {
     if (draggingShot === null || draggingShot === targetId) return;
     const dragged = shots.find(s => s.id === draggingShot);
-    if (!dragged) return;
+    const target = shots.find(s => s.id === targetId);
+    if (!dragged || !target) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const after = e.clientY > rect.top + rect.height / 2;
     setShots(prev => {
       const next = prev.filter(s => s.id !== draggingShot);
       let ti = next.findIndex(s => s.id === targetId);
       if (after) ti += 1;
-      next.splice(ti, 0, dragged);
+      // Dropped onto a shot from a different scene (including a deleted-
+      // scene bucket) — reassign it to that scene instead of just
+      // reordering, so the drag actually moves it out.
+      const moved = dragged.sceneId === target.sceneId ? dragged : { ...dragged, sceneId: target.sceneId, sceneLabel: target.sceneLabel };
+      next.splice(ti, 0, moved);
       return next;
     });
     setDraggingShot(null);
     setDragOverShot(null);
+  };
+
+  // Reassign a shot to a different scene (e.g. dragged out of a deleted-
+  // scene bucket onto a live scene's header) — appended after that
+  // scene's other shots rather than reordered to a specific position.
+  const moveShotToScene = (shotId: string, targetSceneId: string) => {
+    setShots(prev => {
+      const idx = prev.findIndex(s => s.id === shotId);
+      if (idx === -1 || prev[idx].sceneId === targetSceneId) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(idx, 1);
+      let insertAt = next.length;
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (next[i].sceneId === targetSceneId) { insertAt = i + 1; break; }
+      }
+      const targetLabel = scenesMap.get(targetSceneId) ?? moved.sceneLabel;
+      next.splice(insertAt, 0, { ...moved, sceneId: targetSceneId, sceneLabel: targetLabel });
+      return next;
+    });
   };
 
   const deleteShot = (id: string) => setShots(prev => prev.filter(s => s.id !== id));
@@ -4772,7 +4716,16 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
                     setDragOverSceneAfter(e.clientY > rect.top + rect.height / 2);
                   }}
                   onDragLeave={() => { setDragOverScene(null); }}
-                  onDrop={e => dropScene(e, scene.id)}
+                  onDrop={e => {
+                    if (draggingShot) {
+                      e.stopPropagation();
+                      moveShotToScene(draggingShot, scene.id);
+                      setDraggingShot(null);
+                      setDragOverShot(null);
+                    } else {
+                      dropScene(e, scene.id);
+                    }
+                  }}
                   onDragEnd={() => { setDraggingScene(null); setDragOverScene(null); }}
                   style={{ opacity: draggingScene === scene.id ? 0.4 : 1 }}
                 >
@@ -5037,6 +4990,24 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
     });
   };
 
+  // Dragged onto a shot from a different scene (including a deleted-scene
+  // bucket) — reassign it to that scene instead of reordering in place.
+  const moveShotToScene = (shotId: string, targetSceneId: string) => {
+    setShots(prev => {
+      const idx = prev.findIndex(s => s.id === shotId);
+      if (idx === -1 || prev[idx].sceneId === targetSceneId) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(idx, 1);
+      let insertAt = next.length;
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (next[i].sceneId === targetSceneId) { insertAt = i + 1; break; }
+      }
+      const targetLabel = scriptSceneLabels.get(targetSceneId) ?? moved.sceneLabel;
+      next.splice(insertAt, 0, { ...moved, sceneId: targetSceneId, sceneLabel: targetLabel });
+      return next;
+    });
+  };
+
   const openAI = (shotId: string) => {
     const shot = shots.find(sh => sh.id === shotId);
     setAiShotId(shotId);
@@ -5220,7 +5191,18 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
             </div>
 
             {/* Shots grid */}
-            <div style={{ display:'flex', flexWrap:'wrap', gap:16 }}>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:16, minHeight: scene.shots.length ? undefined : 40 }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => {
+                // Dropped on the grid itself (empty area, or an empty
+                // scene) rather than on a specific shot card.
+                e.preventDefault();
+                if (dragShotRef.current && dragShotRef.current.sceneId !== scene.id) {
+                  moveShotToScene(dragShotRef.current.shotId, scene.id);
+                }
+                dragShotRef.current = null;
+                setDragOverShot(null);
+              }}>
               {scene.shots.map((shot, idx) => (
                 <div key={shot.id}
                   draggable
@@ -5229,8 +5211,13 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
                   onDragOver={e => { e.preventDefault(); setDragOverShot(shot.id); }}
                   onDrop={e => {
                     e.preventDefault();
-                    if (dragShotRef.current && dragShotRef.current.sceneId === scene.id) {
-                      reorderShot(dragShotRef.current.shotId, shot.id);
+                    e.stopPropagation();
+                    if (dragShotRef.current) {
+                      if (dragShotRef.current.sceneId === scene.id) {
+                        reorderShot(dragShotRef.current.shotId, shot.id);
+                      } else {
+                        moveShotToScene(dragShotRef.current.shotId, scene.id);
+                      }
                     }
                     dragShotRef.current = null;
                     setDragOverShot(null);
@@ -5692,13 +5679,12 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
 export function ResourceBody({ resource }: { resource: Resource }) {
   switch (resource.type) {
     case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} />;
-    case 'screenplay':   return <ScreenplayView resource={resource} />;
-    case 'moodboard':    return <MoodboardView resource={resource} />;
-    case 'checklist':    return <ChecklistView resource={resource} />;
+    case 'screenplay':   return <ScreenplayView key={resource.id} resource={resource} persistKey={resource.id} />;
+    case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} />;
     case 'document':     return <DocumentView key={resource.id} resource={resource} persistKey={resource.id} />;
-    case 'inspirations': return <InspirationsView resource={resource} />;
+    case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} />;
     case 'file':         return <FileView resource={resource} />;
-    case 'form':         return <FormView resource={resource} />;
+    case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} />;
     default:             return <div style={{ padding: 40, color: 'var(--text-3)' }}>Type non pris en charge</div>;
   }
 }
@@ -5772,8 +5758,7 @@ export function ResourceDetail() {
       case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} />;
       case 'screenplay':   return <ScreenplayView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
       case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} />;
-      case 'checklist':    return <ChecklistView key={resource.id} resource={resource} persistKey={resource.id} />;
-      case 'document':     return <DocumentView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
+        case 'document':     return <DocumentView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
       case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} />;
       case 'file':         return <FileView resource={resource} />;
       case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} />;

@@ -250,7 +250,7 @@ export const RESOURCES: Resource[] = [
   { id:'r2', type:'video_review', eyebrow:'RÉVISION', title:'Rough Cut — Séquence 1',       status:'review',  statusLabel:'En révision', meta:'3 commentaires',     version:'V4', avatars:[{initials:'SM',bg:'#3b4f8f'},{initials:'TR',bg:'#5c3d8f'},{initials:'JB',bg:'#1a6b4a'}] },
   { id:'r3', type:'moodboard',   eyebrow:'MOODBOARD',    title:'Direction artistique',         status:'info',    statusLabel:'En cours',    meta:'14 références',      colors:['#2d3a4a','#4a3428','#2a3d30','#3d3042'] },
   { id:'r4', type:'document',    eyebrow:'DOCUMENT',     title:'Brief créatif client',         status:'ok',      statusLabel:'Validé',      meta:'PDF · 2.4 Mo' },
-  { id:'r5', type:'checklist',   eyebrow:'CHECKLIST',    title:'Checklist tournage J1',        status:'info',    statusLabel:'En cours',    meta:'6/10 complétés',     progress:60 },
+  { id:'r5', type:'document',    eyebrow:'DOCUMENT',     title:'Notes tournage J1',            status:'info',    statusLabel:'En cours',    meta:'Modifié il y a 1j' },
   { id:'r6', type:'inspirations',eyebrow:'INSPIRATIONS', title:'Références visuelles',         status:'neutral', statusLabel:'8 références', meta:'8 références',      colors:['#1e2d3d','#3d2a1e','#1e3d2d','#3d3d1e','#2d1e3d','#2a2a2a'], avatars:[{initials:'JT',bg:'#2d3748'}] },
   { id:'r7', type:'file',        eyebrow:'FICHIERS',       title:'Dossiers du projet',                   status:'neutral', statusLabel:'Fichiers',   meta:'12 fichiers' },
   { id:'r8', type:'form',        eyebrow:'FORMULAIRE',     title:'Questionnaire de satisfaction client',  status:'info',    statusLabel:'En cours', meta:'0 réponse' },

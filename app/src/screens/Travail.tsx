@@ -43,7 +43,6 @@ const TYPE_ICON: Record<ResourceType, string> = {
   video_review: 'video',
   moodboard:    'grid-2x2',
   document:     'file',
-  checklist:    'list-checks',
   inspirations: 'image',
   file:         'hard-drive',
   form:         'clipboard-list',
@@ -1366,18 +1365,6 @@ Pas encore. Attends le bon moment.
 
 FIN DU PROLOGUE`;
 
-const MOCK_CHECKLIST = [
-  { id: 1, done: true,  text: 'Réserver le studio principal' },
-  { id: 2, done: true,  text: 'Confirmer les créneaux avec l\'équipe' },
-  { id: 3, done: true,  text: 'Commander les batteries Li-Ion supplémentaires' },
-  { id: 4, done: false, text: 'Vérifier la liste des accessoires lumière' },
-  { id: 5, done: false, text: 'Imprimer les feuilles de service' },
-  { id: 6, done: false, text: 'Contacter le régisseur pour les autorisations' },
-  { id: 7, done: false, text: 'Préparer les disques durs de backup' },
-  { id: 8, done: false, text: 'Tester le matériel audio la veille' },
-  { id: 9, done: false, text: 'Envoyer le planning final au client' },
-  { id: 10,done: false, text: 'Briefer l\'équipe technique sur place' },
-];
 
 const MOCK_DOCUMENT = `BRIEF CRÉATIF — CAMPAGNE ÉTÉ 2025
 Nova Films × StudioFlow
@@ -1424,8 +1411,6 @@ const MOODBOARD_COLORS = [
 ];
 
 export function ResourcePreviewContent({ res }: { res: typeof RESOURCES[0] }) {
-  const [checkItems, setCheckItems] = React.useState(MOCK_CHECKLIST);
-
   if (res.type === 'video_review') {
     return (
       <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1527,33 +1512,6 @@ export function ResourcePreviewContent({ res }: { res: typeof RESOURCES[0] }) {
           ))}
         </div>
         <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'center', marginTop: 16 }}>{colors.length} références visuelles · {res.meta}</p>
-      </div>
-    );
-  }
-
-  if (res.type === 'checklist') {
-    const done = checkItems.filter(c => c.done).length;
-    return (
-      <div style={{ maxWidth: 600, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--surface-3)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${(done / checkItems.length) * 100}%`, background: 'var(--ok)', borderRadius: 3, transition: 'width 0.3s' }} />
-          </div>
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--ok)', whiteSpace: 'nowrap' }}>{done}/{checkItems.length} complétés</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {checkItems.map(item => (
-            <div key={item.id}
-              onClick={() => setCheckItems(prev => prev.map(c => c.id === item.id ? { ...c, done: !c.done } : c))}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderRadius: 10, border: `1px solid ${item.done ? 'var(--border)' : 'var(--border-2)'}`, background: item.done ? 'transparent' : 'var(--surface-2)', cursor: 'pointer', transition: 'all 0.12s', opacity: item.done ? 0.55 : 1 }}
-            >
-              <div style={{ width: 18, height: 18, borderRadius: '50%', border: item.done ? 'none' : '1.5px solid var(--border-2)', background: item.done ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {item.done && <SFIcon name="check" size={10} color="white" />}
-              </div>
-              <span style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: item.done ? 'line-through' : 'none', flex: 1 }}>{item.text}</span>
-            </div>
-          ))}
-        </div>
       </div>
     );
   }

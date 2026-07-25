@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFBar, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, isOverdue } from './ui';
+import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, isOverdue } from './ui';
 import { USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
@@ -72,7 +72,6 @@ const RESOURCE_TYPE_LABEL_KEY: Record<ResourceType, string> = {
   video_review: 'resources.review',
   moodboard:    'resources.moodboard',
   document:     'resources.document',
-  checklist:    'resources.checklist',
   inspirations: 'resources.inspirations',
   file:         'resources.file',
   form:         'resources.form',
@@ -84,7 +83,6 @@ const TYPE_ICON: Record<ResourceType, string> = {
   video_review: 'video',
   moodboard:    'grid-2x2',
   document:     'file',
-  checklist:    'list-checks',
   inspirations: 'image',
   file:         'hard-drive',
   form:         'clipboard-list',
@@ -1199,12 +1197,6 @@ export function TaskPanel({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>{r.eyebrow}</p>
                       <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
-                      {r.type === 'checklist' && r.progress !== undefined && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                          <SFBar value={r.progress} height={3} />
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{r.progress}%</span>
-                        </div>
-                      )}
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); setResStatusDrop(prev => prev === r.id ? null : r.id); setResStatusRect(e.currentTarget.getBoundingClientRect()); }}

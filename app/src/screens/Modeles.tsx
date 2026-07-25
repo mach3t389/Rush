@@ -7,7 +7,7 @@ import { addProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
-import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, ChecklistItem, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
+import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
@@ -17,7 +17,7 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 import type { Priority, ResourceType, Resource, Task, Project, SectionData } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
-import { ChecklistView, DocumentView, ScreenplayView, MoodboardView, FileView, FormView } from './ResourceDetail';
+import { DocumentView, ScreenplayView, MoodboardView, FileView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
 
@@ -106,7 +106,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
   const [editingName, setEditingName] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  const checklistContentRef = useRef<(() => { id: string; text: string }[]) | null>(null);
   const docContentRef = useRef<(() => string) | null>(null);
   const screenplayContentRef = useRef<(() => ScriptEl[]) | null>(null);
 
@@ -118,9 +117,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 
   const handleSave = () => {
     const updated: ResourceTemplate = { ...tpl, name };
-    if (tpl.type === 'checklist' && checklistContentRef.current) {
-      updated.checklistItems = checklistContentRef.current();
-    }
     if (tpl.type === 'document' && docContentRef.current) {
       updated.rawHTML = docContentRef.current();
     }
@@ -131,7 +127,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
     setDirty(false);
   };
 
-  const seedItems = tpl.checklistItems;
   const seedHTML = tpl.rawHTML ?? (tpl.documentSections ? documentSectionsToHTML(tpl.documentSections) : undefined);
   const seedElements = tpl.rawElements
     ? (JSON.parse(tpl.rawElements) as ScriptEl[])
@@ -183,7 +178,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
       </div>
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {tpl.type === 'checklist' && <ChecklistView resource={fakeResource} seedItems={seedItems} contentRef={checklistContentRef} />}
         {tpl.type === 'document' && <DocumentView resource={fakeResource} seedHTML={seedHTML} contentRef={docContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'screenplay' && <ScreenplayView resource={fakeResource} seedElements={seedElements} contentRef={screenplayContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
@@ -208,12 +202,12 @@ const STATUS_OPTIONS: { value: string; labelKey: string; color: string }[] = [
 
 const RESOURCE_LABEL_KEYS: Record<ResourceType, string> = {
   screenplay: 'models.resScript', video_review: 'models.resReviewShort', moodboard: 'models.resMoodboard',
-  document: 'models.resDocument', checklist: 'models.resChecklist', inspirations: 'models.resInspirations', file: 'models.resFile', form: 'models.resForm',
+  document: 'models.resDocument', inspirations: 'models.resInspirations', file: 'models.resFile', form: 'models.resForm',
   web_review: 'models.resWebReview',
 };
 const RESOURCE_ICON: Record<ResourceType, string> = {
   screenplay: 'file-text', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file', checklist: 'list-checks', inspirations: 'image', file: 'paperclip', form: 'clipboard-list',
+  document: 'file', inspirations: 'image', file: 'paperclip', form: 'clipboard-list',
   web_review: 'globe',
 };
 
@@ -1058,12 +1052,12 @@ type LResource = { id: string; type: ResourceType; title: string; templateId?: s
 
 const RESOURCE_TYPE_ICONS_TPV: Record<ResourceType, string> = {
   screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file-text', checklist: 'list-checks', inspirations: 'lightbulb',
+  document: 'file-text', inspirations: 'lightbulb',
   file: 'folder', form: 'clipboard-list', web_review: 'globe',
 };
 const RESOURCE_TYPE_LABELS_TPV: Record<ResourceType, string> = {
   screenplay: 'models.resTypeScreenplay', video_review: 'models.resTypeVideoReview', moodboard: 'models.resMoodboard',
-  document: 'models.resDocument', checklist: 'models.resChecklist', inspirations: 'models.resInspirations',
+  document: 'models.resDocument', inspirations: 'models.resInspirations',
   file: 'models.resTypeFile', form: 'models.resForm', web_review: 'models.resTypeWebReview',
 };
 
@@ -1587,7 +1581,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                 style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === null ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === null ? 'var(--on-accent)' : 'var(--text-2)' }}>
                 Tous
               </button>
-              {(['checklist','document','screenplay','video_review','file','moodboard','form'] as ResourceType[]).map(t => (
+              {(['document','screenplay','video_review','file','moodboard','form'] as ResourceType[]).map(t => (
                 <button key={t} onClick={() => setResTypeFilter(f => f === t ? null : t)}
                   style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === t ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === t ? 'var(--on-accent)' : 'var(--text-2)' }}>
                   {RESOURCE_TYPE_LABELS_TPV[t]}
@@ -1619,7 +1613,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                   </button>
                 ))}
               {/* Custom: add blank resource by type */}
-              {(['checklist','document','screenplay','video_review','file','moodboard','form'] as ResourceType[])
+              {(['document','screenplay','video_review','file','moodboard','form'] as ResourceType[])
                 .filter(t => resTypeFilter === null || t === resTypeFilter)
                 .map(t => (
                   <button key={`blank-${t}`} onClick={() => {
@@ -1651,11 +1645,11 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
 // ── Resource template constants ───────────────────────────────────────────────
 
 const RES_TYPE_LABEL_KEYS: Record<ResourceTemplateType, string> = {
-  checklist: 'models.resChecklist', document: 'models.resDocument', screenplay: 'models.resTypeScreenplay',
+  document: 'models.resDocument', screenplay: 'models.resTypeScreenplay',
   video_review: 'models.resTypeVideoReview', file: 'models.resTypeFile', moodboard: 'models.resMoodboard',
 };
 const RES_TYPE_ICONS: Record<ResourceTemplateType, string> = {
-  checklist: 'list-checks', document: 'file-text', screenplay: 'clapperboard',
+  document: 'file-text', screenplay: 'clapperboard',
   video_review: 'video', file: 'folder', moodboard: 'grid-2x2',
 };
 
@@ -1706,7 +1700,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
   onRename?: (name: string, description: string) => void;
 }) {
   const { t } = useTranslation();
-  const itemCount = tpl.checklistItems?.length ?? tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? 0;
+  const itemCount = tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? 0;
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
@@ -1743,12 +1737,6 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
         <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
           Aperçu · {itemCount} élément{itemCount !== 1 ? 's' : ''}
         </p>
-        {tpl.type === 'checklist' && (tpl.checklistItems ?? []).map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
-            <div style={{ width: 14, height: 14, borderRadius: 4, border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.text}</span>
-          </div>
-        ))}
         {tpl.type === 'document' && (tpl.documentSections ?? []).map((sec, i) => (
           <div key={i} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
             <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{sec.title}</p>
@@ -1835,11 +1823,8 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
   const [description, setDescription] = useState(template.description ?? '');
   const [color, setColor] = useState(template.color ?? '#5B8AF5');
   const [tags, setTags] = useState(template.tags?.join(', ') ?? '');
-  const [type] = useState<ResourceTemplateType>(template.type ?? 'checklist');
+  const [type] = useState<ResourceTemplateType>(template.type ?? 'document');
 
-  // checklist
-  const [items, setItems] = useState<ChecklistItem[]>(template.checklistItems ?? []);
-  const [newItem, setNewItem] = useState('');
   // document
   const [docSections, setDocSections] = useState<DocumentSection[]>(template.documentSections ?? []);
   const [newSecTitle, setNewSecTitle] = useState('');
@@ -1856,7 +1841,6 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (!name.trim()) return;
     const base = { id: template.id ?? `res-${Date.now()}`, type, name: name.trim(), description: description.trim(), color, icon: RES_TYPE_ICONS[type], tags: tags.split(',').map(t => t.trim()).filter(Boolean), builtIn: false, createdAt: template.createdAt ?? new Date().toISOString().split('T')[0] };
     let content: Partial<ResourceTemplate> = {};
-    if (type === 'checklist') content = { checklistItems: items };
     if (type === 'document') content = { documentSections: docSections };
     if (type === 'screenplay') content = { sceneBlocks: scenes };
     if (type === 'video_review') content = { reviewRounds: rounds };
@@ -1870,24 +1854,6 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     : <input value={val} onChange={e => set(e.target.value)} placeholder={placeholder} style={fieldStyle()} />;
 
   const renderContentEditor = () => {
-    if (type === 'checklist') return (
-      <div>
-        <p style={labelStyle()}>Éléments de la checklist</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-          {items.map((item, i) => (
-            <div key={item.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <div style={{ width: 14, height: 14, borderRadius: 4, border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
-              <input value={item.text} onChange={e => setItems(p => p.map((it, j) => j === i ? { ...it, text: e.target.value } : it))} style={{ ...fieldStyle(), flex: 1 }} />
-              <button onClick={() => setItems(p => p.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4 }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}><SFIcon name="x" size={13} /></button>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newItem.trim()) { setItems(p => [...p, { id: `c${Date.now()}`, text: newItem.trim() }]); setNewItem(''); } }} placeholder="Nouvel élément…" style={fieldStyle({ flex: 1 })} />
-          <SFButton variant="secondary" size="sm" icon="plus" onClick={() => { if (newItem.trim()) { setItems(p => [...p, { id: `c${Date.now()}`, text: newItem.trim() }]); setNewItem(''); } }}>Ajouter</SFButton>
-        </div>
-      </div>
-    );
     if (type === 'document') return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p style={labelStyle()}>Sections du document</p>
@@ -2026,7 +1992,6 @@ type UnifiedTypeFilter = 'projets' | 'formulaires' | ResourceTemplateType;
 const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] = [
   { key: 'projets', labelKey: 'models.navProjects', icon: 'layout-template' },
   { key: 'formulaires', labelKey: 'models.navForms', icon: 'clipboard-list' },
-  { key: 'checklist', labelKey: 'models.resChecklist', icon: 'list-checks' },
   { key: 'document', labelKey: 'models.resDocument', icon: 'file-text' },
   { key: 'screenplay', labelKey: 'models.resTypeScreenplay', icon: 'clapperboard' },
   { key: 'video_review', labelKey: 'models.resReviewShort', icon: 'video' },
@@ -2366,7 +2331,6 @@ export function Modeles() {
             };
             const RES_TYPES: { key: UnifiedTypeFilter; icon: string; label: string; count: number }[] = [
               { key: 'formulaires',  icon: 'clipboard-list', label: 'Formulaires',    count: formTemplates.length },
-              { key: 'checklist',    icon: 'list-checks',    label: 'Checklist',      count: resourceTemplates.filter(t => t.type === 'checklist').length },
               { key: 'document',     icon: 'file-text',      label: 'Document',       count: resourceTemplates.filter(t => t.type === 'document').length },
               { key: 'screenplay',   icon: 'clapperboard',   label: 'Scénario',       count: resourceTemplates.filter(t => t.type === 'screenplay').length },
               { key: 'video_review', icon: 'video',          label: 'Révision vidéo', count: resourceTemplates.filter(t => t.type === 'video_review').length },

@@ -34,7 +34,6 @@ const RESOURCE_TYPES: { type: ResourceType; labelKey: string; icon: string; colo
   { type: 'moodboard',    labelKey: 'files.resourceMoodboard',    icon: 'image',       color: '#5b8af5' },
   { type: 'video_review', labelKey: 'files.resourceReview',       icon: 'film',        color: '#a05be8' },
   { type: 'screenplay',   labelKey: 'files.resourceScreenplay',   icon: 'file-text',   color: '#e85b5b' },
-  { type: 'checklist',    labelKey: 'files.resourceChecklist',    icon: 'list-checks', color: '#34c98a' },
   { type: 'form',         labelKey: 'files.resourceForm',         icon: 'clipboard',   color: '#f5d05b' },
   { type: 'inspirations', labelKey: 'files.resourceInspirations', icon: 'sparkles',    color: '#c45be8' },
 ];
@@ -56,7 +55,7 @@ const REVISION_SUBTYPES: { resourceType: ResourceType; mediaSubtype?: 'video' | 
 
 const RESOURCE_EYEBROW: Partial<Record<ResourceType, string>> = {
   screenplay: 'files.eyebrowScreenplay', moodboard: 'files.eyebrowMoodboard', video_review: 'files.eyebrowReview',
-  document: 'files.eyebrowDocument', checklist: 'files.eyebrowChecklist', web_review: 'files.eyebrowWebReview',
+  document: 'files.eyebrowDocument', web_review: 'files.eyebrowWebReview',
   form: 'files.eyebrowForm', inspirations: 'files.eyebrowInspirations',
 };
 

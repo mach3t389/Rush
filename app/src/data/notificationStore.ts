@@ -77,7 +77,7 @@ function seedNotifs(): AppNotif[] {
   const resourceNotifs: { resourceId: string; projectId: string; count: number }[] = [
     { resourceId: 'r2', projectId: 'pj1', count: 3 }, // Rough Cut vidéo → 3 annotations
     { resourceId: 'r1', projectId: 'pj1', count: 2 }, // Scénario → 2 commentaires
-    { resourceId: 'r5', projectId: 'pj1', count: 1 }, // Checklist → 1 mise à jour
+    { resourceId: 'r5', projectId: 'pj1', count: 1 }, // Notes tournage J1 → 1 mise à jour
   ];
   for (const { resourceId, projectId, count } of resourceNotifs) {
     for (let i = 0; i < count; i++) {

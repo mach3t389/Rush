@@ -173,7 +173,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     resources: [
       { type: 'screenplay', title: 'Script' },
       { type: 'moodboard',  title: 'Moodboard' },
-      { type: 'checklist',  title: 'Checklist tournage' },
       { type: 'document',   title: 'Contrat de production' },
     ],
     defaultFolderStructureId: 'res-file-structure',
@@ -223,7 +222,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
       { type: 'screenplay',   title: 'Conducteur & script' },
       { type: 'moodboard',    title: 'Direction artistique' },
       { type: 'document',     title: 'Contrat' },
-      { type: 'checklist',    title: 'Checklist tournage' },
       { type: 'video_review', title: 'V1 client' },
     ],
     defaultFolderStructureId: 'res-file-structure',
@@ -260,7 +258,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     resources: [
       { type: 'moodboard',    title: 'Moodboard' },
       { type: 'inspirations', title: 'Références visuelles' },
-      { type: 'checklist',    title: 'Checklist matériel' },
     ],
   },
   {
@@ -679,9 +676,8 @@ export function loadAllFormTemplates(): FormTemplate[] {
 
 // ── Resource template types ────────────────────────────────────────────────────
 
-export type ResourceTemplateType = 'checklist' | 'document' | 'screenplay' | 'video_review' | 'file' | 'moodboard';
+export type ResourceTemplateType = 'document' | 'screenplay' | 'video_review' | 'file' | 'moodboard';
 
-export interface ChecklistItem { id: string; text: string; }
 export interface DocumentSection { title: string; body: string; }
 export interface SceneBlock { id: string; location: string; time: string; action: string; }
 export interface ReviewRound { id: string; label: string; description: string; }
@@ -698,7 +694,6 @@ export interface ResourceTemplate {
   tags: string[];
   builtIn?: boolean;
   createdAt: string;
-  checklistItems?: ChecklistItem[];
   documentSections?: DocumentSection[];
   sceneBlocks?: SceneBlock[];
   reviewRounds?: ReviewRound[];
@@ -711,60 +706,6 @@ export interface ResourceTemplate {
 // ── Built-in resource templates ────────────────────────────────────────────────
 
 export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
-  // ── Checklists ──
-  {
-    id: 'res-checklist-tournage',
-    type: 'checklist',
-    name: 'Équipement tournage',
-    description: 'Liste complète du matériel à préparer et vérifier avant chaque journée de tournage.',
-    color: '#5B8AF5',
-    icon: 'list-checks',
-    tags: ['Tournage', 'Production', 'Logistique'],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    checklistItems: [
-      { id: 'c1', text: 'Caméra principale + batteries chargées' },
-      { id: 'c2', text: '2e caméra (si multicam)' },
-      { id: 'c3', text: 'Objectifs : grand angle, 50mm, téléobjectif' },
-      { id: 'c4', text: 'Cartes mémoire (×4 minimum) + lecteur' },
-      { id: 'c5', text: 'Trépied + rotule fluide' },
-      { id: 'c6', text: 'Gimbal / Steadicam chargé' },
-      { id: 'c7', text: 'Micro HF (émetteur + récepteur)' },
-      { id: 'c8', text: 'Micro canon + perche + bonnette' },
-      { id: 'c9', text: 'Enregistreur audio autonome' },
-      { id: 'c10', text: 'Casque monitoring' },
-      { id: 'c11', text: 'Panneau LED principal' },
-      { id: 'c12', text: 'Réflecteurs (blanc/argent/or)' },
-      { id: 'c13', text: 'Câbles HDMI + alimentation + multiprise' },
-      { id: 'c14', text: 'Gaffer tape + pinces' },
-      { id: 'c15', text: 'Disque dur de sauvegarde sur place' },
-    ],
-  },
-  {
-    id: 'res-checklist-preprod',
-    type: 'checklist',
-    name: 'Checklist pré-production',
-    description: 'Toutes les étapes à valider avant le début d\'un tournage.',
-    color: '#34C98A',
-    icon: 'list-checks',
-    tags: ['Préproduction', 'Logistique'],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    checklistItems: [
-      { id: 'p1', text: 'Brief client validé et signé' },
-      { id: 'p2', text: 'Contrat de production envoyé et signé' },
-      { id: 'p3', text: 'Acompte encaissé' },
-      { id: 'p4', text: 'Script / storyboard approuvé' },
-      { id: 'p5', text: 'Repérage des lieux effectué' },
-      { id: 'p6', text: 'Autorisations de tournage obtenues' },
-      { id: 'p7', text: 'Équipe confirmée avec horaires' },
-      { id: 'p8', text: 'Casting confirmé' },
-      { id: 'p9', text: 'Location de matériel réservée' },
-      { id: 'p10', text: 'Plan de tournage envoyé à l\'équipe' },
-      { id: 'p11', text: 'Transport et hébergement organisés' },
-      { id: 'p12', text: 'Assurance production vérifiée' },
-    ],
-  },
   // ── Documents ──
   {
     id: 'res-doc-contrat',

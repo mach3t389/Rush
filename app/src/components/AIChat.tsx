@@ -120,7 +120,7 @@ const TOOLS = [
           projectId: { type: 'string', description: 'ID du projet' },
           type: {
             type: 'string',
-            enum: ['screenplay', 'document', 'video_review', 'moodboard', 'checklist', 'form', 'web_review'],
+            enum: ['screenplay', 'document', 'video_review', 'moodboard', 'form', 'web_review'],
             description: 'Type de ressource',
           },
           title: { type: 'string', description: 'Titre de la ressource' },
@@ -262,7 +262,7 @@ function executeTool(
       case 'create_resource': {
         const eyebrowMap: Record<string, string> = {
           screenplay: 'SCÉNARISATION', document: 'DOCUMENT', video_review: 'RÉVISION',
-          moodboard: 'MOODBOARD', checklist: 'CHECKLIST', form: 'FORMULAIRE', web_review: 'SITE WEB',
+          moodboard: 'MOODBOARD', form: 'FORMULAIRE', web_review: 'SITE WEB',
         };
         const res = {
           id: `r${Date.now()}`,
