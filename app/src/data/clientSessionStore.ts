@@ -176,3 +176,34 @@ export async function getMyClientEvents(projectIds: string[]): Promise<ClientCal
     };
   });
 }
+
+export interface ClientInvoice {
+  id: string;
+  number: string;
+  title: string;
+  amount: number;
+  total: number;
+  currency: string;
+  status: string;
+  issuedDate: string;
+  dueDate: string;
+}
+
+export async function getMyClientInvoices(projectId: string): Promise<ClientInvoice[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, number, title, amount, total, currency, status, issued_date, due_date')
+    .eq('project_id', projectId);
+  if (error) { console.error('getMyClientInvoices failed', error); return []; }
+  return (data ?? []).map(row => ({
+    id: row.id,
+    number: row.number,
+    title: row.title,
+    amount: row.amount,
+    total: row.total,
+    currency: row.currency,
+    status: row.status,
+    issuedDate: row.issued_date,
+    dueDate: row.due_date,
+  }));
+}

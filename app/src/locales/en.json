@@ -299,7 +299,6 @@
     "moodboard": "Moodboard",
     "document": "Document",
     "inspirations": "Inspirations",
-    "file": "File",
     "form": "Form",
     "webReview": "Web Review"
   },
@@ -2497,6 +2496,10 @@
     "apercuPhaseLabel": "Current phase",
     "apercuProgressLabel": "Progress",
     "apercuDeliverables": "Shared deliverables",
-    "apercuNoDeliverables": "No shared deliverables yet."
+    "apercuNoDeliverables": "No shared deliverables yet.",
+    "financesEmpty": "No invoices for this project yet.",
+    "financesAmount": "Amount",
+    "financesStatus": "Status",
+    "financesDue": "Due date"
   }
 }

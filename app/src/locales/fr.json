@@ -299,7 +299,6 @@
     "moodboard": "Moodboard",
     "document": "Document",
     "inspirations": "Inspirations",
-    "file": "Fichier",
     "form": "Formulaire",
     "webReview": "Révision web"
   },
@@ -2510,6 +2509,10 @@
     "apercuPhaseLabel": "Phase actuelle",
     "apercuProgressLabel": "Progression",
     "apercuDeliverables": "Livrables partagés",
-    "apercuNoDeliverables": "Aucun livrable partagé pour le moment."
+    "apercuNoDeliverables": "Aucun livrable partagé pour le moment.",
+    "financesEmpty": "Aucune facture pour ce projet pour le moment.",
+    "financesAmount": "Montant",
+    "financesStatus": "Statut",
+    "financesDue": "Échéance"
   }
 }
