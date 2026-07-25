@@ -2387,7 +2387,9 @@
     "title": "Your projects",
     "subtitle": "Projects you have access to",
     "empty": "No projects have been shared with you yet.",
-    "logout": "Log out"
+    "logout": "Log out",
+    "cardProgress": "Progress",
+    "cardDelivery": "Expected delivery"
   },
   "pricing": {
     "title": "Transparent pricing",

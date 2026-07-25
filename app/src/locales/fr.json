@@ -2400,7 +2400,9 @@
     "title": "Vos projets",
     "subtitle": "Projets auxquels vous avez accès",
     "empty": "Aucun projet ne vous a été partagé pour le moment.",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "cardProgress": "Progression",
+    "cardDelivery": "Livraison prévue"
   },
   "pricing": {
     "title": "Tarification transparente",
