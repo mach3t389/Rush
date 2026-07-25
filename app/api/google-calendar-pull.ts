@@ -1,6 +1,6 @@
 // app/api/google-calendar-pull.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getValidAccessToken, getOrgDefaultCalendarId, googleCalendarRequest } from './_lib/googleCalendarApi.js';
 
 interface GoogleEventItem {
@@ -114,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 interface PullCalendarOpts {
-  supabaseAdmin: ReturnType<typeof createClient>;
+  supabaseAdmin: SupabaseClient;
   studioId: string;
   calendarId: string;
   accessToken: string;
