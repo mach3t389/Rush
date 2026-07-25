@@ -2024,6 +2024,18 @@
     "taxRate2": "Rate (%)"
   },
   "resourceDetail": {
+    "elScene": "Scene",
+    "elScenePlaceholder": "INT./EXT. LOCATION — TIME",
+    "elAction": "Action",
+    "elActionPlaceholder": "Describe the action…",
+    "elCharacter": "Character",
+    "elCharacterPlaceholder": "CHARACTER NAME",
+    "elParenthetical": "Parenthetical",
+    "elParentheticalPlaceholder": "(tone, acting note)",
+    "elDialogue": "Dialogue",
+    "elDialoguePlaceholder": "Dialogue text…",
+    "elTransition": "Transition",
+    "elTransitionPlaceholder": "CUT TO:, FADE OUT…",
     "saveOffline": "Offline",
     "saveSaving": "Saving…",
     "saveOfflineTooltip": "Unsaved changes (offline)",

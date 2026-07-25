@@ -108,18 +108,8 @@ const CHECKLIST_ITEMS_MOCK = [
   { id:'ck8', text:'Préparer le plateau et les fonds de scène',               done:false, initials:'JB', color:'#1a6b4a', due:'9 mai' },
 ];
 
-const INITIAL_MB_ITEMS: MBItem[] = [
-  { id:'mb1', type:'color', x:40,  y:40,  w:200, h:140, bg:'#1a2035' },
-  { id:'mb2', type:'color', x:260, y:30,  w:160, h:210, bg:'#2d1a0e' },
-  { id:'mb3', type:'text',  x:440, y:50,  w:210, h:100, text:'Direction artistique : tons chauds et dorés, lumière naturelle filtrée' },
-  { id:'mb4', type:'color', x:80,  y:210, w:210, h:130, bg:'#0e1a0e' },
-  { id:'mb5', type:'color', x:310, y:260, w:130, h:190, bg:'#3d3042' },
-  { id:'mb6', type:'text',  x:40,  y:380, w:260, h:80,  text:'Référence : Wes Anderson × Fashion Editorial Paris' },
-  { id:'mb7', type:'color', x:460, y:200, w:170, h:130, bg:'#1a0e1a' },
-];
-const INITIAL_MB_ARROWS: MBArrow[] = [
-  { id:'ar1', from:'mb3', to:'mb1' },
-];
+const INITIAL_MB_ITEMS: MBItem[] = [];
+const INITIAL_MB_ARROWS: MBArrow[] = [];
 
 const INITIAL_INSPI: InspiItem[] = [
   { id:'in1', title:'Campagne Dior Été 2024',       url:'dior.com',    bg:'#1e2d3d', tags:['mode','été','lumineux'],    notes:'' },
@@ -950,8 +940,13 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
 
 // ── Moodboard View (PureRef-style canvas) ─────────────────────────────────────
 
-const POSTIT_COLORS = ['#fde68a','#fca5a5','#86efac','#93c5fd','#f9a8d4','#fdba74'];
-const SHAPE_COLORS  = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#64748b'];
+// One shared primary-color palette for every moodboard swatch picker
+// (shapes, post-its, background blocks) — previously each had its own
+// disjoint set (bold vs. pastel vs. dark/muted), which read as visually
+// inconsistent.
+const MOODBOARD_COLORS = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#64748b'];
+const POSTIT_COLORS = MOODBOARD_COLORS;
+const SHAPE_COLORS  = MOODBOARD_COLORS;
 
 export function MoodboardView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
   const { t } = useTranslation();
@@ -1248,7 +1243,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     });
   };
 
-  const PALETTE = ['#1a2035','#2d1a0e','#0e1a0e','#3d3042','#f5e6d3','#e8d5c4'];
+  const PALETTE = MOODBOARD_COLORS;
 
   // Arrow hit-test: distance from point to line segment
   const pointToSegDist = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
@@ -1485,45 +1480,57 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                   return (['top','right','bottom','left'] as ArrowPort[]).map(port => {
                     const px2 = item.x + (port==='left' ? 0 : port==='right' ? item.w : item.w/2);
                     const py2 = item.y + (port==='top'  ? 0 : port==='bottom' ? item.h : item.h/2);
+                    const handleGrab = () => {
+                      if (arrowAnchorRef.current) {
+                        // Compléter la flèche vers ce port
+                        const anchor = arrowAnchorRef.current;
+                        if (anchor.kind === 'item' && anchor.id === item.id) return;
+                        const newArrow: MBArrow = { id:`ar${Date.now()}` };
+                        if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+                        else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+                        newArrow.to = item.id; newArrow.toPort = port;
+                        setArrows(p => [...p, newArrow]);
+                        arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+                      } else {
+                        // Démarrer une flèche depuis ce port
+                        arrowAnchorRef.current = { kind:'item', id:item.id, port };
+                        setArrowAnchor({ kind:'item', id:item.id, port });
+                        arrowJustStarted.current = true;
+                      }
+                    };
+                    const handleRelease = (e: React.MouseEvent) => {
+                      const anchor = arrowAnchorRef.current;
+                      if (anchor && !(anchor.kind==='item' && anchor.id===item.id)) {
+                        e.stopPropagation();
+                        const newArrow: MBArrow = { id:`ar${Date.now()}` };
+                        if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
+                        else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
+                        newArrow.to = item.id; newArrow.toPort = port;
+                        setArrows(p => [...p, newArrow]);
+                        arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
+                      }
+                    };
                     return (
-                      <circle key={`${item.id}-${port}`}
-                        cx={px2} cy={py2} r={emphasis ? 6 : 4.5}
-                        fill="#60a5fa" stroke="white" strokeWidth={2}
-                        opacity={emphasis ? 1 : 0.55}
-                        style={{ cursor:'crosshair', transition:'opacity .1s' }}
-                        onMouseEnter={() => setMbHoverItemId(item.id)}
-                        onMouseDown={e => {
-                          e.stopPropagation();
-                          if (arrowAnchorRef.current) {
-                            // Compléter la flèche vers ce port
-                            const anchor = arrowAnchorRef.current;
-                            if (anchor.kind === 'item' && anchor.id === item.id) return;
-                            const newArrow: MBArrow = { id:`ar${Date.now()}` };
-                            if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
-                            else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
-                            newArrow.to = item.id; newArrow.toPort = port;
-                            setArrows(p => [...p, newArrow]);
-                            arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
-                          } else {
-                            // Démarrer une flèche depuis ce port
-                            arrowAnchorRef.current = { kind:'item', id:item.id, port };
-                            setArrowAnchor({ kind:'item', id:item.id, port });
-                            arrowJustStarted.current = true;
-                          }
-                        }}
-                        onMouseUp={e => {
-                          const anchor = arrowAnchorRef.current;
-                          if (anchor && !(anchor.kind==='item' && anchor.id===item.id)) {
-                            e.stopPropagation();
-                            const newArrow: MBArrow = { id:`ar${Date.now()}` };
-                            if (anchor.kind === 'item') { newArrow.from = anchor.id; newArrow.fromPort = anchor.port; }
-                            else { newArrow.fromX = anchor.x; newArrow.fromY = anchor.y; }
-                            newArrow.to = item.id; newArrow.toPort = port;
-                            setArrows(p => [...p, newArrow]);
-                            arrowAnchorRef.current = null; setArrowAnchor(null); setArrowPreviewPos(null);
-                          }
-                        }}
-                      />
+                      <g key={`${item.id}-${port}`}>
+                        {/* Zone d'accrochage invisible, plus généreuse que le point visible —
+                            sans elle, il fallait viser le petit cercle au pixel près (surtout
+                            à faible zoom, où le rayon canvas se réduit à quelques pixels
+                            écran), ce qui rendait l'accrochage aléatoire en pratique. */}
+                        <circle
+                          cx={px2} cy={py2} r={12}
+                          fill="transparent"
+                          style={{ cursor:'crosshair' }}
+                          onMouseEnter={() => setMbHoverItemId(item.id)}
+                          onMouseDown={e => { e.stopPropagation(); handleGrab(); }}
+                          onMouseUp={handleRelease}
+                        />
+                        <circle
+                          cx={px2} cy={py2} r={emphasis ? 6 : 4.5}
+                          fill="#60a5fa" stroke="white" strokeWidth={2}
+                          opacity={emphasis ? 1 : 0.55}
+                          style={{ transition:'opacity .1s', pointerEvents:'none' }}
+                        />
+                      </g>
                     );
                   });
                 })}

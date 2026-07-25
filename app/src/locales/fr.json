@@ -2037,6 +2037,18 @@
     "taxRate2": "Taux (%)"
   },
   "resourceDetail": {
+    "elScene": "Scène",
+    "elScenePlaceholder": "INT./EXT. LIEU — MOMENT",
+    "elAction": "Action",
+    "elActionPlaceholder": "Décrivez l'action…",
+    "elCharacter": "Personnage",
+    "elCharacterPlaceholder": "NOM DU PERSONNAGE",
+    "elParenthetical": "Parenthèse",
+    "elParentheticalPlaceholder": "(ton, indication de jeu)",
+    "elDialogue": "Dialogue",
+    "elDialoguePlaceholder": "Texte du dialogue…",
+    "elTransition": "Transition",
+    "elTransitionPlaceholder": "CUT TO:, FADE OUT…",
     "saveOffline": "Hors ligne",
     "saveSaving": "Enregistrement…",
     "saveOfflineTooltip": "Modifications non sauvegardées (hors ligne)",
