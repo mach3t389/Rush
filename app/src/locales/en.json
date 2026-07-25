@@ -2493,6 +2493,10 @@
     "tabOverview": "Overview",
     "tabFiles": "Files",
     "tabCalendar": "Calendar",
-    "tabFinance": "Invoices"
+    "tabFinance": "Invoices",
+    "apercuPhaseLabel": "Current phase",
+    "apercuProgressLabel": "Progress",
+    "apercuDeliverables": "Shared deliverables",
+    "apercuNoDeliverables": "No shared deliverables yet."
   }
 }
