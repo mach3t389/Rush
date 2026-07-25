@@ -36,6 +36,12 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
   - Pourquoi : aucun fichier de ce type n'était disponible pendant le développement. Le code ne plante jamais (repli propre sur « aucun chapitre trouvé » en cas de problème), mais la détection réelle n'est pas confirmée.
   - Comment tester : dépose un fichier vidéo avec chapitres dans une ressource vidéo (écran `VideoReview.tsx`), confirme que les chapitres apparaissent bien comme marqueurs/arrêts de navigation.
 
+## Partage de calendrier Google par projet
+
+- [ ] **Confirmer la réception réelle de l'invitation Google Calendar** : ajoute un contact client avec une adresse courriel **différente** de ton compte Google connecté (un vrai client, ou un deuxième compte Gmail à toi), associe-le à un projet, active le partage du calendrier de ce projet, puis vérifie que **cette adresse-là** reçoit bien le courriel d'invitation de Google et peut ajouter le calendrier.
+  - Pourquoi : le premier test (2026-07-25) utilisait un contact dont l'adresse était la même que le compte Google connecté — Google n'envoie jamais d'invitation au propriétaire du calendrier lui-même, donc ce cas ne prouve rien sur le vrai parcours d'un client externe.
+  - Vérifie aussi, une fois le contact ajouté : le bouton calendrier (barre du haut de l'onglet Calendrier du projet) montre bien ce contact avec le statut « Partagé » (pas « En attente »).
+
 ---
 
 ## Prochains chantiers (à compléter au fur et à mesure)
