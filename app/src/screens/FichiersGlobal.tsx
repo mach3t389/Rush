@@ -3068,8 +3068,21 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
     return crumbs;
   };
 
-  // Column view state: array of selected NavLocations at each depth
-  const [columnSelections, setColumnSelections] = useState<NavLocation[]>([]);
+  // When switching to columns view, seed from current location
+  // When locked, the location that matches the locked scope root is already represented
+  // by column 0 — seeding it again would duplicate the first column.
+  const isLockedRoot = (loc: NavLocation) =>
+    !!lockedScope && loc.scope === lockedScope.scope && loc.scopeId === lockedScope.scopeId && !loc.folderId;
+
+  // Column view state: array of selected NavLocations at each depth. Seeded
+  // lazily from the persisted `location` so that remounting straight into
+  // columns view (e.g. navigating back from a resource) resumes at the
+  // right folder instead of the root — see the sync effect below for the
+  // other half of this: keeping `location` itself up to date as the user
+  // navigates via columns/breadcrumbs.
+  const [columnSelections, setColumnSelections] = useState<NavLocation[]>(() =>
+    location.scope !== 'root' && !isLockedRoot(location) ? [location] : []
+  );
   const colsContainerRef = useRef<HTMLDivElement>(null);
 
   // Now we can safely call getCurrentLocation and buildBreadcrumbForLocation
@@ -3090,11 +3103,16 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
     }
   }, [columnSelections.length, viewMode]);
 
-  // When switching to columns view, seed from current location
-  // When locked, the location that matches the locked scope root is already represented
-  // by column 0 — seeding it again would duplicate the first column.
-  const isLockedRoot = (loc: NavLocation) =>
-    !!lockedScope && loc.scope === lockedScope.scope && loc.scopeId === lockedScope.scopeId && !loc.folderId;
+  // Column-view navigation (selectColumn, breadcrumb clicks, tree nav) only
+  // ever updates columnSelections, not the persisted `location` — mirror the
+  // deepest column back into it so "back" from a resource (which unmounts
+  // this component) restores the actual folder instead of wherever
+  // `location` was last set before column navigation happened.
+  useEffect(() => {
+    if (viewMode !== 'columns') return;
+    setLocation(columnSelections.length > 0 ? columnSelections[columnSelections.length - 1] : { scope: 'root', folderId: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, columnSelections]);
 
   const handleSetViewMode = (m: ViewMode) => {
     if (m === 'columns' && viewMode !== 'columns') {
