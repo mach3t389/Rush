@@ -24,6 +24,7 @@ import { TimeGridView } from '../components/calendar/TimeGridView';
 import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
 import { subscribeWeekStart } from '../data/weekStartStore';
+import { ClientEventDetail } from '../components/calendar/ClientEventDetail';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -576,7 +577,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedded?: boolean; projectIds?: string[] } = {}) {
+export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly = false }: { embedded?: boolean; projectIds?: string[]; readOnly?: boolean } = {}) {
   const { t } = useTranslation();
   const months = t('calendar.months', { returnObjects: true }) as string[];
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
@@ -649,6 +650,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
 
   // Glisser-déplacer un événement (change l'heure et/ou le jour) ou étirer sa poignée du bas (change la durée)
   const handleEventChange = (ev: CalEvent, newStart: Date, newEnd: Date) => {
+    if (readOnly) return;
     if (ev.allDay) {
       const d = `${newStart.getFullYear()}-${fmt2(newStart.getMonth() + 1)}-${fmt2(newStart.getDate())}`;
       updateEvent(ev.id, { start: d, end: d });
@@ -669,6 +671,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
   };
 
   const handleSlotClick = (d: Date, h: number) => {
+    if (readOnly) return;
     setCreateDate(new Date(d));
     setCreateStartTime(`${fmt2(h)}:00`);
     setCreateEndTime(`${fmt2(Math.min(h+1,END_HOUR))}:00`);
@@ -676,6 +679,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
     setShowCreate(true);
   };
   const handleRangeSelect = (d: Date, startH: number, startM: number, endH: number, endM: number) => {
+    if (readOnly) return;
     setCreateDate(new Date(d));
     setCreateStartTime(`${fmt2(startH)}:${fmt2(startM)}`);
     setCreateEndTime(`${fmt2(endH)}:${fmt2(endM)}`);
@@ -683,6 +687,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
     setShowCreate(true);
   };
   const handleAllDayClick = (d: Date) => {
+    if (readOnly) return;
     setCreateDate(new Date(d));
     setCreateAllDay(true);
     setShowCreate(true);
@@ -702,14 +707,16 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
         return (
           <ProjectHeaderBar projectId={projectId ?? ''}>
             {project?.clientId && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName} />}
-            <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
+            {!readOnly && (
+              <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
+            )}
           </ProjectHeaderBar>
         );
       })()}
       <div style={{ flex:1,display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
       <div style={{ width:220,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
-        {embedded && (
+        {embedded && !readOnly && (
           <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
         )}
 
@@ -858,7 +865,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
       </div>
       </div>
 
-      {showCreate && activeProjectIds.length > 0 && (
+      {showCreate && !readOnly && activeProjectIds.length > 0 && (
         <CreateEventModal
           projectId={activeProjectIds[0]}
           defaultDate={new Date(createDate.getFullYear(),createDate.getMonth(),createDate.getDate())}
@@ -868,7 +875,10 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
           onClose={()=>{setShowCreate(false);setCreateAllDay(false);}}
         />
       )}
-      {selectedEvent && (
+      {selectedEvent && readOnly && (
+        <ClientEventDetail event={selectedEvent} onClose={()=>setSelectedEvent(null)} />
+      )}
+      {selectedEvent && !readOnly && (
         <EventDetail
           ev={selectedEvent}
           onClose={()=>setSelectedEvent(null)}
