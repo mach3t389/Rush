@@ -4665,7 +4665,12 @@ function ShotlistView({ scriptScenes }: { resource: Resource; scriptScenes: Scri
 
   const deleteShot = (id: string) => setShots(prev => prev.filter(s => s.id !== id));
 
-  const scenesMap = new Map(shots.map(s => [s.sceneNumber, s.sceneLabel]));
+  // Scenes that came from the script stay live: a rename in the Script tab
+  // is reflected here on every render instead of the copy frozen at the
+  // time the shot was created. Shots for a scene added locally (no match
+  // in scriptScenes) keep their own stored label.
+  const scriptSceneLabels = new Map(scriptScenes.map(s => [s.number, s.label]));
+  const scenesMap = new Map(shots.map(s => [s.sceneNumber, scriptSceneLabels.get(s.sceneNumber) ?? s.sceneLabel]));
   const orderedScenes = sceneOrder.filter(n => scenesMap.has(n)).map(n => ({ number: n, label: scenesMap.get(n)! }));
   const totalDuration = shots.reduce((acc, s) => {
     const [m, sec] = (s.duration || '0:00').split(':').map(Number);
@@ -4785,7 +4790,7 @@ function ShotlistView({ scriptScenes }: { resource: Resource; scriptScenes: Scri
                     <td style={{ padding:'4px 4px', textAlign:'center', cursor:'grab', color:'var(--border-2)', fontSize:13, lineHeight:1, userSelect:'none' }}>⠿</td>
                     <td style={{ padding:'8px 10px', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>{idx+1}</td>
                     <td style={{ padding:'8px 6px', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>{shot.shotNumber}</td>
-                    <td style={{ padding:'8px 10px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{shot.sceneLabel}</td>
+                    <td style={{ padding:'8px 10px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{scenesMap.get(shot.sceneNumber) ?? shot.sceneLabel}</td>
                     <td style={{ padding:'8px 10px' }}>
                       {editingId === shot.id && editingField === 'description' ? (
                         <input autoFocus value={shot.description} onChange={e => updateShot(shot.id,'description',e.target.value)}
@@ -4894,7 +4899,22 @@ function ShotlistView({ scriptScenes }: { resource: Resource; scriptScenes: Scri
             </div>
             <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
               <button onClick={() => setShowSyncModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>{t('resourceDetail.screenplayView.cancelButton')}</button>
-              <button onClick={() => { setSynced(true); setShowSyncModal(false); }} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:13, color:'#000', fontWeight:700 }}>{t('resourceDetail.screenplayView.syncButton')}</button>
+              <button onClick={() => {
+                // Renames of already-linked scenes propagate live (see
+                // scenesMap above) — this only needs to bring in scenes that
+                // exist in the script but have no shot yet in this shotlist.
+                const missing = scriptScenes.filter(s => !sceneOrder.includes(s.number));
+                if (missing.length) {
+                  const newShots: ShotRow[] = missing.map((s, i) => ({
+                    id: `sl${Date.now()}-${i}`, sceneNumber: s.number, sceneLabel: s.label,
+                    shotNumber: shots.length + i + 1, description: '', shotType: 'MS',
+                    cameraMove: 'Statique', lens: '', duration: '', notes: '',
+                  }));
+                  setShots(prev => [...prev, ...newShots]);
+                  setSceneOrder(prev => [...prev, ...missing.map(s => s.number)]);
+                }
+                setSynced(true); setShowSyncModal(false);
+              }} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:13, color:'#000', fontWeight:700 }}>{t('resourceDetail.screenplayView.syncButton')}</button>
             </div>
           </div>
         </div>
@@ -4946,9 +4966,14 @@ const MOCK_SB_SCENES: SBScene[] = [
 
 const SB_ASPECT = 16 / 9;
 
-function StoryboardView(_props: { resource: Resource; scriptScenes: ScriptScene[] }) {
+function StoryboardView({ scriptScenes }: { resource: Resource; scriptScenes: ScriptScene[] }) {
   const { t, i18n } = useTranslation();
-  const [scenes, setScenes] = useState<SBScene[]>(MOCK_SB_SCENES);
+  const [rawScenes, setScenes] = useState<SBScene[]>(MOCK_SB_SCENES);
+  // Scenes that match a script scene by number stay live — a rename in the
+  // Script tab shows up here immediately instead of the label frozen at
+  // whatever point this storyboard scene was created.
+  const scriptSceneLabels = new Map(scriptScenes.map(s => [s.number, s.label]));
+  const scenes = rawScenes.map(s => ({ ...s, label: scriptSceneLabels.get(s.number) ?? s.label }));
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string>(MOCK_SB_SCENES[0].id);
   const [showAIModal, setShowAIModal] = useState(false);
