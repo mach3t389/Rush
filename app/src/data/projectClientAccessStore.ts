@@ -19,10 +19,10 @@ async function syncGoogleCalendarProjectAccess(projectId: string): Promise<void>
     const studioId = await getStudioId();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return;
-    await fetch('/api/google-calendar-project-sync-access', {
+    await fetch('/api/google-calendar-project', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ studioId, projectId }),
+      body: JSON.stringify({ action: 'sync-access', studioId, projectId }),
     });
   } catch (err) {
     // Fire-and-forget — this must never block the project_client_access write.

@@ -14,7 +14,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
-  const resp = await fetch(`/api/google-calendar-status?studioId=${studioId}`, { headers });
+  const resp = await fetch(`/api/google-calendar-connection?action=status&studioId=${studioId}`, { headers });
   if (!resp.ok) return { connected: false, lastSyncedAt: null };
   return resp.json();
 }
@@ -22,7 +22,7 @@ export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
 export async function startGoogleCalendarConnect(): Promise<void> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
-  const resp = await fetch(`/api/google-calendar-oauth-start?studioId=${studioId}`, { headers });
+  const resp = await fetch(`/api/google-calendar-connection?action=start&studioId=${studioId}`, { headers });
   if (!resp.ok) throw new Error('Failed to start Google Calendar connection');
   const { url } = await resp.json();
   if (!url) throw new Error('No Google Calendar authorization URL returned');
@@ -32,10 +32,10 @@ export async function startGoogleCalendarConnect(): Promise<void> {
 export async function disconnectGoogleCalendar(): Promise<void> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
-  const resp = await fetch('/api/google-calendar-disconnect', {
+  const resp = await fetch('/api/google-calendar-connection', {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studioId }),
+    body: JSON.stringify({ action: 'disconnect', studioId }),
   });
   if (!resp.ok) throw new Error('Failed to disconnect Google Calendar');
 }
@@ -47,7 +47,7 @@ export interface ProjectGoogleCalendarStatus {
 export async function getProjectGoogleCalendarStatus(projectId: string): Promise<ProjectGoogleCalendarStatus> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
-  const resp = await fetch(`/api/google-calendar-project-status?studioId=${studioId}&projectId=${projectId}`, { headers });
+  const resp = await fetch(`/api/google-calendar-project?action=status&studioId=${studioId}&projectId=${projectId}`, { headers });
   if (!resp.ok) return { active: false };
   return resp.json();
 }
@@ -55,10 +55,10 @@ export async function getProjectGoogleCalendarStatus(projectId: string): Promise
 export async function activateProjectGoogleCalendar(projectId: string): Promise<void> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
-  const resp = await fetch('/api/google-calendar-project-activate', {
+  const resp = await fetch('/api/google-calendar-project', {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studioId, projectId }),
+    body: JSON.stringify({ action: 'activate', studioId, projectId }),
   });
   if (!resp.ok) throw new Error('Failed to activate project Google Calendar');
 }
@@ -66,10 +66,10 @@ export async function activateProjectGoogleCalendar(projectId: string): Promise<
 export async function deactivateProjectGoogleCalendar(projectId: string): Promise<void> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
-  const resp = await fetch('/api/google-calendar-project-deactivate', {
+  const resp = await fetch('/api/google-calendar-project', {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studioId, projectId }),
+    body: JSON.stringify({ action: 'deactivate', studioId, projectId }),
   });
   if (!resp.ok) throw new Error('Failed to deactivate project Google Calendar');
 }
