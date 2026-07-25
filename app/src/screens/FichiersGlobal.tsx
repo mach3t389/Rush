@@ -1771,7 +1771,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 
-export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean }) {
+export function FileBrowser({ initialNav, locked = false, readOnly = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean; readOnly?: boolean }) {
   const { t } = useTranslation();
   const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
   const lockedScope: NavLocation | undefined = locked && initialNav ? initialNav : undefined;
@@ -2205,7 +2205,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
   //    background right-click context menu) ──────────────────────────────────
   const isSpecialLoc = (loc: NavLocation) => loc.scope === 'global' && (loc.folderId === 'folder-trash' || loc.folderId === 'folder-archives');
   const canAddAt = (loc: NavLocation) => loc.scope !== 'clients' && !isSpecialLoc(loc);
-  const canAddFileAt = (loc: NavLocation) => canAddAt(loc) && (loc.scope !== 'root' || !!lockedScope);
+  const canAddFileAt = (loc: NavLocation) => !readOnly && canAddAt(loc) && (loc.scope !== 'root' || !!lockedScope);
 
   // targetLoc : emplacement où créer le nouvel élément — la colonne cliquée en
   // vue colonnes, sinon `location` (comportement du bouton "Nouveau" normal).
@@ -2229,7 +2229,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
 
   // Background right-click on the main content area → open the "Nouveau" menu.
   const handleBgCtx = (e: React.MouseEvent, targetLoc: NavLocation = location) => {
-    if (!canAddAt(targetLoc)) return;
+    if (readOnly || !canAddAt(targetLoc)) return;
     e.preventDefault();
     // Stopper la propagation : en vue colonnes, chaque colonne a son propre
     // handler (avec sa propre loc) — sans ceci, l'événement remonte jusqu'au
@@ -2319,15 +2319,15 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         draggable
         onDragStart={e => handleFolderDragStart(e, folder.id)}
         onDragEnd={handleDragEnd}
-        onDragOver={e => handleFolderDragOver(e, folder.id)}
+        onDragOver={e => { if (!readOnly) handleFolderDragOver(e, folder.id); }}
         onDragLeave={() => setDragOverFolderId(null)}
-        onDrop={e => handleFolderDrop(e, folder.id)}
+        onDrop={e => { if (!readOnly) handleFolderDrop(e, folder.id); }}
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
           handleItemClick(e, folder.id);
         }}
-        onContextMenu={e => handleFolderCtx(e, folder)}
+        onContextMenu={e => { if (!readOnly) handleFolderCtx(e, folder); }}
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
@@ -2373,7 +2373,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
           }
           handleItemClick(e, file.id);
         }}
-        onContextMenu={e => handleFileCtx(e, file)}
+        onContextMenu={e => { if (!readOnly) handleFileCtx(e, file); }}
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           padding: '16px 12px', borderRadius: 12, cursor: 'pointer',
@@ -2416,15 +2416,15 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         draggable
         onDragStart={e => handleFolderDragStart(e, folder.id)}
         onDragEnd={handleDragEnd}
-        onDragOver={e => handleFolderDragOver(e, folder.id)}
+        onDragOver={e => { if (!readOnly) handleFolderDragOver(e, folder.id); }}
         onDragLeave={() => setDragOverFolderId(null)}
-        onDrop={e => handleFolderDrop(e, folder.id)}
+        onDrop={e => { if (!readOnly) handleFolderDrop(e, folder.id); }}
         onMouseDown={noSelectOnModifier}
         onClick={e => {
           if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { handleNavigateFolder(folder); return; }
           handleItemClick(e, folder.id);
         }}
-        onContextMenu={e => handleFolderCtx(e, folder)}
+        onContextMenu={e => { if (!readOnly) handleFolderCtx(e, folder); }}
         style={{ ...ROW, ...(isDragOver ? { background: 'rgba(249,255,0,0.1)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}) }}
         onMouseEnter={e => { if (!isSelected && !isDragOver) e.currentTarget.style.background = 'var(--surface-2)'; }}
         onMouseLeave={e => { if (!isSelected && !isDragOver) e.currentTarget.style.background = 'transparent'; }}
@@ -2468,7 +2468,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
           }
           handleItemClick(e, file.id);
         }}
-        onContextMenu={e => handleFileCtx(e, file)}
+        onContextMenu={e => { if (!readOnly) handleFileCtx(e, file); }}
         style={{
           ...ROW, cursor: 'pointer',
           ...(isSelected ? { background: 'rgba(249,255,0,0.06)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}),
@@ -2839,9 +2839,9 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
             draggable
             onDragStart={e => handleFolderDragStart(e, f.id)}
             onDragEnd={handleDragEnd}
-            onDragOver={e => handleFolderDragOver(e, f.id)}
+            onDragOver={e => { if (!readOnly) handleFolderDragOver(e, f.id); }}
             onDragLeave={() => setDragOverFolderId(null)}
-            onDrop={e => handleFolderDrop(e, f.id)}
+            onDrop={e => { if (!readOnly) handleFolderDrop(e, f.id); }}
             style={{ ...rowStyle(f.id), ...(isDO ? { background: 'rgba(249,255,0,0.12)', outline: '1px solid var(--accent)', outlineOffset: '-1px' } : {}) }}
             onMouseDown={noSelectOnModifier}
             onClick={e => handleColClick(e, f.id, () => onSelect(
@@ -2849,7 +2849,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
                 ? { scope: 'global', folderId: f.id }
                 : { ...loc, folderId: f.id },
             ))}
-            onContextMenu={e => handleFolderCtx(e, f)}
+            onContextMenu={e => { if (!readOnly) handleFolderCtx(e, f); }}
             onMouseEnter={e => { if (selectedId !== f.id && !isColSel(f.id) && !isDO) e.currentTarget.style.background = 'var(--surface-2)'; }}
             onMouseLeave={e => { if (selectedId !== f.id && !isColSel(f.id) && !isDO) e.currentTarget.style.background = 'transparent'; }}
           >
@@ -2888,7 +2888,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
                 }
                 handleColClick(e, f.id);
               }}
-              onContextMenu={e => handleFileCtx(e, f)}
+              onContextMenu={e => { if (!readOnly) handleFileCtx(e, f); }}
               onMouseEnter={e => { if (!isLocSel) e.currentTarget.style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { if (!isLocSel) e.currentTarget.style.background = 'transparent'; }}
             >
@@ -3135,7 +3135,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
   // Seul le niveau "liste des clients" est virtuel (on n'y ajoute pas un client).
   // Les roots de projet/client sont de vrais espaces de travail → ajout possible en vue globale ET verrouillée (parité).
   const isAtVirtualRoot = location.scope === 'clients';
-  const canAdd = !isAtVirtualRoot && !isSpecialView;
+  const canAdd = !isAtVirtualRoot && !isSpecialView && !readOnly;
 
   // Convert folder structure to FolderNode[]
   const folderStructureToNodes = (projectId: string): FolderNode[] => {
@@ -3329,7 +3329,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         </div>
 
         {/* Empty trash button — only in Corbeille view with content */}
-        {isTrashView && (filteredFolders.length > 0 || filteredFiles.length > 0) && (
+        {!readOnly && isTrashView && (filteredFolders.length > 0 || filteredFiles.length > 0) && (
           <button
             onClick={() => { if (confirm('Vider la corbeille ? Tous les éléments seront définitivement supprimés. Cette action est irréversible.')) emptyTrash(); }}
             style={{
@@ -3347,7 +3347,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         )}
 
         {/* New button — hidden at project/client virtual root */}
-        {canAdd && (
+        {!readOnly && canAdd && (
           <div style={{ position: 'relative' }}>
             <button
               ref={newBtnRef}
@@ -3442,9 +3442,9 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
         <div
           onContextMenu={handleBgCtx}
           onClick={e => { if (e.target === e.currentTarget) { setSelectedIds(new Set()); setLastSelectedId(null); } }}
-          onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsDraggingOver(true); } }}
+          onDragOver={e => { if (!readOnly && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsDraggingOver(true); } }}
           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDraggingOver(false); }}
-          onDrop={e => { e.preventDefault(); setIsDraggingOver(false); if (e.dataTransfer.types.includes('Files')) processUploadedFiles(Array.from(e.dataTransfer.files)); }}
+          onDrop={e => { e.preventDefault(); if (readOnly) return; setIsDraggingOver(false); if (e.dataTransfer.types.includes('Files')) processUploadedFiles(Array.from(e.dataTransfer.files)); }}
           style={{ flex: 1, overflowY: 'auto', padding: 24, display: (viewMode === 'columns' || viewMode === 'stockage') ? 'none' : undefined, position: 'relative' }}
         >
           {/* Drop overlay */}
@@ -3643,7 +3643,7 @@ export function FileBrowser({ initialNav, locked = false }: { initialNav?: NavLo
                     <p style={{ fontSize: 14, fontWeight: 500 }}>
                       {isTrashView ? 'La corbeille est vide' : isArchivesView ? 'Aucun élément archivé' : 'Ce dossier est vide'}
                     </p>
-                    {!isSpecialView && <SFButton variant="secondary" icon="folder-plus" onClick={() => setShowNewFolder(true)}>Nouveau dossier</SFButton>}
+                    {!isSpecialView && !readOnly && <SFButton variant="secondary" icon="folder-plus" onClick={() => setShowNewFolder(true)}>Nouveau dossier</SFButton>}
                   </div>
                 )
               ) : viewMode === 'grid' ? (
