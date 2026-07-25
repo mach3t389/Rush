@@ -28,6 +28,12 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 - [x] Mise en page de la fiche membre — testé par Claude (mode démo, structure DOM confirmée).
 - [x] Sélecteur d'autorisations en double — testé par Claude (mode démo, comportement confirmé).
 
+## Étape C — Tableau de bord client
+
+- [ ] **Parcours client complet** : connecte-toi avec un compte client réel (voir Étape B) → confirme que « Mes projets » affiche de vraies cartes (nom, progression, date) au lieu d'ID bruts → ouvre un projet → parcours les 4 onglets (Aperçu, Fichiers, Calendrier, Factures) → confirme qu'aucune action d'écriture n'est possible (pas de bouton créer/supprimer/modifier visible nulle part, y compris dans la vue Stockage des Fichiers et la liste des types d'événements du Calendrier) → invite un nouveau contact pour ce client → confirme qu'il voit immédiatement tous les projets existants du client sans intervention manuelle → crée un nouveau projet pour ce client → confirme que les contacts existants y ont accès automatiquement.
+  - Pourquoi : nécessite un vrai compte client (mot de passe réel) — Claude ne peut jamais créer de compte ni entrer de mot de passe, même pour tester.
+  - Rappel : exécute d'abord les deux migrations `docs/superpowers/specs/2026-07-25-client-dashboard-events-rls-migration.sql` (accès calendrier + types d'événements) dans Supabase → SQL Editor, sinon l'onglet Calendrier restera vide même avec des événements existants.
+
 ---
 
 ## Autres fonctionnalités déjà livrées, en attente de test
@@ -46,5 +52,5 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 
 ## Prochains chantiers (à compléter au fur et à mesure)
 
-- Étape C — Tableau de bord client : pas encore commencée.
+- Étape C — Tableau de bord client : implémentée (2026-07-25), en attente de ton test réel ci-dessus.
 - Étape D — Bascule admin « voir comme » : pas encore commencée.
