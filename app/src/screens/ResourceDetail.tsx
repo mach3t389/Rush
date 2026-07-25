@@ -4546,16 +4546,23 @@ type CameraMove = 'Statique' | 'Pan' | 'Tilt' | 'Dolly' | 'Track' | 'Grue' | 'É
 
 // One shot, shared verbatim between Shotlist and Storyboard — both read and
 // write the same array, so editing a field or reordering in either view is
-// immediately reflected in the other. `sceneNumber` links a shot to a
-// script scene (see ScriptScene) purely by position, matching how scenes
-// are already grouped/ordered elsewhere in this file; a shot whose number
-// has no live match just falls back to its own frozen label at render.
-// `lens`/`duration` are Shotlist-specific and `imageUrl`/`aiPrompt` are
-// Storyboard-specific — nothing stops either view from carrying fields it
-// doesn't render.
+// immediately reflected in the other. `sceneId` links a shot to a script
+// scene (see ScriptScene) by STABLE identity, never by position — see the
+// comment on ShotlistView's effectiveSceneOrder for why that distinction
+// matters. `lens`/`duration` are Shotlist-specific and `imageUrl`/
+// `aiPrompt` are Storyboard-specific — nothing stops either view from
+// carrying fields it doesn't render.
+// `sceneId` links a shot to a scene by STABLE identity (a ScriptEl's own
+// `id` for script scenes, or a `local-*` id for a scene added directly in
+// Shotlist/Storyboard) — never by position. Scene numbers (S1, S2…) are
+// display-only, recomputed from current order at render time. Linking by
+// position instead of identity was tried first and is exactly what broke:
+// reordering or deleting a scene shifts everyone else's position, so a
+// shot would silently reattach to whatever scene now sits at its old
+// number instead of following its actual scene.
 interface ShotRow {
   id: string;
-  sceneNumber: number;
+  sceneId: string;
   sceneLabel: string;
   description: string;
   shotType: ShotType;
@@ -4576,14 +4583,16 @@ const SHOT_TYPE_DESC: Record<ShotType, string> = {
   POV: 'Point de vue', OTS: 'Par-dessus l\'épaule', INSERT: 'Plan insert',
 };
 
+// sceneId 'e1'/'e11' match INITIAL_ELEMENTS' scene ids so the default
+// script's two scenes come pre-linked to their shots out of the box.
 const MOCK_SHOTLIST: ShotRow[] = [
-  { id:'sh1', sceneNumber:1, sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'Plan d\'établissement du loft, lumière filtrée', shotType:'WS', cameraMove:'Statique', lens:'24mm', duration:'0:04', notes:'Ambiance dorée, baies vitrées' },
-  { id:'sh2', sceneNumber:1, sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'NARRATEUR en V.O. — décor vêtements sur mannequins', shotType:'MS', cameraMove:'Dolly', lens:'50mm', duration:'0:06', notes:'Mouvement lent vers avant', aiPrompt:'Fashion editorial, Parisian loft interior, golden hour light, clothing on mannequins, wide shot, cinematic' },
-  { id:'sh3', sceneNumber:1, sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'La JEUNE FEMME entre et effleure la robe', shotType:'MCU', cameraMove:'Épaule', lens:'85mm', duration:'0:05', notes:'Cadre naturel, chaleureux' },
-  { id:'sh4', sceneNumber:1, sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'Gros plan mains sur le tissu', shotType:'CU', cameraMove:'Statique', lens:'100mm', duration:'0:03', notes:'Plan de coupe', aiPrompt:'Close up elegant hands touching silk fabric, fashion detail, shallow depth of field' },
-  { id:'sh5', sceneNumber:2, sceneLabel:'EXT. TOITS DE PARIS — COUCHER DE SOLEIL', description:'Vue sur les toits, ville qui s\'embrase', shotType:'WS', cameraMove:'Pan', lens:'24mm', duration:'0:05', notes:'Heure dorée impérative', aiPrompt:'Paris rooftops at golden hour sunset, wide panoramic shot, warm orange light, cinematic' },
-  { id:'sh6', sceneNumber:2, sceneLabel:'EXT. TOITS DE PARIS — COUCHER DE SOLEIL', description:'JEUNE FEMME robe au vent, regard horizon', shotType:'LS', cameraMove:'Grue', lens:'35mm', duration:'0:07', notes:'Mouvement descendant grue' },
-  { id:'sh7', sceneNumber:2, sceneLabel:'EXT. TOITS DE PARIS — COUCHER DE SOLEIL', description:'Portrait JEUNE FEMME — plan final', shotType:'MCU', cameraMove:'Statique', lens:'85mm', duration:'0:04', notes:'Fondu au noir vers logo' },
+  { id:'sh1', sceneId:'e1', sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'Plan d\'établissement du loft, lumière filtrée', shotType:'WS', cameraMove:'Statique', lens:'24mm', duration:'0:04', notes:'Ambiance dorée, baies vitrées' },
+  { id:'sh2', sceneId:'e1', sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'NARRATEUR en V.O. — décor vêtements sur mannequins', shotType:'MS', cameraMove:'Dolly', lens:'50mm', duration:'0:06', notes:'Mouvement lent vers avant', aiPrompt:'Fashion editorial, Parisian loft interior, golden hour light, clothing on mannequins, wide shot, cinematic' },
+  { id:'sh3', sceneId:'e1', sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'La JEUNE FEMME entre et effleure la robe', shotType:'MCU', cameraMove:'Épaule', lens:'85mm', duration:'0:05', notes:'Cadre naturel, chaleureux' },
+  { id:'sh4', sceneId:'e1', sceneLabel:'INT. LOFT PARISIEN — JOUR', description:'Gros plan mains sur le tissu', shotType:'CU', cameraMove:'Statique', lens:'100mm', duration:'0:03', notes:'Plan de coupe', aiPrompt:'Close up elegant hands touching silk fabric, fashion detail, shallow depth of field' },
+  { id:'sh5', sceneId:'e11', sceneLabel:'EXT. TOITS DE PARIS — COUCHER DE SOLEIL', description:'Vue sur les toits, ville qui s\'embrase', shotType:'WS', cameraMove:'Pan', lens:'24mm', duration:'0:05', notes:'Heure dorée impérative', aiPrompt:'Paris rooftops at golden hour sunset, wide panoramic shot, warm orange light, cinematic' },
+  { id:'sh6', sceneId:'e11', sceneLabel:'EXT. TOITS DE PARIS — COUCHER DE SOLEIL', description:'JEUNE FEMME robe au vent, regard horizon', shotType:'LS', cameraMove:'Grue', lens:'35mm', duration:'0:07', notes:'Mouvement descendant grue' },
+  { id:'sh7', sceneId:'e11', sceneLabel:'EXT. TOITS DE PARIS — COUCHER DE SOLEIL', description:'Portrait JEUNE FEMME — plan final', shotType:'MCU', cameraMove:'Statique', lens:'85mm', duration:'0:04', notes:'Fondu au noir vers logo' },
 ];
 
 interface ScriptScene { id: string; number: number; label: string; }
@@ -4591,30 +4600,30 @@ interface ScriptScene { id: string; number: number; label: string; }
 function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder }: {
   resource: Resource; scriptScenes: ScriptScene[];
   shots: ShotRow[]; setShots: React.Dispatch<React.SetStateAction<ShotRow[]>>;
-  sceneOrder: number[]; setSceneOrder: React.Dispatch<React.SetStateAction<number[]>>;
+  sceneOrder: string[]; setSceneOrder: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [addingScene, setAddingScene] = useState(false);
   const [newSceneLabel, setNewSceneLabel] = useState('');
-  const [draggingScene, setDraggingScene] = useState<number | null>(null);
-  const [dragOverScene, setDragOverScene] = useState<number | null>(null);
+  const [draggingScene, setDraggingScene] = useState<string | null>(null);
+  const [dragOverScene, setDragOverScene] = useState<string | null>(null);
   const [dragOverSceneAfter, setDragOverSceneAfter] = useState(false);
   const [draggingShot, setDraggingShot] = useState<string | null>(null);
   const [dragOverShot, setDragOverShot] = useState<string | null>(null);
   const [dragOverShotAfter, setDragOverShotAfter] = useState(false);
 
-  const updateShot = (id: string, field: keyof ShotRow, value: string | number) => {
+  const updateShot = (id: string, field: keyof ShotRow, value: string) => {
     setShots(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
-  const addShot = (sceneNum?: number) => {
-    const targetNum = sceneNum ?? (shots[shots.length - 1]?.sceneNumber ?? 1);
-    const sceneLabel = shots.find(s => s.sceneNumber === targetNum)?.sceneLabel ?? 'Scène';
+  const addShot = (sceneId?: string) => {
+    const targetId = sceneId ?? (shots[shots.length - 1]?.sceneId ?? scriptScenes[0]?.id ?? '');
+    const sceneLabel = shots.find(s => s.sceneId === targetId)?.sceneLabel ?? 'Scène';
     const newShot: ShotRow = {
       id: `sh${Date.now()}`,
-      sceneNumber: targetNum,
+      sceneId: targetId,
       sceneLabel,
       description: '', shotType: 'MS', cameraMove: 'Statique', lens: '', duration: '', notes: '',
     };
@@ -4625,32 +4634,32 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
 
   const addScene = () => {
     const label = newSceneLabel.trim() || 'Nouvelle scène';
-    const maxNum = Math.max(0, ...scriptScenes.map(s => s.number), ...sceneOrder);
-    const newNum = maxNum + 1;
+    const newId = `local-${Date.now()}`;
     const newShot: ShotRow = {
-      id: `sh${Date.now()}`, sceneNumber: newNum, sceneLabel: label,
+      id: `sh${Date.now()}`, sceneId: newId, sceneLabel: label,
       description: '', shotType: 'MS',
       cameraMove: 'Statique', lens: '', duration: '', notes: '',
     };
     setShots(prev => [...prev, newShot]);
-    setSceneOrder(prev => [...prev, newNum]);
+    setSceneOrder(prev => [...prev, newId]);
     setNewSceneLabel('');
     setAddingScene(false);
     setEditingId(newShot.id);
     setEditingField('description');
   };
 
-  const dropScene = (e: React.DragEvent, targetNum: number) => {
-    if (draggingScene === null || draggingScene === targetNum) return;
-    // Scenes that come from the script are always ordered by the script
-    // itself (see effectiveSceneOrder above) — only reordering among
-    // locally-added scenes is meaningful here.
-    if (scriptSceneLabels.has(draggingScene) || scriptSceneLabels.has(targetNum)) return;
+  const dropScene = (e: React.DragEvent, targetId: string) => {
+    if (draggingScene === null || draggingScene === targetId) return;
+    // Only reordering among locally-added scenes is meaningful here — a
+    // script scene's position is always owned by the script itself (see
+    // effectiveSceneOrder below), and a deleted-scene bucket isn't a real
+    // trackable position either.
+    if (!sceneOrder.includes(draggingScene) || !sceneOrder.includes(targetId)) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const after = e.clientY > rect.top + rect.height / 2;
     setSceneOrder(prev => {
       const arr = prev.filter(n => n !== draggingScene);
-      let ti = arr.indexOf(targetNum);
+      let ti = arr.indexOf(targetId);
       if (after) ti += 1;
       arr.splice(ti, 0, draggingScene!);
       return arr;
@@ -4685,15 +4694,27 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
   // here (no match in scriptScenes) keeps its own stored label and is
   // appended after the script's scenes, in whatever order it was added/
   // dragged to via sceneOrder.
-  const scriptSceneLabels = new Map(scriptScenes.map(s => [s.number, s.label]));
-  const scenesMap = new Map(shots.map(s => [s.sceneNumber, scriptSceneLabels.get(s.sceneNumber) ?? s.sceneLabel]));
+  const scriptSceneIds = new Set(scriptScenes.map(s => s.id));
+  const scriptSceneLabels = new Map(scriptScenes.map(s => [s.id, s.label]));
+  const scenesMap = new Map(shots.map(s => [s.sceneId, scriptSceneLabels.get(s.sceneId) ?? s.sceneLabel]));
+  // A shot whose scene is neither a live script scene nor a locally-added
+  // one only happens when its script scene got deleted — surface it in a
+  // clearly-marked bucket instead of silently dropping it or (worse)
+  // having it reattach to whatever scene now occupies its old position.
+  const localIds = new Set(sceneOrder);
+  const orphanIds = [...new Set(shots.map(s => s.sceneId))].filter(id => !scriptSceneIds.has(id) && !localIds.has(id));
   const effectiveSceneOrder = [
-    ...scriptScenes.map(s => s.number),
-    ...sceneOrder.filter(n => !scriptSceneLabels.has(n)),
+    ...scriptScenes.map(s => s.id),
+    ...sceneOrder.filter(id => !scriptSceneIds.has(id)),
+    ...orphanIds,
   ];
   const orderedScenes = effectiveSceneOrder
-    .filter(n => scriptSceneLabels.has(n) || scenesMap.has(n))
-    .map(n => ({ number: n, label: scriptSceneLabels.get(n) ?? scenesMap.get(n)! }));
+    .filter(id => scriptSceneIds.has(id) || scenesMap.has(id))
+    .map((id, i) => ({
+      id, number: i + 1,
+      label: scriptSceneLabels.get(id) ?? scenesMap.get(id)!,
+      deleted: orphanIds.includes(id),
+    }));
   const totalDuration = shots.reduce((acc, s) => {
     const [m, sec] = (s.duration || '0:00').split(':').map(Number);
     return acc + (m || 0) * 60 + (sec || 0);
@@ -4736,24 +4757,24 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
           </thead>
           <tbody>
             {orderedScenes.flatMap((scene, sceneIdx) => {
-              const sceneShots = shots.filter(s => s.sceneNumber === scene.number);
-              let globalIdx = orderedScenes.slice(0, sceneIdx).reduce((a, sc) => a + shots.filter(s => s.sceneNumber === sc.number).length, 0);
-              const isSceneDragOver = dragOverScene === scene.number;
+              const sceneShots = shots.filter(s => s.sceneId === scene.id);
+              let globalIdx = orderedScenes.slice(0, sceneIdx).reduce((a, sc) => a + shots.filter(s => s.sceneId === sc.id).length, 0);
+              const isSceneDragOver = dragOverScene === scene.id;
               return [
-                /* Scene header — draggable */
-                <tr key={`hdr-${scene.number}`}
+                /* Scene header — draggable (only for locally-added scenes; see dropScene) */
+                <tr key={`hdr-${scene.id}`}
                   draggable
-                  onDragStart={e => { setDraggingScene(scene.number); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragStart={e => { setDraggingScene(scene.id); e.dataTransfer.effectAllowed = 'move'; }}
                   onDragOver={e => {
                     e.preventDefault();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setDragOverScene(scene.number);
+                    setDragOverScene(scene.id);
                     setDragOverSceneAfter(e.clientY > rect.top + rect.height / 2);
                   }}
                   onDragLeave={() => { setDragOverScene(null); }}
-                  onDrop={e => dropScene(e, scene.number)}
+                  onDrop={e => dropScene(e, scene.id)}
                   onDragEnd={() => { setDraggingScene(null); setDragOverScene(null); }}
-                  style={{ opacity: draggingScene === scene.number ? 0.4 : 1 }}
+                  style={{ opacity: draggingScene === scene.id ? 0.4 : 1 }}
                 >
                   <td colSpan={11} style={{
                     padding:'8px 10px 4px',
@@ -4765,6 +4786,9 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ color:'var(--border-2)', cursor:'grab', userSelect:'none', fontSize:13, lineHeight:1, flexShrink:0 }}>⠿</span>
                       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', fontWeight:700 }}>S{scene.number}</span>
+                      {scene.deleted && (
+                        <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--danger)', background:'var(--danger)18', borderRadius:4, padding:'2px 6px', textTransform:'uppercase', letterSpacing:'0.04em' }}>Scène supprimée</span>
+                      )}
                       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{scene.label}</span>
                       <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--border-2)', marginLeft:4 }}>{sceneShots.length} plan{sceneShots.length !== 1 ? 's' : ''}</span>
                     </div>
@@ -4798,8 +4822,8 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
                     >
                     <td style={{ padding:'4px 4px', textAlign:'center', cursor:'grab', color:'var(--border-2)', fontSize:13, lineHeight:1, userSelect:'none' }}>⠿</td>
                     <td style={{ padding:'8px 10px', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>{idx+1}</td>
-                    <td style={{ padding:'8px 6px', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>{shot.sceneNumber}</td>
-                    <td style={{ padding:'8px 10px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{scenesMap.get(shot.sceneNumber) ?? shot.sceneLabel}</td>
+                    <td style={{ padding:'8px 6px', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>{scene.number}</td>
+                    <td style={{ padding:'8px 10px', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{scenesMap.get(shot.sceneId) ?? shot.sceneLabel}</td>
                     <td style={{ padding:'8px 10px' }}>
                       {editingId === shot.id && editingField === 'description' ? (
                         <input autoFocus value={shot.description} onChange={e => updateShot(shot.id,'description',e.target.value)}
@@ -4846,9 +4870,9 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
                   );
                 }),
                 /* Inline add-shot row */
-                <tr key={`add-shot-${scene.number}`}>
+                <tr key={`add-shot-${scene.id}`}>
                   <td colSpan={11} style={{ padding:'0 0 2px' }}>
-                    <button onClick={() => addShot(scene.number)}
+                    <button onClick={() => addShot(scene.id)}
                       style={{ display:'flex', alignItems:'center', gap:6, width:'100%', padding:'6px 10px 6px 34px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}
                       onMouseEnter={e => (e.currentTarget.style.background='var(--surface-2)')}
                       onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
@@ -4894,38 +4918,45 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
 // ── Storyboard ─────────────────────────────────────────────────────────────────
 
 // Storyboard groups the shared `shots` array by scene for display — see
-// the `scenes` useMemo in StoryboardView below. This is a purely derived
-// view shape, never stored on its own.
-interface SBSceneView { number: number; label: string; shots: ShotRow[]; }
+// the `scenes` computation in StoryboardView below. This is a purely
+// derived view shape, never stored on its own.
+interface SBSceneView { id: string; number: number; label: string; deleted: boolean; shots: ShotRow[]; }
 
 const SB_ASPECT = 16 / 9;
 
 function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder }: {
   resource: Resource; scriptScenes: ScriptScene[];
   shots: ShotRow[]; setShots: React.Dispatch<React.SetStateAction<ShotRow[]>>;
-  sceneOrder: number[]; setSceneOrder: React.Dispatch<React.SetStateAction<number[]>>;
+  sceneOrder: string[]; setSceneOrder: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const { t, i18n } = useTranslation();
-  // Scenes that match a script scene by number stay live — a rename in the
+  // Scenes that match a script scene by id stay live — a rename in the
   // Script tab shows up here immediately instead of the label frozen at
   // whatever point a shot was added under that scene. Grouped from the
   // SAME shots array Shotlist reads and writes, so edits and reordering
-  // done in either tab show up in both.
-  const scriptSceneLabels = new Map(scriptScenes.map(s => [s.number, s.label]));
+  // done in either tab show up in both. A shot whose scene was deleted
+  // from the script surfaces in a clearly-marked bucket — see Shotlist's
+  // matching comment for why (never silently drop or reattach shots).
+  const scriptSceneIds = new Set(scriptScenes.map(s => s.id));
+  const scriptSceneLabels = new Map(scriptScenes.map(s => [s.id, s.label]));
+  const localIds = new Set(sceneOrder);
+  const orphanIds = [...new Set(shots.map(s => s.sceneId))].filter(id => !scriptSceneIds.has(id) && !localIds.has(id));
   // A new/renamed/deleted/reordered scene in the Script tab shows up here
   // automatically — script order always wins for scenes that exist in the
   // script; scenes added locally (no match in scriptScenes) are appended
   // after, in whatever order they were added/moved to via sceneOrder.
   const effectiveSceneOrder = [
-    ...scriptScenes.map(s => s.number),
-    ...sceneOrder.filter(n => !scriptSceneLabels.has(n)),
+    ...scriptScenes.map(s => s.id),
+    ...sceneOrder.filter(id => !scriptSceneIds.has(id)),
+    ...orphanIds,
   ];
   const scenes: SBSceneView[] = effectiveSceneOrder
-    .filter(num => scriptSceneLabels.has(num) || shots.some(s => s.sceneNumber === num))
-    .map(num => ({
-      number: num,
-      label: scriptSceneLabels.get(num) ?? shots.find(s => s.sceneNumber === num)?.sceneLabel ?? 'Scène',
-      shots: shots.filter(s => s.sceneNumber === num),
+    .filter(id => scriptSceneIds.has(id) || shots.some(s => s.sceneId === id))
+    .map((id, i) => ({
+      id, number: i + 1,
+      label: scriptSceneLabels.get(id) ?? shots.find(s => s.sceneId === id)?.sceneLabel ?? 'Scène',
+      deleted: orphanIds.includes(id),
+      shots: shots.filter(s => s.sceneId === id),
     }));
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
   const [showAIModal, setShowAIModal] = useState(false);
@@ -4940,7 +4971,7 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   const [isErasing, setIsErasing] = useState(false);
   const [addingScene, setAddingScene] = useState(false);
   const [newSceneLabel, setNewSceneLabel] = useState('');
-  const dragShotRef = useRef<{ sceneNumber: number; shotId: string } | null>(null);
+  const dragShotRef = useRef<{ sceneId: string; shotId: string } | null>(null);
   const [dragOverShot, setDragOverShot] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -4950,10 +4981,10 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
     setShots(prev => prev.map(s => s.id !== shotId ? s : { ...s, ...changes }));
   };
 
-  const addShot = (sceneNum: number) => {
-    const sceneLabel = shots.find(s => s.sceneNumber === sceneNum)?.sceneLabel ?? 'Scène';
+  const addShot = (sceneId: string) => {
+    const sceneLabel = shots.find(s => s.sceneId === sceneId)?.sceneLabel ?? 'Scène';
     const newShot: ShotRow = {
-      id: `sh${Date.now()}`, sceneNumber: sceneNum, sceneLabel,
+      id: `sh${Date.now()}`, sceneId, sceneLabel,
       description: '', shotType: 'MS', cameraMove: 'Statique', lens: '', duration: '', notes: '',
     };
     setShots(prev => [...prev, newShot]);
@@ -4962,21 +4993,23 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
 
   const addScene = () => {
     const label = newSceneLabel.trim() || 'Nouvelle scène';
-    const maxNum = Math.max(0, ...scriptScenes.map(s => s.number), ...sceneOrder);
-    const newNum = maxNum + 1;
+    const newId = `local-${Date.now()}`;
     const newShot: ShotRow = {
-      id: `sh${Date.now()}`, sceneNumber: newNum, sceneLabel: label,
+      id: `sh${Date.now()}`, sceneId: newId, sceneLabel: label,
       description: '', shotType: 'MS', cameraMove: 'Statique', lens: '', duration: '', notes: '',
     };
     setShots(prev => [...prev, newShot]);
-    setSceneOrder(prev => [...prev, newNum]);
+    setSceneOrder(prev => [...prev, newId]);
     setNewSceneLabel('');
     setAddingScene(false);
   };
 
-  const moveScene = (sceneNum: number, dir: -1 | 1) => {
+  // Only meaningful for locally-added scenes — a script scene's position
+  // is owned by the script (see effectiveSceneOrder above), so this is a
+  // no-op (idx === -1) for script-linked or deleted-scene entries.
+  const moveScene = (sceneId: string, dir: -1 | 1) => {
     setSceneOrder(prev => {
-      const idx = prev.indexOf(sceneNum);
+      const idx = prev.indexOf(sceneId);
       if (idx === -1) return prev;
       const newIdx = idx + dir;
       if (newIdx < 0 || newIdx >= prev.length) return prev;
@@ -5161,24 +5194,27 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
       {/* All scenes — vertical scroll */}
       <div style={{ flex:1, overflow:'auto', padding:'20px 24px' }}>
         {scenes.map((scene, sceneIdx) => (
-          <div key={scene.number} style={{ marginBottom:40 }}>
+          <div key={scene.id} style={{ marginBottom:40 }}>
             {/* Scene header */}
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, paddingBottom:10, borderBottom:'2px solid var(--border)' }}>
               <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--accent)', fontWeight:700 }}>S{scene.number}</span>
+              {scene.deleted && (
+                <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--danger)', background:'var(--danger)18', borderRadius:4, padding:'2px 6px', textTransform:'uppercase', letterSpacing:'0.04em' }}>Scène supprimée</span>
+              )}
               <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color: scene.label.startsWith('INT') ? '#7dd3fc' : '#86efac', background: scene.label.startsWith('INT') ? '#7dd3fc18' : '#86efac18', borderRadius:4, padding:'2px 7px' }}>
                 {scene.label.startsWith('INT') ? 'INT' : 'EXT'}
               </span>
               <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{scene.label}</span>
               <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{scene.shots.length} plan{scene.shots.length !== 1 ? 's' : ''}</span>
               <div style={{ display:'flex', gap:2 }}>
-                <button onClick={() => moveScene(scene.number, -1)} disabled={sceneIdx === 0}
+                <button onClick={() => moveScene(scene.id, -1)} disabled={sceneIdx === 0}
                   style={{ background:'transparent', border:'none', cursor: sceneIdx === 0 ? 'default' : 'pointer', color: sceneIdx === 0 ? 'var(--border-2)' : 'var(--text-3)', padding:'2px 5px', borderRadius:4, fontSize:11 }}
                   title={t('resourceDetail.screenplayView.moveSceneUp')}>↑</button>
-                <button onClick={() => moveScene(scene.number, 1)} disabled={sceneIdx === scenes.length - 1}
+                <button onClick={() => moveScene(scene.id, 1)} disabled={sceneIdx === scenes.length - 1}
                   style={{ background:'transparent', border:'none', cursor: sceneIdx === scenes.length - 1 ? 'default' : 'pointer', color: sceneIdx === scenes.length - 1 ? 'var(--border-2)' : 'var(--text-3)', padding:'2px 5px', borderRadius:4, fontSize:11 }}
                   title={t('resourceDetail.screenplayView.moveSceneDown')}>↓</button>
               </div>
-              <button onClick={() => addShot(scene.number)} style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'#000', fontWeight:700 }}>
+              <button onClick={() => addShot(scene.id)} style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'#000', fontWeight:700 }}>
                 <SFIcon name="plus" size={11} />Plan
               </button>
             </div>
@@ -5188,12 +5224,12 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
               {scene.shots.map((shot, idx) => (
                 <div key={shot.id}
                   draggable
-                  onDragStart={() => { dragShotRef.current = { sceneNumber: scene.number, shotId: shot.id }; }}
+                  onDragStart={() => { dragShotRef.current = { sceneId: scene.id, shotId: shot.id }; }}
                   onDragEnd={() => { dragShotRef.current = null; setDragOverShot(null); }}
                   onDragOver={e => { e.preventDefault(); setDragOverShot(shot.id); }}
                   onDrop={e => {
                     e.preventDefault();
-                    if (dragShotRef.current && dragShotRef.current.sceneNumber === scene.number) {
+                    if (dragShotRef.current && dragShotRef.current.sceneId === scene.id) {
                       reorderShot(dragShotRef.current.shotId, shot.id);
                     }
                     dragShotRef.current = null;
@@ -5275,7 +5311,7 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
                 </div>
               ))}
               {/* Add shot card */}
-              <div onClick={() => addShot(scene.number)}
+              <div onClick={() => addShot(scene.id)}
                 style={{ width:frameW, height:frameH + 68, border:'2px dashed var(--border)', borderRadius:12, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', color:'var(--text-3)', flexShrink:0, transition:'border-color .15s, color .15s' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--accent)'; (e.currentTarget as HTMLDivElement).style.color='var(--accent)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.color='var(--text-3)'; }}>
@@ -5449,7 +5485,7 @@ type ScreenplayTab = 'script' | 'shotlist' | 'storyboard';
 
 export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef, persistKey }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null>; persistKey?: string } & EditableProps) {
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
-  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[]; shots?: ShotRow[]; sceneOrder?: number[] }>(persistKey) : undefined;
+  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[]; shots?: ShotRow[]; sceneOrder?: string[] }>(persistKey) : undefined;
   const [versions, setVersions] = useState<ScriptVersion[]>(() => {
     if (_scPersisted?.versions) return _scPersisted.versions;
     if (seedElements) return [{ id: 'v1', label: 'Brouillon', date: new Date().toLocaleDateString('fr-FR'), elements: seedElements }];
@@ -5462,8 +5498,11 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
   });
 
   // Shared between Shotlist and Storyboard — see ShotRow/SBSceneView above.
+  // `sceneOrder` only ever holds ids for scenes added locally (in Shotlist
+  // or Storyboard, not present in the script) — script scenes are always
+  // derived live from scriptScenes, never stored here.
   const [shots, setShots] = useState<ShotRow[]>(() => _scPersisted?.shots ?? MOCK_SHOTLIST);
-  const [sceneOrder, setSceneOrder] = useState<number[]>(() => _scPersisted?.sceneOrder ?? [...new Set(MOCK_SHOTLIST.map(s => s.sceneNumber))]);
+  const [sceneOrder, setSceneOrder] = useState<string[]>(() => _scPersisted?.sceneOrder ?? []);
 
   // Lifted from ScriptView
   const [panelTab, setPanelTab] = useState<'scenes' | 'analyse' | 'props'>('scenes');
