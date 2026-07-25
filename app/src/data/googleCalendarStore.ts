@@ -40,15 +40,23 @@ export async function disconnectGoogleCalendar(): Promise<void> {
   if (!resp.ok) throw new Error('Failed to disconnect Google Calendar');
 }
 
+export interface ProjectGoogleCalendarContact {
+  id: string;
+  name: string;
+  email: string;
+  shared: boolean;
+}
+
 export interface ProjectGoogleCalendarStatus {
   active: boolean;
+  contacts: ProjectGoogleCalendarContact[];
 }
 
 export async function getProjectGoogleCalendarStatus(projectId: string): Promise<ProjectGoogleCalendarStatus> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
   const resp = await fetch(`/api/google-calendar-project?action=status&studioId=${studioId}&projectId=${projectId}`, { headers });
-  if (!resp.ok) return { active: false };
+  if (!resp.ok) return { active: false, contacts: [] };
   return resp.json();
 }
 

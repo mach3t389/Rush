@@ -10,7 +10,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading } from '../data/eventStore';
-import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar } from '../data/googleCalendarStore';
+import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { MeetingField } from './CalendrierGlobal';
@@ -441,7 +441,19 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
   const { t } = useTranslation();
   const [orgConnected, setOrgConnected] = useState<boolean | null>(null);
   const [active, setActive] = useState<boolean | null>(null);
+  const [contacts, setContacts] = useState<ProjectGoogleCalendarContact[]>([]);
   const [busy, setBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+
+  const loadStatus = async () => {
+    const status = await getGoogleCalendarStatus();
+    setOrgConnected(status.connected);
+    if (status.connected) {
+      const projectStatus = await getProjectGoogleCalendarStatus(projectId);
+      setActive(projectStatus.active);
+      setContacts(projectStatus.contacts);
+    }
+  };
 
   useEffect(() => {
     if (isDemoSession()) return;
@@ -452,11 +464,17 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
       setOrgConnected(status.connected);
       if (status.connected) {
         const projectStatus = await getProjectGoogleCalendarStatus(projectId);
-        if (!cancelled) setActive(projectStatus.active);
+        if (!cancelled) { setActive(projectStatus.active); setContacts(projectStatus.contacts); }
       }
     })();
     return () => { cancelled = true; };
   }, [projectId]);
+
+  useEffect(() => {
+    if (!confirmation) return;
+    const timer = setTimeout(() => setConfirmation(null), 5000);
+    return () => clearTimeout(timer);
+  }, [confirmation]);
 
   if (isDemoSession() || orgConnected !== true || active === null) return null;
 
@@ -464,7 +482,12 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
     setBusy(true);
     try {
       await activateProjectGoogleCalendar(projectId);
-      setActive(true);
+      await loadStatus();
+      setConfirmation(
+        contacts.length > 0
+          ? t('calendar.gcalProjectActivatedConfirmation', { client: clientName })
+          : t('calendar.gcalProjectActivatedNoContacts')
+      );
     } catch (err) {
       console.error('Failed to activate project Google Calendar', err);
     } finally {
@@ -477,6 +500,8 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
     try {
       await deactivateProjectGoogleCalendar(projectId);
       setActive(false);
+      setContacts([]);
+      setConfirmation(t('calendar.gcalProjectDeactivatedConfirmation'));
     } catch (err) {
       console.error('Failed to deactivate project Google Calendar', err);
     } finally {
@@ -485,13 +510,43 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
   };
 
   return (
-    <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+    <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <SFIcon name="calendar" size={13} color={active ? 'var(--ok)' : 'var(--text-3)'} />
-        <span style={{ fontSize:12, color:'var(--text-2)', flex:1 }}>
-          {active ? t('calendar.gcalProjectShared', { client: clientName }) : t('calendar.gcalProjectSharePrompt', { client: clientName })}
+        <span style={{ fontSize:12, color:'var(--text-2)', flex:1, fontWeight:600 }}>
+          {t('calendar.gcalProjectCardTitle')}
         </span>
       </div>
+
+      {confirmation && (
+        <div style={{ display:'flex', alignItems:'flex-start', gap:6, background:'rgba(52,201,138,0.1)', border:'1px solid rgba(52,201,138,0.3)', borderRadius:8, padding:'6px 8px' }}>
+          <SFIcon name="check" size={12} color="var(--ok)" />
+          <span style={{ fontSize:11, color:'var(--ok)' }}>{confirmation}</span>
+        </div>
+      )}
+
+      {active && contacts.length > 0 && (
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          {contacts.map(c => (
+            <div key={c.id} style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <SFIcon name={c.shared ? 'check-circle' : 'clock'} size={11} color={c.shared ? 'var(--ok)' : 'var(--text-3)'} />
+              <span style={{ fontSize:11, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
+              <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)' }}>
+                {c.shared ? t('calendar.gcalProjectContactShared') : t('calendar.gcalProjectContactPending')}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {active && contacts.length === 0 && (
+        <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectNoContacts')}</span>
+      )}
+
+      {!active && (
+        <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectSharePrompt', { client: clientName })}</span>
+      )}
+
       <button
         onClick={active ? handleDeactivate : handleActivate}
         disabled={busy}
@@ -638,6 +693,11 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
           <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
         )}
 
+        {!embedded && projectId && (() => {
+          const project = getProjects().find(p => p.id === projectId);
+          return project?.clientId ? <GoogleProjectCalendarCard projectId={projectId} clientName={project.clientName} /> : null;
+        })()}
+
         {/* Project filter — embedded client view only, with 2+ projects */}
         {embedded && activeProjectIds.length > 1 && (()=>{
           const clientProjects = activeProjectIds
@@ -669,11 +729,6 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
               </div>
             </div>
           );
-        })()}
-
-        {!embedded && projectId && (() => {
-          const project = getProjects().find(p => p.id === projectId);
-          return project?.clientId ? <GoogleProjectCalendarCard projectId={projectId} clientName={project.clientName} /> : null;
         })()}
 
         {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer */}

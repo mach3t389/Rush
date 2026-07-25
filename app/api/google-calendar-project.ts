@@ -75,12 +75,33 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: row } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('active')
+    .select('active, shared_contact_ids')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
 
-  res.status(200).json({ active: !!row?.active });
+  const { data: access } = await supabaseAdmin
+    .from('project_client_access')
+    .select('client_contact_id')
+    .eq('project_id', projectId);
+  const contactIds = (access ?? []).map(r => r.client_contact_id as string);
+
+  let contacts: { id: string; name: string; email: string; shared: boolean }[] = [];
+  if (contactIds.length > 0) {
+    const sharedIds = new Set((row?.shared_contact_ids ?? []) as string[]);
+    const { data: contactRows } = await supabaseAdmin
+      .from('client_contacts')
+      .select('id, name, email')
+      .in('id', contactIds);
+    contacts = (contactRows ?? []).map(c => ({
+      id: c.id as string,
+      name: c.name as string,
+      email: c.email as string,
+      shared: sharedIds.has(c.id as string),
+    }));
+  }
+
+  res.status(200).json({ active: !!row?.active, contacts });
 }
 
 async function activateHandler(req: VercelRequest, res: VercelResponse) {
