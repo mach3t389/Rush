@@ -1792,6 +1792,13 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       }
     : setPersistedNav;
   const [viewMode, setViewMode] = useSyncedViewState<ViewMode>('sf_view_fichiers', 'list');
+  useEffect(() => {
+    // Safety net: 'sf_view_fichiers' is a global localStorage key shared by every FileBrowser
+    // instance in the app. If a studio user previously switched to Stockage view anywhere,
+    // a read-only session (e.g. client Fichiers tab) could mount directly into the unguarded
+    // StorageView (trash/restore/delete-version actions) before the toggle row even renders.
+    if (readOnly && viewMode === 'stockage') setViewMode('list');
+  }, [readOnly, viewMode, setViewMode]);
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortOpen, setSortOpen] = useState(false);
   const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
@@ -3317,7 +3324,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
-          {([['list', 'list'], ['grid', 'layout-grid'], ['columns', 'columns-3'], ['stockage', 'chart-bar']] as [ViewMode, string][]).map(([m, icon]) => (
+          {([['list', 'list'], ['grid', 'layout-grid'], ['columns', 'columns-3'], ...(readOnly ? [] : [['stockage', 'chart-bar']])] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
               border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
