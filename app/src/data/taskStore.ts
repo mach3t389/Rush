@@ -394,14 +394,29 @@ export function convertSubtasksToTasks(
       ? { ...t, subtasks: (t.subtasks ?? []).filter(x => !idSet.has(x.id)) }
       : t),
   }));
-  setSections(projectId, withoutSubtasks);
 
   const promoted = chosen.map(s => promoteSubtask(s, parent));
   const toProjectId = destination?.projectId ?? projectId;
   const toSectionLabel = destination?.sectionLabel
     ?? withoutSubtasks.find(s => s.tasks.some(t => t.id === parentTaskId))?.label;
   if (!toSectionLabel) return;
-  insertIntoSection(toProjectId, toSectionLabel, promoted);
+
+  if (toProjectId === projectId) {
+    // Same project: fold both the removal and the insertion into ONE
+    // setSections() call. Real (Supabase) sessions persist writes
+    // asynchronously — a second setSections(projectId, ...) right after the
+    // first would read back the pre-write cache via getSections() (see
+    // insertIntoSection below) and clobber the removal with stale data,
+    // leaving the subtask duplicated as both a subtask and a task.
+    const idx = withoutSubtasks.findIndex(s => s.label === toSectionLabel);
+    const combined = idx >= 0
+      ? withoutSubtasks.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, ...promoted] } : s)
+      : [...withoutSubtasks, { label: toSectionLabel, tasks: promoted }];
+    setSections(projectId, combined);
+  } else {
+    setSections(projectId, withoutSubtasks);
+    insertIntoSection(toProjectId, toSectionLabel, promoted);
+  }
 }
 
 // Same as convertSubtasksToTasks, but the chosen subtasks stay on the
