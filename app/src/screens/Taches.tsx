@@ -1778,7 +1778,10 @@ export function Taches() {
                 setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
               }
             }}
-            onConvertSubtasks={isAssignedTask(selectedTask.id) ? undefined : subtaskIds => convertMySubtasksToTasks(selectedTask.id, subtaskIds)}
+            onConvertSubtasks={isAssignedTask(selectedTask.id) ? undefined : subtaskIds => {
+              convertMySubtasksToTasks(selectedTask.id, subtaskIds);
+              setSelectedTask(prev => prev ? { ...prev, subtasks: (prev.subtasks ?? []).filter(s => !subtaskIds.includes(s.id)) } : prev);
+            }}
           />
         )}
       </div>

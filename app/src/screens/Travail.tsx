@@ -2390,7 +2390,10 @@ export function Travail() {
               moveTask(projectId!, selectedTask.id, newProjectId, newSectionLabel);
               setSelectedTask(null);
             }}
-            onConvertSubtasks={subtaskIds => convertSubtasksToTasks(projectId!, selectedTask.id, subtaskIds)}
+            onConvertSubtasks={subtaskIds => {
+              convertSubtasksToTasks(projectId!, selectedTask.id, subtaskIds);
+              setSelectedTask(prev => prev ? { ...prev, subtasks: (prev.subtasks ?? []).filter(s => !subtaskIds.includes(s.id)) } : prev);
+            }}
             onMoveSubtasksAsTask={subtaskIds => setSubtaskDest({ mode: 'move', parentTaskId: selectedTask.id, subtaskIds })}
             onCopySubtasksAsTask={subtaskIds => setSubtaskDest({ mode: 'copy', parentTaskId: selectedTask.id, subtaskIds })}
           />
@@ -2477,6 +2480,9 @@ export function Travail() {
           onMove={(toProjectId, toSectionLabel) => {
             if (subtaskDest.mode === 'move') {
               convertSubtasksToTasks(project.id, subtaskDest.parentTaskId, subtaskDest.subtaskIds, { projectId: toProjectId, sectionLabel: toSectionLabel });
+              setSelectedTask(prev => prev && prev.id === subtaskDest.parentTaskId
+                ? { ...prev, subtasks: (prev.subtasks ?? []).filter(s => !subtaskDest.subtaskIds.includes(s.id)) }
+                : prev);
             } else {
               copySubtasksAsTasks(project.id, subtaskDest.parentTaskId, subtaskDest.subtaskIds, toProjectId, toSectionLabel);
             }

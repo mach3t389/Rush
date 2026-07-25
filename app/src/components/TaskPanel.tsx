@@ -435,6 +435,14 @@ export function TaskPanel({
       assignee: task.assignee ?? null, dueDate: '', comments: [] as CommentObj[],
     })) ?? []
   );
+  // Subtasks removed elsewhere (converted to a task, moved out) leave via the
+  // `task` prop, not through this component's own handlers — prune anything
+  // no longer present upstream so the panel doesn't keep showing a promoted
+  // subtask alongside its new standalone task.
+  useEffect(() => {
+    const liveIds = new Set((task.subtasks ?? []).map(s => s.id));
+    setLocalSubtasks(prev => prev.every(s => liveIds.has(s.id)) ? prev : prev.filter(s => liveIds.has(s.id)));
+  }, [task.subtasks]);
   const [hideCompletedSubs, setHideCompletedSubs] = useState(false);
   const [selectedSubIds, setSelectedSubIds] = useState<Set<string>>(new Set());
   const [subCtxPos, setSubCtxPos] = useState<{ x: number; y: number } | null>(null);
