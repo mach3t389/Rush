@@ -78,3 +78,101 @@ export async function getMyClientProjectIds(): Promise<string[]> {
   if (error) { console.error('getMyClientProjectIds failed', error); return []; }
   return (data ?? []).map(row => row.id as string);
 }
+
+// ── Client dashboard read models ────────────────────────────────────────────
+// These mirror the studio-side Project/Task/CalendarEvent shapes (see
+// projectStore.ts, taskStore.ts, eventStore.ts) but are trimmed to only what
+// the client portal needs, and rely on the same client-access RLS policies
+// as getMyClientProjectIds above (no new grants needed).
+
+export interface ClientProject {
+  id: string;
+  name: string;
+  clientColor: string;
+  progress: number;
+  status: string;
+  statusLabel: string;
+  phase: string;
+  phaseLabel: string;
+  deliveryDate: string;
+}
+
+export async function getMyClientProjects(): Promise<ClientProject[]> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, name, client_color, progress, status, status_label, phase, phase_label, delivery_date');
+  if (error) { console.error('getMyClientProjects failed', error); return []; }
+  return (data ?? []).map(row => ({
+    id: row.id,
+    name: row.name,
+    clientColor: row.client_color,
+    progress: row.progress,
+    status: row.status,
+    statusLabel: row.status_label,
+    phase: row.phase,
+    phaseLabel: row.phase_label,
+    deliveryDate: row.delivery_date,
+  }));
+}
+
+export interface ClientDeliverable {
+  id: string;
+  title: string;
+  deliverable: boolean;
+  sharedWithClient?: boolean;
+  dueDate?: string;
+  status?: string;
+}
+
+// tasks.data is a jsonb column storing the full serialized Task object (see
+// TaskRow in taskStore.ts) — no join against sections is needed for a flat
+// deliverables list, and this relies on the tasks_select_client_access RLS
+// policy already granted in Step B.
+export async function getMyClientDeliverables(projectId: string): Promise<ClientDeliverable[]> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('data')
+    .eq('project_id', projectId);
+  if (error) { console.error('getMyClientDeliverables failed', error); return []; }
+  return (data ?? [])
+    .map(row => row.data as ClientDeliverable)
+    .filter(t => t.deliverable && t.sharedWithClient !== false);
+}
+
+export interface ClientCalEvent {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  allDay: boolean;
+  eventTypeColor: string;
+  projectId: string;
+}
+
+// Real `events` columns are `start`/`end`/`all_day`/`event_type_id`
+// (confirmed against eventStore.ts's EventRow/toEvent — the brief's
+// placeholders `start_date`/`end_date`/`event_type_color` do not exist).
+// There is no color column on `events` itself: color lives on
+// `event_types.color` (see eventTypeStore.ts's EventTypeRow), so it must be
+// resolved via a join through event_type_id.
+export async function getMyClientEvents(projectIds: string[]): Promise<ClientCalEvent[]> {
+  if (projectIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, title, start, end, all_day, project_id, event_types(color)')
+    .in('project_id', projectIds);
+  if (error) { console.error('getMyClientEvents failed', error); return []; }
+  return (data ?? []).map(row => {
+    const eventType = row.event_types as unknown as { color?: string } | { color?: string }[] | null;
+    const color = Array.isArray(eventType) ? eventType[0]?.color : eventType?.color;
+    return {
+      id: row.id,
+      title: row.title,
+      startDate: row.start,
+      endDate: row.end,
+      allDay: row.all_day ?? false,
+      eventTypeColor: color ?? '#888',
+      projectId: row.project_id,
+    };
+  });
+}
