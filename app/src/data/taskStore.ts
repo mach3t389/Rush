@@ -251,8 +251,23 @@ export function moveTask(fromProjectId: string, taskId: string, toProjectId: str
     return { ...s, tasks: s.tasks.filter(t => t.id !== taskId) };
   });
   if (!movedTask) return;
-  setSections(fromProjectId, fromSections);
 
+  // Same project: fold into ONE write. Real (Supabase) sessions persist
+  // asynchronously — a second setSections(fromProjectId, ...) right after
+  // the first would read back the pre-write cache via getSections() and
+  // clobber the removal with stale data, which for setSections' full
+  // delete-then-recreate write means losing every other task in the
+  // project too, not just duplicating this one.
+  if (toProjectId === fromProjectId) {
+    const idx = fromSections.findIndex(s => s.label === toSectionLabel);
+    const combined = idx >= 0
+      ? fromSections.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, movedTask!] } : s)
+      : [...fromSections, { label: toSectionLabel, tasks: [movedTask!] }];
+    setSections(fromProjectId, combined);
+    return;
+  }
+
+  setSections(fromProjectId, fromSections);
   const toSections = getSections(toProjectId);
   const idx = toSections.findIndex(s => s.label === toSectionLabel);
   let nextTo: SectionData[];
@@ -265,6 +280,10 @@ export function moveTask(fromProjectId: string, taskId: string, toProjectId: str
 }
 
 export function moveSection(fromProjectId: string, sectionLabel: string, toProjectId: string): void {
+  // Moving a section into the project it's already in is a no-op (and,
+  // via the two-write remove-then-insert below, would hit the same
+  // stale-read race described in moveTask above) — nothing to do.
+  if (toProjectId === fromProjectId) return;
   const fromSections = getSections(fromProjectId);
   const section = fromSections.find(s => s.label === sectionLabel);
   if (!section) return;
@@ -315,6 +334,19 @@ export function moveTasks(fromProjectId: string, taskIds: string[], toProjectId:
     s.tasks.forEach(t => { if (idSet.has(t.id)) movedTasks.push(t); else kept.push(t); });
     return { ...s, tasks: kept };
   });
+
+  // Same project: fold into ONE write — see moveTask above for why a
+  // second setSections() to the same project right after the first would
+  // clobber it with a stale pre-write snapshot on real (Supabase) sessions.
+  if (toProjectId === fromProjectId) {
+    const idx = fromSections.findIndex(s => s.label === toSectionLabel);
+    const combined = idx >= 0
+      ? fromSections.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, ...movedTasks] } : s)
+      : [...fromSections, { label: toSectionLabel, tasks: movedTasks }];
+    setSections(fromProjectId, combined);
+    return;
+  }
+
   setSections(fromProjectId, fromSections);
   const toSections = getSections(toProjectId);
   const idx = toSections.findIndex(s => s.label === toSectionLabel);
