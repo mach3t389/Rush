@@ -1291,36 +1291,6 @@ export function TaskPanel({
               <SFIcon name="plus" size={12} />{t('taskPanel.addSubtask')}
             </button>
 
-            {/* Barre d'actions groupées — plusieurs sous-tâches sélectionnées */}
-            {subtaskActionsEnabled && selectedSubIds.size > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, padding: '6px 10px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('taskPanel.selectedSubtasksCount', { count: selectedSubIds.size })}</span>
-                <button onClick={() => { onConvertSubtasks?.([...selectedSubIds]); setSelectedSubIds(new Set()); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
-                  <SFIcon name="git-branch" size={11} />{t('taskPanel.convertSubtaskToTask', { count: selectedSubIds.size })}
-                </button>
-                {onMoveSubtasksAsTask && (
-                  <button onClick={() => { onMoveSubtasksAsTask([...selectedSubIds]); setSelectedSubIds(new Set()); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
-                    <SFIcon name="move-right" size={11} />{t('board.moveTo')}
-                  </button>
-                )}
-                {onCopySubtasksAsTask && (
-                  <button onClick={() => { onCopySubtasksAsTask([...selectedSubIds]); setSelectedSubIds(new Set()); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
-                    <SFIcon name="copy" size={11} />{t('taskPanel.copyTo')}
-                  </button>
-                )}
-                <button onClick={() => deleteSubtasks([...selectedSubIds])}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--danger)', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
-                  <SFIcon name="trash-2" size={11} />{t('tasks.delete')}
-                </button>
-                <button onClick={() => setSelectedSubIds(new Set())} style={{ display: 'flex', padding: 4, borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', marginLeft: 'auto' }}>
-                  <SFIcon name="x" size={13} />
-                </button>
-              </div>
-            )}
-
             {subCtxPos && (
               <SubtaskContextMenu
                 pos={subCtxPos}

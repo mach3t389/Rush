@@ -899,8 +899,6 @@
     "convertSubtaskToTask_one": "Convert to task",
     "convertSubtaskToTask_other": "Convert to {{count}} tasks",
     "copyTo": "Copy to...",
-    "selectedSubtasksCount_one": "{{count}} subtask",
-    "selectedSubtasksCount_other": "{{count}} subtasks",
     "assignedTo": "Assigned to",
     "section": "Section",
     "noSection": "No section",
