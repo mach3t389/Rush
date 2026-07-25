@@ -437,13 +437,14 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   );
 }
 
-function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: string; clientName: string }) {
+function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: string; clientName: string }) {
   const { t } = useTranslation();
   const [orgConnected, setOrgConnected] = useState<boolean | null>(null);
   const [active, setActive] = useState<boolean | null>(null);
   const [contacts, setContacts] = useState<ProjectGoogleCalendarContact[]>([]);
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const loadStatus = async () => {
     const status = await getGoogleCalendarStatus();
@@ -510,50 +511,65 @@ function GoogleProjectCalendarCard({ projectId, clientName }: { projectId: strin
   };
 
   return (
-    <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <SFIcon name="calendar" size={13} color={active ? 'var(--ok)' : 'var(--text-3)'} />
-        <span style={{ fontSize:12, color:'var(--text-2)', flex:1, fontWeight:600 }}>
-          {t('calendar.gcalProjectCardTitle')}
-        </span>
-      </div>
+    <div style={{ position:'relative' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        title={t('calendar.gcalProjectCardTitle')}
+        style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background: active ? 'rgba(52,201,138,0.1)' : 'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', boxSizing:'border-box' }}
+      >
+        <SFIcon name="calendar" size={15} color={active ? 'var(--ok)' : 'var(--text-3)'} />
+      </button>
 
-      {confirmation && (
-        <div style={{ display:'flex', alignItems:'flex-start', gap:6, background:'rgba(52,201,138,0.1)', border:'1px solid rgba(52,201,138,0.3)', borderRadius:8, padding:'6px 8px' }}>
-          <SFIcon name="check" size={12} color="var(--ok)" />
-          <span style={{ fontSize:11, color:'var(--ok)' }}>{confirmation}</span>
-        </div>
-      )}
-
-      {active && contacts.length > 0 && (
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          {contacts.map(c => (
-            <div key={c.id} style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <SFIcon name={c.shared ? 'check-circle' : 'clock'} size={11} color={c.shared ? 'var(--ok)' : 'var(--text-3)'} />
-              <span style={{ fontSize:11, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
-              <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)' }}>
-                {c.shared ? t('calendar.gcalProjectContactShared') : t('calendar.gcalProjectContactPending')}
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:90 }} />
+          <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:100, width:260, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:10, padding:12, boxShadow:'0 8px 24px rgba(0,0,0,0.5)', display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <SFIcon name="calendar" size={13} color={active ? 'var(--ok)' : 'var(--text-3)'} />
+              <span style={{ fontSize:12, color:'var(--text-2)', flex:1, fontWeight:600 }}>
+                {t('calendar.gcalProjectCardTitle')}
               </span>
             </div>
-          ))}
-        </div>
-      )}
 
-      {active && contacts.length === 0 && (
-        <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectNoContacts')}</span>
-      )}
+            {confirmation && (
+              <div style={{ display:'flex', alignItems:'flex-start', gap:6, background:'rgba(52,201,138,0.1)', border:'1px solid rgba(52,201,138,0.3)', borderRadius:8, padding:'6px 8px' }}>
+                <SFIcon name="check" size={12} color="var(--ok)" />
+                <span style={{ fontSize:11, color:'var(--ok)' }}>{confirmation}</span>
+              </div>
+            )}
 
-      {!active && (
-        <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectSharePrompt', { client: clientName })}</span>
-      )}
+            {active && contacts.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                {contacts.map(c => (
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <SFIcon name={c.shared ? 'check-circle' : 'clock'} size={11} color={c.shared ? 'var(--ok)' : 'var(--text-3)'} />
+                    <span style={{ fontSize:11, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
+                    <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)' }}>
+                      {c.shared ? t('calendar.gcalProjectContactShared') : t('calendar.gcalProjectContactPending')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
-      <button
-        onClick={active ? handleDeactivate : handleActivate}
-        disabled={busy}
-        style={{ alignSelf:'flex-start', padding:'6px 12px', borderRadius:8, border: active ? '1px solid var(--danger)' : '1px solid var(--border)', background:'transparent', color: active ? 'var(--danger)' : 'var(--text)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
-      >
-        {busy ? '…' : active ? t('calendar.gcalProjectStopSharing') : t('calendar.gcalProjectShareAction')}
-      </button>
+            {active && contacts.length === 0 && (
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectNoContacts')}</span>
+            )}
+
+            {!active && (
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectSharePrompt', { client: clientName })}</span>
+            )}
+
+            <button
+              onClick={active ? handleDeactivate : handleActivate}
+              disabled={busy}
+              style={{ alignSelf:'flex-start', padding:'6px 12px', borderRadius:8, border: active ? '1px solid var(--danger)' : '1px solid var(--border)', background:'transparent', color: active ? 'var(--danger)' : 'var(--text)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
+            >
+              {busy ? '…' : active ? t('calendar.gcalProjectStopSharing') : t('calendar.gcalProjectShareAction')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -681,22 +697,21 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds }: { embedd
 
   return (
     <div style={{ height:'100%',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-      {!embedded && (
-        <ProjectHeaderBar projectId={projectId ?? ''}>
-          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
-        </ProjectHeaderBar>
-      )}
+      {!embedded && (() => {
+        const project = getProjects().find(p => p.id === projectId);
+        return (
+          <ProjectHeaderBar projectId={projectId ?? ''}>
+            {project?.clientId && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName} />}
+            <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
+          </ProjectHeaderBar>
+        );
+      })()}
       <div style={{ flex:1,display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
       <div style={{ width:220,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
         {embedded && (
           <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
         )}
-
-        {!embedded && projectId && (() => {
-          const project = getProjects().find(p => p.id === projectId);
-          return project?.clientId ? <GoogleProjectCalendarCard projectId={projectId} clientName={project.clientName} /> : null;
-        })()}
 
         {/* Project filter — embedded client view only, with 2+ projects */}
         {embedded && activeProjectIds.length > 1 && (()=>{
