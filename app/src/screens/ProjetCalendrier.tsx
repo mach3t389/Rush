@@ -753,16 +753,47 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
           );
         })()}
 
-        {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer */}
-        <EventTypeFilterList
-          eventTypes={eventTypes}
-          selectedEventTypes={selectedEventTypes}
-          onToggle={toggleEventType}
-          onClearFilter={()=>setSelectedEventTypes(new Set())}
-          titleLabel="Types d'événements"
-          showAllLabel="Tout afficher"
-          newTypeLabel="+ Nouveau"
-        />
+        {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer.
+            EventTypeFilterList est un éditeur CRUD complet sur la table event_types (partagée
+            par tout le studio) — jamais exposé à une session client en lecture seule. En
+            readOnly, on retombe sur une liste de filtre simple (clic = inclure/exclure),
+            sans crayon/+/glisser-déposer. */}
+        {readOnly ? (
+          <div>
+            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
+              <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Types d'événements</p>
+              {selectedEventTypes.size > 0 && (
+                <button onClick={()=>setSelectedEventTypes(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
+                  Tout afficher
+                </button>
+              )}
+            </div>
+            <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
+              {eventTypes.map(et=>{
+                const hasFilter = selectedEventTypes.size > 0;
+                const active = !hasFilter || selectedEventTypes.has(et.id);
+                return (
+                  <button key={et.id} onClick={()=>toggleEventType(et.id)}
+                    style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}>
+                    <div style={{ width:10,height:10,borderRadius:'50%',background:et.color,flexShrink:0 }} />
+                    <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{et.label}</span>
+                    {active&&hasFilter&&<SFIcon name="check" size={11} color="var(--text-3)" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <EventTypeFilterList
+            eventTypes={eventTypes}
+            selectedEventTypes={selectedEventTypes}
+            onToggle={toggleEventType}
+            onClearFilter={()=>setSelectedEventTypes(new Set())}
+            titleLabel="Types d'événements"
+            showAllLabel="Tout afficher"
+            newTypeLabel="+ Nouveau"
+          />
+        )}
 
         {/* Upcoming events for this project */}
         <div>
@@ -845,21 +876,21 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
             onDayClick={d=>{setCur(d);setView('day');}}
             onEventClick={setSelectedEvent}
             onCellClick={handleCellClick}
-            onEventChange={handleEventChange}
+            onEventChange={readOnly ? undefined : handleEventChange}
           />
         )}
         {view==='week' && (
           <TimeGridView
             days={getWeekDays(cur)} events={visibleEvents} tasks={taskChips}
             onSlotClick={handleSlotClick} onRangeSelect={handleRangeSelect} onEventClick={setSelectedEvent} onAllDayClick={handleAllDayClick}
-            onEventChange={handleEventChange} createModalOpen={showCreate}
+            onEventChange={readOnly ? undefined : handleEventChange} createModalOpen={showCreate}
           />
         )}
         {view==='day' && (
           <TimeGridView
             days={[cur]} events={visibleEvents} tasks={taskChips}
             onSlotClick={handleSlotClick} onRangeSelect={handleRangeSelect} onEventClick={setSelectedEvent} onAllDayClick={handleAllDayClick}
-            onEventChange={handleEventChange} createModalOpen={showCreate}
+            onEventChange={readOnly ? undefined : handleEventChange} createModalOpen={showCreate}
           />
         )}
       </div>
