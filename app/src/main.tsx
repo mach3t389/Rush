@@ -14,6 +14,10 @@ import { Projets } from './screens/Projets';
 import { Travail } from './screens/Travail';
 import { ClientInvitationAccept } from './screens/ClientInvitationAccept';
 import { ClientHome } from './screens/ClientHome';
+import { ClientProjectApercu } from './screens/client/ClientProjectApercu';
+import { ClientProjectFichiers } from './screens/client/ClientProjectFichiers';
+import { ClientProjectCalendrier } from './screens/client/ClientProjectCalendrier';
+import { ClientProjectFinances } from './screens/client/ClientProjectFinances';
 import { isClientSession } from './data/clientSessionStore';
 import { TeamInvitationAccept } from './screens/TeamInvitationAccept';
 import { Clients } from './screens/Clients';
@@ -86,6 +90,10 @@ const router = createBrowserRouter([
   // client (voir clientLoader ci-dessus). Écran minimal pour cette étape —
   // le vrai tableau de bord client est un chantier séparé.
   { path: '/mon-espace', element: <ClientHome />, loader: clientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/mon-espace/projets/:projectId', element: <ClientProjectApercu />, loader: clientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/mon-espace/projets/:projectId/fichiers', element: <ClientProjectFichiers />, loader: clientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/mon-espace/projets/:projectId/calendrier', element: <ClientProjectCalendrier />, loader: clientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/mon-espace/projets/:projectId/finances', element: <ClientProjectFinances />, loader: clientLoader, errorElement: <RouteErrorPage /> },
 
   {
     path: '/',

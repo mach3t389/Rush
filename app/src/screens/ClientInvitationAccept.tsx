@@ -5,7 +5,7 @@ import { SFIcon } from '../components/ui';
 import { getInvitationDetails, acceptClientAccount, type InvitationDetails } from '../data/invitationStore';
 import { registerClient, login, logout } from '../data/authStore';
 import { supabase } from '../data/supabaseClient';
-import { resetClientSessionCache } from '../data/clientSessionStore';
+import { resetClientSessionCache, getMyClientProjectIds } from '../data/clientSessionStore';
 
 function Shell({ children, logoUrl }: { children: React.ReactNode; logoUrl?: string | null }) {
   return (
@@ -89,7 +89,8 @@ export function ClientInvitationAccept() {
       // negative would otherwise persist and send this now-linked client
       // account back into the studio shell instead of /mon-espace.
       resetClientSessionCache();
-      navigate('/mon-espace', { replace: true });
+      const projectIds = await getMyClientProjectIds();
+      navigate(projectIds.length > 0 ? `/mon-espace/projets/${projectIds[0]}` : '/mon-espace', { replace: true });
     } catch {
       setError(t('clientInvitation.joinFailed'));
       setSubmitting(false);
@@ -139,7 +140,8 @@ export function ClientInvitationAccept() {
     // See the matching comment in acceptAsCurrentSession above — the
     // client-identity cache may already hold a stale "not a client" result.
     resetClientSessionCache();
-    navigate('/mon-espace', { replace: true });
+    const projectIds = await getMyClientProjectIds();
+    navigate(projectIds.length > 0 ? `/mon-espace/projets/${projectIds[0]}` : '/mon-espace', { replace: true });
   };
 
   if (loadState === 'loading' || sessionEmail === undefined) {
