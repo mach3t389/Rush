@@ -4596,10 +4596,6 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
-  const [showSyncModal, setShowSyncModal] = useState(false);
-  // Always-current instead of a manually-toggled flag: true once every
-  // script scene has at least one shot in this shotlist.
-  const synced = scriptScenes.every(s => sceneOrder.includes(s.number));
   const [addingScene, setAddingScene] = useState(false);
   const [newSceneLabel, setNewSceneLabel] = useState('');
   const [draggingScene, setDraggingScene] = useState<number | null>(null);
@@ -4629,7 +4625,7 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
 
   const addScene = () => {
     const label = newSceneLabel.trim() || 'Nouvelle scène';
-    const maxNum = Math.max(0, ...sceneOrder);
+    const maxNum = Math.max(0, ...scriptScenes.map(s => s.number), ...sceneOrder);
     const newNum = maxNum + 1;
     const newShot: ShotRow = {
       id: `sh${Date.now()}`, sceneNumber: newNum, sceneLabel: label,
@@ -4646,6 +4642,10 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
 
   const dropScene = (e: React.DragEvent, targetNum: number) => {
     if (draggingScene === null || draggingScene === targetNum) return;
+    // Scenes that come from the script are always ordered by the script
+    // itself (see effectiveSceneOrder above) — only reordering among
+    // locally-added scenes is meaningful here.
+    if (scriptSceneLabels.has(draggingScene) || scriptSceneLabels.has(targetNum)) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const after = e.clientY > rect.top + rect.height / 2;
     setSceneOrder(prev => {
@@ -4678,13 +4678,22 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
 
   const deleteShot = (id: string) => setShots(prev => prev.filter(s => s.id !== id));
 
-  // Scenes that came from the script stay live: a rename in the Script tab
-  // is reflected here on every render instead of the copy frozen at the
-  // time the shot was created. Shots for a scene added locally (no match
-  // in scriptScenes) keep their own stored label.
+  // Scenes that came from the script stay live: a rename, a newly added
+  // scene, a deletion, or a reorder in the Script tab all show up here on
+  // every render instead of needing a manual "Sync". Script order always
+  // wins for scenes that exist in the script; any scene added locally
+  // here (no match in scriptScenes) keeps its own stored label and is
+  // appended after the script's scenes, in whatever order it was added/
+  // dragged to via sceneOrder.
   const scriptSceneLabels = new Map(scriptScenes.map(s => [s.number, s.label]));
   const scenesMap = new Map(shots.map(s => [s.sceneNumber, scriptSceneLabels.get(s.sceneNumber) ?? s.sceneLabel]));
-  const orderedScenes = sceneOrder.filter(n => scenesMap.has(n)).map(n => ({ number: n, label: scenesMap.get(n)! }));
+  const effectiveSceneOrder = [
+    ...scriptScenes.map(s => s.number),
+    ...sceneOrder.filter(n => !scriptSceneLabels.has(n)),
+  ];
+  const orderedScenes = effectiveSceneOrder
+    .filter(n => scriptSceneLabels.has(n) || scenesMap.has(n))
+    .map(n => ({ number: n, label: scriptSceneLabels.get(n) ?? scenesMap.get(n)! }));
   const totalDuration = shots.reduce((acc, s) => {
     const [m, sec] = (s.duration || '0:00').split(':').map(Number);
     return acc + (m || 0) * 60 + (sec || 0);
@@ -4704,19 +4713,6 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <SFIcon name="list" size={14} color="var(--text-3)" />
           <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)' }}>{shots.length} plans · {orderedScenes.length} scènes · {fmtDuration}</span>
-        </div>
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8 }}>
-          {!synced && (
-            <button onClick={() => setShowSyncModal(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:8, border:'1px solid var(--border-2)', background:'var(--surface-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-2)' }}>
-              <SFIcon name="refresh-cw" size={12} />Sync script
-            </button>
-          )}
-          {synced && (
-            <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:8, background:'var(--ok)18', border:'1px solid var(--ok)44' }}>
-              <SFIcon name="check" size={11} color="var(--ok)" />
-              <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--ok)' }}>Synchronisé</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -4891,47 +4887,6 @@ function ShotlistView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrder
         </table>
       </div>
 
-      {/* Sync modal */}
-      {showSyncModal && (
-        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', alignItems:'center', justifyContent:'center' }}
-          onMouseDown={e => { if (e.target === e.currentTarget) setShowSyncModal(false); }}>
-          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }} />
-          <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:16, width:'min(480px,92vw)', padding:28 }}>
-            <h3 style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginBottom:6 }}>{t('resourceDetail.screenplayView.syncModalTitle')}</h3>
-            <p style={{ fontSize:13, color:'var(--text-2)', lineHeight:1.6, marginBottom:20 }}>
-              {t('resourceDetail.screenplayView.syncModalDescription')}
-            </p>
-            <div style={{ background:'var(--surface-2)', borderRadius:10, padding:'12px 14px', marginBottom:20, border:'1px solid var(--border)' }}>
-              <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginBottom:8 }}>{t('resourceDetail.screenplayView.detectedScenesHeader')}</p>
-              {scriptScenes.map(s => (
-                <div key={s.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderBottom:'1px solid var(--border)' }}>
-                  <SFIcon name="circle-check" size={12} color="var(--ok)" />
-                  <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text)' }}>S{s.number} — {s.label}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
-              <button onClick={() => setShowSyncModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>{t('resourceDetail.screenplayView.cancelButton')}</button>
-              <button onClick={() => {
-                // Renames of already-linked scenes propagate live (see
-                // scenesMap above) — this only needs to bring in scenes that
-                // exist in the script but have no shot yet in this shotlist.
-                const missing = scriptScenes.filter(s => !sceneOrder.includes(s.number));
-                if (missing.length) {
-                  const newShots: ShotRow[] = missing.map((s, i) => ({
-                    id: `sh${Date.now()}-${i}`, sceneNumber: s.number, sceneLabel: s.label,
-                    description: '', shotType: 'MS',
-                    cameraMove: 'Statique', lens: '', duration: '', notes: '',
-                  }));
-                  setShots(prev => [...prev, ...newShots]);
-                  setSceneOrder(prev => [...prev, ...missing.map(s => s.number)]);
-                }
-                setShowSyncModal(false);
-              }} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontSize:13, color:'#000', fontWeight:700 }}>{t('resourceDetail.screenplayView.syncButton')}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -4957,11 +4912,21 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   // SAME shots array Shotlist reads and writes, so edits and reordering
   // done in either tab show up in both.
   const scriptSceneLabels = new Map(scriptScenes.map(s => [s.number, s.label]));
-  const scenes: SBSceneView[] = sceneOrder.map(num => ({
-    number: num,
-    label: scriptSceneLabels.get(num) ?? shots.find(s => s.sceneNumber === num)?.sceneLabel ?? 'Scène',
-    shots: shots.filter(s => s.sceneNumber === num),
-  }));
+  // A new/renamed/deleted/reordered scene in the Script tab shows up here
+  // automatically — script order always wins for scenes that exist in the
+  // script; scenes added locally (no match in scriptScenes) are appended
+  // after, in whatever order they were added/moved to via sceneOrder.
+  const effectiveSceneOrder = [
+    ...scriptScenes.map(s => s.number),
+    ...sceneOrder.filter(n => !scriptSceneLabels.has(n)),
+  ];
+  const scenes: SBSceneView[] = effectiveSceneOrder
+    .filter(num => scriptSceneLabels.has(num) || shots.some(s => s.sceneNumber === num))
+    .map(num => ({
+      number: num,
+      label: scriptSceneLabels.get(num) ?? shots.find(s => s.sceneNumber === num)?.sceneLabel ?? 'Scène',
+      shots: shots.filter(s => s.sceneNumber === num),
+    }));
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiShotId, setAiShotId] = useState<string | null>(null);
@@ -4973,8 +4938,6 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   const [drawColor, setDrawColor] = useState('#ffffff');
   const [brushSize, setBrushSize] = useState(4);
   const [isErasing, setIsErasing] = useState(false);
-  // Always-current instead of a manually-toggled flag, matching Shotlist.
-  const synced = scriptScenes.every(s => sceneOrder.includes(s.number));
   const [addingScene, setAddingScene] = useState(false);
   const [newSceneLabel, setNewSceneLabel] = useState('');
   const dragShotRef = useRef<{ sceneNumber: number; shotId: string } | null>(null);
@@ -4999,7 +4962,7 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
 
   const addScene = () => {
     const label = newSceneLabel.trim() || 'Nouvelle scène';
-    const maxNum = Math.max(0, ...sceneOrder);
+    const maxNum = Math.max(0, ...scriptScenes.map(s => s.number), ...sceneOrder);
     const newNum = maxNum + 1;
     const newShot: ShotRow = {
       id: `sh${Date.now()}`, sceneNumber: newNum, sceneLabel: label,
@@ -5178,26 +5141,6 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
           {scenes.length} scènes · {scenes.reduce((a,s) => a + s.shots.length, 0)} plans
         </span>
         <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8 }}>
-          {!synced && (
-            <button onClick={() => {
-              const missing = scriptScenes.filter(s => !sceneOrder.includes(s.number));
-              if (!missing.length) return;
-              const newShots: ShotRow[] = missing.map((s, i) => ({
-                id: `sh${Date.now()}-${i}`, sceneNumber: s.number, sceneLabel: s.label,
-                description: '', shotType: 'MS', cameraMove: 'Statique', lens: '', duration: '', notes: '',
-              }));
-              setShots(prev => [...prev, ...newShots]);
-              setSceneOrder(prev => [...prev, ...missing.map(s => s.number)]);
-            }} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:8, border:'1px solid var(--border-2)', background:'var(--surface-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-2)' }}>
-              <SFIcon name="refresh-cw" size={12} />Sync script
-            </button>
-          )}
-          {synced && (
-            <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:8, background:'var(--ok)18', border:'1px solid var(--ok)44' }}>
-              <SFIcon name="check" size={11} color="var(--ok)" />
-              <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--ok)' }}>Synchronisé</span>
-            </div>
-          )}
           {addingScene ? (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <input autoFocus value={newSceneLabel} onChange={e => setNewSceneLabel(e.target.value)}

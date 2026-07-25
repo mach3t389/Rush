@@ -2203,11 +2203,6 @@
       "newSceneTitlePlaceholder": "Titre de la scène…",
       "createButton": "Créer",
       "addSceneButton": "Ajouter une scène",
-      "syncModalTitle": "Synchroniser avec le scénario",
-      "syncModalDescription": "Importer les scènes détectées dans ce storyboard",
-      "detectedScenesHeader": "Scènes détectées",
-      "cancelButton": "Annuler",
-      "syncButton": "Synchroniser",
       "moveSceneUp": "Monter la scène",
       "moveSceneDown": "Descendre la scène"
     },
