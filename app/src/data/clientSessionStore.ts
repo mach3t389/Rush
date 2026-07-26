@@ -177,6 +177,67 @@ export async function getMyClientEvents(projectIds: string[]): Promise<ClientCal
   });
 }
 
+export interface ClientFileFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  state: string | null;
+}
+
+// Only active (state null) folders are ever fetched — archived/trashed
+// folders are intentionally out of scope for the client portal, mirroring
+// the DB-level filter rather than a client-side hide.
+export async function getMyClientFolders(projectId: string): Promise<ClientFileFolder[]> {
+  const { data, error } = await supabase
+    .from('file_folders')
+    .select('id, name, parent_id, state')
+    .eq('project_id', projectId)
+    .is('state', null);
+  if (error) { console.error('getMyClientFolders failed', error); return []; }
+  return (data ?? []).map(row => ({
+    id: row.id,
+    name: row.name,
+    parentId: row.parent_id,
+    state: row.state,
+  }));
+}
+
+export interface ClientFileItem {
+  id: string;
+  name: string;
+  type: string;
+  ext: string;
+  size: number | null;
+  parentFolderId: string | null;
+  projectId: string;
+  resourceId: string | null;
+  resourceType: string | null;
+  state: string | null;
+  createdAt: string;
+}
+
+export async function getMyClientFiles(projectId: string): Promise<ClientFileItem[]> {
+  const { data, error } = await supabase
+    .from('file_items')
+    .select('id, name, type, ext, size, parent_folder_id, project_id, resource_id, resource_type, state, created_at')
+    .eq('project_id', projectId)
+    .is('state', null);
+  if (error) { console.error('getMyClientFiles failed', error); return []; }
+  return (data ?? []).map(row => ({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    ext: row.ext,
+    size: row.size,
+    parentFolderId: row.parent_folder_id,
+    projectId: row.project_id,
+    resourceId: row.resource_id,
+    resourceType: row.resource_type,
+    state: row.state,
+    createdAt: row.created_at,
+  }));
+}
+
 export interface ClientInvoice {
   id: string;
   number: string;

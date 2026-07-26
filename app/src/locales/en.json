@@ -2501,6 +2501,9 @@
     "financesEmpty": "No invoices for this project yet.",
     "financesAmount": "Amount",
     "financesStatus": "Status",
-    "financesDue": "Due date"
+    "financesDue": "Due date",
+    "filesEmpty": "No files for this project yet.",
+    "filesBack": "Back",
+    "filesResourceUnavailable": "Not yet available"
   }
 }

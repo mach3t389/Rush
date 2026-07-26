@@ -2514,6 +2514,9 @@
     "financesEmpty": "Aucune facture pour ce projet pour le moment.",
     "financesAmount": "Montant",
     "financesStatus": "Statut",
-    "financesDue": "Échéance"
+    "financesDue": "Échéance",
+    "filesEmpty": "Aucun fichier pour ce projet pour le moment.",
+    "filesBack": "Retour",
+    "filesResourceUnavailable": "Bientôt disponible"
   }
 }
