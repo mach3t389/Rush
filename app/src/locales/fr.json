@@ -21,6 +21,8 @@
     "forward": "Avancer",
     "pinnedProjects": "Projets épinglés",
     "pinnedClients": "Clients épinglés",
+    "collapseSection": "Replier",
+    "expandSection": "Déplier",
     "finances": "Finances",
     "viewStorage": "Voir l'utilisation du stockage"
   },

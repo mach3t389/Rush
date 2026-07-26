@@ -21,6 +21,8 @@
     "forward": "Forward",
     "pinnedProjects": "Pinned projects",
     "pinnedClients": "Pinned clients",
+    "collapseSection": "Collapse",
+    "expandSection": "Expand",
     "finances": "Finances",
     "viewStorage": "View storage usage"
   },

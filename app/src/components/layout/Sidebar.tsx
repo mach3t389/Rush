@@ -250,6 +250,14 @@ export function Sidebar() {
   useEffect(() => subscribeProjects(() => setPinnedIds(prev => [...prev])), []);
   useEffect(() => subscribeClients(() => setPinnedClientIds(prev => [...prev])), []);
 
+  // Collapse/expand the pinned lists themselves — shown by default, persisted
+  // like NavGroup's own open state so a user who collapses one doesn't have
+  // to redo it on every reload.
+  const [projectsSectionOpen, setProjectsSectionOpen] = useState(() => loadPersisted('sf_pinned_projects_open', true));
+  const [clientsSectionOpen, setClientsSectionOpen] = useState(() => loadPersisted('sf_pinned_clients_open', true));
+  const toggleProjectsSection = () => setProjectsSectionOpen(v => { const next = !v; savePersisted('sf_pinned_projects_open', next); return next; });
+  const toggleClientsSection = () => setClientsSectionOpen(v => { const next = !v; savePersisted('sf_pinned_clients_open', next); return next; });
+
   // Close color picker on outside click
   useEffect(() => {
     if (!colorPickerId) return;
@@ -459,13 +467,23 @@ export function Sidebar() {
         {/* Projets épinglés */}
         {!collapsed && pinnedProjects.length > 0 && (
           <div style={{ padding: '12px 8px 0' }}>
-            <p style={{
-              fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-              padding: '0 12px', marginBottom: 4,
-            }}>
-              {t('nav.pinnedProjects')}
-            </p>
+            <button
+              onClick={toggleProjectsSection}
+              title={projectsSectionOpen ? t('nav.collapseSection') : t('nav.expandSection')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, width: '100%',
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', marginBottom: 4,
+              }}
+            >
+              <span style={{
+                flex: 1, textAlign: 'left', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+              }}>
+                {t('nav.pinnedProjects')}
+              </span>
+              <SFIcon name={projectsSectionOpen ? 'chevron-down' : 'chevron-right'} size={11} color="var(--text-3)" />
+            </button>
+            {projectsSectionOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {pinnedProjects.map((p, idx) => {
                 const dotColor = getProjectColor(p.id, p.clientColor);
@@ -562,19 +580,30 @@ export function Sidebar() {
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
         {/* Clients épinglés */}
         {!collapsed && pinnedClients.length > 0 && (
           <div style={{ padding: '12px 8px 0' }}>
-            <p style={{
-              fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-              padding: '0 12px', marginBottom: 4,
-            }}>
-              {t('nav.pinnedClients')}
-            </p>
+            <button
+              onClick={toggleClientsSection}
+              title={clientsSectionOpen ? t('nav.collapseSection') : t('nav.expandSection')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, width: '100%',
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', marginBottom: 4,
+              }}
+            >
+              <span style={{
+                flex: 1, textAlign: 'left', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+              }}>
+                {t('nav.pinnedClients')}
+              </span>
+              <SFIcon name={clientsSectionOpen ? 'chevron-down' : 'chevron-right'} size={11} color="var(--text-3)" />
+            </button>
+            {clientsSectionOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {pinnedClients.map((c, idx) => (
                 <div
@@ -642,6 +671,7 @@ export function Sidebar() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
