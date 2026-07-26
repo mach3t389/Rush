@@ -348,27 +348,19 @@ function EquipeTab({ clientId }: { clientId: string }) {
     // Portal permissions (external contacts only)
     const [portalPerms, setPortalPerms] = useState<PortalPermissions>(() => m.portalPermissions);
     const photoRef = useRef<HTMLInputElement>(null);
-    const [showProjectPicker, setShowProjectPicker] = useState(false);
-
     const handleViewAsPortal = useCallback(() => {
-      const clientProjects = getProjects().filter(p => p.clientId === clientId);
-      if (clientProjects.length === 0) return;
-      if (clientProjects.length === 1) {
-        enterViewAs({
-          type: 'external',
-          id: m.id,
-          name: m.name,
-          initials: m.initials,
-          avatarColor: m.color,
-          role: m.role,
-          portalPermissions: m.portalPermissions,
-          clientId,
-        });
-        onClose();
-        navigate(`/portail/${clientProjects[0].id}`);
-      } else {
-        setShowProjectPicker(true);
-      }
+      enterViewAs({
+        type: 'external',
+        id: m.id,
+        name: m.name,
+        initials: m.initials,
+        avatarColor: m.color,
+        role: m.role,
+        portalPermissions: m.portalPermissions,
+        clientId,
+      });
+      onClose();
+      navigate(`/apercu-client/${clientId}`);
     }, [m, clientId, navigate, onClose]);
 
     const save = () => {
@@ -648,52 +640,6 @@ function EquipeTab({ clientId }: { clientId: string }) {
               </>
             )}
 
-          {/* Project picker for multi-project clients */}
-          {showProjectPicker && (() => {
-            const clientProjects = getProjects().filter(p => p.clientId === clientId);
-            return createPortal(
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
-                onClick={() => setShowProjectPicker(false)}>
-                <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: 24, width: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
-                  onClick={e => e.stopPropagation()}>
-                  <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{t('viewAs.pickProject')}</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 16 }}>{t('viewAs.pickProjectDesc')}</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {clientProjects.map(p => (
-                      <button key={p.id} onClick={() => {
-                        enterViewAs({
-                          type: 'external',
-                          id: m.id,
-                          name: m.name,
-                          initials: m.initials,
-                          avatarColor: m.color,
-                          role: m.role,
-                          portalPermissions: m.portalPermissions,
-                          clientId,
-                        });
-                        setShowProjectPicker(false);
-                        onClose();
-                        navigate(`/portail/${p.id}`);
-                      }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}>
-                        <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
-                        <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-                          <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{p.phaseLabel}</p>
-                        </div>
-                        <span style={{ marginLeft: 'auto', display: 'flex' }}><SFIcon name="arrow-right" size={13} color="var(--text-3)" /></span>
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={() => setShowProjectPicker(false)} style={{ marginTop: 16, width: '100%', padding: '9px', borderRadius: 9, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
-                    {t('client.cancel')}
-                  </button>
-                </div>
-              </div>,
-              document.body
-            );
-          })()}
           </div>
         </div>
       </div>
