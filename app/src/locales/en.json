@@ -315,7 +315,9 @@
     "viewLivrable": "View the deliverable in Overview",
     "statusPending": "Awaiting approval",
     "statusApproved": "Approved",
-    "statusCorrections": "Corrections requested"
+    "statusCorrections": "Corrections requested",
+    "relaunchApproval": "Resubmit for approval",
+    "relaunchedToast": "New approval request sent to the client"
   },
   "ai": {
     "placeholder": "Ask a question or give an instruction…",

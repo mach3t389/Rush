@@ -315,7 +315,9 @@
     "viewLivrable": "Voir le livrable dans Aperçu",
     "statusPending": "En attente d'approbation",
     "statusApproved": "Approuvé",
-    "statusCorrections": "Corrections demandées"
+    "statusCorrections": "Corrections demandées",
+    "relaunchApproval": "Relancer l'approbation",
+    "relaunchedToast": "Nouvelle demande d'approbation envoyée au client"
   },
   "ai": {
     "placeholder": "Pose une question ou donne une instruction…",

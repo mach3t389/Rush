@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFPill } from './ui';
 import { addNotif } from '../data/notificationStore';
 import { updateResource } from '../data/resourceStore';
-import { addDeliverable, findLinkedDeliverable, subscribeStore, isSectionsLoading } from '../data/taskStore';
+import { addDeliverable, findLinkedDeliverable, subscribeStore, isSectionsLoading, updateTask } from '../data/taskStore';
 import { getProjects } from '../data/projectStore';
 import { USERS } from '../data/mock';
 import { showToast } from '../data/toastStore';
@@ -95,13 +95,37 @@ export function RequestApprovalButton({
     setTimeout(() => setSent(false), 2500);
   };
 
+  const handleRelaunch = () => {
+    if (!projectId || !linked) return;
+    updateTask(projectId, linked.id, { status: 'review', correctionsRequested: false });
+    addNotif({
+      kind: 'approval',
+      actor: USERS.lea.name,
+      text: `a demandé l'approbation de « ${resource.title} »`,
+      timestamp: Date.now(),
+      resourceId: resource.id,
+      taskId: linked.id,
+      projectId,
+    });
+    showToast({ type: 'task', message: t('approval.relaunchedToast') });
+  };
+
   if (linked) {
-    const label = linked.correctionsRequested
-      ? t('approval.statusCorrections')
-      : linked.status === 'ok'
-      ? t('approval.statusApproved')
-      : t('approval.statusPending');
-    const pillStatus: Status = linked.correctionsRequested ? 'warn' : linked.status;
+    if (linked.correctionsRequested) {
+      return (
+        <SFButton
+          variant="primary"
+          size={size}
+          icon="refresh-cw"
+          onClick={handleRelaunch}
+          style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+        >
+          {t('approval.relaunchApproval')}
+        </SFButton>
+      );
+    }
+    const label = linked.status === 'ok' ? t('approval.statusApproved') : t('approval.statusPending');
+    const pillStatus: Status = linked.status;
     return (
       <button
         onClick={() => navigate(`/projets/${projectId}/overview`)}
