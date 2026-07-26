@@ -439,18 +439,15 @@ export function RevisionCommentSidebar({
       {/* Comment list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
         {filtered.length === 0 ? (
-          <div style={{ padding: '28px 0', textAlign: 'center' }}>
-            <SFIcon name="message-circle" size={26} color="var(--text-3)" />
-            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10, marginBottom: filter === 'all' ? 14 : 0 }}>
+          <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6 }}>
+            <SFIcon name="message-circle" size={22} color="var(--text-3)" />
+            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
               {filter === 'resolved' ? t('review.noResolvedComments') : filter === 'open' ? t('review.noOpenComments') : t('review.noCommentsForNow')}
             </p>
             {filter === 'all' && (
-              <div style={{ margin: '0 16px', padding: '10px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', textAlign: 'left' }}>
-                <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                  💬 {t('review.typeCommentBelow')}<br />
-                  {t('review.mentionHintBefore')} <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@{t('review.firstNameToken')}</span> {t('review.mentionHintAfter')}
-                </p>
-              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0', lineHeight: 1.5 }}>
+                {t('review.mentionHintBefore')} <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@{t('review.firstNameToken')}</span> {t('review.mentionHintAfter')}
+              </p>
             )}
           </div>
         ) : (
