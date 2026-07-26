@@ -12,6 +12,7 @@ import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
+import { getFormSubmissions, subscribeFormSubmissions, type FormSubmission } from '../data/formSubmissionsStore';
 import { markResourceRead } from '../data/notificationStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
@@ -3130,11 +3131,129 @@ const INIT_FORM_QUESTIONS: FormQuestion[] = [
   { id:'fq4', type:'long',     title:'Commentaires et suggestions', description:'Vos retours nous aident à nous améliorer', required:false, options:[], ratingMax:5, scaleMin:1, scaleMax:5, scaleMinLabel:'', scaleMaxLabel:'', placeholder:'Écrivez votre message ici…' },
 ];
 
-const MOCK_RESPONSES: FormResponse[] = [
-  { id:'fr1', submittedAt:'8 juin, 14:32',  responder:{ name:'Marie Laurent', email:'marie.laurent@gmail.com',  initials:'ML', bg:'#3b4f8f', source:'platform' }, answers:{ fq1:'Marie Laurent', fq2:'Recommandation',  fq3:'5', fq4:'Excellent service, je recommande vivement !' } },
-  { id:'fr2', submittedAt:'9 juin, 09:11',  responder:{ name:'Thomas Girard', email:'t.girard@studio-nova.com', initials:'TG', bg:'#1a6b4a', source:'email'    }, answers:{ fq1:'Thomas Girard', fq2:'Réseaux sociaux', fq3:'4', fq4:'' } },
-  { id:'fr3', submittedAt:'10 juin, 16:45', responder:{ name:'Sophie Martin', email:'sophiemartin@outlook.fr',  initials:'SM', bg:'#8b3a8b', source:'link'     }, answers:{ fq1:'Sophie Martin', fq2:'Recherche web',   fq3:'3', fq4:'Bon travail mais quelques délais à améliorer.' } },
-];
+// Renders the fillable question list — shared between FormView's own
+// "Aperçu" tab (local-only self-test, never persisted) and the public
+// /f/:resourceId page (PublicFormFill.tsx), which is the only place answers
+// are actually recorded. Keeping this in one place means the two can never
+// visually drift apart.
+export function FormFillBody({ questions, answers, onAnswer, onToggleCheck }: {
+  questions: FormQuestion[];
+  answers: Record<string, string | string[]>;
+  onAnswer: (qid: string, value: string) => void;
+  onToggleCheck: (qid: string, value: string) => void;
+}) {
+  return (
+    <>
+      {questions.map((q) => (
+        <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, padding:'24px 28px', marginBottom:16 }}>
+          {q.type === 'section' ? (
+            <>
+              {q.title && <h2 style={{ margin:'0 0 6px', fontSize:18, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', borderBottom:'2px solid var(--accent)', paddingBottom:10 }}>{q.title}</h2>}
+              {q.description && <p style={{ margin:0, fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{q.description}</p>}
+            </>
+          ) : (
+            <>
+              <p style={{ margin:'0 0 4px', fontSize:15, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
+                {q.title || 'Question sans titre'}
+                {q.required && <span style={{ color:'var(--danger)', marginLeft:4 }}>*</span>}
+              </p>
+              {q.description && <p style={{ margin:'0 0 14px', fontSize:13, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{q.description}</p>}
+              {!q.description && <div style={{ marginBottom:14 }} />}
+
+              {q.type==='short' && (
+                <input className="fv-preview-input" value={(answers[q.id]??'') as string} onChange={e=>onAnswer(q.id, e.target.value)} placeholder={q.placeholder||'Votre réponse'} />
+              )}
+              {q.type==='long' && (
+                <textarea className="fv-preview-input" value={(answers[q.id]??'') as string} onChange={e=>onAnswer(q.id, e.target.value)} placeholder={q.placeholder||'Votre réponse'} style={{ resize:'vertical', minHeight:100 }} />
+              )}
+              {q.type==='date' && (
+                <input type="date" className="fv-preview-input" value={(answers[q.id]??'') as string} onChange={e=>onAnswer(q.id, e.target.value)} style={{ maxWidth:200 }} />
+              )}
+              {q.type==='upload' && (
+                <label style={{ display:'block', cursor:'pointer' }}>
+                  <input type="file" style={{ display:'none' }} onChange={e => { if(e.target.files?.[0]) onAnswer(q.id, e.target.files[0].name); }} />
+                  <div style={{ border:`2px dashed ${answers[q.id]?'var(--accent)':'var(--border-2)'}`, borderRadius:10, padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'border-color .15s', background: answers[q.id]?'color-mix(in srgb, var(--accent) 7%, transparent)':'transparent' }}>
+                    <SFIcon name={answers[q.id]?'file-check':'upload'} size={22} style={{ color: answers[q.id]?'var(--accent)':'var(--text-3)' }} />
+                    <span style={{ fontSize:13, fontFamily:'var(--ff-text)', color:answers[q.id]?'var(--accent)':'var(--text-2)' }}>
+                      {answers[q.id] ? String(answers[q.id]) : 'Cliquer ou glisser un fichier ici'}
+                    </span>
+                    {!answers[q.id] && <span style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>Nom du fichier seulement pour l'instant — l'envoi du fichier lui-même n'est pas encore pris en charge</span>}
+                  </div>
+                </label>
+              )}
+              {q.type==='choice' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {q.options.map(opt => (
+                    <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
+                      <div style={{ width:18, height:18, borderRadius:'50%', border:`2px solid ${answers[q.id]===opt.label?'var(--accent)':'var(--border-2)'}`, background:answers[q.id]===opt.label?'var(--accent)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
+                        onClick={() => onAnswer(q.id, opt.label)}>
+                        {answers[q.id]===opt.label && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--on-accent)' }} />}
+                      </div>
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {q.type==='checkbox' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {q.options.map(opt => {
+                    const checked = ((answers[q.id] as string[]|undefined)??[]).includes(opt.label);
+                    return (
+                      <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
+                        <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${checked?'var(--accent)':'var(--border-2)'}`, background:checked?'var(--accent)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
+                          onClick={() => onToggleCheck(q.id, opt.label)}>
+                          {checked && <SFIcon name="check" size={11} style={{ color:'var(--on-accent)' }} />}
+                        </div>
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {q.type==='dropdown' && (
+                <select className="fv-preview-input" value={(answers[q.id]??'') as string} onChange={e=>onAnswer(q.id, e.target.value)} style={{ maxWidth:280, cursor:'pointer' }}>
+                  <option value="">Choisir une option</option>
+                  {q.options.map(opt => <option key={opt.id} value={opt.label}>{opt.label}</option>)}
+                </select>
+              )}
+              {q.type==='rating' && (
+                <div style={{ display:'flex', gap:6 }}>
+                  {Array.from({length:q.ratingMax}).map((_,i) => {
+                    const val = i+1;
+                    const sel = Number(answers[q.id]??0) >= val;
+                    return (
+                      <span key={i} onClick={() => onAnswer(q.id, String(val))}
+                        style={{ fontSize:32, cursor:'pointer', color:sel?'#fbbf24':'var(--border-2)', transition:'color .1s', lineHeight:1 }}>★</span>
+                    );
+                  })}
+                </div>
+              )}
+              {q.type==='scale' && (
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                    <span style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{q.scaleMinLabel}</span>
+                    <span style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{q.scaleMaxLabel}</span>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    {Array.from({length:q.scaleMax-q.scaleMin+1},(_,i)=>q.scaleMin+i).map(n => {
+                      const sel = answers[q.id]===String(n);
+                      return (
+                        <button key={n} onClick={() => onAnswer(q.id, String(n))}
+                          style={{ flex:1, height:40, borderRadius:10, border:`2px solid ${sel?'var(--accent)':'var(--border-2)'}`, background:sel?'var(--accent)':'transparent', color:sel?'var(--on-accent)':'var(--text-2)', cursor:'pointer', fontSize:14, fontFamily:'var(--ff-text)', transition:'all .15s' }}>
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
 
 export function FormView({ resource, templateMode, initialQuestions, onSaveTemplate, persistKey }: {
   resource: Resource;
@@ -3145,11 +3264,28 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<'build' | 'preview' | 'responses'>('build');
-  const _formPersisted = persistKey ? getResourceContent<{ questions: FormQuestion[] }>(persistKey) : undefined;
+  const _formPersisted = persistKey
+    ? getResourceContent<{ questions: FormQuestion[]; formTitle?: string; formDesc?: string; collectIdentity?: boolean }>(persistKey)
+    : undefined;
   const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? INIT_FORM_QUESTIONS);
-  const [responses] = useState<FormResponse[]>(MOCK_RESPONSES);
-  const [formTitle, setFormTitle] = useState(resource.title);
-  const [formDesc, setFormDesc] = useState('Merci de remplir ce formulaire. Vos réponses nous aident à améliorer nos services.');
+  const [submissions, setSubmissions] = useState<FormSubmission[]>(() => persistKey ? getFormSubmissions(persistKey) : []);
+  useEffect(() => {
+    if (!persistKey) return;
+    return subscribeFormSubmissions(() => setSubmissions(getFormSubmissions(persistKey)));
+  }, [persistKey]);
+  const RESPONDER_COLORS = ['#3b4f8f', '#1a6b4a', '#8b3a8b', '#a85f3e', '#5b3ea8'];
+  const responses: FormResponse[] = submissions.map((s, i) => {
+    const name = s.respondentName || 'Réponse anonyme';
+    const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+    return {
+      id: s.id,
+      submittedAt: new Date(s.submittedAt).toLocaleString('fr-FR', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' }),
+      responder: { name, email: s.respondentEmail || '', initials, bg: RESPONDER_COLORS[i % RESPONDER_COLORS.length], source: 'link' },
+      answers: s.answers,
+    };
+  });
+  const [formTitle, setFormTitle] = useState(_formPersisted?.formTitle ?? resource.title);
+  const [formDesc, setFormDesc] = useState(_formPersisted?.formDesc ?? 'Merci de remplir ce formulaire. Vos réponses nous aident à améliorer nos services.');
   const [selectedQ, setSelectedQ] = useState<string | null>('fq1');
   const [showTypeMenu, setShowTypeMenu] = useState<string | null>(null);
   const [draggingQ, setDraggingQ] = useState<string | null>(null);
@@ -3158,8 +3294,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   const [previewSubmitted, setPreviewSubmitted] = useState(false);
   const [responseIdx, setResponseIdx] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
-  const [collectIdentity, setCollectIdentity] = useState(true);
-  const [shareLink] = useState('https://rush.app/f/q-satisfaction-cl3x9z');
+  const [collectIdentity, setCollectIdentity] = useState(_formPersisted?.collectIdentity ?? true);
+  const shareLink = `${window.location.origin}/f/${resource.id}`;
   const [linkCopied, setLinkCopied] = useState(false);
 
   const formPersistTimer = useRef<number | null>(null);
@@ -3167,10 +3303,11 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
     if (!persistKey) return;
     if (formPersistTimer.current) clearTimeout(formPersistTimer.current);
     formPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { questions });
+      setResourceContent(persistKey, { questions, formTitle, formDesc, collectIdentity });
     }, 400);
-  }, [questions, persistKey]);
+  }, [questions, formTitle, formDesc, collectIdentity, persistKey]);
   useEffect(() => () => { if (formPersistTimer.current) clearTimeout(formPersistTimer.current); }, []);
+  useEffect(() => { if (responseIdx > submissions.length - 1) setResponseIdx(0); }, [submissions.length, responseIdx]);
 
   const selectedQuestion = questions.find(q => q.id === selectedQ);
 
@@ -3701,114 +3838,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                   </div>
                 </div>
 
-                {/* Questions */}
-                {questions.map((q) => (
-                  <div key={q.id} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, padding:'24px 28px', marginBottom:16 }}>
-                    {q.type === 'section' ? (
-                      <>
-                        {q.title && <h2 style={{ margin:'0 0 6px', fontSize:18, fontWeight:700, color:'var(--text)', fontFamily:'var(--ff-display)', borderBottom:'2px solid var(--accent)', paddingBottom:10 }}>{q.title}</h2>}
-                        {q.description && <p style={{ margin:0, fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)' }}>{q.description}</p>}
-                      </>
-                    ) : (
-                      <>
-                        <p style={{ margin:'0 0 4px', fontSize:15, fontWeight:600, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
-                          {q.title || 'Question sans titre'}
-                          {q.required && <span style={{ color:'var(--danger)', marginLeft:4 }}>*</span>}
-                        </p>
-                        {q.description && <p style={{ margin:'0 0 14px', fontSize:13, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{q.description}</p>}
-                        {!q.description && <div style={{ marginBottom:14 }} />}
-
-                        {q.type==='short' && (
-                          <input className="fv-preview-input" value={(previewAnswers[q.id]??'') as string} onChange={e=>setPreviewAnswers(p=>({...p,[q.id]:e.target.value}))} placeholder={q.placeholder||'Votre réponse'} />
-                        )}
-                        {q.type==='long' && (
-                          <textarea className="fv-preview-input" value={(previewAnswers[q.id]??'') as string} onChange={e=>setPreviewAnswers(p=>({...p,[q.id]:e.target.value}))} placeholder={q.placeholder||'Votre réponse'} style={{ resize:'vertical', minHeight:100 }} />
-                        )}
-                        {q.type==='date' && (
-                          <input type="date" className="fv-preview-input" value={(previewAnswers[q.id]??'') as string} onChange={e=>setPreviewAnswers(p=>({...p,[q.id]:e.target.value}))} style={{ maxWidth:200 }} />
-                        )}
-                        {q.type==='upload' && (
-                          <label style={{ display:'block', cursor:'pointer' }}>
-                            <input type="file" style={{ display:'none' }} onChange={e => { if(e.target.files?.[0]) setPreviewAnswers(p=>({...p,[q.id]:e.target.files![0].name})); }} />
-                            <div style={{ border:`2px dashed ${previewAnswers[q.id]?'var(--accent)':'var(--border-2)'}`, borderRadius:10, padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'border-color .15s', background: previewAnswers[q.id]?'color-mix(in srgb, var(--accent) 7%, transparent)':'transparent' }}>
-                              <SFIcon name={previewAnswers[q.id]?'file-check':'upload'} size={22} style={{ color: previewAnswers[q.id]?'var(--accent)':'var(--text-3)' }} />
-                              <span style={{ fontSize:13, fontFamily:'var(--ff-text)', color:previewAnswers[q.id]?'var(--accent)':'var(--text-2)' }}>
-                                {previewAnswers[q.id] ? String(previewAnswers[q.id]) : 'Cliquer ou glisser un fichier ici'}
-                              </span>
-                              {!previewAnswers[q.id] && <span style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>PDF, images, vidéos… (10 Mo max)</span>}
-                            </div>
-                          </label>
-                        )}
-                        {q.type==='choice' && (
-                          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                            {q.options.map(opt => (
-                              <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
-                                <div style={{ width:18, height:18, borderRadius:'50%', border:`2px solid ${previewAnswers[q.id]===opt.label?'var(--accent)':'var(--border-2)'}`, background:previewAnswers[q.id]===opt.label?'var(--accent)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
-                                  onClick={() => setPreviewAnswers(p=>({...p,[q.id]:opt.label}))}>
-                                  {previewAnswers[q.id]===opt.label && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--on-accent)' }} />}
-                                </div>
-                                {opt.label}
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                        {q.type==='checkbox' && (
-                          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                            {q.options.map(opt => {
-                              const checked = ((previewAnswers[q.id] as string[]|undefined)??[]).includes(opt.label);
-                              return (
-                                <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)' }}>
-                                  <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${checked?'var(--accent)':'var(--border-2)'}`, background:checked?'var(--accent)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s', cursor:'pointer' }}
-                                    onClick={() => previewToggleCheck(q.id, opt.label)}>
-                                    {checked && <SFIcon name="check" size={11} style={{ color:'var(--on-accent)' }} />}
-                                  </div>
-                                  {opt.label}
-                                </label>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {q.type==='dropdown' && (
-                          <select className="fv-preview-input" value={(previewAnswers[q.id]??'') as string} onChange={e=>setPreviewAnswers(p=>({...p,[q.id]:e.target.value}))} style={{ maxWidth:280, cursor:'pointer' }}>
-                            <option value="">Choisir une option</option>
-                            {q.options.map(opt => <option key={opt.id} value={opt.label}>{opt.label}</option>)}
-                          </select>
-                        )}
-                        {q.type==='rating' && (
-                          <div style={{ display:'flex', gap:6 }}>
-                            {Array.from({length:q.ratingMax}).map((_,i) => {
-                              const val = i+1;
-                              const sel = Number(previewAnswers[q.id]??0) >= val;
-                              return (
-                                <span key={i} onClick={() => setPreviewAnswers(p=>({...p,[q.id]:String(val)}))}
-                                  style={{ fontSize:32, cursor:'pointer', color:sel?'#fbbf24':'var(--border-2)', transition:'color .1s', lineHeight:1 }}>★</span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {q.type==='scale' && (
-                          <div>
-                            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                              <span style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{q.scaleMinLabel}</span>
-                              <span style={{ fontSize:12, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>{q.scaleMaxLabel}</span>
-                            </div>
-                            <div style={{ display:'flex', gap:8 }}>
-                              {Array.from({length:q.scaleMax-q.scaleMin+1},(_,i)=>q.scaleMin+i).map(n => {
-                                const sel = previewAnswers[q.id]===String(n);
-                                return (
-                                  <button key={n} onClick={() => setPreviewAnswers(p=>({...p,[q.id]:String(n)}))}
-                                    style={{ flex:1, height:40, borderRadius:10, border:`2px solid ${sel?'var(--accent)':'var(--border-2)'}`, background:sel?'var(--accent)':'transparent', color:sel?'var(--on-accent)':'var(--text-2)', cursor:'pointer', fontSize:14, fontFamily:'var(--ff-text)', transition:'all .15s' }}>
-                                    {n}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ))}
+                <FormFillBody questions={questions} answers={previewAnswers} onAnswer={(qid, val) => setPreviewAnswers(p=>({...p,[qid]:val}))} onToggleCheck={previewToggleCheck} />
 
                 <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8, marginBottom:40 }}>
                   <button onClick={() => setPreviewSubmitted(true)} style={{ ...btnBase, background:'var(--accent)', color:'var(--on-accent)', fontSize:14, padding:'12px 32px', borderRadius:10 }}>
@@ -3831,7 +3861,14 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
       )}
 
       {/* ─── RESPONSES TAB ─── */}
-      {tab === 'responses' && (
+      {tab === 'responses' && responses.length === 0 && (
+        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, color:'var(--text-3)' }}>
+          <SFIcon name="inbox" size={32} />
+          <p style={{ fontSize:14, fontFamily:'var(--ff-text)' }}>Aucune réponse pour l'instant</p>
+          <p style={{ fontSize:12, fontFamily:'var(--ff-text)', maxWidth:320, textAlign:'center' }}>Partagez le lien du formulaire pour commencer à recevoir des réponses.</p>
+        </div>
+      )}
+      {tab === 'responses' && responses.length > 0 && (
         <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
           {/* Left: response list */}
           <div style={{ width:220, borderRight:'1px solid var(--border)', overflowY:'auto', flexShrink:0, padding:'16px 12px' }}>

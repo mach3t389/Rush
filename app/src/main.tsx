@@ -13,6 +13,7 @@ import { Taches } from './screens/Taches';
 import { Projets } from './screens/Projets';
 import { Travail } from './screens/Travail';
 import { ClientInvitationAccept } from './screens/ClientInvitationAccept';
+import { PublicFormFill } from './screens/PublicFormFill';
 import { ClientHome } from './screens/ClientHome';
 import { ClientProjectApercu } from './screens/client/ClientProjectApercu';
 import { ClientProjectFichiers } from './screens/client/ClientProjectFichiers';
@@ -78,6 +79,9 @@ const router = createBrowserRouter([
 
   // Invitation contact client — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation/:token', element: <ClientInvitationAccept /> },
+
+  // Formulaire public (ressource type "Formulaire") — sans sidebar, accessible sans compte (route standalone)
+  { path: '/f/:resourceId', element: <PublicFormFill /> },
 
   // Invitation membre d'équipe — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation-equipe/:token', element: <TeamInvitationAccept /> },
