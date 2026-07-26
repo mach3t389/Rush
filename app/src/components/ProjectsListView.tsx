@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
@@ -684,7 +684,7 @@ function ProjectListView({ projects }: { projects: Project[] }) {
 const VIEW_KEY = 'sf_projects_view';
 const FILTER_KEY = 'sf_projects_filter';
 
-export function ProjectsListView({ clientId, autoOpen, onModalClose, showHeader = true }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void; showHeader?: boolean }) {
+export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
   const plan = usePlan();
   const [search, setSearch] = useState('');
@@ -746,24 +746,15 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose, showHeader 
       return (b.modifiedAt ?? '').localeCompare(a.modifiedAt ?? '');
     });
 
-  return (
-    <>
-      {/* Title row — visible only in global context, and only when the
-          caller isn't already rendering its own fixed header (Projets.tsx) */}
-      {!clientId && showHeader && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('projects.title')}</h1>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-              {t('projects.countsSummary', { total: projects.length, active: projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length, late: projects.filter(p => p.status === 'danger').length })}
-            </p>
-          </div>
-          <SFButton variant="primary" icon="plus" onClick={() => openNewProjectModal()}>{t('projects.newProject')}</SFButton>
-        </div>
-      )}
+  // Standalone /projets page: fixed header (title + controls) with the list
+  // scrolling independently below, like every other screen. Embedded in a
+  // client's own Projets tab (clientId set): everything scrolls together
+  // with the rest of that tab's content instead — there's no separate
+  // fixed region to put a header in there.
+  const useFixedHeader = !clientId;
 
-      {/* Controls row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+  const controlsRow = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%' }}>
         {/* Search */}
         <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 340, height: 36 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
@@ -924,7 +915,10 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose, showHeader 
           )}
         </div>
       </div>
+  );
 
+  const listContent = (
+    <>
       {/* Empty state */}
       {filtered.length === 0 && (
         isProjectsLoading() ? (
@@ -951,14 +945,40 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose, showHeader 
       {view === 'list' && filtered.length > 0 && (
         <ProjectListView projects={filtered} />
       )}
+    </>
+  );
 
-      {showModal && (
-        <NewProjectModal
-          onClose={() => setShowModal(false)}
-          onCreate={p => addProject(p)}
-          defaultClientId={clientId}
-        />
-      )}
+  const modal = showModal && (
+    <NewProjectModal
+      onClose={() => setShowModal(false)}
+      onCreate={p => addProject(p)}
+      defaultClientId={clientId}
+    />
+  );
+
+  if (useFixedHeader) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <PageHeader
+          title={t('projects.title')}
+          subtitle={t('projects.countsSummary', { total: projects.length, active: projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length, late: projects.filter(p => p.status === 'danger').length })}
+          actions={<SFButton variant="primary" icon="plus" onClick={() => openNewProjectModal()}>{t('projects.newProject')}</SFButton>}
+        >
+          {controlsRow}
+        </PageHeader>
+        <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {listContent}
+        </div>
+        {modal}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {controlsRow}
+      {listContent}
+      {modal}
     </>
   );
 }
