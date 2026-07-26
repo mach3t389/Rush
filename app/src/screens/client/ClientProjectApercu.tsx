@@ -10,7 +10,6 @@ import {
 } from '../../data/clientSessionStore';
 import {
   getPreviewClientProjects, getPreviewClientDeliverables,
-  approvePreviewClientDeliverable, requestPreviewClientDeliverableCorrections,
 } from '../../data/viewAsClientDataStore';
 import { getViewAsUser } from '../../data/viewAsStore';
 
@@ -51,9 +50,7 @@ export function ClientProjectApercu() {
   const handleApprove = async (d: ClientDeliverable) => {
     if (!projectId) return;
     setActingId(d.id);
-    const result = isPreview
-      ? await approvePreviewClientDeliverable(projectId, d.id, d.title)
-      : await approveClientDeliverable(d.id);
+    const result = await approveClientDeliverable(d.id);
     if (result.ok) {
       setActionError(null);
       await load();
@@ -66,9 +63,7 @@ export function ClientProjectApercu() {
   const handleCorrections = async (d: ClientDeliverable) => {
     if (!projectId) return;
     setActingId(d.id);
-    const result = isPreview
-      ? await requestPreviewClientDeliverableCorrections(projectId, d.id, d.title)
-      : await requestClientDeliverableCorrections(d.id);
+    const result = await requestClientDeliverableCorrections(d.id);
     if (result.ok) {
       setActionError(null);
       await load();
@@ -146,7 +141,7 @@ export function ClientProjectApercu() {
                       <span style={{ fontSize: 12, color: '#a85f3e' }}>{t('portal.correctionsRequestedNote')}</span>
                     </div>
                   )}
-                  {d.status === 'review' && (
+                  {d.status === 'review' && !isPreview && (
                     <div style={{ display: 'flex', gap: 10 }}>
                       <SFButton variant="primary" icon="check" size="sm" disabled={actingId === d.id} onClick={() => handleApprove(d)} style={{ flex: 1, justifyContent: 'center' }}>
                         {t('portal.approve')}

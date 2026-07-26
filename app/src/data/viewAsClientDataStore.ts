@@ -13,12 +13,11 @@
 // scoped to the current studio by the underlying stores).
 
 import { getProjectsByClient } from './projectStore';
-import { getDeliverables, updateTask } from './taskStore';
+import { getDeliverables } from './taskStore';
 import { getEvents } from './eventStore';
 import { getEventTypes } from './eventTypeStore';
 import { getFolders, getFiles } from './fileStore';
 import { getInvoicesByProject } from './financeStore';
-import { addNotif } from './notificationStore';
 import type {
   ClientProject, ClientDeliverable, ClientCalEvent,
   ClientFileFolder, ClientFileItem, ClientInvoice,
@@ -109,34 +108,4 @@ export async function getPreviewClientInvoices(projectId: string): Promise<Clien
     issuedDate: i.issuedDate,
     dueDate: i.dueDate,
   }));
-}
-
-// Preview-path equivalent of clientSessionStore.ts's approve/corrections —
-// the acting user here is the studio member themselves (admin using "Voir
-// en tant que"), with full existing write access to their own studio's
-// tasks, so this writes directly through taskStore.ts instead of an RPC.
-export async function approvePreviewClientDeliverable(projectId: string, taskId: string, deliverableTitle: string): Promise<{ ok: boolean }> {
-  updateTask(projectId, taskId, { status: 'ok', correctionsRequested: false });
-  addNotif({
-    kind: 'deliverableApproved',
-    actor: 'Le client',
-    text: `a approuvé le livrable "${deliverableTitle}"`,
-    taskId,
-    timestamp: Date.now(),
-    projectId,
-  });
-  return { ok: true };
-}
-
-export async function requestPreviewClientDeliverableCorrections(projectId: string, taskId: string, deliverableTitle: string): Promise<{ ok: boolean }> {
-  updateTask(projectId, taskId, { correctionsRequested: true });
-  addNotif({
-    kind: 'comment',
-    actor: 'Le client',
-    text: `a demandé des corrections sur "${deliverableTitle}"`,
-    taskId,
-    timestamp: Date.now(),
-    projectId,
-  });
-  return { ok: true };
 }
