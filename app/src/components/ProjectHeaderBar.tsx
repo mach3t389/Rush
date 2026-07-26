@@ -164,22 +164,22 @@ export function ProjectHeaderBar({
           </span>
         )}
         {children}
-        <button onClick={() => setEditOpen(true)} title={t('projects.edit')}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, height: 32, padding: '0 13px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-        >
-          <SFIcon name="square-pen" size={14} color="var(--text-3)" />
-          {t('projects.edit')}
-        </button>
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setMenuOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
+          <button onClick={() => setMenuOpen(v => !v)} title={t('projects.projectMenu')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
             <SFIcon name="ellipsis" size={15} />
           </button>
           {menuOpen && (
             <>
               <div onClick={() => { setMenuOpen(false); setConfirmDelete(false); }} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
               <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                <button
+                  onClick={() => { setEditOpen(true); setMenuOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name="square-pen" size={13} color="var(--text-3)" />
+                  {t('projects.edit')}
+                </button>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <button
                   onClick={() => { if (project.archived) { unarchiveProject(project.id); } else { archiveProject(project.id); } setMenuOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
