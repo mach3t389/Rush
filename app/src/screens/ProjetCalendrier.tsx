@@ -459,11 +459,18 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
+  // Both requests fire together rather than the project one waiting on the
+  // org one — the project-status endpoint reads Supabase directly and never
+  // actually needed the org connection result first, so the sequential
+  // await was just adding a second round-trip's worth of latency before the
+  // button could appear.
   const loadStatus = async () => {
-    const status = await getGoogleCalendarStatus();
+    const [status, projectStatus] = await Promise.all([
+      getGoogleCalendarStatus(),
+      getProjectGoogleCalendarStatus(projectId),
+    ]);
     setOrgConnected(status.connected);
     if (status.connected) {
-      const projectStatus = await getProjectGoogleCalendarStatus(projectId);
       setActive(projectStatus.active);
       setContacts(projectStatus.contacts);
     }
@@ -473,12 +480,15 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
     if (isDemoSession()) return;
     let cancelled = false;
     (async () => {
-      const status = await getGoogleCalendarStatus();
+      const [status, projectStatus] = await Promise.all([
+        getGoogleCalendarStatus(),
+        getProjectGoogleCalendarStatus(projectId),
+      ]);
       if (cancelled) return;
       setOrgConnected(status.connected);
       if (status.connected) {
-        const projectStatus = await getProjectGoogleCalendarStatus(projectId);
-        if (!cancelled) { setActive(projectStatus.active); setContacts(projectStatus.contacts); }
+        setActive(projectStatus.active);
+        setContacts(projectStatus.contacts);
       }
     })();
     return () => { cancelled = true; };

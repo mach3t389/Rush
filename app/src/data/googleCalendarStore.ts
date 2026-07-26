@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { getStudioId } from './studioStore';
+import { onLogout } from './authStore';
 
 export interface GoogleCalendarStatus {
   connected: boolean;
@@ -11,13 +12,38 @@ async function authHeaders(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
-export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
+// The connection status barely ever changes (only via connect/disconnect
+// below) but was being re-fetched from scratch on every single mount of
+// GoogleProjectCalendarButton — every project's calendar page paid a full
+// round-trip for a value that's virtually always the same. Cache it in
+// memory for the session; connect/disconnect explicitly invalidate it.
+let _orgStatusCache: GoogleCalendarStatus | null = null;
+let _orgStatusInFlight: Promise<GoogleCalendarStatus> | null = null;
+
+async function fetchGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
   const resp = await fetch(`/api/google-calendar-connection?action=status&studioId=${studioId}`, { headers });
   if (!resp.ok) return { connected: false, lastSyncedAt: null };
   return resp.json();
 }
+
+export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
+  if (_orgStatusCache) return _orgStatusCache;
+  if (!_orgStatusInFlight) {
+    _orgStatusInFlight = fetchGoogleCalendarStatus()
+      .then(status => { _orgStatusCache = status; return status; })
+      .finally(() => { _orgStatusInFlight = null; });
+  }
+  return _orgStatusInFlight;
+}
+
+function resetGoogleCalendarStatusCache(): void {
+  _orgStatusCache = null;
+  _orgStatusInFlight = null;
+}
+
+onLogout(resetGoogleCalendarStatusCache);
 
 export async function startGoogleCalendarConnect(): Promise<void> {
   const studioId = await getStudioId();
@@ -26,6 +52,9 @@ export async function startGoogleCalendarConnect(): Promise<void> {
   if (!resp.ok) throw new Error('Failed to start Google Calendar connection');
   const { url } = await resp.json();
   if (!url) throw new Error('No Google Calendar authorization URL returned');
+  // Navigating away for the OAuth redirect anyway, but reset first so a
+  // cached "not connected" never survives if the browser bfcaches back here.
+  resetGoogleCalendarStatusCache();
   window.location.href = url;
 }
 
@@ -38,6 +67,7 @@ export async function disconnectGoogleCalendar(): Promise<void> {
     body: JSON.stringify({ action: 'disconnect', studioId }),
   });
   if (!resp.ok) throw new Error('Failed to disconnect Google Calendar');
+  resetGoogleCalendarStatusCache();
 }
 
 export interface ProjectGoogleCalendarContact {
