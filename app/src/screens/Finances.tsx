@@ -161,7 +161,11 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
     return { label: m.label, paid, outstanding, overdue, draft, total: paid + outstanding + overdue + draft };
   });
 
-  const maxVal = Math.max(1, ...data.map(d => d.total));
+  // A 1$ floor made an empty chart show fractional ticks that rounded to
+  // duplicate labels ("1" then "1" then "0"). 100$ keeps ticks meaningful
+  // (0/50/100) when there's no real data yet, without affecting real charts
+  // (their own max always exceeds it).
+  const maxVal = Math.max(100, ...data.map(d => d.total));
   const W = 480; const H = 80;
   const PAD = { t: 4, r: 8, b: 20, l: 44 };
   const chartW = W - PAD.l - PAD.r;
@@ -1214,9 +1218,9 @@ export function Finances() {
                   <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{client?.name ?? '—'}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{project?.name ?? '—'}</span>
                   <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{inv.title}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, fontWeight: 600, textAlign: 'right', paddingRight: 10 }}>{formatMoney(inv.total, inv.currency)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'right', paddingRight: 10 }}>{formatMoney(inv.total, inv.currency)}</span>
                   <span><StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} /></span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
+                  <span style={{ fontSize: 12, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
 
                   <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                     {hasPdf && (
