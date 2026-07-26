@@ -1950,6 +1950,7 @@
     "lockedBody": "Le module Finances & facturation est disponible avec un plan payant. Passe à Studio ou Agence pour créer et suivre tes factures.",
     "lockedCta": "Voir les plans",
     "title": "Finances",
+    "statusLabel": "Statut",
     "newInvoice": "Nouvelle facture",
     "addInvoice": "Ajouter une facture",
     "editInvoice": "Modifier la facture",

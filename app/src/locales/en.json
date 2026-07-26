@@ -1937,6 +1937,7 @@
     "lockedBody": "The Finances & billing module is available on a paid plan. Upgrade to Studio or Agence to create and track invoices.",
     "lockedCta": "View plans",
     "title": "Finances",
+    "statusLabel": "Status",
     "newInvoice": "New invoice",
     "addInvoice": "Add invoice",
     "editInvoice": "Edit invoice",

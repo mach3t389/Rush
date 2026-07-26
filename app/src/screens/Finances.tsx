@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader } from '../components/ui';
+import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader, CategoryFilterDropdown } from '../components/ui';
 import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
@@ -1072,14 +1072,12 @@ export function Finances() {
           <span style={{ position: 'absolute', left: 9, pointerEvents: 'none', display: 'flex' }}><SFIcon name="search" size={13} color="var(--text-3)" /></span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('finance.search')} style={{ fontSize: 12, padding: '6px 10px 6px 28px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', width: 200 }} />
         </div>
-        {/* Status filter chips */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-          {STATUS_FILTERS.map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key as InvoiceStatus | 'all')} style={{ fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s', border: `1px solid ${filter === f.key ? 'var(--accent)' : 'var(--border)'}`, background: filter === f.key ? 'var(--accent)' : 'transparent', color: filter === f.key ? 'var(--on-accent)' : 'var(--text-2)' }}>
-              {t(f.labelKey)}
-            </button>
-          ))}
-        </div>
+        <CategoryFilterDropdown
+          value={filter}
+          onChange={setFilter}
+          categoryLabel={t('finance.statusLabel')}
+          options={STATUS_FILTERS.map(f => ({ value: f.key, label: t(f.labelKey) }))}
+        />
         </div>
       </PageHeader>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, type LifecycleFilter } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
@@ -709,8 +709,6 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const [showModal, setShowModal] = useState(false);
   const [clientFilterOpen, setClientFilterOpen] = useState(false);
   const clientFilterRef = useRef<HTMLDivElement>(null);
-  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
-  const statusFilterBtnRef = useRef<HTMLButtonElement>(null);
   const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
   const changeStatusFilter = (f: 'all' | Status) => { setStatusFilter(f); if (!clientId) savePersisted(FILTER_KEY, f); };
@@ -788,39 +786,12 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         {/* Status filter — workflow stage only. "Archivé" is a separate
             lifecycle dimension (LifecycleFilterDropdown, right below),
             not another option in this list. */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            ref={statusFilterBtnRef}
-            onClick={() => setStatusFilterOpen(o => !o)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${statusFilter !== 'all' ? 'var(--accent)' : 'var(--border)'}`, background: statusFilter !== 'all' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
-          >
-            <SFIcon name="filter" size={13} color={statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
-            {t('projects.statusLabel')}{statusFilter !== 'all' && `: ${STATUS_FILTER_OPTIONS.find(o => o.value === statusFilter)?.label}`}
-            <SFIcon name="chevron-down" size={12} color={statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
-          </button>
-          {statusFilterOpen && (() => {
-            const rect = statusFilterBtnRef.current?.getBoundingClientRect();
-            return (
-              <>
-                <div onClick={() => setStatusFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
-                <div style={{ position: 'fixed', top: rect ? rect.bottom + 6 : 100, left: rect ? rect.left : 24, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 5, minWidth: 190, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                  {STATUS_FILTER_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => { changeStatusFilter(opt.value); setStatusFilterOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer', background: statusFilter === opt.value ? 'var(--surface-3)' : 'transparent', color: statusFilter === opt.value ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: statusFilter === opt.value ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                      onMouseEnter={e => { if (statusFilter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={e => { if (statusFilter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                    >
-                      {opt.label}
-                      {statusFilter === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
-        </div>
+        <CategoryFilterDropdown
+          value={statusFilter}
+          onChange={changeStatusFilter}
+          categoryLabel={t('projects.statusLabel')}
+          options={STATUS_FILTER_OPTIONS}
+        />
 
         {/* Lifecycle (Tous/Actifs/Archivés) — same shared dropdown as Clients */}
         <LifecycleFilterDropdown
