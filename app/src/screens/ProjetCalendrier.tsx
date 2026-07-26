@@ -13,7 +13,7 @@ import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEvent
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
-import { MeetingField } from './CalendrierGlobal';
+import { MeetingField, GoogleCalendarTargetHint } from './CalendrierGlobal';
 import {
   TODAY, END_HOUR, type CalView,
   addDays, startOfWeek, fmt2, fmtTime, parseFrDate,
@@ -221,6 +221,8 @@ function CreateEventModal({ projectId: defaultProjectId, defaultDate, defaultSta
           )}
         </div>
 
+        <GoogleCalendarTargetHint projectId={defaultProjectId} />
+
         <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder={t('calendar.titlePlaceholder')}
           style={{ width:'100%',padding:'10px 12px',borderRadius:9,border:`1px solid ${selectedType?.color ?? 'var(--border)'}`,background:'var(--surface-2)',color:'var(--text)',fontSize:14,fontWeight:600,outline:'none',boxSizing:'border-box',fontFamily:'var(--ff-text)',colorScheme:'dark',marginBottom:8 }}
         />
@@ -357,6 +359,8 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
             ))}
           </div>
         </div>
+
+        <GoogleCalendarTargetHint projectId={ev.projectId ?? ''} />
 
         {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('calendar.titlePlaceholder')}
@@ -523,7 +527,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
     <div style={{ position:'relative' }}>
       <button
         onClick={() => setOpen(v => !v)}
-        title={t('calendar.gcalProjectCardTitle')}
+        title={active === null ? t('calendar.gcalProjectCardTitle') : active ? t('calendar.gcalProjectCardTitleActive') : t('calendar.gcalProjectCardTitleInactive')}
         style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background: active ? 'rgba(52,201,138,0.1)' : 'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', boxSizing:'border-box' }}
       >
         <SFIcon name="calendar" size={15} color={active ? 'var(--ok)' : 'var(--text-3)'} />

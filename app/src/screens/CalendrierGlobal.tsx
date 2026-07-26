@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { USERS } from '../data/mock';
@@ -21,6 +21,7 @@ import { TimeGridView } from '../components/calendar/TimeGridView';
 import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
 import { getWeekStart, subscribeWeekStart } from '../data/weekStartStore';
+import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus } from '../data/googleCalendarStore';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -119,6 +120,43 @@ export function MeetingField({ value, onChange, title }: {
         </button>
       </div>
     </div>
+  );
+}
+
+// Indique, au moment de créer un événement, dans quel calendrier Google il
+// atterrira réellement — sans ça, un événement lié à un projet sans calendrier
+// Google dédié tombe silencieusement dans le calendrier du studio, et on ne
+// le découvre qu'en ouvrant Google Calendar. N'affiche rien si l'intégration
+// n'est pas connectée (rien ne synchronise, l'info serait trompeuse) ni en
+// session démo (pas de vrai studio Supabase à interroger).
+export function GoogleCalendarTargetHint({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
+  const [target, setTarget] = useState<'project' | 'org' | null>(null);
+
+  useEffect(() => {
+    if (isDemoSession()) return;
+    let cancelled = false;
+    setTarget(null);
+    (async () => {
+      const orgStatus = await getGoogleCalendarStatus();
+      if (cancelled || !orgStatus.connected) return;
+      if (projectId) {
+        const projectStatus = await getProjectGoogleCalendarStatus(projectId);
+        if (!cancelled) setTarget(projectStatus.active ? 'project' : 'org');
+      } else if (!cancelled) {
+        setTarget('org');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  if (!target) return null;
+
+  return (
+    <p style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-3)', margin: '-4px 0 12px' }}>
+      <SFIcon name="calendar" size={11} color="var(--text-3)" />
+      {target === 'project' ? t('calendar.gcalTargetProject') : t('calendar.gcalTargetOrg')}
+    </p>
   );
 }
 
@@ -321,6 +359,7 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
 
         {/* Project */}
         <ProjectSelect value={projectId} onChange={setProjectId} />
+        <GoogleCalendarTargetHint projectId={projectId} />
 
         {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} autoFocus placeholder={t('calendar.titlePlaceholder')}
@@ -512,6 +551,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 
         {/* Project */}
         <ProjectSelect value={projectId} onChange={setProjectId} />
+        <GoogleCalendarTargetHint projectId={projectId} />
 
         {/* Title */}
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('calendar.titlePlaceholder')}
@@ -610,6 +650,8 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 
 export function CalendrierGlobal() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const months = t('calendar.months', { returnObjects: true }) as string[];
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
   const [view, setView]             = useSyncedViewState<CalView>('sf_view_calendrier', 'month');
@@ -623,6 +665,20 @@ export function CalendrierGlobal() {
   const [createAllDay, setCreateAllDay] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent|null>(null);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+
+  // Ouvre directement le détail d'un événement quand on arrive depuis un autre
+  // écran (ex: "Prochains événements" du Dashboard) plutôt que de renvoyer
+  // vers le calendrier nu — l'utilisateur cliquait sur un événement précis,
+  // pas sur "Calendrier". Consomme le state de navigation une seule fois
+  // (replace) pour qu'un retour arrière ne rouvre pas le même événement.
+  const openEventId = (location.state as { openEventId?: string } | null)?.openEventId;
+  useEffect(() => {
+    if (!openEventId) return;
+    const target = events.find(ev => ev.id === openEventId);
+    if (target) setSelectedEvent(target);
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEventId, events]);
   const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {

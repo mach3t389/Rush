@@ -389,7 +389,7 @@ export function Dashboard() {
               return (
                 <div
                   key={ev.id}
-                  onClick={() => navigate('/calendrier')}
+                  onClick={() => navigate('/calendrier', { state: { openEventId: ev.id } })}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '9px 16px',
