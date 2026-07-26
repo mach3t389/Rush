@@ -302,7 +302,11 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
 
   useEffect(() => subscribeEventTypes(() => setLocalEventTypes(getEventTypes())), []);
 
-  const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
+  // Default to the first type only when there's no selection yet (new
+  // event) — if eventTypeId is set but matches nothing (its type was
+  // deleted), fall through to undefined rather than silently substituting
+  // whatever type happens to sit at array position 0.
+  const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? (eventTypeId ? undefined : localEventTypes[0]);
 
   return (
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200 }}>
@@ -467,7 +471,11 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
   const PARTICIPANT_THRESHOLD = 4;
   const togglePart = (id: string) => setParticipants(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? localEventTypes[0];
+  // Default to the first type only when there's no selection yet (new
+  // event) — if eventTypeId is set but matches nothing (its type was
+  // deleted), fall through to undefined rather than silently substituting
+  // whatever type happens to sit at array position 0.
+  const selectedType = localEventTypes.find(t => t.id === eventTypeId) ?? (eventTypeId ? undefined : localEventTypes[0]);
 
   const save = () => {
     if (!title.trim()) return;

@@ -5,7 +5,7 @@ import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } fro
 import { TODAY_TASKS, ACTIVITY, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, isEventsLoading, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
-import { getEventTypeById } from '../data/eventTypeStore';
+import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
 import { getProjects } from '../data/projectStore';
 import { getMyTasks } from '../data/myTaskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
@@ -221,6 +221,14 @@ export function Dashboard() {
 
   const [events, setEvents] = useState<CalendarEvent[]>(getEvents);
   useEffect(() => subscribeEvents(() => setEvents(getEvents())), []);
+  // Event-type badges below are resolved via getEventTypeById(), which reads
+  // this store's own cache — without subscribing here too, an event type
+  // added/renamed/loaded after this component's initial events-driven
+  // render never triggers a re-render, so the badge stays stuck on
+  // whatever it resolved to at that point (every other event-type consumer
+  // — the calendars, the type selector — already subscribes).
+  const [, forceEventTypesRerender] = useState(0);
+  useEffect(() => subscribeEventTypes(() => forceEventTypesRerender(n => n + 1)), []);
 
   const now = new Date();
   const in14Days = addDays(now, 14);
