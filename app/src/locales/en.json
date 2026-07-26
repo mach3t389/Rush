@@ -102,6 +102,7 @@
     "dueDate": "Due date",
     "myTasksTitle": "My tasks",
     "allTasksTitle": "All tasks",
+    "allTasksSubtitle": "Pick a project to see and manage its tasks",
     "taskCountSummary": "{{visible}}/{{total}} tasks",
     "overdueCount": "{{count}} overdue"
   },
