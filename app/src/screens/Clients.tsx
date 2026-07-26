@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFCard, SFBar, SFButton, SFLoadingState, PageHeader } from '../components/ui';
+import { SFPill, SFCard, SFBar, SFButton, SFLoadingState, PageHeader, LifecycleFilterDropdown } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
 import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient, isClientsLoading } from '../data/clientStore';
@@ -631,13 +631,11 @@ export function Clients() {
             style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none' }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {([['all', t('clients.filterAll')], ['active', t('clients.filterActive')], ['archived', t('clients.filterArchived')]] as const).map(([val, label]) => (
-            <button key={val} onClick={() => changeFilter(val)} style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <LifecycleFilterDropdown
+          value={filter}
+          onChange={changeFilter}
+          labels={{ all: t('clients.filterAll'), active: t('clients.filterActive'), archived: t('clients.filterArchived') }}
+        />
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 2, marginLeft: 'auto', background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>

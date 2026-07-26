@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
@@ -683,6 +683,7 @@ function ProjectListView({ projects }: { projects: Project[] }) {
 
 const VIEW_KEY = 'sf_projects_view';
 const FILTER_KEY = 'sf_projects_filter';
+const LIFECYCLE_FILTER_KEY = 'sf_projects_lifecycle_filter';
 
 export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
@@ -691,7 +692,11 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   // Only persisted for the main /projets page — a filter picked while
   // looking at one client's own Projets tab (clientId set) shouldn't leak
   // into what the global page shows next time.
-  const [filter, setFilter] = useState<'all' | Status | 'archived'>(() => clientId ? 'all' : loadPersisted<'all' | Status | 'archived'>(FILTER_KEY, 'all'));
+  // Two independent dimensions, same as Clients: workflow stage (Terminé/En
+  // cours/etc) and lifecycle (Tous/Actifs/Archivés) — an archived project
+  // still has a real status, so mixing them into one filter doesn't work.
+  const [statusFilter, setStatusFilter] = useState<'all' | Status>(() => clientId ? 'all' : loadPersisted<'all' | Status>(FILTER_KEY, 'all'));
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>(() => clientId ? 'all' : loadPersisted<LifecycleFilter>(LIFECYCLE_FILTER_KEY, 'all'));
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [sortOpen, setSortOpen] = useState(false);
@@ -708,7 +713,8 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const statusFilterBtnRef = useRef<HTMLButtonElement>(null);
   const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
-  const changeFilter = (f: 'all' | Status | 'archived') => { setFilter(f); if (!clientId) savePersisted(FILTER_KEY, f); };
+  const changeStatusFilter = (f: 'all' | Status) => { setStatusFilter(f); if (!clientId) savePersisted(FILTER_KEY, f); };
+  const changeLifecycleFilter = (f: LifecycleFilter) => { setLifecycleFilter(f); if (!clientId) savePersisted(LIFECYCLE_FILTER_KEY, f); };
 
   useEffect(() => subscribeProjects(() => setAllProjects(getProjects())), []);
 
@@ -733,9 +739,9 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         const match = p.name.toLowerCase().includes(q) || (!clientId && p.clientName.toLowerCase().includes(q));
         if (!match) return false;
       }
-      if (filter === 'archived') return !!p.archived;
-      if (p.archived) return false;
-      if (filter !== 'all') return p.status === filter;
+      if (lifecycleFilter === 'archived' && !p.archived) return false;
+      if (lifecycleFilter === 'active' && p.archived) return false;
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
       return true;
     })
     .slice()
@@ -779,18 +785,18 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           />
         </div>
 
-        {/* Status filter — a dropdown (like client filter / sort) instead of
-            a row of chips. Workflow stage only — "Archivé" is a separate
-            toggle below it, not another option in this list. */}
+        {/* Status filter — workflow stage only. "Archivé" is a separate
+            lifecycle dimension (LifecycleFilterDropdown, right below),
+            not another option in this list. */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <button
             ref={statusFilterBtnRef}
             onClick={() => setStatusFilterOpen(o => !o)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--border)'}`, background: filter !== 'all' && filter !== 'archived' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${statusFilter !== 'all' ? 'var(--accent)' : 'var(--border)'}`, background: statusFilter !== 'all' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
-            <SFIcon name="filter" size={13} color={filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--text-3)'} />
-            {filter === 'archived' ? t('projects.filterAll') : STATUS_FILTER_OPTIONS.find(o => o.value === filter)?.label}
-            <SFIcon name="chevron-down" size={12} color={filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--text-3)'} />
+            <SFIcon name="filter" size={13} color={statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
+            {STATUS_FILTER_OPTIONS.find(o => o.value === statusFilter)?.label}
+            <SFIcon name="chevron-down" size={12} color={statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
           </button>
           {statusFilterOpen && (() => {
             const rect = statusFilterBtnRef.current?.getBoundingClientRect();
@@ -801,13 +807,13 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
                   {STATUS_FILTER_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
-                      onClick={() => { changeFilter(opt.value); setStatusFilterOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer', background: filter === opt.value ? 'var(--surface-3)' : 'transparent', color: filter === opt.value ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: filter === opt.value ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                      onMouseEnter={e => { if (filter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={e => { if (filter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                      onClick={() => { changeStatusFilter(opt.value); setStatusFilterOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer', background: statusFilter === opt.value ? 'var(--surface-3)' : 'transparent', color: statusFilter === opt.value ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: statusFilter === opt.value ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                      onMouseEnter={e => { if (statusFilter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { if (statusFilter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
                       {opt.label}
-                      {filter === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                      {statusFilter === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                     </button>
                   ))}
                 </div>
@@ -816,69 +822,72 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           })()}
         </div>
 
-        {/* Archived — a separate lifecycle toggle, not a workflow stage */}
-        <button
-          onClick={() => changeFilter(filter === 'archived' ? 'all' : 'archived')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, border: `1px solid ${filter === 'archived' ? 'var(--accent)' : 'var(--border)'}`, background: filter === 'archived' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: filter === 'archived' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
-        >
-          <SFIcon name="archive" size={13} color={filter === 'archived' ? 'var(--accent)' : 'var(--text-3)'} />
-          {t('projects.filterArchived')}
-        </button>
+        {/* Lifecycle (Tous/Actifs/Archivés) — same shared dropdown as Clients */}
+        <LifecycleFilterDropdown
+          value={lifecycleFilter}
+          onChange={changeLifecycleFilter}
+          labels={{ all: t('projects.filterAll'), active: t('clients.filterActive'), archived: t('projects.filterArchived') }}
+        />
 
-        {/* Right controls: client filter + sort */}
-        <div style={{ marginLeft: 'auto', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {/* Client filter dropdown — global context only */}
-          {!clientId && (() => {
-            const clientsWithProjects = getClients().filter(c => allProjects.some(p => p.clientId === c.id));
-            if (clientsWithProjects.length === 0) return null;
-            const selected = clientsWithProjects.find(c => c.id === clientFilter);
-            return (
-              <div ref={clientFilterRef} style={{ position: 'relative', flexShrink: 0 }}>
-                <button
-                  onClick={() => setClientFilterOpen(o => !o)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
-                >
-                  {selected ? (
-                    <><i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
-                  ) : (
-                    <><SFIcon name="users" size={13} color="var(--text-3)" />{t('projects.allClients')}</>
-                  )}
-                  <SFIcon name="chevron-down" size={12} color={clientFilter ? 'var(--accent)' : 'var(--text-3)'} />
-                </button>
-                {clientFilterOpen && (
-                  <>
-                    <div onClick={() => setClientFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
-                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 5, minWidth: 210, maxHeight: 300, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                      <button
-                        onClick={() => { setClientFilter(null); setClientFilterOpen(false); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === null ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === null ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === null ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                      >
-                        <SFIcon name="layers" size={13} color={clientFilter === null ? 'var(--accent)' : 'var(--text-3)'} />
-                        {t('projects.allClients')}
-                        {clientFilter === null && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                      </button>
-                      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                      {clientsWithProjects.map(c => (
-                        <button
-                          key={c.id}
-                          onClick={() => { setClientFilter(c.id); setClientFilterOpen(false); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === c.id ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === c.id ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === c.id ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                        >
-                          <i style={{ width: 8, height: 8, borderRadius: '50%', background: c.avatarColor, flexShrink: 0, display: 'block' }} />
-                          {c.name}
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
-                            {allProjects.filter(p => p.clientId === c.id).length}
-                          </span>
-                          {clientFilter === c.id && <SFIcon name="check" size={12} color="var(--accent)" />}
-                        </button>
-                      ))}
-                    </div>
-                  </>
+        {/* Client filter dropdown — global context only. Left-aligned with
+            the other filters (search/status/lifecycle): it narrows the
+            list, same as they do. Sort and the view toggle (right-aligned,
+            below) don't narrow anything — they just change how the
+            results are displayed. */}
+        {!clientId && (() => {
+          const clientsWithProjects = getClients().filter(c => allProjects.some(p => p.clientId === c.id));
+          if (clientsWithProjects.length === 0) return null;
+          const selected = clientsWithProjects.find(c => c.id === clientFilter);
+          return (
+            <div ref={clientFilterRef} style={{ position: 'relative', flexShrink: 0 }}>
+              <button
+                onClick={() => setClientFilterOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
+              >
+                {selected ? (
+                  <><i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
+                ) : (
+                  <><SFIcon name="users" size={13} color="var(--text-3)" />{t('projects.allClients')}</>
                 )}
-              </div>
-            );
-          })()}
+                <SFIcon name="chevron-down" size={12} color={clientFilter ? 'var(--accent)' : 'var(--text-3)'} />
+              </button>
+              {clientFilterOpen && (
+                <>
+                  <div onClick={() => setClientFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
+                  <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 5, minWidth: 210, maxHeight: 300, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                    <button
+                      onClick={() => { setClientFilter(null); setClientFilterOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === null ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === null ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === null ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                    >
+                      <SFIcon name="layers" size={13} color={clientFilter === null ? 'var(--accent)' : 'var(--text-3)'} />
+                      {t('projects.allClients')}
+                      {clientFilter === null && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                    </button>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    {clientsWithProjects.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setClientFilter(c.id); setClientFilterOpen(false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === c.id ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === c.id ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === c.id ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                      >
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: c.avatarColor, flexShrink: 0, display: 'block' }} />
+                        {c.name}
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
+                          {allProjects.filter(p => p.clientId === c.id).length}
+                        </span>
+                        {clientFilter === c.id && <SFIcon name="check" size={12} color="var(--accent)" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
+        {/* Right: display options only (sort order, grid/list) — these
+            never narrow the result set, unlike everything to the left. */}
+        <div style={{ marginLeft: 'auto', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <button
             ref={sortBtnRef}
             onClick={() => setSortOpen(o => !o)}
