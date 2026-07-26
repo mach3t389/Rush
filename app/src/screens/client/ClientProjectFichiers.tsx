@@ -7,6 +7,8 @@ import {
   getMyClientFolders, getMyClientFiles,
   type ClientFileFolder, type ClientFileItem,
 } from '../../data/clientSessionStore';
+import { getPreviewClientFolders, getPreviewClientFiles } from '../../data/viewAsClientDataStore';
+import { getViewAsUser } from '../../data/viewAsStore';
 
 function formatBytes(bytes: number | null): string {
   if (!bytes) return '—';
@@ -24,6 +26,9 @@ export function ClientProjectFichiers() {
   const [files, setFiles] = useState<ClientFileItem[] | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
+  const viewAs = getViewAsUser();
+  const isPreview = viewAs?.type === 'external';
+
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
@@ -31,14 +36,14 @@ export function ClientProjectFichiers() {
     setFiles(null);
     setCurrentFolderId(null);
     (async () => {
-      const [f, i] = await Promise.all([
-        getMyClientFolders(projectId),
-        getMyClientFiles(projectId),
-      ]);
+      const [f, i] = isPreview
+        ? await Promise.all([getPreviewClientFolders(projectId), getPreviewClientFiles(projectId)])
+        : await Promise.all([getMyClientFolders(projectId), getMyClientFiles(projectId)]);
       if (!cancelled) { setFolders(f); setFiles(i); }
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
 
   if (!projectId) return null;
 
