@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFBar } from '../components/ui';
+import { SFButton, SFIcon, SFBar, PageHeader } from '../components/ui';
 import { getTotalStorageUsedBytes, subscribeStorageUsage } from '../data/storageStore';
 import { MonEquipe } from './MonEquipe';
 import {
@@ -1993,7 +1993,9 @@ export function Parametres() {
     });
 
   return (
-    <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <PageHeader title={t('nav.settings')} />
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
       {/* Sub-nav */}
       <div style={{ width: 200, borderRight: '1px solid var(--border)', padding: '16px 8px', display: 'flex', flexDirection: 'column', gap: 16, flexShrink: 0 }}>
         {SECTIONS.map(section => (
@@ -2463,6 +2465,7 @@ export function Parametres() {
             </p>
           </div>
         )}
+      </div>
       </div>
 
       {/* Drawer profil (éditeur complet réutilisé) */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFCard, SFBar, SFButton, SFLoadingState } from '../components/ui';
+import { SFPill, SFCard, SFBar, SFButton, SFLoadingState, PageHeader } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
 import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient, isClientsLoading } from '../data/clientStore';
@@ -610,22 +610,15 @@ export function Clients() {
   const liveEditingClient = editingClient ? (clients.find(c => c.id === editingClient.id) ?? editingClient) : null;
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {showModal && <NewClientModal onClose={() => setShowModal(false)} />}
       {liveEditingClient && <ClientEditPanel client={liveEditingClient} onClose={() => setEditingClient(null)} />}
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('clients.title')}</h1>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {t('clients.count', { count: clients.length })}
-          </p>
-        </div>
-        <SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
-      </div>
-
-      {/* Search + filters */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <PageHeader
+        title={t('clients.title')}
+        subtitle={t('clients.count', { count: clients.length })}
+        actions={<SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>}
+      >
         <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -658,65 +651,67 @@ export function Clients() {
             </button>
           ))}
         </div>
+      </PageHeader>
+
+      <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Empty state */}
+        {filtered.length === 0 && (
+          isClientsLoading() ? (
+            <SFLoadingState />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
+              <SFIcon name="users" size={36} color="var(--text-3)" />
+              <p style={{ fontSize: 14 }}>{t('clients.noClientsFound')}</p>
+              <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
+            </div>
+          )
+        )}
+
+        {/* List view */}
+        {view === 'list' && filtered.length > 0 && <ClientListView clients={filtered} onEdit={setEditingClient} />}
+
+        {/* Grid */}
+        {view === 'grid' && filtered.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {filtered.map(client => {
+            const pinned = isPinnedClient(client.id);
+            const liveStats = getClientLiveStats(client.id);
+            return (
+              <SFCard key={client.id} padding={18} gap={12} onClick={() => navigate(`/clients/${client.id}`)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                    {client.initials}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontWeight: 600, fontSize: 14 }}>{client.name}</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2 }}>
+                      {client.sector} · {client.city}
+                    </p>
+                  </div>
+                  {/* Star + edit + menu */}
+                  <div style={{ alignSelf: 'flex-start' }}>
+                    <ClientActions clientId={client.id} pinned={pinned} archived={client.archived} onEdit={() => setEditingClient(client)} />
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
+                  <span>{t('clients.activeProjects', { count: liveStats.activeProjects })}</span>
+                  <span>{t('clients.deliverables', { count: liveStats.pendingDeliverables })}</span>
+                  <span>{t('clients.since', { year: client.since })}</span>
+                </div>
+
+                <SFBar value={liveStats.progress} height={3} />
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(client.lastActivity, t)}</span>
+                </div>
+              </SFCard>
+            );
+          })}
+        </div>
+        )}
       </div>
-
-      {/* Empty state */}
-      {filtered.length === 0 && (
-        isClientsLoading() ? (
-          <SFLoadingState />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '60px 0', color: 'var(--text-3)' }}>
-            <SFIcon name="users" size={36} color="var(--text-3)" />
-            <p style={{ fontSize: 14 }}>{t('clients.noClientsFound')}</p>
-            <SFButton variant="ghost" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>
-          </div>
-        )
-      )}
-
-      {/* List view */}
-      {view === 'list' && filtered.length > 0 && <ClientListView clients={filtered} onEdit={setEditingClient} />}
-
-      {/* Grid */}
-      {view === 'grid' && filtered.length > 0 && (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-        {filtered.map(client => {
-          const pinned = isPinnedClient(client.id);
-          const liveStats = getClientLiveStats(client.id);
-          return (
-            <SFCard key={client.id} padding={18} gap={12} onClick={() => navigate(`/clients/${client.id}`)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                  {client.initials}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: 14 }}>{client.name}</p>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2 }}>
-                    {client.sector} · {client.city}
-                  </p>
-                </div>
-                {/* Star + edit + menu */}
-                <div style={{ alignSelf: 'flex-start' }}>
-                  <ClientActions clientId={client.id} pinned={pinned} archived={client.archived} onEdit={() => setEditingClient(client)} />
-                </div>
-              </div>
-
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
-                <span>{t('clients.activeProjects', { count: liveStats.activeProjects })}</span>
-                <span>{t('clients.deliverables', { count: liveStats.pendingDeliverables })}</span>
-                <span>{t('clients.since', { year: client.since })}</span>
-              </div>
-
-              <SFBar value={liveStats.progress} height={3} />
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(client.lastActivity, t)}</span>
-              </div>
-            </SFCard>
-          );
-        })}
-      </div>
-      )}
     </div>
   );
 }

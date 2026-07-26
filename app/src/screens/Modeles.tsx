@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { SFButton, SFIcon } from '../components/ui';
+import { SFButton, SFIcon, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
 import { addProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
@@ -2275,27 +2275,26 @@ export function Modeles() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Topbar */}
-      <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Modèles</h1>
-          <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{topbarCount}</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {hiddenCount > 0 && (
-            <button onClick={resetHiddenTemplates} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', textDecoration: 'underline', padding: 0 }}>
-              {hiddenCount} modèle{hiddenCount > 1 ? 's' : ''} masqué{hiddenCount > 1 ? 's' : ''} — Réafficher
-            </button>
-          )}
-          <SFButton
-            variant="secondary"
-            icon={typeFilter === 'projets' ? 'layout-template' : typeFilter === 'formulaires' ? 'clipboard-list' : 'layers'}
-            onClick={handleNew}
-          >
-            {typeFilter === 'formulaires' ? 'Nouveau formulaire' : 'Nouveau modèle'}
-          </SFButton>
-        </div>
-      </div>
+      <PageHeader
+        title="Modèles"
+        subtitle={topbarCount}
+        actions={
+          <>
+            {hiddenCount > 0 && (
+              <button onClick={resetHiddenTemplates} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-text)', textDecoration: 'underline', padding: 0 }}>
+                {hiddenCount} modèle{hiddenCount > 1 ? 's' : ''} masqué{hiddenCount > 1 ? 's' : ''} — Réafficher
+              </button>
+            )}
+            <SFButton
+              variant="secondary"
+              icon={typeFilter === 'projets' ? 'layout-template' : typeFilter === 'formulaires' ? 'clipboard-list' : 'layers'}
+              onClick={handleNew}
+            >
+              {typeFilter === 'formulaires' ? 'Nouveau formulaire' : 'Nouveau modèle'}
+            </SFButton>
+          </>
+        }
+      />
 
       {/* Body */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton, DatePickerDropdown, formatDisplay } from '../components/ui';
+import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader } from '../components/ui';
 import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
@@ -1059,14 +1059,10 @@ export function Finances() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{t('nav.finances')}</p>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, margin: 0 }}>{t('finance.title')}</h1>
-        </div>
-        <SFButton variant="primary" icon="plus" onClick={openAdd}>{t('finance.newInvoice')}</SFButton>
-      </div>
+      <PageHeader
+        title={t('finance.title')}
+        actions={<SFButton variant="primary" icon="plus" onClick={openAdd}>{t('finance.newInvoice')}</SFButton>}
+      />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
 

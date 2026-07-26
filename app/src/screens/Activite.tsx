@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon } from '../components/ui';
+import { SFPill, SFAvatar, SFIcon, PageHeader } from '../components/ui';
 import { ACTIVITY } from '../data/mock';
 import { ActivityFeed } from '../components/ActivityFeed';
 import type { AppNotif, NotifKind } from '../data/notificationStore';
@@ -251,21 +251,20 @@ export function Activite() {
   }, {} as Record<NotifKind, number>);
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: 24 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <PageHeader
+        title={t('nav.notifications')}
+        actions={tab === 'personal' && unreadCount > 0 ? (
+          <button
+            onClick={() => markAllRead()}
+            style={{ fontSize: 12, color: 'var(--text-2)', background: 'none', border: '1px solid var(--border-2)', borderRadius: 9, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+          >
+            {t('activity.markAllRead')}
+          </button>
+        ) : undefined}
+      />
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('nav.notifications')}</h1>
-            {tab === 'personal' && unreadCount > 0 && (
-              <button
-                onClick={() => markAllRead()}
-                style={{ fontSize: 12, color: 'var(--text-2)', background: 'none', border: '1px solid var(--border-2)', borderRadius: 9, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-              >
-                {t('activity.markAllRead')}
-              </button>
-            )}
-          </div>
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
@@ -385,6 +384,7 @@ export function Activite() {
             })) : []} />
           )}
 
+      </div>
       </div>
     </div>
   );
