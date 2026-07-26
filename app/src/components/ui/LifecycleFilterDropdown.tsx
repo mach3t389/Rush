@@ -7,9 +7,14 @@ export type LifecycleFilter = 'all' | 'active' | 'archived';
 // (two structurally similar list screens) so the "is this thing archived"
 // dimension always looks and behaves the same way, instead of one screen
 // getting chips and the other a bare toggle with no visible options.
-export function LifecycleFilterDropdown({ value, onChange, labels }: {
+export function LifecycleFilterDropdown({ value, onChange, categoryLabel, labels }: {
   value: LifecycleFilter;
   onChange: (v: LifecycleFilter) => void;
+  /** Always-visible category name (e.g. "Activité") — the button shows this
+      alone at "all", and appends the selected value otherwise, instead of
+      just showing the current value with nothing to say what it's a filter
+      *of* (two adjacent dropdowns both reading bare "Tous" is ambiguous). */
+  categoryLabel: string;
   labels: { all: string; active: string; archived: string };
 }) {
   const [open, setOpen] = useState(false);
@@ -29,7 +34,7 @@ export function LifecycleFilterDropdown({ value, onChange, labels }: {
         style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${value !== 'all' ? 'var(--accent)' : 'var(--border)'}`, background: value !== 'all' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: value !== 'all' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
       >
         <SFIcon name="archive" size={13} color={value !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
-        {current}
+        {categoryLabel}{value !== 'all' && `: ${current}`}
         <SFIcon name="chevron-down" size={12} color={value !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
       </button>
       {open && (() => {

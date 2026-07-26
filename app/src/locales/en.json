@@ -359,6 +359,7 @@
     "filterAll": "All",
     "filterAllStatus": "All statuses",
     "filterAllLifecycle": "Active and archived",
+    "statusLabel": "Status",
     "filterArchived": "Archived",
     "allClients": "All clients",
     "sortBy": "Sort by",
@@ -457,7 +458,8 @@
   "common": {
     "required": "*",
     "cancel": "Cancel",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "activityFilterLabel": "Visibility"
   },
   "overview": {
     "markAsDone": "Mark as done",

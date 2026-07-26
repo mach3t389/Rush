@@ -634,6 +634,7 @@ export function Clients() {
         <LifecycleFilterDropdown
           value={filter}
           onChange={changeFilter}
+          categoryLabel={t('common.activityFilterLabel')}
           labels={{ all: t('clients.filterAll'), active: t('clients.filterActive'), archived: t('clients.filterArchived') }}
         />
 

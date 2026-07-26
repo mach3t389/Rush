@@ -795,7 +795,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${statusFilter !== 'all' ? 'var(--accent)' : 'var(--border)'}`, background: statusFilter !== 'all' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             <SFIcon name="filter" size={13} color={statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
-            {STATUS_FILTER_OPTIONS.find(o => o.value === statusFilter)?.label}
+            {t('projects.statusLabel')}{statusFilter !== 'all' && `: ${STATUS_FILTER_OPTIONS.find(o => o.value === statusFilter)?.label}`}
             <SFIcon name="chevron-down" size={12} color={statusFilter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
           </button>
           {statusFilterOpen && (() => {
@@ -826,6 +826,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         <LifecycleFilterDropdown
           value={lifecycleFilter}
           onChange={changeLifecycleFilter}
+          categoryLabel={t('common.activityFilterLabel')}
           labels={{ all: t('projects.filterAllLifecycle'), active: t('clients.filterActive'), archived: t('projects.filterArchived') }}
         />
 

@@ -359,6 +359,7 @@
     "filterAll": "Tous",
     "filterAllStatus": "Tous les statuts",
     "filterAllLifecycle": "Actifs et archivés",
+    "statusLabel": "Statut",
     "filterArchived": "Archivés",
     "allClients": "Tous les clients",
     "sortBy": "Trier par",
@@ -457,7 +458,8 @@
   "common": {
     "required": "*",
     "cancel": "Annuler",
-    "loading": "Chargement…"
+    "loading": "Chargement…",
+    "activityFilterLabel": "Activité"
   },
   "overview": {
     "markAsDone": "Marquer comme terminé",
