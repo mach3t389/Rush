@@ -193,7 +193,7 @@ function PageThumb({ page, pageNum, isActive, commentCount, onClick }: {
 
 export function DocumentReview() {
   const navigate = useNavigate();
-  const { resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
+  const { projectId, resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resource = getResources().find(r => r.id === resourceId);
 
   const persisted = resourceId ? getResourceContent<DocumentReviewContent>(resourceId) : undefined;
@@ -508,7 +508,7 @@ export function DocumentReview() {
           )}
         </div>
 
-        {resource && <RequestApprovalButton resource={resource} size="sm" />}
+        {resource && <RequestApprovalButton resource={resource} projectId={projectId} size="sm" />}
 
         {/* Divider */}
         <div style={{ width: 1, height: 26, background: 'var(--border)', flexShrink: 0 }} />
