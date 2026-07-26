@@ -11,9 +11,11 @@ import { getResourceContent, setResourceContent } from '../data/resourceContentS
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
+import { notifyComment } from '../data/commentNotify';
 import { addDeliverable } from '../data/taskStore';
 import { STATUS_COLOR } from '../data/status';
 import type { Resource, Status } from '../types';
+import type { RegisterExport } from './ResourceDetail';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -185,9 +187,14 @@ interface VideoReviewContent {
   versions?: LocalVersion[];
   activeVersion?: string;
   tasks?: VideoTask[];
+  reviewStatus?: ReviewStatus;
 }
 
-export function VideoReviewBody({ resource, projectId, persistKey }: { resource: Resource; projectId?: string; persistKey?: string }) {
+function escapeHTML(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+export function VideoReviewBody({ resource, projectId, persistKey, registerExport }: { resource: Resource; projectId?: string; persistKey?: string; registerExport?: RegisterExport }) {
   const { t } = useTranslation();
   const persisted = persistKey ? getResourceContent<VideoReviewContent>(persistKey) : undefined;
   const navigate = useNavigate();
@@ -321,7 +328,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const [commentText, setCommentText] = useState('');
   const [withTimestamp, setWithTimestamp] = useState(true);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
-  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>('review');
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(persisted?.reviewStatus ?? 'review');
   const [statusDropOpen, setStatusDropOpen] = useState(false);
   const [statusDropRect, setStatusDropRect] = useState<DOMRect | null>(null);
   const statusDropRef = useRef<HTMLButtonElement>(null);
@@ -375,13 +382,13 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
   const vrMounted = useRef(false);
   const vrSnapshotRef = useRef<VideoReviewContent | null>(null);
   useEffect(() => {
-    const snapshot: VideoReviewContent = { comments, versions, activeVersion, tasks };
+    const snapshot: VideoReviewContent = { comments, versions, activeVersion, tasks, reviewStatus };
     vrSnapshotRef.current = snapshot;
     if (!persistKey) return;
     if (!vrMounted.current) { vrMounted.current = true; return; } // ne pas écrire au montage
     if (vrPersistTimer.current) clearTimeout(vrPersistTimer.current);
     vrPersistTimer.current = window.setTimeout(() => setResourceContent(persistKey, snapshot), 400);
-  }, [persistKey, comments, versions, activeVersion, tasks]);
+  }, [persistKey, comments, versions, activeVersion, tasks, reviewStatus]);
   // Flush la dernière modification en attente au démontage.
   useEffect(() => () => {
     if (persistKey && vrPersistTimer.current && vrSnapshotRef.current) {
@@ -389,6 +396,23 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
       setResourceContent(persistKey, vrSnapshotRef.current);
     }
   }, [persistKey]);
+
+  useEffect(() => {
+    if (!registerExport) return;
+    registerExport(() => {
+      const rows = comments.map(c => `<div class="vx-row">
+        <div class="vx-meta"><span class="vx-time">${c.timeLabel ?? ''}</span><span class="vx-author">${escapeHTML(c.author.name)}</span>${c.status === 'resolved' ? '<span class="vx-resolved">Résolu</span>' : ''}</div>
+        <div class="vx-text">${escapeHTML(c.text)}</div>
+        ${c.replies.map(r => `<div class="vx-reply"><strong>${escapeHTML(r.author.name)}</strong> — ${escapeHTML(r.text)}</div>`).join('')}
+      </div>`).join('');
+      return {
+        title: resource.title,
+        css: 'body{padding:0}.vx-row{border-bottom:1px solid #ddd;padding:10pt 0}.vx-meta{display:flex;gap:10pt;font-size:9pt;color:#666;margin-bottom:4pt}.vx-time{font-family:monospace}.vx-resolved{color:#1a6b4a}.vx-text{font-size:11pt}.vx-reply{font-size:10pt;color:#444;margin:4pt 0 0 14pt}',
+        bodyHTML: `<h1 style="font-size:16pt;margin:0 0 4pt">${escapeHTML(resource.title)}</h1><p style="font-size:10pt;color:#666;margin:0 0 16pt">${comments.length} commentaire${comments.length !== 1 ? 's' : ''}</p>${rows}`,
+      };
+    });
+    return () => registerExport(null);
+  }, [registerExport, comments, resource.title]);
 
   // ── Playback engine (simulated — advances currentTime in real wall-clock time) ──
   // Uses setInterval with a timestamp delta so playback stays accurate even when the
@@ -583,6 +607,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     setPendingAnnotation(null);
     setActiveCommentId(newC.id);
     if (resource.id) incrementCommentCount(resource.id);
+    notifyComment({ kind: 'add', text: newC.text, itemLabel: resource.title, resourceId: resource.id, projectId });
   };
 
   const cycleCommentStatus = (id: string) =>
@@ -616,6 +641,7 @@ export function VideoReviewBody({ resource, projectId, persistKey }: { resource:
     if (!replyText.trim()) return;
     const reply: Reply = { id: `r${Date.now()}`, author: USERS.lea, text: replyText.trim() };
     setComments(p => p.map(c => c.id === commentId ? { ...c, replies: [...c.replies, reply] } : c));
+    notifyComment({ kind: 'reply', text: reply.text, itemLabel: resource.title, resourceId: resource.id, projectId });
     setReplyText('');
     setReplyingTo(null);
   };

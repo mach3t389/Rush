@@ -5,6 +5,7 @@ import { getResources, updateResource } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
+import { notifyComment } from '../data/commentNotify';
 
 interface Annotation {
   id: string;
@@ -220,6 +221,7 @@ export function WebReview() {
       replies: [],
     };
     setAnnotations(prev => [...prev, ann]);
+    notifyComment({ kind: 'add', text: ann.text, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
     setSelectedId(ann.id);
     setPendingPos(null);
     setDraftText('');
@@ -237,6 +239,7 @@ export function WebReview() {
 
   const replyToAnnotation = (id: string, text: string) => {
     setAnnotations(prev => prev.map(a => a.id === id ? { ...a, replies: [...a.replies, { id: `wr${Date.now()}`, author: { id: 'moi', name: 'Moi', initials: 'MO', avatarColor: '#5b3ea8', role: '' }, text }] } : a));
+    notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
   };
 
   const toRevisionComment = (ann: Annotation, index: number): RevisionComment => ({

@@ -10,6 +10,8 @@ import { getResources, updateResource, subscribeResources } from '../data/resour
 import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status, TaskComment } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
+import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments';
+import { notifyComment } from '../data/commentNotify';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -394,11 +396,8 @@ export function TaskPanel({
   const [heureFin, setHeureFin] = useState(task.endTime ?? '');
   const [datePickerOpen, setDatePickerOpen] = useState<'debut' | 'fin' | null>(null);
   const [datePickerRect, setDatePickerRect] = useState<DOMRect | null>(null);
-  const [comment, setComment] = useState('');
   const [comments, setComments] = useState<CommentObj[]>(task.comments ?? []);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionRect, setMentionRect] = useState<DOMRect | null>(null);
-  const commentInputRef = useRef<HTMLInputElement>(null);
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const commentsAnchorRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
@@ -410,7 +409,6 @@ export function TaskPanel({
       commentsAnchorRef.current?.addEventListener('animationend', () => {
         if (commentsAnchorRef.current) commentsAnchorRef.current.style.animation = '';
       }, { once: true });
-      commentInputRef.current?.focus();
     }, 200);
     return () => clearTimeout(timer);
   }, [autoFocusComments]);
@@ -422,8 +420,6 @@ export function TaskPanel({
     }
   }, [description]);
 
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
   const [localSubtasks, setLocalSubtasks] = useState<LocalSubtask[]>(
     task.subtasks?.map(s => ({
       id: s.id, title: s.title, checked: s.checked,
@@ -601,42 +597,60 @@ export function TaskPanel({
 
   const ME = { initials: USERS.lea.initials, bg: USERS.lea.avatarColor, name: USERS.lea.name };
 
-  const handleCommentChange = (val: string, inputEl: HTMLInputElement | null) => {
-    setComment(val);
-    const match = val.match(/@(\w*)$/);
-    if (match) { setMentionQuery(match[1]); if (inputEl) setMentionRect(inputEl.getBoundingClientRect()); }
-    else setMentionQuery(null);
-  };
+  // CommentObj (TaskComment) predates the shared RevisionComment shape and
+  // has no resolve/reopen concept and a slightly different author field
+  // (`bg` vs `avatarColor`) — convert for display only; handlers below
+  // still operate on the original CommentObj array/ids.
+  const toRevisionComment = (c: CommentObj): RevisionComment => ({
+    id: c.id,
+    author: { id: c.author.name, name: c.author.name, initials: c.author.initials, avatarColor: c.author.bg, role: '' },
+    text: c.text,
+    status: c.status ?? 'open',
+    replies: c.replies.map(r => ({
+      id: r.id,
+      author: { id: r.author.name, name: r.author.name, initials: r.author.initials, avatarColor: r.author.bg, role: '' },
+      text: r.text,
+    })),
+  });
 
-  const pickMention = (name: string) => {
-    setComment(prev => prev.replace(/@\w*$/, `@${name} `));
-    setMentionQuery(null);
-    commentInputRef.current?.focus();
-  };
-
-  const submitComment = () => {
-    if (!comment.trim()) return;
+  const submitComment = (text: string) => {
+    if (!text.trim()) return;
     setComments(prev => {
-      const next = [...prev, { id: `c-${Date.now()}`, text: comment.trim(), author: ME, replies: [] }];
+      const next = [...prev, { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const }];
       onUpdate?.({ comments: next });
       return next;
     });
-    setComment('');
-    setMentionQuery(null);
+    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id });
   };
 
-  const submitReply = (commentId: string) => {
-    if (!replyText.trim()) return;
+  const submitReply = (commentId: string, text: string) => {
+    if (!text.trim()) return;
     setComments(prev => {
       const next = prev.map(c => c.id === commentId
-        ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: replyText.trim(), author: ME, replies: [] }] }
+        ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: text.trim(), author: ME, replies: [] }] }
         : c
       );
       onUpdate?.({ comments: next });
       return next;
     });
-    setReplyText('');
-    setReplyingTo(null);
+    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id });
+  };
+
+  const toggleCommentResolved = (id: string) => {
+    setComments(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, status: (c.status === 'resolved' ? 'open' : 'resolved') as 'open' | 'resolved' } : c);
+      onUpdate?.({ comments: next });
+      return next;
+    });
+  };
+
+  const deleteTaskComment = (id: string) => {
+    setComments(prev => {
+      const next = prev.filter(x => x.id !== id);
+      onUpdate?.({ comments: next });
+      return next;
+    });
+    if (activeCommentId === id) setActiveCommentId(null);
   };
 
   const convertToSubtask = (c: CommentObj) => {
@@ -652,12 +666,6 @@ export function TaskPanel({
       return next;
     });
   };
-
-  const renderMentions = (text: string) => text.split(/(@\S+)/g).map((part, i) =>
-    part.startsWith('@')
-      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
-      : part
-  );
 
   const secLabel = (text: string) => (
     <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>
@@ -1307,123 +1315,21 @@ export function TaskPanel({
 
           {divider}
 
-          {/* Commentaires */}
-          <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, borderRadius: 9 }}>
-            {panelSectionLabel(`${t('activity.comments')}${comments.length ? ` (${comments.length})` : ''}`)}
-
-            {comments.map(c => (
-              <div key={c.id}>
-                {/* Main comment */}
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <SFAvatar initials={c.author.initials} bg={c.author.bg} size={26} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                      {renderMentions(c.text)}
-                    </div>
-                    <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingLeft: 4 }}>
-                      <button onClick={() => { setReplyingTo(c.id); setReplyText(''); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
-                      >{t('taskPanel.replyAction')}</button>
-                      <button onClick={() => convertToSubtask(c)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
-                      >
-                        <SFIcon name="git-branch" size={11} />{t('taskPanel.toSubtask')}
-                      </button>
-                      <button onClick={() => { setComments(prev => { const next = prev.filter(x => x.id !== c.id); onUpdate?.({ comments: next }); return next; }); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)', padding: 0, fontFamily: 'var(--ff-text)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
-                      >
-                        <SFIcon name="trash-2" size={11} />{t('tasks.delete')}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Replies */}
-                {c.replies.map(r => (
-                  <div key={r.id} style={{ display: 'flex', gap: 8, marginLeft: 34, marginTop: 6 }}>
-                    <SFAvatar initials={r.author.initials} bg={r.author.bg} size={22} />
-                    <div style={{ background: 'var(--surface-2)', borderRadius: 9, padding: '6px 10px', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                      {renderMentions(r.text)}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Inline reply input */}
-                {replyingTo === c.id && (
-                  <div style={{ display: 'flex', gap: 8, marginLeft: 34, marginTop: 6 }}>
-                    <SFAvatar initials={ME.initials} bg={ME.bg} size={22} />
-                    <div style={{ flex: 1, display: 'flex', gap: 5 }}>
-                      <input
-                        autoFocus
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') submitReply(c.id); if (e.key === 'Escape') setReplyingTo(null); }}
-                        placeholder={t('tasks.reply')}
-                        style={{ flex: 1, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)' }}
-                      />
-                      <button onClick={() => submitReply(c.id)}
-                        style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: replyText.trim() ? 'var(--accent)' : 'var(--surface-3)', color: replyText.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 11, fontWeight: 600, cursor: replyText.trim() ? 'pointer' : 'default', fontFamily: 'var(--ff-text)' }}>
-                        {t('taskPanel.send')}
-                      </button>
-                      <button onClick={() => setReplyingTo(null)}
-                        style={{ padding: '5px 8px', borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                        {t('tasks.cancel')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* New comment input */}
-            <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
-              <SFAvatar initials={ME.initials} bg={ME.bg} size={26} />
-              <div style={{ flex: 1, display: 'flex', gap: 6 }}>
-                <input
-                  ref={commentInputRef}
-                  value={comment}
-                  onChange={e => handleCommentChange(e.target.value, e.currentTarget)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !mentionQuery) submitComment(); }}
-                  placeholder={t('taskPanel.addCommentMention')}
-                  style={{ flex: 1, padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
-                />
-                <button onClick={submitComment}
-                  style={{ padding: '7px 14px', borderRadius: 9, border: 'none', background: comment.trim() ? 'var(--accent)' : 'var(--surface-3)', color: comment.trim() ? 'var(--on-accent)' : 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: comment.trim() ? 'pointer' : 'default', transition: 'all 0.12s', fontFamily: 'var(--ff-text)' }}>
-                  {t('taskPanel.send')}
-                </button>
-              </div>
-
-              {/* @mention dropdown */}
-              {mentionQuery !== null && (() => {
-                const filtered = TEAM.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase()));
-                if (!filtered.length) return null;
-                return (
-                  <>
-                    <div onClick={() => setMentionQuery(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
-                    <div style={{ position: 'fixed', bottom: mentionRect ? window.innerHeight - mentionRect.top + 6 : 80, left: mentionRect?.left ?? 100, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 200, padding: 4 }}>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 8px 2px' }}>{t('taskPanel.mention')}</p>
-                      {filtered.map(u => (
-                        <button key={u.id} onClick={() => pickMention(u.name)}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <SFAvatar initials={u.initials} bg={u.avatarColor} size={22} />
-                          <span style={{ fontSize: 13, color: 'var(--text)' }}>{u.name}</span>
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{u.role}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+          {/* Commentaires — même composant que Document/Révision web/Scénario/etc., pour un système identique partout */}
+          <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
+            <RevisionCommentSidebar
+              comments={comments.map(toRevisionComment)}
+              activeId={activeCommentId}
+              onActivate={setActiveCommentId}
+              onAdd={submitComment}
+              onResolve={toggleCommentResolved}
+              onReply={submitReply}
+              onDelete={deleteTaskComment}
+              onConvertToSubtask={id => { const c = comments.find(x => x.id === id); if (c) convertToSubtask(c); }}
+              pendingAnnotation={false}
+              onCancelPending={() => {}}
+              embedded
+            />
           </div>
         </div>
 

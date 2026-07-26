@@ -1571,6 +1571,7 @@
     "addCommentMention": "Ajouter un commentaire, @mentionner…",
     "reopen": "Rouvrir",
     "resolve": "Résoudre",
+    "convertToSubtask": "Convertir en sous-tâche",
     "replyShort": "Répondre…",
     "placeAnnotation": "Placer une annotation",
     "cancelAnnotation": "Annuler l'annotation",
@@ -2171,9 +2172,6 @@
       "clickToRename": "Cliquer pour renommer",
       "clickToEditDescription": "Cliquer pour éditer la description",
       "changeStatus": "Changer le statut",
-      "exportPDF": "Exporter en PDF",
-      "exportGoogleDocs": "Exporter vers Google Docs",
-      "offline": "HORS LIGNE",
       "linkCopied": "Lien copié !",
       "share": "Partager"
     },
@@ -2201,22 +2199,13 @@
       "moveSceneDown": "Descendre la scène"
     },
     "storyboardView": {
-      "aiPromptPlaceholder": "Plan large depuis le couloir, personnage de dos, lumière tamisée…",
-      "aiTitle": "Génération IA",
-      "aiSubtitle": "Décrivez, dessinez ou dictez le cadre à générer",
-      "promptModeText": "Texte",
-      "promptModeDraw": "Dessin",
-      "promptLabel": "Prompt",
-      "styleLabel": "Style",
-      "dictate": "Dicter",
-      "stopListening": "Arrêter la dictée",
-      "speechUnsupported": "Reconnaissance vocale non disponible sur ce navigateur (Chrome / Edge).",
+      "sketchTitle": "Ajouter un croquis",
+      "sketchSubtitle": "Dessinez le cadre à la main",
       "clearCanvas": "Effacer",
       "eraser": "Gomme",
       "sketchDescPlaceholder": "Description optionnelle du croquis…",
       "cancelButton": "Annuler",
-      "generateButton": "Générer",
-      "generatingLabel": "Génération en cours…"
+      "saveButton": "Enregistrer"
     },
     "documentView": {
       "tableOfContents": "Table des matières",

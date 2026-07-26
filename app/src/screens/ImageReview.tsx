@@ -8,6 +8,7 @@ import { getResources, updateResource } from '../data/resourceStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
+import { notifyComment } from '../data/commentNotify';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import {
@@ -292,6 +293,7 @@ export function ImageReview() {
     setPendingAnno(null);
     setActiveCommentId(newComment.id);
     if (resourceId) incrementCommentCount(resourceId);
+    notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId });
   };
 
   const handleResolve = (id: string) => {
@@ -302,6 +304,7 @@ export function ImageReview() {
     setComments(prev => prev.map(c => c.id === id ? {
       ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text }],
     } : c));
+    notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? '', resourceId, projectId });
   };
 
   const handleDelete = (id: string) => {
@@ -555,7 +558,7 @@ export function ImageReview() {
               comments={comments.filter(c => !c.annotation || round.images.some(img => img.id === c.annotation?.assetId))}
               activeId={activeCommentId}
               onActivate={id => { setActiveCommentId(id); if (id) { const c = comments.find(x => x.id === id); if (c?.annotation?.assetId) openSingle(c.annotation.assetId); } }}
-              onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); }}
+              onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); if (resourceId) incrementCommentCount(resourceId); notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId }); }}
               onResolve={handleResolve}
               onReply={handleReply}
               onDelete={handleDelete}

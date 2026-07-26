@@ -111,6 +111,7 @@ export interface TaskComment {
   text: string;
   author: { initials: string; bg: string; name: string };
   replies: TaskComment[];
+  status?: 'open' | 'resolved';
 }
 
 // ── Resource ──────────────────────────────────────────────────────────────────

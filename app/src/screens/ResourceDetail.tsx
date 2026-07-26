@@ -14,6 +14,7 @@ import { getResourceContent, setResourceContent } from '../data/resourceContentS
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { getFormSubmissions, subscribeFormSubmissions, getFormFileUrlSync, type FormSubmission } from '../data/formSubmissionsStore';
 import { markResourceRead } from '../data/notificationStore';
+import { notifyComment } from '../data/commentNotify';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 import type { Resource, ResourceType, Status, User } from '../types';
@@ -122,9 +123,8 @@ const DOC_INITIAL_HTML = `<h1>Brief créatif — Collection Été 2025</h1><h2>O
 // ── Autosave, statut en ligne & export (partagé script + document) ────────────
 
 type SaveState = 'saved' | 'saving' | 'offline';
-type ExportFormat = 'pdf' | 'gdocs';
-interface ExportPayload { title: string; bodyHTML: string; css: string; }
-type RegisterExport = (build: (() => ExportPayload) | null) => void;
+export interface ExportPayload { title: string; bodyHTML: string; css: string; }
+export type RegisterExport = (build: (() => ExportPayload) | null) => void;
 
 interface EditableProps {
   onEdit?: () => void;
@@ -276,23 +276,37 @@ interface ScriptViewProps extends EditableProps {
   setPanelTab: (t: 'scenes' | 'analyse' | 'props') => void;
   propItems: PropItem[];
   setPropItems: React.Dispatch<React.SetStateAction<PropItem[]>>;
+  comments: RevisionComment[];
+  setComments: React.Dispatch<React.SetStateAction<RevisionComment[]>>;
 }
 
-// ── Script comment sidebar ────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept in the signature for API compatibility with all 5 call sites; comments are not persisted per resourceId (see design spec)
-function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string }) {
-  const [comments, setComments] = useState<RevisionComment[]>([]);
+// ── Resource comment sidebar ──────────────────────────────────────────────────
+// Shared by every resource type that isn't already on its own bespoke
+// comment system (VideoReview's are time-anchored; WebReview/Document/
+// ImageReview/DocumentReview call RevisionCommentSidebar directly since
+// they already own real per-resource state). Comments are controlled by
+// the caller (setComments) so they persist via that view's own
+// setResourceContent payload, exactly like every other field on the
+// resource — and every add/reply fires a real notification.
+function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, projectId }: {
+  comments: RevisionComment[];
+  setComments: React.Dispatch<React.SetStateAction<RevisionComment[]>>;
+  itemLabel: string;
+  resourceId: string;
+  projectId?: string;
+}) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const handleAdd = (text: string) => {
     setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [] }]);
+    notifyComment({ kind: 'add', text, itemLabel, resourceId, projectId });
   };
   const handleResolve = (id: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
   };
   const handleReply = (id: string, text: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author: USERS.lea, text }] } : c));
+    notifyComment({ kind: 'reply', text, itemLabel, resourceId, projectId });
   };
   const handleDelete = (id: string) => {
     setComments(prev => prev.filter(c => c.id !== id));
@@ -317,7 +331,7 @@ function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string 
   );
 }
 
-function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, panelTab, setPanelTab, propItems, setPropItems }: ScriptViewProps) {
+function ScriptView({ resource, onEdit, saveState = 'saved', online = true, registerExport, versions, setVersions, activeVersionId, panelTab, setPanelTab, propItems, setPropItems, comments, setComments }: ScriptViewProps) {
   const { t } = useTranslation();
   const [newProp, setNewProp] = useState('');
   const [propSceneFilter, setPropSceneFilter] = useState<string | 'all'>('all');
@@ -939,7 +953,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
       </div>
 
       {/* Right — Comments sidebar */}
-      <ScriptCommentSidebar resourceId={resource.id} />
+      <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
 
       </div>{/* end content row */}
     </div>
@@ -956,11 +970,12 @@ const MOODBOARD_COLORS = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#64
 const POSTIT_COLORS = MOODBOARD_COLORS;
 const SHAPE_COLORS  = MOODBOARD_COLORS;
 
-export function MoodboardView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+export function MoodboardView({ resource, persistKey, registerExport }: { resource: Resource; persistKey?: string; registerExport?: RegisterExport }) {
   const { t } = useTranslation();
-  const _mbPersisted = persistKey ? getResourceContent<{ items: MBItem[]; arrows: MBArrow[] }>(persistKey) : undefined;
+  const _mbPersisted = persistKey ? getResourceContent<{ items: MBItem[]; arrows: MBArrow[]; comments?: RevisionComment[] }>(persistKey) : undefined;
   const [items, setItems]           = useState<MBItem[]>(_mbPersisted?.items ?? INITIAL_MB_ITEMS);
   const [arrows, setArrows]         = useState<MBArrow[]>(_mbPersisted?.arrows ?? INITIAL_MB_ARROWS);
+  const [comments, setComments]     = useState<RevisionComment[]>(_mbPersisted?.comments ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedArrow, setSelectedArrow] = useState<string | null>(null);
   const [editingId, setEditingId]   = useState<string | null>(null);
@@ -1000,10 +1015,38 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     if (!persistKey) return;
     if (mbPersistTimer.current) clearTimeout(mbPersistTimer.current);
     mbPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { items, arrows });
+      setResourceContent(persistKey, { items, arrows, comments });
     }, 400);
-  }, [items, arrows, persistKey]);
+  }, [items, arrows, comments, persistKey]);
   useEffect(() => () => { if (mbPersistTimer.current) clearTimeout(mbPersistTimer.current); }, []);
+
+  useEffect(() => {
+    if (!registerExport) return;
+    registerExport(() => {
+      const cards = items.map(item => {
+        if (item.type === 'image') {
+          const src = mbImageSrc(item);
+          return src ? `<div class="mb-card"><img src="${src}" alt="" /></div>` : '';
+        }
+        if (item.type === 'text' || item.type === 'postit') {
+          return `<div class="mb-card mb-note" style="background:${item.postitColor ?? '#f9f295'}">${escapeHTML(item.text ?? '')}</div>`;
+        }
+        if (item.type === 'web') {
+          return `<div class="mb-card mb-note">${escapeHTML(item.webUrl ?? '')}</div>`;
+        }
+        if (item.type === 'shape') {
+          return `<div class="mb-card" style="background:${item.shapeColor ?? '#3b82f6'}22;border:2px solid ${item.shapeColor ?? '#3b82f6'};${item.shapeType === 'ellipse' ? 'border-radius:50%' : ''}"></div>`;
+        }
+        return '';
+      }).filter(Boolean).join('');
+      return {
+        title: resource.title,
+        css: 'body{padding:0}.mb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12pt}.mb-card{border:1px solid #ddd;border-radius:6pt;overflow:hidden;min-height:60pt;display:flex;align-items:center;justify-content:center;padding:8pt;font-size:10pt;word-break:break-word}.mb-card img{width:100%;height:auto;display:block}',
+        bodyHTML: `<h1 style="font-size:16pt;margin:0 0 14pt">${escapeHTML(resource.title)}</h1><div class="mb-grid">${cards}</div>`,
+      };
+    });
+    return () => registerExport(null);
+  }, [registerExport, items, resource.title]);
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
@@ -1796,7 +1839,7 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
         );
       })()}
     </div>
-    <ScriptCommentSidebar resourceId={resource.id} />
+    <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
     </div>
   );
 }
@@ -1879,7 +1922,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const { t, i18n } = useTranslation();
   // Contenu persisté par ressource (corps HTML + commentaires). Absent en mode
   // modèle (persistKey non fourni) — on retombe alors sur seedHTML / mock.
-  const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[] }>(persistKey) : undefined;
+  const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[]; theme?: DocTheme; darkPage?: boolean; aiMessages?: { role: 'user' | 'assistant'; content: string }[] }>(persistKey) : undefined;
   const editorRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const [wordCount, setWordCount] = useState(0);
@@ -1889,12 +1932,12 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [showToc, setShowToc] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [toc, setToc] = useState<TocEntry[]>([]);
-  const [theme, setTheme] = useState<DocTheme>('standard');
+  const [theme, setTheme] = useState<DocTheme>(persisted?.theme ?? 'standard');
   const [newCommentText, setNewCommentText] = useState('');
   const [pendingAnchorId, setPendingAnchorId] = useState<string | null>(null);
   const newCommentRef = useRef<HTMLTextAreaElement>(null);
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>(loadCustomStyles);
-  const [darkPage, setDarkPage] = useState(() => localStorage.getItem('sf_doc_dark') === '1');
+  const [darkPage, setDarkPage] = useState(() => persisted?.darkPage ?? false);
   const [dictating, setDictating] = useState(false);
   const dictationRef = useRef<any>(null);
   const savedRangeRef = useRef<Range | null>(null);
@@ -1906,7 +1949,11 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'comments' | 'ai'>('comments');
   type AiMsg = { role: 'user' | 'assistant'; content: string; };
-  const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
+  // Cap to the most recent exchanges — an unbounded transcript would keep
+  // growing forever in resourceContentStore; 20 messages (~10 exchanges) is
+  // enough context to resume a conversation without accumulating indefinitely.
+  const AI_HISTORY_LIMIT = 20;
+  const [aiMessages, setAiMessages] = useState<AiMsg[]>(() => (persisted?.aiMessages ?? []).slice(-AI_HISTORY_LIMIT));
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiListening, setAiListening] = useState(false);
@@ -1949,29 +1996,47 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     }
   }, []);
 
-  // ── Persistance du contenu par ressource (HTML + commentaires) ──────────────
+  // ── Persistance du contenu par ressource (HTML + commentaires + réglages) ──
   const commentsRef = useRef(comments);
   useEffect(() => { commentsRef.current = comments; }, [comments]);
+  const themeRef = useRef(theme);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
+  const darkPageRef = useRef(darkPage);
+  useEffect(() => { darkPageRef.current = darkPage; }, [darkPage]);
+  const aiMessagesRef = useRef(aiMessages);
+  useEffect(() => { aiMessagesRef.current = aiMessages; }, [aiMessages]);
   const persistTimer = useRef<number | null>(null);
   const persistContent = useCallback(() => {
     if (!persistKey) return;
     if (persistTimer.current) clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { html: editorRef.current?.innerHTML ?? '', comments: commentsRef.current });
+      setResourceContent(persistKey, {
+        html: editorRef.current?.innerHTML ?? '',
+        comments: commentsRef.current,
+        theme: themeRef.current,
+        darkPage: darkPageRef.current,
+        aiMessages: aiMessagesRef.current,
+      });
     }, 400);
   }, [persistKey]);
-  // Persiste sur tout changement de commentaires (ajout/résolution/suppression),
-  // en sautant le montage initial.
+  // Persiste sur tout changement de commentaires/thème/mode sombre/historique IA
+  // (ajout/résolution/suppression, etc.), en sautant le montage initial.
   const persistMounted = useRef(false);
   useEffect(() => {
     if (!persistMounted.current) { persistMounted.current = true; return; }
     persistContent();
-  }, [comments, persistContent]);
+  }, [comments, theme, darkPage, aiMessages, persistContent]);
   // Flush au démontage pour ne pas perdre la dernière frappe.
   useEffect(() => () => {
     if (persistTimer.current && persistKey) {
       clearTimeout(persistTimer.current);
-      setResourceContent(persistKey, { html: editorRef.current?.innerHTML ?? '', comments: commentsRef.current });
+      setResourceContent(persistKey, {
+        html: editorRef.current?.innerHTML ?? '',
+        comments: commentsRef.current,
+        theme: themeRef.current,
+        darkPage: darkPageRef.current,
+        aiMessages: aiMessagesRef.current,
+      });
     }
   }, [persistKey]);
 
@@ -2031,6 +2096,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     const mark = editorRef.current?.querySelector(`[data-comment-id="${pendingAnchorId}"]`) as HTMLElement | null;
     const excerpt = mark?.innerText?.slice(0, 80) ?? '';
     setComments(p => [...p, { id: pendingAnchorId, author: USERS.lea, text, time: 'À l\'instant', anchorId: pendingAnchorId, excerpt, status: 'open', replies: [] }]);
+    notifyComment({ kind: 'add', text, itemLabel: resource.title, resourceId: resource.id });
     setNewCommentText('');
     setPendingAnchorId(null);
     onEdit?.();
@@ -2042,6 +2108,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
   const replyToComment = (id: string, text: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `dr${Date.now()}`, author: USERS.lea, text }] } : c));
+    notifyComment({ kind: 'reply', text, itemLabel: resource.title, resourceId: resource.id });
   };
 
   const deleteComment = (id: string) => {
@@ -2082,19 +2149,21 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     if (!canUseFeature(plan, 'ai')) { requestUpgrade({ feature: 'ai' }); return; }
     setAiInput('');
     const userMsg: AiMsg = { role: 'user', content: text };
-    const newHistory = [...aiMessages, userMsg];
+    const newHistory = [...aiMessages, userMsg].slice(-AI_HISTORY_LIMIT);
     setAiMessages(newHistory);
     setAiLoading(true);
     try {
       const result = await sendAiChat(getDocContext(), newHistory.map(m => ({ role: m.role, content: m.content })));
-      setAiMessages(prev => [...prev, { role: 'assistant', content: result.content }]);
+      const assistantMsg: AiMsg = { role: 'assistant', content: result.content };
+      setAiMessages(prev => [...prev, assistantMsg].slice(-AI_HISTORY_LIMIT));
     } catch (e) {
       const code = e instanceof AiChatError ? e.code : 'error';
       const key = code === 'demo' ? 'ai.demoNotice'
         : code === 'plan_gated' ? 'ai.planRequired'
         : code === 'quota_exceeded' ? 'ai.quotaExceeded'
         : 'ai.assistantError';
-      setAiMessages(prev => [...prev, { role: 'assistant', content: t(key) }]);
+      const errMsg: AiMsg = { role: 'assistant', content: t(key) };
+      setAiMessages(prev => [...prev, errMsg].slice(-AI_HISTORY_LIMIT));
     } finally {
       setAiLoading(false);
     }
@@ -2422,7 +2491,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:9, border: dictating ? '1px solid var(--accent)' : '1px solid transparent', background: dictating ? 'var(--accent)' : 'var(--surface-3)', cursor:'pointer', flexShrink:0, transition:'background 0.15s, border-color 0.15s', animation: dictating ? 'mic-pulse 1.4s ease-in-out infinite' : 'none', marginLeft:4 }}>
               <SFIcon name="mic" size={13} color={dictating ? 'var(--on-accent)' : 'var(--text-3)'} />
             </button>
-            <button onClick={() => setDarkPage(p => { const next = !p; localStorage.setItem('sf_doc_dark', next ? '1' : '0'); return next; })} title={darkPage ? t('resourceDetail.documentView.lightMode') : t('resourceDetail.documentView.darkMode')}
+            <button onClick={() => setDarkPage(p => !p)} title={darkPage ? t('resourceDetail.documentView.lightMode') : t('resourceDetail.documentView.darkMode')}
               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, border:`1px solid ${darkPage ? 'var(--accent)' : 'var(--border)'}`, background: darkPage ? 'rgba(249,255,0,0.08)' : 'transparent', cursor:'pointer', color: darkPage ? 'var(--accent)' : 'var(--text-3)', marginLeft:4 }}>
               <SFIcon name={darkPage ? 'sun' : 'moon'} size={12} />
             </button>
@@ -2679,10 +2748,40 @@ function getAutoThumb(url: string): string | null {
   catch { return null; }
 }
 
-export function InspirationsView({ resource, persistKey }: { resource: Resource; persistKey?: string }) {
+function InspiTagsEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const [draft, setDraft] = useState('');
+  const commitDraft = () => {
+    const val = draft.trim();
+    if (val && !tags.includes(val)) onChange([...tags, val]);
+    setDraft('');
+  };
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', gap:5, alignItems:'center', marginTop:6 }}>
+      {tags.map(tag => (
+        <span key={tag} style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 7px', borderRadius:20, background:'var(--surface-3)', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-mono)' }}>
+          {tag}
+          <button onClick={() => onChange(tags.filter(t => t !== tag))} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:0 }}>
+            <SFIcon name="x" size={9} />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); commitDraft(); } }}
+        onBlur={commitDraft}
+        placeholder="+ tag"
+        style={{ width:60, background:'transparent', border:'none', color:'var(--text)', fontSize:10, fontFamily:'var(--ff-mono)', outline:'none' }}
+      />
+    </div>
+  );
+}
+
+export function InspirationsView({ resource, persistKey, registerExport }: { resource: Resource; persistKey?: string; registerExport?: RegisterExport }) {
   const { t } = useTranslation();
-  const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[] }>(persistKey) : undefined;
+  const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[]; comments?: RevisionComment[] }>(persistKey) : undefined;
   const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? INITIAL_INSPI);
+  const [comments, setComments] = useState<RevisionComment[]>(_inspiPersisted?.comments ?? []);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -2691,10 +2790,34 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
     if (!persistKey) return;
     if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current);
     inspiPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { items });
+      setResourceContent(persistKey, { items, comments });
     }, 400);
-  }, [items, persistKey]);
+  }, [items, comments, persistKey]);
   useEffect(() => () => { if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current); }, []);
+
+  useEffect(() => {
+    if (!registerExport) return;
+    registerExport(() => {
+      const cards = items.map(item => {
+        const thumb = item.imageUrl || getAutoThumb(item.url);
+        return `<div class="in-card">
+          ${thumb ? `<img src="${thumb}" alt="" />` : ''}
+          <div class="in-body">
+            <h3>${escapeHTML(item.title || 'Référence')}</h3>
+            ${item.notes ? `<p>${escapeHTML(item.notes)}</p>` : ''}
+            ${item.likes ? `<p class="in-likes">+ ${escapeHTML(item.likes)}</p>` : ''}
+            ${item.avoids ? `<p class="in-avoids">− ${escapeHTML(item.avoids)}</p>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      return {
+        title: resource.title,
+        css: 'body{padding:0}.in-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14pt}.in-card{border:1px solid #ddd;border-radius:6pt;overflow:hidden}.in-card img{width:100%;height:120pt;object-fit:cover;display:block}.in-body{padding:8pt}.in-body h3{font-size:11pt;margin:0 0 4pt}.in-body p{font-size:9pt;margin:2pt 0;color:#444}.in-likes{color:#1a6b4a}.in-avoids{color:#a83e3e}',
+        bodyHTML: `<h1 style="font-size:16pt;margin:0 0 14pt">${escapeHTML(resource.title)}</h1><div class="in-grid">${cards}</div>`,
+      };
+    });
+    return () => registerExport(null);
+  }, [registerExport, items, resource.title]);
 
   const addItem = () => {
     const id = `in${Date.now()}`;
@@ -2785,6 +2908,8 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
                   style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:7, color:'var(--text-2)', fontSize:12, fontFamily:'var(--ff-text)', padding:'7px 10px', outline:'none', resize:'vertical', lineHeight:1.55, boxSizing:'border-box', colorScheme:'dark', minHeight:66 }}
                 />
 
+                <InspiTagsEditor tags={item.tags} onChange={tags => updateItem(item.id, { tags })} />
+
                 {/* Per-item likes / avoids */}
                 {isExpanded && (
                   <div style={{ marginTop:4, display:'flex', gap:12 }}>
@@ -2834,21 +2959,19 @@ export function InspirationsView({ resource, persistKey }: { resource: Resource;
       </div>
 
       {/* Right: comments */}
-      <ScriptCommentSidebar resourceId={resource.id} />
+      <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
     </div>
   );
 }
 
 // ── Resource topbar ───────────────────────────────────────────────────────────
 
-function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport, onFullscreen, isFullscreen }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: (f: ExportFormat) => void; onFullscreen?: () => void; isFullscreen?: boolean }) {
+function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved', online = true, editable = false, onExport, onFullscreen, isFullscreen }: { project: typeof PROJECTS[0] | undefined; resource: Resource; onStatusChange: (status: Status, label: string) => void; saveState?: SaveState; online?: boolean; editable?: boolean; onExport?: () => void; onFullscreen?: () => void; isFullscreen?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
-  const [expOpen, setExpOpen] = useState(false);
-  const expRef = useRef<HTMLDivElement>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const shareLink = () => {
     const url = `${window.location.origin}/projets/${project?.id ?? ''}/ressources/${resource.id}`;
@@ -2888,15 +3011,6 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [dropOpen]);
-
-  useEffect(() => {
-    if (!expOpen) return;
-    const close = (e: MouseEvent) => {
-      if (expRef.current && !expRef.current.contains(e.target as Node)) setExpOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [expOpen]);
 
   if (collapsed) return (
     <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', padding:'5px 14px', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
@@ -3019,37 +3133,7 @@ function ResourceTopbar({ project, resource, onStatusChange, saveState = 'saved'
             </div>
           )}
           {editable && <SaveIndicator state={saveState} online={online} />}
-          {editable ? (
-            <div ref={expRef} style={{ position:'relative' }}>
-              <SFButton variant="ghost" size="sm" icon="download" iconRight="chevron-down" onClick={() => setExpOpen(o => !o)}>Exporter</SFButton>
-              {expOpen && (
-                <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200, background:'var(--surface-3)', border:'1px solid var(--border-2)', borderRadius:10, padding:4, minWidth:200, boxShadow:'0 8px 24px rgba(0,0,0,0.5)' }}>
-                  <button
-                    onClick={() => { onExport?.('pdf'); setExpOpen(false); }}
-                    style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 10px', border:'none', background:'transparent', cursor:'pointer', borderRadius:7, textAlign:'left' }}
-                    onMouseEnter={e => (e.currentTarget.style.background='var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background='transparent')}
-                  >
-                    <SFIcon name="file-text" size={15} color="var(--text-2)" />
-                    <span style={{ fontSize:12, color:'var(--text)' }}>{t('resourceDetail.header.exportPDF')}</span>
-                  </button>
-                  <button
-                    disabled={!online}
-                    onClick={() => { if (online) { onExport?.('gdocs'); setExpOpen(false); } }}
-                    style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 10px', border:'none', background:'transparent', cursor: online ? 'pointer' : 'not-allowed', opacity: online ? 1 : 0.5, borderRadius:7, textAlign:'left' }}
-                    onMouseEnter={e => { if (online) e.currentTarget.style.background='var(--surface)'; }}
-                    onMouseLeave={e => (e.currentTarget.style.background='transparent')}
-                  >
-                    <SFIcon name="file" size={15} color="var(--text-2)" />
-                    <span style={{ fontSize:12, color:'var(--text)' }}>{t('resourceDetail.header.exportGoogleDocs')}</span>
-                    {!online && <span style={{ marginLeft:'auto', fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)' }}>{t('resourceDetail.header.offline')}</span>}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <SFButton variant="ghost" size="sm" icon="download" onClick={() => onExport?.('pdf')}>Exporter</SFButton>
-          )}
+          <SFButton variant="ghost" size="sm" icon="download" onClick={() => onExport?.()}>Exporter</SFButton>
           <SFButton variant="ghost" size="sm" icon={linkCopied ? 'check' : 'share-2'} onClick={shareLink}>{linkCopied ? t('resourceDetail.header.linkCopied') : t('resourceDetail.header.share')}</SFButton>
           <RequestApprovalButton resource={resource} projectId={project?.id} onStatusChange={onStatusChange} />
           {onFullscreen && (
@@ -3291,19 +3375,42 @@ export function FormFillBody({ questions, answers, onAnswer, onToggleCheck, onUp
   );
 }
 
-export function FormView({ resource, templateMode, initialQuestions, onSaveTemplate, persistKey }: {
+function exportResponsesCSV(formTitle: string, questions: FormQuestion[], responses: FormResponse[]): void {
+  const cols = questions.filter(q => q.type !== 'section');
+  const csvCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const header = ['Nom', 'Courriel', 'Soumis le', ...cols.map(q => q.title || 'Question')].map(csvCell).join(',');
+  const rows = responses.map(r => {
+    const cells = [r.responder.name, r.responder.email, r.submittedAt, ...cols.map(q => {
+      const ans = r.answers[q.id];
+      return Array.isArray(ans) ? ans.join('; ') : (ans ?? '');
+    })];
+    return cells.map(csvCell).join(',');
+  });
+  const csv = '﻿' + [header, ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${formTitle || 'formulaire'}-reponses.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function FormView({ resource, templateMode, initialQuestions, onSaveTemplate, persistKey, registerExport }: {
   resource: Resource;
   templateMode?: boolean;
   initialQuestions?: FormQuestion[];
   onSaveTemplate?: (q: FormQuestion[]) => void;
   persistKey?: string;
+  registerExport?: RegisterExport;
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<'build' | 'preview' | 'responses'>('build');
   const _formPersisted = persistKey
-    ? getResourceContent<{ questions: FormQuestion[]; formTitle?: string; formDesc?: string; collectIdentity?: boolean }>(persistKey)
+    ? getResourceContent<{ questions: FormQuestion[]; formTitle?: string; formDesc?: string; collectIdentity?: boolean; comments?: RevisionComment[] }>(persistKey)
     : undefined;
   const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? INIT_FORM_QUESTIONS);
+  const [comments, setComments] = useState<RevisionComment[]>(_formPersisted?.comments ?? []);
   const [submissions, setSubmissions] = useState<FormSubmission[]>(() => persistKey ? getFormSubmissions(persistKey) : []);
   useEffect(() => {
     if (!persistKey) return;
@@ -3339,10 +3446,26 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
     if (!persistKey) return;
     if (formPersistTimer.current) clearTimeout(formPersistTimer.current);
     formPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { questions, formTitle, formDesc, collectIdentity });
+      setResourceContent(persistKey, { questions, formTitle, formDesc, collectIdentity, comments });
     }, 400);
-  }, [questions, formTitle, formDesc, collectIdentity, persistKey]);
+  }, [questions, formTitle, formDesc, collectIdentity, comments, persistKey]);
   useEffect(() => () => { if (formPersistTimer.current) clearTimeout(formPersistTimer.current); }, []);
+
+  useEffect(() => {
+    if (!registerExport) return;
+    registerExport(() => {
+      const rows = questions.filter(q => q.type !== 'section').map(q => {
+        const answered = responses.filter(r => r.answers[q.id]).length;
+        return `<div class="fx-row"><div class="fx-q">${escapeHTML(q.title || 'Question sans titre')}</div><div class="fx-count">${answered} / ${responses.length} réponses</div></div>`;
+      }).join('');
+      return {
+        title: formTitle,
+        css: 'body{padding:0}.fx-row{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding:8pt 0;font-size:11pt}.fx-count{color:#666}',
+        bodyHTML: `<h1 style="font-size:16pt;margin:0 0 4pt">${escapeHTML(formTitle)}</h1><p style="font-size:10pt;color:#666;margin:0 0 16pt">${responses.length} réponse${responses.length !== 1 ? 's' : ''} au total</p>${rows}`,
+      };
+    });
+    return () => registerExport(null);
+  }, [registerExport, questions, responses, formTitle]);
   useEffect(() => { if (responseIdx > submissions.length - 1) setResponseIdx(0); }, [submissions.length, responseIdx]);
 
   const selectedQuestion = questions.find(q => q.id === selectedQ);
@@ -3539,12 +3662,8 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
               <div>
                 <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.09em', fontFamily:'var(--ff-text)', marginBottom:12 }}>Partage &amp; accès</div>
 
-                <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-                  {(['Lien public','Lien privé','Invitation par email'] as const).map((opt, i) => (
-                    <button key={opt} style={{ ...btnBase, background: i===0?'color-mix(in srgb, var(--accent) 13%, transparent)':'var(--surface-2)', color: i===0?'var(--accent)':'var(--text-3)', border:`1.5px solid ${i===0?'var(--accent)':'var(--border-2)'}`, fontSize:12, padding:'8px 16px' }}>
-                      {opt}
-                    </button>
-                  ))}
+                <div style={{ display:'inline-flex', ...btnBase, background:'color-mix(in srgb, var(--accent) 13%, transparent)', color:'var(--accent)', border:'1.5px solid var(--accent)', fontSize:12, padding:'8px 16px', marginBottom:12, cursor:'default' }}>
+                  Lien public
                 </div>
 
                 <div style={{ display:'flex', gap:8, marginBottom:10 }}>
@@ -3561,7 +3680,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                 <div style={{ background:'color-mix(in srgb, var(--accent) 5%, transparent)', border:'1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderRadius:10, padding:'12px 14px', display:'flex', gap:10 }}>
                   <SFIcon name="info" size={14} color="var(--accent)" style={{ flexShrink:0, marginTop:1 }} />
                   <p style={{ margin:0, fontSize:12, color:'var(--text-2)', fontFamily:'var(--ff-text)', lineHeight:1.6 }}>
-                    Envoyez ce lien à vos clients avant qu'ils rejoignent la plateforme. Lorsqu'ils créeront leur compte, leurs réponses seront automatiquement liées à leur profil.
+                    Toute personne avec ce lien peut remplir et soumettre le formulaire, sans avoir besoin de compte.
                   </p>
                 </div>
               </div>
@@ -3908,8 +4027,14 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
         <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
           {/* Left: response list */}
           <div style={{ width:220, borderRight:'1px solid var(--border)', overflowY:'auto', flexShrink:0, padding:'16px 12px' }}>
-            <div style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'var(--ff-text)', marginBottom:12 }}>
-              {responses.length} réponse{responses.length!==1?'s':''}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+              <span style={{ fontSize:11, fontWeight:600, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'var(--ff-text)' }}>
+                {responses.length} réponse{responses.length!==1?'s':''}
+              </span>
+              <button onClick={() => exportResponsesCSV(formTitle, questions, responses)} title="Exporter en CSV"
+                style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:2 }}>
+                <SFIcon name="download" size={13} />
+              </button>
             </div>
             {responses.map((r,i) => (
               <button key={r.id} onClick={() => setResponseIdx(i)}
@@ -4054,7 +4179,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
         </div>
       )}
     </div>
-    <ScriptCommentSidebar resourceId={resource.id} />
+    <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
     </div>
   );
 }
@@ -4091,7 +4216,11 @@ interface ShotRow {
   duration: string;
   notes: string;
   imageUrl?: string;
+  imageFileId?: string;
   aiPrompt?: string;
+}
+function shotImageSrc(shot: ShotRow): string | undefined {
+  return shot.imageFileId ? (getFileContent(shot.imageFileId) ?? undefined) : shot.imageUrl;
 }
 
 const SHOT_TYPES: ShotType[] = ['WS','LS','MS','MCU','CU','ECU','POV','OTS','INSERT'];
@@ -4482,7 +4611,7 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   shots: ShotRow[]; setShots: React.Dispatch<React.SetStateAction<ShotRow[]>>;
   sceneOrder: string[]; setSceneOrder: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   // Scenes that match a script scene by id stay live — a rename in the
   // Script tab shows up here immediately instead of the label frozen at
   // whatever point a shot was added under that scene. Grouped from the
@@ -4515,10 +4644,6 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiShotId, setAiShotId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
-  const [aiStyle, setAiStyle] = useState<'cinematic' | 'sketch' | 'storyboard' | 'illustration'>('cinematic');
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [promptMode, setPromptMode] = useState<'text' | 'draw'>('text');
-  const [sbListening, setSbListening] = useState(false);
   const [drawColor, setDrawColor] = useState('#ffffff');
   const [brushSize, setBrushSize] = useState(4);
   const [isErasing, setIsErasing] = useState(false);
@@ -4528,7 +4653,6 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   const [dragOverShot, setDragOverShot] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
-  const sbRecognitionRef = useRef<any>(null);
 
   const updateShot = (shotId: string, changes: Partial<ShotRow>) => {
     setShots(prev => prev.map(s => s.id !== shotId ? s : { ...s, ...changes }));
@@ -4611,22 +4735,21 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
   const openAI = (shotId: string) => {
     const shot = shots.find(sh => sh.id === shotId);
     setAiShotId(shotId);
-    setAiPrompt(shot?.aiPrompt || shot?.description || '');
-    setPromptMode('text');
+    setAiPrompt(shot?.aiPrompt || '');
     setIsErasing(false);
     setShowAIModal(true);
   };
 
-  // Init canvas dark background whenever draw mode becomes visible
+  // Init canvas dark background whenever the sketch modal opens
   useEffect(() => {
-    if (!showAIModal || promptMode !== 'draw') return;
+    if (!showAIModal) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, [showAIModal, promptMode]);
+  }, [showAIModal]);
 
   const getCanvasPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -4683,55 +4806,12 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
 
-  const toggleSbListening = () => {
-    const SpeechAPI = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
-    if (!SpeechAPI) { alert(t('resourceDetail.storyboardView.speechUnsupported')); return; }
-    if (sbListening) { sbRecognitionRef.current?.stop(); return; }
-    const recognition = new SpeechAPI();
-    recognition.lang = defaultSpeechLang(i18n.language);
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    let final = '';
-    recognition.onstart  = () => setSbListening(true);
-    recognition.onresult = (e: any) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += r; else interim = r;
-      }
-      setAiPrompt(final + interim);
-    };
-    recognition.onend   = () => setSbListening(false);
-    recognition.onerror = () => setSbListening(false);
-    sbRecognitionRef.current = recognition;
-    recognition.start();
+  const saveSketch = () => {
+    if (!aiShotId || !canvasRef.current) return;
+    const url = canvasRef.current.toDataURL('image/png');
+    updateShot(aiShotId, { imageUrl: url, imageFileId: undefined, aiPrompt: aiPrompt.trim() || undefined });
+    setShowAIModal(false);
   };
-
-  const generateImage = () => {
-    if (!aiShotId) return;
-    setAiGenerating(true);
-    const sketchUrl = promptMode === 'draw' && canvasRef.current ? canvasRef.current.toDataURL('image/png') : null;
-    setTimeout(() => {
-      const PLACEHOLDER_IMGS = [
-        'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=640&h=360&fit=crop',
-        'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=640&h=360&fit=crop',
-        'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=640&h=360&fit=crop',
-        'https://images.unsplash.com/photo-1431274172761-fca41d930114?w=640&h=360&fit=crop',
-      ];
-      const url = sketchUrl ?? PLACEHOLDER_IMGS[Math.floor(Math.random() * PLACEHOLDER_IMGS.length)];
-      const savedPrompt = promptMode === 'draw' ? `[Croquis] ${aiPrompt}`.trim() : aiPrompt;
-      if (aiShotId) updateShot(aiShotId, { imageUrl: url, aiPrompt: savedPrompt });
-      setAiGenerating(false);
-      setShowAIModal(false);
-    }, 2200);
-  };
-
-  const AI_STYLES = [
-    { key:'cinematic' as const,    label:'Cinématique',   desc:'Photo réaliste, référence film' },
-    { key:'sketch' as const,       label:'Croquis',       desc:'Dessin rapide, lignes nettes' },
-    { key:'storyboard' as const,   label:'Storyboard',    desc:'Style bande dessinée classique' },
-    { key:'illustration' as const, label:'Illustration',  desc:'Aquarelle, style artistique' },
-  ];
 
   const frameW = 220;
   const frameH = Math.round(frameW / SB_ASPECT);
@@ -4826,8 +4906,8 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
                   style={{ cursor:'grab', borderRadius:12, border: dragOverShot === shot.id ? '2px solid var(--accent)' : selectedShotId === shot.id ? '2px solid var(--accent)' : '2px solid var(--border)', background:'var(--surface-2)', overflow:'hidden', width:frameW, flexShrink:0, transition:'border-color .15s', opacity: dragShotRef.current?.shotId === shot.id ? 0.5 : 1 }}>
                   {/* Frame */}
                   <div style={{ width:frameW, height:frameH, background:'var(--surface-3)', position:'relative', overflow:'hidden' }}>
-                    {shot.imageUrl ? (
-                      <img src={shot.imageUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    {shotImageSrc(shot) ? (
+                      <img src={shotImageSrc(shot)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                     ) : (
                       <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6 }}>
                         <div style={{ opacity:0.15 }}>
@@ -4847,16 +4927,17 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
                     <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', gap:8, opacity:0, transition:'opacity .2s' }}
                       onMouseEnter={e => (e.currentTarget.style.opacity='1')} onMouseLeave={e => (e.currentTarget.style.opacity='0')}>
                       <button onClick={e => { e.stopPropagation(); openAI(shot.id); }}
-                        style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'#000', fontWeight:700 }}>
-                        <SFIcon name="sparkles" size={12} />IA
+                        style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:8, border:'none', background:'var(--accent)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--on-accent)', fontWeight:700 }}>
+                        <SFIcon name="pencil" size={12} />Croquis
                       </button>
                       <label style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:8, border:'1px solid rgba(255,255,255,0.3)', background:'transparent', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:10, color:'white' }}>
-                        <SFIcon name="upload" size={12} />Upload
+                        <SFIcon name="upload" size={12} />Importer
                         <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          const url = URL.createObjectURL(file);
-                          updateShot(shot.id, { imageUrl: url });
+                          const fileId = `sh-img-${Date.now()}`;
+                          setFileContent(fileId, file);
+                          updateShot(shot.id, { imageFileId: fileId, imageUrl: undefined });
                         }} />
                       </label>
                     </div>
@@ -4890,7 +4971,7 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
                         <div style={{ display:'flex', gap:4 }}>
                           <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', background:'var(--surface-3)', borderRadius:4, padding:'2px 5px' }}>{shot.shotType}</span>
                           <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'var(--text-3)', background:'var(--surface-3)', borderRadius:4, padding:'2px 5px' }}>{shot.cameraMove}</span>
-                          {shot.aiPrompt && <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'#c4b5fd', background:'#c4b5fd18', borderRadius:4, padding:'2px 5px' }}>IA</span>}
+                          {shot.aiPrompt && <span style={{ fontFamily:'var(--ff-mono)', fontSize:8, color:'#c4b5fd', background:'#c4b5fd18', borderRadius:4, padding:'2px 5px' }}>Croquis</span>}
                         </div>
                       </div>
                     )}
@@ -4915,150 +4996,81 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
         )}
       </div>
 
-      {/* AI Generation Modal */}
+      {/* Sketch modal — hand-drawn frame for a shot */}
       {showAIModal && (
         <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', alignItems:'center', justifyContent:'center' }}
-          onMouseDown={e => { if (e.target === e.currentTarget && !aiGenerating) setShowAIModal(false); }}>
+          onMouseDown={e => { if (e.target === e.currentTarget) setShowAIModal(false); }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(6px)' }} />
           <div style={{ position:'relative', zIndex:1, background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:20, width:'min(600px,94vw)', padding:28 }}>
 
             {/* Header */}
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
-              <div style={{ width:34, height:34, borderRadius:10, background:'linear-gradient(135deg,#7c3aed,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <SFIcon name="sparkles" size={16} color="white" />
+              <div style={{ width:34, height:34, borderRadius:10, background:'var(--surface-3)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <SFIcon name="pencil" size={16} color="var(--text)" />
               </div>
               <div>
-                <h3 style={{ fontSize:15, fontWeight:700, color:'var(--text)', marginBottom:2 }}>{t('resourceDetail.storyboardView.aiTitle')}</h3>
-                <p style={{ fontSize:11, color:'var(--text-3)' }}>{t('resourceDetail.storyboardView.aiSubtitle')}</p>
+                <h3 style={{ fontSize:15, fontWeight:700, color:'var(--text)', marginBottom:2 }}>{t('resourceDetail.storyboardView.sketchTitle')}</h3>
+                <p style={{ fontSize:11, color:'var(--text-3)' }}>{t('resourceDetail.storyboardView.sketchSubtitle')}</p>
               </div>
-              {!aiGenerating && (
-                <button onClick={() => setShowAIModal(false)} style={{ marginLeft:'auto', background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', padding:6, flexShrink:0 }}>
-                  <SFIcon name="x" size={16} />
-                </button>
-              )}
+              <button onClick={() => setShowAIModal(false)} style={{ marginLeft:'auto', background:'transparent', border:'none', cursor:'pointer', color:'var(--text-3)', padding:6, flexShrink:0 }}>
+                <SFIcon name="x" size={16} />
+              </button>
             </div>
 
-            {/* Mode toggle: Texte | Dessin */}
-            <div style={{ display:'flex', gap:4, marginBottom:16, background:'var(--surface-2)', borderRadius:10, padding:3 }}>
-              {(['text','draw'] as const).map(mode => (
-                <button key={mode} onClick={() => !aiGenerating && setPromptMode(mode)} disabled={aiGenerating}
-                  style={{ flex:1, padding:'7px 0', borderRadius:8, border:'none', cursor: aiGenerating ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-                    fontFamily:'var(--ff-mono)', fontSize:11, fontWeight:600,
-                    background: promptMode===mode ? 'var(--surface-3)' : 'transparent',
-                    color: promptMode===mode ? 'var(--text)' : 'var(--text-3)',
-                    transition:'background .15s, color .15s' }}>
-                  <SFIcon name={mode==='text' ? 'type' : 'pencil'} size={12} />
-                  {mode==='text' ? t('resourceDetail.storyboardView.promptModeText') : t('resourceDetail.storyboardView.promptModeDraw')}
-                </button>
-              ))}
-            </div>
-
-            {/* Text mode */}
-            {promptMode === 'text' && (
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:6 }}>
-                  {t('resourceDetail.storyboardView.promptLabel')}
-                </label>
-                <div style={{ position:'relative' }}>
-                  <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} rows={4} disabled={aiGenerating}
-                    placeholder={t('resourceDetail.storyboardView.aiPromptPlaceholder')}
-                    style={{ width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:10, padding:'10px 46px 10px 12px', fontSize:13, color:'var(--text)', fontFamily:'var(--ff-text)', resize:'vertical', lineHeight:1.5 }} />
-                  {/* Mic button */}
-                  <button onClick={toggleSbListening} disabled={aiGenerating}
-                    style={{ position:'absolute', right:8, bottom:8, width:30, height:30, borderRadius:8, border:'none', cursor: aiGenerating ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                      background: sbListening ? 'var(--accent)' : 'var(--surface-3)',
-                      color: sbListening ? 'var(--on-accent)' : 'var(--text-3)', transition:'background .15s' }}
-                    title={sbListening ? t('resourceDetail.storyboardView.stopListening') : t('resourceDetail.storyboardView.dictate')}>
-                    <SFIcon name={sbListening ? 'mic-off' : 'mic'} size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Draw mode */}
-            {promptMode === 'draw' && (
-              <div style={{ marginBottom:16 }}>
-                {/* Drawing toolbar */}
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap' }}>
-                  {/* Color swatches */}
-                  {['#ffffff','#aaaaaa','#555555','#000000','#ef4444','#3b82f6','#22c55e','#f59e0b'].map(color => (
-                    <button key={color} onClick={() => { setDrawColor(color); setIsErasing(false); }} disabled={aiGenerating}
-                      style={{ width:18, height:18, borderRadius:'50%', background:color, padding:0, flexShrink:0, cursor:'pointer',
-                        border: drawColor===color && !isErasing ? '2.5px solid var(--accent)' : '2px solid var(--border-2)',
-                        boxShadow: drawColor===color && !isErasing ? '0 0 0 1.5px var(--surface)' : 'none' }} />
-                  ))}
-                  <div style={{ width:1, height:14, background:'var(--border)', flexShrink:0 }} />
-                  {/* Brush size */}
-                  <input type="range" min={1} max={20} value={brushSize}
-                    onChange={e => setBrushSize(parseInt(e.target.value))}
-                    disabled={aiGenerating}
-                    style={{ width:64, cursor:'pointer', accentColor:'var(--accent)' }} />
-                  <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', minWidth:16, textAlign:'right' }}>{brushSize}px</span>
-                  <div style={{ flex:1 }} />
-                  {/* Eraser */}
-                  <button onClick={() => setIsErasing(!isErasing)} disabled={aiGenerating}
-                    style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:600,
-                      background: isErasing ? 'var(--accent)' : 'var(--surface-2)',
-                      color: isErasing ? 'var(--on-accent)' : 'var(--text-2)' }}>
-                    {t('resourceDetail.storyboardView.eraser')}
-                  </button>
-                  {/* Clear */}
-                  <button onClick={clearCanvas} disabled={aiGenerating}
-                    style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)' }}>
-                    {t('resourceDetail.storyboardView.clearCanvas')}
-                  </button>
-                </div>
-                {/* Canvas 16:9 */}
-                <div style={{ borderRadius:10, overflow:'hidden', border:'1px solid var(--border-2)', cursor: isErasing ? 'cell' : 'crosshair' }}>
-                  <canvas ref={canvasRef} width={544} height={306}
-                    onMouseDown={startDraw} onMouseMove={continueDraw} onMouseUp={endDraw} onMouseLeave={endDraw}
-                    onTouchStart={startDraw} onTouchMove={continueDraw} onTouchEnd={endDraw}
-                    style={{ display:'block', width:'100%', aspectRatio:'16/9', touchAction:'none' }} />
-                </div>
-                {/* Optional text description */}
-                <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} disabled={aiGenerating}
-                  placeholder={t('resourceDetail.storyboardView.sketchDescPlaceholder')}
-                  style={{ marginTop:8, width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:8, padding:'7px 10px', fontSize:12, color:'var(--text)', fontFamily:'var(--ff-text)', outline:'none' }} />
-              </div>
-            )}
-
-            {/* Style */}
-            <div style={{ marginBottom:22 }}>
-              <label style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:8 }}>
-                {t('resourceDetail.storyboardView.styleLabel')}
-              </label>
-              <div style={{ display:'flex', gap:8 }}>
-                {AI_STYLES.map(s => (
-                  <button key={s.key} onClick={() => setAiStyle(s.key)} disabled={aiGenerating}
-                    style={{ flex:1, padding:'8px 6px', borderRadius:10, border: aiStyle===s.key ? '2px solid var(--accent)' : '1px solid var(--border)', background: aiStyle===s.key ? 'var(--accent)18' : 'var(--surface-2)', cursor:'pointer', textAlign:'center' }}>
-                    <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, fontWeight:700, color: aiStyle===s.key ? 'var(--accent)' : 'var(--text)', marginBottom:2 }}>{s.label}</p>
-                    <p style={{ fontSize:9, color:'var(--text-3)', lineHeight:1.3 }}>{s.desc}</p>
-                  </button>
+            <div style={{ marginBottom:16 }}>
+              {/* Drawing toolbar */}
+              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+                {/* Color swatches */}
+                {['#ffffff','#aaaaaa','#555555','#000000','#ef4444','#3b82f6','#22c55e','#f59e0b'].map(color => (
+                  <button key={color} onClick={() => { setDrawColor(color); setIsErasing(false); }}
+                    style={{ width:18, height:18, borderRadius:'50%', background:color, padding:0, flexShrink:0, cursor:'pointer',
+                      border: drawColor===color && !isErasing ? '2.5px solid var(--accent)' : '2px solid var(--border-2)',
+                      boxShadow: drawColor===color && !isErasing ? '0 0 0 1.5px var(--surface)' : 'none' }} />
                 ))}
+                <div style={{ width:1, height:14, background:'var(--border)', flexShrink:0 }} />
+                {/* Brush size */}
+                <input type="range" min={1} max={20} value={brushSize}
+                  onChange={e => setBrushSize(parseInt(e.target.value))}
+                  style={{ width:64, cursor:'pointer', accentColor:'var(--accent)' }} />
+                <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', minWidth:16, textAlign:'right' }}>{brushSize}px</span>
+                <div style={{ flex:1 }} />
+                {/* Eraser */}
+                <button onClick={() => setIsErasing(!isErasing)}
+                  style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, fontWeight:600,
+                    background: isErasing ? 'var(--accent)' : 'var(--surface-2)',
+                    color: isErasing ? 'var(--on-accent)' : 'var(--text-2)' }}>
+                  {t('resourceDetail.storyboardView.eraser')}
+                </button>
+                {/* Clear */}
+                <button onClick={clearCanvas}
+                  style={{ padding:'3px 9px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-2)' }}>
+                  {t('resourceDetail.storyboardView.clearCanvas')}
+                </button>
               </div>
+              {/* Canvas 16:9 */}
+              <div style={{ borderRadius:10, overflow:'hidden', border:'1px solid var(--border-2)', cursor: isErasing ? 'cell' : 'crosshair' }}>
+                <canvas ref={canvasRef} width={544} height={306}
+                  onMouseDown={startDraw} onMouseMove={continueDraw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                  onTouchStart={startDraw} onTouchMove={continueDraw} onTouchEnd={endDraw}
+                  style={{ display:'block', width:'100%', aspectRatio:'16/9', touchAction:'none' }} />
+              </div>
+              {/* Optional caption */}
+              <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
+                placeholder={t('resourceDetail.storyboardView.sketchDescPlaceholder')}
+                style={{ marginTop:8, width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--border-2)', borderRadius:8, padding:'7px 10px', fontSize:12, color:'var(--text)', fontFamily:'var(--ff-text)', outline:'none' }} />
             </div>
 
-            {aiGenerating ? (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'10px 0' }}>
-                <div style={{ width:40, height:40, borderRadius:'50%', border:'3px solid var(--border)', borderTop:'3px solid var(--accent)', animation:'spin 1s linear infinite' }}>
-                  <style>{'@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}'}</style>
-                </div>
-                <p style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--text-2)' }}>{t('resourceDetail.storyboardView.generatingLabel')}</p>
-              </div>
-            ) : (
-              <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
-                <button onClick={() => setShowAIModal(false)}
-                  style={{ padding:'9px 18px', borderRadius:9, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>
-                  {t('resourceDetail.storyboardView.cancelButton')}
-                </button>
-                <button onClick={generateImage} disabled={promptMode==='text' && !aiPrompt.trim()}
-                  style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 20px', borderRadius:9, border:'none',
-                    background: (promptMode==='draw' || aiPrompt.trim()) ? 'linear-gradient(135deg,#7c3aed,#2563eb)' : 'var(--surface-3)',
-                    cursor: (promptMode==='draw' || aiPrompt.trim()) ? 'pointer' : 'default', fontSize:13, color:'white', fontWeight:700 }}>
-                  <SFIcon name="sparkles" size={14} />{t('resourceDetail.storyboardView.generateButton')}
-                </button>
-              </div>
-            )}
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
+              <button onClick={() => setShowAIModal(false)}
+                style={{ padding:'9px 18px', borderRadius:9, border:'1px solid var(--border)', background:'transparent', cursor:'pointer', fontSize:13, color:'var(--text-2)' }}>
+                {t('resourceDetail.storyboardView.cancelButton')}
+              </button>
+              <button onClick={saveSketch}
+                style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 20px', borderRadius:9, border:'none',
+                  background:'var(--accent)', cursor:'pointer', fontSize:13, color:'var(--on-accent)', fontWeight:700 }}>
+                <SFIcon name="check" size={14} />{t('resourceDetail.storyboardView.saveButton')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -5072,7 +5084,8 @@ type ScreenplayTab = 'script' | 'shotlist' | 'storyboard';
 
 export function ScreenplayView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedElements, contentRef, persistKey }: { resource: Resource; seedElements?: ScriptEl[]; contentRef?: React.MutableRefObject<(() => ScriptEl[]) | null>; persistKey?: string } & EditableProps) {
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
-  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[]; shots?: ShotRow[]; sceneOrder?: string[] }>(persistKey) : undefined;
+  const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[]; shots?: ShotRow[]; sceneOrder?: string[]; comments?: RevisionComment[] }>(persistKey) : undefined;
+  const [comments, setComments] = useState<RevisionComment[]>(() => _scPersisted?.comments ?? []);
   const [versions, setVersions] = useState<ScriptVersion[]>(() => {
     if (_scPersisted?.versions) return _scPersisted.versions;
     if (seedElements) return [{ id: 'v1', label: 'Brouillon', date: new Date().toLocaleDateString('fr-FR'), elements: seedElements }];
@@ -5139,9 +5152,9 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
     if (!persistKey) return;
     if (scPersistTimer.current) clearTimeout(scPersistTimer.current);
     scPersistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, { versions, activeId: activeVersionId, props: propItems, shots, sceneOrder });
+      setResourceContent(persistKey, { versions, activeId: activeVersionId, props: propItems, shots, sceneOrder, comments });
     }, 400);
-  }, [versions, activeVersionId, propItems, shots, sceneOrder, persistKey]);
+  }, [versions, activeVersionId, propItems, shots, sceneOrder, comments, persistKey]);
   useEffect(() => () => { if (scPersistTimer.current) clearTimeout(scPersistTimer.current); }, []);
 
   const scriptScenes: ScriptScene[] = elements
@@ -5262,6 +5275,7 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
           onEdit={onEdit} saveState={saveState} online={online} registerExport={registerExport}
           panelTab={panelTab} setPanelTab={setPanelTab}
           propItems={propItems} setPropItems={setPropItems}
+          comments={comments} setComments={setComments}
         />
       </div>
       <div style={{ flex:1, overflow:'hidden', display: activeTab === 'shotlist' ? 'flex' : 'none' }}>
@@ -5335,13 +5349,7 @@ export function ResourceDetail() {
 
   const editable = resource.type === 'screenplay' || resource.type === 'document';
 
-  const handleExport = useCallback((fmt: ExportFormat) => {
-    if (fmt === 'gdocs') {
-      if (!navigator.onLine) { showToast('Hors ligne — export Google Docs indisponible'); return; }
-      showToast('Export vers Google Docs…');
-      window.setTimeout(() => showToast('Exporté vers Google Docs'), 1300);
-      return;
-    }
+  const handleExport = useCallback(() => {
     const payload = exporterRef.current?.();
     if (!payload) { showToast('Rien à exporter'); return; }
     const ok = exportToPDF(payload);
@@ -5354,12 +5362,12 @@ export function ResourceDetail() {
 
   const renderBody = () => {
     switch (resource.type) {
-      case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} />;
+      case 'video_review': return <VideoReviewBody key={resource.id} resource={resource} persistKey={resource.id} registerExport={registerExport} />;
       case 'screenplay':   return <ScreenplayView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
-      case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} />;
+      case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} registerExport={registerExport} />;
         case 'document':     return <DocumentView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
-      case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} />;
-      case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} />;
+      case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} registerExport={registerExport} />;
+      case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} registerExport={registerExport} />;
       default:             return <div style={{ padding:40, color:'var(--text-3)' }}>Type non pris en charge</div>;
     }
   };

@@ -1558,6 +1558,7 @@
     "addCommentMention": "Add a comment or @mention…",
     "reopen": "Reopen",
     "resolve": "Resolve",
+    "convertToSubtask": "Convert to subtask",
     "replyShort": "Reply…",
     "placeAnnotation": "Place annotation",
     "cancelAnnotation": "Cancel annotation",
@@ -2158,9 +2159,6 @@
       "clickToRename": "Click to rename",
       "clickToEditDescription": "Click to edit description",
       "changeStatus": "Change status",
-      "exportPDF": "Export as PDF",
-      "exportGoogleDocs": "Export to Google Docs",
-      "offline": "OFFLINE",
       "linkCopied": "Link copied!",
       "share": "Share"
     },
@@ -2188,22 +2186,13 @@
       "moveSceneDown": "Move scene down"
     },
     "storyboardView": {
-      "aiPromptPlaceholder": "Wide shot from the hallway, character from behind, dim light…",
-      "aiTitle": "AI Generation",
-      "aiSubtitle": "Describe, draw or dictate the frame to generate",
-      "promptModeText": "Text",
-      "promptModeDraw": "Draw",
-      "promptLabel": "Prompt",
-      "styleLabel": "Style",
-      "dictate": "Dictate",
-      "stopListening": "Stop",
-      "speechUnsupported": "Voice recognition not available on this browser (Chrome / Edge only).",
+      "sketchTitle": "Add a sketch",
+      "sketchSubtitle": "Draw the frame by hand",
       "clearCanvas": "Clear",
       "eraser": "Eraser",
       "sketchDescPlaceholder": "Optional description of the sketch…",
       "cancelButton": "Cancel",
-      "generateButton": "Generate",
-      "generatingLabel": "Generating…"
+      "saveButton": "Save"
     },
     "documentView": {
       "tableOfContents": "Table of contents",

@@ -134,6 +134,7 @@ function CommentCard({
   onResolve,
   onReply,
   onDelete,
+  onConvertToSubtask,
 }: {
   comment: RevisionComment;
   index: number;
@@ -142,6 +143,7 @@ function CommentCard({
   onResolve: () => void;
   onReply: (text: string) => void;
   onDelete?: () => void;
+  onConvertToSubtask?: () => void;
 }) {
   const { t } = useTranslation();
   const [replyText, setReplyText] = useState('');
@@ -263,6 +265,17 @@ function CommentCard({
         >
           {resolved ? t('review.reopen') : t('review.resolve')}
         </button>
+        {onConvertToSubtask && (
+          <>
+            <span style={{ color: 'var(--border-2)', fontSize: 11 }}>·</span>
+            <button
+              onClick={e => { e.stopPropagation(); onConvertToSubtask(); }}
+              style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--ff-text)' }}
+            >
+              {t('review.convertToSubtask')}
+            </button>
+          </>
+        )}
       </div>
 
       {showReply && (
@@ -305,6 +318,7 @@ export function RevisionCommentSidebar({
   onResolve,
   onReply,
   onDelete,
+  onConvertToSubtask,
   pendingAnnotation,
   onCancelPending,
   drawing,
@@ -319,6 +333,7 @@ export function RevisionCommentSidebar({
   onResolve: (id: string) => void;
   onReply: (id: string, text: string) => void;
   onDelete?: (id: string) => void;
+  onConvertToSubtask?: (id: string) => void;
   pendingAnnotation: boolean;
   onCancelPending: () => void;
   drawing?: boolean;
@@ -450,6 +465,7 @@ export function RevisionCommentSidebar({
                 onResolve={() => onResolve(c.id)}
                 onReply={text => onReply(c.id, text)}
                 onDelete={onDelete ? () => onDelete(c.id) : undefined}
+                onConvertToSubtask={onConvertToSubtask ? () => onConvertToSubtask(c.id) : undefined}
               />
             ))}
           </div>
