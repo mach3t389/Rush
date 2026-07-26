@@ -1568,7 +1568,7 @@ export function Taches() {
                     </button>
                     {!collapsed && (
                       <>
-                        <div style={{ padding: '0 0 0', borderTop: '1px solid var(--border)' }}>
+                        <div style={{ padding: '8px 0 0', borderTop: '1px solid var(--border)' }}>
                           <ColHeader {...colHeaderProps} />
                         </div>
                         {g.tasks.map(task => (

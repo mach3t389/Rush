@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { SFIcon } from '../ui';
 import { addEventType, updateEventType, deleteEventType, reorderEventTypes, type EventType } from '../../data/eventTypeStore';
 
+// Curated set offered when creating/editing an event type — includes the
+// six built-in types' own icons plus a few more common event shapes, so
+// picking one is a couple of clicks instead of needing free-text input.
+const EVENT_TYPE_ICONS = [
+  'circle', 'video', 'package', 'users', 'alert-circle', 'scissors',
+  'calendar', 'camera', 'clapperboard', 'mic', 'music', 'star',
+  'flag', 'map-pin', 'phone', 'coffee',
+];
+
 // Liste des types d'événements dans la sidebar calendrier — sert à la fois de
 // filtre (clic = inclure/exclure) et d'éditeur (survol = crayon pour renommer/
 // recolorer/supprimer un type custom ; bouton "+" pour en créer un nouveau).
@@ -22,9 +31,11 @@ export function EventTypeFilterList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editColor, setEditColor] = useState('#3b82f6');
+  const [editIcon, setEditIcon] = useState('circle');
   const [showNew, setShowNew] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newColor, setNewColor] = useState('#3b82f6');
+  const [newIcon, setNewIcon] = useState('circle');
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | null>(null);
@@ -48,13 +59,13 @@ export function EventTypeFilterList({
     setDragOverPos(null);
   };
 
-  const startEdit = (et: EventType) => { setEditingId(et.id); setEditLabel(et.label); setEditColor(et.color); setShowNew(false); };
-  const saveEdit = () => { if (!editLabel.trim() || !editingId) return; updateEventType(editingId, { label: editLabel.trim(), color: editColor }); setEditingId(null); };
+  const startEdit = (et: EventType) => { setEditingId(et.id); setEditLabel(et.label); setEditColor(et.color); setEditIcon(et.icon); setShowNew(false); };
+  const saveEdit = () => { if (!editLabel.trim() || !editingId) return; updateEventType(editingId, { label: editLabel.trim(), color: editColor, icon: editIcon }); setEditingId(null); };
   const removeType = (id: string) => { deleteEventType(id); setEditingId(null); };
   const addNew = () => {
     if (!newLabel.trim()) return;
-    addEventType({ label: newLabel.trim(), color: newColor, icon: 'circle' });
-    setNewLabel(''); setNewColor('#3b82f6'); setShowNew(false);
+    addEventType({ label: newLabel.trim(), color: newColor, icon: newIcon });
+    setNewLabel(''); setNewColor('#3b82f6'); setNewIcon('circle'); setShowNew(false);
   };
 
   const inputStyle: React.CSSProperties = { flex: 1, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', minWidth: 0 };
@@ -102,7 +113,7 @@ export function EventTypeFilterList({
                 <button onClick={() => onToggle(et.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', paddingRight: 26, borderRadius: 8, border: 'none', background: active && hasFilter ? 'rgba(255,255,255,0.04)' : 'transparent', cursor: 'pointer', textAlign: 'left', opacity: active ? 1 : 0.35, transition: 'all 0.15s', width: '100%' }}
                 >
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: et.color, flexShrink: 0 }} />
+                  <SFIcon name={et.icon} size={11} color={et.color} style={{ flexShrink: 0 }} />
                   <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{et.label}</span>
                   {active && hasFilter && <SFIcon name="check" size={11} color="var(--text-3)" />}
                 </button>
@@ -113,17 +124,27 @@ export function EventTypeFilterList({
                 </button>
               </div>
               {isEditing && (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '4px 0', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-                  <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} style={colorInputStyle} />
-                  <input value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus
-                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }}
-                    style={inputStyle} />
-                  <button onClick={saveEdit} style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', flexShrink: 0 }}>
-                    <SFIcon name="check" size={12} />
-                  </button>
-                  <button onClick={() => removeType(et.id)} style={{ display: 'flex', padding: 5, borderRadius: 6, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}>
-                    <SFIcon name="trash-2" size={12} />
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '4px 0', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} style={colorInputStyle} />
+                    <input value={editLabel} onChange={e => setEditLabel(e.target.value)} autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                      style={inputStyle} />
+                    <button onClick={saveEdit} style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', flexShrink: 0 }}>
+                      <SFIcon name="check" size={12} />
+                    </button>
+                    <button onClick={() => removeType(et.id)} style={{ display: 'flex', padding: 5, borderRadius: 6, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}>
+                      <SFIcon name="trash-2" size={12} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {EVENT_TYPE_ICONS.map(ic => (
+                      <button key={ic} onClick={() => setEditIcon(ic)} title={ic}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, cursor: 'pointer', flexShrink: 0, background: editIcon === ic ? 'var(--accent)' : 'var(--surface-3)', border: `1px solid ${editIcon === ic ? 'var(--accent)' : 'var(--border)'}` }}>
+                        <SFIcon name={ic} size={12} color={editIcon === ic ? 'var(--on-accent)' : 'var(--text-2)'} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -135,14 +156,24 @@ export function EventTypeFilterList({
           {newTypeLabel}
         </button>
         {showNew && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-            <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={colorInputStyle} />
-            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} autoFocus placeholder={newTypeLabel}
-              onKeyDown={e => { if (e.key === 'Enter') addNew(); if (e.key === 'Escape') setShowNew(false); }}
-              style={inputStyle} />
-            <button onClick={addNew} style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', flexShrink: 0 }}>
-              <SFIcon name="check" size={12} />
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={colorInputStyle} />
+              <input value={newLabel} onChange={e => setNewLabel(e.target.value)} autoFocus placeholder={newTypeLabel}
+                onKeyDown={e => { if (e.key === 'Enter') addNew(); if (e.key === 'Escape') setShowNew(false); }}
+                style={inputStyle} />
+              <button onClick={addNew} style={{ display: 'flex', padding: 5, borderRadius: 6, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', flexShrink: 0 }}>
+                <SFIcon name="check" size={12} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {EVENT_TYPE_ICONS.map(ic => (
+                <button key={ic} onClick={() => setNewIcon(ic)} title={ic}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, cursor: 'pointer', flexShrink: 0, background: newIcon === ic ? 'var(--accent)' : 'var(--surface-3)', border: `1px solid ${newIcon === ic ? 'var(--accent)' : 'var(--border)'}` }}>
+                  <SFIcon name={ic} size={12} color={newIcon === ic ? 'var(--on-accent)' : 'var(--text-2)'} />
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
