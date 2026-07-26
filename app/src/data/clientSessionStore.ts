@@ -122,6 +122,7 @@ export interface ClientDeliverable {
   sharedWithClient?: boolean;
   dueDate?: string;
   status?: string;
+  correctionsRequested?: boolean;
 }
 
 // tasks.data is a jsonb column storing the full serialized Task object (see
@@ -137,6 +138,23 @@ export async function getMyClientDeliverables(projectId: string): Promise<Client
   return (data ?? [])
     .map(row => row.data as ClientDeliverable)
     .filter(t => t.deliverable && t.sharedWithClient !== false);
+}
+
+// Both actions are narrowly-scoped RPC calls (see
+// docs/superpowers/specs/2026-07-26-client-deliverable-actions-migration.sql)
+// rather than a direct .update() — a client's RLS policy on `tasks` is
+// read-only (tasks_select_client_access), and a blanket UPDATE policy would
+// let a client rewrite any field of the task, not just approval state.
+export async function approveClientDeliverable(taskId: string): Promise<{ ok: boolean }> {
+  const { error } = await supabase.rpc('client_deliverable_action', { p_task_id: taskId, p_action: 'approve' });
+  if (error) { console.error('approveClientDeliverable failed', error); return { ok: false }; }
+  return { ok: true };
+}
+
+export async function requestClientDeliverableCorrections(taskId: string): Promise<{ ok: boolean }> {
+  const { error } = await supabase.rpc('client_deliverable_action', { p_task_id: taskId, p_action: 'request_corrections' });
+  if (error) { console.error('requestClientDeliverableCorrections failed', error); return { ok: false }; }
+  return { ok: true };
 }
 
 export interface ClientCalEvent {

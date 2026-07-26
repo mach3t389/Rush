@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClientProjectHeader } from '../../components/client/ClientProjectHeader';
-import { SFIcon } from '../../components/ui';
+import { SFIcon, SFButton } from '../../components/ui';
 import {
   getMyClientProjects, getMyClientDeliverables,
+  approveClientDeliverable, requestClientDeliverableCorrections,
   type ClientProject, type ClientDeliverable,
 } from '../../data/clientSessionStore';
-import { getPreviewClientProjects, getPreviewClientDeliverables } from '../../data/viewAsClientDataStore';
+import {
+  getPreviewClientProjects, getPreviewClientDeliverables,
+  approvePreviewClientDeliverable, requestPreviewClientDeliverableCorrections,
+} from '../../data/viewAsClientDataStore';
 import { getViewAsUser } from '../../data/viewAsStore';
 
 const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
@@ -17,30 +21,51 @@ export function ClientProjectApercu() {
   const { t } = useTranslation();
   const [project, setProject] = useState<ClientProject | null>(null);
   const [deliverables, setDeliverables] = useState<ClientDeliverable[] | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const viewAs = getViewAsUser();
   const isPreview = viewAs?.type === 'external';
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!projectId) return;
-    let cancelled = false;
-    (async () => {
-      const [projects, dels] = isPreview
-        ? await Promise.all([
-            getPreviewClientProjects(viewAs!.clientId!),
-            getPreviewClientDeliverables(projectId),
-          ])
-        : await Promise.all([
-            getMyClientProjects(),
-            getMyClientDeliverables(projectId),
-          ]);
-      if (cancelled) return;
-      setProject(projects.find(p => p.id === projectId) ?? null);
-      setDeliverables(dels);
-    })();
-    return () => { cancelled = true; };
+    const [projects, dels] = isPreview
+      ? await Promise.all([
+          getPreviewClientProjects(viewAs!.clientId!),
+          getPreviewClientDeliverables(projectId),
+        ])
+      : await Promise.all([
+          getMyClientProjects(),
+          getMyClientDeliverables(projectId),
+        ]);
+    setProject(projects.find(p => p.id === projectId) ?? null);
+    setDeliverables(dels);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, isPreview]);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
+
+  const handleApprove = async (d: ClientDeliverable) => {
+    if (!projectId) return;
+    setActingId(d.id);
+    const result = isPreview
+      ? await approvePreviewClientDeliverable(projectId, d.id, d.title)
+      : await approveClientDeliverable(d.id);
+    if (result.ok) await load();
+    setActingId(null);
+  };
+
+  const handleCorrections = async (d: ClientDeliverable) => {
+    if (!projectId) return;
+    setActingId(d.id);
+    const result = isPreview
+      ? await requestPreviewClientDeliverableCorrections(projectId, d.id, d.title)
+      : await requestClientDeliverableCorrections(d.id);
+    if (result.ok) await load();
+    setActingId(null);
+  };
 
   if (!projectId) return null;
   const currentPhaseIdx = project ? PHASE_ORDER.indexOf(project.phase) : -1;
@@ -90,12 +115,32 @@ export function ClientProjectApercu() {
             <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('clientProject.apercuNoDeliverables')}</p>
           )}
           {deliverables !== null && deliverables.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {deliverables.map(d => (
-                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }}>
-                  <SFIcon name="package" size={14} color="var(--text-3)" />
-                  <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>{d.title}</span>
-                  {d.status && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{d.status}</span>}
+                <div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <SFIcon name="package" size={14} color="var(--text-3)" />
+                    <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>{d.title}</span>
+                    {d.status && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{d.status}</span>}
+                  </div>
+                  {d.correctionsRequested && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#a85f3e18', border: '1px solid #a85f3e44' }}>
+                      <SFIcon name="triangle-alert" size={13} color="#a85f3e" />
+                      <span style={{ fontSize: 12, color: '#a85f3e' }}>{t('portal.correctionsRequestedNote')}</span>
+                    </div>
+                  )}
+                  {d.status === 'review' && (
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <SFButton variant="primary" icon="check" size="sm" disabled={actingId === d.id} onClick={() => handleApprove(d)} style={{ flex: 1, justifyContent: 'center' }}>
+                        {t('portal.approve')}
+                      </SFButton>
+                      {!d.correctionsRequested && (
+                        <SFButton variant="secondary" icon="message-circle" size="sm" disabled={actingId === d.id} onClick={() => handleCorrections(d)} style={{ flex: 1, justifyContent: 'center' }}>
+                          {t('portal.requestCorrections')}
+                        </SFButton>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
