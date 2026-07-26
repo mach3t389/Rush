@@ -65,11 +65,16 @@ export function ClientInvitationAccept() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!token) { setLoadState('invalid'); return; }
+      // sessionEmail stays undefined until this resolves, and the loading
+      // guard below treats "still undefined" as "still loading" — every
+      // early-return branch (missing token, invalid/expired invitation) has
+      // to clear it too, or the spinner never goes away and the actual
+      // "invalid invitation" screen becomes unreachable.
+      if (!token) { setSessionEmail(null); setLoadState('invalid'); return; }
       const info = await getInvitationDetails(token);
       const { data: { user } } = await supabase.auth.getUser();
       if (cancelled) return;
-      if (!info || info.outcome !== 'pending') { setLoadState('invalid'); return; }
+      if (!info || info.outcome !== 'pending') { setSessionEmail(null); setLoadState('invalid'); return; }
       setInvitation(info);
       setSessionEmail(user?.email ?? null);
       setLoadState('ready');
