@@ -1,0 +1,550 @@
+# Unify Approval Requests Around the Livrable — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Make "Demander l'approbation" on a resource screen (video/document/image/web) actually reach the client, by routing it through the livrable (deliverable Task) mechanism that the client Portail already reads — instead of silently setting `Resource.status`, which no client-facing screen ever displays.
+
+**Architecture:** No new data model. `RequestApprovalButton` is rewritten to find-or-create a `Task` with `deliverable: true`, `linkedResources: [resource.id]`, `sharedWithClient: true` via the existing `addDeliverable`/`getDeliverables` functions in `taskStore.ts`. The button becomes two render states: a plain button when no livrable is linked yet, and a clickable `SFPill` mirroring the livrable's live status once one exists (subscribed via `subscribeStore`). Relocated from each resource screen's icon toolbar to sit next to the resource title, so the action and its result are visually connected.
+
+**Tech Stack:** React 19 + TypeScript, existing `taskStore.ts`/`resourceStore.ts`/`notificationStore.ts`/`toastStore.ts` singleton stores, react-i18next.
+
+## Global Constraints
+
+- No automated test suite in this project (see `CLAUDE.md` → "Commandes essentielles": *"Il n'y a pas de tests automatisés. La vérification se fait via le serveur de preview."*). Every task's "test" step below is: (1) `npx tsc --noEmit -p tsconfig.app.json` from `app/` must pass with zero errors, and (2) a live check in the Claude_Browser preview (dev server already running at `http://localhost:5253`).
+- No hardcoded user-facing text — every new string goes through `t('namespace.key')`, added to **both** `app/src/locales/fr.json` and `app/src/locales/en.json` before use (per `CLAUDE.md`'s i18n rule).
+- Styling is inline `style={}` objects using the CSS custom properties already defined in `app/src/index.css` (`var(--accent)`, `var(--text-3)`, etc.) — do not introduce Tailwind classes or new CSS files.
+- Commit after each task with `git add <exact files touched>` (never `git add -A` — this repo has a concurrently-active second session using the same checkout).
+- Demo session only needs manual verification (real Supabase session paths are unaffected — `taskStore.ts`'s `addDeliverable`/`getDeliverables` already handle both paths transparently, no store changes needed).
+
+---
+
+### Task 1: `findLinkedDeliverable` helper in `taskStore.ts`
+
+**Files:**
+- Modify: `app/src/data/taskStore.ts:242-244` (right after the existing `getDeliverables` function)
+
+**Interfaces:**
+- Consumes: `getDeliverables(projectId: string): Task[]` (already defined at `taskStore.ts:242`), `Task.linkedResources?: string[]` (already defined in `app/src/types/index.ts:100`)
+- Produces: `findLinkedDeliverable(projectId: string, resourceId: string): Task | null` — used by Task 3.
+
+- [ ] **Step 1: Add the helper**
+
+In `app/src/data/taskStore.ts`, immediately after the `getDeliverables` function (currently ending at line 244), add:
+
+```ts
+export function findLinkedDeliverable(projectId: string, resourceId: string): Task | null {
+  return getDeliverables(projectId).find(t => (t.linkedResources ?? []).includes(resourceId)) ?? null;
+}
+```
+
+- [ ] **Step 2: Typecheck**
+
+Run from `app/`:
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors (this is a pure addition, nothing else references the new export yet).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add app/src/data/taskStore.ts
+git commit -m "feat(taskstore): add findLinkedDeliverable helper"
+```
+
+---
+
+### Task 2: i18n keys for the approval badge and confirmation toast
+
+**Files:**
+- Modify: `app/src/locales/fr.json` (inside the existing `"approval"` object, currently at lines 311-314)
+- Modify: `app/src/locales/en.json` (find the matching `"approval"` object — same key structure as fr.json)
+
+**Interfaces:**
+- Produces: 5 new i18n keys under the `approval.*` namespace, consumed by Task 3's rewrite of `RequestApprovalButton.tsx`.
+
+- [ ] **Step 1: Add French keys**
+
+In `app/src/locales/fr.json`, the `"approval"` object currently reads:
+```json
+  "approval": {
+    "requestApproval": "Demander approbation",
+    "requestSent": "Demande envoyée"
+  },
+```
+Replace it with:
+```json
+  "approval": {
+    "requestApproval": "Demander approbation",
+    "requestSent": "Demande envoyée",
+    "livrableCreatedToast": "Livrable créé et partagé avec le client pour approbation",
+    "viewLivrable": "Voir le livrable dans Aperçu",
+    "statusPending": "En attente d'approbation",
+    "statusApproved": "Approuvé",
+    "statusCorrections": "Corrections demandées"
+  },
+```
+
+- [ ] **Step 2: Add matching English keys**
+
+Find the `"approval"` object in `app/src/locales/en.json` (same key names, English values already present for `requestApproval`/`requestSent` — check their exact current English wording before editing, and match that tone). Add the 5 new keys with these English values:
+```json
+    "livrableCreatedToast": "Deliverable created and shared with the client for approval",
+    "viewLivrable": "View the deliverable in Overview",
+    "statusPending": "Awaiting approval",
+    "statusApproved": "Approved",
+    "statusCorrections": "Corrections requested"
+```
+
+- [ ] **Step 3: Verify JSON validity**
+
+Run from `app/`:
+```bash
+node -e "JSON.parse(require('fs').readFileSync('src/locales/fr.json','utf8')); JSON.parse(require('fs').readFileSync('src/locales/en.json','utf8')); console.log('OK')"
+```
+Expected output: `OK` (catches trailing-comma/syntax mistakes before they hit the dev server).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add app/src/locales/fr.json app/src/locales/en.json
+git commit -m "i18n: add approval badge and toast strings"
+```
+
+---
+
+### Task 3: Rewrite `RequestApprovalButton.tsx` — find-or-create livrable + live status badge
+
+**Files:**
+- Modify: `app/src/components/RequestApprovalButton.tsx` (full rewrite, currently 54 lines)
+
+**Interfaces:**
+- Consumes: `findLinkedDeliverable` (Task 1), `addDeliverable(projectId: string, task: Task): void` (existing, `taskStore.ts:208`), `subscribeStore(fn: () => void): () => void` (existing, `taskStore.ts:474`), `getProjects(): Project[]` (existing, `app/src/data/projectStore.ts:206`), `updateResource(id: string, patch: Partial<Resource>): void` (existing, `resourceStore.ts:147`), `showToast(payload: ToastPayload): void` (existing, `toastStore.ts:25`), `addNotif` (existing, `notificationStore.ts:303`), `SFPill` component (existing, `components/ui/SFPill.tsx`).
+- Produces: same public props as before (`resource`, `projectId`, `onStatusChange`, `size`) — no call-site signature changes, so Tasks 4-7 only move the JSX mount point, they don't change props.
+
+- [ ] **Step 1: Replace the file contents**
+
+Replace the entire contents of `app/src/components/RequestApprovalButton.tsx` with:
+
+```tsx
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { SFButton, SFPill } from './ui';
+import { addNotif } from '../data/notificationStore';
+import { updateResource } from '../data/resourceStore';
+import { addDeliverable, findLinkedDeliverable, subscribeStore } from '../data/taskStore';
+import { getProjects } from '../data/projectStore';
+import { USERS } from '../data/mock';
+import { showToast } from '../data/toastStore';
+import type { Resource, Status, DeliverableType, Task } from '../types';
+
+function inferDeliverableType(resource: Resource): DeliverableType {
+  if (resource.type === 'video_review') {
+    if (resource.mediaSubtype === 'photo') return 'photo';
+    if (resource.mediaSubtype === 'file') return 'document';
+    if (resource.mediaSubtype === 'audio') return 'audio';
+    return 'video';
+  }
+  if (resource.type === 'web_review') return 'web';
+  if (resource.type === 'moodboard') return 'graphique';
+  if (resource.type === 'document') return 'document';
+  return 'autre';
+}
+
+// Demande d'approbation générique pour n'importe quelle ressource.
+// → trouve ou crée le livrable (Task deliverable:true) lié à cette
+//   ressource — c'est CE livrable que le client voit et approuve dans
+//   le Portail (Portail.tsx ne lit jamais Resource.status directement).
+// → une fois un livrable lié trouvé, le bouton devient un badge de
+//   statut vivant plutôt qu'une action répétable — pas de état
+//   "double-clic" à gérer, la deuxième visite affiche juste le badge.
+export function RequestApprovalButton({
+  resource,
+  projectId,
+  onStatusChange,
+  size = 'sm',
+}: {
+  resource: Resource;
+  projectId?: string;
+  onStatusChange?: (status: Status, label: string) => void;
+  size?: 'sm' | 'md';
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [sent, setSent] = useState(false);
+  const [linked, setLinked] = useState<Task | null>(
+    () => (projectId ? findLinkedDeliverable(projectId, resource.id) : null)
+  );
+
+  useEffect(() => {
+    if (!projectId) return;
+    setLinked(findLinkedDeliverable(projectId, resource.id));
+    return subscribeStore(() => setLinked(findLinkedDeliverable(projectId, resource.id)));
+  }, [projectId, resource.id]);
+
+  const handle = () => {
+    if (!projectId) return;
+    const project = getProjects().find(p => p.id === projectId);
+    const task: Task = {
+      id: `dl-${Date.now()}`,
+      title: resource.title,
+      projectId,
+      projectName: project?.name ?? '',
+      projectColor: project?.clientColor ?? '#888',
+      assignee: USERS.lea,
+      status: 'review',
+      statusLabel: 'En révision',
+      priority: 'normal',
+      priorityLabel: 'Moyenne',
+      dueDate: '—',
+      dueDateRed: false,
+      checked: false,
+      subtasks: [],
+      deliverable: true,
+      deliverableType: inferDeliverableType(resource),
+      linkedResources: [resource.id],
+      sharedWithClient: true,
+    };
+    addDeliverable(projectId, task);
+    addNotif({
+      kind: 'approval',
+      actor: USERS.lea.name,
+      text: `a demandé l'approbation de « ${resource.title} »`,
+      timestamp: Date.now(),
+      resourceId: resource.id,
+      taskId: task.id,
+      projectId,
+    });
+    if (onStatusChange) onStatusChange('review', 'En révision');
+    else updateResource(resource.id, { status: 'review', statusLabel: 'En révision' });
+    showToast({ type: 'task', message: t('approval.livrableCreatedToast') });
+    setSent(true);
+    setTimeout(() => setSent(false), 2500);
+  };
+
+  if (linked) {
+    const label = linked.correctionsRequested
+      ? t('approval.statusCorrections')
+      : linked.status === 'ok'
+      ? t('approval.statusApproved')
+      : t('approval.statusPending');
+    const pillStatus: Status = linked.correctionsRequested ? 'warn' : linked.status;
+    return (
+      <button
+        onClick={() => navigate(`/projets/${projectId}/overview`)}
+        title={t('approval.viewLivrable')}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
+      >
+        <SFPill status={pillStatus} small={size === 'sm'}>{label}</SFPill>
+      </button>
+    );
+  }
+
+  return (
+    <SFButton
+      variant="primary"
+      size={size}
+      icon={sent ? 'check' : 'shield-check'}
+      onClick={handle}
+      style={{ flexShrink: 0, whiteSpace: 'nowrap', ...(sent ? { background: 'var(--ok)', borderColor: 'var(--ok)', color: '#fff' } : {}) }}
+    >
+      {sent ? t('approval.requestSent') : t('approval.requestApproval')}
+    </SFButton>
+  );
+}
+```
+
+- [ ] **Step 2: Typecheck**
+
+Run from `app/`:
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors. If `Status` doesn't include `'warn'` as a valid pill status color, check `app/src/types/index.ts:2` (`export type Status = 'ok' | 'warn' | 'info' | 'danger' | 'review' | 'neutral' | 'accent';`) — `'warn'` is valid.
+
+- [ ] **Step 3: Live verification via ResourceDetail.tsx (no relocation needed there — good first test)**
+
+`ResourceDetail.tsx:3138` already mounts `RequestApprovalButton` right next to the title/status pill (no relocation needed for this file — see Task 8). Use it as the first live check of the new logic:
+
+1. In the Claude_Browser preview, navigate to a project's screenplay/moodboard/inspirations/form resource (e.g. a project's script or moodboard from `/projets/:id/fichiers`, double-click to open).
+2. Click "Demander approbation".
+3. Confirm: a toast appears with the new message; the button becomes a pill reading "En attente d'approbation".
+4. Navigate to `/projets/:id/overview` (Aperçu) — confirm a new livrable appears in the "Livrables" list, titled after the resource, `sharedWithClient` on (eye icon), linked to the resource (resource chip visible under the livrable row).
+5. Reload the resource screen — confirm the pill still shows (persisted, not just local state).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add app/src/components/RequestApprovalButton.tsx
+git commit -m "feat(approval): request-approval button now creates/links a real livrable"
+```
+
+---
+
+### Task 4: Relocate the button next to the title in `VideoReview.tsx`
+
+**Files:**
+- Modify: `app/src/screens/VideoReview.tsx:885-886` (remove from toolbar), `app/src/screens/VideoReview.tsx:1206-1224` (insert near title, inside the "Resource summary" block)
+
+**Interfaces:**
+- Consumes: `RequestApprovalButton` (Task 3) — same props, only the JSX location moves.
+
+- [ ] **Step 1: Remove from the player toolbar**
+
+In `app/src/screens/VideoReview.tsx`, delete these two lines (currently 885-886):
+```tsx
+        {/* Request approval */}
+        <RequestApprovalButton resource={resource} projectId={projectId} />
+```
+
+- [ ] **Step 2: Insert next to the title**
+
+Find the "Resource summary" block (starts around line 1205-1206):
+```tsx
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('review.videoLabel')} · {activeVersion}</p>
+```
+Change the wrapping `<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>` line's immediate children so the button sits as a sibling after the `<div style={{ flex: 1, minWidth: 0 }}>...</div>` title block (that title `<div>` closes right before the `{editingDesc ? ... : ...}` block ends — locate its closing `</div>` and add the button as the next sibling, before that outer flex `<div>` closes). Concretely, the outer flex container becomes:
+```tsx
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* ...unchanged title/description JSX... */}
+              </div>
+              <RequestApprovalButton resource={resource} projectId={projectId} />
+            </div>
+```
+Only add `gap: 8` to the existing style object and insert the `<RequestApprovalButton .../>` line right before that `<div>`'s closing tag — do not touch the title/description JSX in between.
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 4: Live verification**
+
+1. Navigate to a video resource (`VideoReview`).
+2. Confirm the approval button/pill now renders next to the video title in the right-hand comments panel, not in the bottom player toolbar.
+3. Click it if not already linked; confirm the same toast + pill-conversion behavior as Task 3's verification.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/screens/VideoReview.tsx
+git commit -m "refactor(video-review): move approval button next to resource title"
+```
+
+---
+
+### Task 5: Relocate the button next to the title in `DocumentReview.tsx`
+
+**Files:**
+- Modify: `app/src/screens/DocumentReview.tsx:580` (remove), `app/src/screens/DocumentReview.tsx:486-509` (insert)
+
+**Interfaces:**
+- Consumes: `RequestApprovalButton` (Task 3).
+
+- [ ] **Step 1: Remove from its current spot**
+
+Delete this line (currently line 580):
+```tsx
+        {resource && <RequestApprovalButton resource={resource} size="sm" />}
+```
+
+- [ ] **Step 2: Insert right after the title/description block**
+
+The title/description block currently ends at line 509 with:
+```tsx
+          )}
+        </div>
+
+        {/* Divider */}
+```
+Insert the button between the block's closing `</div>` and the divider comment:
+```tsx
+          )}
+        </div>
+
+        {resource && <RequestApprovalButton resource={resource} size="sm" />}
+
+        {/* Divider */}
+```
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 4: Live verification**
+
+1. Navigate to a document resource (`DocumentReview`).
+2. Confirm the button/pill now sits immediately after the title, before the version dropdown.
+3. Click it; confirm toast + pill conversion + a new livrable in Aperçu with `deliverableType: 'document'`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/screens/DocumentReview.tsx
+git commit -m "refactor(document-review): move approval button next to resource title"
+```
+
+---
+
+### Task 6: Relocate the button next to the title in `ImageReview.tsx`
+
+**Files:**
+- Modify: `app/src/screens/ImageReview.tsx:454` (remove), `app/src/screens/ImageReview.tsx:356-380` (insert)
+
+**Interfaces:**
+- Consumes: `RequestApprovalButton` (Task 3).
+
+- [ ] **Step 1: Remove from its current spot**
+
+Delete these two lines (currently 453-454):
+```tsx
+        {/* Request approval */}
+        <RequestApprovalButton resource={resource} projectId={projectId} />
+```
+
+- [ ] **Step 2: Insert right after the title/description block**
+
+The title/description block (guarded by `{resource && (...)}`) currently ends at line 380 with:
+```tsx
+          </div>
+        )}
+
+        {/* Divider */}
+```
+Insert the button between the `)}` and the divider comment:
+```tsx
+          </div>
+        )}
+
+        {resource && <RequestApprovalButton resource={resource} projectId={projectId} />}
+
+        {/* Divider */}
+```
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 4: Live verification**
+
+1. Navigate to an image resource (`ImageReview`).
+2. Confirm the button/pill now sits immediately after the title, before the round dropdown.
+3. Click it; confirm toast + pill conversion + a new livrable in Aperçu with `deliverableType: 'photo'`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/screens/ImageReview.tsx
+git commit -m "refactor(image-review): move approval button next to resource title"
+```
+
+---
+
+### Task 7: Relocate the button next to the status pill in `WebReview.tsx`
+
+**Files:**
+- Modify: `app/src/screens/WebReview.tsx:291` (remove), `app/src/screens/WebReview.tsx:270-272` (insert)
+
+**Interfaces:**
+- Consumes: `RequestApprovalButton` (Task 3).
+
+`WebReview.tsx` has no editable title in its header (unlike the other three) — its header shows a status pill (`resource.status`) right after the back button. That pill is the closest existing anchor, so the approval button/badge goes right after it instead.
+
+- [ ] **Step 1: Remove from its current spot**
+
+Delete this line (currently line 291):
+```tsx
+        {resource && <RequestApprovalButton resource={resource} projectId={projectId} />}
+```
+
+- [ ] **Step 2: Insert right after the status pill**
+
+Find this block (currently lines 270-272):
+```tsx
+        {resource && (
+          <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
+        )}
+```
+Change it to:
+```tsx
+        {resource && (
+          <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
+        )}
+        {resource && <RequestApprovalButton resource={resource} projectId={projectId} />}
+```
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 4: Live verification**
+
+1. Navigate to a web resource (`WebReview`).
+2. Confirm the button/pill now sits right after the status pill, before the external-link button.
+3. Click it; confirm toast + pill conversion + a new livrable in Aperçu with `deliverableType: 'web'`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/screens/WebReview.tsx
+git commit -m "refactor(web-review): move approval button next to status pill"
+```
+
+---
+
+### Task 8: End-to-end verification — client Portail actually receives the request
+
+**Files:** none (verification-only task; fixes anything broken found during this pass, in whichever file(s) the bug lives in).
+
+**Interfaces:** none new.
+
+This is the task that proves the original bug (client never sees the approval request) is actually fixed — everything up to now only proved the studio side works.
+
+- [ ] **Step 1: Create a fresh approval request**
+
+In the Claude_Browser preview, open a video resource that has no linked livrable yet, click "Demander approbation".
+
+- [ ] **Step 2: View it as the client**
+
+Navigate to that project's client portal at `/portail/:projectId` (or use "Voir en tant que" from `FicheClient.tsx` → Équipe tab if testing via a real client contact — see the `viewAsStore` pattern already used elsewhere in this codebase).
+
+- [ ] **Step 3: Confirm it's visible and actionable**
+
+Confirm the new livrable appears under "En attente de votre approbation" in the Portail, titled after the video resource. Click "Approuver".
+
+- [ ] **Step 4: Confirm the studio side reflects the approval**
+
+Navigate back to the video resource screen (studio view). Confirm the badge next to the title now reads "Approuvé" instead of "En attente d'approbation" (this proves the `subscribeStore` live-sync in `RequestApprovalButton.tsx` works, not just the initial render).
+
+- [ ] **Step 5: Repeat steps 1-4 once for a document, image, and web resource, and once for a `ResourceDetail.tsx`-routed type (e.g. moodboard)**
+
+Same check, one pass per remaining resource type, to catch any type-specific issue the video pass didn't (e.g. a wrong `deliverableType` mapping breaking the Aperçu display for one type). Task 3's step 3 only checked the Aperçu side for a `ResourceDetail.tsx` type (screenplay/moodboard/inspirations/form) — this step is the first time one of those goes through the full Portail round-trip too.
+
+- [ ] **Step 6: Final typecheck across the whole app**
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 7: Push everything**
+
+```bash
+git push origin master
+```
