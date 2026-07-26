@@ -205,7 +205,7 @@ function NavGroup({ icon, label, collapsed, active, children }: { icon: string; 
   );
 }
 
-function SubNavItem({ to, label, exact }: { to: string; label: string; exact?: boolean }) {
+function SubNavItem({ to, icon, label, exact }: { to: string; icon: string; label: string; exact?: boolean }) {
   return (
     <NavLink
       to={to}
@@ -221,6 +221,7 @@ function SubNavItem({ to, label, exact }: { to: string; label: string; exact?: b
         transition: 'background 0.1s, color 0.1s',
       })}
     >
+      <SFIcon name={icon} size={14} />
       {label}
     </NavLink>
   );
@@ -457,10 +458,10 @@ export function Sidebar() {
             collapsed={collapsed}
             active={['/toutes-les-taches', '/calendrier', '/fichiers', '/finances'].some(p => location.pathname.startsWith(p))}
           >
-            <SubNavItem to="/toutes-les-taches" label={t('nav.allTasks')} exact={false} />
-            <SubNavItem to="/calendrier" label={t('nav.calendar')} exact={false} />
-            <SubNavItem to="/fichiers" label={t('nav.files')} exact={false} />
-            {canSeeFinances && <SubNavItem to="/finances" label={t('nav.finances')} exact={false} />}
+            <SubNavItem to="/toutes-les-taches" icon="square-check" label={t('nav.allTasks')} exact={false} />
+            <SubNavItem to="/calendrier" icon="calendar" label={t('nav.calendar')} exact={false} />
+            <SubNavItem to="/fichiers" icon="folder-open" label={t('nav.files')} exact={false} />
+            {canSeeFinances && <SubNavItem to="/finances" icon="receipt" label={t('nav.finances')} exact={false} />}
           </NavGroup>
         </nav>
 

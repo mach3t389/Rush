@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton, SFBar, SFLoadingState } from '../components/ui';
+import { SFIcon, SFButton, SFBar, SFLoadingState, PageHeader } from '../components/ui';
 import {
   getFolders, getFiles, addFolder, deleteFolder, renameFolder,
   addFile, deleteFile, renameFile, subscribeFileStore,
@@ -3190,8 +3190,8 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Top bar */}
-      <div style={{ flexShrink: 0, padding: '12px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <PageHeader title="Fichiers">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Toggle sidebar collapse */}
         <button
           onClick={() => setSidebarCollapsed(v => !v)}
@@ -3394,6 +3394,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           </div>
         )}
       </div>
+      </PageHeader>
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFAvatar, SFButton } from '../components/ui';
+import { SFIcon, SFAvatar, SFButton, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
@@ -908,40 +908,38 @@ export function CalendrierGlobal() {
 
       {/* Main */}
       <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0 }}>
-        {/* Topbar */}
-        <div style={{ padding:'12px 24px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:12,flexShrink:0 }}>
-          {/* Navigation */}
-          <div style={{ display:'flex',alignItems:'center',gap:6 }}>
-            <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
-              {t('calendar.today')}
-            </button>
-            <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
-              <SFIcon name="chevron-left" size={14} />
-            </button>
-            <button onClick={next} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
-              <SFIcon name="chevron-right" size={14} />
-            </button>
-          </div>
-
-          <div style={{ flex:1, minWidth:0 }}>
-            <h2 style={{ fontFamily:'var(--ff-display)', fontSize:15, fontWeight:700, lineHeight:1.2 }}>{t('nav.calendar')}</h2>
-            <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{title}</p>
-          </div>
-
-          {view!=='month' && <CalendarZoomControl />}
-
-          {/* View switcher */}
-          <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
-            {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
-              <button key={v} onClick={()=>setView(v)}
-                style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
-              >
-                {label}
-                <span style={{ fontSize:9,opacity:view===v?0.6:0.4,background:'rgba(128,128,128,0.15)',borderRadius:3,padding:'1px 4px',letterSpacing:0,lineHeight:1 }}>{key}</span>
+        <PageHeader title={t('nav.calendar')} subtitle={title}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            {/* Navigation */}
+            <div style={{ display:'flex',alignItems:'center',gap:6 }}>
+              <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
+                {t('calendar.today')}
               </button>
-            ))}
+              <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
+                <SFIcon name="chevron-left" size={14} />
+              </button>
+              <button onClick={next} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
+                <SFIcon name="chevron-right" size={14} />
+              </button>
+            </div>
+
+            {view!=='month' && <CalendarZoomControl />}
+
+            <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
+              {/* View switcher */}
+              <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
+                {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
+                  <button key={v} onClick={()=>setView(v)}
+                    style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
+                  >
+                    {label}
+                    <span style={{ fontSize:9,opacity:view===v?0.6:0.4,background:'rgba(128,128,128,0.15)',borderRadius:3,padding:'1px 4px',letterSpacing:0,lineHeight:1 }}>{key}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        </PageHeader>
 
         {/* Calendar body */}
         {view==='month' && (
