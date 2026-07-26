@@ -4740,7 +4740,10 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
     setShowAIModal(true);
   };
 
-  // Init canvas dark background whenever the sketch modal opens
+  // Init canvas whenever the sketch modal opens — reload the existing
+  // sketch if this shot already has one (hand-drawn, i.e. a data: URL with
+  // no imageFileId — an imported photo has imageFileId set instead and
+  // isn't editable as a sketch), otherwise start from a blank dark canvas.
   useEffect(() => {
     if (!showAIModal) return;
     const canvas = canvasRef.current;
@@ -4749,7 +4752,14 @@ function StoryboardView({ scriptScenes, shots, setShots, sceneOrder, setSceneOrd
     if (!ctx) return;
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, [showAIModal]);
+
+    const shot = shots.find(sh => sh.id === aiShotId);
+    if (shot?.imageUrl && !shot.imageFileId) {
+      const img = new Image();
+      img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); };
+      img.src = shot.imageUrl;
+    }
+  }, [showAIModal, aiShotId, shots]);
 
   const getCanvasPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
