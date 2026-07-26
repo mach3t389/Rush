@@ -18,6 +18,12 @@ import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, sha
 interface ActivateBody {
   studioId: string;
   projectId: string;
+  // Defaults to true when omitted, so any other caller keeps today's
+  // create-and-share-in-one-step behavior. The "Créer le calendrier" button
+  // passes false to create an internal-only calendar without inviting
+  // whoever already has project access; "Partager avec le client" then
+  // triggers the same share step on demand via the sync-access action.
+  share?: boolean;
 }
 
 interface DeactivateBody {
@@ -110,7 +116,7 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { studioId, projectId } = req.body as ActivateBody;
+  const { studioId, projectId, share = true } = req.body as ActivateBody;
   if (!studioId || !projectId) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
@@ -252,38 +258,43 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Share with every client contact currently granted access to this project.
-    const { data: access } = await supabaseAdmin
-      .from('project_client_access')
-      .select('client_contact_id')
-      .eq('project_id', projectId);
-    const contactIds = (access ?? []).map(row => row.client_contact_id as string);
-    const sharedIds: string[] = [];
+    // Share with every client contact currently granted access to this project
+    // — skipped when share=false ("Créer le calendrier", internal-only).
+    // "Partager avec le client" reaches this same effect afterwards via the
+    // sync-access action, which does its own diff against shared_contact_ids.
+    if (share) {
+      const { data: access } = await supabaseAdmin
+        .from('project_client_access')
+        .select('client_contact_id')
+        .eq('project_id', projectId);
+      const contactIds = (access ?? []).map(row => row.client_contact_id as string);
+      const sharedIds: string[] = [];
 
-    if (contactIds.length > 0) {
-      const { data: contacts } = await supabaseAdmin
-        .from('client_contacts')
-        .select('id, email')
-        .in('id', contactIds);
-      for (const contact of contacts ?? []) {
-        if (!contact.email) continue;
-        try {
-          await shareGoogleCalendar(accessToken, calendarId, contact.email as string);
-          sharedIds.push(contact.id as string);
-        } catch (err) {
-          console.error(`Failed to share calendar with ${contact.email}:`, err);
+      if (contactIds.length > 0) {
+        const { data: contacts } = await supabaseAdmin
+          .from('client_contacts')
+          .select('id, email')
+          .in('id', contactIds);
+        for (const contact of contacts ?? []) {
+          if (!contact.email) continue;
+          try {
+            await shareGoogleCalendar(accessToken, calendarId, contact.email as string);
+            sharedIds.push(contact.id as string);
+          } catch (err) {
+            console.error(`Failed to share calendar with ${contact.email}:`, err);
+          }
         }
       }
-    }
 
-    const { error: shareUpdateError } = await supabaseAdmin
-      .from('project_google_calendars')
-      .update({ shared_contact_ids: sharedIds })
-      .eq('project_id', projectId);
-    if (shareUpdateError) {
-      console.error(`Failed to persist shared_contact_ids for project ${projectId}:`, shareUpdateError);
-      res.status(500).json({ error: 'Failed to activate' });
-      return;
+      const { error: shareUpdateError } = await supabaseAdmin
+        .from('project_google_calendars')
+        .update({ shared_contact_ids: sharedIds })
+        .eq('project_id', projectId);
+      if (shareUpdateError) {
+        console.error(`Failed to persist shared_contact_ids for project ${projectId}:`, shareUpdateError);
+        res.status(500).json({ error: 'Failed to activate' });
+        return;
+      }
     }
 
     res.status(200).json({ ok: true, calendarId });

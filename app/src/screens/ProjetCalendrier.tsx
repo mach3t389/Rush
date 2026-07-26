@@ -10,7 +10,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading } from '../data/eventStore';
-import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
+import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { MeetingField, GoogleCalendarTargetHint } from './CalendrierGlobal';
@@ -492,18 +492,27 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
 
   if (isDemoSession() || orgConnected !== true || active === null) return null;
 
-  const handleActivate = async () => {
+  const handleCreate = async () => {
     setBusy(true);
     try {
-      await activateProjectGoogleCalendar(projectId);
+      await activateProjectGoogleCalendar(projectId, { share: false });
       await loadStatus();
-      setConfirmation(
-        contacts.length > 0
-          ? t('calendar.gcalProjectActivatedConfirmation', { client: clientName })
-          : t('calendar.gcalProjectActivatedNoContacts')
-      );
+      setConfirmation(t('calendar.gcalProjectCreatedConfirmation'));
     } catch (err) {
-      console.error('Failed to activate project Google Calendar', err);
+      console.error('Failed to create project Google Calendar', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setBusy(true);
+    try {
+      await shareProjectGoogleCalendarNow(projectId);
+      await loadStatus();
+      setConfirmation(t('calendar.gcalProjectActivatedConfirmation', { client: clientName }));
+    } catch (err) {
+      console.error('Failed to share project Google Calendar', err);
     } finally {
       setBusy(false);
     }
@@ -581,25 +590,35 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
               <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectNoContacts')}</span>
             )}
 
-            {active && (
-              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectStopSharingHint')}</span>
-            )}
-
             {!active && (
-              <span style={{ fontSize:11, color:'var(--text-3)' }}>
-                {contacts.length > 0
-                  ? t('calendar.gcalProjectCreatePromptWithContact', { client: clientName })
-                  : t('calendar.gcalProjectCreatePromptNoContact')}
-              </span>
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectCreateHint')}</span>
             )}
 
-            <button
-              onClick={active ? handleDeactivate : handleActivate}
-              disabled={busy}
-              style={{ alignSelf:'flex-start', padding:'6px 12px', borderRadius:8, border: active ? '1px solid var(--danger)' : '1px solid var(--border)', background:'transparent', color: active ? 'var(--danger)' : 'var(--text)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
-            >
-              {busy ? '…' : active ? t('calendar.gcalProjectStopSharing') : t('calendar.gcalProjectCreateAction')}
-            </button>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+              {!active && (
+                <button onClick={handleCreate} disabled={busy}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
+                >
+                  {busy ? '…' : t('calendar.gcalProjectCreateAction')}
+                </button>
+              )}
+
+              {active && contacts.some(c => !c.shared) && (
+                <button onClick={handleShare} disabled={busy}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--ok)', background:'rgba(52,201,138,0.1)', color:'var(--ok)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
+                >
+                  {busy ? '…' : t('calendar.gcalProjectShareAction', { client: clientName })}
+                </button>
+              )}
+
+              {active && (
+                <button onClick={handleDeactivate} disabled={busy} title={t('calendar.gcalProjectDeactivateHint')}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
+                >
+                  {busy ? '…' : t('calendar.gcalProjectDeactivateAction')}
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}

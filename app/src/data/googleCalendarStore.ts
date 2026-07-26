@@ -60,15 +60,30 @@ export async function getProjectGoogleCalendarStatus(projectId: string): Promise
   return resp.json();
 }
 
-export async function activateProjectGoogleCalendar(projectId: string): Promise<void> {
+export async function activateProjectGoogleCalendar(projectId: string, opts?: { share?: boolean }): Promise<void> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
   const resp = await fetch('/api/google-calendar-project', {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'activate', studioId, projectId }),
+    body: JSON.stringify({ action: 'activate', studioId, projectId, share: opts?.share ?? true }),
   });
   if (!resp.ok) throw new Error('Failed to activate project Google Calendar');
+}
+
+// Shares an already-active project calendar with every client contact
+// currently granted access to the project, without touching whether the
+// calendar itself is active — used by the "Partager avec le client" button,
+// separate from "Créer le calendrier" (which can skip sharing entirely).
+export async function shareProjectGoogleCalendarNow(projectId: string): Promise<void> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch('/api/google-calendar-project', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'sync-access', studioId, projectId }),
+  });
+  if (!resp.ok) throw new Error('Failed to share project Google Calendar');
 }
 
 export async function deactivateProjectGoogleCalendar(projectId: string): Promise<void> {
