@@ -270,6 +270,7 @@ export function WebReview() {
         {resource && (
           <SFPill status={resource.status} small>{resource.statusLabel}</SFPill>
         )}
+        {resource && <RequestApprovalButton resource={resource} projectId={projectId} />}
         <a
           href={url}
           target="_blank"
@@ -288,7 +289,6 @@ export function WebReview() {
         >
           {addingPin ? 'Annuler' : 'Annoter'}
         </SFButton>
-        {resource && <RequestApprovalButton resource={resource} projectId={projectId} />}
         <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
