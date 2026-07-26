@@ -909,7 +909,7 @@ export function CalendrierGlobal() {
       {/* Main */}
       <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0 }}>
         {/* Topbar */}
-        <div style={{ padding:'10px 20px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:12,flexShrink:0 }}>
+        <div style={{ padding:'12px 24px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:12,flexShrink:0 }}>
           {/* Navigation */}
           <div style={{ display:'flex',alignItems:'center',gap:6 }}>
             <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>

@@ -1063,10 +1063,10 @@ export function Finances() {
         title={t('finance.title')}
         actions={<SFButton variant="primary" icon="plus" onClick={openAdd}>{t('finance.newInvoice')}</SFButton>}
       >
-        {/* Search — its own row, separate from the status filters below */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <span style={{ position: 'absolute', left: 9, pointerEvents: 'none', display: 'flex' }}><SFIcon name="search" size={13} color="var(--text-3)" /></span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('finance.search')} style={{ fontSize: 12, padding: '6px 10px 6px 28px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', width: 240 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('finance.search')} style={{ fontSize: 12, padding: '6px 10px 6px 28px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', width: 200 }} />
         </div>
         {/* Status filter chips */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
@@ -1075,6 +1075,7 @@ export function Finances() {
               {t(f.labelKey)}
             </button>
           ))}
+        </div>
         </div>
       </PageHeader>
 

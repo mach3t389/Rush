@@ -704,6 +704,8 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const [showModal, setShowModal] = useState(false);
   const [clientFilterOpen, setClientFilterOpen] = useState(false);
   const clientFilterRef = useRef<HTMLDivElement>(null);
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const statusFilterBtnRef = useRef<HTMLButtonElement>(null);
   const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
   const changeFilter = (f: 'all' | Status | 'archived') => { setFilter(f); if (!clientId) savePersisted(FILTER_KEY, f); };
@@ -753,12 +755,16 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   // fixed region to put a header in there.
   const useFixedHeader = !clientId;
 
+  const STATUS_FILTER_OPTIONS: { value: 'all' | Status | 'archived'; label: string }[] = [
+    { value: 'all', label: t('projects.filterAll') },
+    ...PROJECT_STATUS_OPTIONS.map(o => ({ value: o.status, label: t(o.labelKey) })),
+    { value: 'archived', label: t('projects.filterArchived') },
+  ];
+
   const controlsRow = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-        {/* Search — its own row, kept separate from the status filters below
-            so the two different kinds of filtering never read as one mixed
-            row (search = free text, chips = status). */}
-        <div style={{ position: 'relative', maxWidth: 340, height: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Search */}
+        <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 340, height: 36 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <SFIcon name="search" size={14} color="var(--text-3)" />
           </div>
@@ -770,18 +776,40 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        {/* Filter chips */}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {([['all', t('projects.filterAll')], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, t(o.labelKey)]), ['archived', t('projects.filterArchived')]] as [string, string][]).map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => changeFilter(val as 'all' | Status | 'archived')}
-              style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: filter === val ? 'var(--surface-3)' : 'transparent', color: filter === val ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Status filter — a dropdown (like client filter / sort) instead of
+            a row of 8 chips, which crowded the header. */}
+        <div style={{ position: 'relative' }}>
+          <button
+            ref={statusFilterBtnRef}
+            onClick={() => setStatusFilterOpen(o => !o)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${filter !== 'all' ? 'var(--accent)' : 'var(--border)'}`, background: filter !== 'all' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: filter !== 'all' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}
+          >
+            <SFIcon name="filter" size={13} color={filter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
+            {STATUS_FILTER_OPTIONS.find(o => o.value === filter)?.label}
+            <SFIcon name="chevron-down" size={12} color={filter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
+          </button>
+          {statusFilterOpen && (() => {
+            const rect = statusFilterBtnRef.current?.getBoundingClientRect();
+            return (
+              <>
+                <div onClick={() => setStatusFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
+                <div style={{ position: 'fixed', top: rect ? rect.bottom + 6 : 100, left: rect ? rect.left : 24, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 5, minWidth: 190, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                  {STATUS_FILTER_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { changeFilter(opt.value); setStatusFilterOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer', background: filter === opt.value ? 'var(--surface-3)' : 'transparent', color: filter === opt.value ? 'var(--text)' : 'var(--text-2)', fontSize: 12, fontWeight: filter === opt.value ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                      onMouseEnter={e => { if (filter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { if (filter !== opt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      {opt.label}
+                      {filter === opt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Right controls: client filter + sort */}
@@ -918,7 +946,6 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           )}
         </div>
         </div>
-      </div>
   );
 
   const listContent = (
