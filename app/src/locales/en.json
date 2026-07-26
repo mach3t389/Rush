@@ -1079,6 +1079,7 @@
     "gcalProjectContactPending": "Pending",
     "gcalProjectNoContacts": "No client contact has access to this project yet.",
     "gcalProjectStopSharing": "Stop sharing",
+    "gcalProjectStopSharingHint": "The Google Calendar is kept — the client just loses access. You can re-share it later.",
     "upcomingEvents": "Upcoming events",
     "noUpcomingEvents": "No upcoming events",
     "taskDeadlines": "Task deadlines",

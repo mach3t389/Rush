@@ -581,6 +581,10 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
               <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectNoContacts')}</span>
             )}
 
+            {active && (
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectStopSharingHint')}</span>
+            )}
+
             {!active && (
               <span style={{ fontSize:11, color:'var(--text-3)' }}>
                 {contacts.length > 0
