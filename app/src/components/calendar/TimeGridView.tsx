@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isSameDay, HOUR_H, START_HOUR, END_HOUR, HOURS, SCROLL_TO_HOUR, fmt2, timeToY, layoutEvents, type CalEvent } from './calendarUtils';
+import { isSameDay, START_HOUR, END_HOUR, HOURS, SCROLL_TO_HOUR, fmt2, timeToY, layoutEvents, type CalEvent } from './calendarUtils';
+import { getHourHeight, subscribeHourHeight } from '../../data/calendarZoomStore';
 import { EventBlock } from './EventBlock';
 
 export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRangeSelect, onEventClick, onAllDayClick, onEventChange, createModalOpen }: {
@@ -23,6 +24,9 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   const dayLabel = (dd: Date) => dayNames[(dd.getDay() + 6) % 7];
   const scrollRef=useRef<HTMLDivElement>(null);
 
+  const [hourHeight, setHourHeightState] = useState(getHourHeight);
+  useEffect(() => subscribeHourHeight(() => setHourHeightState(getHourHeight())), []);
+
   // TODAY (from calendarUtils) is a module-level `new Date()` evaluated once
   // when the app bundle first loads — it never advances, so the "current
   // time" line froze at whatever moment the tab was opened. Track a live
@@ -37,7 +41,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
   // Scroll to working hours on mount / when days change
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_H;
+      scrollRef.current.scrollTop = SCROLL_TO_HOUR * hourHeight;
     }
   }, [days[0]?.toDateString()]);
 
@@ -101,7 +105,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
 
   // Snap Y position to nearest 15-min increment
   const yToTimeParts = (y: number): { h: number; m: number } => {
-    const totalMins = Math.round(((y / HOUR_H) * 60 + START_HOUR * 60) / 15) * 15;
+    const totalMins = Math.round(((y / hourHeight) * 60 + START_HOUR * 60) / 15) * 15;
     const clamped = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, totalMins));
     return { h: Math.floor(clamped / 60), m: clamped % 60 };
   };
@@ -132,7 +136,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
             const start=yToTimeParts(topY);
             let end=yToTimeParts(botY);
             // ensure at least 15 min duration
-            if(end.h*60+end.m <= start.h*60+start.m) { end=yToTimeParts(botY+HOUR_H/4); }
+            if(end.h*60+end.m <= start.h*60+start.m) { end=yToTimeParts(botY+hourHeight/4); }
             onRangeSelect(day, start.h, start.m, Math.min(end.h,END_HOUR), end.h>=END_HOUR?0:end.m);
             // Ne pas effacer dragSel ici : on la garde visible en arrière-plan
             // pendant que la modale de création est ouverte (voir l'effet
@@ -191,11 +195,11 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
         </div>
 
         {/* ── Time grid ── */}
-        <div ref={timeGridRef} style={{ display:'flex',minHeight:`${HOURS.length*HOUR_H}px`,position:'relative' }}>
+        <div ref={timeGridRef} style={{ display:'flex',minHeight:`${HOURS.length*hourHeight}px`,position:'relative' }}>
           {/* Time labels */}
           <div style={{ width:52,flexShrink:0 }}>
             {HOURS.map(h=>(
-              <div key={h} style={{ height:HOUR_H,display:'flex',alignItems:'flex-start',paddingTop:4,paddingRight:8,justifyContent:'flex-end' }}>
+              <div key={h} style={{ height:hourHeight,display:'flex',alignItems:'flex-start',paddingTop:4,paddingRight:8,justifyContent:'flex-end' }}>
                 <span style={{ fontFamily:'var(--ff-mono)',fontSize:10,color:'var(--text-3)' }}>{fmt2(h)}:00</span>
               </div>
             ))}
@@ -219,7 +223,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                   if(dragRef.current?.moved) return;
                   const gridRect=timeGridRef.current!.getBoundingClientRect();
                   const y=e.clientY-gridRect.top;
-                  const h=Math.floor(y/HOUR_H)+START_HOUR;
+                  const h=Math.floor(y/hourHeight)+START_HOUR;
                   onSlotClick(d,Math.min(h,END_HOUR-1));
                 }}
                 style={{ flex:1,borderLeft:'1px solid var(--border)',position:'relative',cursor:'cell',userSelect:'none' }}
@@ -230,7 +234,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                 )}
                 {/* Hour lines */}
                 {HOURS.map(h=>(
-                  <div key={h} style={{ position:'absolute',top:((h-START_HOUR)*HOUR_H),left:0,right:0,borderTop:'1px solid var(--border)',pointerEvents:'none' }} />
+                  <div key={h} style={{ position:'absolute',top:((h-START_HOUR)*hourHeight),left:0,right:0,borderTop:'1px solid var(--border)',pointerEvents:'none' }} />
                 ))}
                 {/* Drag selection highlight */}
                 {isDragging && dragSel && (() => {
@@ -246,7 +250,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                 })()}
                 {/* Current time indicator */}
                 {isSameDay(d,now) && (
-                  <div style={{ position:'absolute',top:timeToY(now),left:0,right:0,height:2,background:'var(--danger)',zIndex:6,pointerEvents:'none' }}>
+                  <div style={{ position:'absolute',top:timeToY(now,hourHeight),left:0,right:0,height:2,background:'var(--danger)',zIndex:6,pointerEvents:'none' }}>
                     <div style={{ position:'absolute',left:-4,top:-4,width:10,height:10,borderRadius:'50%',background:'var(--danger)' }} />
                   </div>
                 )}
@@ -254,7 +258,7 @@ export function TimeGridView({ days, events, tasks: _tasks, onSlotClick, onRange
                 {laid.map(ev=>(
                   <EventBlock key={ev.id} ev={ev} col={ev.col} numCols={ev.numCols} onClick={()=>onEventClick(ev)}
                     onChange={onEventChange ? (s,e)=>onEventChange(ev,s,e) : undefined}
-                    onDragDay={setDragOverDay} />
+                    onDragDay={setDragOverDay} hourHeight={hourHeight} />
                 ))}
               </div>
             );

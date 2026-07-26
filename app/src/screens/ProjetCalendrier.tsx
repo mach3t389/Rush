@@ -13,7 +13,7 @@ import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEvent
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
-import { MeetingField, GoogleCalendarTargetHint } from './CalendrierGlobal';
+import { MeetingField, GoogleCalendarTargetHint, CalendarZoomControl } from './CalendrierGlobal';
 import {
   TODAY, END_HOUR, type CalView,
   addDays, startOfWeek, fmt2, fmtTime, parseFrDate,
@@ -908,6 +908,8 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
           </div>
 
           <h2 style={{ fontSize:16,fontWeight:700,flex:1 }}>{title}</h2>
+
+          {view!=='month' && <CalendarZoomControl />}
 
           <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
             {([['month','Mois','M'],['week','Semaine','W'],['day','Jour','J']] as [CalView,string,string][]).map(([v,label,key],i)=>(

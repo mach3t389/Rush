@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
@@ -22,6 +22,7 @@ import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList'
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
 import { getWeekStart, subscribeWeekStart } from '../data/weekStartStore';
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus } from '../data/googleCalendarStore';
+import { getHourHeight, subscribeHourHeight, zoomIn, zoomOut, MIN_HOUR_HEIGHT, MAX_HOUR_HEIGHT } from '../data/calendarZoomStore';
 
 function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS).filter(u => u.role !== 'Cliente');
@@ -157,6 +158,33 @@ export function GoogleCalendarTargetHint({ projectId }: { projectId: string }) {
       <SFIcon name="calendar" size={11} color="var(--text-3)" />
       {target === 'project' ? t('calendar.gcalTargetProject') : t('calendar.gcalTargetOrg')}
     </p>
+  );
+}
+
+// Zoom +/- sur la hauteur d'une heure dans la grille horaire (vues Semaine/
+// Jour) — préférence persistée (calendarZoomStore), partagée entre
+// CalendrierGlobal et ProjetCalendrier plutôt que dupliquée.
+export function CalendarZoomControl() {
+  const { t } = useTranslation();
+  const [hourHeight, setHourHeightState] = useState(getHourHeight);
+  useEffect(() => subscribeHourHeight(() => setHourHeightState(getHourHeight())), []);
+
+  const btnStyle = (disabled: boolean): CSSProperties => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26,
+    border: 'none', background: 'transparent', color: disabled ? 'var(--text-3)' : 'var(--text-2)',
+    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1,
+  });
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', borderRadius: 9, border: '1px solid var(--border)', overflow: 'hidden' }}>
+      <button type="button" onClick={zoomOut} disabled={hourHeight <= MIN_HOUR_HEIGHT} title={t('calendar.zoomOut')} style={btnStyle(hourHeight <= MIN_HOUR_HEIGHT)}>
+        <SFIcon name="minus" size={13} />
+      </button>
+      <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+      <button type="button" onClick={zoomIn} disabled={hourHeight >= MAX_HOUR_HEIGHT} title={t('calendar.zoomIn')} style={btnStyle(hourHeight >= MAX_HOUR_HEIGHT)}>
+        <SFIcon name="plus" size={13} />
+      </button>
+    </div>
   );
 }
 
@@ -896,6 +924,8 @@ export function CalendrierGlobal() {
           </div>
 
           <h2 style={{ fontSize:16,fontWeight:700,flex:1 }}>{title}</h2>
+
+          {view!=='month' && <CalendarZoomControl />}
 
           {/* View switcher */}
           <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>

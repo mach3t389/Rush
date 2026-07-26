@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SFIcon } from '../ui';
-import { fmtTime, timeToY, durationH, HOUR_H, type CalEvent } from './calendarUtils';
+import { fmtTime, timeToY, durationH, type CalEvent } from './calendarUtils';
 
 interface DragState {
   mode: 'move' | 'resize';
@@ -17,10 +17,11 @@ const snapMinutes = (mins: number) => Math.round(mins / 15) * 15;
 // `onChange` fourni : la carte se glisse verticalement (change l'heure, durée
 // conservée) et, si `onDragDay` est fourni, peut être déposée sur une autre
 // colonne-jour (change le jour). La poignée du bas étire la durée (bornée au jour).
-export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
+export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay, hourHeight }: {
   ev: CalEvent; col: number; numCols: number; onClick: () => void;
   onChange?: (newStart: Date, newEnd: Date) => void;
   onDragDay?: (iso: string | null) => void;
+  hourHeight: number;
 }) {
   const [hov, setHov] = useState(false);
   const [preview, setPreview] = useState<{ start: Date; end: Date } | null>(null);
@@ -42,8 +43,8 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
 
   const start = preview?.start ?? ev.startDate;
   const end = preview?.end ?? ev.endDate;
-  const top = timeToY(start);
-  const h = Math.max(20, durationH(start, end));
+  const top = timeToY(start, hourHeight);
+  const h = Math.max(20, durationH(start, end, hourHeight));
   const w = `calc((100% - 8px) / ${numCols})`;
   const left = `calc(4px + ${col} * (100% - 8px) / ${numCols})`;
 
@@ -65,7 +66,7 @@ export function EventBlock({ ev, col, numCols, onClick, onChange, onDragDay }: {
       if (!d) return;
       const deltaY = me.clientY - d.startY;
       if (Math.abs(me.clientX - d.startX) > 3 || Math.abs(deltaY) > 3) d.moved = true;
-      const deltaMin = snapMinutes((deltaY / HOUR_H) * 60);
+      const deltaMin = snapMinutes((deltaY / hourHeight) * 60);
 
       if (d.mode === 'move') {
         let ns = new Date(d.origStart.getTime() + deltaMin * 60000);

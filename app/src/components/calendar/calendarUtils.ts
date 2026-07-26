@@ -26,8 +26,8 @@ export function startOfWeek(d: Date, weekStart: number = getWeekStart()): Date {
 }
 export function fmt2(n: number) { return String(n).padStart(2,'0'); }
 export function fmtTime(d: Date) { return `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`; }
-export function timeToY(d: Date) { return (d.getHours()-START_HOUR+d.getMinutes()/60)*HOUR_H; }
-export function durationH(s: Date, e: Date) { return ((e.getTime()-s.getTime())/(1000*60*60))*HOUR_H; }
+export function timeToY(d: Date, hourH: number = HOUR_H) { return (d.getHours()-START_HOUR+d.getMinutes()/60)*hourH; }
+export function durationH(s: Date, e: Date, hourH: number = HOUR_H) { return ((e.getTime()-s.getTime())/(1000*60*60))*hourH; }
 
 export function parseFrDate(s: string): Date | null {
   if (!s || s==='—') return null;
