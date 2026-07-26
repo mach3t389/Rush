@@ -1079,7 +1079,7 @@
     "gcalProjectContactPending": "En attente",
     "gcalProjectNoContacts": "Aucun contact client n'a accès à ce projet pour l'instant.",
     "gcalProjectStopSharing": "Ne plus partager",
-    "gcalProjectStopSharingHint": "Le calendrier Google reste conservé — le client perd juste l'accès. Tu peux le repartager plus tard.",
+    "gcalProjectStopSharingHint": "Rien n'est perdu : les événements de ce projet sont déplacés vers le calendrier du studio (au lieu d'être supprimés), et les prochains y iront aussi. Le client perd l'accès, mais tu peux réactiver ce calendrier plus tard.",
     "upcomingEvents": "Prochains événements",
     "noUpcomingEvents": "Aucun événement à venir",
     "taskDeadlines": "Échéances de tâches",
