@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate, PageHeader } from '../components/ui';
 import { TODAY_TASKS, ACTIVITY, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, isEventsLoading, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
@@ -275,33 +275,32 @@ export function Dashboard() {
   })();
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-      {/* Header compact */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>{t('dashboard.greeting', { firstName })}</h1>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {dayLabel}
-          </p>
-        </div>
-        {/* Inline mini-stats */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginRight: 'auto', marginLeft: 24 }}>
-          {[
-            { value: activeProjects.length, label: t('dashboard.activeProjects'),     color: 'var(--text-2)' },
-            { value: myTasks.length,    label: t('dashboard.tasksThisWeek'), color: 'var(--text-2)' },
-            ...(lateProjects > 0  ? [{ value: lateProjects,             label: t('dashboard.overdue'),      color: 'var(--danger)' }] : []),
-            ...(urgentToday > 0   ? [{ value: urgentToday,              label: t('dashboard.urgentToday'),  color: 'var(--warn)'   }] : []),
-          ].map(s => (
-            <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-              <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: 20, color: s.color, lineHeight: 1 }}>{s.value}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{s.label}</span>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <PageHeader
+        title={t('dashboard.greeting', { firstName })}
+        subtitle={dayLabel}
+        actions={
+          <>
+            {/* Inline mini-stats */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              {[
+                { value: activeProjects.length, label: t('dashboard.activeProjects'),     color: 'var(--text-2)' },
+                { value: myTasks.length,    label: t('dashboard.tasksThisWeek'), color: 'var(--text-2)' },
+                ...(lateProjects > 0  ? [{ value: lateProjects,             label: t('dashboard.overdue'),      color: 'var(--danger)' }] : []),
+                ...(urgentToday > 0   ? [{ value: urgentToday,              label: t('dashboard.urgentToday'),  color: 'var(--warn)'   }] : []),
+              ].map(s => (
+                <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                  <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: 20, color: s.color, lineHeight: 1 }}>{s.value}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{s.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <SFButton variant="primary" icon="plus" onClick={() => navigate('/projets')}>{t('dashboard.newProject')}</SFButton>
-      </div>
+            <SFButton variant="primary" icon="plus" onClick={() => navigate('/projets')}>{t('dashboard.newProject')}</SFButton>
+          </>
+        }
+      />
 
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
       {/* Main body: 2 columns */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16 }}>
 
@@ -560,6 +559,7 @@ export function Dashboard() {
           </CollapsibleCard>
 
         </div>
+      </div>
       </div>
     </div>
   );
