@@ -310,7 +310,12 @@
   },
   "approval": {
     "requestApproval": "Demander approbation",
-    "requestSent": "Demande envoyée"
+    "requestSent": "Demande envoyée",
+    "livrableCreatedToast": "Livrable créé et partagé avec le client pour approbation",
+    "viewLivrable": "Voir le livrable dans Aperçu",
+    "statusPending": "En attente d'approbation",
+    "statusApproved": "Approuvé",
+    "statusCorrections": "Corrections demandées"
   },
   "ai": {
     "placeholder": "Pose une question ou donne une instruction…",
