@@ -461,7 +461,7 @@ export function Sidebar() {
             <SubNavItem to="/toutes-les-taches" icon="square-check" label={t('nav.allTasks')} exact={false} />
             <SubNavItem to="/calendrier" icon="calendar" label={t('nav.calendar')} exact={false} />
             <SubNavItem to="/fichiers" icon="folder-open" label={t('nav.files')} exact={false} />
-            {canSeeFinances && <SubNavItem to="/finances" icon="receipt" label={t('nav.finances')} exact={false} />}
+            {canSeeFinances && <SubNavItem to="/finances" icon="wallet" label={t('nav.finances')} exact={false} />}
           </NavGroup>
         </nav>
 
