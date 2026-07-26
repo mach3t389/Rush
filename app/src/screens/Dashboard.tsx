@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate, PageHeader } from '../components/ui';
-import { TODAY_TASKS, ACTIVITY, USERS } from '../data/mock';
+import { ACTIVITY, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, isEventsLoading, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
 import { getProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
-import { getMyTasks } from '../data/myTaskStore';
+import { getMyTasks, subscribeMyTasks, updateMyTask } from '../data/myTaskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import type { Task } from '../types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -129,9 +130,12 @@ function CollapsibleCard({
 
 // ── Compact task row — same look as Taches.tsx TaskRow ───────────────────────
 
-function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClick?: () => void }) {
+function CompactTaskRow({ task, onClick }: { task: Task; onClick?: () => void }) {
   const { t } = useTranslation();
-  const [checked, setChecked] = useState(task.checked ?? false);
+  // Rows here only ever come from the caller's !checked filter, so this only
+  // tracks the moment between "clicked" and the subscription re-render that
+  // removes the row entirely — it never reflects an already-completed task.
+  const [checked, setChecked] = useState(false);
   return (
     <div
       style={{
@@ -152,7 +156,7 @@ function CompactTaskRow({ task, onClick }: { task: typeof TODAY_TASKS[0]; onClic
     >
       {/* Checkbox */}
       <button
-        onClick={e => { e.stopPropagation(); setChecked(v => !v); }}
+        onClick={e => { e.stopPropagation(); setChecked(true); updateMyTask(task.id, { checked: true }); }}
         style={{
           width: 16, height: 16, borderRadius: '50%',
           border: checked ? 'none' : '1.5px solid var(--border-2)',
@@ -215,7 +219,13 @@ export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const projects   = getProjects().filter(p => !p.archived);
-  const myTasks    = isDemoSession() ? TODAY_TASKS : getMyTasks();
+  // Completed tasks are excluded here (not just cosmetically struck through)
+  // — a checked-off task isn't an upcoming deadline, doesn't belong in
+  // "urgent aujourd'hui", and taking one of the 5 preview slots on the home
+  // page pushes out something the user actually still needs to do.
+  const [myTasksAll, setMyTasksAll] = useState<Task[]>(getMyTasks);
+  useEffect(() => subscribeMyTasks(() => setMyTasksAll(getMyTasks())), []);
+  const myTasks = myTasksAll.filter(t => !t.checked);
   const activeProjects = projects.filter(p => p.status !== 'neutral');
   const lateProjects   = projects.filter(p => p.status === 'danger').length;
   const urgentToday    = myTasks.filter(t => t.priority === 'high').length;
