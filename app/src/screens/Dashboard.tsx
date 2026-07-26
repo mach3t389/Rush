@@ -7,6 +7,7 @@ import { getEvents, subscribeEvents, isEventsLoading, type CalendarEvent } from 
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
 import { getProjects } from '../data/projectStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { getMyTasks } from '../data/myTaskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 
@@ -229,6 +230,12 @@ export function Dashboard() {
   // — the calendars, the type selector — already subscribes).
   const [, forceEventTypesRerender] = useState(0);
   useEffect(() => subscribeEventTypes(() => forceEventTypesRerender(n => n + 1)), []);
+  // Le nom du client affiché sous chaque événement est résolu en direct via ce
+  // store plutôt que via project.clientName : cette copie dénormalisée n'est
+  // pas mise à jour quand un client est renommé, et l'accueil afficherait alors
+  // l'ancien nom indéfiniment.
+  const [clients, setClients] = useState(getClients);
+  useEffect(() => subscribeClients(() => setClients(getClients())), []);
 
   const now = new Date();
   const in14Days = addDays(now, 14);
@@ -375,6 +382,9 @@ export function Dashboard() {
               const type = getEventTypeById(ev.eventTypeId);
               const inProgress = isEventNow(ev);
               const project = projects.find(p => p.id === ev.projectId);
+              const clientName = project
+                ? (clients.find(c => c.id === project.clientId)?.name ?? project.clientName)
+                : undefined;
               return (
                 <div
                   key={ev.id}
@@ -430,7 +440,12 @@ export function Dashboard() {
                       {project && (
                         <>
                           <span style={{ color: 'var(--border-2)', fontSize: 9 }}>·</span>
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                            <i style={{ width: 6, height: 6, borderRadius: '50%', background: project.clientColor, display: 'block', flexShrink: 0 }} />
+                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {clientName ? `${clientName} · ${project.name}` : project.name}
+                            </span>
+                          </span>
                         </>
                       )}
                       {ev.location && (
