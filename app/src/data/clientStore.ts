@@ -13,8 +13,8 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
-import { getProjects, removeProject, syncClientOnProjects } from './projectStore';
-import { deleteAllFilesForClient } from './fileStore';
+import { getProjects, removeProject, archiveProject, syncClientOnProjects } from './projectStore';
+import { deleteAllFilesForClient, archiveAllFilesForClient } from './fileStore';
 import { getInvoicesByClient, removeInvoice } from './financeStore';
 import { setClientTeam } from './clientTeamStore';
 import { createLoadingFlag } from './loadingFlag';
@@ -230,6 +230,13 @@ export function subscribeClients(fn: () => void): () => void {
 
 export function archiveClient(id: string): void {
   updateClient(id, { archived: true });
+  // Mirrors removeClient's own cascade (which deletes every project of the
+  // client, not just its direct files) — without this, a project could stay
+  // listed as active while its own files were archived out from under it via
+  // archiveAllFilesForClient below, since folders/files created under a
+  // project don't reliably also carry clientId (see mock.ts seed data).
+  getProjects().filter(p => p.clientId === id && !p.archived).forEach(p => archiveProject(p.id));
+  archiveAllFilesForClient(id);
 }
 
 export function unarchiveClient(id: string): void {

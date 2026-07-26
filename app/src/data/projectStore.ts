@@ -17,7 +17,7 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { setSections } from './taskStore';
 import { deleteEventsForProject } from './eventStore';
-import { deleteAllFilesForProject } from './fileStore';
+import { deleteAllFilesForProject, archiveAllFilesForProject } from './fileStore';
 import { syncNewProjectAcrossClientContacts } from './projectClientAccessStore';
 import { getInvoicesByProject, removeInvoice } from './financeStore';
 import { createLoadingFlag } from './loadingFlag';
@@ -295,6 +295,7 @@ export function subscribeProjects(fn: () => void): () => void {
 
 export function archiveProject(id: string): void {
   updateProject(id, { archived: true });
+  archiveAllFilesForProject(id);
 }
 
 export function unarchiveProject(id: string): void {

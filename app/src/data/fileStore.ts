@@ -616,6 +616,47 @@ export function emptyTrash(): void {
   })();
 }
 
+// Cascades a project archive onto its files — without this, a project could
+// be archived while its Fichiers content stayed listed as active, showing up
+// in every regular file browser as if the project were still live. Only
+// touches folders/files not already trashed: something the user deliberately
+// sent to the trash shouldn't be resurrected into "archived" by this.
+//
+// Deliberately one-directional: un-archiving the project does NOT restore
+// these files automatically. There's no record of which files were archived
+// by this cascade versus archived by hand beforehand, so auto-restoring
+// everything on un-archive risks undoing a deliberate per-file archive. The
+// user can restore individual files from the Fichiers view if needed.
+export function archiveAllFilesForProject(projectId: string): void {
+  if (isDemoSession()) {
+    const stamp = today();
+    _demoFolders = _demoFolders.map(f => f.projectId === projectId && f.state !== 'trashed' ? { ...f, state: 'archived', deletedAt: stamp } : f);
+    _demoFiles = _demoFiles.map(fi => fi.projectId === projectId && fi.state !== 'trashed' ? { ...fi, state: 'archived', deletedAt: stamp } : fi);
+    persistDemo();
+    notify();
+    return;
+  }
+
+  void (async () => {
+    const studioId = await getStudioId();
+    const stamp = today();
+    // SQL's <> excludes NULL rows (three-valued logic), so a plain
+    // .neq('state','trashed') would silently skip every never-touched file
+    // (state IS NULL) — the exact rows this cascade most needs to catch.
+    // Filtering on the two states we actually want to include avoids relying
+    // on a negation over a nullable column.
+    const { error: foldersError } = await supabase.from('file_folders')
+      .update({ state: 'archived', deleted_at: stamp })
+      .eq('studio_id', studioId).eq('project_id', projectId).or('state.is.null,state.eq.archived');
+    if (foldersError) { console.error('archiveAllFilesForProject (folders) failed', foldersError); return; }
+    const { error: filesError } = await supabase.from('file_items')
+      .update({ state: 'archived', deleted_at: stamp })
+      .eq('studio_id', studioId).eq('project_id', projectId).or('state.is.null,state.eq.archived');
+    if (filesError) { console.error('archiveAllFilesForProject (files) failed', filesError); return; }
+    await fetchSupabaseFileData();
+  })();
+}
+
 export function deleteAllFilesForProject(projectId: string): void {
   if (isDemoSession()) {
     _demoFolders = _demoFolders.filter(f => f.projectId !== projectId);
@@ -633,6 +674,34 @@ export function deleteAllFilesForProject(projectId: string): void {
     const { error: foldersError } = await supabase.from('file_folders')
       .delete().eq('studio_id', studioId).eq('project_id', projectId);
     if (foldersError) { console.error('deleteAllFilesForProject (folders) failed', foldersError); return; }
+    await fetchSupabaseFileData();
+  })();
+}
+
+// Same cascade as archiveAllFilesForProject, scoped to a client instead —
+// see that function's comment for the reasoning (skips trashed files,
+// deliberately one-directional).
+export function archiveAllFilesForClient(clientId: string): void {
+  if (isDemoSession()) {
+    const stamp = today();
+    _demoFolders = _demoFolders.map(f => f.clientId === clientId && f.state !== 'trashed' ? { ...f, state: 'archived', deletedAt: stamp } : f);
+    _demoFiles = _demoFiles.map(fi => fi.clientId === clientId && fi.state !== 'trashed' ? { ...fi, state: 'archived', deletedAt: stamp } : fi);
+    persistDemo();
+    notify();
+    return;
+  }
+
+  void (async () => {
+    const studioId = await getStudioId();
+    const stamp = today();
+    const { error: foldersError } = await supabase.from('file_folders')
+      .update({ state: 'archived', deleted_at: stamp })
+      .eq('studio_id', studioId).eq('client_id', clientId).or('state.is.null,state.eq.archived');
+    if (foldersError) { console.error('archiveAllFilesForClient (folders) failed', foldersError); return; }
+    const { error: filesError } = await supabase.from('file_items')
+      .update({ state: 'archived', deleted_at: stamp })
+      .eq('studio_id', studioId).eq('client_id', clientId).or('state.is.null,state.eq.archived');
+    if (filesError) { console.error('archiveAllFilesForClient (files) failed', filesError); return; }
     await fetchSupabaseFileData();
   })();
 }
