@@ -156,14 +156,21 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
 // (sf_nav_global_open) so it stays open across navigation/reloads once a
 // user has opened it, instead of re-collapsing every time they leave.
 function NavGroup({ icon, label, collapsed, active, children }: { icon: string; label: string; collapsed: boolean; active: boolean; children: React.ReactNode }) {
-  const [storedOpen, setStoredOpen] = useState(() => loadPersisted('sf_nav_global_open', false));
-  const open = storedOpen || active;
+  const [open, setOpen] = useState(() => active || loadPersisted('sf_nav_global_open', false));
+  const wasActive = useRef(active);
+  useEffect(() => {
+    // Auto-open only on the transition into a sub-page (e.g. clicking a
+    // sub-link elsewhere, or a fresh load on one of these routes) — once
+    // open, the user can still collapse it manually even while active.
+    if (active && !wasActive.current) setOpen(true);
+    wasActive.current = active;
+  }, [active]);
 
   if (collapsed) {
     // Collapsed sidebar has no room for a sub-list — clicking just opens it.
     return (
       <button
-        onClick={() => setStoredOpen(true)}
+        onClick={() => setOpen(true)}
         title={label}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '8px 0', borderRadius: 9, border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer' }}
       >
@@ -175,7 +182,7 @@ function NavGroup({ icon, label, collapsed, active, children }: { icon: string; 
   return (
     <div>
       <button
-        onClick={() => { const next = !storedOpen; setStoredOpen(next); savePersisted('sf_nav_global_open', next); }}
+        onClick={() => { const next = !open; setOpen(next); savePersisted('sf_nav_global_open', next); }}
         style={{
           display: 'flex', alignItems: 'center', gap: 10, width: '100%',
           padding: '8px 12px', borderRadius: 9, border: 'none',
