@@ -15,8 +15,7 @@ import { loadPersisted, savePersisted } from '../data/persist';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { usePlan } from '../data/planStore';
-import { PLAN_LIMITS } from '../data/planFeatures';
-import { requestUpgrade } from '../data/upgradePromptStore';
+import { canCreateNewProject } from '../data/upgradePromptStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -685,7 +684,7 @@ function ProjectListView({ projects }: { projects: Project[] }) {
 const VIEW_KEY = 'sf_projects_view';
 const FILTER_KEY = 'sf_projects_filter';
 
-export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
+export function ProjectsListView({ clientId, autoOpen, onModalClose, showHeader = true }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void; showHeader?: boolean }) {
   const { t } = useTranslation();
   const plan = usePlan();
   const [search, setSearch] = useState('');
@@ -698,13 +697,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const [sortOpen, setSortOpen] = useState(false);
 
   const openNewProjectModal = () => {
-    const maxProjects = PLAN_LIMITS[plan].maxProjects;
-    const activeCount = getProjects().filter(p => !p.archived).length;
-    if (maxProjects !== null && activeCount >= maxProjects) {
-      requestUpgrade({ reason: 'projects' });
-      return;
-    }
-    setShowModal(true);
+    if (canCreateNewProject(plan)) setShowModal(true);
   };
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const [allProjects, setAllProjects] = useState(getProjects);
@@ -755,8 +748,9 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
 
   return (
     <>
-      {/* Title row — visible only in global context */}
-      {!clientId && (
+      {/* Title row — visible only in global context, and only when the
+          caller isn't already rendering its own fixed header (Projets.tsx) */}
+      {!clientId && showHeader && (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('projects.title')}</h1>
