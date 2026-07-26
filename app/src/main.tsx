@@ -9,6 +9,7 @@ import { preloadResourceContent } from './data/resourceContentStore';
 
 import { AppShell } from './components/layout/AppShell';
 import { ViewAsPermissionGate } from './components/ViewAsPermissionGate';
+import { ViewAsPreviewShell } from './components/ViewAsPreviewShell';
 import { Dashboard } from './screens/Dashboard';
 import { Taches } from './screens/Taches';
 import { Projets } from './screens/Projets';
@@ -109,11 +110,11 @@ const router = createBrowserRouter([
 
   // Aperçu client (admin "voir en tant que" externe) — sans sidebar, réservé
   // à un viewAs externe actif (voir viewAsClientLoader ci-dessus).
-  { path: '/apercu-client/:clientId', element: <ClientPreviewHome />, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
-  { path: '/apercu-client/:clientId/projets/:projectId', element: <ClientProjectApercu />, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
-  { path: '/apercu-client/:clientId/projets/:projectId/fichiers', element: <ClientProjectFichiers />, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
-  { path: '/apercu-client/:clientId/projets/:projectId/calendrier', element: <ClientProjectCalendrier />, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
-  { path: '/apercu-client/:clientId/projets/:projectId/finances', element: <ClientProjectFinances />, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/apercu-client/:clientId', element: <ViewAsPreviewShell><ClientPreviewHome /></ViewAsPreviewShell>, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/apercu-client/:clientId/projets/:projectId', element: <ViewAsPreviewShell><ClientProjectApercu /></ViewAsPreviewShell>, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/apercu-client/:clientId/projets/:projectId/fichiers', element: <ViewAsPreviewShell><ClientProjectFichiers /></ViewAsPreviewShell>, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/apercu-client/:clientId/projets/:projectId/calendrier', element: <ViewAsPreviewShell><ClientProjectCalendrier /></ViewAsPreviewShell>, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
+  { path: '/apercu-client/:clientId/projets/:projectId/finances', element: <ViewAsPreviewShell><ClientProjectFinances /></ViewAsPreviewShell>, loader: viewAsClientLoader, errorElement: <RouteErrorPage /> },
 
   {
     path: '/',
