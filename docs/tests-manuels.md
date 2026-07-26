@@ -34,6 +34,13 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
   - Pourquoi : nécessite un vrai compte client (mot de passe réel) — Claude ne peut jamais créer de compte ni entrer de mot de passe, même pour tester.
   - Rappel : exécute d'abord les deux migrations `docs/superpowers/specs/2026-07-25-client-dashboard-events-rls-migration.sql` (accès calendrier + types d'événements) dans Supabase → SQL Editor, sinon l'onglet Calendrier restera vide même avec des événements existants.
 
+## Étape D — Bascule admin « voir comme »
+
+- [x] Testé en direct par Claude (mode démo) — parcours complet des deux cas :
+  - Membre interne (Julie Bernard, sans permission Finances/Clients) : bandeau affiché, liens masqués dans la barre latérale, **et** tentative d'atteindre `/finances`/`/clients` directement (simulant une URL tapée) → redirection automatique confirmée vers le tableau de bord. Sortie via « Quitter » → accès complet restauré.
+  - Contact client (Sophie Blanc) : atterrit sur `/apercu-client/c1` avec de vraies cartes de projet, parcours des 4 onglets (Aperçu/Fichiers/Calendrier/Factures) avec les vraies données du studio, bandeau « Vous visualisez en tant que » visible sur toutes les pages (bug trouvé et corrigé en cours de route : le bandeau ne s'affichait pas du tout sur ces routes autonomes avant le correctif), sortie via « Quitter » fonctionnelle.
+  - Rien en attente de ta part.
+
 ---
 
 ## Autres fonctionnalités déjà livrées, en attente de test
@@ -62,4 +69,4 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 ## Prochains chantiers (à compléter au fur et à mesure)
 
 - Étape C — Tableau de bord client : implémentée (2026-07-25), en attente de ton test réel ci-dessus.
-- Étape D — Bascule admin « voir comme » : pas encore commencée.
+- Étape D — Bascule admin « voir comme » : implémentée et testée en direct par Claude (2026-07-25). Rien en attente.
