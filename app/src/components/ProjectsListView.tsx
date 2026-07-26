@@ -754,9 +754,11 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const useFixedHeader = !clientId;
 
   const controlsRow = (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%' }}>
-        {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 340, height: 36 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+        {/* Search — its own row, kept separate from the status filters below
+            so the two different kinds of filtering never read as one mixed
+            row (search = free text, chips = status). */}
+        <div style={{ position: 'relative', maxWidth: 340, height: 36 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <SFIcon name="search" size={14} color="var(--text-3)" />
           </div>
@@ -768,6 +770,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           />
         </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         {/* Filter chips */}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {([['all', t('projects.filterAll')], ...PROJECT_STATUS_OPTIONS.map(o => [o.status, t(o.labelKey)]), ['archived', t('projects.filterArchived')]] as [string, string][]).map(([val, label]) => (
@@ -913,6 +916,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           {clientId && (
             <SFButton variant="primary" icon="plus" onClick={() => openNewProjectModal()}>{t('projects.newProject')}</SFButton>
           )}
+        </div>
         </div>
       </div>
   );

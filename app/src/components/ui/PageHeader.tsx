@@ -20,8 +20,13 @@ export function PageHeader({ title, subtitle, actions, children }: {
         </div>
         {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>{actions}</div>}
       </div>
+      {/* No forced flex here — callers with a single filter row wrap their
+          own content in a flex row; callers with multiple distinct rows
+          (e.g. search on one line, filter chips on another) supply their
+          own stacked layout instead of having everything forced onto one
+          crowded line. */}
       {children && (
-        <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ padding: '10px 24px' }}>
           {children}
         </div>
       )}

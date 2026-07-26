@@ -619,6 +619,7 @@ export function Clients() {
         subtitle={t('clients.count', { count: clients.length })}
         actions={<SFButton variant="primary" icon="plus" onClick={() => setShowModal(true)}>{t('clients.newClient')}</SFButton>}
       >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -651,6 +652,7 @@ export function Clients() {
             </button>
           ))}
         </div>
+      </div>
       </PageHeader>
 
       <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>

@@ -1492,6 +1492,7 @@ export function Taches() {
         title={t('tasks.myTasksTitle')}
         subtitle={`${t('tasks.taskCountSummary', { visible: visible.length, total: activeTasks.length })}${lateCount > 0 ? ` · ${t('tasks.overdueCount', { count: lateCount })}` : ''}`}
       >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', gap: 2 }}>
           {FILTERS.map(filterTabBtn)}
         </div>
@@ -1521,6 +1522,7 @@ export function Taches() {
           onClearStatus={() => setFilterStatuses([])}
         />
         </div>
+      </div>
       </PageHeader>
 
       {/* Body */}
