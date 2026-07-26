@@ -755,10 +755,13 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   // fixed region to put a header in there.
   const useFixedHeader = !clientId;
 
-  const STATUS_FILTER_OPTIONS: { value: 'all' | Status | 'archived'; label: string }[] = [
+  // "Archivé" is a lifecycle flag (orthogonal to workflow stage — an
+  // archived project still has a real status), not another stage a project
+  // moves through, so it doesn't belong in the same list as
+  // Terminé/En cours/etc. It gets its own toggle below instead.
+  const STATUS_FILTER_OPTIONS: { value: 'all' | Status; label: string }[] = [
     { value: 'all', label: t('projects.filterAll') },
     ...PROJECT_STATUS_OPTIONS.map(o => ({ value: o.status, label: t(o.labelKey) })),
-    { value: 'archived', label: t('projects.filterArchived') },
   ];
 
   const controlsRow = (
@@ -777,16 +780,17 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         </div>
 
         {/* Status filter — a dropdown (like client filter / sort) instead of
-            a row of 8 chips, which crowded the header. */}
-        <div style={{ position: 'relative' }}>
+            a row of chips. Workflow stage only — "Archivé" is a separate
+            toggle below it, not another option in this list. */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
           <button
             ref={statusFilterBtnRef}
             onClick={() => setStatusFilterOpen(o => !o)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${filter !== 'all' ? 'var(--accent)' : 'var(--border)'}`, background: filter !== 'all' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: filter !== 'all' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--border)'}`, background: filter !== 'all' && filter !== 'archived' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
-            <SFIcon name="filter" size={13} color={filter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
-            {STATUS_FILTER_OPTIONS.find(o => o.value === filter)?.label}
-            <SFIcon name="chevron-down" size={12} color={filter !== 'all' ? 'var(--accent)' : 'var(--text-3)'} />
+            <SFIcon name="filter" size={13} color={filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--text-3)'} />
+            {filter === 'archived' ? t('projects.filterAll') : STATUS_FILTER_OPTIONS.find(o => o.value === filter)?.label}
+            <SFIcon name="chevron-down" size={12} color={filter !== 'all' && filter !== 'archived' ? 'var(--accent)' : 'var(--text-3)'} />
           </button>
           {statusFilterOpen && (() => {
             const rect = statusFilterBtnRef.current?.getBoundingClientRect();
@@ -812,18 +816,27 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
           })()}
         </div>
 
+        {/* Archived — a separate lifecycle toggle, not a workflow stage */}
+        <button
+          onClick={() => changeFilter(filter === 'archived' ? 'all' : 'archived')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, border: `1px solid ${filter === 'archived' ? 'var(--accent)' : 'var(--border)'}`, background: filter === 'archived' ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: filter === 'archived' ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
+          <SFIcon name="archive" size={13} color={filter === 'archived' ? 'var(--accent)' : 'var(--text-3)'} />
+          {t('projects.filterArchived')}
+        </button>
+
         {/* Right controls: client filter + sort */}
-        <div style={{ marginLeft: 'auto', position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ marginLeft: 'auto', position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {/* Client filter dropdown — global context only */}
           {!clientId && (() => {
             const clientsWithProjects = getClients().filter(c => allProjects.some(p => p.clientId === c.id));
             if (clientsWithProjects.length === 0) return null;
             const selected = clientsWithProjects.find(c => c.id === clientFilter);
             return (
-              <div ref={clientFilterRef} style={{ position: 'relative' }}>
+              <div ref={clientFilterRef} style={{ position: 'relative', flexShrink: 0 }}>
                 <button
                   onClick={() => setClientFilterOpen(o => !o)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
                 >
                   {selected ? (
                     <><i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
