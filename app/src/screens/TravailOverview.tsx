@@ -22,7 +22,7 @@ import type { Task, DeliverableFormat, DeliverableType, ResourceType } from '../
 const RES_ICON: Record<ResourceType, string> = {
   screenplay: 'scroll-text', video_review: 'clapperboard', moodboard: 'layout-grid',
   document: 'file-text', inspirations: 'sparkles',
-  file: 'folder', form: 'clipboard-list', web_review: 'globe',
+  form: 'clipboard-list', web_review: 'globe',
 };
 
 // ── Vision state type ──────────────────────────────────────────────────────────

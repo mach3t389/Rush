@@ -114,7 +114,7 @@ export interface TaskComment {
 }
 
 // ── Resource ──────────────────────────────────────────────────────────────────
-export type ResourceType = 'screenplay' | 'video_review' | 'moodboard' | 'document' | 'inspirations' | 'file' | 'form' | 'web_review';
+export type ResourceType = 'screenplay' | 'video_review' | 'moodboard' | 'document' | 'inspirations' | 'form' | 'web_review';
 
 export interface Resource {
   id: string;

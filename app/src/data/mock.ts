@@ -252,7 +252,7 @@ export const RESOURCES: Resource[] = [
   { id:'r4', type:'document',    eyebrow:'DOCUMENT',     title:'Brief créatif client',         status:'ok',      statusLabel:'Validé',      meta:'PDF · 2.4 Mo' },
   { id:'r5', type:'document',    eyebrow:'DOCUMENT',     title:'Notes tournage J1',            status:'info',    statusLabel:'En cours',    meta:'Modifié il y a 1j' },
   { id:'r6', type:'inspirations',eyebrow:'INSPIRATIONS', title:'Références visuelles',         status:'neutral', statusLabel:'8 références', meta:'8 références',      colors:['#1e2d3d','#3d2a1e','#1e3d2d','#3d3d1e','#2d1e3d','#2a2a2a'], avatars:[{initials:'JT',bg:'#2d3748'}] },
-  { id:'r7', type:'file',        eyebrow:'FICHIERS',       title:'Dossiers du projet',                   status:'neutral', statusLabel:'Fichiers',   meta:'12 fichiers' },
+  { id:'r7', type:'document',    eyebrow:'DOCUMENT',       title:'Dossiers du projet',                   status:'neutral', statusLabel:'Fichiers',   meta:'12 fichiers' },
   { id:'r8', type:'form',        eyebrow:'FORMULAIRE',     title:'Questionnaire de satisfaction client',  status:'info',    statusLabel:'En cours', meta:'0 réponse' },
   { id:'r9', type:'web_review',  eyebrow:'SITE WEB',       title:'Site client — Révision V2',            status:'review',  statusLabel:'En révision', meta:'2 annotations', webUrl:'https://www.propulsetoi.ca' },
 ];

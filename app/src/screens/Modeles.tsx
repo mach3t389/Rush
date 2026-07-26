@@ -17,7 +17,7 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 import type { Priority, ResourceType, Resource, Task, Project, SectionData } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
-import { DocumentView, ScreenplayView, MoodboardView, FileView, FormView } from './ResourceDetail';
+import { DocumentView, ScreenplayView, MoodboardView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
 
@@ -181,7 +181,24 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         {tpl.type === 'document' && <DocumentView resource={fakeResource} seedHTML={seedHTML} contentRef={docContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'screenplay' && <ScreenplayView resource={fakeResource} seedElements={seedElements} contentRef={screenplayContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
-        {tpl.type === 'file' && <FileView resource={fakeResource} seedFolderStructure={tpl.folderStructure} />}
+        {tpl.type === 'file' && (
+          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 480, margin: '0 auto', width: '100%' }}>
+            {(tpl.folderStructure ?? []).map((folder, i) => (
+              <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SFIcon name="folder" size={15} color={tpl.color} />
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{folder.name}</span>
+                </div>
+                {folder.children?.map((child, ci) => (
+                  <div key={ci} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 22, marginTop: 4 }}>
+                    <SFIcon name="folder" size={12} color="var(--text-3)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{child.name}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
       </div>
     </div>
@@ -202,12 +219,12 @@ const STATUS_OPTIONS: { value: string; labelKey: string; color: string }[] = [
 
 const RESOURCE_LABEL_KEYS: Record<ResourceType, string> = {
   screenplay: 'models.resScript', video_review: 'models.resReviewShort', moodboard: 'models.resMoodboard',
-  document: 'models.resDocument', inspirations: 'models.resInspirations', file: 'models.resFile', form: 'models.resForm',
+  document: 'models.resDocument', inspirations: 'models.resInspirations', form: 'models.resForm',
   web_review: 'models.resWebReview',
 };
 const RESOURCE_ICON: Record<ResourceType, string> = {
   screenplay: 'file-text', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file', inspirations: 'image', file: 'paperclip', form: 'clipboard-list',
+  document: 'file', inspirations: 'image', form: 'clipboard-list',
   web_review: 'globe',
 };
 
@@ -1053,12 +1070,12 @@ type LResource = { id: string; type: ResourceType; title: string; templateId?: s
 const RESOURCE_TYPE_ICONS_TPV: Record<ResourceType, string> = {
   screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
   document: 'file-text', inspirations: 'lightbulb',
-  file: 'folder', form: 'clipboard-list', web_review: 'globe',
+  form: 'clipboard-list', web_review: 'globe',
 };
 const RESOURCE_TYPE_LABELS_TPV: Record<ResourceType, string> = {
   screenplay: 'models.resTypeScreenplay', video_review: 'models.resTypeVideoReview', moodboard: 'models.resMoodboard',
   document: 'models.resDocument', inspirations: 'models.resInspirations',
-  file: 'models.resTypeFile', form: 'models.resForm', web_review: 'models.resTypeWebReview',
+  form: 'models.resForm', web_review: 'models.resTypeWebReview',
 };
 
 // Priority badge for board cards
@@ -1581,7 +1598,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                 style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === null ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === null ? 'var(--on-accent)' : 'var(--text-2)' }}>
                 Tous
               </button>
-              {(['document','screenplay','video_review','file','moodboard','form'] as ResourceType[]).map(t => (
+              {(['document','screenplay','video_review','moodboard','form'] as ResourceType[]).map(t => (
                 <button key={t} onClick={() => setResTypeFilter(f => f === t ? null : t)}
                   style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === t ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === t ? 'var(--on-accent)' : 'var(--text-2)' }}>
                   {RESOURCE_TYPE_LABELS_TPV[t]}
@@ -1591,6 +1608,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
             {/* Resource list */}
             <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {allResTpls
+                .filter(r => r.type !== 'file')
                 .filter(r => resTypeFilter === null || r.type === resTypeFilter)
                 .map(r => (
                   <button key={r.id} onClick={() => {
@@ -1613,7 +1631,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                   </button>
                 ))}
               {/* Custom: add blank resource by type */}
-              {(['document','screenplay','video_review','file','moodboard','form'] as ResourceType[])
+              {(['document','screenplay','video_review','moodboard','form'] as ResourceType[])
                 .filter(t => resTypeFilter === null || t === resTypeFilter)
                 .map(t => (
                   <button key={`blank-${t}`} onClick={() => {

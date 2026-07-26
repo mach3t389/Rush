@@ -11,6 +11,7 @@ import { PROJECTS, USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
+import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
@@ -32,7 +33,13 @@ export type ScriptElType = 'scene' | 'action' | 'character' | 'parenthetical' | 
 export interface ScriptEl { id: string; type: ScriptElType; text: string; }
 
 type MBTool = 'select' | 'pan' | 'arrow' | 'rect' | 'ellipse';
-interface MBItem { id: string; type: 'image' | 'text' | 'color' | 'postit' | 'shape' | 'video' | 'web'; x: number; y: number; w: number; h: number; text?: string; imageUrl?: string; bg?: string; shapeType?: 'rect' | 'ellipse'; shapeColor?: string; postitColor?: string; videoUrl?: string; thumbnailUrl?: string; webUrl?: string; }
+interface MBItem { id: string; type: 'image' | 'text' | 'color' | 'postit' | 'shape' | 'video' | 'web'; x: number; y: number; w: number; h: number; text?: string; imageUrl?: string; imageFileId?: string; bg?: string; shapeType?: 'rect' | 'ellipse'; shapeColor?: string; postitColor?: string; videoUrl?: string; videoFileId?: string; thumbnailUrl?: string; webUrl?: string; }
+function mbImageSrc(item: MBItem): string | undefined {
+  return item.imageFileId ? (getFileContent(item.imageFileId) ?? undefined) : item.imageUrl;
+}
+function mbVideoSrc(item: MBItem): string | undefined {
+  return item.videoFileId ? (getFileContent(item.videoFileId) ?? undefined) : item.videoUrl;
+}
 type ArrowPort = 'top' | 'right' | 'bottom' | 'left';
 interface MBArrow {
   id: string;
@@ -53,12 +60,12 @@ interface InspiItem { id: string; title: string; url: string; bg: string; imageU
 
 const TYPE_ICON: Record<ResourceType, string> = {
   screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file', inspirations: 'image', file: 'hard-drive',
+  document: 'file', inspirations: 'image',
   form: 'clipboard-list', web_review: 'globe',
 };
 const TYPE_LABEL_KEY: Record<ResourceType, string> = {
   screenplay: 'resources.scenography', video_review: 'resources.review', moodboard: 'resources.moodboard',
-  document: 'resources.document', inspirations: 'resources.inspirations', file: 'resources.file',
+  document: 'resources.document', inspirations: 'resources.inspirations',
   form: 'resources.form', web_review: 'resources.webReview',
 };
 
@@ -1091,8 +1098,9 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
       if (imgItem) {
         const blob = imgItem.getAsFile();
         if (blob) {
-          const url = URL.createObjectURL(blob);
-          setItems(p => [...p, { id:`mb${Date.now()}`, type:'image', x:200+Math.random()*100, y:200+Math.random()*100, w:260, h:190, imageUrl:url }]);
+          const id = `mb${Date.now()}`;
+          setFileContent(id, blob);
+          setItems(p => [...p, { id, type:'image', x:200+Math.random()*100, y:200+Math.random()*100, w:260, h:190, imageFileId:id }]);
         }
       }
     };
@@ -1235,11 +1243,11 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     const rect = canvasRef.current?.getBoundingClientRect();
     files.forEach((file, i) => {
-      const url = URL.createObjectURL(file);
       const cx = rect ? (e.clientX - rect.left - panRef.current.x + i * 20) / zoomRef.current : 300 + i * 20;
       const cy = rect ? (e.clientY - rect.top  - panRef.current.y + i * 20) / zoomRef.current : 200 + i * 20;
       const id = `mb${Date.now()}-${i}`;
-      setItems(p => [...p, { id, type:'image', x:cx - 130, y:cy - 95, w:260, h:190, imageUrl:url }]);
+      setFileContent(id, file);
+      setItems(p => [...p, { id, type:'image', x:cx - 130, y:cy - 95, w:260, h:190, imageFileId:id }]);
     });
   };
 
@@ -1580,12 +1588,12 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
                   zIndex: isSel ? 10 : 1,
                 }}
               >
-                {item.type==='image' && item.imageUrl &&
-                  <img src={item.imageUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', pointerEvents:'none' }} />}
+                {item.type==='image' && mbImageSrc(item) &&
+                  <img src={mbImageSrc(item)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', pointerEvents:'none' }} />}
 
                 {item.type==='video' && (
                   <div style={{ width:'100%', height:'100%', position:'relative', background:'#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center' }}
-                    onClick={e => { if (didDrag.current) return; e.stopPropagation(); if (item.videoUrl) window.open(item.videoUrl, '_blank', 'noreferrer'); }}>
+                    onClick={e => { if (didDrag.current) return; e.stopPropagation(); const src = mbVideoSrc(item); if (src) window.open(src, '_blank', 'noreferrer'); }}>
                     {item.thumbnailUrl
                       ? <img src={item.thumbnailUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
                       : <SFIcon name="circle-play" size={36} color="rgba(255,255,255,0.3)" />}
@@ -1705,11 +1713,12 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
           const files = Array.from(e.target.files ?? []);
           if (!files.length) return;
           files.forEach((file) => {
-            const blobUrl = URL.createObjectURL(file);
+            const id = `mb${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            setFileContent(id, file);
             if (file.type.startsWith('image/')) {
-              addAtCenter({ type:'image', w:260, h:190, imageUrl:blobUrl });
+              addAtCenter({ type:'image', w:260, h:190, imageFileId:id });
             } else if (file.type.startsWith('video/')) {
-              addAtCenter({ type:'video', w:280, h:190, videoUrl:blobUrl });
+              addAtCenter({ type:'video', w:280, h:190, videoFileId:id });
             }
           });
           setShowAddMedia(false);
@@ -1787,502 +1796,6 @@ export function MoodboardView({ resource, persistKey }: { resource: Resource; pe
       })()}
     </div>
     <ScriptCommentSidebar resourceId={resource.id} />
-    </div>
-  );
-}
-
-// ── File View (Drive-style) ───────────────────────────────────────────────────
-
-interface FsFolder { id: string; name: string; parentId: string | null; createdAt: string; }
-interface FsFile   { id: string; name: string; size: string; type: string; folderId: string | null; createdAt: string; }
-
-const INIT_FOLDERS: FsFolder[] = [
-  { id:'fd1', name:'Tournage J1',       parentId:null,  createdAt:'8 mai' },
-  { id:'fd2', name:'Post-production',   parentId:null,  createdAt:'10 mai' },
-  { id:'fd3', name:'Rushes bruts',      parentId:'fd1', createdAt:'8 mai' },
-  { id:'fd4', name:'Son',               parentId:'fd1', createdAt:'8 mai' },
-  { id:'fd5', name:'Exports vidéo',     parentId:'fd2', createdAt:'11 mai' },
-];
-const INIT_FILES: FsFile[] = [
-  { id:'fi1', name:'Brief créatif v2.pdf',      size:'2.4 Mo',  type:'application/pdf', folderId:null,  createdAt:'5 mai' },
-  { id:'fi2', name:'Storyboard.png',             size:'4.1 Mo',  type:'image/png',       folderId:null,  createdAt:'6 mai' },
-  { id:'fi3', name:'Shot001.mp4',                size:'342 Mo',  type:'video/mp4',       folderId:'fd3', createdAt:'8 mai' },
-  { id:'fi4', name:'Shot002.mp4',                size:'289 Mo',  type:'video/mp4',       folderId:'fd3', createdAt:'8 mai' },
-  { id:'fi5', name:'Ambiance_scene1.wav',        size:'18 Mo',   type:'audio/wav',       folderId:'fd4', createdAt:'8 mai' },
-  { id:'fi6', name:'Contrat_studio.pdf',         size:'0.8 Mo',  type:'application/pdf', folderId:'fd2', createdAt:'10 mai' },
-  { id:'fi7', name:'Sequence1_export_4K.mp4',   size:'1.2 Go',  type:'video/mp4',       folderId:'fd5', createdAt:'11 mai' },
-];
-
-function fmtSize(bytes: number) {
-  if (bytes >= 1024*1024*1024) return `${(bytes/1024/1024/1024).toFixed(1)} Go`;
-  if (bytes >= 1024*1024) return `${(bytes/1024/1024).toFixed(1)} Mo`;
-  return `${Math.round(bytes/1024)} Ko`;
-}
-
-function fileIcon(mime: string): string {
-  if (mime.startsWith('image/'))       return 'image';
-  if (mime.startsWith('video/'))       return 'video';
-  if (mime.startsWith('audio/'))       return 'music';
-  if (mime.includes('pdf'))            return 'file-text';
-  if (mime.includes('zip')||mime.includes('rar')) return 'archive';
-  return 'file';
-}
-
-function fileColor(mime: string): string {
-  if (mime.startsWith('image/'))       return '#7dd3fc';
-  if (mime.startsWith('video/'))       return '#c4b5fd';
-  if (mime.startsWith('audio/'))       return '#86efac';
-  if (mime.includes('pdf'))            return 'var(--danger)';
-  return 'var(--text-3)';
-}
-
-type SortKey = 'name' | 'date' | 'size';
-type ViewMode = 'grid' | 'list';
-
-function folderNodesToFsFolders(nodes: { id: string; name: string; children?: { id: string; name: string; children?: any }[] }[] | undefined): FsFolder[] {
-  if (!nodes || nodes.length === 0) return [];
-  const folders: FsFolder[] = [];
-  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-  const traverse = (items: any[], parentId: string | null) => {
-    items.forEach(item => {
-      folders.push({ id: item.id, name: item.name, parentId, createdAt: today });
-      if (item.children && item.children.length > 0) {
-        traverse(item.children, item.id);
-      }
-    });
-  };
-  traverse(nodes, null);
-  return folders;
-}
-
-export function FileView({ seedFolderStructure }: { resource: Resource; seedFolderStructure?: any[] }) {
-  const { t } = useTranslation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [folders, setFolders] = useState<FsFolder[]>(seedFolderStructure ? folderNodesToFsFolders(seedFolderStructure) : INIT_FOLDERS);
-  const [files,   setFiles]   = useState<FsFile[]>(INIT_FILES);
-
-  // Navigation
-  const [path,  setPath]  = useState<FsFolder[]>([]);   // breadcrumb stack
-  const curId = path.length > 0 ? path[path.length-1].id : null;
-
-  // UI state
-  const [view,   setView]   = useState<ViewMode>('grid');
-  const [sort,   setSort]   = useState<SortKey>('name');
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
-
-  // New folder dialog
-  const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const newFolderRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (newFolderOpen) setTimeout(() => newFolderRef.current?.focus(), 30); }, [newFolderOpen]);
-
-  // Rename
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameVal,  setRenameVal]  = useState('');
-
-  // Context menu
-  const [ctx, setCtx] = useState<{ x: number; y: number; id: string; kind: 'folder'|'file' } | null>(null);
-  useEffect(() => {
-    if (!ctx) return;
-    const close = () => setCtx(null);
-    window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
-  }, [ctx]);
-
-  // Drag
-  const dragItem = useRef<{ id: string; kind: 'folder'|'file' } | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
-
-  // Current folder contents
-  const curFolders = folders
-    .filter(f => f.parentId === curId && f.name.toLowerCase().includes(search.toLowerCase()));
-  const curFiles = files
-    .filter(f => f.folderId === curId && f.name.toLowerCase().includes(search.toLowerCase()));
-
-  const sortedFolders = [...curFolders].sort((a,b) => a.name.localeCompare(b.name));
-  const sortedFiles = [...curFiles].sort((a,b) => {
-    if (sort === 'name') return a.name.localeCompare(b.name);
-    if (sort === 'date') return a.createdAt.localeCompare(b.createdAt);
-    return a.size.localeCompare(b.size);
-  });
-
-  const totalItems = sortedFolders.length + sortedFiles.length;
-
-  // Actions
-  const createFolder = () => {
-    const name = newFolderName.trim() || t('resourceDetail.newFolder');
-    setFolders(p => [...p, { id:`fd${Date.now()}`, name, parentId: curId, createdAt: t('resourceDetail.justNow') }]);
-    setNewFolderName('');
-    setNewFolderOpen(false);
-  };
-
-  const deleteItem = (id: string, kind: 'folder'|'file') => {
-    if (kind === 'folder') {
-      // also delete children recursively
-      const toDelete = new Set<string>();
-      const queue = [id];
-      while (queue.length) {
-        const fid = queue.shift()!;
-        toDelete.add(fid);
-        folders.filter(f => f.parentId === fid).forEach(f => queue.push(f.id));
-      }
-      setFolders(p => p.filter(f => !toDelete.has(f.id)));
-      setFiles(p => p.filter(f => !toDelete.has(f.folderId ?? '')));
-    } else {
-      setFiles(p => p.filter(f => f.id !== id));
-    }
-    setCtx(null);
-  };
-
-  const startRename = (id: string, _kind: 'folder'|'file', currentName: string) => {
-    setRenamingId(id);
-    setRenameVal(currentName);
-    setCtx(null);
-  };
-
-  const commitRename = () => {
-    if (!renamingId || !renameVal.trim()) { setRenamingId(null); return; }
-    setFolders(p => p.map(f => f.id === renamingId ? { ...f, name: renameVal.trim() } : f));
-    setFiles(p => p.map(f => f.id === renamingId ? { ...f, name: renameVal.trim() } : f));
-    setRenamingId(null);
-  };
-
-  const uploadFiles = (rawFiles: FileList | null) => {
-    if (!rawFiles) return;
-    const added: FsFile[] = Array.from(rawFiles).map(f => ({
-      id: `fi${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: f.name,
-      size: fmtSize(f.size),
-      type: f.type || 'application/octet-stream',
-      folderId: curId,
-      createdAt: t('resourceDetail.justNow'),
-    }));
-    setFiles(p => [...p, ...added]);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetFolderId: string) => {
-    e.preventDefault();
-    setDropTarget(null);
-    const item = dragItem.current;
-    if (!item || item.id === targetFolderId) return;
-    if (item.kind === 'file') {
-      setFiles(p => p.map(f => f.id === item.id ? { ...f, folderId: targetFolderId } : f));
-    } else {
-      // Prevent moving a folder into one of its own descendants
-      const isDescendant = (folderId: string, ancestorId: string): boolean => {
-        const folder = folders.find(f => f.id === folderId);
-        if (!folder) return false;
-        if (folder.parentId === ancestorId) return true;
-        return folder.parentId ? isDescendant(folder.parentId, ancestorId) : false;
-      };
-      if (!isDescendant(targetFolderId, item.id)) {
-        setFolders(p => p.map(f => f.id === item.id ? { ...f, parentId: targetFolderId } : f));
-      }
-    }
-    dragItem.current = null;
-  };
-
-  // Drop to root (outside any folder)
-  const handleDropRoot = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDropTarget(null);
-    const item = dragItem.current;
-    if (!item) return;
-    if (item.kind === 'file') setFiles(p => p.map(f => f.id === item.id ? { ...f, folderId: curId } : f));
-    else setFolders(p => p.map(f => f.id === item.id ? { ...f, parentId: curId } : f));
-    dragItem.current = null;
-  };
-
-  const folderColor = '#f9c74f';
-
-  const FolderCard = ({ folder }: { folder: FsFolder }) => {
-    const isRenaming = renamingId === folder.id;
-    const isDrop = dropTarget === folder.id;
-    const childCount = folders.filter(f => f.parentId === folder.id).length + files.filter(f => f.folderId === folder.id).length;
-    return (
-      <div
-        draggable
-        onDragStart={() => { dragItem.current = { id: folder.id, kind: 'folder' }; setSelected(folder.id); }}
-        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget(folder.id); }}
-        onDragLeave={() => setDropTarget(null)}
-        onDrop={e => handleDrop(e, folder.id)}
-        onClick={() => setSelected(folder.id)}
-        onDoubleClick={() => { setPath(p => [...p, folder]); setSelected(null); setSearch(''); }}
-        onContextMenu={e => { e.preventDefault(); setCtx({ x:e.clientX, y:e.clientY, id:folder.id, kind:'folder' }); }}
-        style={{
-          borderRadius:10, border:`1.5px solid ${isDrop ? 'var(--accent)' : selected===folder.id ? 'var(--accent)' : 'var(--border)'}`,
-          background: isDrop ? 'rgba(249,255,0,0.06)' : selected===folder.id ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
-          cursor:'pointer', userSelect:'none', position:'relative', transition:'border-color 0.12s, background 0.12s',
-          ...(view === 'grid'
-            ? { padding:'16px 14px', display:'flex', flexDirection:'column', gap:8, alignItems:'center', textAlign:'center' }
-            : { padding:'10px 14px', display:'flex', alignItems:'center', gap:12 }),
-        }}
-      >
-        <div style={{ ...(view==='grid' ? {} : { flexShrink:0 }), position:'relative' }}>
-          <SFIcon name="folder" size={view==='grid'?40:24} color={folderColor} />
-          {isDrop && <div style={{ position:'absolute', inset:0, background:'rgba(249,255,0,0.15)', borderRadius:4 }} />}
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          {isRenaming ? (
-            <input
-              autoFocus
-              value={renameVal}
-              onChange={e => setRenameVal(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={e => { if(e.key==='Enter') commitRename(); if(e.key==='Escape') setRenamingId(null); }}
-              onClick={e => e.stopPropagation()}
-              style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', outline:'none' }}
-            />
-          ) : (
-            <p style={{ fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{folder.name}</p>
-          )}
-          {view === 'list' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{t('resourceDetail.itemCount', { count: childCount })} · {folder.createdAt}</p>}
-          {view === 'grid' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{t('resourceDetail.itemCount', { count: childCount })}</p>}
-        </div>
-        {view === 'list' && (
-          <>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:60, textAlign:'right' }}>—</span>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:70, textAlign:'right' }}>{folder.createdAt}</span>
-          </>
-        )}
-        <button onClick={e=>{e.stopPropagation();setCtx({x:e.clientX,y:e.clientY,id:folder.id,kind:'folder'});}}
-          style={{ padding:'3px 5px', borderRadius:5, border:'none', background:'transparent', color:'var(--text-3)', cursor:'pointer', opacity:0, position: view==='grid'?'absolute':'relative', top:6, right:6, flexShrink:0 }}
-          className="item-menu-btn"
-        >⋮</button>
-      </div>
-    );
-  };
-
-  const FileCard = ({ file }: { file: FsFile }) => {
-    const isRenaming = renamingId === file.id;
-    return (
-      <div
-        draggable
-        onDragStart={() => { dragItem.current = { id: file.id, kind: 'file' }; setSelected(file.id); }}
-        onClick={() => setSelected(file.id)}
-        onContextMenu={e => { e.preventDefault(); setCtx({ x:e.clientX, y:e.clientY, id:file.id, kind:'file' }); }}
-        style={{
-          borderRadius:10, border:`1.5px solid ${selected===file.id ? 'var(--accent)' : 'var(--border)'}`,
-          background: selected===file.id ? 'rgba(249,255,0,0.04)' : 'var(--surface)',
-          cursor:'pointer', userSelect:'none', position:'relative', transition:'border-color 0.12s',
-          ...(view === 'grid'
-            ? { padding:'16px 14px', display:'flex', flexDirection:'column', gap:8, alignItems:'center', textAlign:'center' }
-            : { padding:'10px 14px', display:'flex', alignItems:'center', gap:12 }),
-        }}
-      >
-        <div style={{ ...(view==='grid' ? {} : { flexShrink:0 }), width:view==='grid'?40:24, height:view==='grid'?40:24, borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <SFIcon name={fileIcon(file.type)} size={view==='grid'?20:14} color={fileColor(file.type)} />
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          {isRenaming ? (
-            <input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={e=>{if(e.key==='Enter')commitRename();if(e.key==='Escape')setRenamingId(null);}}
-              onClick={e=>e.stopPropagation()}
-              style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--accent)', borderRadius:5, padding:'2px 6px', color:'var(--text)', fontSize:12, fontFamily:'var(--ff-text)', outline:'none' }}
-            />
-          ) : (
-            <p style={{ fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{file.name}</p>
-          )}
-          {view === 'list' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{file.type.split('/')[1]?.toUpperCase() ?? t('resourceDetail.fileUpper')}</p>}
-        </div>
-        {view === 'list' && (
-          <>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:60, textAlign:'right' }}>{file.size}</span>
-            <span style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', minWidth:70, textAlign:'right' }}>{file.createdAt}</span>
-          </>
-        )}
-        {view === 'grid' && <p style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>{file.size}</p>}
-        <button onClick={e=>{e.stopPropagation();setCtx({x:e.clientX,y:e.clientY,id:file.id,kind:'file'});}}
-          style={{ padding:'3px 5px', borderRadius:5, border:'none', background:'transparent', color:'var(--text-3)', cursor:'pointer', opacity:0, position: view==='grid'?'absolute':'relative', top:6, right:6, flexShrink:0 }}
-          className="item-menu-btn"
-        >⋮</button>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}
-      onDragOver={e=>e.preventDefault()}
-      onDrop={handleDropRoot}
-    >
-      <style>{`
-        .drive-item:hover .item-menu-btn { opacity: 1 !important; }
-        .drive-item:hover { border-color: var(--border-2) !important; }
-      `}</style>
-
-      {/* ── Toolbar ── */}
-      <div style={{ padding:'10px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10, background:'var(--surface)', flexShrink:0, flexWrap:'wrap' }}>
-
-        {/* Breadcrumb */}
-        <div style={{ display:'flex', alignItems:'center', gap:4, flex:1, minWidth:0 }}>
-          <button onClick={()=>{setPath([]);setSearch('');setSelected(null);}} style={{ background:'none', border:'none', cursor:'pointer', color: path.length===0 ? 'var(--text)' : 'var(--text-3)', fontSize:13, fontWeight: path.length===0 ? 600 : 400, padding:'2px 4px', borderRadius:5, fontFamily:'var(--ff-text)' }}>
-            {t('resourceDetail.myDrive')}
-          </button>
-          {path.map((folder, i) => (
-            <React.Fragment key={folder.id}>
-              <span style={{ color:'var(--text-3)', fontSize:12 }}>›</span>
-              <button onClick={()=>{setPath(p=>p.slice(0,i+1));setSearch('');setSelected(null);}}
-                style={{ background:'none', border:'none', cursor:'pointer', color: i===path.length-1 ? 'var(--text)' : 'var(--text-3)', fontSize:13, fontWeight: i===path.length-1 ? 600 : 400, padding:'2px 4px', borderRadius:5, fontFamily:'var(--ff-text)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {folder.name}
-              </button>
-            </React.Fragment>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-          <SFIcon name="search" size={13} color="var(--text-3)" style={{ position:'absolute', left:9 } as React.CSSProperties} />
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('topbar.search')}
-            style={{ padding:'5px 10px 5px 30px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:12, outline:'none', width:180, fontFamily:'var(--ff-text)' }} />
-        </div>
-
-        {/* Actions */}
-        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-          <button onClick={()=>setNewFolderOpen(true)} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'var(--ff-text)' }}>
-            <SFIcon name="folder-plus" size={14} />
-            {t('resourceDetail.newFolder')}
-          </button>
-          <button onClick={()=>inputRef.current?.click()} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'var(--ff-text)' }}>
-            <SFIcon name="upload" size={14} />
-            {t('resourceDetail.import')}
-          </button>
-          <input ref={inputRef} type="file" multiple style={{ display:'none' }} onChange={e=>{ uploadFiles(e.target.files); e.target.value=''; }} />
-          <div style={{ width:1, height:18, background:'var(--border)' }} />
-          {/* Sort */}
-          <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
-            style={{ padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', fontSize:11, fontFamily:'var(--ff-mono)', outline:'none', cursor:'pointer', colorScheme:'dark' }}>
-            <option value="name">{t('resourceDetail.sortName')}</option>
-            <option value="date">{t('resourceDetail.sortDate')}</option>
-            <option value="size">{t('resourceDetail.sortSize')}</option>
-          </select>
-          {/* View toggle */}
-          <div style={{ display:'flex', border:'1px solid var(--border)', borderRadius:7, overflow:'hidden' }}>
-            {(['grid','list'] as ViewMode[]).map(v => (
-              <button key={v} onClick={()=>setView(v)} style={{ padding:'5px 8px', border:'none', background: view===v ? 'var(--surface-3)' : 'transparent', color: view===v ? 'var(--text)' : 'var(--text-3)', cursor:'pointer', display:'flex', alignItems:'center' }}>
-                <SFIcon name={v==='grid'?'layout-grid':'list'} size={14} />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── New folder dialog ── */}
-      {newFolderOpen && (
-        <div style={{ padding:'10px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface-2)', display:'flex', alignItems:'center', gap:10 }}>
-          <SFIcon name="folder-plus" size={16} color={folderColor} />
-          <input ref={newFolderRef} value={newFolderName} onChange={e=>setNewFolderName(e.target.value)}
-            onKeyDown={e=>{ if(e.key==='Enter') createFolder(); if(e.key==='Escape'){setNewFolderOpen(false);setNewFolderName('');} }}
-            placeholder={t('resourceDetail.folderNamePlaceholder')}
-            style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--accent)', background:'var(--surface)', color:'var(--text)', fontSize:13, outline:'none', fontFamily:'var(--ff-text)', width:240 }}
-          />
-          <button onClick={createFolder} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'var(--on-accent)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'var(--ff-text)' }}>{t('resourceDetail.create')}</button>
-          <button onClick={()=>{setNewFolderOpen(false);setNewFolderName('');}} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text-2)', fontSize:12, cursor:'pointer', fontFamily:'var(--ff-text)' }}>{t('resourceDetail.cancel')}</button>
-        </div>
-      )}
-
-      {/* ── List header (list mode) ── */}
-      {view === 'list' && totalItems > 0 && (
-        <div style={{ padding:'6px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12, background:'var(--surface)', flexShrink:0 }}>
-          <div style={{ width:24+8, flexShrink:0 }} />
-          <span style={{ flex:1, fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{t('resourceDetail.sortName')}</span>
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', minWidth:60, textAlign:'right' }}>{t('resourceDetail.sortSize')}</span>
-          <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', minWidth:70, textAlign:'right' }}>{t('resourceDetail.sortDate')}</span>
-          <div style={{ width:28 }} />
-        </div>
-      )}
-
-      {/* ── Content ── */}
-      <div style={{ flex:1, overflow:'auto', padding:'16px 20px' }}
-        onDragOver={e=>e.preventDefault()}
-        onDrop={handleDropRoot}
-      >
-        {totalItems === 0 && !search ? (
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12, minHeight:200 }}>
-            <SFIcon name="folder-open" size={48} color="var(--text-3)" />
-            <p style={{ fontSize:14, color:'var(--text-3)', fontWeight:500 }}>{t('resourceDetail.folderEmpty')}</p>
-            <p style={{ fontSize:12, color:'var(--text-3)' }}>{t('resourceDetail.folderEmptyHint')}</p>
-          </div>
-        ) : totalItems === 0 && search ? (
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:10, minHeight:200 }}>
-            <SFIcon name="search" size={32} color="var(--text-3)" />
-            <p style={{ fontSize:13, color:'var(--text-3)' }}>{t('resourceDetail.noResultFor', { query: search })}</p>
-          </div>
-        ) : (
-          <div style={view === 'grid'
-            ? { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }
-            : { display:'flex', flexDirection:'column', gap:4 }
-          }>
-            {/* Folders section */}
-            {sortedFolders.length > 0 && (
-              <>
-                {view === 'grid' && (
-                  <div style={{ gridColumn:'1/-1', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', paddingBottom:4 }}>
-                    {t('resourceDetail.foldersSection', { count: sortedFolders.length })}
-                  </div>
-                )}
-                {sortedFolders.map(folder => (
-                  <div key={folder.id} className="drive-item">
-                    <FolderCard folder={folder} />
-                  </div>
-                ))}
-              </>
-            )}
-            {/* Files section */}
-            {sortedFiles.length > 0 && (
-              <>
-                {view === 'grid' && (
-                  <div style={{ gridColumn:'1/-1', fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.07em', paddingTop: sortedFolders.length>0 ? 12 : 0, paddingBottom:4 }}>
-                    {t('resourceDetail.filesSection', { count: sortedFiles.length })}
-                  </div>
-                )}
-                {sortedFiles.map(file => (
-                  <div key={file.id} className="drive-item">
-                    <FileCard file={file} />
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Drop zone hint (when dragging) */}
-      </div>
-
-      {/* ── Status bar ── */}
-      <div style={{ padding:'5px 20px', borderTop:'1px solid var(--border)', background:'var(--surface)', display:'flex', gap:16, alignItems:'center', flexShrink:0 }}>
-        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)' }}>
-          {t('resourceDetail.itemCount', { count: totalItems })}{selected ? t('resourceDetail.oneSelectedSuffix') : ''}
-        </span>
-        <span style={{ fontFamily:'var(--ff-mono)', fontSize:9, color:'var(--text-3)', marginLeft:'auto' }}>
-          {path.length > 0 ? path.map(f=>f.name).join(' › ') : t('resourceDetail.root')}
-        </span>
-      </div>
-
-      {/* ── Context menu ── */}
-      {ctx && (
-        <div onMouseDown={e=>e.stopPropagation()} style={{
-          position:'fixed', top:ctx.y, left:ctx.x, zIndex:500,
-          background:'var(--surface)', border:'1px solid var(--border-2)', borderRadius:10,
-          boxShadow:'0 8px 32px rgba(0,0,0,0.5)', padding:'4px 0', minWidth:170,
-        }}>
-          {[
-            { label:t('resourceDetail.rename'), icon:'pencil', action:() => { const item = folders.find(f=>f.id===ctx.id) ?? files.find(f=>f.id===ctx.id); if(item) startRename(ctx.id, ctx.kind, item.name); } },
-            ...(ctx.kind==='folder' ? [{ label:t('resourceDetail.open'), icon:'folder-open', action:() => { const f = folders.find(f=>f.id===ctx.id); if(f){setPath(p=>[...p,f]);setSelected(null);setSearch('');} setCtx(null); } }] : []),
-            { label:t('tasks.delete'), icon:'trash-2', action:() => deleteItem(ctx.id, ctx.kind), danger:true },
-          ].map(item => (
-            <button key={item.label} onClick={item.action}
-              style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 14px', background:'transparent', border:'none', cursor:'pointer', color: (item as any).danger ? 'var(--danger)' : 'var(--text)', fontSize:13, fontFamily:'var(--ff-text)', textAlign:'left' }}
-              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='var(--surface-2)';}}
-              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='transparent';}}
-            >
-              <SFIcon name={item.icon} size={14} color={(item as any).danger ? 'var(--danger)' : 'var(--text-3)'} />
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -5683,7 +5196,6 @@ export function ResourceBody({ resource }: { resource: Resource }) {
     case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} />;
     case 'document':     return <DocumentView key={resource.id} resource={resource} persistKey={resource.id} />;
     case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} />;
-    case 'file':         return <FileView resource={resource} />;
     case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} />;
     default:             return <div style={{ padding: 40, color: 'var(--text-3)' }}>Type non pris en charge</div>;
   }
@@ -5760,7 +5272,6 @@ export function ResourceDetail() {
       case 'moodboard':    return <MoodboardView key={resource.id} resource={resource} persistKey={resource.id} />;
         case 'document':     return <DocumentView key={resource.id} resource={resource} onEdit={touch} saveState={saveState} online={online} registerExport={registerExport} persistKey={resource.id} />;
       case 'inspirations': return <InspirationsView key={resource.id} resource={resource} persistKey={resource.id} />;
-      case 'file':         return <FileView resource={resource} />;
       case 'form':         return <FormView key={resource.id} resource={resource} persistKey={resource.id} />;
       default:             return <div style={{ padding:40, color:'var(--text-3)' }}>Type non pris en charge</div>;
     }

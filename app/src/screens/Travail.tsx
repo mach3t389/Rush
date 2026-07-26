@@ -44,7 +44,6 @@ const TYPE_ICON: Record<ResourceType, string> = {
   moodboard:    'grid-2x2',
   document:     'file',
   inspirations: 'image',
-  file:         'hard-drive',
   form:         'clipboard-list',
   web_review:   'globe',
 };
