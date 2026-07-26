@@ -11,6 +11,20 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 
 ---
 
+## Résumé — ce qu'il te reste à faire
+
+Liste condensée de tout ce qui attend une action de ta part en ce moment (détails et « pourquoi » dans les sections ci-dessous) :
+
+- [ ] Parcours client réel complet (Étape B/C) — inviter, accepter, vérifier `/mon-espace`. Exécuter d'abord la migration `2026-07-25-client-dashboard-events-rls-migration.sql`.
+- [ ] Logo du studio sur les écrans d'invitation (nécessite un vrai logo uploadé).
+- [ ] Chapitres vidéo — jamais testé avec un vrai fichier ayant des chapitres.
+- [ ] Partage calendrier Google — refaire le test avec une adresse différente de la tienne.
+- [ ] Formulaire public — redéployer `file-storage` (`supabase functions deploy file-storage`), puis tester le parcours complet avec un vrai compte.
+
+Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en attente.
+
+---
+
 ## Étape A — Niveaux d'accès (rôles internes)
 
 - [x] Testé en direct par Claude (mode démo) — dropdown niveau d'accès, protection du propriétaire, formulaire d'invitation. Rien en attente de ta part.
