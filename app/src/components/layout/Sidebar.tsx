@@ -158,8 +158,10 @@ export function Sidebar() {
   const [pinnedClientIds, setPinnedClientIds] = useState(getPinnedClientIds);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | null>(null);
   const [dragClientIdx, setDragClientIdx] = useState<number | null>(null);
   const [dragOverClientIdx, setDragOverClientIdx] = useState<number | null>(null);
+  const [dragOverClientPos, setDragOverClientPos] = useState<'before' | 'after' | null>(null);
   const [hoveredPinId, setHoveredPinId] = useState<string | null>(null);
   const [hoveredClientId, setHoveredClientId] = useState<string | null>(null);
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
@@ -217,17 +219,29 @@ export function Sidebar() {
   };
   const handleDragOver = (e: React.DragEvent, idx: number) => {
     e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    // Which half of the hovered row the cursor is over decides whether the
+    // dragged project lands before or after it — always inserting "before"
+    // made it impossible to drop something after the last pinned project.
+    const rect = e.currentTarget.getBoundingClientRect();
     setDragOverIdx(idx);
+    setDragOverPos(e.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
   };
   const handleDrop = (idx: number) => {
-    if (dragIdx !== null) movePinned(dragIdx, idx);
+    if (dragIdx !== null && dragIdx !== idx) {
+      const shiftedTarget = idx > dragIdx ? idx - 1 : idx;
+      const toIdx = dragOverPos === 'after' ? shiftedTarget + 1 : shiftedTarget;
+      movePinned(dragIdx, toIdx);
+    }
     setDragIdx(null);
     setDragOverIdx(null);
+    setDragOverPos(null);
     dragHandleActive.current = false;
   };
   const handleDragEnd = () => {
     setDragIdx(null);
     setDragOverIdx(null);
+    setDragOverPos(null);
     dragHandleActive.current = false;
   };
 
@@ -239,17 +253,26 @@ export function Sidebar() {
   };
   const handleClientDragOver = (e: React.DragEvent, idx: number) => {
     e.preventDefault();
+    if (dragClientIdx === null || dragClientIdx === idx) return;
+    const rect = e.currentTarget.getBoundingClientRect();
     setDragOverClientIdx(idx);
+    setDragOverClientPos(e.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
   };
   const handleClientDrop = (idx: number) => {
-    if (dragClientIdx !== null) movePinnedClient(dragClientIdx, idx);
+    if (dragClientIdx !== null && dragClientIdx !== idx) {
+      const shiftedTarget = idx > dragClientIdx ? idx - 1 : idx;
+      const toIdx = dragOverClientPos === 'after' ? shiftedTarget + 1 : shiftedTarget;
+      movePinnedClient(dragClientIdx, toIdx);
+    }
     setDragClientIdx(null);
     setDragOverClientIdx(null);
+    setDragOverClientPos(null);
     dragClientHandleActive.current = false;
   };
   const handleClientDragEnd = () => {
     setDragClientIdx(null);
     setDragOverClientIdx(null);
+    setDragOverClientPos(null);
     dragClientHandleActive.current = false;
   };
 
@@ -374,11 +397,12 @@ export function Sidebar() {
                     onDragEnd={handleDragEnd}
                     onMouseEnter={() => setHoveredPinId(p.id)}
                     onMouseLeave={() => setHoveredPinId(null)}
-                    style={{ opacity: dragIdx === idx ? 0.4 : 1, transition: 'opacity 0.1s', position: 'relative' }}
+                    style={{
+                      opacity: dragIdx === idx ? 0.4 : 1, transition: 'opacity 0.1s', position: 'relative',
+                      borderTop: dragOverIdx === idx && dragOverPos === 'before' && dragIdx !== idx ? '2px solid var(--accent)' : '2px solid transparent',
+                      borderBottom: dragOverIdx === idx && dragOverPos === 'after' && dragIdx !== idx ? '2px solid var(--accent)' : '2px solid transparent',
+                    }}
                   >
-                    {dragOverIdx === idx && dragIdx !== idx && (
-                      <div style={{ height: 2, borderRadius: 2, background: 'var(--accent)', margin: '1px 12px' }} />
-                    )}
                     <NavLink
                       to={`/projets/${p.id}`}
                       style={({ isActive }) => ({
@@ -480,11 +504,12 @@ export function Sidebar() {
                   onDragEnd={handleClientDragEnd}
                   onMouseEnter={() => setHoveredClientId(c.id)}
                   onMouseLeave={() => setHoveredClientId(null)}
-                  style={{ opacity: dragClientIdx === idx ? 0.4 : 1, transition: 'opacity 0.1s', position: 'relative' }}
+                  style={{
+                    opacity: dragClientIdx === idx ? 0.4 : 1, transition: 'opacity 0.1s', position: 'relative',
+                    borderTop: dragOverClientIdx === idx && dragOverClientPos === 'before' && dragClientIdx !== idx ? '2px solid var(--accent)' : '2px solid transparent',
+                    borderBottom: dragOverClientIdx === idx && dragOverClientPos === 'after' && dragClientIdx !== idx ? '2px solid var(--accent)' : '2px solid transparent',
+                  }}
                 >
-                  {dragOverClientIdx === idx && dragClientIdx !== idx && (
-                    <div style={{ height: 2, borderRadius: 2, background: 'var(--accent)', margin: '1px 12px' }} />
-                  )}
                   <NavLink
                     to={`/clients/${c.id}`}
                     style={({ isActive }) => ({
