@@ -10,3 +10,4 @@ export { SFLoadingState } from './SFLoadingState';
 export { PageHeader } from './PageHeader';
 export { LifecycleFilterDropdown, type LifecycleFilter } from './LifecycleFilterDropdown';
 export { CategoryFilterDropdown } from './CategoryFilterDropdown';
+export { SFFilterPill } from './SFFilterPill';

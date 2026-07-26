@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, PageHeader } from '../components/ui';
+import { SFPill, SFAvatar, SFIcon, PageHeader, SFFilterPill } from '../components/ui';
 import { ACTIVITY } from '../data/mock';
 import { ActivityFeed } from '../components/ActivityFeed';
 import type { AppNotif, NotifKind } from '../data/notificationStore';
@@ -307,13 +307,9 @@ export function Activite() {
               <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {FILTERS.map(f => (
-                    <button
-                      key={f.key}
-                      onClick={() => setFilter(f.key)}
-                      style={{ padding: '5px 11px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: filter === f.key ? 'var(--accent)' : 'var(--surface-2)', color: filter === f.key ? 'var(--on-accent)' : 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
-                    >
+                    <SFFilterPill key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
                       {f.label}
-                    </button>
+                    </SFFilterPill>
                   ))}
                 </div>
 

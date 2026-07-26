@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader } from '../components/ui';
+import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks } from '../data/myTaskStore';
@@ -1467,21 +1467,9 @@ export function Taches() {
   const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort, compact: compactColumns };
 
   const filterTabBtn = (f: { key: Filter; labelKey: string }) => (
-    <button
-      key={f.key}
-      onClick={() => setFilter(f.key)}
-      style={{
-        padding: '5px 14px', borderRadius: 8, border: 'none',
-        background: filter === f.key ? 'var(--surface-3)' : 'transparent',
-        color: filter === f.key ? 'var(--text)' : 'var(--text-2)',
-        fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
-        fontFamily: 'var(--ff-text)', cursor: 'pointer', whiteSpace: 'nowrap',
-        borderBottom: filter === f.key ? '2px solid var(--accent)' : '2px solid transparent',
-        transition: 'all 0.12s',
-      }}
-    >
+    <SFFilterPill key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
       {t(f.labelKey)}
-    </button>
+    </SFFilterPill>
   );
 
   return (
