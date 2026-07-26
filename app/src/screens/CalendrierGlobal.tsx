@@ -923,7 +923,10 @@ export function CalendrierGlobal() {
             </button>
           </div>
 
-          <h2 style={{ fontSize:16,fontWeight:700,flex:1 }}>{title}</h2>
+          <div style={{ flex:1, minWidth:0 }}>
+            <h2 style={{ fontFamily:'var(--ff-display)', fontSize:15, fontWeight:700, lineHeight:1.2 }}>{t('nav.calendar')}</h2>
+            <p style={{ fontFamily:'var(--ff-mono)', fontSize:10, color:'var(--text-3)', marginTop:1 }}>{title}</p>
+          </div>
 
           {view!=='month' && <CalendarZoomControl />}
 

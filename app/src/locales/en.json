@@ -103,7 +103,7 @@
     "title": "Title",
     "dueDate": "Due date",
     "myTasksTitle": "My tasks",
-    "allTasksTitle": "All tasks",
+    "allTasksTitle": "Tasks",
     "allTasksSubtitle": "Pick a project to see and manage its tasks",
     "taskCountSummary": "{{visible}}/{{total}} tasks",
     "overdueCount": "{{count}} overdue"

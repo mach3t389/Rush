@@ -103,7 +103,7 @@
     "title": "Titre",
     "dueDate": "Échéance",
     "myTasksTitle": "Mes tâches",
-    "allTasksTitle": "Toutes les tâches",
+    "allTasksTitle": "Tâches",
     "allTasksSubtitle": "Choisissez un projet pour voir et gérer ses tâches",
     "taskCountSummary": "{{visible}}/{{total}} tâches",
     "overdueCount": "{{count}} en retard"
