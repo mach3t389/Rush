@@ -12,6 +12,7 @@ import { ViewAsPermissionGate } from './components/ViewAsPermissionGate';
 import { ViewAsPreviewShell } from './components/ViewAsPreviewShell';
 import { Dashboard } from './screens/Dashboard';
 import { Taches } from './screens/Taches';
+import { TachesToutes } from './screens/TachesToutes';
 import { Projets } from './screens/Projets';
 import { Travail } from './screens/Travail';
 import { ClientInvitationAccept } from './screens/ClientInvitationAccept';
@@ -124,6 +125,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'taches', element: <Taches /> },
+      { path: 'toutes-les-taches', element: <TachesToutes /> },
       { path: 'projets', element: <Projets /> },
       { path: 'projets/:projectId', element: <Travail /> },
       { path: 'projets/:projectId/overview', element: <TravailOverview /> },

@@ -5,6 +5,7 @@
     "clients": "Clients",
     "projects": "Projects",
     "globalView": "Global View",
+    "allTasks": "All Tasks",
     "files": "Files",
     "calendar": "Calendar",
     "notifications": "Activity",
@@ -1089,6 +1090,8 @@
     "viewMonth": "Month",
     "viewWeek": "Week",
     "viewDay": "Day",
+    "zoomIn": "Zoom in (see fewer hours at once)",
+    "zoomOut": "Zoom out (see more hours at once)",
     "allDayShort": "All-day",
     "moreEvents": "+{{count}} more",
     "months": [

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { SFIcon } from '../ui/SFIcon';
 import { SFBar } from '../ui/SFBar';
 import { OrgSwitcher } from './OrgSwitcher';
@@ -18,7 +18,7 @@ import { getRequiredPermissionForPath } from '../../data/viewAsRoutePermissions'
 import { getTotalStorageUsedBytes, subscribeStorageUsage, checkStorageThreshold } from '../../data/storageStore';
 import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
 import { getStorageLimitGB } from '../../data/planFeatures';
-import { savePersisted } from '../../data/persist';
+import { loadPersisted, savePersisted } from '../../data/persist';
 
 function SidebarStorageBar({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
@@ -151,8 +151,77 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
   );
 }
 
+// Collapsible group of related global (cross-project) views — one row when
+// closed, expands to direct one-click links to each sub-view. State persists
+// (sf_nav_global_open) so it stays open across navigation/reloads once a
+// user has opened it, instead of re-collapsing every time they leave.
+function NavGroup({ icon, label, collapsed, active, children }: { icon: string; label: string; collapsed: boolean; active: boolean; children: React.ReactNode }) {
+  const [storedOpen, setStoredOpen] = useState(() => loadPersisted('sf_nav_global_open', false));
+  const open = storedOpen || active;
+
+  if (collapsed) {
+    // Collapsed sidebar has no room for a sub-list — clicking just opens it.
+    return (
+      <button
+        onClick={() => setStoredOpen(true)}
+        title={label}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '8px 0', borderRadius: 9, border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer' }}
+      >
+        <SFIcon name={icon} size={16} />
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => { const next = !storedOpen; setStoredOpen(next); savePersisted('sf_nav_global_open', next); }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          padding: '8px 12px', borderRadius: 9, border: 'none',
+          background: active ? 'var(--surface-3)' : 'transparent',
+          color: active ? 'var(--text)' : 'var(--text-2)',
+          fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left',
+          borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+        }}
+      >
+        <SFIcon name={icon} size={16} />
+        <span style={{ flex: 1 }}>{label}</span>
+        <SFIcon name={open ? 'chevron-down' : 'chevron-right'} size={13} color="var(--text-3)" />
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubNavItem({ to, label, exact }: { to: string; label: string; exact?: boolean }) {
+  return (
+    <NavLink
+      to={to}
+      end={exact}
+      style={({ isActive }) => ({
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 12px 7px 34px', borderRadius: 9,
+        fontSize: 12, fontWeight: 500,
+        color: isActive ? 'var(--text)' : 'var(--text-3)',
+        background: isActive ? 'var(--surface-3)' : 'transparent',
+        borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+        textDecoration: 'none',
+        transition: 'background 0.1s, color 0.1s',
+      })}
+    >
+      {label}
+    </NavLink>
+  );
+}
+
 export function Sidebar() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(getPinnedIds);
   const [pinnedClientIds, setPinnedClientIds] = useState(getPinnedClientIds);
@@ -366,12 +435,18 @@ export function Sidebar() {
           {/* Séparateur */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />
 
-          {/* Outils transversaux */}
-          <NavItem to="/calendrier" icon="calendar"    label={t('nav.calendar')} exact={false} collapsed={collapsed} />
-          <NavItem to="/fichiers"   icon="folder-open" label={t('nav.files')}    exact={false} collapsed={collapsed} />
-          {canSeeFinances && (
-            <NavItem to="/finances" icon="receipt" label={t('nav.finances')} exact={false} collapsed={collapsed} />
-          )}
+          {/* Vue globale — vues qui agrègent tous les projets à la fois */}
+          <NavGroup
+            icon="layout-grid"
+            label={t('nav.globalView')}
+            collapsed={collapsed}
+            active={['/toutes-les-taches', '/calendrier', '/fichiers', '/finances'].some(p => location.pathname.startsWith(p))}
+          >
+            <SubNavItem to="/toutes-les-taches" label={t('nav.allTasks')} exact={false} />
+            <SubNavItem to="/calendrier" label={t('nav.calendar')} exact={false} />
+            <SubNavItem to="/fichiers" label={t('nav.files')} exact={false} />
+            {canSeeFinances && <SubNavItem to="/finances" label={t('nav.finances')} exact={false} />}
+          </NavGroup>
         </nav>
 
         {/* Projets épinglés */}
