@@ -1582,7 +1582,9 @@ export function Taches() {
               })}
               {priorityGroups.length === 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <ColHeader {...colHeaderProps} />
+                  <div style={{ padding: '8px 0 0' }}>
+                    <ColHeader {...colHeaderProps} />
+                  </div>
                   <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={compactColumns} />
                 </div>
               )}
