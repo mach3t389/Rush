@@ -845,10 +845,10 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
                 onClick={() => setClientFilterOpen(o => !o)}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
-                {selected ? (
-                  <><i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
-                ) : (
-                  <><SFIcon name="users" size={13} color="var(--text-3)" />{t('projects.allClients')}</>
+                <SFIcon name="users" size={13} color={selected ? 'var(--accent)' : 'var(--text-3)'} />
+                {t('projects.clientsLabel')}
+                {selected && (
+                  <>: <i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
                 )}
                 <SFIcon name="chevron-down" size={12} color={clientFilter ? 'var(--accent)' : 'var(--text-3)'} />
               </button>

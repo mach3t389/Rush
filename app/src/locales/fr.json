@@ -360,6 +360,7 @@
     "filterAllStatus": "Tous les statuts",
     "filterAllLifecycle": "Actifs et archivés",
     "statusLabel": "Statut",
+    "clientsLabel": "Clients",
     "filterArchived": "Archivés",
     "allClients": "Tous les clients",
     "sortBy": "Trier par",

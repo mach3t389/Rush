@@ -360,6 +360,7 @@
     "filterAllStatus": "All statuses",
     "filterAllLifecycle": "Active and archived",
     "statusLabel": "Status",
+    "clientsLabel": "Clients",
     "filterArchived": "Archived",
     "allClients": "All clients",
     "sortBy": "Sort by",
