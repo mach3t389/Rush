@@ -508,7 +508,348 @@ git commit -m "refactor(web-review): move approval button next to status pill"
 
 ---
 
-### Task 8: End-to-end verification — client Portail actually receives the request
+### Task 8: Add Approve / Request Corrections to the live client screen (`ClientProjectApercu.tsx`)
+
+**Discovered mid-plan:** the original design assumed the client-facing "Approuver"/"Demander des corrections" buttons already worked, based on reading `app/src/screens/Portail.tsx`. Live verification found `Portail.tsx` is **not wired to any route** in `app/src/main.tsx` — dead code. The actual live client screens (`/mon-espace/projets/:projectId` and `/apercu-client/:clientId/projets/:projectId`, both rendering `ClientProjectApercu.tsx`) list deliverables read-only, with no action buttons at all. This task ports the missing action to the screen that's actually reachable, so livrables created by Tasks 1-7 can actually be approved, not just seen.
+
+Two execution paths, because they have different data-write mechanics:
+- **Preview path** (`isPreview === true` — admin using "Voir en tant que"): the acting Supabase user is the studio member themselves, with full write access. Writes go directly through the existing `taskStore.ts` (`updateTask`), exactly like the dead `Portail.tsx` did.
+- **Real client-session path** (`isPreview === false` — an actual client account logged in via `/mon-espace`): per `docs/superpowers/specs/2026-07-15-client-access-migration.sql:112-114`, clients currently have a **read-only** RLS policy on `tasks` (`tasks_select_client_access`, `for select` only). A real client account cannot write to `tasks` at all today. This task adds a new, narrowly-scoped RPC function (not a blanket UPDATE policy) that lets a client flip only `status`/`correctionsRequested` on a task that is already a shared deliverable on a project they have access to — never any other field. **This migration is NOT run automatically — per this project's established convention (see `CLAUDE.md`'s Supabase migrations section), it must be pasted into the Supabase SQL Editor and run manually by the user.** The real-client path cannot be live-verified in this environment (no way to authenticate as a real client account here) — this task's live verification covers the preview/demo path only; the migration's correctness rests on code review + the existing `is_client_contact_for_project()` precedent it reuses verbatim.
+
+**Explicitly out of scope for this task** (noted, not built): a notification when a real client (non-preview) approves or requests corrections. The preview path already creates one (mirroring `Portail.tsx`'s exact prior behavor, using a generic "Le client" / "The client" actor label since `ClientProject` has no contact name available). Wiring the equivalent for real client sessions would require a `notifications` table insert from inside the RPC, which needs more context on that table's recipient-fanout logic than this task has — flagged for a future pass, not this one.
+
+**Files:**
+- Modify: `app/src/data/clientSessionStore.ts` (add `correctionsRequested` to `ClientDeliverable`, add 2 new async functions)
+- Modify: `app/src/data/viewAsClientDataStore.ts` (add 2 new async functions, preview-path equivalents)
+- Modify: `app/src/screens/client/ClientProjectApercu.tsx` (add action buttons, wire to the right path)
+- Create: `docs/superpowers/specs/2026-07-26-client-deliverable-actions-migration.sql`
+
+**Interfaces:**
+- Consumes: `updateTask(projectId, taskId, patch): void` (existing, `taskStore.ts:221`), `addNotif` (existing, `notificationStore.ts:303`), `is_client_contact_for_project(p_project_id text): boolean` (existing Postgres function, defined in `docs/superpowers/specs/2026-07-15-client-access-migration.sql:84-92` — reused, not redefined), `supabase` client (existing, `supabaseClient.ts`).
+- Produces: `approveClientDeliverable(taskId: string): Promise<{ok: boolean}>`, `requestClientDeliverableCorrections(taskId: string): Promise<{ok: boolean}>` (both in `clientSessionStore.ts`); `approvePreviewClientDeliverable(projectId, taskId, deliverableTitle): Promise<{ok: boolean}>`, `requestPreviewClientDeliverableCorrections(projectId, taskId, deliverableTitle): Promise<{ok: boolean}>` (both in `viewAsClientDataStore.ts`) — used by Task 9's verification.
+
+- [ ] **Step 1: Add `correctionsRequested` to `ClientDeliverable` and the two real-session action functions**
+
+In `app/src/data/clientSessionStore.ts`, change the `ClientDeliverable` interface (currently at lines 118-125):
+```ts
+export interface ClientDeliverable {
+  id: string;
+  title: string;
+  deliverable: boolean;
+  sharedWithClient?: boolean;
+  dueDate?: string;
+  status?: string;
+  correctionsRequested?: boolean;
+}
+```
+Then, immediately after the `getMyClientDeliverables` function (currently ending at line 140), add:
+```ts
+// Both actions are narrowly-scoped RPC calls (see
+// docs/superpowers/specs/2026-07-26-client-deliverable-actions-migration.sql)
+// rather than a direct .update() — a client's RLS policy on `tasks` is
+// read-only (tasks_select_client_access), and a blanket UPDATE policy would
+// let a client rewrite any field of the task, not just approval state.
+export async function approveClientDeliverable(taskId: string): Promise<{ ok: boolean }> {
+  const { error } = await supabase.rpc('client_deliverable_action', { p_task_id: taskId, p_action: 'approve' });
+  if (error) { console.error('approveClientDeliverable failed', error); return { ok: false }; }
+  return { ok: true };
+}
+
+export async function requestClientDeliverableCorrections(taskId: string): Promise<{ ok: boolean }> {
+  const { error } = await supabase.rpc('client_deliverable_action', { p_task_id: taskId, p_action: 'request_corrections' });
+  if (error) { console.error('requestClientDeliverableCorrections failed', error); return { ok: false }; }
+  return { ok: true };
+}
+```
+
+- [ ] **Step 2: Add the two preview-path action functions**
+
+In `app/src/data/viewAsClientDataStore.ts`, add these imports to the existing import block at the top:
+```ts
+import { getDeliverables, updateTask } from './taskStore';
+import { addNotif } from './notificationStore';
+```
+(`getDeliverables` is already imported there — just add `updateTask` alongside it. `addNotif` is a new import.)
+
+Then, at the end of the file, after `getPreviewClientInvoices`, add:
+```ts
+// Preview-path equivalent of clientSessionStore.ts's approve/corrections —
+// the acting user here is the studio member themselves (admin using "Voir
+// en tant que"), with full existing write access to their own studio's
+// tasks, so this writes directly through taskStore.ts instead of an RPC.
+export async function approvePreviewClientDeliverable(projectId: string, taskId: string, deliverableTitle: string): Promise<{ ok: boolean }> {
+  updateTask(projectId, taskId, { status: 'ok', correctionsRequested: false });
+  addNotif({
+    kind: 'deliverableApproved',
+    actor: 'Le client',
+    text: `a approuvé le livrable "${deliverableTitle}"`,
+    taskId,
+    timestamp: Date.now(),
+    projectId,
+  });
+  return { ok: true };
+}
+
+export async function requestPreviewClientDeliverableCorrections(projectId: string, taskId: string, deliverableTitle: string): Promise<{ ok: boolean }> {
+  updateTask(projectId, taskId, { correctionsRequested: true });
+  addNotif({
+    kind: 'comment',
+    actor: 'Le client',
+    text: `a demandé des corrections sur "${deliverableTitle}"`,
+    taskId,
+    timestamp: Date.now(),
+    projectId,
+  });
+  return { ok: true };
+}
+```
+
+- [ ] **Step 3: Wire the buttons into `ClientProjectApercu.tsx`**
+
+Replace the full contents of `app/src/screens/client/ClientProjectApercu.tsx` with:
+
+```tsx
+import { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { ClientProjectHeader } from '../../components/client/ClientProjectHeader';
+import { SFIcon, SFButton } from '../../components/ui';
+import {
+  getMyClientProjects, getMyClientDeliverables,
+  approveClientDeliverable, requestClientDeliverableCorrections,
+  type ClientProject, type ClientDeliverable,
+} from '../../data/clientSessionStore';
+import {
+  getPreviewClientProjects, getPreviewClientDeliverables,
+  approvePreviewClientDeliverable, requestPreviewClientDeliverableCorrections,
+} from '../../data/viewAsClientDataStore';
+import { getViewAsUser } from '../../data/viewAsStore';
+
+const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
+
+export function ClientProjectApercu() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { t } = useTranslation();
+  const [project, setProject] = useState<ClientProject | null>(null);
+  const [deliverables, setDeliverables] = useState<ClientDeliverable[] | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const viewAs = getViewAsUser();
+  const isPreview = viewAs?.type === 'external';
+
+  const load = useCallback(async () => {
+    if (!projectId) return;
+    const [projects, dels] = isPreview
+      ? await Promise.all([
+          getPreviewClientProjects(viewAs!.clientId!),
+          getPreviewClientDeliverables(projectId),
+        ])
+      : await Promise.all([
+          getMyClientProjects(),
+          getMyClientDeliverables(projectId),
+        ]);
+    setProject(projects.find(p => p.id === projectId) ?? null);
+    setDeliverables(dels);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => { await load(); })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
+
+  const handleApprove = async (d: ClientDeliverable) => {
+    if (!projectId) return;
+    setActingId(d.id);
+    const result = isPreview
+      ? await approvePreviewClientDeliverable(projectId, d.id, d.title)
+      : await approveClientDeliverable(d.id);
+    if (result.ok) await load();
+    setActingId(null);
+  };
+
+  const handleCorrections = async (d: ClientDeliverable) => {
+    if (!projectId) return;
+    setActingId(d.id);
+    const result = isPreview
+      ? await requestPreviewClientDeliverableCorrections(projectId, d.id, d.title)
+      : await requestClientDeliverableCorrections(d.id);
+    if (result.ok) await load();
+    setActingId(null);
+  };
+
+  if (!projectId) return null;
+  const currentPhaseIdx = project ? PHASE_ORDER.indexOf(project.phase) : -1;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ClientProjectHeader projectId={projectId} />
+      <div style={{ flex: 1, overflow: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {project && (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 20 }}>
+            <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+              {t('clientProject.apercuPhaseLabel')}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              {PHASE_ORDER.map((phase, i) => (
+                <div key={phase} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: i <= currentPhaseIdx ? 'var(--accent)' : 'var(--surface-3)',
+                    color: i <= currentPhaseIdx ? 'var(--on-accent)' : 'var(--text-3)',
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {i < currentPhaseIdx ? <SFIcon name="check" size={11} /> : i + 1}
+                  </div>
+                  {i < PHASE_ORDER.length - 1 && (
+                    <div style={{ flex: 1, height: 2, background: i < currentPhaseIdx ? 'var(--accent)' : 'var(--surface-3)' }} />
+                  )}
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>{project.phaseLabel}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--surface-3)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${project.progress}%`, background: 'var(--accent)', borderRadius: 3 }} />
+              </div>
+              <span style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{project.progress}%</span>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+            {t('clientProject.apercuDeliverables')}
+          </p>
+          {deliverables === null && <p style={{ fontSize: 13, color: 'var(--text-3)' }}>…</p>}
+          {deliverables !== null && deliverables.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('clientProject.apercuNoDeliverables')}</p>
+          )}
+          {deliverables !== null && deliverables.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {deliverables.map(d => (
+                <div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <SFIcon name="package" size={14} color="var(--text-3)" />
+                    <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>{d.title}</span>
+                    {d.status && <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{d.status}</span>}
+                  </div>
+                  {d.correctionsRequested && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#a85f3e18', border: '1px solid #a85f3e44' }}>
+                      <SFIcon name="triangle-alert" size={13} color="#a85f3e" />
+                      <span style={{ fontSize: 12, color: '#a85f3e' }}>{t('portal.correctionsRequestedNote')}</span>
+                    </div>
+                  )}
+                  {d.status === 'review' && (
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <SFButton variant="primary" icon="check" size="sm" disabled={actingId === d.id} onClick={() => handleApprove(d)} style={{ flex: 1, justifyContent: 'center' }}>
+                        {t('portal.approve')}
+                      </SFButton>
+                      {!d.correctionsRequested && (
+                        <SFButton variant="secondary" icon="message-circle" size="sm" disabled={actingId === d.id} onClick={() => handleCorrections(d)} style={{ flex: 1, justifyContent: 'center' }}>
+                          {t('portal.requestCorrections')}
+                        </SFButton>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 4: Write the migration file (do not run it — this is a deliverable for the user to run manually)**
+
+Create `docs/superpowers/specs/2026-07-26-client-deliverable-actions-migration.sql`:
+```sql
+-- Lets a real client account (client_contacts, not a studio member) approve
+-- or request corrections on a shared deliverable, without granting a
+-- blanket UPDATE policy on `tasks` (which would let a client rewrite any
+-- field — title, assignee, everything — not just approval state).
+-- SECURITY DEFINER, mirrors the is_client_contact_for_project() precedent
+-- already granted in 2026-07-15-client-access-migration.sql.
+--
+-- Run once in the Supabase SQL Editor.
+
+create or replace function client_deliverable_action(p_task_id text, p_action text)
+returns void
+language plpgsql security definer as $$
+declare
+  v_project_id text;
+  v_data jsonb;
+begin
+  if p_action not in ('approve', 'request_corrections') then
+    raise exception 'invalid action: %', p_action;
+  end if;
+
+  select project_id, data into v_project_id, v_data from tasks where id = p_task_id;
+  if v_project_id is null then
+    raise exception 'task not found';
+  end if;
+
+  if not is_client_contact_for_project(v_project_id) then
+    raise exception 'not authorized for this project';
+  end if;
+
+  if coalesce((v_data->>'deliverable')::boolean, false) is not true
+     or coalesce((v_data->>'sharedWithClient')::boolean, true) is not true then
+    raise exception 'task is not a shared deliverable';
+  end if;
+
+  if p_action = 'approve' then
+    v_data := jsonb_set(jsonb_set(v_data, '{status}', '"ok"'), '{correctionsRequested}', 'false');
+  else
+    v_data := jsonb_set(v_data, '{correctionsRequested}', 'true');
+  end if;
+
+  update tasks set data = v_data where id = p_task_id;
+end;
+$$;
+
+grant execute on function client_deliverable_action(text, text) to authenticated;
+```
+
+- [ ] **Step 5: Typecheck**
+
+Run from `app/`:
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 6: Live verification (preview path only — real client-session path needs the migration run first, which is a manual step for the user)**
+
+1. In the Claude_Browser preview, use the demo session's "Voir en tant que" flow (or navigate directly to `/apercu-client/:clientId/projets/:projectId` for a project with a pending livrable from Tasks 1-7's testing).
+2. Confirm the deliverable now shows "Approuver" / "Demander des corrections" buttons (only for `status === 'review'`).
+3. Click "Demander des corrections" — confirm the orange corrections-requested note appears and "Approuver" remains available while the "Demander des corrections" button disappears (matching `!d.correctionsRequested` guard).
+4. Click "Approuver" — confirm both buttons disappear and the status label updates.
+5. Navigate to the same resource's studio-side screen (from Tasks 4-7) — confirm the badge there now reflects the approval (proves the live-sync subscription still works end-to-end after a client-side action).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/src/data/clientSessionStore.ts app/src/data/viewAsClientDataStore.ts app/src/screens/client/ClientProjectApercu.tsx docs/superpowers/specs/2026-07-26-client-deliverable-actions-migration.sql
+git commit -m "feat(client-portal): add approve/request-corrections to the live client screen
+
+ClientProjectApercu.tsx (the screen /mon-espace and /apercu-client actually
+route to) only listed deliverables read-only — the working approve/
+corrections actions lived in Portail.tsx, which no route points to anymore.
+Ports the action to the live screen: direct taskStore write for the admin
+preview path, a new narrowly-scoped RPC for real client accounts (their
+RLS policy on tasks is read-only). Migration SQL included but not run —
+per project convention, needs manual execution in Supabase SQL Editor."
+```
+
+---
+
+### Task 9: End-to-end verification — client Portail actually receives the request
 
 **Files:** none (verification-only task; fixes anything broken found during this pass, in whichever file(s) the bug lives in).
 
@@ -522,11 +863,11 @@ In the Claude_Browser preview, open a video resource that has no linked livrable
 
 - [ ] **Step 2: View it as the client**
 
-Navigate to that project's client portal at `/portail/:projectId` (or use "Voir en tant que" from `FicheClient.tsx` → Équipe tab if testing via a real client contact — see the `viewAsStore` pattern already used elsewhere in this codebase).
+Use "Voir en tant que" from `FicheClient.tsx` → Équipe tab (or navigate directly to `/apercu-client/:clientId/projets/:projectId` for the project, once a `viewAsStore` preview session is active) — this is the live route; `/portail/:projectId` no longer exists (see Task 8).
 
 - [ ] **Step 3: Confirm it's visible and actionable**
 
-Confirm the new livrable appears under "En attente de votre approbation" in the Portail, titled after the video resource. Click "Approuver".
+Confirm the new livrable appears in the deliverables list with "Approuver"/"Demander des corrections" buttons (from Task 8), titled after the video resource. Click "Approuver".
 
 - [ ] **Step 4: Confirm the studio side reflects the approval**
 
@@ -534,7 +875,7 @@ Navigate back to the video resource screen (studio view). Confirm the badge next
 
 - [ ] **Step 5: Repeat steps 1-4 once for a document, image, and web resource, and once for a `ResourceDetail.tsx`-routed type (e.g. moodboard)**
 
-Same check, one pass per remaining resource type, to catch any type-specific issue the video pass didn't (e.g. a wrong `deliverableType` mapping breaking the Aperçu display for one type). Task 3's step 3 only checked the Aperçu side for a `ResourceDetail.tsx` type (screenplay/moodboard/inspirations/form) — this step is the first time one of those goes through the full Portail round-trip too.
+Same check, one pass per remaining resource type, to catch any type-specific issue the video pass didn't (e.g. a wrong `deliverableType` mapping breaking the display for one type). Task 3's step 3 only checked the Aperçu (studio) side for a `ResourceDetail.tsx` type (screenplay/moodboard/inspirations/form) — this step is the first time one of those goes through the full client round-trip too.
 
 - [ ] **Step 6: Final typecheck across the whole app**
 
