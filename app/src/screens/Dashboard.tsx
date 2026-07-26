@@ -412,14 +412,25 @@ export function Dashboard() {
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: inProgress ? 'var(--accent)' : 'var(--text-3)' }}>
                         {fmtEventTime(ev)}
                       </span>
-                      {project && (
+                      {/* Le tag coloré porte le type d'événement (la taxonomie du
+                          calendrier), pas le nom du projet — c'est le type qu'on
+                          cherche à lire d'un coup d'œil ici, et l'icône seule ne
+                          le nomme pas. Le projet reste affiché, en retrait. */}
+                      {type && (
                         <>
                           <span style={{ color: 'var(--border-2)', fontSize: 9 }}>·</span>
                           <span style={{
+                            flexShrink: 0,
                             fontSize: 10, fontFamily: 'var(--ff-mono)', fontWeight: 700,
-                            color: 'white', background: project.clientColor,
+                            color: 'white', background: type.color,
                             borderRadius: 4, padding: '1px 6px',
-                          }}>{project.name}</span>
+                          }}>{type.label}</span>
+                        </>
+                      )}
+                      {project && (
+                        <>
+                          <span style={{ color: 'var(--border-2)', fontSize: 9 }}>·</span>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
                         </>
                       )}
                       {ev.location && (
