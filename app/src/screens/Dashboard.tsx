@@ -230,10 +230,11 @@ export function Dashboard() {
   // — the calendars, the type selector — already subscribes).
   const [, forceEventTypesRerender] = useState(0);
   useEffect(() => subscribeEventTypes(() => forceEventTypesRerender(n => n + 1)), []);
-  // Le nom du client affiché sous chaque événement est résolu en direct via ce
-  // store plutôt que via project.clientName : cette copie dénormalisée n'est
-  // pas mise à jour quand un client est renommé, et l'accueil afficherait alors
-  // l'ancien nom indéfiniment.
+  // Le nom du client est résolu en direct via ce store plutôt que lu sur
+  // project.clientName. Renommer un client propage désormais la nouvelle valeur
+  // sur ses projets (syncClientOnProjects), mais lire la source reste plus sûr :
+  // si cette propagation échoue côté serveur, l'accueil affiche quand même le
+  // bon nom au lieu de figer l'ancien.
   const [clients, setClients] = useState(getClients);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
 

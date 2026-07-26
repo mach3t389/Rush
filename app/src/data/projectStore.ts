@@ -246,6 +246,48 @@ export function updateProject(id: string, updates: Partial<Project>): void {
   void updateSupabaseProject(id, stamped);
 }
 
+async function updateSupabaseProjectsForClient(clientId: string, patch: ClientIdentityPatch): Promise<void> {
+  const row: Record<string, string> = {};
+  if (patch.clientName !== undefined) row.client_name = patch.clientName;
+  if (patch.clientColor !== undefined) row.client_color = patch.clientColor;
+  // Single statement rather than one update per project: a client with many
+  // projects would otherwise fire a burst of round-trips on every rename.
+  const { error } = await supabase.from('projects').update(row).eq('client_id', clientId);
+  if (error) {
+    console.error('updateSupabaseProjectsForClient failed', error);
+    showToast({ type: 'section', message: "Les projets du client n'ont pas pu être mis à jour", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
+  await fetchSupabaseProjects();
+}
+
+export interface ClientIdentityPatch { clientName?: string; clientColor?: string }
+
+/**
+ * Propagates a client's name/colour onto every project that belongs to it.
+ *
+ * Projects store a denormalized copy of both fields, so without this a rename
+ * only appeared on the few screens that re-resolve the client from its own
+ * store — every project list kept showing the old name indefinitely.
+ *
+ * Deliberately NOT routed through updateProject(): that stamps modifiedAt, and
+ * renaming a client must not make all of its projects look freshly edited.
+ */
+export function syncClientOnProjects(clientId: string, patch: ClientIdentityPatch): void {
+  if (patch.clientName === undefined && patch.clientColor === undefined) return;
+  if (isDemoSession()) {
+    const affected = getProjects().filter(p => p.clientId === clientId);
+    if (affected.length === 0) return;
+    const next = { ..._overrides };
+    affected.forEach(p => { next[p.id] = { ...(next[p.id] ?? {}), ...patch }; });
+    _overrides = next;
+    persistOverrides();
+    notify();
+    return;
+  }
+  void updateSupabaseProjectsForClient(clientId, patch);
+}
+
 export function subscribeProjects(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);

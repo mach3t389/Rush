@@ -13,7 +13,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
-import { getProjects, removeProject } from './projectStore';
+import { getProjects, removeProject, syncClientOnProjects } from './projectStore';
 import { deleteAllFilesForClient } from './fileStore';
 import { getInvoicesByClient, removeInvoice } from './financeStore';
 import { setClientTeam } from './clientTeamStore';
@@ -197,13 +197,30 @@ export function updateClient(id: string, updates: Partial<Client>): void {
   // makes the "À l'instant" / "Il y a Xh" badge actually reflect reality
   // instead of being frozen at whatever value the record was created with.
   const stamped = { ...updates, lastActivity: new Date().toISOString() };
+
+  // Projects carry a denormalized copy of the client's name and colour, so a
+  // rename has to be pushed onto them or every project list keeps showing the
+  // old name. Read the previous values BEFORE the write below overwrites the
+  // cache — diffing afterwards would compare the new value against itself and
+  // never detect a change.
+  const before = getClients().find(c => c.id === id);
+  const nameChanged  = updates.name !== undefined && updates.name !== before?.name;
+  const colorChanged = updates.avatarColor !== undefined && updates.avatarColor !== before?.avatarColor;
+
   if (isDemoSession()) {
     _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...stamped } };
     persistOverrides();
     notify();
-    return;
+  } else {
+    void updateSupabaseClient(id, stamped);
   }
-  void updateSupabaseClient(id, stamped);
+
+  if (nameChanged || colorChanged) {
+    syncClientOnProjects(id, {
+      ...(nameChanged  ? { clientName:  updates.name } : {}),
+      ...(colorChanged ? { clientColor: updates.avatarColor } : {}),
+    });
+  }
 }
 
 export function subscribeClients(fn: () => void): () => void {
