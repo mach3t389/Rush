@@ -766,7 +766,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   // moves through, so it doesn't belong in the same list as
   // Terminé/En cours/etc. It gets its own toggle below instead.
   const STATUS_FILTER_OPTIONS: { value: 'all' | Status; label: string }[] = [
-    { value: 'all', label: t('projects.filterAll') },
+    { value: 'all', label: t('projects.filterAllStatus') },
     ...PROJECT_STATUS_OPTIONS.map(o => ({ value: o.status, label: t(o.labelKey) })),
   ];
 
@@ -826,7 +826,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
         <LifecycleFilterDropdown
           value={lifecycleFilter}
           onChange={changeLifecycleFilter}
-          labels={{ all: t('projects.filterAll'), active: t('clients.filterActive'), archived: t('projects.filterArchived') }}
+          labels={{ all: t('projects.filterAllLifecycle'), active: t('clients.filterActive'), archived: t('projects.filterArchived') }}
         />
 
         {/* Client filter dropdown — global context only. Left-aligned with

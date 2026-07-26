@@ -357,6 +357,8 @@
     "countsSummary": "{{total}} projects · {{active}} active · {{late}} overdue",
     "searchPlaceholder": "Search a project...",
     "filterAll": "All",
+    "filterAllStatus": "All statuses",
+    "filterAllLifecycle": "Active and archived",
     "filterArchived": "Archived",
     "allClients": "All clients",
     "sortBy": "Sort by",

@@ -357,6 +357,8 @@
     "countsSummary": "{{total}} projets · {{active}} actifs · {{late}} en retard",
     "searchPlaceholder": "Rechercher un projet...",
     "filterAll": "Tous",
+    "filterAllStatus": "Tous les statuts",
+    "filterAllLifecycle": "Actifs et archivés",
     "filterArchived": "Archivés",
     "allClients": "Tous les clients",
     "sortBy": "Trier par",
