@@ -2524,6 +2524,12 @@
     "financesAmount": "Montant",
     "financesStatus": "Statut",
     "financesDue": "Échéance",
+    "financesStatusDraft": "Brouillon",
+    "financesStatusSent": "Envoyée",
+    "financesStatusViewed": "Vue",
+    "financesStatusPaid": "Payée",
+    "financesStatusOverdue": "En retard",
+    "financesStatusCancelled": "Annulée",
     "filesEmpty": "Aucun fichier pour ce projet pour le moment.",
     "filesBack": "Retour",
     "filesResourceUnavailable": "Bientôt disponible"

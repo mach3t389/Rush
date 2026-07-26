@@ -5,6 +5,17 @@ import { ClientProjectHeader } from '../../components/client/ClientProjectHeader
 import { getMyClientInvoices, type ClientInvoice } from '../../data/clientSessionStore';
 import { getPreviewClientInvoices } from '../../data/viewAsClientDataStore';
 import { getViewAsUser } from '../../data/viewAsStore';
+import { formatMoney } from '../../data/financeStore';
+import { fmtDate } from '../Finances';
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  draft: 'clientProject.financesStatusDraft',
+  sent: 'clientProject.financesStatusSent',
+  viewed: 'clientProject.financesStatusViewed',
+  paid: 'clientProject.financesStatusPaid',
+  overdue: 'clientProject.financesStatusOverdue',
+  cancelled: 'clientProject.financesStatusCancelled',
+};
 
 export function ClientProjectFinances() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -45,15 +56,15 @@ export function ClientProjectFinances() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('clientProject.financesAmount')}</p>
-                  <p style={{ fontSize: 13, color: 'var(--text)' }}>{inv.total.toFixed(2)} {inv.currency}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text)' }}>{formatMoney(inv.total, inv.currency)}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('clientProject.financesStatus')}</p>
-                  <p style={{ fontSize: 13, color: 'var(--text)' }}>{inv.status}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text)' }}>{t(STATUS_LABEL_KEY[inv.status] ?? 'clientProject.financesStatusDraft')}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('clientProject.financesDue')}</p>
-                  <p style={{ fontSize: 13, color: 'var(--text)' }}>{inv.dueDate}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text)' }}>{fmtDate(inv.dueDate)}</p>
                 </div>
               </div>
             ))}

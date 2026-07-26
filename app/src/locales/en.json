@@ -2511,6 +2511,12 @@
     "financesAmount": "Amount",
     "financesStatus": "Status",
     "financesDue": "Due date",
+    "financesStatusDraft": "Draft",
+    "financesStatusSent": "Sent",
+    "financesStatusViewed": "Viewed",
+    "financesStatusPaid": "Paid",
+    "financesStatusOverdue": "Overdue",
+    "financesStatusCancelled": "Cancelled",
     "filesEmpty": "No files for this project yet.",
     "filesBack": "Back",
     "filesResourceUnavailable": "Not yet available"
