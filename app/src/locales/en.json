@@ -2488,6 +2488,12 @@
     "membersGratuitTitle": "Member limit reached",
     "membersGratuitBody": "The Gratuit plan allows 2 team members. Upgrade to Studio or Agence to invite more people."
   },
+  "clientPreview": {
+    "title": "Client preview",
+    "subtitle": "What this contact sees in their client space.",
+    "empty": "No projects visible to this client.",
+    "cardDelivery": "Delivery"
+  },
   "clientProject": {
     "back": "Back to my projects",
     "tabOverview": "Overview",
