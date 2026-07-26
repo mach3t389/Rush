@@ -13,7 +13,6 @@ import {
   approvePreviewClientDeliverable, requestPreviewClientDeliverableCorrections,
 } from '../../data/viewAsClientDataStore';
 import { getViewAsUser } from '../../data/viewAsStore';
-import { showToast } from '../../data/toastStore';
 
 const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
 
@@ -23,6 +22,7 @@ export function ClientProjectApercu() {
   const [project, setProject] = useState<ClientProject | null>(null);
   const [deliverables, setDeliverables] = useState<ClientDeliverable[] | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const viewAs = getViewAsUser();
   const isPreview = viewAs?.type === 'external';
@@ -55,9 +55,10 @@ export function ClientProjectApercu() {
       ? await approvePreviewClientDeliverable(projectId, d.id, d.title)
       : await approveClientDeliverable(d.id);
     if (result.ok) {
+      setActionError(null);
       await load();
     } else {
-      showToast({ type: 'task', message: t('portal.actionFailed') });
+      setActionError(t('portal.actionFailed'));
     }
     setActingId(null);
   };
@@ -69,9 +70,10 @@ export function ClientProjectApercu() {
       ? await requestPreviewClientDeliverableCorrections(projectId, d.id, d.title)
       : await requestClientDeliverableCorrections(d.id);
     if (result.ok) {
+      setActionError(null);
       await load();
     } else {
-      showToast({ type: 'task', message: t('portal.actionFailed') });
+      setActionError(t('portal.actionFailed'));
     }
     setActingId(null);
   };
@@ -119,6 +121,12 @@ export function ClientProjectApercu() {
           <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
             {t('clientProject.apercuDeliverables')}
           </p>
+          {actionError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#a85f3e18', border: '1px solid #a85f3e44', marginBottom: 12 }}>
+              <SFIcon name="triangle-alert" size={13} color="#a85f3e" />
+              <span style={{ fontSize: 12, color: '#a85f3e' }}>{actionError}</span>
+            </div>
+          )}
           {deliverables === null && <p style={{ fontSize: 13, color: 'var(--text-3)' }}>…</p>}
           {deliverables !== null && deliverables.length === 0 && (
             <p style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('clientProject.apercuNoDeliverables')}</p>
