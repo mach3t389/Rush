@@ -243,6 +243,10 @@ export function getDeliverables(projectId: string): Task[] {
   return getSections(projectId).flatMap(s => s.tasks).filter(t => t.deliverable);
 }
 
+export function findLinkedDeliverable(projectId: string, resourceId: string): Task | null {
+  return getDeliverables(projectId).find(t => (t.linkedResources ?? []).includes(resourceId)) ?? null;
+}
+
 export function moveTask(fromProjectId: string, taskId: string, toProjectId: string, toSectionLabel: string): void {
   let movedTask: Task | null = null;
   const fromSections = getSections(fromProjectId).map(s => {
