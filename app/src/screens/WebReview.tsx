@@ -2,6 +2,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton, SFPill } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
+import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 
@@ -117,7 +118,8 @@ export function WebReview() {
     setEditingUrl(false);
   };
 
-  const [annotations, setAnnotations] = useState<Annotation[]>(DEMO_ANNOTATIONS);
+  const persistedAnnotations = resourceId ? getResourceContent<{ annotations: Annotation[] }>(resourceId) : undefined;
+  const [annotations, setAnnotations] = useState<Annotation[]>(persistedAnnotations?.annotations ?? DEMO_ANNOTATIONS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addingPin, setAddingPin] = useState(false);
   // pendingPos stored in page-pixel coordinates
@@ -138,6 +140,25 @@ export function WebReview() {
   const url = resource?.webUrl ?? 'https://example.com';
   const host = url.replace(/^https?:\/\//, '').split('/')[0];
   const proxyUrl = `/web-proxy/${encodeURIComponent(url)}`;
+
+  // ── Persistance des annotations par ressource ───────────────────────────
+  const waPersistTimer = useRef<number | null>(null);
+  const waMounted = useRef(false);
+  const waSnapshotRef = useRef<Annotation[] | null>(null);
+  useEffect(() => {
+    waSnapshotRef.current = annotations;
+    if (!resourceId) return;
+    if (!waMounted.current) { waMounted.current = true; return; } // ne pas écrire au montage
+    if (waPersistTimer.current) clearTimeout(waPersistTimer.current);
+    waPersistTimer.current = window.setTimeout(() => setResourceContent(resourceId, { annotations }), 400);
+  }, [resourceId, annotations]);
+  // Flush la dernière modification en attente au démontage.
+  useEffect(() => () => {
+    if (resourceId && waPersistTimer.current && waSnapshotRef.current) {
+      clearTimeout(waPersistTimer.current);
+      setResourceContent(resourceId, { annotations: waSnapshotRef.current });
+    }
+  }, [resourceId]);
 
   useEffect(() => {
     if (pendingPos && draftRef.current) draftRef.current.focus();
