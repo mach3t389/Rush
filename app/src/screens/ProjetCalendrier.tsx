@@ -542,6 +542,18 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
               <span style={{ fontSize:12, color:'var(--text-2)', flex:1, fontWeight:600 }}>
                 {t('calendar.gcalProjectCardTitle')}
               </span>
+              {active !== null && (
+                <span style={{
+                  display:'flex', alignItems:'center', gap:4, flexShrink:0,
+                  fontSize:9, fontFamily:'var(--ff-mono)', textTransform:'uppercase', letterSpacing:'0.04em',
+                  color: active ? 'var(--ok)' : 'var(--text-3)',
+                  background: active ? 'rgba(52,201,138,0.12)' : 'var(--surface-3)',
+                  borderRadius:5, padding:'2px 6px',
+                }}>
+                  <span style={{ width:5, height:5, borderRadius:'50%', background: active ? 'var(--ok)' : 'var(--text-3)' }} />
+                  {active ? t('calendar.gcalStatusActive') : t('calendar.gcalStatusInactive')}
+                </span>
+              )}
             </div>
 
             {confirmation && (
