@@ -1624,6 +1624,7 @@
     "sharedOn": "Shared on {{date}}",
     "approve": "Approve",
     "requestCorrections": "Request corrections",
+    "actionFailed": "Couldn't complete this action right now. Please try again later.",
     "correctionsRequestedNote": "Corrections requested — waiting for a new version from the organization.",
     "deliverableHistory": "Deliverable history",
     "noDeliverablesShared": "No deliverables shared yet.",

@@ -1637,6 +1637,7 @@
     "sharedOn": "Partagé le {{date}}",
     "approve": "Approuver",
     "requestCorrections": "Demander des corrections",
+    "actionFailed": "Action impossible pour le moment. Réessayez plus tard.",
     "correctionsRequestedNote": "Corrections demandées — en attente d'une nouvelle version de l'organisation.",
     "deliverableHistory": "Historique des livrables",
     "noDeliverablesShared": "Aucun livrable partagé pour le moment.",

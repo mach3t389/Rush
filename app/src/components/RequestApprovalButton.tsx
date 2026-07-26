@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFPill } from './ui';
 import { addNotif } from '../data/notificationStore';
 import { updateResource } from '../data/resourceStore';
-import { addDeliverable, findLinkedDeliverable, subscribeStore } from '../data/taskStore';
+import { addDeliverable, findLinkedDeliverable, subscribeStore, isSectionsLoading } from '../data/taskStore';
 import { getProjects } from '../data/projectStore';
 import { USERS } from '../data/mock';
 import { showToast } from '../data/toastStore';
@@ -26,7 +26,8 @@ function inferDeliverableType(resource: Resource): DeliverableType {
 // Demande d'approbation générique pour n'importe quelle ressource.
 // → trouve ou crée le livrable (Task deliverable:true) lié à cette
 //   ressource — c'est CE livrable que le client voit et approuve dans
-//   le Portail (Portail.tsx ne lit jamais Resource.status directement).
+//   son espace client (ClientProjectApercu.tsx, routes /mon-espace/projets/:id
+//   et /apercu-client/:clientId/projets/:id ; ne lit jamais Resource.status directement).
 // → une fois un livrable lié trouvé, le bouton devient un badge de
 //   statut vivant plutôt qu'une action répétable — pas de état
 //   "double-clic" à gérer, la deuxième visite affiche juste le badge.
@@ -55,7 +56,7 @@ export function RequestApprovalButton({
   }, [projectId, resource.id]);
 
   const handle = () => {
-    if (!projectId) return;
+    if (!projectId || isSectionsLoading(projectId)) return;
     const project = getProjects().find(p => p.id === projectId);
     const task: Task = {
       id: `dl-${Date.now()}`,

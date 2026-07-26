@@ -9,7 +9,7 @@
 
 create or replace function client_deliverable_action(p_task_id text, p_action text)
 returns void
-language plpgsql security definer as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_project_id text;
   v_data jsonb;
@@ -30,6 +30,10 @@ begin
   if coalesce((v_data->>'deliverable')::boolean, false) is not true
      or coalesce((v_data->>'sharedWithClient')::boolean, true) is not true then
     raise exception 'task is not a shared deliverable';
+  end if;
+
+  if coalesce(v_data->>'status', '') <> 'review' then
+    raise exception 'task is not awaiting approval';
   end if;
 
   if p_action = 'approve' then

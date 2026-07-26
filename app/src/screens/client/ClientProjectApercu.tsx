@@ -13,6 +13,7 @@ import {
   approvePreviewClientDeliverable, requestPreviewClientDeliverableCorrections,
 } from '../../data/viewAsClientDataStore';
 import { getViewAsUser } from '../../data/viewAsStore';
+import { showToast } from '../../data/toastStore';
 
 const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
 
@@ -53,7 +54,11 @@ export function ClientProjectApercu() {
     const result = isPreview
       ? await approvePreviewClientDeliverable(projectId, d.id, d.title)
       : await approveClientDeliverable(d.id);
-    if (result.ok) await load();
+    if (result.ok) {
+      await load();
+    } else {
+      showToast({ type: 'task', message: t('portal.actionFailed') });
+    }
     setActingId(null);
   };
 
@@ -63,7 +68,11 @@ export function ClientProjectApercu() {
     const result = isPreview
       ? await requestPreviewClientDeliverableCorrections(projectId, d.id, d.title)
       : await requestClientDeliverableCorrections(d.id);
-    if (result.ok) await load();
+    if (result.ok) {
+      await load();
+    } else {
+      showToast({ type: 'task', message: t('portal.actionFailed') });
+    }
     setActingId(null);
   };
 
