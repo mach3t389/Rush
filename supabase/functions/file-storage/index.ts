@@ -93,7 +93,7 @@ Deno.serve(async (req: Request) => {
       const { resourceId, contentType } = body as { resourceId: string; contentType?: string };
       const { data: resource, error } = await supabaseAdmin
         .from("resources").select("id").eq("id", resourceId).eq("type", "form").maybeSingle();
-      if (error) throw error;
+      if (error) throw new Error(`resources lookup failed: ${error.message}`);
       if (!resource) throw new Error("form_not_found");
       const fileId = crypto.randomUUID();
       const key = `form-uploads/${resourceId}/${fileId}`;
@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
       const { resourceId, fileId } = body as { resourceId: string; fileId: string };
       const { data: resource, error } = await supabaseAdmin
         .from("resources").select("studio_id").eq("id", resourceId).maybeSingle();
-      if (error) throw error;
+      if (error) throw new Error(`resources lookup failed: ${error.message}`);
       if (!resource || resource.studio_id !== studioId) throw new Error("forbidden");
       const key = `form-uploads/${resourceId}/${fileId}`;
       const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }), { expiresIn: 600 });
