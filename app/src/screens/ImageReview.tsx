@@ -379,6 +379,8 @@ export function ImageReview() {
           </div>
         )}
 
+        {resource && <RequestApprovalButton resource={resource} projectId={projectId} />}
+
         {/* Divider */}
         <div style={{ width: 1, height: 26, background: 'var(--border)', flexShrink: 0 }} />
 
@@ -450,8 +452,6 @@ export function ImageReview() {
           <SFIcon name="upload" size={13}  />
         </button>
 
-        {/* Request approval */}
-        <RequestApprovalButton resource={resource} projectId={projectId} />
 
         {/* Fullscreen button */}
         <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? t('review.exitFullscreen') : t('review.fullscreen')}
