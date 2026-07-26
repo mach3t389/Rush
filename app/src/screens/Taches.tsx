@@ -15,6 +15,7 @@ import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
+import { isSameDay, startOfWeek, addDays } from '../components/calendar/calendarUtils';
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
@@ -43,10 +44,13 @@ const FILTERS: { key: Filter; labelKey: string }[] = [
 ];
 
 function filterTasks(tasks: Task[], filter: Filter): Task[] {
+  const today = new Date();
+  const weekStart = startOfWeek(today);
+  const weekEnd = addDays(weekStart, 6);
   switch (filter) {
-    case 'today': return tasks.filter(t => t.dueDate === "Aujourd'hui");
+    case 'today': return tasks.filter(t => { const d = parseYMD(t.dueDate ?? ''); return !!d && isSameDay(d, today); });
     case 'late':  return tasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger');
-    case 'week':  return tasks.filter(t => !t.checked && t.dueDate !== 'Hier');
+    case 'week':  return tasks.filter(t => { const d = parseYMD(t.dueDate ?? ''); return !!d && d >= weekStart && d <= weekEnd; });
     default:      return tasks;
   }
 }
