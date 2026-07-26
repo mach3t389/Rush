@@ -16,6 +16,7 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 Liste condensée de tout ce qui attend une action de ta part en ce moment (détails et « pourquoi » dans les sections ci-dessous) :
 
 - [ ] Parcours client réel complet (Étape B/C) — inviter, accepter, vérifier `/mon-espace`. Exécuter d'abord la migration `2026-07-25-client-dashboard-events-rls-migration.sql`.
+  - Note : à ne pas confondre avec « Voir en tant que » (Étape D) — ce dernier est une simulation admin déjà testée par Claude ; ce test-ci exige une vraie connexion client séparée (mot de passe réel), atteinte via `/mon-espace` après acceptation d'une invitation.
 - [ ] Logo du studio sur les écrans d'invitation (nécessite un vrai logo uploadé).
 - [ ] Chapitres vidéo — jamais testé avec un vrai fichier ayant des chapitres.
 - [ ] Partage calendrier Google — refaire le test avec une adresse différente de la tienne.
