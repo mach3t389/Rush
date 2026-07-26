@@ -889,3 +889,196 @@ Expected: no errors.
 ```bash
 git push origin master
 ```
+
+---
+
+### Task 10: Make "Voir en tant que" preview read-only for deliverable actions
+
+**Discovered in the final whole-branch review, addressed post-hoc at the user's request:** Task 8 gave the admin's "Voir en tant que" preview session the ability to actually approve/request-corrections on a deliverable — writing real data and creating a notification with `actor: 'Le client'`, even though no real client ever clicked anything. The user decided: preview should go back to being genuinely read-only (it's called "Voir en tant que" — see as — not "agir en tant que" — act as). Only a real client account, authenticated via `/mon-espace`, should be able to approve/reject.
+
+**Files:**
+- Modify: `app/src/screens/client/ClientProjectApercu.tsx` (gate the action buttons behind `!isPreview`, remove now-dead imports)
+- Modify: `app/src/data/viewAsClientDataStore.ts` (remove the two now-unused preview-write functions — dead code per this project's "no backwards-compat hacks, delete what's unused" convention)
+
+**Interfaces:**
+- Consumes: `isPreview` (existing local const in `ClientProjectApercu.tsx`, derived from `getViewAsUser()`)
+- Removes: `approvePreviewClientDeliverable`, `requestPreviewClientDeliverableCorrections` (added in Task 8, now unused) — confirm via `grep -rn "approvePreviewClientDeliverable\|requestPreviewClientDeliverableCorrections" app/src` that nothing else references them before deleting.
+
+- [ ] **Step 1: Remove the two preview-write functions from `viewAsClientDataStore.ts`**
+
+Read the current file in full first. Delete the `approvePreviewClientDeliverable` and `requestPreviewClientDeliverableCorrections` functions (added in Task 8, at the end of the file, after `getPreviewClientInvoices`). Also remove the now-unused imports this leaves behind: `updateTask` from `./taskStore` (keep `getDeliverables`, which is still used) and `addNotif` from `./notificationStore` (no longer used anywhere in this file once the two functions are gone — confirm before removing).
+
+- [ ] **Step 2: Gate the action buttons in `ClientProjectApercu.tsx`**
+
+Read the current file in full first (reproduced above in this plan's Task 8 for reference, but the file may have been touched by later fix commits — read the real current content). Make these changes:
+
+1. Remove the now-dead imports `approvePreviewClientDeliverable, requestPreviewClientDeliverableCorrections` from the `viewAsClientDataStore` import line (keep `getPreviewClientProjects, getPreviewClientDeliverables`).
+2. In `handleApprove`/`handleCorrections`, remove the `isPreview ? ... : ...` branch — since preview no longer supports these actions, these handlers are now only ever called when `!isPreview`, so they should just call the real-session functions directly:
+```ts
+const handleApprove = async (d: ClientDeliverable) => {
+  if (!projectId) return;
+  setActingId(d.id);
+  const result = await approveClientDeliverable(d.id);
+  if (result.ok) {
+    setActionError(null);
+    await load();
+  } else {
+    setActionError(t('portal.actionFailed'));
+  }
+  setActingId(null);
+};
+
+const handleCorrections = async (d: ClientDeliverable) => {
+  if (!projectId) return;
+  setActingId(d.id);
+  const result = await requestClientDeliverableCorrections(d.id);
+  if (result.ok) {
+    setActionError(null);
+    await load();
+  } else {
+    setActionError(t('portal.actionFailed'));
+  }
+  setActingId(null);
+};
+```
+3. Wrap the existing `{d.status === 'review' && (...)}` action-buttons block with an additional `!isPreview` condition, so it becomes `{d.status === 'review' && !isPreview && (...)}` — read the exact current JSX around this block first (it's inside the `deliverables.map(d => ...)` block) and make the minimal one-condition change, don't restructure anything else.
+
+- [ ] **Step 3: Typecheck**
+
+Run from `app/`:
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors (this removes code, so also confirm no other file imports the two deleted functions — if the grep from this task's Interfaces section found any other reference, stop and report instead of deleting).
+
+- [ ] **Step 4: Live verification**
+
+1. Via "Voir en tant que" (FicheClient.tsx → Équipe → a contact → "Voir en tant que"), navigate to a project with a pending deliverable (`status: 'review'`).
+2. Confirm the deliverable still shows in the list (read-only — title, status label), but "Approuver"/"Demander des corrections" no longer appear.
+3. Confirm no console errors.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/screens/client/ClientProjectApercu.tsx app/src/data/viewAsClientDataStore.ts
+git commit -m "fix(client-portal): make 'Voir en tant que' preview read-only again
+
+Task 8 let an admin's preview session actually approve/reject a
+deliverable, writing real data and fabricating a 'Le client a...'
+activity entry for an action no real client took. Previewing is meant
+to show what the client sees, not act on their behalf — only a real
+client account (/mon-espace) can approve or request corrections now."
+```
+
+---
+
+### Task 11: "Relancer l'approbation" — resubmit after corrections requested
+
+**Context:** the original design spec (`docs/superpowers/specs/2026-07-26-approval-requests-design.md`, "Flux" section, step 2) said a resource with an existing pending livrable should let the studio re-fire the approval notification rather than being stuck. What actually got built in Task 3: once any livrable is linked, `RequestApprovalButton` always renders a read-only status pill that navigates to Aperçu — there's no way to resubmit after the client requests corrections and the studio uploads a fix, short of manually changing the status in Aperçu. This task closes that gap directly on the resource screen, where the studio is already looking at the fixed content.
+
+**Files:**
+- Modify: `app/src/components/RequestApprovalButton.tsx`
+- Modify: `app/src/locales/fr.json`, `app/src/locales/en.json` (2 new keys)
+
+**Interfaces:**
+- Consumes: `updateTask(projectId, taskId, patch): void` (existing, `taskStore.ts:221`) — not yet imported in this file, needs adding.
+- No new exports — this only changes `RequestApprovalButton`'s internal render logic.
+
+- [ ] **Step 1: Add the 2 new i18n keys**
+
+In `app/src/locales/fr.json`, in the existing `"approval"` object (already contains `livrableCreatedToast`, `viewLivrable`, `statusPending`, `statusApproved`, `statusCorrections` from Tasks 2 and the rest), add:
+```json
+    "relaunchApproval": "Relancer l'approbation",
+    "relaunchedToast": "Nouvelle demande d'approbation envoyée au client"
+```
+In `app/src/locales/en.json`, in the matching `"approval"` object, add:
+```json
+    "relaunchApproval": "Resubmit for approval",
+    "relaunchedToast": "New approval request sent to the client"
+```
+
+- [ ] **Step 2: Add the relaunch handler and update the render logic**
+
+Read the current full content of `app/src/components/RequestApprovalButton.tsx` first (it was last fully rewritten in Task 3; no later task changed its internals, only its mount location in other files — so it should match Task 3's content exactly, but verify).
+
+Add `updateTask` to the existing `taskStore` import:
+```ts
+import { addDeliverable, findLinkedDeliverable, subscribeStore, updateTask } from '../data/taskStore';
+```
+
+Add a new handler, right after the existing `handle` function:
+```ts
+const handleRelaunch = () => {
+  if (!projectId || !linked) return;
+  updateTask(projectId, linked.id, { status: 'review', correctionsRequested: false });
+  addNotif({
+    kind: 'approval',
+    actor: USERS.lea.name,
+    text: `a demandé l'approbation de « ${resource.title} »`,
+    timestamp: Date.now(),
+    resourceId: resource.id,
+    taskId: linked.id,
+    projectId,
+  });
+  showToast({ type: 'task', message: t('approval.relaunchedToast') });
+};
+```
+
+Change the `if (linked) { ... }` block. It currently computes a `label`/`pillStatus` and always returns a pill. Split it: when `linked.correctionsRequested` is true, return a button (not a pill) that calls `handleRelaunch`; otherwise keep the existing pill behavior unchanged:
+```tsx
+if (linked) {
+  if (linked.correctionsRequested) {
+    return (
+      <SFButton
+        variant="primary"
+        size={size}
+        icon="refresh-cw"
+        onClick={handleRelaunch}
+        style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+      >
+        {t('approval.relaunchApproval')}
+      </SFButton>
+    );
+  }
+  const label = linked.status === 'ok' ? t('approval.statusApproved') : t('approval.statusPending');
+  const pillStatus: Status = linked.status;
+  return (
+    <button
+      onClick={() => navigate(`/projets/${projectId}/overview`)}
+      title={t('approval.viewLivrable')}
+      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
+    >
+      <SFPill status={pillStatus} small={size === 'sm'}>{label}</SFPill>
+    </button>
+  );
+}
+```
+(This removes the now-dead `t('approval.statusCorrections')` branch and the `linked.correctionsRequested ? 'warn' : ...` pill-status ternary from the old label/pillStatus computation, since that case is now handled by the early return above — read the exact current code first so this edit lands cleanly rather than leaving orphaned logic.)
+
+- [ ] **Step 3: Typecheck**
+
+Run from `app/`:
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+Expected: no errors.
+
+- [ ] **Step 4: Live verification**
+
+1. Navigate to a resource whose linked livrable currently has `correctionsRequested: true` (use "Voir en tant que" to request corrections on a pending one first if none exists — Task 10 removed the client-preview UI for this, so trigger it via the studio side: open the livrable in Aperçu, or use the browser console to call `updateTask` directly against the demo store).
+2. Confirm the resource screen now shows a "Relancer l'approbation" button (not a pill) instead of the old "Corrections demandées" pill.
+3. Click it. Confirm: a toast appears, the button converts to the normal pending pill ("En attente d'approbation"), and in Aperçu the livrable's status is back to `review` with `correctionsRequested: false`.
+4. Confirm the client (via "Voir en tant que") sees the deliverable again under pending review, without the corrections note.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/components/RequestApprovalButton.tsx app/src/locales/fr.json app/src/locales/en.json
+git commit -m "feat(approval): resubmit for approval after corrections requested
+
+Closes a gap from the original design spec's 'relaunch, don't
+duplicate' intent — RequestApprovalButton previously only ever showed
+a read-only status pill once a livrable existed, with no way to
+resubmit after the client requested corrections and the studio fixed
+the issue."
+```
