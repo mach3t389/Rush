@@ -36,7 +36,6 @@ import { ProjectMembres } from './screens/ProjectMembres';
 import { ProjetCalendrier } from './screens/ProjetCalendrier';
 import { FichiersGlobal } from './screens/FichiersGlobal';
 import { Fichiers } from './screens/Fichiers';
-import { VueGlobale } from './screens/VueGlobale';
 import { ProjectActivite } from './screens/ProjectActivite';
 import { Finances } from './screens/Finances';
 import { ProjetFinances } from './screens/ProjetFinances';
@@ -145,7 +144,6 @@ const router = createBrowserRouter([
       { path: 'calendrier', element: <CalendrierGlobal /> },
       { path: 'modeles', element: <Modeles /> },
       { path: 'fichiers', element: <FichiersGlobal /> },
-      { path: 'global', element: <VueGlobale /> },
     ],
   },
 ]);

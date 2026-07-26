@@ -759,7 +759,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
       {!clientId && (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('projects.title')}</h1>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('projects.title')}</h1>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
               {t('projects.countsSummary', { total: projects.length, active: projects.filter(p => p.status !== 'ok' && p.status !== 'neutral').length, late: projects.filter(p => p.status === 'danger').length })}
             </p>

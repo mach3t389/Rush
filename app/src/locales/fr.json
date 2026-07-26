@@ -668,11 +668,6 @@
   "toast": {
     "undo": "Annuler"
   },
-  "global": {
-    "files": "Fichiers",
-    "calendar": "Calendrier",
-    "finances": "Finances"
-  },
   "client": {
     "defaultClientContactRole": "Contact client",
     "invitePerson": "Inviter une personne",

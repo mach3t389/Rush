@@ -55,6 +55,7 @@ export function ProjectHeaderBar({
     <div style={{
       padding: '12px 24px',
       borderBottom: '1px solid var(--border)',
+      background: 'var(--surface)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       flexShrink: 0,
     }}>
