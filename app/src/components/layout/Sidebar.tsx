@@ -14,6 +14,7 @@ import {
 } from '../../data/pinnedStore';
 import { getLogoFull, getLogoSquare, subscribeStudioLogos } from '../../data/studioLogoStore';
 import { getViewAsUser, subscribeViewAs } from '../../data/viewAsStore';
+import { getRequiredPermissionForPath } from '../../data/viewAsRoutePermissions';
 import { getTotalStorageUsedBytes, subscribeStorageUsage, checkStorageThreshold } from '../../data/storageStore';
 import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
 import { getStorageLimitGB } from '../../data/planFeatures';
@@ -190,10 +191,15 @@ export function Sidebar() {
 
   useEffect(() => subscribeViewAs(() => setViewAs(getViewAsUser())), []);
 
-  // Derive permission restrictions when viewing as an internal member
+  // Derive permission restrictions when viewing as an internal member —
+  // uses the same route→permission mapping the route guard enforces
+  // (viewAsRoutePermissions.ts), so a hidden link and an enforced redirect
+  // can never disagree about what a given route requires.
   const viewAsPerms = viewAs?.type === 'internal' ? (viewAs.permissions ?? []) : null;
-  const canSeeClients  = !viewAsPerms || viewAsPerms.includes('manage_clients');
-  const canSeeFinances = !viewAsPerms || viewAsPerms.includes('view_invoices') || viewAsPerms.includes('manage_invoices');
+  const requiredForClients = getRequiredPermissionForPath('/clients')!;
+  const canSeeClients = !viewAsPerms || requiredForClients.some(p => viewAsPerms.includes(p));
+  const requiredForFinances = getRequiredPermissionForPath('/finances')!;
+  const canSeeFinances = !viewAsPerms || requiredForFinances.some(p => viewAsPerms.includes(p));
 
   const pinnedProjects = pinnedIds
     .map(id => getProjects().find(p => p.id === id))
