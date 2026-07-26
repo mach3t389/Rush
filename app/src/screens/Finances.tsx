@@ -1062,7 +1062,21 @@ export function Finances() {
       <PageHeader
         title={t('finance.title')}
         actions={<SFButton variant="primary" icon="plus" onClick={openAdd}>{t('finance.newInvoice')}</SFButton>}
-      />
+      >
+        {/* Search */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <span style={{ position: 'absolute', left: 9, pointerEvents: 'none', display: 'flex' }}><SFIcon name="search" size={13} color="var(--text-3)" /></span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('finance.search')} style={{ fontSize: 12, padding: '6px 10px 6px 28px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', width: 200 }} />
+        </div>
+        {/* Status filter chips */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          {STATUS_FILTERS.map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key as InvoiceStatus | 'all')} style={{ fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s', border: `1px solid ${filter === f.key ? 'var(--accent)' : 'var(--border)'}`, background: filter === f.key ? 'var(--accent)' : 'transparent', color: filter === f.key ? 'var(--on-accent)' : 'var(--text-2)' }}>
+              {t(f.labelKey)}
+            </button>
+          ))}
+        </div>
+      </PageHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
 
@@ -1092,16 +1106,7 @@ export function Finances() {
           <StatusDonut invoices={invoices} />
         </div>
 
-        {/* Filter bar — status pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-          {STATUS_FILTERS.map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key as InvoiceStatus | 'all')} style={{ fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', transition: 'all 0.1s', border: `1px solid ${filter === f.key ? 'var(--accent)' : 'var(--border)'}`, background: filter === f.key ? 'var(--accent)' : 'transparent', color: filter === f.key ? 'var(--on-accent)' : 'var(--text-2)' }}>
-              {t(f.labelKey)}
-            </button>
-          ))}
-        </div>
-
-        {/* Filter bar — client / project / date / search */}
+        {/* Filter bar — client / project */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Client */}
           <select value={clientFilter} onChange={e => { setClientFilter(e.target.value); setProjectFilter(''); }} style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: clientFilter ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', outline: 'none' }}>
@@ -1113,12 +1118,6 @@ export function Finances() {
             <option value="">{t('finance.allProjects')}</option>
             {clientFilterProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <div style={{ flex: 1 }} />
-          {/* Search */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <span style={{ position: 'absolute', left: 9, pointerEvents: 'none', display: 'flex' }}><SFIcon name="search" size={13} color="var(--text-3)" /></span>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('finance.search')} style={{ fontSize: 12, padding: '6px 10px 6px 28px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', width: 200 }} />
-          </div>
         </div>
 
         {/* Date filter row */}
