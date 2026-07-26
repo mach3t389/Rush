@@ -8,6 +8,7 @@ import { isAuthenticated } from './data/authStore';
 import { preloadResourceContent } from './data/resourceContentStore';
 
 import { AppShell } from './components/layout/AppShell';
+import { ViewAsPermissionGate } from './components/ViewAsPermissionGate';
 import { Dashboard } from './screens/Dashboard';
 import { Taches } from './screens/Taches';
 import { Projets } from './screens/Projets';
@@ -117,10 +118,10 @@ const router = createBrowserRouter([
       { path: 'projets/:projectId/calendrier', element: <ProjetCalendrier /> },
       { path: 'projets/:projectId/membres', element: <ProjectMembres /> },
       { path: 'projets/:projectId/activite', element: <ProjectActivite /> },
-      { path: 'projets/:projectId/finances', element: <ProjetFinances /> },
-      { path: 'finances', element: <Finances /> },
-      { path: 'clients', element: <Clients /> },
-      { path: 'clients/:clientId', element: <FicheClient /> },
+      { path: 'projets/:projectId/finances', element: <ViewAsPermissionGate><ProjetFinances /></ViewAsPermissionGate> },
+      { path: 'finances', element: <ViewAsPermissionGate><Finances /></ViewAsPermissionGate> },
+      { path: 'clients', element: <ViewAsPermissionGate><Clients /></ViewAsPermissionGate> },
+      { path: 'clients/:clientId', element: <ViewAsPermissionGate><FicheClient /></ViewAsPermissionGate> },
       { path: 'parametres', element: <Parametres /> },
       { path: 'activite', element: <Activite /> },
       { path: 'calendrier', element: <CalendrierGlobal /> },
