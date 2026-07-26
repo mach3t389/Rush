@@ -582,7 +582,11 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
             )}
 
             {!active && (
-              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectSharePrompt', { client: clientName })}</span>
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>
+                {contacts.length > 0
+                  ? t('calendar.gcalProjectCreatePromptWithContact', { client: clientName })
+                  : t('calendar.gcalProjectCreatePromptNoContact')}
+              </span>
             )}
 
             <button
@@ -590,7 +594,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
               disabled={busy}
               style={{ alignSelf:'flex-start', padding:'6px 12px', borderRadius:8, border: active ? '1px solid var(--danger)' : '1px solid var(--border)', background:'transparent', color: active ? 'var(--danger)' : 'var(--text)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
             >
-              {busy ? '…' : active ? t('calendar.gcalProjectStopSharing') : t('calendar.gcalProjectShareAction')}
+              {busy ? '…' : active ? t('calendar.gcalProjectStopSharing') : t('calendar.gcalProjectCreateAction')}
             </button>
           </div>
         </>
