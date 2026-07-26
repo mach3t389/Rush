@@ -7,6 +7,8 @@ import {
   getMyClientProjects, getMyClientDeliverables,
   type ClientProject, type ClientDeliverable,
 } from '../../data/clientSessionStore';
+import { getPreviewClientProjects, getPreviewClientDeliverables } from '../../data/viewAsClientDataStore';
+import { getViewAsUser } from '../../data/viewAsStore';
 
 const PHASE_ORDER = ['preproduction', 'production', 'postproduction', 'livraison'];
 
@@ -16,20 +18,29 @@ export function ClientProjectApercu() {
   const [project, setProject] = useState<ClientProject | null>(null);
   const [deliverables, setDeliverables] = useState<ClientDeliverable[] | null>(null);
 
+  const viewAs = getViewAsUser();
+  const isPreview = viewAs?.type === 'external';
+
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
     (async () => {
-      const [projects, dels] = await Promise.all([
-        getMyClientProjects(),
-        getMyClientDeliverables(projectId),
-      ]);
+      const [projects, dels] = isPreview
+        ? await Promise.all([
+            getPreviewClientProjects(viewAs!.clientId!),
+            getPreviewClientDeliverables(projectId),
+          ])
+        : await Promise.all([
+            getMyClientProjects(),
+            getMyClientDeliverables(projectId),
+          ]);
       if (cancelled) return;
       setProject(projects.find(p => p.id === projectId) ?? null);
       setDeliverables(dels);
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
 
   if (!projectId) return null;
   const currentPhaseIdx = project ? PHASE_ORDER.indexOf(project.phase) : -1;
