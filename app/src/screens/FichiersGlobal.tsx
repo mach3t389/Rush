@@ -3191,7 +3191,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Top bar */}
-      <div style={{ flexShrink: 0, padding: '0 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, height: 52 }}>
+      <div style={{ flexShrink: 0, padding: '0 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12, height: 52 }}>
         {/* Toggle sidebar collapse */}
         <button
           onClick={() => setSidebarCollapsed(v => !v)}

@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue } from '../components/ui';
+import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks } from '../data/myTaskStore';
@@ -1488,52 +1488,40 @@ export function Taches() {
     <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* Header + filter bar */}
-      <div style={{ flexShrink: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-        {/* Topbar */}
-        <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('tasks.myTasksTitle')}</h1>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
-              {t('tasks.taskCountSummary', { visible: visible.length, total: activeTasks.length })}
-              {lateCount > 0 && <> · <span style={{ color: 'var(--danger)' }}>{t('tasks.overdueCount', { count: lateCount })}</span></>}
-            </p>
-          </div>
+      <PageHeader
+        title={t('tasks.myTasksTitle')}
+        subtitle={`${t('tasks.taskCountSummary', { visible: visible.length, total: activeTasks.length })}${lateCount > 0 ? ` · ${t('tasks.overdueCount', { count: lateCount })}` : ''}`}
+      >
+        <div style={{ display: 'flex', gap: 2 }}>
+          {FILTERS.map(filterTabBtn)}
         </div>
-
-        {/* Filter bar — date tabs left, dropdowns right */}
-        <div style={{ padding: '4px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 2 }}>
-            {FILTERS.map(filterTabBtn)}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button
-            onClick={() => setGroupByPriority(g => !g)}
-            title={groupByPriority ? t('taskPanel.ungroupByPriority') : t('taskPanel.groupByPriority')}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${groupByPriority ? 'var(--accent)' : 'var(--border)'}`, background: groupByPriority ? 'rgba(249,255,0,0.08)' : 'transparent', color: groupByPriority ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
-          >
-            <SFIcon name="layers" size={12} color={groupByPriority ? 'var(--accent)' : 'var(--text-3)'} />
-            {t('tasks.priority')}
-          </button>
-          <button
-            onClick={() => setHideCompleted(v => !v)}
-            title={hideCompleted ? t('tasks.showCompleted') : t('tasks.hideCompleted')}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${hideCompleted ? 'var(--accent)' : 'var(--border)'}`, background: hideCompleted ? 'rgba(249,255,0,0.08)' : 'transparent', color: hideCompleted ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
-          >
-            <SFIcon name={hideCompleted ? 'eye-off' : 'eye'} size={12} color={hideCompleted ? 'var(--accent)' : 'var(--text-3)'} />
-            {t('tasks.hideCompleted')}
-          </button>
-          <FilterBar
-            filterPriorities={filterPrioritiesSet}
-            filterStatuses={filterStatusesSet}
-            onTogglePriority={togglePriorityFilter}
-            onToggleStatus={toggleStatusFilter}
-            onClearPriority={() => setFilterPriorities([])}
-            onClearStatus={() => setFilterStatuses([])}
-          />
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+        <button
+          onClick={() => setGroupByPriority(g => !g)}
+          title={groupByPriority ? t('taskPanel.ungroupByPriority') : t('taskPanel.groupByPriority')}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${groupByPriority ? 'var(--accent)' : 'var(--border)'}`, background: groupByPriority ? 'rgba(249,255,0,0.08)' : 'transparent', color: groupByPriority ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
+        >
+          <SFIcon name="layers" size={12} color={groupByPriority ? 'var(--accent)' : 'var(--text-3)'} />
+          {t('tasks.priority')}
+        </button>
+        <button
+          onClick={() => setHideCompleted(v => !v)}
+          title={hideCompleted ? t('tasks.showCompleted') : t('tasks.hideCompleted')}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${hideCompleted ? 'var(--accent)' : 'var(--border)'}`, background: hideCompleted ? 'rgba(249,255,0,0.08)' : 'transparent', color: hideCompleted ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
+        >
+          <SFIcon name={hideCompleted ? 'eye-off' : 'eye'} size={12} color={hideCompleted ? 'var(--accent)' : 'var(--text-3)'} />
+          {t('tasks.hideCompleted')}
+        </button>
+        <FilterBar
+          filterPriorities={filterPrioritiesSet}
+          filterStatuses={filterStatusesSet}
+          onTogglePriority={togglePriorityFilter}
+          onToggleStatus={toggleStatusFilter}
+          onClearPriority={() => setFilterPriorities([])}
+          onClearStatus={() => setFilterStatuses([])}
+        />
         </div>
-      </div>
+      </PageHeader>
 
       {/* Body */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px' }}>
