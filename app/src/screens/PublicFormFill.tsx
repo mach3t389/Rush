@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { SFIcon } from '../components/ui';
-import { getPublicForm, submitPublicForm, type PublicFormData } from '../data/formSubmissionsStore';
+import { getPublicForm, submitPublicForm, uploadPublicFormFile, type PublicFormData } from '../data/formSubmissionsStore';
 import { FormFillBody, type FormQuestion } from './ResourceDetail';
 
 // Public, fully unauthenticated page for filling out a "Formulaire" resource
@@ -130,6 +130,7 @@ export function PublicFormFill() {
           answers={answers}
           onAnswer={(qid, val) => setAnswers(p => ({ ...p, [qid]: val }))}
           onToggleCheck={toggleCheck}
+          onUpload={(_qid, file) => uploadPublicFormFile(resourceId, file)}
         />
 
         {error && (

@@ -7,6 +7,7 @@ import {
   AbortMultipartUploadCommand,
   ListPartsCommand,
   GetObjectCommand,
+  PutObjectCommand,
   DeleteObjectCommand,
 } from "npm:@aws-sdk/client-s3@3";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3";
@@ -78,12 +79,51 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const { action, ...body } = await req.json();
+
+    // Public, unauthenticated actions used by the "Formulaire" resource's
+    // public link (/f/:resourceId) — a genuine anonymous visitor has no
+    // Supabase session at all. Ownership is enforced by resource type/id
+    // instead of a studio JWT. No new table needed — the uploaded object's
+    // key (form-uploads/<resourceId>/<fileId>) is embedded as the answer
+    // value in form_submissions.answers, same as any other question type.
+    // This function must be redeployed (supabase functions deploy
+    // file-storage) for these two actions to exist in production.
+    if (action === "form-sign-put") {
+      const { resourceId, contentType } = body as { resourceId: string; contentType?: string };
+      const { data: resource, error } = await supabaseAdmin
+        .from("resources").select("id").eq("id", resourceId).eq("type", "form").maybeSingle();
+      if (error) throw error;
+      if (!resource) throw new Error("form_not_found");
+      const fileId = crypto.randomUUID();
+      const key = `form-uploads/${resourceId}/${fileId}`;
+      const url = await getSignedUrl(
+        s3,
+        new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, ContentType: contentType || "application/octet-stream" }),
+        { expiresIn: 300 },
+      );
+      return json({ url, key, fileId });
+    }
+
+    if (action === "form-sign-get") {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("missing Authorization header");
+      const jwt = authHeader.replace("Bearer ", "");
+      const studioId = await resolveStudioId(jwt);
+      const { resourceId, fileId } = body as { resourceId: string; fileId: string };
+      const { data: resource, error } = await supabaseAdmin
+        .from("resources").select("studio_id").eq("id", resourceId).maybeSingle();
+      if (error) throw error;
+      if (!resource || resource.studio_id !== studioId) throw new Error("forbidden");
+      const key = `form-uploads/${resourceId}/${fileId}`;
+      const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }), { expiresIn: 600 });
+      return json({ url });
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("missing Authorization header");
     const jwt = authHeader.replace("Bearer ", "");
     const studioId = await resolveStudioId(jwt);
-
-    const { action, ...body } = await req.json();
 
     switch (action) {
       case "initiate-upload": {

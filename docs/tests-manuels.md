@@ -50,12 +50,12 @@ Par règle de sécurité, Claude ne peut jamais créer de compte ni entrer un mo
 
 ## Formulaire — lien public réel
 
-- [ ] **Migration Supabase à exécuter** : colle `docs/superpowers/specs/2026-07-25-public-form-submission-migration.sql` dans Supabase → SQL Editor et exécute-la (crée la table `form_submissions` + les fonctions `get_public_form`/`submit_public_form`). Sans ça, le lien public renverra « Formulaire introuvable » en session réelle.
-  - Pourquoi : aucune migration ne s'applique automatiquement dans ce projet.
-- [ ] **Parcours complet avec un vrai compte (pas démo)** : ouvre une ressource Formulaire → onglet Partager, copie le lien → ouvre ce lien dans une fenêtre de navigation privée (simulate un vrai visiteur externe, sans session) → remplis et soumets le formulaire → reviens dans l'app, confirme que la réponse apparaît bien dans l'onglet Réponses avec le bon nom/courriel/réponses.
-  - Pourquoi : vérifié en mode démo seulement (le lien public utilise alors le stockage local du même navigateur, ce qui simule mais ne prouve pas le vrai chemin Supabase RPC anonyme). Nécessite un vrai compte + la migration ci-dessus.
-  - Ce qui a déjà été testé par Claude (mode démo, en direct) : le lien public affiche le vrai titre/questions, la soumission s'enregistre, et apparaît immédiatement dans l'onglet Réponses avec les bonnes réponses et le résumé statistique.
-  - Limite connue : le type de question « Upload de fichier » n'enregistre que le nom du fichier choisi, pas le fichier lui-même (l'envoi réel de fichier depuis un visiteur anonyme n'est pas construit).
+- [x] **Migration Supabase exécutée** (confirmé par toi le 2026-07-25) : table `form_submissions` + fonctions `get_public_form`/`submit_public_form`.
+- [ ] **Redéployer la fonction Supabase `file-storage`** : `supabase functions deploy file-storage` (deux nouvelles actions `form-sign-put`/`form-sign-get` pour l'upload de fichier depuis le formulaire public — sans ça, une question « Upload de fichier » échouera en session réelle, même si le reste du formulaire fonctionne).
+  - Pourquoi : comme les migrations SQL, rien ne déploie les fonctions Edge automatiquement.
+- [ ] **Parcours complet avec un vrai compte (pas démo)** : ouvre une ressource Formulaire → onglet Partager, copie le lien → ouvre ce lien dans une fenêtre de navigation privée (simulate un vrai visiteur externe, sans session) → remplis et soumets le formulaire, y compris une question « Upload de fichier » avec un vrai fichier → reviens dans l'app, confirme que la réponse apparaît bien dans l'onglet Réponses avec le bon nom/courriel/réponses, et que le fichier uploadé s'ouvre/télécharge correctement en cliquant dessus.
+  - Pourquoi : vérifié en mode démo seulement (le lien public utilise alors le stockage local du même navigateur, ce qui simule mais ne prouve pas le vrai chemin Supabase RPC/Edge Function anonyme). Nécessite un vrai compte + la fonction redéployée ci-dessus.
+  - Ce qui a déjà été testé par Claude (mode démo, en direct) : le lien public affiche le vrai titre/questions, la soumission s'enregistre (y compris un vrai fichier uploadé), et apparaît immédiatement dans l'onglet Réponses avec les bonnes réponses, le résumé statistique, et un lien de téléchargement fonctionnel pour le fichier joint.
 
 ---
 

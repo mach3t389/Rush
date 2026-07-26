@@ -12,7 +12,7 @@ import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
-import { getFormSubmissions, subscribeFormSubmissions, type FormSubmission } from '../data/formSubmissionsStore';
+import { getFormSubmissions, subscribeFormSubmissions, getFormFileUrlSync, type FormSubmission } from '../data/formSubmissionsStore';
 import { markResourceRead } from '../data/notificationStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
@@ -3136,12 +3136,42 @@ const INIT_FORM_QUESTIONS: FormQuestion[] = [
 // /f/:resourceId page (PublicFormFill.tsx), which is the only place answers
 // are actually recorded. Keeping this in one place means the two can never
 // visually drift apart.
-export function FormFillBody({ questions, answers, onAnswer, onToggleCheck }: {
+// Encodes a real uploaded file's answer as "upload:<fileId>:<originalName>"
+// so the Réponses tab can both resolve a download link (fileId) and show a
+// human-readable name, while a plain string (no prefix) still means
+// "filename only, no real file" — the behavior of FormView's local-only
+// preview tab, which never uploads anything for real.
+export function encodeUploadAnswer(fileId: string, fileName: string): string {
+  return `upload:${fileId}:${fileName}`;
+}
+export function decodeUploadAnswer(value: string): { fileId: string; fileName: string } | null {
+  if (!value.startsWith('upload:')) return null;
+  const rest = value.slice('upload:'.length);
+  const sep = rest.indexOf(':');
+  if (sep < 0) return null;
+  return { fileId: rest.slice(0, sep), fileName: rest.slice(sep + 1) };
+}
+
+export function FormFillBody({ questions, answers, onAnswer, onToggleCheck, onUpload }: {
   questions: FormQuestion[];
   answers: Record<string, string | string[]>;
   onAnswer: (qid: string, value: string) => void;
   onToggleCheck: (qid: string, value: string) => void;
+  // When provided, a chosen file is really uploaded (public form page); the
+  // answer is stored as encodeUploadAnswer(fileId, name). Omitted in
+  // FormView's local-only preview tab, which just records the filename.
+  onUpload?: (qid: string, file: File) => Promise<string | null>;
 }) {
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
+
+  const handleFileChosen = async (qid: string, file: File) => {
+    if (!onUpload) { onAnswer(qid, file.name); return; }
+    setUploadingIds(prev => new Set(prev).add(qid));
+    const fileId = await onUpload(qid, file);
+    setUploadingIds(prev => { const next = new Set(prev); next.delete(qid); return next; });
+    onAnswer(qid, fileId ? encodeUploadAnswer(fileId, file.name) : '');
+  };
+
   return (
     <>
       {questions.map((q) => (
@@ -3169,18 +3199,24 @@ export function FormFillBody({ questions, answers, onAnswer, onToggleCheck }: {
               {q.type==='date' && (
                 <input type="date" className="fv-preview-input" value={(answers[q.id]??'') as string} onChange={e=>onAnswer(q.id, e.target.value)} style={{ maxWidth:200 }} />
               )}
-              {q.type==='upload' && (
-                <label style={{ display:'block', cursor:'pointer' }}>
-                  <input type="file" style={{ display:'none' }} onChange={e => { if(e.target.files?.[0]) onAnswer(q.id, e.target.files[0].name); }} />
-                  <div style={{ border:`2px dashed ${answers[q.id]?'var(--accent)':'var(--border-2)'}`, borderRadius:10, padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'border-color .15s', background: answers[q.id]?'color-mix(in srgb, var(--accent) 7%, transparent)':'transparent' }}>
-                    <SFIcon name={answers[q.id]?'file-check':'upload'} size={22} style={{ color: answers[q.id]?'var(--accent)':'var(--text-3)' }} />
-                    <span style={{ fontSize:13, fontFamily:'var(--ff-text)', color:answers[q.id]?'var(--accent)':'var(--text-2)' }}>
-                      {answers[q.id] ? String(answers[q.id]) : 'Cliquer ou glisser un fichier ici'}
-                    </span>
-                    {!answers[q.id] && <span style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>Nom du fichier seulement pour l'instant — l'envoi du fichier lui-même n'est pas encore pris en charge</span>}
-                  </div>
-                </label>
-              )}
+              {q.type==='upload' && (() => {
+                const uploading = uploadingIds.has(q.id);
+                const raw = (answers[q.id] as string | undefined) ?? '';
+                const decoded = decodeUploadAnswer(raw);
+                const displayName = decoded?.fileName ?? raw;
+                return (
+                  <label style={{ display:'block', cursor: uploading ? 'wait' : 'pointer' }}>
+                    <input type="file" disabled={uploading} style={{ display:'none' }} onChange={e => { if(e.target.files?.[0]) void handleFileChosen(q.id, e.target.files[0]); }} />
+                    <div style={{ border:`2px dashed ${displayName?'var(--accent)':'var(--border-2)'}`, borderRadius:10, padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'border-color .15s', background: displayName?'color-mix(in srgb, var(--accent) 7%, transparent)':'transparent' }}>
+                      <SFIcon name={uploading ? 'loader' : displayName?'file-check':'upload'} size={22} style={{ color: displayName?'var(--accent)':'var(--text-3)' }} />
+                      <span style={{ fontSize:13, fontFamily:'var(--ff-text)', color:displayName?'var(--accent)':'var(--text-2)' }}>
+                        {uploading ? 'Envoi en cours…' : displayName || 'Cliquer ou glisser un fichier ici'}
+                      </span>
+                      {!displayName && !uploading && <span style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--ff-text)' }}>PDF, images, vidéos… (10 Mo max)</span>}
+                    </div>
+                  </label>
+                );
+              })()}
               {q.type==='choice' && (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {q.options.map(opt => (
@@ -3943,7 +3979,21 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
                         ))}
                         <span style={{ marginLeft:8, fontSize:13, color:'var(--text-2)', fontFamily:'var(--ff-text)', alignSelf:'center' }}>{ans} / {q.ratingMax}</span>
                       </div>
-                    ) : ans ? (
+                    ) : q.type==='upload' && ans ? (() => {
+                      const decoded = decodeUploadAnswer(String(ans));
+                      if (!decoded) return (
+                        <div style={{ fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)', background:'var(--surface-2)', padding:'10px 14px', borderRadius:8, lineHeight:1.6 }}>{String(ans)}</div>
+                      );
+                      const url = getFormFileUrlSync(resource.id, decoded.fileId);
+                      return (
+                        <a href={url ?? undefined} target="_blank" rel="noreferrer"
+                          onClick={e => { if (!url) e.preventDefault(); }}
+                          style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:14, color:'var(--accent)', fontFamily:'var(--ff-text)', background:'var(--surface-2)', padding:'10px 14px', borderRadius:8, textDecoration:'none', cursor: url ? 'pointer' : 'default' }}>
+                          <SFIcon name={url ? 'download' : 'loader'} size={14} />
+                          {decoded.fileName}
+                        </a>
+                      );
+                    })() : ans ? (
                       <div style={{ fontSize:14, color:'var(--text)', fontFamily:'var(--ff-text)', background:'var(--surface-2)', padding:'10px 14px', borderRadius:8, lineHeight:1.6 }}>
                         {Array.isArray(ans) ? ans.join(', ') : ans}
                       </div>

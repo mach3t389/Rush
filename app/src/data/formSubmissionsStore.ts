@@ -15,6 +15,7 @@ import { isDemoSession } from './authStore';
 import { supabase } from './supabaseClient';
 import { getResources } from './resourceStore';
 import { getResourceContent } from './resourceContentStore';
+import { setFileContent, getFileContent } from './fileContentStore';
 
 const STORAGE_KEY = 'sf_form_submissions';
 
@@ -151,4 +152,83 @@ export async function submitPublicForm(
   });
   if (error) { console.error('submitPublicForm failed', error); return { ok: false }; }
   return { ok: true };
+}
+
+// ── "Upload de fichier" question type ───────────────────────────────────────
+//
+// Demo sessions reuse fileContentStore's local blob/base64 path directly
+// (no notion of "studio" needed there). Real sessions can't go through
+// fileContentStore's uploadReal() — that requires an authenticated studio
+// JWT, which a genuine anonymous visitor never has — so this calls two
+// dedicated unauthenticated actions on the file-storage Edge Function
+// (form-sign-put / form-sign-get) instead. See the comment above those
+// actions in supabase/functions/file-storage/index.ts.
+
+// Called from the public /f/:resourceId page when a visitor picks a file
+// for an "upload" question. Returns the fileId to embed in the answer
+// (via encodeUploadAnswer in ResourceDetail.tsx), or null on failure.
+export async function uploadPublicFormFile(resourceId: string, file: File): Promise<string | null> {
+  if (isDemoSession()) {
+    const fileId = `pf${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setFileContent(fileId, file);
+    return fileId;
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke('file-storage', {
+      body: { action: 'form-sign-put', resourceId, contentType: file.type || 'application/octet-stream' },
+    });
+    if (error) throw error;
+    const { url, fileId } = data as { url: string; key: string; fileId: string };
+    const res = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+    if (!res.ok) throw new Error(`upload failed with status ${res.status}`);
+    return fileId;
+  } catch (err) {
+    console.error('uploadPublicFormFile failed', err);
+    return null;
+  }
+}
+
+async function fetchFormFileUrl(resourceId: string, fileId: string): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke('file-storage', {
+      body: { action: 'form-sign-get', resourceId, fileId },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error) throw error;
+    return (data as { url: string }).url;
+  } catch (err) {
+    console.error('fetchFormFileUrl failed', err);
+    return null;
+  }
+}
+
+const _fileUrlCache = new Map<string, string>();
+const _fileUrlFetching = new Set<string>();
+
+// Called from the studio-side Réponses tab to resolve a submitted upload
+// answer's download URL. Synchronous + cached like fileContentStore's
+// getFileContent — returns null on the first call while the real URL is
+// fetched in the background, then notifies subscribeFormSubmissions
+// listeners once ready (the Réponses tab already subscribes to that for
+// the submissions list, so this piggybacks on the same re-render).
+export function getFormFileUrlSync(resourceId: string, fileId: string): string | null {
+  if (isDemoSession()) return getFileContent(fileId);
+
+  const cacheKey = `${resourceId}:${fileId}`;
+  const cached = _fileUrlCache.get(cacheKey);
+  if (cached) return cached;
+
+  if (!_fileUrlFetching.has(cacheKey)) {
+    _fileUrlFetching.add(cacheKey);
+    void (async () => {
+      const url = await fetchFormFileUrl(resourceId, fileId);
+      if (url) _fileUrlCache.set(cacheKey, url);
+      _fileUrlFetching.delete(cacheKey);
+      notify();
+    })();
+  }
+  return null;
 }
