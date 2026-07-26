@@ -15,7 +15,7 @@ const DELIVERABLE_STATUS: Record<string, DeliverableDisplay> = {
   info:   { labelKey: 'overview.deliverableInProgress', color: 'var(--info)',   icon: 'loader' },
   ok:     { labelKey: 'overview.deliverableApproved',   color: 'var(--ok)',     icon: 'check-circle' },
   review: { labelKey: 'overview.deliverableInReview',   color: 'var(--review)', icon: 'eye' },
-  danger: { labelKey: 'overview.deliverableOverdue',    color: 'var(--danger)', icon: 'alert-circle' },
+  danger: { labelKey: 'overview.deliverableOverdue',    color: 'var(--danger)', icon: 'circle-alert' },
 };
 
 const CORRECTIONS_REQUESTED: DeliverableDisplay = {

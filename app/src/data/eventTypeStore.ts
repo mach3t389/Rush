@@ -11,6 +11,7 @@
 
 import { isDemoSession, onLogout } from './authStore';
 import { supabase } from './supabaseClient';
+import { showToast } from './toastStore';
 
 export interface EventType {
   id: string;
@@ -26,7 +27,7 @@ const DEFAULT_TYPES: EventType[] = [
   { id: 'tournage',  label: 'Tournage',   color: '#e85b7a', icon: 'video',          builtIn: true },
   { id: 'livraison', label: 'Livraison',  color: '#f5975b', icon: 'package',        builtIn: true },
   { id: 'reunion',   label: 'Réunion',    color: '#5b8af5', icon: 'users',          builtIn: true },
-  { id: 'deadline',  label: 'Échéance',   color: '#c45be8', icon: 'alert-circle',   builtIn: true },
+  { id: 'deadline',  label: 'Échéance',   color: '#c45be8', icon: 'circle-alert',   builtIn: true },
   { id: 'montage',   label: 'Montage',    color: '#34c98a', icon: 'scissors',       builtIn: true },
   { id: 'autre',     label: 'Autre',      color: '#888',    icon: 'circle',         builtIn: true },
 ];
@@ -41,12 +42,19 @@ export function subscribeEventTypes(fn: Listener): () => void {
   return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); };
 }
 
+// Some icon names shipped in DEFAULT_TYPES/EVENT_TYPE_ICONS were renamed
+// upstream by lucide-react (e.g. AlertCircle -> CircleAlert) and silently
+// render nothing via SFIcon. Fixing the source constant doesn't repair rows
+// already persisted with the old name, so normalize on read too.
+const ICON_ALIASES: Record<string, string> = { 'alert-circle': 'circle-alert' };
+function normalizeIcon(icon: string): string { return ICON_ALIASES[icon] ?? icon; }
+
 // ── Demo (localStorage) path ────────────────────────────────────────────────
 
 function getDemoEventTypes(): EventType[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as EventType[];
+    if (raw) return (JSON.parse(raw) as EventType[]).map(t => ({ ...t, icon: normalizeIcon(t.icon) }));
   } catch { /* noop */ }
   return DEFAULT_TYPES;
 }
@@ -75,7 +83,7 @@ function toEventType(row: EventTypeRow): EventType {
     id: row.id,
     label: row.label,
     color: row.color,
-    icon: row.icon,
+    icon: normalizeIcon(row.icon),
     builtIn: row.built_in ?? undefined,
   };
 }
@@ -139,19 +147,31 @@ async function addSupabaseEventType(type: EventType, studioId: string): Promise<
     built_in: type.builtIn ?? null,
     position: _supabaseTypes.length,
   });
-  if (error) { console.error('addSupabaseEventType failed', error); return; }
+  if (error) {
+    console.error('addSupabaseEventType failed', error);
+    showToast({ type: 'section', message: "Le type d'événement n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
   await fetchSupabaseEventTypes(studioId);
 }
 
 async function updateSupabaseEventType(id: string, patch: Partial<Omit<EventType, 'id' | 'builtIn'>>, studioId: string): Promise<void> {
   const { error } = await supabase.from('event_types').update(patch).eq('id', id);
-  if (error) { console.error('updateSupabaseEventType failed', error); return; }
+  if (error) {
+    console.error('updateSupabaseEventType failed', error);
+    showToast({ type: 'section', message: "La modification n'a pas pu être enregistrée", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
   await fetchSupabaseEventTypes(studioId);
 }
 
 async function deleteSupabaseEventType(id: string, studioId: string): Promise<void> {
   const { error } = await supabase.from('event_types').delete().eq('id', id);
-  if (error) { console.error('deleteSupabaseEventType failed', error); return; }
+  if (error) {
+    console.error('deleteSupabaseEventType failed', error);
+    showToast({ type: 'section', message: "Le type d'événement n'a pas pu être supprimé", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
   await fetchSupabaseEventTypes(studioId);
 }
 
@@ -161,7 +181,11 @@ async function reorderSupabaseEventTypes(orderedIds: string[], studioId: string)
   );
   const results = await Promise.all(updates);
   const failed = results.find(r => r.error);
-  if (failed?.error) { console.error('reorderSupabaseEventTypes failed', failed.error); return; }
+  if (failed?.error) {
+    console.error('reorderSupabaseEventTypes failed', failed.error);
+    showToast({ type: 'section', message: "Le réordonnancement n'a pas pu être enregistré", subMessage: 'Veuillez réessayer.' });
+    return;
+  }
   await fetchSupabaseEventTypes(studioId);
 }
 

@@ -6,9 +6,9 @@ import { addEventType, updateEventType, deleteEventType, reorderEventTypes, type
 // six built-in types' own icons plus a few more common event shapes, so
 // picking one is a couple of clicks instead of needing free-text input.
 const EVENT_TYPE_ICONS = [
-  'circle', 'video', 'package', 'users', 'alert-circle', 'scissors',
+  'circle', 'video', 'package', 'users', 'circle-alert', 'scissors',
   'calendar', 'camera', 'clapperboard', 'mic', 'music', 'star',
-  'flag', 'map-pin', 'phone', 'coffee',
+  'flag', 'map-pin', 'phone', 'coffee', 'clock', 'sparkles',
 ];
 
 // Liste des types d'événements dans la sidebar calendrier — sert à la fois de

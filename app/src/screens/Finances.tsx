@@ -1075,7 +1075,7 @@ export function Finances() {
           {[
             { labelKey: 'finance.kpiRevenue',    value: formatMoney(revenue),        icon: 'trending-up',  iconColor: 'var(--ok)',     valueColor: 'var(--ok)' },
             { labelKey: 'finance.kpiOutstanding', value: formatMoney(outstanding),    icon: 'clock',        iconColor: 'var(--warn)',   valueColor: 'var(--text)' },
-            { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),        icon: 'alert-circle', iconColor: 'var(--danger)', valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
+            { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),        icon: 'circle-alert', iconColor: 'var(--danger)', valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
             { labelKey: 'finance.kpiDraft',       value: String(draftCount),          icon: 'file-text',    iconColor: 'var(--text-3)', valueColor: 'var(--text)' },
             { labelKey: 'finance.kpiTotalInvoiced',value: formatMoney(totalInvoiced), icon: 'layers',       iconColor: 'var(--info)',   valueColor: 'var(--text)' },
             { labelKey: 'finance.kpiPayRate',     value: `${payRate}%`,               icon: 'percent',      iconColor: 'var(--ok)',     valueColor: payRate >= 70 ? 'var(--ok)' : 'var(--text)' },

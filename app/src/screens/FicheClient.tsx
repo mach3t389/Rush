@@ -863,7 +863,7 @@ function FinancesTab({ clientId }: { clientId: string }) {
         {[
           { labelKey: 'finance.kpiRevenue',    value: formatMoney(revenue),     icon: 'trending-up',  iconColor: 'var(--ok)',    valueColor: 'var(--ok)' },
           { labelKey: 'finance.kpiOutstanding', value: formatMoney(outstanding), icon: 'clock',        iconColor: 'var(--warn)',  valueColor: 'var(--text)' },
-          { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),     icon: 'alert-circle', iconColor: 'var(--danger)',valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
+          { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),     icon: 'circle-alert', iconColor: 'var(--danger)',valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
         ].map(k => (
           <div key={k.labelKey} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>

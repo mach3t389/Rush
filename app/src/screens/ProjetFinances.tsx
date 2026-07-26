@@ -61,7 +61,7 @@ export function ProjetFinances() {
           {[
             { labelKey: 'finance.kpiRevenue',    value: formatMoney(revenue),     icon: 'trending-up',  iconColor: 'var(--ok)',     valueColor: 'var(--ok)' },
             { labelKey: 'finance.kpiOutstanding', value: formatMoney(outstanding), icon: 'clock',        iconColor: 'var(--warn)',   valueColor: 'var(--text)' },
-            { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),     icon: 'alert-circle', iconColor: 'var(--danger)', valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
+            { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),     icon: 'circle-alert', iconColor: 'var(--danger)', valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
           ].map(k => (
             <div key={k.labelKey} style={kpiCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
