@@ -3,21 +3,27 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClientProjectHeader } from '../../components/client/ClientProjectHeader';
 import { getMyClientInvoices, type ClientInvoice } from '../../data/clientSessionStore';
+import { getPreviewClientInvoices } from '../../data/viewAsClientDataStore';
+import { getViewAsUser } from '../../data/viewAsStore';
 
 export function ClientProjectFinances() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
   const [invoices, setInvoices] = useState<ClientInvoice[] | null>(null);
 
+  const viewAs = getViewAsUser();
+  const isPreview = viewAs?.type === 'external';
+
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
     (async () => {
-      const list = await getMyClientInvoices(projectId);
+      const list = isPreview ? await getPreviewClientInvoices(projectId) : await getMyClientInvoices(projectId);
       if (!cancelled) setInvoices(list);
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
 
   if (!projectId) return null;
 
