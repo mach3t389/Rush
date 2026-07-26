@@ -7,6 +7,8 @@ import { ClientEventDetail } from '../../components/calendar/ClientEventDetail';
 import { SFIcon } from '../../components/ui';
 import { TODAY, type CalEvent } from '../../components/calendar/calendarUtils';
 import { getMyClientEvents, type ClientCalEvent } from '../../data/clientSessionStore';
+import { getPreviewClientEvents } from '../../data/viewAsClientDataStore';
+import { getViewAsUser } from '../../data/viewAsStore';
 
 // Client-safe rebuild of the project Calendrier tab.
 //
@@ -51,12 +53,17 @@ export function ClientProjectCalendrier() {
   const [rawEvents, setRawEvents] = useState<ClientCalEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
 
+  const viewAs = getViewAsUser();
+  const isPreview = viewAs?.type === 'external';
+
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
-    getMyClientEvents([projectId]).then(evs => { if (!cancelled) setRawEvents(evs); });
+    const fetch = isPreview ? getPreviewClientEvents([projectId]) : getMyClientEvents([projectId]);
+    fetch.then(evs => { if (!cancelled) setRawEvents(evs); });
     return () => { cancelled = true; };
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, isPreview]);
 
   const events = useMemo(() => rawEvents.map(toCalEvent), [rawEvents]);
 
