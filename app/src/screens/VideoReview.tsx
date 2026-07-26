@@ -882,9 +882,6 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
           <SFIcon name={shared ? 'check' : 'share-2'} size={12}  />
         </button>
 
-        {/* Request approval */}
-        <RequestApprovalButton resource={resource} projectId={projectId} />
-
         {/* Fullscreen */}
         <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? t('review.exitFullscreen') : t('review.fullscreen')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', color: 'var(--text-2)', flexShrink: 0 }}
@@ -1204,7 +1201,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
 
           {/* Resource summary */}
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('review.videoLabel')} · {activeVersion}</p>
                 {editingTitle ? (
@@ -1248,6 +1245,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
                   <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
                 </button>
               </div>
+              <RequestApprovalButton resource={resource} projectId={projectId} />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               {[
