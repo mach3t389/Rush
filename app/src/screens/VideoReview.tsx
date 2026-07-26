@@ -1282,14 +1282,10 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
             {tab === 'comments' && (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {versionComments.length === 0 && (
-                  <div style={{ padding: '28px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 14 }}>{t('review.noCommentsYet')}</div>
-                    <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', textAlign: 'left' }}>
-                      <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.55 }}>
-                        💬 {t('review.videoCommentHint')}<br />
-                        {t('review.mentionHintBefore')} <span style={{ fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>@{t('review.firstNameToken')}</span> {t('review.mentionHintAfter')}
-                      </p>
-                    </div>
+                  <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6 }}>
+                    <SFIcon name="message-circle" size={22} color="var(--text-3)" />
+                    <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>{t('review.noCommentsYet')}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0', lineHeight: 1.5 }}>{t('review.videoCommentHint')}</p>
                   </div>
                 )}
                 {versionComments.map(c => {
