@@ -508,6 +508,8 @@ export function DocumentReview() {
           )}
         </div>
 
+        {resource && <RequestApprovalButton resource={resource} size="sm" />}
+
         {/* Divider */}
         <div style={{ width: 1, height: 26, background: 'var(--border)', flexShrink: 0 }} />
 
@@ -576,8 +578,6 @@ export function DocumentReview() {
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
-
-        {resource && <RequestApprovalButton resource={resource} size="sm" />}
 
         {/* View toggle — icon only */}
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', padding: 2, flexShrink: 0 }}>
