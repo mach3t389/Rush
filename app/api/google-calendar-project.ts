@@ -148,7 +148,7 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
-    .select('id, name')
+    .select('id, name, client_name')
     .eq('id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -192,7 +192,14 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
         }
       }
     } else {
-      calendarId = await createGoogleCalendar(accessToken, project.name as string);
+      // Prefixed with the client's name so multiple projects for the same
+      // client (or similarly-named projects across different clients) are
+      // distinguishable in the Google Calendar list — a bare project name
+      // gives no hint of which client it belongs to.
+      const calendarName = project.client_name
+        ? `${project.client_name} — ${project.name}`
+        : (project.name as string);
+      calendarId = await createGoogleCalendar(accessToken, calendarName);
       const { error: insertError } = await supabaseAdmin.from('project_google_calendars').insert({
         project_id: projectId,
         studio_id: studioId,
