@@ -1414,6 +1414,7 @@
     "projectWillInclude": "Le projet inclura",
     "sectionsCount": "{{count}} section(s)",
     "resourcesCount": "{{count}} ressource(s)",
+    "foldersCount": "{{count}} dossier(s)",
     "createProject": "Créer le projet",
     "formNamePlaceholder": "Nom du formulaire…",
     "formDescPlaceholder": "Description du formulaire…",

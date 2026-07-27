@@ -2351,14 +2351,19 @@ export function Modeles() {
               { key: 'document',     icon: 'file-text',      label: 'Document',       count: resourceTemplates.filter(t => t.type === 'document').length },
               { key: 'screenplay',   icon: 'clapperboard',   label: 'Scénario',       count: resourceTemplates.filter(t => t.type === 'screenplay').length },
               { key: 'video_review', icon: 'video',          label: 'Révision vidéo', count: resourceTemplates.filter(t => t.type === 'video_review').length },
-              { key: 'file',         icon: 'folder',         label: 'Fichiers',       count: resourceTemplates.filter(t => t.type === 'file').length },
               { key: 'moodboard',    icon: 'grid-2x2',       label: 'Moodboard',      count: resourceTemplates.filter(t => t.type === 'moodboard').length },
             ];
-            const resActive = isResType(typeFilter) || typeFilter === 'formulaires';
-            const totalRes = formTemplates.length + resourceTemplates.length;
+            const fileCount = resourceTemplates.filter(t => t.type === 'file').length;
+            // "Fichiers" is a folder-structure template for a project's file
+            // tree, not an actual resource content type (screenplay, document,
+            // moodboard…) — it lives at the top level, next to Projets, instead
+            // of nested under the "Ressources" group.
+            const resActive = (isResType(typeFilter) && typeFilter !== 'file') || typeFilter === 'formulaires';
+            const totalRes = formTemplates.length + resourceTemplates.length - fileCount;
             return (
               <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
                 {navItem('projets', 'layout-template', 'Projets', templates.length)}
+                {navItem('file', 'folder', 'Fichiers', fileCount)}
                 {/* Resources group header */}
                 <button onClick={() => setResNavExpanded(v => !v)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',

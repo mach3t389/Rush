@@ -1402,6 +1402,7 @@
     "projectWillInclude": "The project will include",
     "sectionsCount": "{{count}} section(s)",
     "resourcesCount": "{{count}} resource(s)",
+    "foldersCount": "{{count}} folder(s)",
     "createProject": "Create project",
     "formNamePlaceholder": "Form name…",
     "formDescPlaceholder": "Form description…",

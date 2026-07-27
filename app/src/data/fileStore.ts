@@ -408,6 +408,19 @@ export function getGlobalRootFolders(): FileFolder[] {
   return getFolders().filter(f => !f.projectId && !f.clientId && f.parentId === null);
 }
 
+// Inverse of addFolderTree() — captures a project's current folder tree
+// (structure only, no files) so it can be saved as a reusable "Fichiers"
+// resource template (see Fichiers.tsx's "Enregistrer comme modèle").
+export interface FolderTreeNodeWithId { id: string; name: string; children?: FolderTreeNodeWithId[] }
+
+export function getFolderTreeForProject(projectId: string): FolderTreeNodeWithId[] {
+  const toNode = (f: FileFolder): FolderTreeNodeWithId => {
+    const children = getChildFolders(f.id, projectId).map(toNode);
+    return children.length ? { id: f.id, name: f.name, children } : { id: f.id, name: f.name };
+  };
+  return getRootFoldersForProject(projectId).map(toNode);
+}
+
 // ── Files: writes ────────────────────────────────────────────────────────────────
 
 export function getFilesInFolder(folderId: string | null, projectId?: string, clientId?: string): FileItem[] {
