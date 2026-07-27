@@ -1198,7 +1198,7 @@ export function TaskPanel({
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
-                                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 1 }}>{r.eyebrow}</p>
+                                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 1 }}>{r.eyebrow.startsWith('files.') ? t(r.eyebrow) : r.eyebrow}</p>
                                 </div>
                                 {linked && <SFIcon name="check" size={13} color="var(--accent)" />}
                               </button>
@@ -1239,7 +1239,7 @@ export function TaskPanel({
                       <SFIcon name={TYPE_ICON[r.type]} size={14} color="var(--text-3)" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>{r.eyebrow}</p>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>{r.eyebrow.startsWith('files.') ? t(r.eyebrow) : r.eyebrow}</p>
                       <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
                     </div>
                     <button
@@ -1383,7 +1383,7 @@ export function TaskPanel({
                 <SFIcon name={TYPE_ICON[res.type]} size={15} color="var(--text-2)" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{res.eyebrow}</p>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{res.eyebrow.startsWith('files.') ? t(res.eyebrow) : res.eyebrow}</p>
                 <p style={{ fontSize: 14, fontWeight: 600 }}>{res.title}</p>
               </div>
               <div style={{ position: 'relative' }}>
