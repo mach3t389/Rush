@@ -2184,9 +2184,9 @@ export function Modeles() {
             return (
               <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
                 {navItem('projets', 'layout-template', 'Projets', templates.length)}
-                {navItem('file', 'folder', 'Fichiers', fileCount)}
                 {navItem('overview', 'layout-grid', t('models.resTypeOverview'), overviewCount)}
                 {navItem('tasks', 'list-checks', t('models.resTypeTasks'), tasksCount)}
+                {navItem('file', 'folder', 'Fichiers', fileCount)}
                 {/* Resources group header */}
                 <button onClick={() => setResNavExpanded(v => !v)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
