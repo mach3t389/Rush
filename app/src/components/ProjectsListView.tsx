@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
-import { loadAllTemplates, loadAllResourceTemplates, type ProjectTemplate } from '../data/templates';
+import { loadAllTemplates, loadAllResourceTemplates, resolveTasksSections, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
@@ -144,7 +144,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       phase: 'preproduction',
       phaseLabel: 'Préproduction',
       progress: 0,
-      taskCount: selectedTemplate ? selectedTemplate.sections.reduce((n, s) => n + s.tasks.length, 0) : 0,
+      taskCount: selectedTemplate ? resolveTasksSections(selectedTemplate).reduce((n, s) => n + s.tasks.length, 0) : 0,
       deliverableCount: 0,
       members,
       deliveryDate: deliveryDate ? formatDisplay(deliveryDate) : '—',
@@ -155,7 +155,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       overviewTemplateId: overviewTplId ?? undefined,
     };
     if (selectedTemplate) {
-      const sections: SectionData[] = selectedTemplate.sections.map(sec => ({
+      const sections: SectionData[] = resolveTasksSections(selectedTemplate).map(sec => ({
         label: sec.label,
         progress: 0,
         tasks: sec.tasks.map((tt, i): Task => ({
@@ -288,7 +288,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                               ))}
                             </div>
                             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
-                              {t('projects.sectionsTasksCount', { sections: tpl.sections.length, tasks: tpl.sections.reduce((n, s) => n + s.tasks.length, 0) })}
+                              {t('projects.sectionsTasksCount', { sections: resolveTasksSections(tpl).length, tasks: resolveTasksSections(tpl).reduce((n, s) => n + s.tasks.length, 0) })}
                             </p>
                           </div>
                         </div>
@@ -405,7 +405,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   <div>
                     <p style={{ fontSize: 11, fontWeight: 600 }}>{t('projects.templateLabel', { name: selectedTemplate.name })}</p>
                     <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-                      {t('projects.sectionsTasksPreconfigured', { sections: selectedTemplate.sections.length, tasks: selectedTemplate.sections.reduce((n, s) => n + s.tasks.length, 0) })}
+                      {t('projects.sectionsTasksPreconfigured', { sections: resolveTasksSections(selectedTemplate).length, tasks: resolveTasksSections(selectedTemplate).reduce((n, s) => n + s.tasks.length, 0) })}
                     </p>
                   </div>
                   <button onClick={() => { setTemplateId(null); setStep('start'); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>

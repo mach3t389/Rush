@@ -8,15 +8,13 @@ import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
-import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates } from '../data/templates';
+import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import type { Priority, ResourceType, Resource, Task, Project, SectionData } from '../types';
-import { TaskPanel } from '../components/TaskPanel';
-import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
 import { DocumentView, ScreenplayView, MoodboardView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
@@ -306,15 +304,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 // ── Shared constants ───────────────────────────────────────────────────────────
 
 const PRIORITY_COLOR: Record<Priority, string> = { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' };
-const STATUS_OPTIONS: { value: string; labelKey: string; color: string }[] = [
-  { value: '', labelKey: 'models.statusNone', color: 'var(--text-3)' },
-  { value: 'info', labelKey: 'models.statusInProgress', color: 'var(--info)' },
-  { value: 'warn', labelKey: 'models.statusWaiting', color: 'var(--warn)' },
-  { value: 'ok', labelKey: 'models.statusCompleted', color: 'var(--ok)' },
-  { value: 'danger', labelKey: 'models.statusOverdue', color: 'var(--danger)' },
-  { value: 'review', labelKey: 'models.statusInReview', color: 'var(--text-2)' },
-];
-
 const RESOURCE_LABEL_KEYS: Record<ResourceType, string> = {
   screenplay: 'models.resScript', video_review: 'models.resReviewShort', moodboard: 'models.resMoodboard',
   document: 'models.resDocument', inspirations: 'models.resInspirations', form: 'models.resForm',
@@ -418,7 +407,8 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
   onRename?: (name: string, description: string) => void;
 }) {
   const { t } = useTranslation();
-  const totalTasks = tpl.sections.reduce((s, sec) => s + sec.tasks.length, 0);
+  const tplSections = resolveTasksSections(tpl);
+  const totalTasks = tplSections.reduce((s, sec) => s + sec.tasks.length, 0);
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
@@ -449,7 +439,7 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         </div>
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 12 }}>
-          {[{ label: t('models.sections'), value: tpl.sections.length }, { label: t('models.tasks'), value: totalTasks }].map((s) => (
+          {[{ label: t('models.sections'), value: tplSections.length }, { label: t('models.tasks'), value: totalTasks }].map((s) => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{s.value || '—'}</p>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
@@ -458,8 +448,8 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         </div>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {tpl.sections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>{t('models.noSectionBlank')}</p>}
-        {tpl.sections.map((sec, i) => (
+        {tplSections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>{t('models.noSectionBlank')}</p>}
+        {tplSections.map((sec, i) => (
           <div key={i}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: tpl.color, flexShrink: 0 }} />
@@ -523,6 +513,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
   const clients = getClients();
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState(clients[0]?.id ?? '');
+  const templateSections = resolveTasksSections(template);
 
   const handleCreate = () => {
     if (!name.trim()) return;
@@ -541,7 +532,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       phase: 'preproduction',
       phaseLabel: t('projects.phasePreproduction'),
       progress: 0,
-      taskCount: template.sections.reduce((n, s) => n + s.tasks.length, 0),
+      taskCount: templateSections.reduce((n, s) => n + s.tasks.length, 0),
       deliverableCount: 0,
       members,
       deliveryDate: '—',
@@ -552,7 +543,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
     };
 
     // Materialize the template's sections + tasks into the project task store.
-    const sections: SectionData[] = template.sections.map(sec => ({
+    const sections: SectionData[] = templateSections.map(sec => ({
       label: sec.label,
       progress: 0,
       tasks: sec.tasks.map((tt, i): Task => ({
@@ -608,7 +599,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
           <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{t('models.projectWillInclude')}</p>
             <div style={{ display: 'flex', gap: 14 }}>
-              {[{ icon: 'layers', val: t('models.sectionsCount', { count: template.sections.length }) }, { icon: 'check-square', val: t('models.tasksCount', { count: template.sections.reduce((s, sec) => s + sec.tasks.length, 0) }) }, { icon: 'file', val: t('models.resourcesCount', { count: template.resources.length }) }].map(s => (
+              {[{ icon: 'layers', val: t('models.sectionsCount', { count: templateSections.length }) }, { icon: 'check-square', val: t('models.tasksCount', { count: templateSections.reduce((s, sec) => s + sec.tasks.length, 0) }) }, { icon: 'file', val: t('models.resourcesCount', { count: template.resources.length }) }].map(s => (
                 <div key={s.val} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <SFIcon name={s.icon} size={12} color="var(--text-3)" />
                   <span style={{ fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>{s.val}</span>
@@ -1014,7 +1005,8 @@ function GripHandle({ visible }: { visible: boolean }) {
 function TemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, favorite, onToggleFavorite }: {
   tpl: ProjectTemplate; selected: boolean; onClick: () => void; favorite?: boolean; onToggleFavorite?: () => void;
 } & DragItemProps) {
-  const totalTasks = tpl.sections.reduce((s, sec) => s + sec.tasks.length, 0);
+  const tplSections = resolveTasksSections(tpl);
+  const totalTasks = tplSections.reduce((s, sec) => s + sec.tasks.length, 0);
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -1035,7 +1027,7 @@ function TemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isDragO
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</p>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
-            {tpl.sections.length > 0 ? `${tpl.sections.length} sections · ${totalTasks} tâches` : 'Projet vierge'}
+            {tplSections.length > 0 ? `${tplSections.length} sections · ${totalTasks} tâches` : 'Projet vierge'}
           </p>
         </div>
       </button>
@@ -1086,82 +1078,6 @@ function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isD
 
 // ── Template Project View (full-screen overlay, identical to Travail) ──────────
 
-type LTask = {
-  id: string; title: string; priority: Priority;
-  description?: string; subtasks?: LTask[];
-  status?: string; statusLabel?: string;
-  dueDate?: string;
-  assignee?: { id: string; name: string; initials: string; avatarColor: string };
-};
-type LSection = { id: string; label: string; tasks: LTask[]; };
-
-function toLocalSections(sections: TemplateSection[]): LSection[] {
-  return sections.map((s, si) => ({
-    id: `sec-${si}-${s.label}`,
-    label: s.label,
-    tasks: s.tasks.map((t, ti) => ({
-      id: `t-${si}-${ti}-${t.title}`,
-      title: t.title,
-      priority: t.priority,
-      description: t.description,
-      subtasks: t.subtasks?.map((st, sti) => ({ id: `st-${si}-${ti}-${sti}`, title: st.title, priority: st.priority, description: st.description, status: st.status, statusLabel: st.statusLabel, dueDate: st.dueDate, assignee: st.assignee })),
-      status: t.status,
-      statusLabel: t.statusLabel,
-      dueDate: t.dueDate,
-      assignee: t.assignee,
-    })),
-  }));
-}
-
-function fromLocalSections(sections: LSection[]): TemplateSection[] {
-  return sections.map(s => ({
-    label: s.label,
-    tasks: s.tasks.map(t => ({
-      title: t.title,
-      priority: t.priority,
-      description: t.description,
-      subtasks: t.subtasks?.map(st => ({ title: st.title, priority: st.priority, description: st.description, status: st.status, statusLabel: st.statusLabel, dueDate: st.dueDate, assignee: st.assignee })),
-      status: t.status,
-      statusLabel: t.statusLabel,
-      dueDate: t.dueDate,
-      assignee: t.assignee,
-    })),
-  }));
-}
-
-// Adapt a local template task into a full Task so it can render in the shared
-// ProjectTaskRow (the exact same row used in a real project's task list).
-function lTaskToTask(lt: LTask): Task {
-  return {
-    id: lt.id,
-    title: lt.title,
-    projectId: '', projectName: 'Modèle', projectColor: 'var(--text-3)',
-    assignee: (lt.assignee ?? null) as unknown as Task['assignee'],
-    status: (lt.status ?? '') as Task['status'],
-    statusLabel: lt.statusLabel ?? '',
-    priority: lt.priority,
-    priorityLabel: lt.priority,
-    dueDate: lt.dueDate ?? '',
-    dueDateRed: false,
-    checked: false,
-    subtasks: lt.subtasks?.map(lTaskToTask),
-    activityCount: 0,
-  };
-}
-
-// Convert a Partial<Task> patch coming from ProjectTaskRow back into a local LTask patch.
-function taskPatchToLPatch(patch: Partial<Task>): Partial<LTask> {
-  const lp: Partial<LTask> = {};
-  if (patch.title !== undefined) lp.title = patch.title;
-  if (patch.priority !== undefined) lp.priority = patch.priority;
-  if (patch.status !== undefined) { lp.status = (patch.status as string) || undefined; lp.statusLabel = patch.statusLabel || undefined; }
-  if (patch.dueDate !== undefined) lp.dueDate = patch.dueDate || undefined;
-  if (patch.assignee !== undefined) {
-    const a = patch.assignee as Task['assignee'] | null;
-    lp.assignee = a ? { id: a.id, name: a.name, initials: a.initials, avatarColor: a.avatarColor } : undefined;
-  }
-  return lp;
-}
 
 type LResource = { id: string; type: ResourceType; title: string; templateId?: string };
 
@@ -1195,95 +1111,35 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
   onClose: () => void;
   onSave: (updated: ProjectTemplate) => void;
 }) {
-  const { t } = useTranslation();
-  const [sections, setSections] = useState<LSection[]>(() => toLocalSections(initialTpl.sections));
   const [tplName, setTplName] = useState(initialTpl.name);
   const [tplDescription, setTplDescription] = useState(initialTpl.description ?? '');
   const [resources, setResources] = useState<LResource[]>(() =>
     (initialTpl.resources ?? []).map((r, i) => ({ id: `r-${Date.now()}-${i}`, ...r }))
   );
+  const [tasksTemplateId, setTasksTemplateId] = useState<string | undefined>(initialTpl.tasksTemplateId);
+  const [showTasksPicker, setShowTasksPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'resources'>('tasks');
-  const [viewMode, setViewMode] = useState<'list' | 'board' | 'calendar'>('list');
-  const [selectedTask, setSelectedTask] = useState<LTask | null>(null);
-  const [addingSection, setAddingSection] = useState(false);
-  const [newSecLabel, setNewSecLabel] = useState('');
-  const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [showAddResource, setShowAddResource] = useState(false);
   const [resTypeFilter, setResTypeFilter] = useState<ResourceType | null>(null);
 
-  // Section drag
-  const dragSecRef = useRef<string | null>(null);
-  const [dragOverSec, setDragOverSec] = useState<string | null>(null);
-  const dragTaskRef = useRef<{ sectionId: string; taskId: string } | null>(null);
-  const [dragOverTask, setDragOverTask] = useState<string | null>(null);
-  const dragSecHandleActive = useRef(false);
-
-  const mutate = (next: LSection[]) => { setSections(next); setDirty(true); };
+  const allTasksTpls = loadAllResourceTemplates().filter(r => r.type === 'tasks');
+  const linkedTasksTpl = tasksTemplateId ? allTasksTpls.find(r => r.id === tasksTemplateId) : undefined;
+  const resolvedSections: TemplateSection[] = linkedTasksTpl?.sections ?? [];
 
   const handleSave = () => {
     onSave({
       ...initialTpl,
       name: tplName,
       description: tplDescription,
-      sections: fromLocalSections(sections),
+      tasksTemplateId,
       resources: resources.map(({ id: _id, ...r }) => r),
     });
     setDirty(false);
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 2000);
   };
-
-  const addSection = () => {
-    const label = newSecLabel.trim();
-    if (!label) return;
-    mutate([...sections, { id: `sec-${Date.now()}`, label, tasks: [] }]);
-    setNewSecLabel(''); setAddingSection(false);
-  };
-
-  const updateSection = (id: string, patch: Partial<LSection>) => {
-    mutate(sections.map(s => s.id === id ? { ...s, ...patch } : s));
-  };
-
-  const removeSection = (id: string) => mutate(sections.filter(s => s.id !== id));
-
-  const addTask = (sectionId: string) => {
-    const title = (newTaskInputs[sectionId] ?? '').trim();
-    if (!title) return;
-    const newTask: LTask = { id: `t-${Date.now()}`, title, priority: 'normal' };
-    mutate(sections.map(s => s.id === sectionId ? { ...s, tasks: [...s.tasks, newTask] } : s));
-    setNewTaskInputs(p => ({ ...p, [sectionId]: '' }));
-  };
-
-  const updateTask = (sectionId: string, taskId: string, patch: Partial<LTask>) => {
-    mutate(sections.map(s => s.id === sectionId ? { ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t) } : s));
-  };
-
-  const deleteTask = (sectionId: string, taskId: string) => {
-    mutate(sections.map(s => s.id === sectionId ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s));
-  };
-
-  const reorderSection = (fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    const from = sections.find(s => s.id === fromId)!;
-    const rest = sections.filter(s => s.id !== fromId);
-    const toIdx = rest.findIndex(s => s.id === toId);
-    mutate([...rest.slice(0, toIdx), from, ...rest.slice(toIdx)]);
-  };
-
-  const reorderTask = (sectionId: string, fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    mutate(sections.map(s => {
-      if (s.id !== sectionId) return s;
-      const from = s.tasks.find(t => t.id === fromId)!;
-      const rest = s.tasks.filter(t => t.id !== fromId);
-      const toIdx = rest.findIndex(t => t.id === toId);
-      return { ...s, tasks: [...rest.slice(0, toIdx), from, ...rest.slice(toIdx)] };
-    }));
-  };
-
-  // keep dragSecHandleActive separate (not needed in new render — kept for section drag)
 
   const allResTpls = loadAllResourceTemplates();
 
@@ -1327,26 +1183,6 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
             {tab.label}
           </button>
         ))}
-        {activeTab === 'tasks' && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
-            {([
-              { key: 'list',     icon: 'list',          label: 'Liste'      },
-              { key: 'board',    icon: 'layout-kanban', label: 'Board'      },
-              { key: 'calendar', icon: 'calendar',      label: 'Calendrier' },
-            ] as const).map(v => (
-              <button key={v.key} onClick={() => { if (v.key !== 'calendar') { setViewMode(v.key); setSelectedTask(null); } }} title={v.key === 'calendar' ? 'Disponible dans un projet réel' : v.label}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: 'none', cursor: v.key === 'calendar' ? 'not-allowed' : 'pointer',
-                  background: viewMode === v.key ? 'var(--surface)' : 'transparent',
-                  color: v.key === 'calendar' ? 'var(--border-2)' : viewMode === v.key ? 'var(--text)' : 'var(--text-3)',
-                  fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: viewMode === v.key ? 600 : 400,
-                  boxShadow: viewMode === v.key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none',
-                  opacity: v.key === 'calendar' ? 0.5 : 1,
-                }}>
-                <SFIcon name={v.icon} size={13} />{v.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── Vue d'ensemble ─────────────────────────────────────────────────────── */}
@@ -1356,8 +1192,8 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
             {/* Stats row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
-                { icon: 'layers', label: 'Sections', value: sections.length },
-                { icon: 'check-square', label: 'Tâches', value: sections.reduce((n, s) => n + s.tasks.length, 0) },
+                { icon: 'layers', label: 'Sections', value: resolvedSections.length },
+                { icon: 'check-square', label: 'Tâches', value: resolvedSections.reduce((n, s) => n + s.tasks.length, 0) },
                 { icon: 'paperclip', label: 'Ressources', value: resources.length },
               ].map(card => (
                 <div key={card.label} style={{ padding: '18px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1396,243 +1232,83 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
 
       {/* ── Tâches ─────────────────────────────────────────────────────────────── */}
       {activeTab === 'tasks' && (
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
-          {/* List view */}
-          {viewMode === 'list' && (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 0' }}>
-              <div style={{ maxWidth: 1100, width: '100%', margin: '0 auto', padding: '0 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {sections.length === 0 && !addingSection && (
-                  <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                    Aucune section — ajoutez une section pour commencer
-                  </div>
-                )}
-                {sections.map(sec => (
-                  <div key={sec.id}
-                    draggable
-                    onDragStart={e => { if (!dragSecHandleActive.current) { e.preventDefault(); return; } dragSecRef.current = sec.id; }}
-                    onDragEnd={() => { dragSecRef.current = null; setDragOverSec(null); dragSecHandleActive.current = false; }}
-                    onDragOver={e => { if (dragSecRef.current && dragSecRef.current !== sec.id) { e.preventDefault(); setDragOverSec(sec.id); } }}
-                    onDrop={e => { e.preventDefault(); if (dragSecRef.current) reorderSection(dragSecRef.current, sec.id); dragSecRef.current = null; setDragOverSec(null); }}
-                    style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: `1px solid ${dragOverSec === sec.id ? 'var(--border-2)' : 'var(--border)'}`, overflow: 'hidden', transition: 'border-color 0.15s' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-                      <div onMouseDown={() => { dragSecHandleActive.current = true; }} onMouseUp={() => { dragSecHandleActive.current = false; }}
-                        style={{ color: 'var(--border-2)', cursor: 'grab', display: 'flex', flexShrink: 0 }}>
-                        <SFIcon name="grip-vertical" size={14} />
-                      </div>
-                      <div style={{ width: 17, height: 17, borderRadius: '50%', flexShrink: 0, border: '1.5px solid var(--border-2)', background: 'transparent' }} />
-                      <input value={sec.label} onChange={e => updateSection(sec.id, { label: e.target.value })}
-                        style={{ fontWeight: 600, fontSize: 13, flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontFamily: 'var(--ff-text)' }} />
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>({sec.tasks.length} tâches)</span>
-                      <button onClick={() => removeSection(sec.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 5 }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-                        <SFIcon name="trash-2" size={13} />
-                      </button>
-                    </div>
-                    <ColHeader />
-                    {sec.tasks.map(task => (
-                      <div key={task.id}
-                        onDragOver={e => { if (dragTaskRef.current?.sectionId === sec.id) { e.preventDefault(); setDragOverTask(task.id); } }}
-                        onDrop={e => { e.preventDefault(); if (dragTaskRef.current?.sectionId === sec.id) reorderTask(sec.id, dragTaskRef.current.taskId, task.id); dragTaskRef.current = null; setDragOverTask(null); }}
-                        style={{ borderTop: dragOverTask === task.id ? '2px solid var(--accent)' : '2px solid transparent', marginTop: dragOverTask === task.id ? -2 : 0 }}
-                      >
-                        <ProjectTaskRow
-                          task={lTaskToTask(task)}
-                          selected={selectedTask?.id === task.id}
-                          onSelect={() => setSelectedTask(task)}
-                          onUpdate={patch => {
-                            const lp = taskPatchToLPatch(patch);
-                            if (Object.keys(lp).length === 0) return;
-                            updateTask(sec.id, task.id, lp);
-                            setSelectedTask(t => t && t.id === task.id ? { ...t, ...lp } : t);
-                          }}
-                          onTaskDragStart={() => { dragTaskRef.current = { sectionId: sec.id, taskId: task.id }; }}
-                          onTaskDragEnd={() => { dragTaskRef.current = null; setDragOverTask(null); }}
-                          onDelete={() => { deleteTask(sec.id, task.id); setSelectedTask(t => t?.id === task.id ? null : t); }}
-                        />
-                      </div>
-                    ))}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }}>
-                      <span style={{ width: 28 }} />
-                      <input value={newTaskInputs[sec.id] ?? ''}
-                        onChange={e => setNewTaskInputs(p => ({ ...p, [sec.id]: e.target.value }))}
-                        onKeyDown={e => { if (e.key === 'Enter') addTask(sec.id); }}
-                        placeholder="+ Ajouter une tâche…"
-                        style={{ flex: 1, padding: '6px 8px', background: 'transparent', border: 'none', color: 'var(--text-3)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
-                        onFocus={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderRadius = '7px'; }}
-                        onBlur={e => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
-                      />
-                      {(newTaskInputs[sec.id] ?? '').trim() && (
-                        <button onClick={() => addTask(sec.id)} style={{ padding: '4px 10px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, cursor: 'pointer' }}>Ajouter</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {addingSection ? (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px', border: '1px dashed var(--border-2)', borderRadius: 12 }}>
-                    <input autoFocus value={newSecLabel}
-                      onChange={e => setNewSecLabel(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addSection(); if (e.key === 'Escape') { setAddingSection(false); setNewSecLabel(''); } }}
-                      placeholder="Nom de la section…"
-                      style={{ flex: 1, padding: '7px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
-                    />
-                    <SFButton variant="primary" size="sm" icon="check" onClick={addSection}>Ajouter</SFButton>
-                    <SFButton variant="ghost" size="sm" onClick={() => { setAddingSection(false); setNewSecLabel(''); }}>Annuler</SFButton>
-                  </div>
-                ) : (
-                  <button onClick={() => setAddingSection(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                    <SFIcon name="plus" size={14} /> Ajouter une section
-                  </button>
-                )}
-                <div style={{ height: 40 }} />
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
+          <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure de tâches</p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
+                  {linkedTasksTpl
+                    ? <>Liée au modèle de tâches « {linkedTasksTpl.name} ». Éditable depuis la catégorie « Tâches » des modèles.</>
+                    : 'Aucun modèle de tâches lié — le projet créé n\'aura aucune section par défaut.'}
+                </p>
               </div>
+              <SFButton variant="secondary" size="sm" icon="repeat" onClick={() => setShowTasksPicker(true)}>Changer de structure de tâches</SFButton>
             </div>
-          )}
-          {/* Board view */}
-          {viewMode === 'board' && (
-            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '24px' }}>
-              <div style={{ display: 'flex', gap: 16, height: '100%', alignItems: 'flex-start' }}>
-                {sections.map(sec => (
-                  <div key={sec.id} style={{ minWidth: 260, width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '100%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                      <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{sec.label}</span>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 6 }}>{sec.tasks.length}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flex: 1 }}>
-                      {sec.tasks.map(task => (
-                        <div key={task.id} onClick={() => setSelectedTask(task)}
-                          style={{ padding: '12px', borderRadius: 10, background: selectedTask?.id === task.id ? 'var(--surface-3)' : 'var(--surface)', border: `1px solid ${selectedTask?.id === task.id ? 'var(--border-2)' : 'var(--border)'}`, cursor: 'pointer', transition: 'border-color 0.15s' }}
-                          onMouseEnter={e => { if (selectedTask?.id !== task.id) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-                          onMouseLeave={e => { if (selectedTask?.id !== task.id) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
-                          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 8, lineHeight: 1.4 }}>{task.title || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Sans titre</span>}</p>
-                          {task.description && <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>{task.description}</p>}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <TPVPriBadge priority={task.priority} />
-                            {task.status && (() => {
-                              const opt = STATUS_OPTIONS.find(o => o.value === task.status) ?? STATUS_OPTIONS[0];
-                              return <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${opt.color}22`, color: opt.color, border: `1px solid ${opt.color}44` }}>{task.statusLabel ?? t(opt.labelKey)}</span>;
-                            })()}
-                            {task.assignee && (
-                              <span title={task.assignee.name} style={{ width: 18, height: 18, borderRadius: '50%', background: task.assignee.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700, flexShrink: 0 }}>{task.assignee.initials}</span>
-                            )}
-                            {task.dueDate && (
-                              <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{task.dueDate}</span>
-                            )}
-                            {(task.subtasks ?? []).length > 0 && (
-                              <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                                <SFIcon name="git-branch" size={10} />{task.subtasks!.length}
-                              </span>
-                            )}
-                          </div>
+            {resolvedSections.length === 0 ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+                <SFIcon name="list-checks" size={28} color="var(--border-2)" />
+                <p style={{ marginTop: 12 }}>Aucune section — reliez un modèle de tâches pour en afficher ici.</p>
+              </div>
+            ) : (
+              resolvedSections.map((sec, i) => (
+                <div key={i} style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{sec.label}</span>
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{sec.tasks.length} tâches</span>
+                  </div>
+                  {sec.tasks.length === 0 ? (
+                    <p style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune tâche</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {sec.tasks.map((task, ti) => (
+                        <div key={ti} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderTop: ti > 0 ? '1px solid var(--border)' : 'none' }}>
+                          <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>{task.title}</span>
+                          <TPVPriBadge priority={task.priority} />
                         </div>
                       ))}
                     </div>
-                    <div style={{ padding: '4px 0' }}>
-                      <input value={newTaskInputs[sec.id] ?? ''}
-                        onChange={e => setNewTaskInputs(p => ({ ...p, [sec.id]: e.target.value }))}
-                        onKeyDown={e => { if (e.key === 'Enter') addTask(sec.id); }}
-                        placeholder="+ Ajouter une tâche…"
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
-                        onFocus={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onBlur={e => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}
-                      />
-                    </div>
-                  </div>
-                ))}
-                {/* Add section column */}
-                {addingSection ? (
-                  <div style={{ minWidth: 260, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <input autoFocus value={newSecLabel}
-                      onChange={e => setNewSecLabel(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addSection(); if (e.key === 'Escape') { setAddingSection(false); setNewSecLabel(''); } }}
-                      placeholder="Nom de la section…"
-                      style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
-                    />
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <SFButton variant="primary" size="sm" icon="check" onClick={addSection}>Ajouter</SFButton>
-                      <SFButton variant="ghost" size="sm" onClick={() => { setAddingSection(false); setNewSecLabel(''); }}>Annuler</SFButton>
-                    </div>
-                  </div>
-                ) : (
-                  <button onClick={() => setAddingSection(true)}
-                    style={{ minWidth: 220, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 16px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', flexShrink: 0 }}>
-                    <SFIcon name="plus" size={14} /> Nouvelle section
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* ── Change tasks template picker ────────────────────────────────────── */}
+          {showTasksPicker && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onMouseDown={e => { if (e.target === e.currentTarget) setShowTasksPicker(false); }}>
+              <div style={{ width: 420, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <p style={{ fontWeight: 700, fontSize: 15 }}>Structure de tâches</p>
+                  <button onClick={() => setShowTasksPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                    <SFIcon name="x" size={15} />
                   </button>
-                )}
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button onClick={() => { setTasksTemplateId(undefined); setDirty(true); setShowTasksPicker(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${!tasksTemplateId ? 'var(--border-2)' : 'var(--border)'}`, background: !tasksTemplateId ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <SFIcon name="circle-slash" size={14} color="var(--text-3)" />
+                    </div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Aucune</p>
+                  </button>
+                  {allTasksTpls.map(rt => (
+                    <button key={rt.id} onClick={() => { setTasksTemplateId(rt.id); setDirty(true); setShowTasksPicker(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${tasksTemplateId === rt.id ? 'var(--border-2)' : 'var(--border)'}`, background: tasksTemplateId === rt.id ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: rt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <SFIcon name={rt.icon} size={14} color="rgba(255,255,255,0.9)" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.sections ?? []).length} sections</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
-          {/* Task detail panel — shared by list + board */}
-          {selectedTask && (() => {
-            const adaptedTask: Task = {
-              id: selectedTask.id,
-              title: selectedTask.title,
-              priority: selectedTask.priority,
-              priorityLabel: selectedTask.priority,
-              subtasks: (selectedTask.subtasks ?? []).map(s => ({
-                id: s.id,
-                title: s.title,
-                priority: s.priority,
-                priorityLabel: s.priority,
-                status: (s.status ?? 'neutral') as Task['status'],
-                statusLabel: s.statusLabel ?? '—',
-                projectId: '',
-                projectName: 'Modèle',
-                projectColor: 'var(--text-3)',
-                assignee: (s.assignee ?? null) as unknown as Task['assignee'],
-                dueDate: s.dueDate ?? '',
-                dueDateRed: false,
-                checked: false,
-                activityCount: 0,
-              })),
-              status: (selectedTask.status ?? 'neutral') as Task['status'],
-              statusLabel: selectedTask.statusLabel ?? '—',
-              projectId: '',
-              projectName: 'Modèle',
-              projectColor: 'var(--text-3)',
-              assignee: (selectedTask.assignee ?? null) as unknown as Task['assignee'],
-              dueDate: selectedTask.dueDate ?? '',
-              dueDateRed: false,
-              checked: false,
-              activityCount: 0,
-            };
-            return (
-              <TaskPanel
-                key={adaptedTask.id}
-                task={adaptedTask}
-                onClose={() => setSelectedTask(null)}
-                sectionLabel="Modèle"
-                onUpdate={patch => {
-                  const lPatch: Partial<LTask> = {};
-                  if (patch.title !== undefined) lPatch.title = patch.title;
-                  if (patch.priority !== undefined) lPatch.priority = patch.priority;
-                  if ((patch as { description?: string }).description !== undefined) lPatch.description = (patch as { description?: string }).description;
-                  if (patch.status !== undefined) { lPatch.status = patch.status; lPatch.statusLabel = patch.statusLabel; }
-                  if (patch.dueDate !== undefined) lPatch.dueDate = patch.dueDate || undefined;
-                  if (patch.assignee !== undefined) {
-                    const a = patch.assignee as Task['assignee'] | null;
-                    lPatch.assignee = a ? { id: a.id, name: a.name, initials: a.initials, avatarColor: a.avatarColor } : undefined;
-                  }
-                  if (patch.subtasks !== undefined) {
-                    lPatch.subtasks = (patch.subtasks as Task[]).map(s => ({
-                      id: s.id, title: s.title, priority: s.priority,
-                      status: s.status, statusLabel: s.statusLabel,
-                      dueDate: s.dueDate || undefined,
-                      assignee: s.assignee ? { id: s.assignee.id, name: s.assignee.name, initials: s.assignee.initials, avatarColor: s.assignee.avatarColor } : undefined,
-                    }));
-                  }
-                  if (Object.keys(lPatch).length > 0) {
-                    setSelectedTask(t => t ? { ...t, ...lPatch } : t);
-                    sections.forEach(s => s.tasks.forEach(t => {
-                      if (t.id === selectedTask.id) updateTask(s.id, t.id, lPatch);
-                    }));
-                  }
-                }}
-              />
-            );
-          })()}
         </div>
       )}
 
@@ -2388,7 +2064,7 @@ export function Modeles() {
       requestUpgrade({ feature: 'customTemplates' });
       return;
     }
-    if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], sections: [], resources: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
+    if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], resources: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };

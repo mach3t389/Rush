@@ -12,8 +12,8 @@ import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { loadCustomTemplates, saveCustomTemplates } from '../data/templates';
-import type { ProjectTemplate } from '../data/templates';
+import { loadCustomTemplates, saveCustomTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates } from '../data/templates';
+import type { ProjectTemplate, ResourceTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
@@ -1589,6 +1589,24 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
 
   const handleSave = () => {
     if (!name.trim()) return;
+    const createdAt = new Date().toISOString().split('T')[0];
+    const tasksTpl: ResourceTemplate = {
+      id: `tasks-${Date.now()}`,
+      type: 'tasks',
+      name: `Tâches — ${name.trim()}`,
+      description: '',
+      color,
+      icon: 'list-checks',
+      tags: [],
+      builtIn: false,
+      createdAt,
+      sections: sections.map(s => ({
+        label: s.label,
+        tasks: s.tasks.map(convertTask),
+      })),
+    };
+    const existingResTpls = loadCustomResourceTemplates();
+    saveCustomResourceTemplates([...existingResTpls, tasksTpl]);
     const tpl: ProjectTemplate = {
       id: `tpl-${Date.now()}`,
       name: name.trim(),
@@ -1596,13 +1614,10 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
       color,
       icon: 'folder',
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      sections: sections.map(s => ({
-        label: s.label,
-        tasks: s.tasks.map(convertTask),
-      })),
+      tasksTemplateId: tasksTpl.id,
       resources: [],
       builtIn: false,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt,
     };
     const existing = loadCustomTemplates();
     saveCustomTemplates([...existing, tpl]);
