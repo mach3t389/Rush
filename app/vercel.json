@@ -6,6 +6,6 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/google-calendar-pull", "schedule": "0 8 * * *" }
+    { "path": "/api/google-calendar-sync", "schedule": "0 8 * * *" }
   ]
 }

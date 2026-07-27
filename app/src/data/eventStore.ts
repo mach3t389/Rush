@@ -17,7 +17,7 @@ async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update'
     const studioId = await getStudioId();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return;
-    await fetch('/api/google-calendar-push', {
+    await fetch('/api/google-calendar-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ studioId, eventId, action, projectId, googleEventId }),

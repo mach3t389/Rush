@@ -1,7 +1,144 @@
-// app/api/google-calendar-pull.ts
+// app/api/google-calendar-sync.ts
+//
+// Merged google-calendar-pull.ts + google-calendar-push.ts into one file to
+// stay under Vercel Hobby's 12-serverless-function cap (see the 2026-07
+// incident in CLAUDE.md — silently broke every prod deploy for over a
+// week). The two were never actually the same *request*, just the same
+// budget slot: pull is the daily cron sweep (Google → Rush, all studios),
+// push is one event's Rush → Google write, triggered by eventStore.ts on
+// create/update/delete. They're told apart by their Authorization header,
+// which each caller already sends for its own reason (cron secret vs a
+// real user's Supabase session) — no change needed to either caller
+// beyond pointing at this file's URL instead of the old two.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getValidAccessToken, getOrgDefaultCalendarId, googleCalendarRequest } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody } from './_lib/googleCalendarApi.js';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const authHeader = req.headers.authorization || '';
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    return handlePull(req, res);
+  }
+  return handlePush(req, res);
+}
+
+// ── Push: one event, Rush → Google (eventStore.ts, on create/update/delete) ──
+
+interface PushBody {
+  studioId: string;
+  eventId: string;
+  action: 'create' | 'update' | 'delete';
+  projectId?: string | null;
+  googleEventId?: string; // required for 'delete' — the Rush row is already gone by the time this runs
+}
+
+async function handlePush(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { studioId, eventId, action, projectId, googleEventId } = req.body as PushBody;
+  if (!studioId || !eventId || !action) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'Not a member of this studio' });
+    return;
+  }
+
+  try {
+    const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+    if (!accessToken) {
+      // No Google Calendar connected for this studio — nothing to push, not an error.
+      res.status(200).json({ ok: true, skipped: 'not_connected' });
+      return;
+    }
+
+    if (action === 'delete') {
+      if (googleEventId) {
+        const calendarId = await resolveEventCalendarId(supabaseAdmin, studioId, projectId ?? null, accessToken);
+        if (calendarId) {
+          await googleCalendarRequest(accessToken, calendarId, 'DELETE', `/events/${googleEventId}`);
+        }
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    const { data: eventRow, error: eventError } = await supabaseAdmin
+      .from('events')
+      .select('title, start, "end", all_day, description, location, google_event_id, project_id')
+      .eq('id', eventId)
+      .eq('studio_id', studioId)
+      .single();
+
+    if (eventError || !eventRow) {
+      res.status(200).json({ ok: true, skipped: 'event_not_found' });
+      return;
+    }
+
+    const calendarId = await resolveEventCalendarId(supabaseAdmin, studioId, eventRow.project_id, accessToken);
+    if (!calendarId) {
+      res.status(200).json({ ok: true, skipped: 'no_calendar' });
+      return;
+    }
+
+    const body = toGoogleEventBody({
+      title: eventRow.title,
+      start: eventRow.start,
+      end: eventRow.end,
+      allDay: eventRow.all_day,
+      description: eventRow.description,
+      location: eventRow.location,
+    });
+
+    if (eventRow.google_event_id) {
+      await googleCalendarRequest(accessToken, calendarId, 'PUT', `/events/${eventRow.google_event_id}`, body);
+    } else {
+      const created = await googleCalendarRequest(accessToken, calendarId, 'POST', '/events', body);
+      await supabaseAdmin.from('events').update({ google_event_id: created.id }).eq('id', eventId);
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('Failed to push event to Google Calendar:', error);
+    // Do not fail the response with a 500 that the client would surface as
+    // an error toast — a push failure never blocks or rolls back the
+    // Rush-side write, it just means Google is out of sync until the
+    // connection (or calendar) is fixed.
+    res.status(200).json({ ok: false, error: 'push_failed' });
+  }
+}
+
+// ── Pull: daily cron sweep, Google → Rush, all studios ───────────────────────
 
 interface GoogleEventItem {
   id: string;
@@ -13,13 +150,7 @@ interface GoogleEventItem {
   end?: { date?: string; dateTime?: string };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const authHeader = req.headers.authorization || '';
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
+async function handlePull(req: VercelRequest, res: VercelResponse) {
   const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
