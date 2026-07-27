@@ -2063,7 +2063,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
     addResource({
       id: resourceId,
       type: actualType,
-      eyebrow: isRevision ? pendingRevision!.eyebrow : (RESOURCE_EYEBROW[def.type] ?? t(def.labelKey).toUpperCase()),
+      eyebrow: isRevision ? pendingRevision!.eyebrow : t(RESOURCE_EYEBROW[def.type] ?? def.labelKey).toUpperCase(),
       title: name,
       status: 'info',
       statusLabel: 'En cours',
