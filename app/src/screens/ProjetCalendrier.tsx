@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton, PageHeader } from '../components/ui';
@@ -648,6 +648,17 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
 
   const [view, setView]             = useSyncedViewState<CalView>('sf_view_projet_calendrier', 'week');
   const [cur, setCur]               = useState(new Date(TODAY));
+  const mainRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === mainRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else mainRef.current?.requestFullscreen();
+  };
   const [eventTypes, setEventTypes] = useState<EventType[]>(getEventTypes);
   const [events, setEvents]         = useState<CalEvent[]>(() => resolveProjectEvents(activeProjectIds, getEventTypes()));
   const [showCreate, setShowCreate] = useState(false);
@@ -903,7 +914,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
       </div>
 
       {/* Main */}
-      <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0 }}>
+      <div ref={mainRef} style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0, background: 'var(--bg)' }}>
         <PageHeader title={t('nav.calendar')} subtitle={title}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <div style={{ display:'flex',alignItems:'center',gap:6 }}>
@@ -931,6 +942,11 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
                   </button>
                 ))}
               </div>
+
+              <button onClick={toggleFullscreen} title={isFullscreen ? t('calendar.exitFullscreen') : t('calendar.fullscreen')}
+                style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
+                <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
+              </button>
             </div>
           </div>
         </PageHeader>
