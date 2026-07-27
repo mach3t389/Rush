@@ -177,21 +177,21 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', flex: 2, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
         <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, flexShrink: 0 }}>{t('finance.chartTitle')}</p>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {/* Période */}
-          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>
             {([6, 12] as const).map(p => (
-              <button key={p} onClick={() => setPeriod(p)} style={{ fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', background: period === p ? 'var(--surface-3)' : 'var(--surface-2)', color: period === p ? 'var(--text)' : 'var(--text-3)', fontWeight: period === p ? 600 : 400 }}>
+              <button key={p} onClick={() => setPeriod(p)} style={{ fontSize: 11, padding: '4px 9px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)', background: period === p ? 'var(--surface)' : 'transparent', color: period === p ? 'var(--text)' : 'var(--text-3)', fontWeight: period === p ? 600 : 400, boxShadow: period === p ? '0 1px 4px rgba(0,0,0,0.3)' : 'none', transition: 'all 0.1s' }}>
                 {p === 6 ? t('finance.chart6months') : t('finance.chart12months')}
               </button>
             ))}
           </div>
           {/* Mode date */}
-          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>
             {CHART_MODES.map(m => (
-              <button key={m.key} onClick={() => setMode(m.key)} style={{ fontSize: 10, padding: '3px 8px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', background: mode === m.key ? 'var(--surface-3)' : 'var(--surface-2)', color: mode === m.key ? 'var(--text)' : 'var(--text-3)', fontWeight: mode === m.key ? 600 : 400 }}>
+              <button key={m.key} onClick={() => setMode(m.key)} style={{ fontSize: 11, padding: '4px 9px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)', background: mode === m.key ? 'var(--surface)' : 'transparent', color: mode === m.key ? 'var(--text)' : 'var(--text-3)', fontWeight: mode === m.key ? 600 : 400, boxShadow: mode === m.key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none', transition: 'all 0.1s' }}>
                 {t(m.labelKey)}
               </button>
             ))}
@@ -221,16 +221,16 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
               {rh > 0 && <rect x={bx} y={base - rh - ph - oh} width={barW} height={rh} fill="var(--danger)" opacity={0.75} rx={1} />}
               {oh > 0 && <rect x={bx} y={base - oh - ph} width={barW} height={oh} fill="var(--warn)" opacity={0.75} rx={1} />}
               {ph > 0 && <rect x={bx} y={base - ph} width={barW} height={ph} fill="var(--ok)" opacity={0.85} rx={1} />}
-              <text x={cx} y={H - 3} textAnchor="middle" style={{ fontSize: '6px', fill: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{d.label}</text>
+              <text x={cx} y={H - 3} textAnchor="middle" style={{ fontSize: '8px', fill: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{d.label}</text>
             </g>
           );
         })}
       </svg>
-      <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingLeft: `${(PAD.l / W) * 100}%` }}>
         {([['var(--ok)', t('finance.statusPaid')], ['var(--warn)', t('finance.statusSent')], ['var(--danger)', t('finance.statusOverdue')], ['var(--border-2)', t('finance.statusDraft')]] as [string, string][]).map(([color, label]) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 1, background: color, display: 'block', flexShrink: 0 }} />
-            <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{label}</span>
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 2, background: color, display: 'block', flexShrink: 0 }} />
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{label}</span>
           </div>
         ))}
       </div>
@@ -1126,38 +1126,42 @@ export function Finances() {
         {/* Date filter row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           {/* Date field selector */}
-          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)', flexShrink: 0 }}>
             {(['issuedDate', 'dueDate', 'paidDate'] as const).map(field => (
-              <button key={field} onClick={() => setDateField(field)} style={{ fontSize: 11, padding: '5px 10px', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-mono)', transition: 'all 0.1s', background: dateField === field ? 'var(--surface-3)' : 'var(--surface-2)', color: dateField === field ? 'var(--text)' : 'var(--text-3)', fontWeight: dateField === field ? 600 : 400 }}>
+              <button key={field} onClick={() => setDateField(field)} style={{ fontSize: 12, padding: '5px 11px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)', transition: 'all 0.1s', background: dateField === field ? 'var(--surface)' : 'transparent', color: dateField === field ? 'var(--text)' : 'var(--text-3)', fontWeight: dateField === field ? 600 : 400, boxShadow: dateField === field ? '0 1px 4px rgba(0,0,0,0.3)' : 'none' }}>
                 {t(`finance.date${field.charAt(0).toUpperCase()}${field.slice(1)}` as any)}
               </button>
             ))}
           </div>
           {/* Presets */}
           {(['thisMonth', 'lastMonth', 'thisQuarter', 'thisYear'] as const).map(preset => (
-            <button key={preset} onClick={() => applyDatePreset(preset)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
+            <button key={preset} onClick={() => applyDatePreset(preset)}
+              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'var(--ff-text)', fontWeight: 500, whiteSpace: 'nowrap', transition: 'background 0.12s, color 0.12s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}
+            >
               {t(`finance.preset${preset.charAt(0).toUpperCase()}${preset.slice(1)}` as any)}
             </button>
           ))}
           {/* From / To inputs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('finance.dateFrom')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{t('finance.dateFrom')}</span>
             <button onClick={e => setDateFromAnchor(dateFromAnchor ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
-              style={{ fontSize: 11, padding: '5px 8px', borderRadius: 8, border: `1px solid ${dateFrom ? 'var(--accent)' : 'var(--border)'}`, background: dateFromAnchor ? 'var(--surface-3)' : 'var(--surface-2)', color: dateFrom ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', minWidth: 80 }}>
+              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 999, border: `1px solid ${dateFrom ? 'var(--accent)' : 'var(--border)'}`, background: dateFromAnchor ? 'var(--surface-3)' : 'var(--surface-2)', color: dateFrom ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)', minWidth: 84 }}>
               {dateFrom ? formatDisplay(dateFrom) : '—'}
             </button>
             {dateFromAnchor && <DatePickerDropdown value={dateFrom} onChange={v => { setDateFrom(v); setDateFromAnchor(null); }} onClose={() => setDateFromAnchor(null)} anchorRect={dateFromAnchor} zIndex={500} />}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('finance.dateTo')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{t('finance.dateTo')}</span>
             <button onClick={e => setDateToAnchor(dateToAnchor ? null : (e.currentTarget as HTMLElement).getBoundingClientRect())}
-              style={{ fontSize: 11, padding: '5px 8px', borderRadius: 8, border: `1px solid ${dateTo ? 'var(--accent)' : 'var(--border)'}`, background: dateToAnchor ? 'var(--surface-3)' : 'var(--surface-2)', color: dateTo ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', minWidth: 80 }}>
+              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 999, border: `1px solid ${dateTo ? 'var(--accent)' : 'var(--border)'}`, background: dateToAnchor ? 'var(--surface-3)' : 'var(--surface-2)', color: dateTo ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)', minWidth: 84 }}>
               {dateTo ? formatDisplay(dateTo) : '—'}
             </button>
             {dateToAnchor && <DatePickerDropdown value={dateTo} onChange={v => { setDateTo(v); setDateToAnchor(null); }} onClose={() => setDateToAnchor(null)} anchorRect={dateToAnchor} zIndex={500} />}
           </div>
           {hasDateFilter && (
-            <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ display: 'flex', alignItems: 'center', padding: '5px 7px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}>
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ display: 'flex', alignItems: 'center', padding: 6, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}>
               <SFIcon name="x" size={12} />
             </button>
           )}
@@ -1167,7 +1171,7 @@ export function Finances() {
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{filtered.length} / {invoices.length}</span>
           )}
           {hasAnyFilter && (
-            <button onClick={clearAllFilters} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button onClick={clearAllFilters} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--ff-text)', fontWeight: 500 }}>
               <SFIcon name="funnel-x" size={12} />
               {t('finance.clearFilters')}
             </button>
