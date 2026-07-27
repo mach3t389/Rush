@@ -23,6 +23,7 @@ import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession } from '../data/authStore';
 import { sendEmail } from '../data/emailStore';
 import { InlineDropdown, ddItem, getTeam, STATUS_OPTIONS, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
+import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
 
 // Icônes par type de ressource (pour les ressources liées aux livrables)
@@ -210,6 +211,24 @@ export function TravailOverview() {
   const [notes, setNotes] = useState('');
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
   const [customSectionData, setCustomSectionData] = useState<Record<string, string | Record<string, string>>>({});
+  const [addingSectionOpen, setAddingSectionOpen] = useState(false);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | null>(null);
+
+  const handleAddSection = (section: CustomOverviewSection) => {
+    setCustomSections(prev => [...prev, section]);
+    setAddingSectionOpen(false);
+  };
+  const handleEditSection = (updated: CustomOverviewSection) => {
+    setCustomSections(prev => prev.map(s => s.id === updated.id ? updated : s));
+    setEditingSectionId(null);
+  };
+  const handleDeleteSection = (id: string) => {
+    if (!confirm(t('overview.confirmDeleteSection'))) return;
+    setCustomSections(prev => prev.filter(s => s.id !== id));
+    setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
+    setSectionMenuOpenId(null);
+  };
 
   // Load persisted content whenever the viewed project changes — TravailOverview
   // isn't remounted on /projets/:id/overview navigation (see the project.id-keyed
@@ -791,7 +810,31 @@ export function TravailOverview() {
 
           {/* ── Sections personnalisées ── */}
           {customSections.map(section => (
-            <Card key={section.id} title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}>
+            <Card key={section.id} title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
+              action={
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                    <SFIcon name="ellipsis" size={15} />
+                  </button>
+                  {sectionMenuOpenId === section.id && (
+                    <>
+                      <div onClick={() => setSectionMenuOpenId(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
+                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                        <button onClick={() => { setEditingSectionId(section.id); setSectionMenuOpenId(null); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                          <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
+                        </button>
+                        <button onClick={() => handleDeleteSection(section.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                          <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              }
+            >
               <div style={{ padding: '14px 18px' }}>
                 {section.kind === 'note' ? (
                   <textarea
@@ -824,6 +867,33 @@ export function TravailOverview() {
               </div>
             </Card>
           ))}
+
+          <button onClick={() => setAddingSectionOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '9px 16px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="plus" size={13} /> {t('overview.addSection')}
+          </button>
+
+          {addingSectionOpen && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
+              onMouseDown={e => { if (e.target === e.currentTarget) setAddingSectionOpen(false); }}>
+              <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+                <OverviewSectionForm onSave={handleAddSection} onCancel={() => setAddingSectionOpen(false)} />
+              </div>
+            </div>
+          )}
+
+          {editingSectionId && (() => {
+            const section = customSections.find(s => s.id === editingSectionId);
+            if (!section) return null;
+            return (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
+                onMouseDown={e => { if (e.target === e.currentTarget) setEditingSectionId(null); }}>
+                <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+                  <OverviewSectionForm initial={section} onSave={handleEditSection} onCancel={() => setEditingSectionId(null)} />
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
 

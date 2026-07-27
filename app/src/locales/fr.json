@@ -566,7 +566,11 @@
     "fieldMultiline": "Texte long",
     "removeField": "Retirer ce champ",
     "sectionEditorSave": "Enregistrer",
-    "sectionEditorCancel": "Annuler"
+    "sectionEditorCancel": "Annuler",
+    "editSection": "Modifier la section",
+    "renameSection": "Renommer / modifier",
+    "deleteSection": "Supprimer la section",
+    "confirmDeleteSection": "Supprimer cette section et son contenu ?"
   },
   "profile": {
     "myProfile": "Mon profil",

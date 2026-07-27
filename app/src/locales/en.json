@@ -566,7 +566,11 @@
     "fieldMultiline": "Long text",
     "removeField": "Remove this field",
     "sectionEditorSave": "Save",
-    "sectionEditorCancel": "Cancel"
+    "sectionEditorCancel": "Cancel",
+    "editSection": "Edit section",
+    "renameSection": "Rename / edit",
+    "deleteSection": "Delete section",
+    "confirmDeleteSection": "Delete this section and its content?"
   },
   "profile": {
     "myProfile": "My profile",
