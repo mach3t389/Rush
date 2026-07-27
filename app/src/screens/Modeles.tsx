@@ -1111,6 +1111,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
   onClose: () => void;
   onSave: (updated: ProjectTemplate) => void;
 }) {
+  const { t } = useTranslation();
   const [tplName, setTplName] = useState(initialTpl.name);
   const [tplDescription, setTplDescription] = useState(initialTpl.description ?? '');
   const [resources, setResources] = useState<LResource[]>(() =>
@@ -1339,7 +1340,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.title}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{RESOURCE_TYPE_LABELS_TPV[res.type]}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t(RESOURCE_TYPE_LABELS_TPV[res.type])}</p>
                     </div>
                     <button onClick={() => { setResources(r => r.filter(x => x.id !== res.id)); setDirty(true); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 6, borderRadius: 7 }}
@@ -1372,10 +1373,10 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                 style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === null ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === null ? 'var(--on-accent)' : 'var(--text-2)' }}>
                 Tous
               </button>
-              {(['document','screenplay','video_review','moodboard','form'] as ResourceType[]).map(t => (
-                <button key={t} onClick={() => setResTypeFilter(f => f === t ? null : t)}
-                  style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === t ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === t ? 'var(--on-accent)' : 'var(--text-2)' }}>
-                  {RESOURCE_TYPE_LABELS_TPV[t]}
+              {(['document','screenplay','video_review','moodboard','form'] as ResourceType[]).map(rt => (
+                <button key={rt} onClick={() => setResTypeFilter(f => f === rt ? null : rt)}
+                  style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === rt ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === rt ? 'var(--on-accent)' : 'var(--text-2)' }}>
+                  {t(RESOURCE_TYPE_LABELS_TPV[rt])}
                 </button>
               ))}
             </div>
@@ -1399,17 +1400,17 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{r.name}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{RESOURCE_TYPE_LABELS_TPV[r.type as ResourceType]}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t(RESOURCE_TYPE_LABELS_TPV[r.type as ResourceType])}</p>
                     </div>
                     <SFIcon name="plus" size={14} color="var(--text-3)" />
                   </button>
                 ))}
               {/* Custom: add blank resource by type */}
               {(['document','screenplay','video_review','moodboard','form'] as ResourceType[])
-                .filter(t => resTypeFilter === null || t === resTypeFilter)
-                .map(t => (
-                  <button key={`blank-${t}`} onClick={() => {
-                    const newRes: LResource = { id: `r-${Date.now()}`, type: t, title: RESOURCE_TYPE_LABELS_TPV[t] };
+                .filter(rt => resTypeFilter === null || rt === resTypeFilter)
+                .map(rt => (
+                  <button key={`blank-${rt}`} onClick={() => {
+                    const newRes: LResource = { id: `r-${Date.now()}`, type: rt, title: t(RESOURCE_TYPE_LABELS_TPV[rt]) };
                     setResources(prev => [...prev, newRes]);
                     setDirty(true);
                     setShowAddResource(false);
@@ -1418,10 +1419,10 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'}>
                     <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name={RESOURCE_TYPE_ICONS_TPV[t]} size={14} color="var(--text-3)" />
+                      <SFIcon name={RESOURCE_TYPE_ICONS_TPV[rt]} size={14} color="var(--text-3)" />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Nouveau {RESOURCE_TYPE_LABELS_TPV[t]} (vide)</p>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Nouveau {t(RESOURCE_TYPE_LABELS_TPV[rt])} (vide)</p>
                     </div>
                     <SFIcon name="plus" size={14} color="var(--text-3)" />
                   </button>
