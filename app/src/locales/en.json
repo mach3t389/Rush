@@ -1,4 +1,8 @@
 {
+  "templateMenuButton": "Templates",
+  "templateMenuLoad": "Load a template",
+  "templateMenuSave": "Save as template",
+  "templateMenuNoOptions": "No template available",
   "nav": {
     "dashboard": "Home",
     "myTasks": "My Tasks",

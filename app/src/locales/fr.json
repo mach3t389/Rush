@@ -1,4 +1,8 @@
 {
+  "templateMenuButton": "Modèles",
+  "templateMenuLoad": "Charger un modèle",
+  "templateMenuSave": "Enregistrer comme modèle",
+  "templateMenuNoOptions": "Aucun modèle disponible",
   "nav": {
     "dashboard": "Accueil",
     "myTasks": "Mes tâches",
