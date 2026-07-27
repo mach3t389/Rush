@@ -17,6 +17,7 @@ import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
 import { getProjectContent, setProjectContent, type ProjectVision, type CustomOverviewSection } from '../data/projectContentStore';
+import { loadAllResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
@@ -212,6 +213,7 @@ export function TravailOverview() {
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
   const [customSectionData, setCustomSectionData] = useState<Record<string, string | Record<string, string>>>({});
   const [addingSectionOpen, setAddingSectionOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | null>(null);
 
@@ -868,10 +870,52 @@ export function TravailOverview() {
             </Card>
           ))}
 
-          <button onClick={() => setAddingSectionOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '9px 16px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-            <SFIcon name="plus" size={13} /> {t('overview.addSection')}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setAddingSectionOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              <SFIcon name="plus" size={13} /> {t('overview.addSection')}
+            </button>
+            <button onClick={() => setTemplatePickerOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              <SFIcon name="layout-panel-top" size={13} /> {t('overview.changeOverviewTemplate')}
+            </button>
+          </div>
+
+          {templatePickerOpen && (() => {
+            const overviewTemplates = loadAllResourceTemplates().filter((tp): tp is ResourceTemplate => tp.type === 'overview');
+            const applyTemplate = (tpl: ResourceTemplate | null) => {
+              if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
+              const newSections = tpl?.overviewSections ?? [];
+              setCustomSections(newSections);
+              setCustomSectionData({});
+              updateProject(project.id, { overviewTemplateId: tpl?.id });
+              setTemplatePickerOpen(false);
+            };
+            return (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
+                onMouseDown={e => { if (e.target === e.currentTarget) setTemplatePickerOpen(false); }}>
+                <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 20, width: 420, maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>{t('overview.chooseOverviewTemplate')}</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button onClick={() => applyTemplate(null)}
+                      style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer' }}>
+                      {t('overview.overviewTemplateNone')}
+                    </button>
+                    {overviewTemplates.map(tpl => (
+                      <button key={tpl.id} onClick={() => applyTemplate(tpl)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
+                        <SFIcon name={tpl.icon} size={14} color="var(--text-3)" />
+                        {tpl.name}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setTemplatePickerOpen(false)} style={{ marginTop: 14, padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', width: '100%' }}>
+                    {t('overview.sectionEditorCancel')}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {addingSectionOpen && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
