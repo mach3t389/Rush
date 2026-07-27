@@ -161,11 +161,11 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
 
 // ── SubTask grid constants ─────────────────────────────────────────────────────
 
-// minmax(80px, …) keeps the title column from being squeezed down to
-// almost nothing in the narrower inline panel (Mes tâches split view) —
-// without it, a growing multi-line title wraps into a near-single-column
-// wall of text instead of a few readable lines.
-const SUB_GRID = '22px minmax(80px, 1fr) 32px 50px 85px 24px';
+// Priority/assignee/date used to each get their own column, which starved
+// the title of width in the panel's ~400px content area. They now live
+// behind a single "fields" button (see SubTaskRow) so title gets almost
+// the full row.
+const SUB_GRID = '22px minmax(120px, 1fr) 26px 24px';
 
 const subColLabel = (label: string) => (
   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block' }}>{label}</span>
@@ -173,12 +173,13 @@ const subColLabel = (label: string) => (
 
 // ── SubTaskRow ────────────────────────────────────────────────────────────────
 
-function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, selected, onSelect, onContextMenu }: {
+function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu }: {
   sub: LocalSubtask;
   onToggle: () => void;
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
   onPasteMultiple: (lines: string[]) => void;
+  onEnterNext?: () => void;
   selected?: boolean;
   onSelect?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -187,9 +188,14 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, select
   const [editing, setEditing] = useState(sub.title === '');
   const [editTitle, setEditTitle] = useState(sub.title);
   const [hovered, setHovered] = useState(false);
-  const [dropOpen, setDropOpen] = useState<'assignee' | 'priority' | 'date' | null>(null);
+  // Priority/assignee/date all live inside one "fields" popover; `dropOpen`
+  // is only for the nested date picker launched from within it.
+  const [fieldsOpen, setFieldsOpen] = useState(false);
+  const [fieldsRect, setFieldsRect] = useState<DOMRect | null>(null);
+  const [dropOpen, setDropOpen] = useState<'date' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const editTitleRef = useRef<HTMLTextAreaElement>(null);
+  const hasFields = sub.priority !== 'none' || !!sub.assignee || !!sub.dueDate;
 
   // Auto-grow the title field to fit its content — same fix as the main
   // task title, so a long subtask title doesn't get clipped while editing.
@@ -241,7 +247,15 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, select
           onChange={e => setEditTitle(e.target.value)}
           onBlur={() => { onUpdate({ title: editTitle }); setEditing(false); }}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onUpdate({ title: editTitle }); setEditing(false); }
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              const trimmed = editTitle.trim();
+              onUpdate({ title: editTitle });
+              setEditing(false);
+              // Like AddTaskRow: Enter on a titled row opens a fresh blank
+              // row right after it so a checklist can be typed line by line.
+              if (trimmed) onEnterNext?.();
+            }
             if (e.key === 'Escape') { onUpdate({ title: editTitle }); setEditing(false); }
           }}
           onPaste={e => {
@@ -253,7 +267,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, select
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 6', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
+          style={{ gridColumn: '2 / 5', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
@@ -262,58 +276,70 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, select
         </span>
       )}
 
-      {/* Priority / Assignee / Date — hidden while editing so the title
-          field can borrow their columns' width instead of being squeezed
-          into the narrow title track alone. */}
+      {/* Priority / Assignee / Date — consolidated behind one button so the
+          title column doesn't have to give up space to three separate
+          controls. Hidden while editing so the title field can borrow the
+          column's width instead of being squeezed into the title track alone. */}
       {!editing && (
-        <>
-      <div style={{ position: 'relative' }}>
-        <button onClick={e => openDrop('priority', e)} title={`${t('tasks.priority')} : ${t(PRIORITY_LABEL_KEY[sub.priority])}`}
-          style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%' }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: PRIORITY_COLOR[sub.priority], flexShrink: 0, display: 'block' }} />
-        </button>
-        {dropOpen === 'priority' && (
-          <InlineDropdown onClose={() => setDropOpen(null)} anchorRect={dropRect} zIndex={600}>
-            {PRIORITY_OPTIONS.map(p => ddItem(() => { onUpdate({ priority: p }); setDropOpen(null); },
-              <><span style={{ width: 8, height: 8, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
-              sub.priority === p
-            ))}
-          </InlineDropdown>
-        )}
-      </div>
-
-      <div style={{ position: 'relative' }}>
-        <button onClick={e => openDrop('assignee', e)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-          {sub.assignee
-            ? <SFAvatar initials={sub.assignee.initials} bg={sub.assignee.avatarColor} size={18} />
-            : <span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={9} color="var(--text-3)" /></span>
-          }
-        </button>
-        {dropOpen === 'assignee' && (
-          <InlineDropdown onClose={() => setDropOpen(null)} anchorRect={dropRect} minWidth={180} zIndex={600}>
-            {ddItem(() => { onUpdate({ assignee: null }); setDropOpen(null); },
-              <><span style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={9} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-              sub.assignee === null
+        <div style={{ position: 'relative', justifySelf: 'center' }}>
+          <button
+            onClick={e => { e.stopPropagation(); setFieldsOpen(v => !v); setFieldsRect(e.currentTarget.getBoundingClientRect()); }}
+            title={t('taskPanel.subtaskFields')}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, border: 'none', background: fieldsOpen ? 'var(--surface-3)' : 'transparent', cursor: 'pointer' }}
+            onMouseEnter={e => { if (!fieldsOpen) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { if (!fieldsOpen) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <SFIcon name="sliders-horizontal" size={12} color={hasFields ? 'var(--text-2)' : 'var(--text-3)'} />
+            {sub.priority !== 'none' && (
+              <span style={{ position: 'absolute', top: 1, right: 1, width: 6, height: 6, borderRadius: '50%', background: PRIORITY_COLOR[sub.priority], border: '1px solid var(--surface)' }} />
             )}
-            {TEAM.map(u => ddItem(() => { onUpdate({ assignee: u }); setDropOpen(null); },
-              <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-              sub.assignee?.id === u.id
-            ))}
-          </InlineDropdown>
-        )}
-      </div>
-
-      <div style={{ position: 'relative' }}>
-        <button onClick={e => openDrop('date', e)}
-          style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          <SFIcon name="calendar" size={10} color={sub.dueDate ? 'var(--text-2)' : 'var(--text-3)'} />
-          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: sub.dueDate ? 'var(--text-2)' : 'var(--text-3)', whiteSpace: 'nowrap' }}>{fmtDate(sub.dueDate)}</span>
-        </button>
-        {dropOpen === 'date' && (
-          <DatePickerDropdown value={sub.dueDate} onChange={v => { onUpdate({ dueDate: v }); setDropOpen(null); }} onClose={() => setDropOpen(null)} anchorRect={dropRect} zIndex={600} />
-        )}
-      </div>
-        </>
+          </button>
+          {fieldsOpen && (
+            <InlineDropdown onClose={() => setFieldsOpen(false)} anchorRect={fieldsRect} minWidth={220} zIndex={600}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '6px 6px 4px' }}>
+                {/* Priority */}
+                <div>
+                  {subColLabel(t('tasks.priority'))}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+                    {PRIORITY_OPTIONS.map(p => (
+                      <button key={p} onClick={() => onUpdate({ priority: p })} title={t(PRIORITY_LABEL_KEY[p])}
+                        style={{ width: 22, height: 22, borderRadius: '50%', background: PRIORITY_COLOR[p], border: sub.priority === p ? '2px solid var(--text)' : '2px solid transparent', cursor: 'pointer', flexShrink: 0 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Assignee */}
+                <div>
+                  {subColLabel(t('tasks.assigned'))}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+                    <button onClick={() => onUpdate({ assignee: null })} title={t('tasks.unassigned')}
+                      style={{ width: 22, height: 22, borderRadius: '50%', border: sub.assignee === null ? '2px solid var(--text)' : '1.5px dashed var(--border-2)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
+                      <SFIcon name="user" size={10} color="var(--text-3)" />
+                    </button>
+                    {TEAM.map(u => (
+                      <button key={u.id} onClick={() => onUpdate({ assignee: u })} title={u.name}
+                        style={{ borderRadius: '50%', border: sub.assignee?.id === u.id ? '2px solid var(--text)' : '2px solid transparent', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex' }}>
+                        <SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Date */}
+                <div style={{ position: 'relative' }}>
+                  {subColLabel(t('tasks.dueDate'))}
+                  <button onClick={e => openDrop('date', e)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', width: '100%' }}>
+                    <SFIcon name="calendar" size={11} color={sub.dueDate ? 'var(--text-2)' : 'var(--text-3)'} />
+                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: sub.dueDate ? 'var(--text-2)' : 'var(--text-3)' }}>{fmtDate(sub.dueDate)}</span>
+                  </button>
+                  {dropOpen === 'date' && (
+                    <DatePickerDropdown value={sub.dueDate} onChange={v => { onUpdate({ dueDate: v }); setDropOpen(null); }} onClose={() => setDropOpen(null)} anchorRect={dropRect} zIndex={700} />
+                  )}
+                </div>
+              </div>
+            </InlineDropdown>
+          )}
+        </div>
       )}
 
       {/* Delete */}
@@ -514,52 +540,54 @@ export function TaskPanel({
     setPanelDropRect((e.currentTarget as HTMLButtonElement).getBoundingClientRect());
   };
 
-  const toggleLinkedResource = (id: string) =>
-    setLinkedResources(prev => {
-      const next = prev.includes(id) ? prev.filter(rid => rid !== id) : [...prev, id];
-      onUpdate?.({ linkedResources: next });
-      return next;
-    });
+  // Below: compute `next` from the current state variable and call
+  // setState + onUpdate as two separate statements — calling onUpdate
+  // (which triggers the HOST screen's setState, e.g. Travail.tsx) from
+  // inside a setState updater callback triggers React's "Cannot update a
+  // component while rendering a different component" warning, since the
+  // updater can run during render (e.g. under StrictMode's double-invoke).
+  const toggleLinkedResource = (id: string) => {
+    const next = linkedResources.includes(id) ? linkedResources.filter(rid => rid !== id) : [...linkedResources, id];
+    setLinkedResources(next);
+    onUpdate?.({ linkedResources: next });
+  };
 
-  const updateSub = (id: string, patch: Partial<LocalSubtask>) =>
-    setLocalSubtasks(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, ...patch } : s);
-      onUpdate?.({ subtasks: next as unknown as Task[] });
-      return next;
-    });
+  const updateSub = (id: string, patch: Partial<LocalSubtask>) => {
+    const next = localSubtasks.map(s => s.id === id ? { ...s, ...patch } : s);
+    setLocalSubtasks(next);
+    onUpdate?.({ subtasks: next as unknown as Task[] });
+  };
 
-  const addSubtask = () => {
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'normal', status: '', statusLabel: '', assignee: null, dueDate: '', comments: [] };
-    setLocalSubtasks(prev => {
-      const next = [...prev, sub];
-      onUpdate?.({ subtasks: next as unknown as Task[] });
-      return next;
-    });
+  // afterId inserts the new blank row right after a given subtask (Enter-to-
+  // add-next, like AddTaskRow) instead of always appending at the end (the
+  // "+ Ajouter une sous-tâche" button).
+  const addSubtask = (afterId?: string) => {
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'none', status: '', statusLabel: '', assignee: null, dueDate: '', comments: [] };
+    const idx = afterId ? localSubtasks.findIndex(s => s.id === afterId) : -1;
+    const next = idx === -1 ? [...localSubtasks, sub] : [...localSubtasks.slice(0, idx + 1), sub, ...localSubtasks.slice(idx + 1)];
+    setLocalSubtasks(next);
+    onUpdate?.({ subtasks: next as unknown as Task[] });
   };
 
   // Pasting multi-line text (e.g. a checklist from a client email) into a
   // subtask title creates one subtask per non-empty line, replacing the
   // row that received the paste.
   const addSubtasksFromLines = (lines: string[], replaceId: string) => {
-    setLocalSubtasks(prev => {
-      const base = prev.filter(s => s.id !== replaceId);
-      const newSubs: LocalSubtask[] = lines.map((title, i) => ({
-        id: `sub-${Date.now()}-${i}`, title, checked: false, priority: 'normal',
-        status: '', statusLabel: '', assignee: null, dueDate: '', comments: [],
-      }));
-      const next = [...base, ...newSubs];
-      onUpdate?.({ subtasks: next as unknown as Task[] });
-      return next;
-    });
+    const base = localSubtasks.filter(s => s.id !== replaceId);
+    const newSubs: LocalSubtask[] = lines.map((title, i) => ({
+      id: `sub-${Date.now()}-${i}`, title, checked: false, priority: 'none',
+      status: '', statusLabel: '', assignee: null, dueDate: '', comments: [],
+    }));
+    const next = [...base, ...newSubs];
+    setLocalSubtasks(next);
+    onUpdate?.({ subtasks: next as unknown as Task[] });
   };
 
   const deleteSubtasks = (ids: string[]) => {
     const idSet = new Set(ids);
-    setLocalSubtasks(prev => {
-      const next = prev.filter(s => !idSet.has(s.id));
-      onUpdate?.({ subtasks: next as unknown as Task[] });
-      return next;
-    });
+    const next = localSubtasks.filter(s => !idSet.has(s.id));
+    setLocalSubtasks(next);
+    onUpdate?.({ subtasks: next as unknown as Task[] });
     setSelectedSubIds(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
   };
 
@@ -615,56 +643,44 @@ export function TaskPanel({
 
   const submitComment = (text: string) => {
     if (!text.trim()) return;
-    setComments(prev => {
-      const next = [...prev, { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const }];
-      onUpdate?.({ comments: next });
-      return next;
-    });
+    const next = [...comments, { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const }];
+    setComments(next);
+    onUpdate?.({ comments: next });
     notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id });
   };
 
   const submitReply = (commentId: string, text: string) => {
     if (!text.trim()) return;
-    setComments(prev => {
-      const next = prev.map(c => c.id === commentId
-        ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: text.trim(), author: ME, replies: [] }] }
-        : c
-      );
-      onUpdate?.({ comments: next });
-      return next;
-    });
+    const next = comments.map(c => c.id === commentId
+      ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: text.trim(), author: ME, replies: [] }] }
+      : c
+    );
+    setComments(next);
+    onUpdate?.({ comments: next });
     notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id });
   };
 
   const toggleCommentResolved = (id: string) => {
-    setComments(prev => {
-      const next = prev.map(c => c.id === id ? { ...c, status: (c.status === 'resolved' ? 'open' : 'resolved') as 'open' | 'resolved' } : c);
-      onUpdate?.({ comments: next });
-      return next;
-    });
+    const next = comments.map(c => c.id === id ? { ...c, status: (c.status === 'resolved' ? 'open' : 'resolved') as 'open' | 'resolved' } : c);
+    setComments(next);
+    onUpdate?.({ comments: next });
   };
 
   const deleteTaskComment = (id: string) => {
-    setComments(prev => {
-      const next = prev.filter(x => x.id !== id);
-      onUpdate?.({ comments: next });
-      return next;
-    });
+    const next = comments.filter(x => x.id !== id);
+    setComments(next);
+    onUpdate?.({ comments: next });
     if (activeCommentId === id) setActiveCommentId(null);
   };
 
   const convertToSubtask = (c: CommentObj) => {
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'normal', status: '', statusLabel: '', assignee: task.assignee ?? null, dueDate: '', comments: [] };
-    setLocalSubtasks(prev => {
-      const next = [...prev, sub];
-      onUpdate?.({ subtasks: next as unknown as Task[] });
-      return next;
-    });
-    setComments(prev => {
-      const next = prev.filter(x => x.id !== c.id);
-      onUpdate?.({ comments: next });
-      return next;
-    });
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'none', status: '', statusLabel: '', assignee: task.assignee ?? null, dueDate: '', comments: [] };
+    const nextSubs = [...localSubtasks, sub];
+    setLocalSubtasks(nextSubs);
+    onUpdate?.({ subtasks: nextSubs as unknown as Task[] });
+    const nextComments = comments.filter(x => x.id !== c.id);
+    setComments(nextComments);
+    onUpdate?.({ comments: nextComments });
   };
 
   const secLabel = (text: string) => (
@@ -1274,7 +1290,7 @@ export function TaskPanel({
             </div>
             {localSubtasks.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: SUB_GRID, gap: 10, padding: '4px 8px 6px', marginBottom: 4, borderBottom: '1px solid var(--border)' }}>
-                <span />{subColLabel(t('tasks.title'))}{subColLabel(t('taskPanel.prio'))}{subColLabel(t('tasks.assigned'))}{subColLabel(t('tasks.dueDate'))}<span />
+                <span />{subColLabel(t('tasks.title'))}<span /><span />
               </div>
             )}
             {localSubtasks.filter(sub => !hideCompletedSubs || !sub.checked).map(sub => (
@@ -1287,12 +1303,13 @@ export function TaskPanel({
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => deleteSubtasks([sub.id])}
                 onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
+                onEnterNext={() => addSubtask(sub.id)}
                 selected={subtaskActionsEnabled ? selectedSubIds.has(sub.id) : undefined}
                 onSelect={subtaskActionsEnabled ? e => selectSubtask(sub.id, e) : undefined}
                 onContextMenu={subtaskActionsEnabled ? e => openSubtaskContextMenu(sub.id, e) : undefined}
               />
             ))}
-            <button onClick={addSubtask}
+            <button onClick={() => addSubtask()}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', marginTop: 2 }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
