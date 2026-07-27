@@ -274,7 +274,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(2, editTitle.length + 1)}ch`, maxWidth: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
+          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(30, editTitle.length + 1)}ch`, maxWidth: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
