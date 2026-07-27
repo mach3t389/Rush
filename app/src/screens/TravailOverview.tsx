@@ -1,12 +1,12 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections, getProjectStats } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
+import { STATUS_COLOR } from '../data/status';
 import { getProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
@@ -16,7 +16,13 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import type { Task, DeliverableFormat, DeliverableType, ResourceType } from '../types';
+import { getProjectContent, setProjectContent, type ProjectVision } from '../data/projectContentStore';
+import { addNotif } from '../data/notificationStore';
+import { getStudioInfo } from '../data/studioStore';
+import { isDemoSession } from '../data/authStore';
+import { sendEmail } from '../data/emailStore';
+import { InlineDropdown, ddItem, getTeam, STATUS_OPTIONS, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
+import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
 
 // Icônes par type de ressource (pour les ressources liées aux livrables)
 const RES_ICON: Record<ResourceType, string> = {
@@ -25,15 +31,7 @@ const RES_ICON: Record<ResourceType, string> = {
   form: 'clipboard-list', web_review: 'globe',
 };
 
-// ── Vision state type ──────────────────────────────────────────────────────────
-
-interface VisionState {
-  concept: string;
-  tonalite: string;
-  publicCible: string;
-  objectifs: string;
-  references: string;
-}
+const DEFAULT_VISION: ProjectVision = { concept: '', tonalite: '', publicCible: '', objectifs: '', references: '' };
 
 const DELIVERABLE_TYPES: { value: DeliverableType; labelKey: string; icon: string }[] = [
   { value: 'video',     labelKey: 'overview.delivVideo',    icon: 'video'        },
@@ -175,15 +173,24 @@ export function TravailOverview() {
   const [resources, setResources] = useState(getResources);
   const [invoices, setInvoices] = useState<Invoice[]>(() => getInvoicesByProject(project.id));
   const [files, setFiles] = useState<FileItem[]>(() => getFiles().filter(f => f.projectId === project.id));
-  const [linkPickerOpen, setLinkPickerOpen] = useState<string | null>(null);
   const [addingDeliverable, setAddingDeliverable] = useState(false);
   const [newDlTitle, setNewDlTitle] = useState('');
   const [newDlFormat, setNewDlFormat] = useState<DeliverableFormat>('16:9');
   const [newDlType, setNewDlType] = useState<DeliverableType>('video');
-  const [formatPickerOpen, setFormatPickerOpen] = useState<string | null>(null);
-  const [typePickerOpen, setTypePickerOpen] = useState<string | null>(null);
   const [editingDlId, setEditingDlId] = useState<string | null>(null);
   const [dlTitleDraft, setDlTitleDraft] = useState('');
+  // Single open-dropdown tracker for every deliverable row control (link
+  // resource / type / format / assignee / priority / status) — the popups
+  // render via InlineDropdown (a portal, fixed-positioned from anchorRect),
+  // which is what lets them escape the Card's `overflow: hidden` instead of
+  // being clipped at the row's edge.
+  const [openDl, setOpenDl] = useState<{ id: string; field: 'link' | 'type' | 'format' | 'assignee' | 'priority' | 'status' } | null>(null);
+  const [dlDropRect, setDlDropRect] = useState<DOMRect | null>(null);
+  const openDlDrop = (id: string, field: NonNullable<typeof openDl>['field'], e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setDlDropRect(e.currentTarget.getBoundingClientRect());
+    setOpenDl(prev => (prev?.id === id && prev.field === field) ? null : { id, field });
+  };
 
   useEffect(() => {
     return subscribeStore(() => setDeliverables(getDeliverables(project.id)));
@@ -193,14 +200,31 @@ export function TravailOverview() {
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByProject(project.id))), [project.id]);
   useEffect(() => subscribeFileStore(() => setFiles(getFiles().filter(f => f.projectId === project.id))), [project.id]);
 
-  const [vision, setVision] = useState<VisionState>({
-    concept: '',
-    tonalite: '',
-    publicCible: '',
-    objectifs: '',
-    references: '',
-  });
+  const [vision, setVision] = useState<ProjectVision>(DEFAULT_VISION);
   const [notes, setNotes] = useState('');
+
+  // Load persisted content whenever the viewed project changes — TravailOverview
+  // isn't remounted on /projets/:id/overview navigation (see the project.id-keyed
+  // effects above), so this can't just be the useState initializer.
+  const loadedContentRef = useRef<{ projectId: string; notes: string; vision: ProjectVision } | null>(null);
+  useEffect(() => {
+    const c = getProjectContent(project.id);
+    const loadedVision = c.vision ?? DEFAULT_VISION;
+    const loadedNotes = c.notes ?? '';
+    setVision(loadedVision);
+    setNotes(loadedNotes);
+    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, vision: loadedVision };
+  }, [project.id]);
+
+  // Debounced save — skipped when the current values are exactly what was
+  // just loaded (avoids re-saving on mount / project switch).
+  useEffect(() => {
+    const loaded = loadedContentRef.current;
+    if (!loaded || loaded.projectId !== project.id) return;
+    if (loaded.notes === notes && JSON.stringify(loaded.vision) === JSON.stringify(vision)) return;
+    const timer = window.setTimeout(() => setProjectContent(project.id, { vision, notes }), 500);
+    return () => clearTimeout(timer);
+  }, [vision, notes, project.id]);
 
   const toggleCompleted = () => {
     updateProject(project.id, { completed: !completed });
@@ -342,8 +366,8 @@ export function TravailOverview() {
             }
           >
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px 28px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-              {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), '', t('overview.colStatus'), '', ''].map((h, i) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 100px 36px 100px 90px 28px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+              {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), t('overview.colPriority'), t('overview.colAssignee'), t('overview.colStatus'), '', ''].map((h, i) => (
                 <span key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
               ))}
             </div>
@@ -363,11 +387,14 @@ export function TravailOverview() {
               const st = getDeliverableDisplay(dl);
               const fmt = FORMAT_OPTIONS.find(f => f.value === dl.format);
               const dlType = DELIVERABLE_TYPES.find(dt => dt.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
-              const isPickerOpen = formatPickerOpen === dl.id;
-              const isTypeOpen = typePickerOpen === dl.id;
+              const isPickerOpen = openDl?.id === dl.id && openDl.field === 'format';
+              const isTypeOpen = openDl?.id === dl.id && openDl.field === 'type';
+              const isAssigneeOpen = openDl?.id === dl.id && openDl.field === 'assignee';
+              const isStatusOpen = openDl?.id === dl.id && openDl.field === 'status';
+              const priority: Priority = dl.priority ?? 'none';
               const linkedIds = dl.linkedResources ?? [];
               const linkedRes = resources.filter(r => linkedIds.includes(r.id));
-              const isLinkOpen = linkPickerOpen === dl.id;
+              const isLinkOpen = openDl?.id === dl.id && openDl.field === 'link';
               const toggleResource = (rid: string) => updateTask(project.id, dl.id, {
                 linkedResources: linkedIds.includes(rid) ? linkedIds.filter(id => id !== rid) : [...linkedIds, rid],
               });
@@ -387,7 +414,7 @@ export function TravailOverview() {
                 });
               };
               return (
-                <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 36px 100px 90px 28px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
+                <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 100px 36px 100px 90px 28px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -447,17 +474,16 @@ export function TravailOverview() {
                     </div>
 
                     {/* Bouton lier une ressource existante */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
-                      <button onClick={e => { e.stopPropagation(); setLinkPickerOpen(isLinkOpen ? null : dl.id); setTypePickerOpen(null); setFormatPickerOpen(null); }}
+                    <div style={{ flexShrink: 0 }}>
+                      <button onClick={e => openDlDrop(dl.id, 'link', e)}
                         title={t('overview.linkExistingResource')}
                         style={{ display: 'flex', alignItems: 'center', gap: 4, background: isLinkOpen ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${isLinkOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: linkedRes.length ? 'var(--accent)' : 'var(--text-3)' }}>
                         <SFIcon name="paperclip" size={12} color={linkedRes.length ? 'var(--accent)' : 'var(--text-3)'} />
                         {linkedRes.length > 0 && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10 }}>{linkedRes.length}</span>}
                       </button>
                       {isLinkOpen && (
-                        <>
-                          <div onClick={() => setLinkPickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
-                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 6, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', width: 280, maxHeight: 320, overflowY: 'auto' }}>
+                        <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={280} zIndex={1000}>
+                          <div style={{ maxHeight: 320, overflowY: 'auto', width: 280 }}>
                             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 8px 4px' }}>{t('overview.existingResources')}</p>
                             {resources.length === 0 && (
                               <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>{t('overview.noResourcesHint')}</p>
@@ -481,7 +507,7 @@ export function TravailOverview() {
                               );
                             })}
                           </div>
-                        </>
+                        </InlineDropdown>
                       )}
                     </div>
 
@@ -494,35 +520,32 @@ export function TravailOverview() {
                   </div>
 
                   {/* Type — clickable dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button onClick={e => { e.stopPropagation(); setTypePickerOpen(isTypeOpen ? null : dl.id); setFormatPickerOpen(null); }}
+                  <div>
+                    <button onClick={e => openDlDrop(dl.id, 'type', e)}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isTypeOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
                       <SFIcon name={dlType.icon} size={12} color="var(--text-3)" />
                       {t(dlType.labelKey)}
                       <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
                     </button>
                     {isTypeOpen && (
-                      <>
-                        <div onClick={() => setTypePickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
-                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 11, padding: 5, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', minWidth: 150 }}>
-                          {DELIVERABLE_TYPES.map(dt => (
-                            <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setTypePickerOpen(null); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-                              onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                              onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                              <SFIcon name={dt.icon} size={13} color={dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text-3)'} />
-                              {t(dt.labelKey)}
-                              {dl.deliverableType === dt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                            </button>
-                          ))}
-                        </div>
-                      </>
+                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={150}>
+                        {DELIVERABLE_TYPES.map(dt => (
+                          <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setOpenDl(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                            onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                            onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                            <SFIcon name={dt.icon} size={13} color={dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text-3)'} />
+                            {t(dt.labelKey)}
+                            {dl.deliverableType === dt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                          </button>
+                        ))}
+                      </InlineDropdown>
                     )}
                   </div>
 
                   {/* Format — clickable dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <button onClick={e => { e.stopPropagation(); setFormatPickerOpen(isPickerOpen ? null : dl.id); setTypePickerOpen(null); }}
+                  <div>
+                    <button onClick={e => openDlDrop(dl.id, 'format', e)}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isPickerOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
                       {fmt ? (
                         <>
@@ -533,12 +556,11 @@ export function TravailOverview() {
                       <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
                     </button>
                     {isPickerOpen && (
-                      <>
-                        <div onClick={() => setFormatPickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
-                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 8, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', display: 'flex', flexWrap: 'wrap', gap: 6, width: 260 }}>
+                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={260}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, width: 260, padding: 3 }}>
                           {FORMAT_OPTIONS.map(f => (
                             <button key={f.value}
-                              onClick={() => { updateTask(project.id, dl.id, { format: f.value }); setFormatPickerOpen(null); }}
+                              onClick={() => { updateTask(project.id, dl.id, { format: f.value }); setOpenDl(null); }}
                               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '8px 10px', borderRadius: 8, border: `1px solid ${dl.format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: dl.format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', minWidth: 60 }}>
                               <div style={{ width: 22, aspectRatio: f.ratio, border: `2px solid ${dl.format === f.value ? 'var(--accent)' : 'var(--border-2)'}`, borderRadius: 2 }} />
                               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: dl.format === f.value ? 'var(--accent)' : 'var(--text-3)', whiteSpace: 'nowrap' }}>{f.label}</span>
@@ -557,15 +579,60 @@ export function TravailOverview() {
                             </div>
                           )}
                         </div>
-                      </>
+                      </InlineDropdown>
                     )}
                   </div>
 
-                  {/* Assignee avatar */}
-                  <SFAvatar initials={dl.assignee?.initials ?? '?'} bg={dl.assignee?.avatarColor ?? '#555'} size={24} />
+                  {/* Priorité — clickable dropdown */}
+                  <div>
+                    <button onClick={e => openDlDrop(dl.id, 'priority', e)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
+                      {priority !== 'none' && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>}
+                      <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+                    </button>
+                    {openDl?.id === dl.id && openDl.field === 'priority' && (
+                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
+                        {PRIORITY_OPTIONS.map(p => ddItem(() => { updateTask(project.id, dl.id, { priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); setOpenDl(null); },
+                          <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
+                          priority === p
+                        ))}
+                      </InlineDropdown>
+                    )}
+                  </div>
 
-                  {/* Statut */}
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color }}>{t(st.labelKey)}</span>
+                  {/* Assignee — clickable dropdown */}
+                  <div>
+                    <button onClick={e => openDlDrop(dl.id, 'assignee', e)} title={dl.assignee?.name ?? t('tasks.unassigned')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                      <SFAvatar initials={dl.assignee?.initials ?? '?'} bg={dl.assignee?.avatarColor ?? '#555'} size={24} />
+                    </button>
+                    {isAssigneeOpen && (
+                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={180}>
+                        {getTeam().map(u => ddItem(() => { updateTask(project.id, dl.id, { assignee: u }); setOpenDl(null); },
+                          <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
+                          dl.assignee?.id === u.id
+                        ))}
+                      </InlineDropdown>
+                    )}
+                  </div>
+
+                  {/* Statut — clickable dropdown */}
+                  <div>
+                    <button onClick={e => openDlDrop(dl.id, 'status', e)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color }}>{t(st.labelKey)}</span>
+                      <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+                    </button>
+                    {isStatusOpen && (
+                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
+                        {STATUS_OPTIONS.filter(o => o.value !== '').map(o => ddItem(() => { updateTask(project.id, dl.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setOpenDl(null); },
+                          <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value] ?? 'var(--border-2)', display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
+                          dl.status === o.value
+                        ))}
+                      </InlineDropdown>
+                    )}
+                  </div>
 
                   {/* Actions */}
                   <button
@@ -603,7 +670,7 @@ export function TravailOverview() {
                       projectId: project.id,
                       projectName: project.name,
                       projectColor: project.clientColor,
-                      assignee: USERS.lea,
+                      assignee: null,
                       status: 'warn',
                       statusLabel: 'À livrer',
                       priority: 'normal',
@@ -942,7 +1009,29 @@ export function TravailOverview() {
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button onClick={() => setApprovalModal(false)} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
                     <button
-                      onClick={() => setApprovalSent(true)}
+                      onClick={() => {
+                        addNotif({
+                          kind: 'approval',
+                          actor: getStudioInfo().name || 'Rush',
+                          text: `a demandé l'approbation finale du projet « ${project.name} »`,
+                          timestamp: Date.now(),
+                          projectId: project.id,
+                        });
+                        if (!isDemoSession() && approver.email) {
+                          const studioName = getStudioInfo().name || 'Rush';
+                          const link = `${window.location.origin}/projets/${project.id}/overview`;
+                          void sendEmail(
+                            approver.email,
+                            `${studioName} vous demande d'approuver le projet « ${project.name} »`,
+                            `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                              <p>Bonjour ${approver.name || ''},</p>
+                              <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>
+                              <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Voir le projet</a></p>
+                            </div>`
+                          );
+                        }
+                        setApprovalSent(true);
+                      }}
                       style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                     >
                       <SFIcon name="send" size={14} color="var(--on-accent)" />

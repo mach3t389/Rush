@@ -24,19 +24,19 @@ import { showToast } from '../data/toastStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PRIORITY_COLOR: Record<Priority, string> = {
+export const PRIORITY_COLOR: Record<Priority, string> = {
   high:   'var(--danger)',
   normal: 'var(--warn)',
   low:    'var(--info)',
   none:   'var(--border-2)',
 };
-const PRIORITY_LABEL_KEY: Record<Priority, string> = {
+export const PRIORITY_LABEL_KEY: Record<Priority, string> = {
   high:   'priority.high',
   normal: 'priority.medium',
   low:    'priority.low',
   none:   'priority.none',
 };
-const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
+export const PRIORITY_OPTIONS: Priority[] = ['high', 'normal', 'low', 'none'];
 
 const TYPE_ICON: Record<ResourceType, string> = {
   screenplay:   'clapperboard',
@@ -50,7 +50,7 @@ const TYPE_ICON: Record<ResourceType, string> = {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-function ddItem(onClick: () => void, children: React.ReactNode, active?: boolean) {
+export function ddItem(onClick: () => void, children: React.ReactNode, active?: boolean) {
   return (
     <button
       onMouseDown={e => e.preventDefault()}
@@ -145,7 +145,7 @@ function ColHeader({ compact }: { compact?: boolean }) {
 
 // ── Shared inline dropdown ────────────────────────────────────────────────────
 
-function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex = 1000 }: {
+export function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex = 1000 }: {
   onClose: () => void;
   children: React.ReactNode;
   anchorRect?: DOMRect | null;
@@ -175,7 +175,7 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
   );
 }
 
-const STATUS_OPTIONS = [
+export const STATUS_OPTIONS = [
   { value: '',       labelKey: 'tasks.noStatus'   },
   { value: 'warn',   labelKey: 'tasks.todo'       },
   { value: 'info',   labelKey: 'tasks.inProgress' },
@@ -407,7 +407,7 @@ function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }
 // Demo sessions can assign to any of the 5 mock people. Real sessions read
 // the studio's real team roster (teamStore.ts) — invited members, not just
 // the current user.
-function getTeam(): User[] {
+export function getTeam(): User[] {
   if (isDemoSession()) return Object.values(USERS);
   const team = getTeamMembers();
   if (team.length > 0) return team;
