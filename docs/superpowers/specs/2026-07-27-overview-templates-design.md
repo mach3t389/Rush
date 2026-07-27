@@ -42,29 +42,29 @@ interface CustomOverviewSection {
 }
 ```
 
-### Nouveau type de modèle : `OverviewTemplate`
+### Modèle d'Aperçu — pas un nouveau type, un nouveau `ResourceTemplateType`
 
-Même statut que `FormTemplate`/`ResourceTemplate` — géré dans Modèles, stocké dans une nouvelle table `custom_overview_templates` qui reproduit exactement le pattern déjà utilisé par `custom_project_templates`/`custom_form_templates` (une ligne par modèle, colonne `data jsonb`, remplacement intégral au save — voir `templates.ts` lignes ~503-569 pour le pattern exact à reproduire).
+Correction par rapport à la première version de ce spec : la structure de dossiers (`defaultFolderStructureId`) n'est **pas** stockée dans une table séparée — c'est un `ResourceTemplate` ordinaire avec `type: 'file'` et son payload dans `folderStructure`, rangé dans la table déjà existante `custom_resource_templates` (voir `templates.ts` ligne 679 pour `ResourceTemplateType`, ligne 687 pour `ResourceTemplate`, lignes ~852-905 pour le store CRUD `custom_resource_templates`). Pour suivre vraiment ce pattern, l'Aperçu devient un `ResourceTemplateType` de plus, pas un système parallèle :
 
 ```ts
-interface OverviewTemplate {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  tags: string[];
-  customSections: CustomOverviewSection[]; // structure seulement, jamais de données
-  builtIn?: boolean;
-  createdAt: string;
+// ResourceTemplateType (templates.ts:679) — un type de plus
+export type ResourceTemplateType = 'document' | 'screenplay' | 'video_review' | 'file' | 'moodboard' | 'overview';
+
+// ResourceTemplate (templates.ts:687) — un champ de payload de plus, même esprit que folderStructure
+interface ResourceTemplate {
+  // ...champs existants inchangés (id, type, name, description, color, icon, tags, builtIn, createdAt, ...)...
+  overviewSections?: CustomOverviewSection[]; // uniquement quand type === 'overview' ; structure seulement, jamais de données
 }
 ```
+
+Aucune nouvelle table, aucun nouveau store CRUD — `loadAllResourceTemplates()`/`saveCustomResourceTemplates()` existants gèrent déjà n'importe quel `type`. L'écran Modèles gère déjà un système de filtre par `ResourceTemplateType` (`Modeles.tsx`, `UnifiedTypeFilter`) ; l'Aperçu y devient une entrée de plus dans cette liste, exactement comme "Structure de dossiers" (`type: 'file'`) en est une aujourd'hui.
 
 Quelques modèles `builtIn` de départ peuvent être fournis (ex. "Aperçu standard" = vide, juste Vision ; "Aperçu client corporatif" = avec une section Contacts), mais ce n'est pas un prérequis bloquant du chantier — un modèle vide (aucune section personnalisée) est un état parfaitement valide.
 
 ### Extensions aux types existants
 
 ```ts
-// ProjectTemplate (templates.ts) — un nouveau champ optionnel, même pattern que defaultFolderStructureId
+// ProjectTemplate (templates.ts:67-79) — un nouveau champ optionnel, même pattern et même nature que defaultFolderStructureId (une référence d'id vers un ResourceTemplate, ici de type 'overview')
 interface ProjectTemplate {
   // ...champs existants inchangés...
   defaultOverviewTemplateId?: string;
@@ -109,32 +109,19 @@ Le flux de création de projet (actuellement dans `ProjectsListView.tsx`) gagne,
 
 ### Modèles (`Modeles.tsx`)
 
-Nouvelle catégorie **« Modèles d'Aperçu »**, au même niveau que Projets/Formulaires/Ressources — liste, créer, dupliquer, supprimer, éditer (l'éditeur reprend le même mini-éditeur de sections que celui utilisé directement dans l'Aperçu d'un projet, pour ne pas dupliquer l'UI).
+Pas de nouvelle catégorie top-level séparée — l'Aperçu rejoint la liste des types de `ResourceTemplate` déjà gérés dans l'écran Modèles (`UnifiedTypeFilter`), exactement comme "Structure de dossiers" (`type: 'file'`) y figure déjà. Créer/dupliquer/supprimer/éditer un modèle d'Aperçu passe par l'infrastructure `ResourceTemplate` existante ; seul l'éditeur de contenu (le mini-éditeur de sections) est spécifique au type `overview`, réutilisé tel quel depuis la page Aperçu d'un projet.
 
 Le bouton existant « Enregistrer comme modèle » (aujourd'hui dans `Travail.tsx`, alimenté seulement par les sections de tâches) n'a **pas** besoin d'être étendu pour embarquer les sections d'Aperçu — puisque l'Aperçu est maintenant un modèle séparé et référencé, pas des données embarquées. Ce bouton continue de créer/mettre à jour un `ProjectTemplate` (tâches + `defaultFolderStructureId` + `defaultOverviewTemplateId` s'il y en a un actuellement appliqué au projet).
 
 ## Migrations Supabase nécessaires
 
-Une seule nouvelle table + une colonne, toutes deux à exécuter manuellement (comme d'habitude, voir la section correspondante de CLAUDE.md) :
+Une seule colonne, à exécuter manuellement (comme d'habitude, voir la section correspondante de CLAUDE.md) — aucune nouvelle table :
 
 ```sql
--- Nouvelle table, même pattern exact que custom_project_templates
-create table custom_overview_templates (
-  id text primary key,
-  studio_id uuid not null references studios(id),
-  data jsonb not null,
-  created_at timestamptz not null default now()
-);
-alter table custom_overview_templates enable row level security;
-create policy "studio members manage their overview templates" on custom_overview_templates
-  for all using (studio_id in (select my_studio_ids())) with check (studio_id in (select my_studio_ids()));
-grant select, insert, update, delete on custom_overview_templates to authenticated;
-
--- Nouvelle colonne sur projects
 alter table projects add column overview_template_id text;
 ```
 
-`project_content.content` (jsonb) n'a besoin d'aucune migration — `customSections`/`customSectionData` sont de nouvelles clés dans un blob jsonb déjà existant.
+`custom_resource_templates.data` (jsonb) n'a besoin d'aucune migration — `type: 'overview'` et `overviewSections` sont simplement une nouvelle valeur/clé dans un blob jsonb déjà existant, table déjà migrée. Idem pour `project_content.content` — `customSections`/`customSectionData` sont de nouvelles clés dans un blob jsonb déjà existant.
 
 ## Hors scope (explicitement, pour cette itération)
 
