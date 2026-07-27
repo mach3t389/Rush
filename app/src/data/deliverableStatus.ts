@@ -13,6 +13,7 @@ export interface DeliverableDisplay {
 // Same status vocabulary as a regular task (tasks.todo/inProgress/...) —
 // a deliverable is a task, so its status shouldn't invent its own words.
 const DELIVERABLE_STATUS: Record<string, DeliverableDisplay> = {
+  '':     { labelKey: 'tasks.noStatus',   color: 'var(--text-3)', icon: 'circle-dashed' },
   warn:   { labelKey: 'tasks.todo',       color: 'var(--warn)',   icon: 'clock' },
   info:   { labelKey: 'tasks.inProgress', color: 'var(--info)',   icon: 'loader' },
   ok:     { labelKey: 'tasks.completed',  color: 'var(--ok)',     icon: 'check-circle' },
@@ -28,7 +29,7 @@ const CORRECTIONS_REQUESTED: DeliverableDisplay = {
 
 export function getDeliverableDisplay(task: Task): DeliverableDisplay {
   if (task.correctionsRequested) return CORRECTIONS_REQUESTED;
-  return DELIVERABLE_STATUS[task.status] ?? DELIVERABLE_STATUS['warn'];
+  return DELIVERABLE_STATUS[task.status] ?? DELIVERABLE_STATUS[''];
 }
 
 // For the status-change dropdown — same source as getDeliverableDisplay, so
