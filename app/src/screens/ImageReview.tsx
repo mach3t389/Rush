@@ -5,6 +5,7 @@ import { SFAvatar, SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
+import { findProject } from '../data/projectStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
@@ -16,6 +17,7 @@ import {
   annoColor,
 } from '../components/RevisionComments';
 import type { Status } from '../types';
+import { notifyComment } from '../data/commentNotify';
 
 // ── Mock image seeds ──────────────────────────────────────────────────────────
 
@@ -298,6 +300,7 @@ export function ImageReview() {
     setPendingAnno(null);
     setActiveCommentId(newComment.id);
     if (resourceId) incrementCommentCount(resourceId);
+    notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId });
   };
 
   const handleResolve = (id: string) => {
@@ -308,6 +311,7 @@ export function ImageReview() {
     setComments(prev => prev.map(c => c.id === id ? {
       ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text }],
     } : c));
+    notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? '', resourceId, projectId });
   };
 
   const handleDelete = (id: string) => {
@@ -561,12 +565,13 @@ export function ImageReview() {
               comments={comments.filter(c => !c.annotation || round.images.some(img => img.id === c.annotation?.assetId))}
               activeId={activeCommentId}
               onActivate={id => { setActiveCommentId(id); if (id) { const c = comments.find(x => x.id === id); if (c?.annotation?.assetId) openSingle(c.annotation.assetId); } }}
-              onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); }}
+              onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId }); }}
               onResolve={handleResolve}
               onReply={handleReply}
               onDelete={handleDelete}
               pendingAnnotation={false}
               onCancelPending={() => {}}
+              mentionable={projectId ? findProject(projectId)?.members : undefined}
               drawing={false}
               onToggleDrawing={() => openSingle(round.images[0]?.id ?? '')}
               contextLabel={round.label}
@@ -666,6 +671,7 @@ export function ImageReview() {
               onDelete={handleDelete}
               pendingAnnotation={!!pendingAnno}
               onCancelPending={() => setPendingAnno(null)}
+              mentionable={projectId ? findProject(projectId)?.members : undefined}
               drawing={drawing}
               onToggleDrawing={() => { setDrawing(d => !d); setPendingAnno(null); }}
               contextLabel={contextLabel}

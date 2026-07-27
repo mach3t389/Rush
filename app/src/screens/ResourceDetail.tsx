@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback, useContext, createContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFButton, SFIcon } from '../components/ui';
@@ -7,6 +7,7 @@ import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
+import { notifyComment } from '../data/commentNotify';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 import type { Resource, ResourceType, Status, User } from '../types';
@@ -284,19 +285,26 @@ interface ScriptViewProps extends EditableProps {
 
 // ── Script comment sidebar ────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept in the signature for API compatibility with all 5 call sites; comments are not persisted per resourceId (see design spec)
-function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string }) {
+// Avoids threading a `mentionable` prop through every View component (ScriptView,
+// MoodboardView, ChecklistView, etc.) just so ScriptCommentSidebar can read it —
+// set once by ResourceDetail() around the whole resource view.
+const MentionableContext = createContext<{ members?: User[]; projectId?: string; itemLabel?: string }>({});
+
+function ScriptCommentSidebar({ resourceId }: { resourceId: string }) {
   const [comments, setComments] = useState<RevisionComment[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const { members: mentionable, projectId, itemLabel } = useContext(MentionableContext);
 
   const handleAdd = (text: string) => {
     setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [] }]);
+    notifyComment({ kind: 'add', text, itemLabel: itemLabel ?? '', resourceId, projectId });
   };
   const handleResolve = (id: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
   };
   const handleReply = (id: string, text: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author: USERS.lea, text }] } : c));
+    notifyComment({ kind: 'reply', text, itemLabel: itemLabel ?? '', resourceId, projectId });
   };
   const handleDelete = (id: string) => {
     setComments(prev => prev.filter(c => c.id !== id));
@@ -315,6 +323,7 @@ function ScriptCommentSidebar({ resourceId: _resourceId }: { resourceId: string 
         onDelete={handleDelete}
         pendingAnnotation={false}
         onCancelPending={() => {}}
+        mentionable={mentionable}
         embedded
       />
     </div>
@@ -2433,6 +2442,7 @@ function saveCustomStyles(styles: CustomStyle[]) {
 
 export function DocumentView({ resource, onEdit, saveState = 'saved', online = true, registerExport, seedHTML, contentRef, persistKey }: { resource: Resource; seedHTML?: string; persistKey?: string; contentRef?: React.MutableRefObject<(() => string) | null> } & EditableProps) {
   const { t } = useTranslation();
+  const { members: mentionable, projectId: mentionableProjectId } = useContext(MentionableContext);
   // Contenu persisté par ressource (corps HTML + commentaires). Absent en mode
   // modèle (persistKey non fourni) — on retombe alors sur seedHTML / mock.
   const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[] }>(persistKey) : undefined;
@@ -2590,6 +2600,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     setNewCommentText('');
     setPendingAnchorId(null);
     onEdit?.();
+    notifyComment({ kind: 'add', text, itemLabel: resource.title, resourceId: resource.id, projectId: mentionableProjectId });
   };
 
   const resolveComment = (id: string) => {
@@ -2598,6 +2609,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
   const replyToComment = (id: string, text: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `dr${Date.now()}`, author: USERS.lea, text }] } : c));
+    notifyComment({ kind: 'reply', text, itemLabel: resource.title, resourceId: resource.id, projectId: mentionableProjectId });
   };
 
   const deleteComment = (id: string) => {
@@ -3102,6 +3114,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               pendingAnnotation={!!pendingAnchorId}
               onCancelPending={cancelComment}
               onAdd={pendingAnchorId ? text => submitComment(text) : undefined}
+              mentionable={mentionable}
               embedded
             />
           )}
@@ -5796,6 +5809,7 @@ export function ResourceDetail() {
   }, []);
 
   return (
+    <MentionableContext.Provider value={{ members: project?.members, projectId, itemLabel: resource.title }}>
     <div ref={pageRef} style={{ height:'100%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
       <ResourceTopbar project={project} resource={resource} onStatusChange={handleStatusChange} saveState={saveState} online={online} editable={editable} onExport={handleExport} onFullscreen={toggleFullscreen} isFullscreen={isFullscreen} />
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
@@ -5808,6 +5822,7 @@ export function ResourceDetail() {
         </div>
       )}
     </div>
+    </MentionableContext.Provider>
   );
 }
 

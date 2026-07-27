@@ -9,6 +9,7 @@ import { getResources, updateResource, subscribeResources } from '../data/resour
 import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
+import { notifyComment } from '../data/commentNotify';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -493,20 +494,24 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
   };
 
   const submitComment = () => {
-    if (!comment.trim()) return;
-    setComments(prev => [...prev, { id: `c-${Date.now()}`, text: comment.trim(), author: ME, replies: [] }]);
+    const text = comment.trim();
+    if (!text) return;
+    setComments(prev => [...prev, { id: `c-${Date.now()}`, text, author: ME, replies: [] }]);
     setComment('');
     setMentionQuery(null);
+    notifyComment({ kind: 'add', text, itemLabel: task.title, taskId: task.id, projectId: task.projectId });
   };
 
   const submitReply = (commentId: string) => {
-    if (!replyText.trim()) return;
+    const text = replyText.trim();
+    if (!text) return;
     setComments(prev => prev.map(c => c.id === commentId
-      ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: replyText.trim(), author: ME, replies: [] }] }
+      ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text, author: ME, replies: [] }] }
       : c
     ));
     setReplyText('');
     setReplyingTo(null);
+    notifyComment({ kind: 'reply', text, itemLabel: task.title, taskId: task.id, projectId: task.projectId });
   };
 
   const convertToSubtask = (c: CommentObj) => {

@@ -2194,7 +2194,7 @@ export function FileBrowser({ initialNav, embedded = false, locked = false }: { 
     addResource({
       id: resourceId,
       type: actualType,
-      eyebrow: isRevision ? pendingRevision!.eyebrow : (RESOURCE_EYEBROW[def.type] ?? t(def.labelKey).toUpperCase()),
+      eyebrow: isRevision ? pendingRevision!.eyebrow : (RESOURCE_EYEBROW[def.type] ? t(RESOURCE_EYEBROW[def.type]!) : t(def.labelKey).toUpperCase()),
       title: name,
       status: 'info',
       statusLabel: 'En cours',

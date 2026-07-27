@@ -2,8 +2,9 @@
 import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFButton, SFIcon } from './ui';
 import { USERS } from '../data/mock';
+import type { User } from '../types';
 
-const TEAM = Object.values(USERS);
+const ALL_USERS = Object.values(USERS);
 
 function renderMentions(text: string) {
   return text.split(/(@\S+)/g).map((part, i) =>
@@ -134,6 +135,7 @@ function CommentCard({
   onResolve,
   onReply,
   onDelete,
+  mentionable,
 }: {
   comment: RevisionComment;
   index: number;
@@ -142,6 +144,7 @@ function CommentCard({
   onResolve: () => void;
   onReply: (text: string) => void;
   onDelete?: () => void;
+  mentionable: User[];
 }) {
   const { t } = useTranslation();
   const [replyText, setReplyText] = useState('');
@@ -269,7 +272,7 @@ function CommentCard({
         <div style={{ marginTop: 8, display: 'flex', gap: 6, position: 'relative' }} onClick={e => e.stopPropagation()}>
           {replyMentionQuery !== null && (
             <div style={{ position: 'fixed', bottom: replyMentionRect ? window.innerHeight - replyMentionRect.top + 4 : 80, left: replyMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-              {TEAM.filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
+              {mentionable.filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
                 <button key={u.id} onMouseDown={e => { e.preventDefault(); pickReplyMention(u.name); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -311,6 +314,7 @@ export function RevisionCommentSidebar({
   onToggleDrawing,
   contextLabel,
   embedded,
+  mentionable,
 }: {
   comments: RevisionComment[];
   activeId: string | null;
@@ -325,8 +329,11 @@ export function RevisionCommentSidebar({
   onToggleDrawing?: () => void;
   contextLabel?: string;
   embedded?: boolean;
+  /** People offered by the @mention autocomplete — should be the project's own team, not every user in the app. Falls back to all users if omitted. */
+  mentionable?: User[];
 }) {
   const { t } = useTranslation();
+  const team = mentionable ?? ALL_USERS;
   const [newText, setNewText] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [addMentionQuery, setAddMentionQuery] = useState<string | null>(null);
@@ -450,6 +457,7 @@ export function RevisionCommentSidebar({
                 onResolve={() => onResolve(c.id)}
                 onReply={text => onReply(c.id, text)}
                 onDelete={onDelete ? () => onDelete(c.id) : undefined}
+                mentionable={team}
               />
             ))}
           </div>
@@ -462,7 +470,7 @@ export function RevisionCommentSidebar({
           <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
             {addMentionQuery !== null && (
               <div style={{ position: 'absolute', bottom: 'calc(100% + 4px)', left: 0, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-                {TEAM.filter(u => u.name.toLowerCase().includes(addMentionQuery.toLowerCase())).map(u => (
+                {team.filter(u => u.name.toLowerCase().includes(addMentionQuery.toLowerCase())).map(u => (
                   <button key={u.id} onMouseDown={e => { e.preventDefault(); pickAddMention(u.name); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}

@@ -4,6 +4,7 @@ import { SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
+import { findProject } from '../data/projectStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
@@ -14,6 +15,7 @@ import {
   type RevisionComment, type RevisionAnnotation,
 } from '../components/RevisionComments';
 import type { Status } from '../types';
+import { notifyComment } from '../data/commentNotify';
 
 // ── Mock document pages ───────────────────────────────────────────────────────
 
@@ -188,7 +190,7 @@ function PageThumb({ page, pageNum, isActive, commentCount, onClick }: {
 
 export function DocumentReview() {
   const navigate = useNavigate();
-  const { resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
+  const { projectId, resourceId = '' } = useParams<{ projectId: string; resourceId: string }>();
   const resource = getResources().find(r => r.id === resourceId);
 
   const persisted = resourceId ? getResourceContent<DocumentReviewContent>(resourceId) : undefined;
@@ -294,10 +296,14 @@ export function DocumentReview() {
     setPendingAnno(null);
     setActiveCommentId(nc.id);
     if (resourceId) incrementCommentCount(resourceId);
+    notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId });
   };
 
   const handleResolve = (id: string) => setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
-  const handleReply = (id: string, text: string) => setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text }] } : c));
+  const handleReply = (id: string, text: string) => {
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text }] } : c));
+    notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? '', resourceId, projectId });
+  };
   const handleDeleteComment = (id: string) => { setComments(prev => prev.filter(c => c.id !== id)); if (activeCommentId === id) setActiveCommentId(null); };
 
   const goTo = (n: number) => setCurrentPage(Math.max(1, Math.min(totalPages, n)));
@@ -783,6 +789,7 @@ export function DocumentReview() {
                 onDelete={handleDeleteComment}
                 pendingAnnotation={!!pendingAnno}
                 onCancelPending={() => setPendingAnno(null)}
+                mentionable={projectId ? findProject(projectId)?.members : undefined}
                 drawing={drawing}
                 onToggleDrawing={() => { setDrawing(d => !d); setPendingAnno(null); }}
                 contextLabel={viewMode === 'scroll' ? 'Tout le document' : `Page ${currentPage}`}

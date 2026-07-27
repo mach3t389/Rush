@@ -2,8 +2,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton, SFPill } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
+import { findProject } from '../data/projectStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
+import { notifyComment } from '../data/commentNotify';
 
 interface Annotation {
   id: string;
@@ -203,6 +205,7 @@ export function WebReview() {
     setPendingPos(null);
     setDraftText('');
     setAddingPin(false);
+    notifyComment({ kind: 'add', text: ann.text, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
   };
 
   const toggleResolved = (id: string) => {
@@ -216,6 +219,7 @@ export function WebReview() {
 
   const replyToAnnotation = (id: string, text: string) => {
     setAnnotations(prev => prev.map(a => a.id === id ? { ...a, replies: [...a.replies, { id: `wr${Date.now()}`, author: { id: 'moi', name: 'Moi', initials: 'MO', avatarColor: '#5b3ea8', role: '' }, text }] } : a));
+    notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
   };
 
   const toRevisionComment = (ann: Annotation, index: number): RevisionComment => ({
@@ -473,6 +477,7 @@ export function WebReview() {
               onDelete={deleteAnnotation}
               pendingAnnotation={false}
               onCancelPending={() => {}}
+              mentionable={projectId ? findProject(projectId)?.members : undefined}
               embedded
             />
           )}
