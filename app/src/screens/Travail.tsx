@@ -777,16 +777,17 @@ function TaskRow({
 
 // ── Add task row ───────────────────────────────────────────────────────────────
 
-function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, compact }: {
+function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, compact, autoOpen }: {
   projectId: string;
   projectName: string;
   projectColor: string;
   onAdd: (task: Task) => void;
   onAddMany: (tasks: Task[]) => void;
   compact?: boolean;
+  autoOpen?: boolean;
 }) {
   const { t } = useTranslation();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(!!autoOpen);
   const [title, setTitle] = useState('');
   const [assignee, setAssignee] = useState<User | null>(null);
   const [priority, setPriority] = useState<Priority>('none');
@@ -1029,6 +1030,7 @@ function Section({
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
+  autoOpenAddTask,
 }: {
   label: string;
   tasks: Task[];
@@ -1060,6 +1062,10 @@ function Section({
   allSections: SectionData[];
   onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
+  // Pressing Enter to create a section should land straight on a blank
+  // task row ready to type, instead of leaving the user to click "+
+  // Ajouter une tâche" themselves right after.
+  autoOpenAddTask?: boolean;
 }) {
   const { t } = useTranslation();
   const countedTasks = allTasks ?? tasks;
@@ -1337,7 +1343,7 @@ function Section({
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} compact={compactColumns} />
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} compact={compactColumns} autoOpen={autoOpenAddTask} />
         </>
       )}
     </div>
@@ -1884,6 +1890,25 @@ export function Travail() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
+  // Set right after a section is created via Enter, so its (freshly
+  // mounted) AddTaskRow opens straight into "ready to type" instead of
+  // leaving the user to click "+ Ajouter une tâche" themselves.
+  const [autoOpenSectionLabel, setAutoOpenSectionLabel] = useState<string | null>(null);
+  // setSections() writes to taskStore then synchronously notifies
+  // subscribers, which re-syncs `sections` from the store from inside this
+  // very same setState updater — setting autoOpenSectionLabel directly in
+  // handleAddSection races that re-sync and gets silently lost. Stashing
+  // the pending label in a ref and applying it once `sections` actually
+  // contains it (via effect, after the dust settles) sidesteps the race.
+  const pendingAutoOpenLabelRef = useRef<string | null>(null);
+  useEffect(() => {
+    const pending = pendingAutoOpenLabelRef.current;
+    if (pending && sections.some(s => s.label === pending)) {
+      setAutoOpenSectionLabel(pending);
+      pendingAutoOpenLabelRef.current = null;
+      setTimeout(() => setAutoOpenSectionLabel(null), 0);
+    }
+  }, [sections]);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
   const [view, setView] = useSyncedViewState<'list' | 'board'>('sf_view_travail', 'list');
@@ -1951,6 +1976,7 @@ export function Travail() {
     setSections(prev => [...prev, { label, tasks: [] }]);
     setNewSectionLabel('');
     setAddingSection(false);
+    pendingAutoOpenLabelRef.current = label;
   };
 
   const handleRenameSection = (idx: number, newLabel: string) => {
@@ -2278,6 +2304,7 @@ export function Travail() {
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
                 onConvertRequest={handleConvertRequest}
+                autoOpenAddTask={section.label === autoOpenSectionLabel}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
             </React.Fragment>
