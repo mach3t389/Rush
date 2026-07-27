@@ -88,6 +88,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
   const [folderStructTplId, setFolderStructTplId] = useState<string | null>(null);
   const [overviewTplId, setOverviewTplId] = useState<string | null>(null);
+  const [tasksTplId, setTasksTplId] = useState<string | null>(null);
 
   // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
   // reste disponible dans la bibliothèque complète (Modèles). Ordre volontaire :
@@ -100,6 +101,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
   const folderStructTemplates = loadAllResourceTemplates().filter(t => t.type === 'file');
   const overviewTemplates = loadAllResourceTemplates().filter(t => t.type === 'overview');
+  const tasksTemplates = loadAllResourceTemplates().filter(t => t.type === 'tasks');
 
   // The creator is always a member of their own project — can't deselect yourself.
   const toggleMember = (id: string) => {
@@ -115,6 +117,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     if (step === 'start') {
       setFolderStructTplId(selectedTemplate?.defaultFolderStructureId ?? null);
       setOverviewTplId(selectedTemplate?.defaultOverviewTemplateId ?? null);
+      setTasksTplId(selectedTemplate?.tasksTemplateId ?? null);
       setStep('info');
     } else if (step === 'info') {
       setStep('fichiers');
@@ -144,7 +147,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       phase: 'preproduction',
       phaseLabel: 'Préproduction',
       progress: 0,
-      taskCount: selectedTemplate ? resolveTasksSections(selectedTemplate).reduce((n, s) => n + s.tasks.length, 0) : 0,
+      taskCount: selectedTemplate ? resolveTasksSections({ ...selectedTemplate, tasksTemplateId: tasksTplId ?? selectedTemplate.tasksTemplateId }).reduce((n, s) => n + s.tasks.length, 0) : 0,
       deliverableCount: 0,
       members,
       deliveryDate: deliveryDate ? formatDisplay(deliveryDate) : '—',
@@ -155,7 +158,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       overviewTemplateId: overviewTplId ?? undefined,
     };
     if (selectedTemplate) {
-      const sections: SectionData[] = resolveTasksSections(selectedTemplate).map(sec => ({
+      const sections: SectionData[] = resolveTasksSections({ ...selectedTemplate, tasksTemplateId: tasksTplId ?? selectedTemplate.tasksTemplateId }).map(sec => ({
         label: sec.label,
         progress: 0,
         tasks: sec.tasks.map((tt, i): Task => ({
@@ -514,6 +517,31 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                       <SFIcon name={tpl.icon} size={16} color="var(--text-3)" />
                       <span style={{ fontSize: 12, color: 'var(--text)' }}>{tpl.name}</span>
                       {overviewTplId === tpl.id && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {tasksTemplates.length > 0 && (
+                <>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>
+                    {t('models.resTypeTasks')}
+                  </p>
+                  <div
+                    onClick={() => setTasksTplId(null)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${tasksTplId === null ? 'var(--accent)' : 'var(--border)'}`, background: tasksTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
+                  >
+                    <SFIcon name="list-checks" size={16} color="var(--text-3)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.overviewTemplateNoneNew')}</span>
+                    {tasksTplId === null && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                  </div>
+                  {tasksTemplates.map(tpl => (
+                    <div key={tpl.id} onClick={() => setTasksTplId(tpl.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${tasksTplId === tpl.id ? 'var(--accent)' : 'var(--border)'}`, background: tasksTplId === tpl.id ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
+                    >
+                      <SFIcon name={tpl.icon} size={16} color="var(--text-3)" />
+                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{tpl.name}</span>
+                      {tasksTplId === tpl.id && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                     </div>
                   ))}
                 </>
