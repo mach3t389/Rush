@@ -18,13 +18,18 @@ const PROJECT_COLORS = [
 ];
 
 
+// Labels here match the vocabulary actually used on project cards
+// (statusLabel in mock.ts / real project data: "En avance", "En retard",
+// "En attente client", "Complété") — not the generic task/resource status
+// wording ("Bloqué", "À faire"), which meant selecting e.g. "Bloqué" in the
+// filter actually returned projects labeled "En retard" on their cards.
 export const PROJECT_STATUS_OPTIONS: { status: Status; labelKey: string }[] = [
-  { status: 'ok',      labelKey: 'projects.statusDone' },
+  { status: 'ok',      labelKey: 'projects.statusAhead' },
   { status: 'info',    labelKey: 'projects.statusInProgress' },
-  { status: 'warn',    labelKey: 'projects.statusTodo' },
+  { status: 'warn',    labelKey: 'projects.statusWaitingClient' },
   { status: 'review',  labelKey: 'projects.statusInReview' },
-  { status: 'danger',  labelKey: 'projects.statusBlocked' },
-  { status: 'neutral', labelKey: 'projects.statusWaiting' },
+  { status: 'danger',  labelKey: 'projects.statusLate' },
+  { status: 'neutral', labelKey: 'projects.statusCompleted' },
 ];
 
 // ── Project Edit Panel ─────────────────────────────────────────────────────────
