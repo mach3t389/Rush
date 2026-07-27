@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { VIDEO_CORRECTIONS } from '../data/mock';
 import { findProject, getProjects } from '../data/projectStore';
 import { addNotif } from '../data/notificationStore';
-import { getDeliverables, updateTask, subscribeStore } from '../data/taskStore';
+import { getDeliverables, updateTask, subscribeStore, getProjectStats } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { SFPill, SFBar, SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoice } from '../data/financeStore';
@@ -95,6 +95,7 @@ export function Portail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const project = findProject(projectId ?? '') ?? getProjects()[0]!;
+  const stats = getProjectStats(project);
 
   const [showMessage, setShowMessage] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
@@ -294,9 +295,9 @@ export function Portail() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <p style={{ fontWeight: 600, fontSize: 14 }}>{t('portal.projectProgress')}</p>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-2)' }}>{project.progress}%</span>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-2)' }}>{stats.progress}%</span>
             </div>
-            <SFBar value={project.progress} height={6} />
+            <SFBar value={stats.progress} height={6} />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
               {phases.map((phase, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

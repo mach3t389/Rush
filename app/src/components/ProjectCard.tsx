@@ -7,7 +7,7 @@ import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
-import { getCurrentSectionLabel } from '../data/taskStore';
+import { getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { timeAgo } from '../utils/timeAgo';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 
@@ -276,6 +276,9 @@ export function ProjectCard({ p }: { p: Project }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => subscribePinned(() => setPinned(isPinned(p.id))), [p.id]);
+  const [, forceStatsTick] = useState(0);
+  useEffect(() => subscribeStore(() => forceStatsTick(n => n + 1)), []);
+  const stats = getProjectStats(p);
 
   useEffect(() => {
     if (!dropOpen) return;
@@ -432,10 +435,10 @@ export function ProjectCard({ p }: { p: Project }) {
         </div>
       </div>
 
-      <SFBar value={p.progress} height={3} />
+      <SFBar value={stats.progress} height={3} />
 
       <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>
-        <span>{t('projects.taskCount', { count: p.taskCount })}</span>
+        <span>{t('projects.taskCount', { count: stats.taskCount })}</span>
         <span>{t('projects.delivery', { date: deliveryDate })}</span>
       </div>
 

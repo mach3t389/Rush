@@ -5,7 +5,7 @@ import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
-import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections } from '../data/taskStore';
+import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections, getProjectStats } from '../data/taskStore';
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { getProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
@@ -164,6 +164,7 @@ export function TravailOverview() {
   const [, forceUpdate] = useState(0);
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
   const project = findProject(projectId ?? '') ?? getProjects()[0];
+  const stats = getProjectStats(project);
 
   const completed = !!project.completed;
   const [editOpen, setEditOpen] = useState(false);
@@ -764,9 +765,9 @@ export function TravailOverview() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progression</p>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)' }}>{project.progress}%</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)' }}>{stats.progress}%</span>
                 </div>
-                <SFBar value={project.progress} height={5} />
+                <SFBar value={stats.progress} height={5} />
               </div>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Date de livraison</p>
@@ -793,7 +794,7 @@ export function TravailOverview() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <SFIcon name="circle-check" size={12} color="var(--ok)" />
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>
-                      {Math.round(project.taskCount * project.progress / 100)}/{project.taskCount}
+                      {Math.round(stats.taskCount * stats.progress / 100)}/{stats.taskCount}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

@@ -8,7 +8,7 @@ import type { Project, Status, Phase, SectionData, Task, User } from '../types/i
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
-import { setSections, getCurrentSectionLabel } from '../data/taskStore';
+import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
@@ -580,6 +580,9 @@ function ProjectListRow({ p }: { p: Project }) {
   const [deliveryDate, setDeliveryDate] = useState(p.deliveryDate);
 
   useEffect(() => subscribePinned(() => setPinnedState(isPinned(p.id))), [p.id]);
+  const [, forceStatsTick] = useState(0);
+  useEffect(() => subscribeStore(() => forceStatsTick(n => n + 1)), []);
+  const stats = getProjectStats(p);
 
   const handleSave = (u: { name: string; color: string; status: Status; statusLabel: string; phase: Phase; phaseLabel: string; deliveryDate: string; budget?: number; description?: string }) => {
     setName(u.name); setColor(u.color);
@@ -619,8 +622,8 @@ function ProjectListRow({ p }: { p: Project }) {
 
       {/* Progression */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><SFBar value={p.progress} height={4} /></div>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{p.progress}%</span>
+        <div style={{ flex: 1, minWidth: 0 }}><SFBar value={stats.progress} height={4} /></div>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', flexShrink: 0, width: 30, textAlign: 'right' }}>{stats.progress}%</span>
       </div>
 
       {/* Statut */}
@@ -748,7 +751,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
       if (sortBy === 'alpha-desc') return b.name.localeCompare(a.name);
       if (sortBy === 'client')     return a.clientName.localeCompare(b.clientName);
       if (sortBy === 'delivery')   return (a.deliveryDate ?? '').localeCompare(b.deliveryDate ?? '');
-      if (sortBy === 'progress')   return b.progress - a.progress;
+      if (sortBy === 'progress')   return getProjectStats(b).progress - getProjectStats(a).progress;
       return (b.modifiedAt ?? '').localeCompare(a.modifiedAt ?? '');
     });
 

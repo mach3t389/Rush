@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFIcon } from '../components/ui';
 import { getProjects, subscribeProjects } from '../data/projectStore';
-import { getCurrentSectionLabel, subscribeStore } from '../data/taskStore';
+import { getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import type { Project } from '../types';
 
 // Toutes les tâches — un sélecteur de projet, comme une app de tâches
@@ -18,6 +18,7 @@ function ProjectPickerRow({ p }: { p: Project }) {
   const [, forceTick] = useState(0);
   useEffect(() => subscribeStore(() => forceTick(n => n + 1)), []);
   const sectionLabel = getCurrentSectionLabel(p.id);
+  const stats = getProjectStats(p);
 
   return (
     <div
@@ -33,11 +34,11 @@ function ProjectPickerRow({ p }: { p: Project }) {
       </div>
       {sectionLabel && <SFPill status="neutral" small>{sectionLabel}</SFPill>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140, flexShrink: 0 }}>
-        <div style={{ flex: 1 }}><SFBar value={p.progress} height={4} /></div>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', width: 30, textAlign: 'right' }}>{p.progress}%</span>
+        <div style={{ flex: 1 }}><SFBar value={stats.progress} height={4} /></div>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-2)', width: 30, textAlign: 'right' }}>{stats.progress}%</span>
       </div>
       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--text-3)', width: 70, textAlign: 'right', flexShrink: 0 }}>
-        {p.taskCount} tâche{p.taskCount !== 1 ? 's' : ''}
+        {stats.taskCount} tâche{stats.taskCount !== 1 ? 's' : ''}
       </span>
       <SFIcon name="chevron-right" size={14} color="var(--text-3)" />
     </div>

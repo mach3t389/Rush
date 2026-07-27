@@ -195,6 +195,21 @@ export function getCurrentSectionLabel(projectId: string): string | null {
   return (sections.find(s => !s.completed) ?? sections[sections.length - 1]).label;
 }
 
+// Same drift problem as getCurrentSectionLabel above, for Project.progress/
+// taskCount: real sessions never write these back after the project is
+// created (updateProject only touches them when a caller explicitly passes
+// new values, which nothing does), so every real project shows 0%/0 tâches
+// forever regardless of actual task activity. Demo mode's hand-seeded
+// numbers are curated to tell a story and don't necessarily match
+// PROJECT_TASKS's real section contents, so they're left untouched.
+export function getProjectStats(p: { id: string; progress: number; taskCount: number }): { progress: number; taskCount: number } {
+  if (isDemoSession()) return { progress: p.progress, taskCount: p.taskCount };
+  const tasks = getSections(p.id).flatMap(s => s.tasks);
+  const taskCount = tasks.length;
+  const progress = taskCount === 0 ? 0 : Math.round((tasks.filter(t => t.checked).length / taskCount) * 100);
+  return { progress, taskCount };
+}
+
 export function setSections(projectId: string, sections: SectionData[]): void {
   if (isDemoSession()) {
     _store = { ..._store, [projectId]: sections };

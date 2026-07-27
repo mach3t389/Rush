@@ -9,6 +9,7 @@ import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
 import { getProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getMyTasks, subscribeMyTasks, updateMyTask } from '../data/myTaskStore';
+import { getProjectStats, subscribeStore } from '../data/taskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import type { Task } from '../types';
 
@@ -225,6 +226,8 @@ export function Dashboard() {
   // page pushes out something the user actually still needs to do.
   const [myTasksAll, setMyTasksAll] = useState<Task[]>(getMyTasks);
   useEffect(() => subscribeMyTasks(() => setMyTasksAll(getMyTasks())), []);
+  const [, forceProjectStatsTick] = useState(0);
+  useEffect(() => subscribeStore(() => forceProjectStatsTick(n => n + 1)), []);
   const myTasks = myTasksAll.filter(t => !t.checked);
   const activeProjects = projects.filter(p => p.status !== 'neutral');
   const lateProjects   = projects.filter(p => p.status === 'danger').length;
@@ -500,9 +503,9 @@ export function Dashboard() {
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
                 <p style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
                 <div style={{ width: 60, flexShrink: 0 }}>
-                  <SFBar value={p.progress} height={3} />
+                  <SFBar value={getProjectStats(p).progress} height={3} />
                 </div>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, width: 28, textAlign: 'right' }}>{p.progress}%</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, width: 28, textAlign: 'right' }}>{getProjectStats(p).progress}%</span>
                 <SFPill status={p.status} small>{p.statusLabel}</SFPill>
               </div>
             ))}
