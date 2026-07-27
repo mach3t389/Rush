@@ -18,6 +18,7 @@ import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
 import { getProjectContent, setProjectContent, type ProjectVision } from '../data/projectContentStore';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession } from '../data/authStore';
 import { sendEmail } from '../data/emailStore';
@@ -128,11 +129,14 @@ function VisionField({ label, placeholder, value, onChange, multiline }: {
   );
 }
 
-function Card({ children, title, icon, action, collapsible, defaultOpen = true }: {
+function Card({ children, title, icon, action, collapsible, defaultOpen = true, persistKey }: {
   children: React.ReactNode; title: string; icon: string; action?: React.ReactNode;
-  collapsible?: boolean; defaultOpen?: boolean;
+  collapsible?: boolean; defaultOpen?: boolean; persistKey?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const [persistedOpen, setPersistedOpen] = usePersistedState(`sf_overview_section_open_${persistKey}`, defaultOpen);
+  const open = persistKey ? persistedOpen : localOpen;
+  const setOpen = persistKey ? setPersistedOpen : setLocalOpen;
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
       <div
@@ -302,7 +306,7 @@ export function TravailOverview() {
           )}
 
           {/* ── Vision & positionnement ── */}
-          <Card title={t('overview.visionTitle')} icon="compass" collapsible defaultOpen={false}>
+          <Card title={t('overview.visionTitle')} icon="compass" collapsible defaultOpen={true} persistKey={`${project.id}_vision`}>
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <VisionField label={t('overview.visionConcept')} placeholder={t('overview.visionConceptPlaceholder')} value={vision.concept} onChange={v => setVision(p => ({ ...p, concept: v }))} multiline />
