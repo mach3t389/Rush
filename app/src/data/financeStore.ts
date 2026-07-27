@@ -96,6 +96,9 @@ export interface Invoice {
   paidAmount?: number;
   hasPdf?: boolean;
   comments?: InvoiceComment[];
+  // Manual drag-to-reorder position in the list — undefined until the user
+  // reorders at least once, at which point every invoice gets a value.
+  sortOrder?: number;
 }
 
 export interface InvoiceDefaults {
@@ -238,6 +241,7 @@ interface InvoiceRow {
   paid_amount: number | null;
   has_pdf: boolean;
   comments: InvoiceComment[];
+  sort_order: number | null;
 }
 
 function toInvoice(row: InvoiceRow): Invoice {
@@ -263,6 +267,7 @@ function toInvoice(row: InvoiceRow): Invoice {
     paidAmount: row.paid_amount ?? undefined,
     hasPdf: row.has_pdf,
     comments: row.comments ?? [],
+    sortOrder: row.sort_order ?? undefined,
   };
 }
 
@@ -290,6 +295,7 @@ function toInvoiceRow(inv: Invoice, studioId: string): InvoiceRow & { studio_id:
     paid_amount: inv.paidAmount ?? null,
     has_pdf: inv.hasPdf ?? false,
     comments: inv.comments ?? [],
+    sort_order: inv.sortOrder ?? null,
   };
 }
 
@@ -531,6 +537,36 @@ export function removeInvoice(id: string): void {
   _supabaseInvoices = _supabaseInvoices.filter(i => i.id !== id);
   _iListeners.forEach(fn => fn());
   void removeSupabaseInvoice(id);
+}
+
+export function removeInvoices(ids: string[]): void {
+  ids.forEach(id => removeFileContent(pdfKey(id)));
+  const idSet = new Set(ids);
+  if (isDemoSession()) {
+    _demoInvoices = _demoInvoices.filter(i => !idSet.has(i.id));
+    persistDemoInvoices();
+    _iListeners.forEach(fn => fn());
+    return;
+  }
+  _supabaseInvoices = _supabaseInvoices.filter(i => !idSet.has(i.id));
+  _iListeners.forEach(fn => fn());
+  ids.forEach(id => void removeSupabaseInvoice(id));
+}
+
+// Manual drag-to-reorder — assigns every invoice in `orderedIds` a fresh
+// sortOrder matching its new position. Meant to be called with the full
+// current list order (see Finances.tsx), not just a filtered subset.
+export function reorderInvoices(orderedIds: string[]): void {
+  if (isDemoSession()) {
+    const byId = new Map(_demoInvoices.map(i => [i.id, i]));
+    const next: Invoice[] = [];
+    orderedIds.forEach((id, idx) => { const inv = byId.get(id); if (inv) next.push({ ...inv, sortOrder: idx }); });
+    _demoInvoices = next;
+    persistDemoInvoices();
+    _iListeners.forEach(fn => fn());
+    return;
+  }
+  orderedIds.forEach((id, idx) => updateInvoice(id, { sortOrder: idx }));
 }
 
 export function subscribeInvoices(fn: () => void): () => void {

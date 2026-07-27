@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader, CategoryFilterDropdown } from '../components/ui';
 import { getClients } from '../data/clientStore';
@@ -6,7 +7,7 @@ import { getProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import {
-  getInvoices, addInvoice, updateInvoice, removeInvoice, subscribeInvoices, findInvoice,
+  getInvoices, addInvoice, updateInvoice, removeInvoice, removeInvoices, reorderInvoices, subscribeInvoices, findInvoice,
   setInvoiceStatus, addInvoiceComment,
   savePdf, loadPdf, removePdf, formatMoney, nextInvoiceNumber, addDays,
   getInvoiceDefaults, computeTaxLines, TAX_PRESETS,
@@ -55,6 +56,15 @@ function getLastNMonths(n: number): { label: string; year: number; month: number
   return Array.from({ length: n }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (n - 1 - i), 1);
     return { label: d.toLocaleDateString('fr-CA', { month: 'short' }), year: d.getFullYear(), month: d.getMonth() };
+  });
+}
+
+// Janvier → décembre de l'année courante — distinct des "12 derniers mois"
+// glissants, qui chevauchent deux années civiles la majeure partie du temps.
+function getCalendarYearMonths(year: number): { label: string; year: number; month: number }[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(year, i, 1);
+    return { label: d.toLocaleDateString('fr-CA', { month: 'short' }), year, month: i };
   });
 }
 
@@ -142,11 +152,13 @@ const CHART_MODES: Array<{ key: ChartMode; labelKey: string }> = [
   { key: 'paidDate',   labelKey: 'finance.chartByPaidDate'   },
 ];
 
+type ChartPeriod = 6 | 12 | 'year';
+
 function RevenueChart({ invoices }: { invoices: Invoice[] }) {
   const { t } = useTranslation();
   const [mode,   setMode]   = useState<ChartMode>('issuedDate');
-  const [period, setPeriod] = useState<6 | 12>(6);
-  const months = getLastNMonths(period);
+  const [period, setPeriod] = useState<ChartPeriod>(6);
+  const months = period === 'year' ? getCalendarYearMonths(new Date().getFullYear()) : getLastNMonths(period);
 
   const data = months.map(m => {
     const mi = invoices.filter(i => {
@@ -171,7 +183,7 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
   const PAD = { t: 4, r: 8, b: 20, l: 44 };
   const chartW = W - PAD.l - PAD.r;
   const chartH = H - PAD.t - PAD.b;
-  const slotW  = chartW / period;
+  const slotW  = chartW / months.length;
   const barW   = slotW * 0.52;
 
   const yTicks = [0, 0.5, 1].map(p => ({ pct: p, val: maxVal * p, y: PAD.t + chartH * (1 - p) }));
@@ -179,13 +191,15 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', flex: 2, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, flexShrink: 0 }}>{t('finance.chartTitle')}</p>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, flexShrink: 0 }}>
+          {period === 'year' ? t('finance.chartTitleYear', { year: new Date().getFullYear() }) : period === 12 ? t('finance.chartTitle12') : t('finance.chartTitle')}
+        </p>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {/* Période */}
           <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 9, padding: 2, border: '1px solid var(--border)' }}>
-            {([6, 12] as const).map(p => (
+            {([6, 12, 'year'] as const).map(p => (
               <button key={p} onClick={() => setPeriod(p)} style={{ fontSize: 11, padding: '4px 9px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)', background: period === p ? 'var(--surface)' : 'transparent', color: period === p ? 'var(--text)' : 'var(--text-3)', fontWeight: period === p ? 600 : 400, boxShadow: period === p ? '0 1px 4px rgba(0,0,0,0.3)' : 'none', transition: 'all 0.1s' }}>
-                {p === 6 ? t('finance.chart6months') : t('finance.chart12months')}
+                {p === 6 ? t('finance.chart6months') : p === 12 ? t('finance.chart12months') : t('finance.chartYear')}
               </button>
             ))}
           </div>
@@ -992,6 +1006,88 @@ function FinancesLocked() {
   );
 }
 
+// ── Move invoice(s) to another project ───────────────────────────────────────
+// Moving updates both projectId and clientId (to the target project's own
+// client) so an invoice never ends up pointing at a project/client mismatch.
+
+function MoveInvoicesModal({ count, projects, onMove, onClose }: {
+  count: number;
+  projects: ReturnType<typeof getProjects>;
+  onMove: (projectId: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [search, setSearch] = useState('');
+  const filtered = projects.filter(p => !p.archived && p.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 600 }} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 380, zIndex: 601, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,0.75)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('finance.moveInvoicesTitle', { count })}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+        </div>
+        <div style={{ padding: '12px 20px 0' }}>
+          <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder={t('members.searchPlaceholder')}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }} />
+        </div>
+        <div style={{ padding: '10px 12px 16px', display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
+          {filtered.map(p => (
+            <button key={p.id} onClick={() => onMove(p.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <i style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, display: 'block', flexShrink: 0 }} />
+              <span style={{ fontSize: 13 }}>{p.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 'auto', fontFamily: 'var(--ff-mono)' }}>{p.clientName}</span>
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-3)' }}>{t('members.noResults')}</p>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Row / bulk context menu ──────────────────────────────────────────────────
+
+function InvoiceContextMenu({ pos, count, onOpen, onMove, onDelete, onClose }: {
+  pos: { x: number; y: number };
+  count: number;
+  onOpen?: () => void;
+  onMove: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  const item = (label: React.ReactNode, action: () => void, danger = false) => (
+    <button onClick={() => { action(); onClose(); }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: danger ? 'var(--danger)' : 'var(--text)' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{label}</button>
+  );
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
+      {onOpen && item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
+      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('taskPanel.moveToProject')}</span></>, onMove)}
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{count > 1 ? t('finance.deleteInvoicesCount', { count }) : t('finance.deleteInvoice')}</span></>, onDelete, true)}
+    </div>,
+    document.body,
+  );
+}
+
 export function Finances() {
   const { t } = useTranslation();
   const [invoices,      setInvoices]      = useState<Invoice[]>(getInvoices);
@@ -1009,6 +1105,13 @@ export function Finances() {
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
   const [autoOpenPdf, setAutoOpenPdf] = useState(false);
   const [deleteId,      setDeleteId]      = useState<string | null>(null);
+  const [multiSelIds,   setMultiSelIds]   = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkMoveOpen,  setBulkMoveOpen]  = useState(false);
+  const [ctxMenu,       setCtxMenu]       = useState<{ x: number; y: number; ids: string[] } | null>(null);
+  const [dragId,        setDragId]        = useState<string | null>(null);
+  const [dragOverId,    setDragOverId]    = useState<string | null>(null);
+  const anchorIdRef = useRef<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoices())), []);
 
@@ -1057,7 +1160,13 @@ export function Finances() {
   const hasDateFilter = dateFrom !== '' || dateTo !== '';
   const hasAnyFilter  = filter !== 'all' || clientFilter !== '' || projectFilter !== '' || search !== '' || hasDateFilter;
 
-  const filtered = invoices.filter(inv => {
+  // sortOrder is only set once the user has manually reordered at least
+  // once (see reorderInvoices) — until then, keep the store's own order.
+  const orderedInvoices = invoices.some(i => i.sortOrder !== undefined)
+    ? [...invoices].sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity))
+    : invoices;
+
+  const filtered = orderedInvoices.filter(inv => {
     if (filter !== 'all' && inv.status !== filter) return false;
     if (clientFilter && inv.clientId !== clientFilter) return false;
     if (projectFilter && inv.projectId !== projectFilter) return false;
@@ -1084,6 +1193,66 @@ export function Finances() {
   const openEdit    = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
   const openDetail  = (inv: Invoice) => setDetailInvoice(inv);
   const closeForm   = () => { setPanelOpen(false); if (editInvoice) setDetailInvoice(findInvoice(editInvoice.id) ?? editInvoice); };
+
+  // Ctrl/Cmd = toggle one, Shift = range from the last-clicked row, plain
+  // click = open the detail panel (same as before multi-select existed).
+  const handleRowClick = (inv: Invoice, e: React.MouseEvent) => {
+    const orderedIds = filtered.map(i => i.id);
+    if (e.shiftKey && anchorIdRef.current) {
+      const a = orderedIds.indexOf(anchorIdRef.current);
+      const b = orderedIds.indexOf(inv.id);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        setMultiSelIds(new Set(orderedIds.slice(lo, hi + 1)));
+        return;
+      }
+    }
+    if (e.ctrlKey || e.metaKey) {
+      setMultiSelIds(prev => {
+        const next = new Set(prev);
+        next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id);
+        return next;
+      });
+      anchorIdRef.current = inv.id;
+      return;
+    }
+    if (multiSelIds.size > 0) { setMultiSelIds(new Set()); return; }
+    openDetail(inv);
+  };
+
+  const openRowContextMenu = (inv: Invoice, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!multiSelIds.has(inv.id)) setMultiSelIds(new Set([inv.id]));
+    setCtxMenu({ x: e.clientX, y: e.clientY, ids: multiSelIds.has(inv.id) ? [...multiSelIds] : [inv.id] });
+  };
+
+  const moveInvoicesToProject = (ids: string[], projectId: string) => {
+    const project = allProjects.find(p => p.id === projectId);
+    if (!project) return;
+    ids.forEach(id => updateInvoice(id, { projectId: project.id, clientId: project.clientId }));
+  };
+
+  const bulkDelete = () => {
+    removeInvoices([...multiSelIds]);
+    setMultiSelIds(new Set());
+    setBulkDeleteConfirm(false);
+  };
+
+  // Only meaningful against the full, unfiltered order — reordering a
+  // filtered subset wouldn't map cleanly onto the other invoices' positions.
+  const canReorder = !hasAnyFilter;
+  const handleDrop = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
+    const current = [...orderedInvoices];
+    const srcIdx = current.findIndex(i => i.id === dragId);
+    const dstIdx = current.findIndex(i => i.id === targetId);
+    if (srcIdx === -1 || dstIdx === -1) { setDragId(null); setDragOverId(null); return; }
+    const [moved] = current.splice(srcIdx, 1);
+    current.splice(dstIdx, 0, moved);
+    reorderInvoices(current.map(i => i.id));
+    setDragId(null);
+    setDragOverId(null);
+  };
 
   const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
   const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
@@ -1215,7 +1384,8 @@ export function Finances() {
           </div>
         ) : (
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '140px 120px 130px 1fr 110px 100px 100px 100px', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '28px 140px 120px 130px 1fr 110px 100px 100px 100px', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+              <span />
               <span style={thStyle}>{t('finance.colNumber')}</span>
               <span style={thStyle}>{t('finance.colClient')}</span>
               <span style={thStyle}>{t('finance.colProject')}</span>
@@ -1232,14 +1402,37 @@ export function Finances() {
               const isLate  = inv.status === 'overdue';
               const confirming = deleteId === inv.id;
               const commentCount = inv.comments?.length ?? 0;
+              const selected = multiSelIds.has(inv.id);
 
               return (
                 <div key={inv.id}
-                  style={{ display: 'grid', gridTemplateColumns: '140px 120px 130px 1fr 110px 100px 100px 100px', padding: '11px 16px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', background: isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
-                  onMouseEnter={e => { if (!isLate) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)'; }}
-                  onClick={() => openDetail(inv)}
+                  draggable={canReorder}
+                  onDragStart={() => setDragId(inv.id)}
+                  onDragOver={e => { if (canReorder) { e.preventDefault(); setDragOverId(inv.id); } }}
+                  onDrop={() => canReorder && handleDrop(inv.id)}
+                  onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                  style={{ display: 'grid', gridTemplateColumns: '28px 140px 120px 130px 1fr 110px 100px 100px 100px', padding: '11px 16px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', background: selected ? 'rgba(249,255,0,0.08)' : dragOverId === inv.id ? 'var(--surface-3)' : isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => { if (!isLate && !selected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = selected ? 'rgba(249,255,0,0.08)' : isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)'; }}
+                  onClick={e => handleRowClick(inv, e)}
+                  onContextMenu={e => openRowContextMenu(inv, e)}
                 >
+                  <div
+                    onClick={e => {
+                      e.stopPropagation();
+                      setMultiSelIds(prev => { const next = new Set(prev); next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id); return next; });
+                      anchorIdRef.current = inv.id;
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: canReorder ? 'grab' : 'default' }}
+                  >
+                    {canReorder && !selected ? (
+                      <SFIcon name="grip-vertical" size={12} color="var(--text-3)" style={{ opacity: 0.5 }} />
+                    ) : (
+                      <span style={{ width: 15, height: 15, borderRadius: 4, border: selected ? 'none' : '1.5px solid var(--border-2)', background: selected ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {selected && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>{inv.number}</span>
                     {commentCount > 0 && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', borderRadius: 20, padding: '0 4px', color: 'var(--text-3)' }}>{commentCount}</span>}
@@ -1251,19 +1444,23 @@ export function Finances() {
                   <span><StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} /></span>
                   <span style={{ fontSize: 12, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
 
-                  <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                     {hasPdf && (
-                      <button title={t('finance.viewPdf')} onClick={() => { setAutoOpenPdf(true); openDetail(inv); }} style={actionBtn}>
-                        <SFIcon name="file-text" size={13} />
+                      <button title={t('finance.viewPdf')} onClick={() => { setAutoOpenPdf(true); openDetail(inv); }}
+                        style={{ ...actionBtn, width: 28, height: 28, justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
+                        <SFIcon name="file-text" size={14} />
                       </button>
                     )}
                     {confirming ? (
-                      <div style={{ display: 'flex', gap: 2 }}>
-                        <button onClick={() => { removeInvoice(inv.id); setDeleteId(null); }} style={{ ...actionBtn, color: 'var(--danger)', fontSize: 10, fontWeight: 600, padding: '2px 6px', background: 'rgba(239,68,68,0.1)', borderRadius: 6 }}>{t('finance.confirmDeleteShort')}</button>
-                        <button onClick={() => setDeleteId(null)} style={{ ...actionBtn, fontSize: 10, padding: '2px 6px' }}>{t('finance.cancel')}</button>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => { removeInvoice(inv.id); setDeleteId(null); }} style={{ ...actionBtn, color: 'var(--danger)', fontSize: 10, fontWeight: 600, padding: '4px 8px', background: 'rgba(239,68,68,0.1)', borderRadius: 6 }}>{t('finance.confirmDeleteShort')}</button>
+                        <button onClick={() => setDeleteId(null)} style={{ ...actionBtn, fontSize: 10, padding: '4px 8px' }}>{t('finance.cancel')}</button>
                       </div>
                     ) : (
-                      <button title={t('finance.deleteInvoice')} onClick={e => { e.stopPropagation(); setDeleteId(inv.id); }} style={actionBtn}
+                      <button title={t('finance.deleteInvoice')} onClick={e => { e.stopPropagation(); setDeleteId(inv.id); }}
+                        style={{ ...actionBtn, width: 28, height: 28, justifyContent: 'center' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
                         <SFIcon name="trash-2" size={13} />
@@ -1286,6 +1483,56 @@ export function Finances() {
         autoOpenPdf={autoOpenPdf}
         onAutoOpenedPdf={() => setAutoOpenPdf(false)}
       />
+
+      {/* Multi-select floating action bar */}
+      {multiSelIds.size > 0 && createPortal(
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
+          <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('finance.invoiceCount', { count: multiSelIds.size })}</span>
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+          {bulkDeleteConfirm ? (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--danger)' }}>{t('finance.deleteInvoicesConfirm', { count: multiSelIds.size })}</span>
+              <button onClick={bulkDelete} style={{ padding: '6px 12px', borderRadius: 9, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.yes')}</button>
+              <button onClick={() => setBulkDeleteConfirm(false)} style={{ padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setBulkMoveOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+                <SFIcon name="move-right" size={13} />
+                {t('taskPanel.moveToProject')}
+              </button>
+              <button onClick={() => setBulkDeleteConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+                <SFIcon name="trash-2" size={13} />
+                {t('tasks.delete')}
+              </button>
+            </>
+          )}
+          <button onClick={() => { setMultiSelIds(new Set()); setBulkDeleteConfirm(false); }} style={{ display: 'flex', alignItems: 'center', padding: '4px', borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+            <SFIcon name="x" size={14} />
+          </button>
+        </div>,
+        document.body,
+      )}
+
+      {bulkMoveOpen && (
+        <MoveInvoicesModal
+          count={multiSelIds.size}
+          projects={allProjects}
+          onMove={projectId => { moveInvoicesToProject([...multiSelIds], projectId); setBulkMoveOpen(false); setMultiSelIds(new Set()); }}
+          onClose={() => setBulkMoveOpen(false)}
+        />
+      )}
+
+      {ctxMenu && (
+        <InvoiceContextMenu
+          pos={ctxMenu}
+          count={ctxMenu.ids.length}
+          onOpen={ctxMenu.ids.length === 1 ? () => { const inv = invoices.find(i => i.id === ctxMenu.ids[0]); if (inv) openDetail(inv); setCtxMenu(null); } : undefined}
+          onMove={() => { setBulkMoveOpen(true); setCtxMenu(null); }}
+          onDelete={() => { setBulkDeleteConfirm(true); setCtxMenu(null); }}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
     </div>
   );
 }

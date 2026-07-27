@@ -575,7 +575,10 @@
     "editSection": "Edit section",
     "renameSection": "Rename / edit",
     "deleteSection": "Delete section",
-    "confirmDeleteSection": "Delete this section and its content?"
+    "confirmDeleteSection": "Delete this section and its content?",
+    "sectionOptions": "Section options",
+    "moveSectionUp": "Move up",
+    "moveSectionDown": "Move down"
   },
   "profile": {
     "myProfile": "My profile",
@@ -1480,7 +1483,7 @@
     "resTypeScreenplay": "Screenplay",
     "resTypeVideoReview": "Video review",
     "resTypeFile": "File",
-    "resTypeOverview": "Overview template",
+    "resTypeOverview": "Overview",
     "resTypeWebReview": "Web review"
   },
   "review": {
@@ -2013,6 +2016,12 @@
     "cancel": "Cancel",
     "deleteInvoice": "Delete",
     "confirmDeleteShort": "Confirm",
+    "moveInvoicesTitle_one": "Move {{count}} invoice",
+    "moveInvoicesTitle_other": "Move {{count}} invoices",
+    "deleteInvoicesCount_one": "Delete {{count}} invoice",
+    "deleteInvoicesCount_other": "Delete {{count}} invoices",
+    "deleteInvoicesConfirm_one": "Delete {{count}} invoice?",
+    "deleteInvoicesConfirm_other": "Delete {{count}} invoices?",
     "markPaid": "Mark as paid",
     "viewPdf": "View PDF",
     "pdfModal": "PDF preview",
@@ -2050,8 +2059,11 @@
     "invoiceCount_one": "{{count}} invoice",
     "invoiceCount_other": "{{count}} invoices",
     "chartTitle": "Revenue — last 6 months",
+    "chartTitle12": "Revenue — last 12 months",
+    "chartTitleYear": "Revenue — {{year}} calendar year",
     "chart6months": "6 months",
-    "chart12months": "Year",
+    "chart12months": "12 months",
+    "chartYear": "Calendar year",
     "chartByIssuedDate": "Issue date",
     "chartBySentDate": "Sent date",
     "chartByPaidDate": "Payment date",
