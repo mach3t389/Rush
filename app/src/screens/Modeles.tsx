@@ -1665,10 +1665,12 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
 const RES_TYPE_LABEL_KEYS: Record<ResourceTemplateType, string> = {
   document: 'models.resDocument', screenplay: 'models.resTypeScreenplay',
   video_review: 'models.resTypeVideoReview', file: 'models.resTypeFile', moodboard: 'models.resMoodboard',
+  overview: 'models.resOverview',
 };
 const RES_TYPE_ICONS: Record<ResourceTemplateType, string> = {
   document: 'file-text', screenplay: 'clapperboard',
   video_review: 'video', file: 'folder', moodboard: 'grid-2x2',
+  overview: 'layout-grid',
 };
 
 // ── ResourceTemplateListItem ───────────────────────────────────────────────────

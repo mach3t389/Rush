@@ -58,6 +58,7 @@ interface ProjectRow {
   budget: number | null;
   description: string | null;
   folder_structure_template_id: string | null;
+  overview_template_id: string | null;
   members: Project['members'];
   archived: boolean;
   completed: boolean;
@@ -83,6 +84,7 @@ function toProject(row: ProjectRow): Project {
     budget: row.budget ?? undefined,
     description: row.description ?? undefined,
     folderStructureTemplateId: row.folder_structure_template_id ?? undefined,
+    overviewTemplateId: row.overview_template_id ?? undefined,
     archived: row.archived,
     completed: row.completed,
   };
@@ -108,6 +110,7 @@ function toRow(p: Project, studioId: string): ProjectRow {
     budget: p.budget ?? null,
     description: p.description ?? null,
     folder_structure_template_id: p.folderStructureTemplateId ?? null,
+    overview_template_id: p.overviewTemplateId ?? null,
     members: p.members,
     archived: p.archived ?? false,
     completed: p.completed ?? false,
@@ -185,6 +188,7 @@ function toRowPatch(updates: Partial<Project>): Partial<ProjectRow> {
   if (updates.budget !== undefined) patch.budget = updates.budget ?? null;
   if (updates.description !== undefined) patch.description = updates.description ?? null;
   if (updates.folderStructureTemplateId !== undefined) patch.folder_structure_template_id = updates.folderStructureTemplateId ?? null;
+  if (updates.overviewTemplateId !== undefined) patch.overview_template_id = updates.overviewTemplateId ?? null;
   if (updates.members !== undefined) patch.members = updates.members;
   if (updates.archived !== undefined) patch.archived = updates.archived;
   if (updates.completed !== undefined) patch.completed = updates.completed;

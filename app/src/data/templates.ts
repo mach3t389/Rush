@@ -3,6 +3,7 @@ import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { loadPersisted, savePersisted } from './persist';
+import type { CustomOverviewSection } from './projectContentStore';
 
 // ── Hidden built-in templates ────────────────────────────────────────────────────
 // Les modèles "Intégrés" ne sont pas des lignes de données réelles (juste du contenu
@@ -76,6 +77,7 @@ export interface ProjectTemplate {
   builtIn?: boolean;
   createdAt: string;
   defaultFolderStructureId?: string;
+  defaultOverviewTemplateId?: string;
 }
 
 // ── Form template types ────────────────────────────────────────────────────────
@@ -676,7 +678,7 @@ export function loadAllFormTemplates(): FormTemplate[] {
 
 // ── Resource template types ────────────────────────────────────────────────────
 
-export type ResourceTemplateType = 'document' | 'screenplay' | 'video_review' | 'file' | 'moodboard';
+export type ResourceTemplateType = 'document' | 'screenplay' | 'video_review' | 'file' | 'moodboard' | 'overview';
 
 export interface DocumentSection { title: string; body: string; }
 export interface SceneBlock { id: string; location: string; time: string; action: string; }
@@ -699,6 +701,7 @@ export interface ResourceTemplate {
   reviewRounds?: ReviewRound[];
   folderStructure?: FolderNode[];
   moodboardRefs?: MoodboardRef[];
+  overviewSections?: CustomOverviewSection[]; // uniquement quand type === 'overview'
   rawHTML?: string;
   rawElements?: string;
 }

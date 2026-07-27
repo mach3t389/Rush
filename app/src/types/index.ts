@@ -60,6 +60,7 @@ export interface Project {
   budget?: number;
   description?: string;
   folderStructureTemplateId?: string;
+  overviewTemplateId?: string;
   archived?: boolean;
   /** Marked done from the project's Aperçu tab — a real status, like `archived`. */
   completed?: boolean;

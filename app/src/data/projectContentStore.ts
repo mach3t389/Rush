@@ -14,6 +14,22 @@ import { supabase } from './supabaseClient';
 // Demo sessions: localStorage. Real sessions: table `project_content`.
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type OverviewSectionKind = 'fields' | 'note';
+
+export interface OverviewFieldDef {
+  id: string;
+  label: string;
+  multiline?: boolean;
+}
+
+export interface CustomOverviewSection {
+  id: string;
+  kind: OverviewSectionKind;
+  title: string;
+  icon: string;
+  fields?: OverviewFieldDef[]; // uniquement pour kind: 'fields'
+}
+
 export interface ProjectVision {
   concept: string;
   tonalite: string;
@@ -25,6 +41,8 @@ export interface ProjectVision {
 export interface ProjectContent {
   notes?: string;
   vision?: ProjectVision;
+  customSections?: CustomOverviewSection[];
+  customSectionData?: Record<string, string | Record<string, string>>;
 }
 
 const STORAGE_KEY = 'sf_project_content';
