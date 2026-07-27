@@ -17,7 +17,7 @@ import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
 import { getProjectContent, setProjectContent, type ProjectVision } from '../data/projectContentStore';
-import { addNotif } from '../data/notificationStore';
+import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession } from '../data/authStore';
 import { sendEmail } from '../data/emailStore';
@@ -199,6 +199,8 @@ export function TravailOverview() {
   useEffect(() => subscribeResources(() => setResources(getResources())), []);
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByProject(project.id))), [project.id]);
   useEffect(() => subscribeFileStore(() => setFiles(getFiles().filter(f => f.projectId === project.id))), [project.id]);
+  const [, forceActivityTick] = useState(0);
+  useEffect(() => subscribeNotifs(() => forceActivityTick(n => n + 1)), []);
 
   const [vision, setVision] = useState<ProjectVision>(DEFAULT_VISION);
   const [notes, setNotes] = useState('');

@@ -321,3 +321,10 @@ export function getNotifHistory(taskId?: string, resourceId?: string): AppNotif[
     (resourceId ? n.resourceId === resourceId : true)
   ).sort((a, b) => b.timestamp - a.timestamp);
 }
+
+// Every real notification for a single project, newest first — backs the
+// real (non-demo) "Activité récente" feed (see activityAdapter.ts), which
+// used to return an empty array for every real account.
+export function getNotifHistoryForProject(projectId: string): AppNotif[] {
+  return getNotifs().filter(n => n.projectId === projectId).sort((a, b) => b.timestamp - a.timestamp);
+}

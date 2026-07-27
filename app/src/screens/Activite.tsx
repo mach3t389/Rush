@@ -8,6 +8,7 @@ import type { AppNotif, NotifKind } from '../data/notificationStore';
 import { subscribeNotifs, getNotifHistory, markAllRead } from '../data/notificationStore';
 import { isDemoSession } from '../data/authStore';
 import { savePersisted } from '../data/persist';
+import { notifToFeedActivity } from '../data/activityAdapter';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -377,7 +378,7 @@ export function Activite() {
               target: a.target,
               detail: a.detail,
               time: a.time,
-            })) : []} />
+            })) : notifs.map(n => notifToFeedActivity(n, t))} />
           )}
 
       </div>

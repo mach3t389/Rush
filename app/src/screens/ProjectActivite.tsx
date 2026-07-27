@@ -3,9 +3,13 @@ import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { ActivityFeed, type FeedActivity } from '../components/ActivityFeed';
 import { PROJECTS, USERS } from '../data/mock';
 import { isDemoSession } from '../data/authStore';
+import { getNotifHistoryForProject, subscribeNotifs } from '../data/notificationStore';
+import { useEffect, useState } from 'react';
+import { notifToFeedActivity } from '../data/activityAdapter';
+import i18n from '../i18n/i18n';
 
 export function getProjectActivities(projectId: string): FeedActivity[] {
-  if (!isDemoSession()) return [];
+  if (!isDemoSession()) return getNotifHistoryForProject(projectId).map(n => notifToFeedActivity(n, i18n.t.bind(i18n)));
   const project = PROJECTS.find(p => p.id === projectId);
   const color = project?.clientColor ?? '#5c3d8f';
   const name  = project?.name ?? '';
@@ -23,6 +27,11 @@ export function getProjectActivities(projectId: string): FeedActivity[] {
 
 export function ProjectActivite() {
   const { projectId } = useParams<{ projectId: string }>();
+  const [, forceUpdate] = useState(0);
+  // Real sessions' notifications resolve asynchronously (ensureFetchStarted
+  // inside notificationStore.ts) — without this, getProjectActivities()
+  // would keep returning [] from the first render forever.
+  useEffect(() => subscribeNotifs(() => forceUpdate(n => n + 1)), []);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

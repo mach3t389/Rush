@@ -193,6 +193,7 @@
     "comments": "Commentaires",
     "forMe": "Mon activité",
     "studio": "Toute l'activité",
+    "today": "Aujourd'hui",
     "now": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
     "hoursAgo": "Il y a {{count}} h",
