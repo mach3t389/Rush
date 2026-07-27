@@ -239,18 +239,19 @@ function SectionMoveModal({ sectionLabel, mode = 'move', onMove, onClose }: {
   onMove: (projectId: string) => void;
   onClose: () => void;
 }) {
-  const [projects, setProjects] = useState(() => getProjects());
+  const { t } = useTranslation();
+  const [projects, setProjects] = useState(() => getProjects().filter(p => !p.archived));
   const [targetProjectId, setTargetProjectId] = useState('');
-  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
+  useEffect(() => subscribeProjects(() => setProjects(getProjects().filter(p => !p.archived))), []);
 
   return createPortal(
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 380, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? 'Copier' : 'Déplacer'} la section</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? t('taskPanel.copySectionTitle') : t('taskPanel.moveSectionTitle')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>La section <strong style={{ color: 'var(--text)' }}>« {sectionLabel} »</strong> et toutes ses tâches seront {mode === 'copy' ? 'copiées' : 'déplacées'} vers :</p>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>{t('taskPanel.sectionMoveConfirm', { section: sectionLabel, verb: mode === 'copy' ? t('taskPanel.copiedVerb') : t('taskPanel.movedVerb') })}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
           {projects.map(p => (
             <button key={p.id} onClick={() => setTargetProjectId(p.id)}
@@ -259,10 +260,10 @@ function SectionMoveModal({ sectionLabel, mode = 'move', onMove, onClose }: {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.cancel')}</button>
           <button onClick={() => { if (targetProjectId) { onMove(targetProjectId); onClose(); } }} disabled={!targetProjectId}
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: !targetProjectId ? 'var(--surface-3)' : 'var(--accent)', color: !targetProjectId ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: !targetProjectId ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
-          >{mode === 'copy' ? 'Copier' : 'Déplacer'}</button>
+          >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
         </div>
       </div>
     </div>,
@@ -278,12 +279,13 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
   onMove: (projectId: string, sectionLabel: string) => void;
   onClose: () => void;
 }) {
-  const [projects, setProjects] = useState(() => getProjects());
+  const { t } = useTranslation();
+  const [projects, setProjects] = useState(() => getProjects().filter(p => !p.archived));
   const [targetProjectId, setTargetProjectId] = useState('');
   const [targetSection, setTargetSection] = useState('');
   const [newSection, setNewSection] = useState('');
 
-  useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
+  useEffect(() => subscribeProjects(() => setProjects(getProjects().filter(p => !p.archived))), []);
 
   const targetSections = targetProjectId ? getSections(targetProjectId) : [];
 
@@ -295,7 +297,7 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
         </div>
 
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Projet destination</p>
+        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('taskPanel.destinationProject')}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
           {projects.map(p => (
             <button key={p.id} onClick={() => { setTargetProjectId(p.id); setTargetSection(''); }}
@@ -306,7 +308,7 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
 
         {targetProjectId && (
           <>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Section destination</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('taskPanel.destinationSection')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, maxHeight: 160, overflowY: 'auto' }}>
               {targetSections.map(s => (
                 <button key={s.label} onClick={() => setTargetSection(s.label)}
@@ -316,7 +318,7 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <input value={newSection} onChange={e => { setNewSection(e.target.value); if (e.target.value) setTargetSection(e.target.value); }}
-                placeholder="Ou créer une nouvelle section…"
+                placeholder={t('taskPanel.orCreateSection')}
                 style={{ flex: 1, padding: '7px 12px', borderRadius: 9, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
               />
             </div>
@@ -324,12 +326,12 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>Annuler</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.cancel')}</button>
           <button
             onClick={() => { if (targetProjectId && targetSection) { onMove(targetProjectId, targetSection); onClose(); } }}
             disabled={!targetProjectId || !targetSection}
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
-          >{mode === 'copy' ? 'Copier' : 'Déplacer'}</button>
+          >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
         </div>
       </div>
     </div>,
@@ -376,6 +378,7 @@ function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose }: 
 function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }: {
   pos: { x: number; y: number }; onRename: () => void; onCopy: () => void; onMove: () => void; onDelete: () => void; onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -391,11 +394,11 @@ function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }
   );
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
-      {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>Renommer</span></>, onRename)}
-      {item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>Copier vers un autre projet</span></>, onCopy)}
-      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>Déplacer vers un autre projet</span></>, onMove)}
+      {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>{t('taskPanel.renameSection')}</span></>, onRename)}
+      {item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>{t('taskPanel.copyToProject')}</span></>, onCopy)}
+      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('taskPanel.moveToProject')}</span></>, onMove)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>Supprimer</span></>, onDelete, true)}
+      {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('board.deleteSection')}</span></>, onDelete, true)}
     </div>,
     document.body,
   );
@@ -1058,8 +1061,9 @@ function Section({
   onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
 }) {
+  const { t } = useTranslation();
   const countedTasks = allTasks ?? tasks;
-  const done = countedTasks.filter(t => t.checked).length;
+  const done = countedTasks.filter(task => task.checked).length;
   const progress = countedTasks.length > 0 ? (done / countedTasks.length) * 100 : 0;
   const [collapsed, setCollapsed] = usePersistedState<boolean>(`sf_travail_collapsed_${projectId}_${label}`, completed);
   // Replie/déplie automatiquement quand le statut "terminée" change (le repli manuel est préservé tant que `completed` ne change pas).
@@ -1287,15 +1291,15 @@ function Section({
         </button>
         {confirmDelete && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>Supprimer {tasks.length} tâche{tasks.length > 1 ? 's' : ''} ?</span>
+            <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: tasks.length })}</span>
             <button
               onClick={e => { e.stopPropagation(); onDelete(); }}
               style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--danger)', background: 'rgba(255,60,60,0.1)', color: 'var(--danger)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            >Oui</button>
+            >{t('tasks.yes')}</button>
             <button
               onClick={e => { e.stopPropagation(); setConfirmDelete(false); }}
               style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            >Annuler</button>
+            >{t('tasks.cancel')}</button>
           </div>
         )}
       </div>
@@ -2230,6 +2234,8 @@ export function Travail() {
           onDeleteTask={task => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== task.id) })))}
           onDeleteSection={label => setSections(prev => prev.filter(s => s.label !== label))}
           onRenameSection={(oldLabel, newLabel) => setSections(prev => prev.map(s => s.label === oldLabel ? { ...s, label: newLabel.trim() || s.label } : s))}
+          onMoveSection={label => setSectionMoveLabel(label)}
+          onCopySection={label => setSectionCopyLabel(label)}
           projectId={project.id}
           projectName={project.name}
           projectColor={project.clientColor}

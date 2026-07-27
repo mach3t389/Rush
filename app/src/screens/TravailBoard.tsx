@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate, TaskDatePopover } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
+import { showToast } from '../data/toastStore';
 import type { Task, Priority, SectionData } from '../types';
 
 const PRIORITY_COLOR: Record<Priority, string> = {
@@ -46,8 +47,8 @@ function DropMenu({ rect, onClose, children }: { rect: DOMRect; onClose: () => v
   );
 }
 
-function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
-  pos: { x: number; y: number }; onRename: () => void; onDelete: () => void; onClose: () => void;
+function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }: {
+  pos: { x: number; y: number }; onRename: () => void; onCopy: () => void; onMove: () => void; onDelete: () => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -66,6 +67,8 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
       {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>{t('taskPanel.renameSection')}</span></>, onRename)}
+      {item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>{t('taskPanel.copyToProject')}</span></>, onCopy)}
+      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('taskPanel.moveToProject')}</span></>, onMove)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('board.deleteSection')}</span></>, onDelete, true)}
     </div>,
@@ -174,6 +177,8 @@ interface Props {
   onDeleteTask: (task: Task) => void;
   onDeleteSection: (sectionLabel: string) => void;
   onRenameSection: (oldLabel: string, newLabel: string) => void;
+  onMoveSection: (sectionLabel: string) => void;
+  onCopySection: (sectionLabel: string) => void;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -186,6 +191,7 @@ export function TravailBoard({
   onSelectTask, onUpdateTask, onToggleSectionComplete,
   onAddTask, onMoveTask, onAddSection,
   onDeleteTask, onDeleteSection, onRenameSection,
+  onMoveSection, onCopySection,
   projectId, projectName, projectColor,
 }: Props) {
   const { t } = useTranslation();
@@ -337,6 +343,7 @@ export function TravailBoard({
 
                   {confirmDeleteSection === section.label ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 10, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: total })}</span>
                       <button onClick={() => { onDeleteSection(section.label); setConfirmDeleteSection(null); }}
                         style={{ padding: '2px 7px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('board.deleteShort')}</button>
                       <button onClick={() => setConfirmDeleteSection(null)}
@@ -441,7 +448,16 @@ export function TravailBoard({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
                           {/* Checkbox */}
                           <button
-                            onClick={e => { e.stopPropagation(); onUpdateTask(task.id, { checked: !task.checked }); }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              const next = !task.checked;
+                              onUpdateTask(task.id, { checked: next });
+                              if (next) showToast({
+                                type: 'task',
+                                message: t('taskPanel.taskCompleted'),
+                                onUndo: () => onUpdateTask(task.id, { checked: false }),
+                              });
+                            }}
                             onMouseDown={e => e.stopPropagation()}
                             title={task.checked ? t('board.markIncomplete') : t('board.markComplete')}
                             style={{
@@ -626,6 +642,8 @@ export function TravailBoard({
         <SectionContextMenu
           pos={{ x: sectionCtxMenu.x, y: sectionCtxMenu.y }}
           onRename={() => { setLabelDraft(sectionCtxMenu.label); setEditingSectionLabel(sectionCtxMenu.label); }}
+          onCopy={() => { onCopySection(sectionCtxMenu.label); setSectionCtxMenu(null); }}
+          onMove={() => { onMoveSection(sectionCtxMenu.label); setSectionCtxMenu(null); }}
           onDelete={() => {
             const target = sections.find(s => s.label === sectionCtxMenu.label);
             if (target && target.tasks.length > 0) setConfirmDeleteSection(sectionCtxMenu.label);

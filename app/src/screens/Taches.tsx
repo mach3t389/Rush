@@ -15,6 +15,54 @@ import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { isSameDay, startOfWeek, addDays } from '../components/calendar/calendarUtils';
+import { markTaskRead } from '../data/notificationStore';
+import { useTaskNotifCount } from '../hooks/useNotifs';
+
+// ── Task activity cell ────────────────────────────────────────────────────────
+
+function TaskActivityCell({ taskId }: { taskId: string }) {
+  const count = useTaskNotifCount(taskId);
+  const [justRead, setJustRead] = React.useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (count > 0) {
+      markTaskRead(taskId);
+      setJustRead(true);
+      setTimeout(() => setJustRead(false), 1200);
+    }
+  };
+
+  if (count === 0 && !justRead) {
+    return <span style={{ color: 'var(--border-2)', fontFamily: 'var(--ff-mono)', fontSize: 10 }}>—</span>;
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      title={count > 0 ? `${count} nouvelle${count > 1 ? 's' : ''} activité${count > 1 ? 's' : ''} — cliquer pour marquer comme lu` : 'Lu'}
+      style={{ background: 'none', border: 'none', padding: 0, cursor: count > 0 ? 'pointer' : 'default', display: 'inline-flex', position: 'relative' }}
+    >
+      <SFIcon
+        name="message-circle"
+        size={14}
+        color={justRead ? 'var(--ok)' : count > 0 ? 'var(--accent)' : 'var(--text-3)'}
+        style={{ transition: 'color 0.2s' }}
+      />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -5, right: -6,
+          background: 'var(--accent)', color: 'var(--on-accent)',
+          borderRadius: 999, fontSize: 8, fontWeight: 700,
+          padding: '1px 4px', fontFamily: 'var(--ff-mono)', lineHeight: 1.4,
+          pointerEvents: 'none',
+        }}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
@@ -265,7 +313,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
   );
 }
 
-function TaskContextMenu({ pos, onOpen, onConvert, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onConvert?: () => void; onDelete: () => void; onClose: () => void }) {
+function TaskContextMenu({ pos, onOpen, onMove, onConvert, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onMove: () => void; onConvert?: () => void; onDelete: () => void; onClose: () => void }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -283,6 +331,7 @@ function TaskContextMenu({ pos, onOpen, onConvert, onDelete, onClose }: { pos: {
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
+      {item(<><SFIcon name="move" size={13} color="var(--text-3)" /><span>{t('board.moveTo')}</span></>, onMove)}
       {onConvert && item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
@@ -525,19 +574,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
 
       {/* Activité */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        {task.activityCount ? (
-          <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <SFIcon name="message-circle" size={14} color="var(--accent)" />
-            <span style={{
-              position: 'absolute', top: -5, right: -6,
-              background: 'var(--accent)', color: 'var(--on-accent)',
-              borderRadius: 999, fontSize: 8, fontWeight: 700,
-              padding: '1px 4px', fontFamily: 'var(--ff-mono)', lineHeight: 1.4,
-            }}>
-              {task.activityCount}
-            </span>
-          </div>
-        ) : <span style={{ color: 'var(--border-2)', fontFamily: 'var(--ff-mono)', fontSize: 10 }}>—</span>}
+        <TaskActivityCell taskId={task.id} />
       </div>
 
       {/* Projet + Section — compact inline */}
@@ -826,6 +863,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         <TaskContextMenu
           pos={ctxPos}
           onOpen={() => { onSelect(task); setCtxPos(null); }}
+          onMove={() => { setOpen('projsec'); setCtxPos(null); }}
           onConvert={onConvertRequest ? () => { onConvertRequest(task, ctxPos); setCtxPos(null); } : undefined}
           onDelete={() => { onDelete?.(); setCtxPos(null); }}
           onClose={() => setCtxPos(null)}
@@ -1021,7 +1059,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
       )}
       {confirm && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('tasks.deleteConfirm')}</span>
+          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count })}</span>
           <button onClick={onDelete} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.yes')}</button>
           <button onClick={() => setConfirm(false)} style={{ padding: '2px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
         </div>
@@ -1278,9 +1316,9 @@ export function Taches() {
   }, [selectedTask]);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
   const [flashId]                     = useState<string | null>(null);
-  const [convertRequest, setConvertRequest] = useState<{ taskId: string; pos: { x: number; y: number } } | null>(null);
+  const [convertRequest, setConvertRequest] = useState<{ taskIds: string[]; pos: { x: number; y: number } } | null>(null);
   const handleConvertRequest = useCallback((task: Task, pos: { x: number; y: number }) => {
-    setConvertRequest({ taskId: task.id, pos });
+    setConvertRequest({ taskIds: [task.id], pos });
   }, []);
   const [sortCol, setSortCol]         = usePersistedState<SortCol | null>('sf_taches_sort_col', null);
   const [sortDir, setSortDir]         = usePersistedState<SortDir>('sf_taches_sort_dir', 'asc');
@@ -1413,6 +1451,18 @@ export function Taches() {
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Escape — ferme le panneau de détail de tâche
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedTask) {
+        setSelectedTask(null);
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [selectedTask]);
 
   // Apply date filter ↑' priority filter ↑' status filter ↑' sort
   let visible = filterTasks(tasks, filter);
@@ -1656,9 +1706,18 @@ export function Taches() {
             <SFIcon name="copy" size={13} />
             {t('taskPanel.copy')}
           </button>
+          <button onClick={e => setConvertRequest({ taskIds: [...multiSelIds].filter(id => !isAssignedTask(id)), pos: (() => { const r = e.currentTarget.getBoundingClientRect(); return { x: r.left, y: r.top }; })() })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="git-branch" size={13} />
+            {t('board.convertToSubtask')}
+          </button>
           <button onClick={() => {
-            [...multiSelIds].filter(id => !isAssignedTask(id)).forEach(id => removeMyTask(id));
+            const ids = [...multiSelIds];
+            const skipped = ids.filter(id => isAssignedTask(id));
+            ids.filter(id => !isAssignedTask(id)).forEach(id => removeMyTask(id));
             setMultiSelIds(new Set());
+            if (skipped.length > 0) {
+              showToast({ type: 'task', message: t('tasks.bulkDeleteSkippedAssigned', { count: skipped.length }) });
+            }
           }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.3)', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="trash-2" size={13} />
             {t('tasks.delete')}
@@ -1716,10 +1775,11 @@ export function Taches() {
       {convertRequest && (
         <SubtaskTargetPicker
           pos={convertRequest.pos}
-          candidates={tasks.filter(t => t.id !== convertRequest.taskId && !isAssignedTask(t.id))}
+          candidates={tasks.filter(t => !convertRequest.taskIds.includes(t.id) && !isAssignedTask(t.id))}
           onPick={targetId => {
-            convertMyTaskToSubtask(convertRequest.taskId, targetId);
+            convertRequest.taskIds.forEach(id => convertMyTaskToSubtask(id, targetId));
             setConvertRequest(null);
+            setMultiSelIds(new Set());
           }}
           onClose={() => setConvertRequest(null)}
         />
