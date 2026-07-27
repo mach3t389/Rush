@@ -10,12 +10,14 @@ export interface DeliverableDisplay {
   labelKey: string;
 }
 
+// Same status vocabulary as a regular task (tasks.todo/inProgress/...) —
+// a deliverable is a task, so its status shouldn't invent its own words.
 const DELIVERABLE_STATUS: Record<string, DeliverableDisplay> = {
-  warn:   { labelKey: 'overview.deliverableToDeliver',  color: 'var(--text-3)', icon: 'clock' },
-  info:   { labelKey: 'overview.deliverableInProgress', color: 'var(--info)',   icon: 'loader' },
-  ok:     { labelKey: 'overview.deliverableApproved',   color: 'var(--ok)',     icon: 'check-circle' },
-  review: { labelKey: 'overview.deliverableInReview',   color: 'var(--review)', icon: 'eye' },
-  danger: { labelKey: 'overview.deliverableOverdue',    color: 'var(--danger)', icon: 'circle-alert' },
+  warn:   { labelKey: 'tasks.todo',       color: 'var(--warn)',   icon: 'clock' },
+  info:   { labelKey: 'tasks.inProgress', color: 'var(--info)',   icon: 'loader' },
+  ok:     { labelKey: 'tasks.completed',  color: 'var(--ok)',     icon: 'check-circle' },
+  review: { labelKey: 'tasks.inReview',   color: 'var(--review)', icon: 'eye' },
+  danger: { labelKey: 'tasks.overdue',    color: 'var(--danger)', icon: 'circle-alert' },
 };
 
 const CORRECTIONS_REQUESTED: DeliverableDisplay = {
