@@ -236,7 +236,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
           {tpl.builtIn ? (
             <SFButton variant="secondary" icon="copy" onClick={() => {
-              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML, ...(tpl.type === 'overview' ? { overviewSections } : {}) };
+              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML, ...(tpl.type === 'overview' ? { overviewSections } : {}), ...(tpl.type === 'tasks' ? { sections: tpl.sections } : {}) };
               onSave(copy);
             }}>{t('models.saveCopy')}</SFButton>
           ) : (
@@ -279,6 +279,22 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
               color={tpl.color}
               onChange={next => { setOverviewSections(next); setDirty(true); }}
             />
+          </div>
+        )}
+        {tpl.type === 'tasks' && (
+          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560, margin: '0 auto', width: '100%' }}>
+            {(tpl.sections ?? []).map((section, si) => (
+              <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
+                {(section.tasks ?? []).map((task, ti) => (
+                  <div key={ti} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
+                    <SFIcon name="circle" size={10} color="var(--text-3)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{task.title}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {(tpl.sections ?? []).length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
           </div>
         )}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
@@ -1690,7 +1706,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
             {/* Resource list */}
             <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {allResTpls
-                .filter(r => r.type !== 'file' && r.type !== 'overview')
+                .filter(r => r.type !== 'file' && r.type !== 'overview' && r.type !== 'tasks')
                 .filter(r => resTypeFilter === null || r.type === resTypeFilter)
                 .map(r => (
                   <button key={r.id} onClick={() => {
@@ -1747,12 +1763,12 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
 const RES_TYPE_LABEL_KEYS: Record<ResourceTemplateType, string> = {
   document: 'models.resDocument', screenplay: 'models.resTypeScreenplay',
   video_review: 'models.resTypeVideoReview', file: 'models.resTypeFile', moodboard: 'models.resMoodboard',
-  overview: 'models.resOverview',
+  overview: 'models.resOverview', tasks: 'models.resTypeTasks',
 };
 const RES_TYPE_ICONS: Record<ResourceTemplateType, string> = {
   document: 'file-text', screenplay: 'clapperboard',
   video_review: 'video', file: 'folder', moodboard: 'grid-2x2',
-  overview: 'layout-grid',
+  overview: 'layout-grid', tasks: 'list-checks',
 };
 
 // ── ResourceTemplateListItem ───────────────────────────────────────────────────
@@ -1802,7 +1818,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
   onRename?: (name: string, description: string) => void;
 }) {
   const { t } = useTranslation();
-  const itemCount = tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? tpl.overviewSections?.length ?? 0;
+  const itemCount = tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? tpl.overviewSections?.length ?? tpl.sections?.length ?? 0;
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
@@ -1879,6 +1895,13 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
             <SFIcon name={section.icon} size={13} color={tpl.color} />
             <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</span>
             <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`}</span>
+          </div>
+        ))}
+        {tpl.type === 'tasks' && (tpl.sections ?? []).map((section, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
+            <SFIcon name="list-checks" size={13} color={tpl.color} />
+            <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.label}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{section.tasks?.length ?? 0} tâches</span>
           </div>
         ))}
         {tpl.type === 'moodboard' && (tpl.moodboardRefs ?? []).map((ref, i) => (
@@ -1958,6 +1981,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (type === 'file') { try { content = { folderStructure: JSON.parse(folderJson) }; } catch { content = { folderStructure: [] }; } }
     if (type === 'moodboard') content = { moodboardRefs: refs };
     if (type === 'overview') content = { overviewSections: ovSections };
+    if (type === 'tasks') content = { sections: template.sections ?? [] };
     onSave({ ...base, ...content });
   };
 
@@ -2044,6 +2068,23 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
         <OverviewSectionsEditor sections={ovSections} onChange={setOvSections} color={color} />
       </div>
     );
+    if (type === 'tasks') return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <p style={labelStyle()}>{t('models.resTypeTasks')}</p>
+        {(template.sections ?? []).map((section, si) => (
+          <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
+            {(section.tasks ?? []).map((task, ti) => (
+              <div key={ti} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
+                <SFIcon name="circle" size={10} color="var(--text-3)" />
+                <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{task.title}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        {(template.sections ?? []).length === 0 && <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
+      </div>
+    );
     return null;
   };
 
@@ -2115,6 +2156,7 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
   { key: 'video_review', labelKey: 'models.resReviewShort', icon: 'video' },
   { key: 'file', labelKey: 'models.resTypeFile', icon: 'folder' },
   { key: 'overview', labelKey: 'models.resTypeOverview', icon: 'layout-grid' },
+  { key: 'tasks', labelKey: 'models.resTypeTasks', icon: 'list-checks' },
   { key: 'moodboard', labelKey: 'models.resMoodboard', icon: 'grid-2x2' },
 ];
 
@@ -2456,17 +2498,19 @@ export function Modeles() {
             ];
             const fileCount = resourceTemplates.filter(t => t.type === 'file').length;
             const overviewCount = resourceTemplates.filter(t => t.type === 'overview').length;
-            // "Fichiers" is a folder-structure template for a project's file
-            // tree, not an actual resource content type (screenplay, document,
-            // moodboard…) — it lives at the top level, next to Projets, instead
-            // of nested under the "Ressources" group.
-            const resActive = (isResType(typeFilter) && typeFilter !== 'file' && typeFilter !== 'overview') || typeFilter === 'formulaires';
-            const totalRes = formTemplates.length + resourceTemplates.length - fileCount - overviewCount;
+            const tasksCount = resourceTemplates.filter(t => t.type === 'tasks').length;
+            // "Fichiers"/"Tâches" are structural templates for a project's file
+            // tree / task sections, not an actual resource content type
+            // (screenplay, document, moodboard…) — they live at the top level,
+            // next to Projets, instead of nested under the "Ressources" group.
+            const resActive = (isResType(typeFilter) && typeFilter !== 'file' && typeFilter !== 'overview' && typeFilter !== 'tasks') || typeFilter === 'formulaires';
+            const totalRes = formTemplates.length + resourceTemplates.length - fileCount - overviewCount - tasksCount;
             return (
               <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
                 {navItem('projets', 'layout-template', 'Projets', templates.length)}
                 {navItem('file', 'folder', 'Fichiers', fileCount)}
                 {navItem('overview', 'layout-grid', t('models.resTypeOverview'), overviewCount)}
+                {navItem('tasks', 'list-checks', t('models.resTypeTasks'), tasksCount)}
                 {/* Resources group header */}
                 <button onClick={() => setResNavExpanded(v => !v)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',

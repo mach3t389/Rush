@@ -1496,6 +1496,7 @@
     "resTypeVideoReview": "Révision vidéo",
     "resTypeFile": "Fichier",
     "resTypeOverview": "Aperçu",
+    "resTypeTasks": "Tâches",
     "resTypeWebReview": "Révision web",
     "resTypeLabel": "Modèle de type"
   },

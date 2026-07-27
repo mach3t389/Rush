@@ -1484,6 +1484,7 @@
     "resTypeVideoReview": "Video review",
     "resTypeFile": "File",
     "resTypeOverview": "Overview",
+    "resTypeTasks": "Tasks",
     "resTypeWebReview": "Web review"
   },
   "review": {
