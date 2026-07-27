@@ -165,7 +165,7 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
 // the title of width in the panel's ~400px content area. They now live
 // behind a single "fields" button (see SubTaskRow) so title gets almost
 // the full row.
-const SUB_GRID = '22px minmax(120px, 1fr) 26px 24px';
+const SUB_GRID = '22px minmax(120px, 1fr) auto 24px';
 
 const subColLabel = (label: string) => (
   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block' }}>{label}</span>
@@ -219,6 +219,12 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
     return dt.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
   };
 
+  // Compact form for the inline row indicator — no label, smallest legible format.
+  const fmtDateCompact = (d: string) => {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('fr-CA', { day: 'numeric', month: 'numeric' });
+  };
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -267,7 +273,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 5', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', width: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
+          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(2, editTitle.length + 1)}ch`, maxWidth: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
@@ -281,7 +287,17 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
           controls. Hidden while editing so the title field can borrow the
           column's width instead of being squeezed into the title track alone. */}
       {!editing && (
-        <div style={{ position: 'relative', justifySelf: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifySelf: 'end' }}>
+          {/* Compact glance row — shows what's set without opening the fields
+              popover; each piece only renders when it has a value, so an
+              empty subtask stays uncluttered. */}
+          {sub.assignee && (
+            <SFAvatar initials={sub.assignee.initials} bg={sub.assignee.avatarColor} size={16} />
+          )}
+          {sub.dueDate && (
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{fmtDateCompact(sub.dueDate)}</span>
+          )}
+          <div style={{ position: 'relative' }}>
           <button
             onClick={e => { e.stopPropagation(); setFieldsOpen(v => !v); setFieldsRect(e.currentTarget.getBoundingClientRect()); }}
             title={t('taskPanel.subtaskFields')}
@@ -339,6 +355,7 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
               </div>
             </InlineDropdown>
           )}
+          </div>
         </div>
       )}
 
