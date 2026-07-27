@@ -12,7 +12,8 @@ import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { loadCustomTemplates, saveCustomTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates } from '../data/templates';
+import { loadCustomTemplates, saveCustomTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates } from '../data/templates';
+import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import type { ProjectTemplate, ResourceTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
@@ -1932,6 +1933,32 @@ export function Travail() {
   const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
+  const handleLoadTasksTemplate = (templateId: string) => {
+    const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === 'tasks');
+    if (!tpl) return;
+    if (!confirm(t('board.confirmLoadTasksTemplate'))) return;
+    const newSections: SectionData[] = (tpl.sections ?? []).map(sec => ({
+      label: sec.label,
+      progress: 0,
+      tasks: sec.tasks.map((tt, i): Task => ({
+        id: `${project.id}-${sec.label}-${i}-${Date.now()}`,
+        title: tt.title,
+        projectId: project.id,
+        projectName: project.name,
+        projectColor: project.clientColor,
+        assignee: USERS.lea,
+        status: 'warn',
+        statusLabel: 'En attente',
+        priority: tt.priority ?? 'normal',
+        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+        dueDate: '',
+        checked: false,
+        subtasks: [],
+      })),
+    }));
+    setSections_store(project.id, newSections);
+  };
+
   // Escape — ferme le panneau de détail de tâche
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -2160,7 +2187,14 @@ export function Travail() {
       <div style={{ flexShrink: 0 }}>
       <ProjectHeaderBar projectId={project.id}>
         {/* Save as template */}
-        <SFButton variant="ghost" icon="layout-template" onClick={() => setSaveTemplateOpen(true)} style={{ color: 'var(--text-3)', border: '1px solid var(--border)', borderRadius: 9 }}>{t('board.saveAsTemplateButton')}</SFButton>
+        <TemplateMenuButton
+          icon="layout-template"
+          loadOptions={loadAllResourceTemplates().filter(tpl => tpl.type === 'tasks').map(tpl => ({ id: tpl.id, name: tpl.name, icon: tpl.icon }))}
+          onLoad={handleLoadTasksTemplate}
+          onSave={() => setSaveTemplateOpen(true)}
+          loadLabel={t('templateMenuLoad')}
+          saveLabel={t('templateMenuSave')}
+        />
         {/* View switcher */}
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
           {([

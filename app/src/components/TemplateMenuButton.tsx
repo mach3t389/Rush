@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon } from './ui';
 import { InlineDropdown, ddItem } from '../screens/Travail';
@@ -71,12 +71,16 @@ export function TemplateMenuButton({
       )}
       {anchorRect && loadSubmenuOpen && (
         <InlineDropdown onClose={closeAll} anchorRect={anchorRect} minWidth={220}>
-          {loadOptions.map(opt => ddItem(() => { onLoad(opt.id); closeAll(); }, (
-            <>
-              <SFIcon name={opt.icon} size={14} color="var(--text-3)" />
-              <span>{opt.name}</span>
-            </>
-          )))}
+          {loadOptions.map(opt => (
+            <React.Fragment key={opt.id}>
+              {ddItem(() => { onLoad(opt.id); closeAll(); }, (
+                <>
+                  <SFIcon name={opt.icon} size={14} color="var(--text-3)" />
+                  <span>{opt.name}</span>
+                </>
+              ))}
+            </React.Fragment>
+          ))}
         </InlineDropdown>
       )}
     </>

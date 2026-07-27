@@ -147,6 +147,7 @@
     "completedTasksToggle": "Tâches terminées",
     "prefsAutoSaved": "Préférences sauvegardées automatiquement",
     "saveAsTemplateButton": "+ Modèle",
+    "confirmLoadTasksTemplate": "Remplacer la structure de tâches actuelle par ce modèle ? Les tâches actuelles seront perdues.",
     "keepPriorities": "Conserver les priorités",
     "keepStatuses": "Conserver les statuts",
     "keepSubtasksLabel": "Conserver les sous-tâches",

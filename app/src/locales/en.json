@@ -147,6 +147,7 @@
     "completedTasksToggle": "Completed tasks",
     "prefsAutoSaved": "Preferences saved automatically",
     "saveAsTemplateButton": "+ Template",
+    "confirmLoadTasksTemplate": "Replace the current task structure with this template? Current tasks will be lost.",
     "keepPriorities": "Keep priorities",
     "keepStatuses": "Keep statuses",
     "keepSubtasksLabel": "Keep subtasks",
