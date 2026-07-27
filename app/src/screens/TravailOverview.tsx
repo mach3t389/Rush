@@ -17,7 +17,8 @@ import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
 import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, type CustomOverviewSection } from '../data/projectContentStore';
-import { loadAllResourceTemplates, type ResourceTemplate } from '../data/templates';
+import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
+import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
@@ -157,6 +158,112 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true, 
   );
 }
 
+const OVERVIEW_TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
+
+function SaveOverviewTemplateModal({ projectName, customSections, onClose }: {
+  projectName: string;
+  customSections: CustomOverviewSection[];
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(projectName);
+  const [description, setDescription] = useState('');
+  const [color, setColor] = useState(OVERVIEW_TEMPLATE_COLORS[0]);
+  const [tags, setTags] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  // La section Vision est unique à chaque projet — jamais incluse dans un modèle réutilisable.
+  const reusableSections = customSections.filter(s => s.id !== VISION_SECTION_ID);
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    const tpl: ResourceTemplate = {
+      id: `res-${Date.now()}`,
+      type: 'overview',
+      name: name.trim(),
+      description: description.trim(),
+      color,
+      icon: 'layout-grid',
+      tags: tags.split(',').map(x => x.trim()).filter(Boolean),
+      builtIn: false,
+      createdAt: new Date().toISOString().split('T')[0],
+      overviewSections: reusableSections,
+    };
+    saveCustomResourceTemplates([...loadCustomResourceTemplates(), tpl]);
+    setSaved(true);
+    setTimeout(onClose, 1400);
+  };
+
+  const fStyle: React.CSSProperties = {
+    width: '100%', padding: '8px 10px', borderRadius: 9,
+    border: '1px solid var(--border)', background: 'var(--surface-2)',
+    color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
+    outline: 'none', boxSizing: 'border-box', colorScheme: 'dark',
+  };
+  const lStyle: React.CSSProperties = {
+    fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
+    textTransform: 'uppercase', letterSpacing: '0.07em',
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        width: 460, zIndex: 201, background: 'var(--surface)',
+        border: '1px solid var(--border-2)', borderRadius: 16,
+        boxShadow: '0 24px 80px rgba(0,0,0,0.75)', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', maxHeight: '90vh',
+      }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700 }}>{t('templateModal.titleStep1')}</h2>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t('templateModal.sectionsCount', { count: reusableSections.length })}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+            <SFIcon name="x" size={16} />
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={lStyle}>{t('templateModal.nameLabel')}</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={t('templateModal.namePlaceholder')} style={fStyle} autoFocus />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={lStyle}>{t('templateModal.descriptionLabel')}</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('templateModal.descriptionPlaceholder')} style={{ ...fStyle, resize: 'none' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={lStyle}>{t('templateModal.colorLabel')}</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {OVERVIEW_TEMPLATE_COLORS.map(c => (
+                  <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none' }} />
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={lStyle}>{t('templateModal.tagsLabel')}</label>
+              <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('templateModal.tagsPlaceholder')} style={fStyle} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          {saved ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ok)', fontSize: 13, fontWeight: 600 }}>
+              <SFIcon name="check" size={14} />{t('templateModal.templateSaved')}
+            </span>
+          ) : (
+            <SFButton variant="primary" disabled={!name.trim()} onClick={handleSave}>{t('templateModal.createTemplate')}</SFButton>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export function TravailOverview() {
@@ -210,7 +317,7 @@ export function TravailOverview() {
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
   const [customSectionData, setCustomSectionData] = useState<Record<string, string | Record<string, string>>>({});
   const [addingSectionOpen, setAddingSectionOpen] = useState(false);
-  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [saveOverviewTemplateModalOpen, setSaveOverviewTemplateModalOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | null>(null);
 
@@ -240,6 +347,26 @@ export function TravailOverview() {
       [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
       return next;
     });
+  };
+
+  // Charger un modèle d'Aperçu (ou "aucun modèle" via id '__none__') — remplace les
+  // sections personnalisées mais préserve toujours la section Vision (verrouillée)
+  // et sa valeur actuelle, comportement déjà correct, juste ré-entré via le menu partagé.
+  const applyTemplateById = (id: string | null) => {
+    const tpl = id && id !== '__none__'
+      ? loadAllResourceTemplates().find(tp => tp.id === id && tp.type === 'overview')
+      : null;
+    if (id && id !== '__none__' && !tpl) return;
+    if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
+    const vision = customSections.find(s => s.id === VISION_SECTION_ID) ?? getDefaultVisionSection();
+    const newSections = [vision, ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID)];
+    setCustomSections(newSections);
+    setCustomSectionData(prev => {
+      const next: Record<string, string | Record<string, string>> = {};
+      if (prev[VISION_SECTION_ID] !== undefined) next[VISION_SECTION_ID] = prev[VISION_SECTION_ID];
+      return next;
+    });
+    updateProject(project.id, { overviewTemplateId: tpl?.id ?? null });
   };
 
   // Load persisted content whenever the viewed project changes — TravailOverview
@@ -328,6 +455,17 @@ export function TravailOverview() {
       {/* Topbar */}
       <div style={{ flexShrink: 0 }}>
         <ProjectHeaderBar projectId={project.id}>
+          <TemplateMenuButton
+            icon="layout-panel-top"
+            loadOptions={[
+              { id: '__none__', name: t('overview.overviewTemplateNoneNew'), icon: 'x' },
+              ...loadAllResourceTemplates().filter((tpl): tpl is ResourceTemplate => tpl.type === 'overview').map(tpl => ({ id: tpl.id, name: tpl.name, icon: tpl.icon })),
+            ]}
+            onLoad={applyTemplateById}
+            onSave={() => setSaveOverviewTemplateModalOpen(true)}
+            loadLabel={t('templateMenuLoad')}
+            saveLabel={t('templateMenuSave')}
+          />
           {(() => {
             const approver = getClientApprover(project.clientId);
             if (approver) return (
@@ -915,54 +1053,15 @@ export function TravailOverview() {
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
               <SFIcon name="plus" size={13} /> {t('overview.addSection')}
             </button>
-            <button onClick={() => setTemplatePickerOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-              <SFIcon name="layout-panel-top" size={13} /> {t('overview.changeOverviewTemplate')}
-            </button>
           </div>
 
-          {templatePickerOpen && (() => {
-            const overviewTemplates = loadAllResourceTemplates().filter((tp): tp is ResourceTemplate => tp.type === 'overview');
-            const applyTemplate = (tpl: ResourceTemplate | null) => {
-              if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
-              // La section Vision (verrouillée) et ses valeurs survivent toujours au
-              // changement de modèle — seules les autres sections sont remplacées.
-              const vision = customSections.find(s => s.id === VISION_SECTION_ID) ?? getDefaultVisionSection();
-              const newSections = [vision, ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID)];
-              setCustomSections(newSections);
-              setCustomSectionData(prev => {
-                const next: Record<string, string | Record<string, string>> = {};
-                if (prev[VISION_SECTION_ID] !== undefined) next[VISION_SECTION_ID] = prev[VISION_SECTION_ID];
-                return next;
-              });
-              updateProject(project.id, { overviewTemplateId: tpl?.id ?? null });
-              setTemplatePickerOpen(false);
-            };
-            return (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
-                onMouseDown={e => { if (e.target === e.currentTarget) setTemplatePickerOpen(false); }}>
-                <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 20, width: 420, maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>{t('overview.chooseOverviewTemplate')}</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button onClick={() => applyTemplate(null)}
-                      style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer' }}>
-                      {t('overview.overviewTemplateNone')}
-                    </button>
-                    {overviewTemplates.map(tpl => (
-                      <button key={tpl.id} onClick={() => applyTemplate(tpl)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
-                        <SFIcon name={tpl.icon} size={14} color="var(--text-3)" />
-                        {tpl.name}
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={() => setTemplatePickerOpen(false)} style={{ marginTop: 14, padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', width: '100%' }}>
-                    {t('overview.sectionEditorCancel')}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
+          {saveOverviewTemplateModalOpen && (
+            <SaveOverviewTemplateModal
+              projectName={project.name}
+              customSections={customSections}
+              onClose={() => setSaveOverviewTemplateModalOpen(false)}
+            />
+          )}
 
           {addingSectionOpen && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
