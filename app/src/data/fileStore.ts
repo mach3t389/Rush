@@ -471,6 +471,18 @@ export function renameFile(id: string, name: string): void {
   })();
 }
 
+// Resources are also registered as a 'resource'-type file_item so they show
+// up in the Fichiers browser (see FichiersGlobal.tsx's handleCreateResource
+// and AIChat.tsx's create_resource tool). That file_item's own `name` is a
+// point-in-time copy, not a live read of the resource's title — renaming a
+// resource elsewhere (e.g. ResourceDetail.tsx's title field) silently
+// desyncs the two unless the caller also updates the file_item. Called by
+// resourceStore.ts's updateResource() whenever a title patch is applied.
+export function renameFileByResourceId(resourceId: string, name: string): void {
+  const file = getFiles().find(f => f.resourceId === resourceId);
+  if (file) renameFile(file.id, name);
+}
+
 export function moveFile(id: string, parentFolderId: string | null): void {
   if (isDemoSession()) {
     _demoFiles = _demoFiles.map(f => f.id === id ? { ...f, parentFolderId } : f);

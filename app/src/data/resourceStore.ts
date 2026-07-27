@@ -5,6 +5,7 @@ import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { removeResourceContent } from './resourceContentStore';
+import { renameFileByResourceId } from './fileStore';
 
 const STORAGE_KEY = 'sf_resources';
 
@@ -145,6 +146,7 @@ export function addResource(r: Resource): void {
 }
 
 export function updateResource(id: string, patch: Partial<Resource>): void {
+  if (patch.title !== undefined) renameFileByResourceId(id, patch.title);
   if (isDemoSession()) {
     _demoResources = _demoResources.map(r => r.id === id ? { ...r, ...patch } : r);
     persistDemo();

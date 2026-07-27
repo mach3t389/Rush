@@ -14,6 +14,7 @@ import { SFIcon } from './ui';
 import { getProjects, addProject } from '../data/projectStore';
 import { addEvent } from '../data/eventStore';
 import { addResource } from '../data/resourceStore';
+import { addFile } from '../data/fileStore';
 import { CLIENTS, MY_TASKS } from '../data/mock';
 import type { Project, Phase, ResourceType } from '../types';
 
@@ -275,6 +276,11 @@ function executeTool(
           version: 'V1',
         };
         addResource(res);
+        // Also register it as a file item (same as FichiersGlobal.tsx's own
+        // resource-creation flow) — addResource() alone doesn't make a
+        // resource show up in the Fichiers browser, since that reads from
+        // fileStore, not resourceStore.
+        addFile({ name: args.title, type: 'resource', ext: 'res', parentFolderId: null, projectId: args.projectId, resourceId: res.id, resourceType: res.type });
         setTimeout(() => navigate(`/projets/${args.projectId}/ressources/${res.id}`), 600);
         return `Ressource "${args.title}" (${args.type}) créée dans le projet ${args.projectId}. Navigation…`;
       }
