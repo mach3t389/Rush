@@ -69,7 +69,7 @@ function StepDot({ label, num, active, done }: { label: string; num: number; act
 
 function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   onClose: () => void;
-  onCreate: (p: Project) => void;
+  onCreate: (p: Project) => void | Promise<void>;
   defaultClientId?: string;
 }) {
   const { t } = useTranslation();
@@ -130,7 +130,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     else if (step === 'team') setStep('fichiers');
   };
 
-  const create = () => {
+  const create = async () => {
     const allClients = getClients();
     const client = allClients.find(c => c.id === clientId) ?? allClients[0];
     const members = team.filter(u => memberIds.includes(u.id));
@@ -176,19 +176,22 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       }));
       setSections(projectId, sections);
     }
-    if (overviewTplId) {
-      const overviewTpl = loadAllResourceTemplates().find(t => t.id === overviewTplId);
-      if (overviewTpl?.overviewSections?.length) {
-        setProjectContent(projectId, { customSections: overviewTpl.overviewSections });
-      }
-    }
     if (folderStructTplId) {
       const fileTpl = loadAllResourceTemplates().find(t => t.id === folderStructTplId);
       if (fileTpl?.folderStructure?.length) {
         addFolderTree(fileTpl.folderStructure, { projectId });
       }
     }
-    onCreate(newProject);
+    // `project_content.project_id` référence `projects(id)` : la ligne projet doit
+    // exister AVANT d'écrire le contenu d'Aperçu (sinon violation de clé étrangère
+    // en session réelle). On attend donc la création avant setProjectContent.
+    await onCreate(newProject);
+    if (overviewTplId) {
+      const overviewTpl = loadAllResourceTemplates().find(t => t.id === overviewTplId);
+      if (overviewTpl?.overviewSections?.length) {
+        setProjectContent(projectId, { customSections: overviewTpl.overviewSections });
+      }
+    }
     onClose();
   };
 
@@ -501,7 +504,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${overviewTplId === null ? 'var(--accent)' : 'var(--border)'}`, background: overviewTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
                   >
                     <SFIcon name="layout-panel-top" size={16} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.overviewTemplateNone')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.overviewTemplateNoneNew')}</span>
                     {overviewTplId === null && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                   </div>
                   {overviewTemplates.map(tpl => (

@@ -60,7 +60,9 @@ export interface Project {
   budget?: number;
   description?: string;
   folderStructureTemplateId?: string;
-  overviewTemplateId?: string;
+  // `null` n'apparaît que dans un patch updateProject() (= « efface la colonne ») ;
+  // une lecture depuis le store renvoie toujours `string | undefined`.
+  overviewTemplateId?: string | null;
   archived?: boolean;
   /** Marked done from the project's Aperçu tab — a real status, like `archived`. */
   completed?: boolean;

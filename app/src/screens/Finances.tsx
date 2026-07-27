@@ -741,7 +741,7 @@ export function InvoiceFormPanel({
           {/* Conditions de paiement */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={labelStyle}>{t('finance.paymentTerms')}</label>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
               {PAYMENT_TERMS_OPTIONS.map(opt => {
                 const active = opt.days === -1 ? customDue : (payTermsDays === opt.days && !customDue);
                 return (
@@ -750,6 +750,24 @@ export function InvoiceFormPanel({
                   </button>
                 );
               })}
+              {customDue && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>Net</span>
+                  <input
+                    type="number" min="0" autoFocus
+                    value={payTermsDays > 0 ? payTermsDays : ''}
+                    onChange={e => {
+                      const n = parseInt(e.target.value, 10);
+                      const days = Number.isFinite(n) && n >= 0 ? n : 0;
+                      setPayTermsDays(days);
+                      if (days > 0 && issuedDate) setDueDate(addDays(issuedDate, days));
+                    }}
+                    placeholder="0"
+                    style={{ width: 52, fontSize: 11, padding: '4px 6px', borderRadius: 7, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-mono)' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('finance.days')}</span>
+                </div>
+              )}
             </div>
           </div>
 

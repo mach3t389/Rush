@@ -2,6 +2,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import i18n from '../i18n/i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Store de contenu libre par projet — pour l'instant les notes internes et la
@@ -33,20 +34,24 @@ export interface CustomOverviewSection {
 
 export const VISION_SECTION_ID = 'vision';
 
-export const DEFAULT_VISION_SECTION: CustomOverviewSection = {
-  id: VISION_SECTION_ID,
-  kind: 'fields',
-  title: 'Vision du projet',
-  icon: 'compass',
-  locked: true,
-  fields: [
-    { id: 'concept', label: 'Concept créatif', multiline: true },
-    { id: 'tonalite', label: 'Tonalité', multiline: true },
-    { id: 'publicCible', label: 'Public cible', multiline: true },
-    { id: 'objectifs', label: 'Objectifs', multiline: true },
-    { id: 'references', label: 'Références', multiline: true },
-  ],
-};
+// Fonction (et non constante) pour que les libellés soient résolus dans la langue
+// COURANTE à chaque appel — une constante figerait la langue au chargement du module.
+export function getDefaultVisionSection(): CustomOverviewSection {
+  return {
+    id: VISION_SECTION_ID,
+    kind: 'fields',
+    title: i18n.t('overview.visionTitle'),
+    icon: 'compass',
+    locked: true,
+    fields: [
+      { id: 'concept', label: i18n.t('overview.visionConcept'), multiline: true },
+      { id: 'tonalite', label: i18n.t('overview.visionTone'), multiline: true },
+      { id: 'publicCible', label: i18n.t('overview.visionAudience'), multiline: true },
+      { id: 'objectifs', label: i18n.t('overview.visionGoals'), multiline: true },
+      { id: 'references', label: i18n.t('overview.visionReferences'), multiline: true },
+    ],
+  };
+}
 
 export interface ProjectContent {
   notes?: string;
@@ -65,7 +70,7 @@ function migrateLegacyVision(content: ProjectContent & { vision?: Record<string,
   if (!legacyVision || hasSection) return content;
   return {
     ...content,
-    customSections: [DEFAULT_VISION_SECTION, ...(content.customSections ?? [])],
+    customSections: [getDefaultVisionSection(), ...(content.customSections ?? [])],
     customSectionData: { ...content.customSectionData, [VISION_SECTION_ID]: legacyVision },
   };
 }

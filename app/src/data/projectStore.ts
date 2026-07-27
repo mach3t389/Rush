@@ -225,14 +225,18 @@ export function findProject(id: string): Project | undefined {
   return getProjects().find(p => p.id === id);
 }
 
-export function addProject(p: Project): void {
+// Renvoie une promesse résolue quand la ligne projet existe réellement côté
+// serveur — les appelants qui écrivent ensuite dans une table référençant
+// `projects(id)` (ex. `project_content`) doivent l'attendre. Les autres peuvent
+// l'ignorer (fire-and-forget, comportement inchangé).
+export function addProject(p: Project): Promise<void> {
   if (isDemoSession()) {
     _added = [p, ..._added];
     persist();
     notify();
-    return;
+    return Promise.resolve();
   }
-  void addSupabaseProject(p);
+  return addSupabaseProject(p);
 }
 
 export function updateProject(id: string, updates: Partial<Project>): void {

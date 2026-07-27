@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
@@ -16,7 +16,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, VISION_SECTION_ID, DEFAULT_VISION_SECTION, type CustomOverviewSection } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, type CustomOverviewSection } from '../data/projectContentStore';
 import { loadAllResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -236,18 +236,41 @@ export function TravailOverview() {
     projectId: string; notes: string;
     customSections: CustomOverviewSection[]; customSectionData: Record<string, string | Record<string, string>>;
   } | null>(null);
-  useEffect(() => {
+  // Miroir synchrone de l'état courant — lu depuis le callback d'abonnement
+  // (qui ne doit pas se ré-enregistrer à chaque frappe).
+  const stateRef = useRef({ notes, customSections, customSectionData });
+  stateRef.current = { notes, customSections, customSectionData };
+
+  const applyLoadedContent = useCallback(() => {
     const c = getProjectContent(project.id);
     const loadedNotes = c.notes ?? '';
     const loadedSections = (c.customSections ?? []).some(s => s.id === VISION_SECTION_ID)
       ? (c.customSections ?? [])
-      : [DEFAULT_VISION_SECTION, ...(c.customSections ?? [])];
+      : [getDefaultVisionSection(), ...(c.customSections ?? [])];
     const loadedData = c.customSectionData ?? {};
     setNotes(loadedNotes);
     setCustomSections(loadedSections);
     setCustomSectionData(loadedData);
     loadedContentRef.current = { projectId: project.id, notes: loadedNotes, customSections: loadedSections, customSectionData: loadedData };
   }, [project.id]);
+
+  useEffect(() => { applyLoadedContent(); }, [applyLoadedContent]);
+
+  // Session réelle : `getProjectContent` est synchrone et renvoie {} tant que le
+  // fetch Supabase n'a pas résolu. Sans ça, la 1re lecture « à froid » restait
+  // vide et une édition faite entre-temps écrasait le contenu serveur.
+  // On ne ré-applique que si l'utilisateur n'a rien modifié depuis le chargement.
+  useEffect(() => subscribeProjectContent(() => {
+    const loaded = loadedContentRef.current;
+    if (!loaded || loaded.projectId !== project.id) return;
+    const cur = stateRef.current;
+    const pristine =
+      loaded.notes === cur.notes &&
+      JSON.stringify(loaded.customSections) === JSON.stringify(cur.customSections) &&
+      JSON.stringify(loaded.customSectionData) === JSON.stringify(cur.customSectionData);
+    if (!pristine) return; // édition en cours — ne pas l'écraser
+    applyLoadedContent();
+  }), [project.id, applyLoadedContent]);
 
   // Debounced save — skipped when the current values are exactly what was
   // just loaded (avoids re-saving on mount / project switch).
@@ -868,10 +891,17 @@ export function TravailOverview() {
             const overviewTemplates = loadAllResourceTemplates().filter((tp): tp is ResourceTemplate => tp.type === 'overview');
             const applyTemplate = (tpl: ResourceTemplate | null) => {
               if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
-              const newSections = tpl?.overviewSections ?? [];
+              // La section Vision (verrouillée) et ses valeurs survivent toujours au
+              // changement de modèle — seules les autres sections sont remplacées.
+              const vision = customSections.find(s => s.id === VISION_SECTION_ID) ?? getDefaultVisionSection();
+              const newSections = [vision, ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID)];
               setCustomSections(newSections);
-              setCustomSectionData({});
-              updateProject(project.id, { overviewTemplateId: tpl?.id });
+              setCustomSectionData(prev => {
+                const next: Record<string, string | Record<string, string>> = {};
+                if (prev[VISION_SECTION_ID] !== undefined) next[VISION_SECTION_ID] = prev[VISION_SECTION_ID];
+                return next;
+              });
+              updateProject(project.id, { overviewTemplateId: tpl?.id ?? null });
               setTemplatePickerOpen(false);
             };
             return (

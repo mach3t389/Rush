@@ -77,6 +77,8 @@ export interface ProjectTemplate {
   builtIn?: boolean;
   createdAt: string;
   defaultFolderStructureId?: string;
+  // Réservé : lu par le wizard de nouveau projet (ProjectsListView.tsx) mais aucun
+  // écran ne l'écrit encore — l'UI d'édition (Modeles.tsx) est un chantier à venir.
   defaultOverviewTemplateId?: string;
 }
 
