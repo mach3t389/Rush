@@ -1475,6 +1475,7 @@
     "resTypeScreenplay": "Screenplay",
     "resTypeVideoReview": "Video review",
     "resTypeFile": "File",
+    "resTypeOverview": "Overview template",
     "resTypeWebReview": "Web review"
   },
   "review": {

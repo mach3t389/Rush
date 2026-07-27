@@ -20,6 +20,57 @@ import { ProjectTaskRow, ColHeader } from '../components/ProjectTaskRow';
 import { DocumentView, ScreenplayView, MoodboardView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
+import { OverviewSectionForm } from '../components/OverviewSectionForm';
+import type { CustomOverviewSection } from '../data/projectContentStore';
+
+// ── OverviewSectionsEditor ─────────────────────────────────────────────────────
+// Éditeur partagé de la STRUCTURE des sections d'Aperçu d'un modèle.
+// Un modèle ne stocke jamais de valeurs remplies (customSectionData) — uniquement
+// la définition des sections (titre, icône, champs).
+
+function OverviewSectionsEditor({ sections, onChange, color }: {
+  sections: CustomOverviewSection[];
+  onChange: (next: CustomOverviewSection[]) => void;
+  color?: string;
+}) {
+  const { t } = useTranslation();
+  const [adding, setAdding] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {sections.map(section => (
+        <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <SFIcon name={section.icon} size={14} color={color ?? 'var(--text-3)'} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
+              {section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields')}`}
+            </p>
+          </div>
+          <button onClick={() => onChange(sections.filter(s => s.id !== section.id))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
+            <SFIcon name="trash-2" size={13} />
+          </button>
+        </div>
+      ))}
+      {adding ? (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
+          <OverviewSectionForm
+            onSave={section => { onChange([...sections, section]); setAdding(false); }}
+            onCancel={() => setAdding(false)}
+          />
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+          <SFIcon name="plus" size={12} /> {t('overview.addSection')}
+        </button>
+      )}
+    </div>
+  );
+}
 
 // ── Form field ↔ FormQuestion converters ──────────────────────────────────────
 
@@ -108,6 +159,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 
   const docContentRef = useRef<(() => string) | null>(null);
   const screenplayContentRef = useRef<(() => ScriptEl[]) | null>(null);
+  const [overviewSections, setOverviewSections] = useState<CustomOverviewSection[]>(tpl.overviewSections ?? []);
 
   const fakeResource: Resource = {
     id: tpl.id, type: tpl.type as ResourceType,
@@ -122,6 +174,9 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
     }
     if (tpl.type === 'screenplay' && screenplayContentRef.current) {
       updated.sceneBlocks = elementsToSceneBlocks(screenplayContentRef.current());
+    }
+    if (tpl.type === 'overview') {
+      updated.overviewSections = overviewSections;
     }
     onSave(updated);
     setDirty(false);
@@ -163,7 +218,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
           {tpl.builtIn ? (
             <SFButton variant="secondary" icon="copy" onClick={() => {
-              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML };
+              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML, ...(tpl.type === 'overview' ? { overviewSections } : {}) };
               onSave(copy);
             }}>{t('models.saveCopy')}</SFButton>
           ) : (
@@ -197,6 +252,15 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
                 ))}
               </div>
             ))}
+          </div>
+        )}
+        {tpl.type === 'overview' && (
+          <div style={{ flex: 1, overflow: 'auto', padding: 24, maxWidth: 560, margin: '0 auto', width: '100%' }}>
+            <OverviewSectionsEditor
+              sections={overviewSections}
+              color={tpl.color}
+              onChange={next => { setOverviewSections(next); setDirty(true); }}
+            />
           </div>
         )}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
@@ -1608,7 +1672,7 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
             {/* Resource list */}
             <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {allResTpls
-                .filter(r => r.type !== 'file')
+                .filter(r => r.type !== 'file' && r.type !== 'overview')
                 .filter(r => resTypeFilter === null || r.type === resTypeFilter)
                 .map(r => (
                   <button key={r.id} onClick={() => {
@@ -1720,7 +1784,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
   onRename?: (name: string, description: string) => void;
 }) {
   const { t } = useTranslation();
-  const itemCount = tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? 0;
+  const itemCount = tpl.documentSections?.length ?? tpl.sceneBlocks?.length ?? tpl.reviewRounds?.length ?? tpl.folderStructure?.length ?? tpl.moodboardRefs?.length ?? tpl.overviewSections?.length ?? 0;
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
   useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
@@ -1792,6 +1856,13 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
             ))}
           </div>
         ))}
+        {tpl.type === 'overview' && (tpl.overviewSections ?? []).map(section => (
+          <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
+            <SFIcon name={section.icon} size={13} color={tpl.color} />
+            <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{section.kind === 'note' ? 'note' : `${section.fields?.length ?? 0} champs`}</span>
+          </div>
+        ))}
         {tpl.type === 'moodboard' && (tpl.moodboardRefs ?? []).map((ref, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
             <div style={{ width: 32, height: 24, borderRadius: 5, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1856,6 +1927,8 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
   const [folderJson, setFolderJson] = useState(() => JSON.stringify(template.folderStructure ?? [], null, 2));
   // moodboard
   const [refs, setRefs] = useState<MoodboardRef[]>(template.moodboardRefs ?? []);
+  // overview
+  const [ovSections, setOvSections] = useState<CustomOverviewSection[]>(template.overviewSections ?? []);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -1866,6 +1939,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (type === 'video_review') content = { reviewRounds: rounds };
     if (type === 'file') { try { content = { folderStructure: JSON.parse(folderJson) }; } catch { content = { folderStructure: [] }; } }
     if (type === 'moodboard') content = { moodboardRefs: refs };
+    if (type === 'overview') content = { overviewSections: ovSections };
     onSave({ ...base, ...content });
   };
 
@@ -1946,6 +2020,12 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
         <SFButton variant="secondary" size="sm" icon="plus" onClick={() => setRefs(p => [...p, { id: `m${Date.now()}`, title: '', note: '' }])}>Ajouter une référence</SFButton>
       </div>
     );
+    if (type === 'overview') return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <p style={labelStyle()}>{t('models.resTypeOverview')}</p>
+        <OverviewSectionsEditor sections={ovSections} onChange={setOvSections} color={color} />
+      </div>
+    );
     return null;
   };
 
@@ -2016,6 +2096,7 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
   { key: 'screenplay', labelKey: 'models.resTypeScreenplay', icon: 'clapperboard' },
   { key: 'video_review', labelKey: 'models.resReviewShort', icon: 'video' },
   { key: 'file', labelKey: 'models.resTypeFile', icon: 'folder' },
+  { key: 'overview', labelKey: 'models.resTypeOverview', icon: 'layout-grid' },
   { key: 'moodboard', labelKey: 'models.resMoodboard', icon: 'grid-2x2' },
 ];
 
@@ -2356,16 +2437,18 @@ export function Modeles() {
               { key: 'moodboard',    icon: 'grid-2x2',       label: 'Moodboard',      count: resourceTemplates.filter(t => t.type === 'moodboard').length },
             ];
             const fileCount = resourceTemplates.filter(t => t.type === 'file').length;
+            const overviewCount = resourceTemplates.filter(t => t.type === 'overview').length;
             // "Fichiers" is a folder-structure template for a project's file
             // tree, not an actual resource content type (screenplay, document,
             // moodboard…) — it lives at the top level, next to Projets, instead
             // of nested under the "Ressources" group.
-            const resActive = (isResType(typeFilter) && typeFilter !== 'file') || typeFilter === 'formulaires';
-            const totalRes = formTemplates.length + resourceTemplates.length - fileCount;
+            const resActive = (isResType(typeFilter) && typeFilter !== 'file' && typeFilter !== 'overview') || typeFilter === 'formulaires';
+            const totalRes = formTemplates.length + resourceTemplates.length - fileCount - overviewCount;
             return (
               <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
                 {navItem('projets', 'layout-template', 'Projets', templates.length)}
                 {navItem('file', 'folder', 'Fichiers', fileCount)}
+                {navItem('overview', 'layout-grid', t('models.resTypeOverview'), overviewCount)}
                 {/* Resources group header */}
                 <button onClick={() => setResNavExpanded(v => !v)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',

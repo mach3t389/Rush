@@ -1487,6 +1487,7 @@
     "resTypeScreenplay": "Scénario",
     "resTypeVideoReview": "Révision vidéo",
     "resTypeFile": "Fichier",
+    "resTypeOverview": "Modèle d'Aperçu",
     "resTypeWebReview": "Révision web",
     "resTypeLabel": "Modèle de type"
   },
