@@ -9,6 +9,7 @@ import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './Project
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
+import { setProjectContent } from '../data/projectContentStore';
 import { addFolderTree } from '../data/fileStore';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
@@ -86,6 +87,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const defaultMemberId = (!isDemoSession() && authUser && team.some(u => u.id === authUser.id)) ? authUser.id : team[0]?.id;
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
   const [folderStructTplId, setFolderStructTplId] = useState<string | null>(null);
+  const [overviewTplId, setOverviewTplId] = useState<string | null>(null);
 
   // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
   // reste disponible dans la bibliothèque complète (Modèles). Ordre volontaire :
@@ -97,6 +99,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     .filter((t): t is ProjectTemplate => !!t);
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
   const folderStructTemplates = loadAllResourceTemplates().filter(t => t.type === 'file');
+  const overviewTemplates = loadAllResourceTemplates().filter(t => t.type === 'overview');
 
   // The creator is always a member of their own project — can't deselect yourself.
   const toggleMember = (id: string) => {
@@ -111,6 +114,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const next = () => {
     if (step === 'start') {
       setFolderStructTplId(selectedTemplate?.defaultFolderStructureId ?? null);
+      setOverviewTplId(selectedTemplate?.defaultOverviewTemplateId ?? null);
       setStep('info');
     } else if (step === 'info') {
       setStep('fichiers');
@@ -148,6 +152,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       statusLabel: 'En cours',
       modifiedAt: new Date().toISOString(),
       folderStructureTemplateId: folderStructTplId ?? undefined,
+      overviewTemplateId: overviewTplId ?? undefined,
     };
     if (selectedTemplate) {
       const sections: SectionData[] = selectedTemplate.sections.map(sec => ({
@@ -170,6 +175,12 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
         })),
       }));
       setSections(projectId, sections);
+    }
+    if (overviewTplId) {
+      const overviewTpl = loadAllResourceTemplates().find(t => t.id === overviewTplId);
+      if (overviewTpl?.overviewSections?.length) {
+        setProjectContent(projectId, { customSections: overviewTpl.overviewSections });
+      }
     }
     if (folderStructTplId) {
       const fileTpl = loadAllResourceTemplates().find(t => t.id === folderStructTplId);
@@ -479,6 +490,31 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   );
                 })}
               </div>
+
+              {overviewTemplates.length > 0 && (
+                <>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>
+                    {t('models.resTypeOverview')}
+                  </p>
+                  <div
+                    onClick={() => setOverviewTplId(null)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${overviewTplId === null ? 'var(--accent)' : 'var(--border)'}`, background: overviewTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
+                  >
+                    <SFIcon name="layout-panel-top" size={16} color="var(--text-3)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.overviewTemplateNone')}</span>
+                    {overviewTplId === null && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                  </div>
+                  {overviewTemplates.map(tpl => (
+                    <div key={tpl.id} onClick={() => setOverviewTplId(tpl.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${overviewTplId === tpl.id ? 'var(--accent)' : 'var(--border)'}`, background: overviewTplId === tpl.id ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
+                    >
+                      <SFIcon name={tpl.icon} size={16} color="var(--text-3)" />
+                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{tpl.name}</span>
+                      {overviewTplId === tpl.id && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
