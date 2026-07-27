@@ -848,7 +848,6 @@ function PortalAccentSettings() {
             <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{t('settings.portalPreview')}</p>
             <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('settings.portalPreviewDesc')}</p>
           </div>
-          <button style={{ marginLeft: 'auto', padding: '6px 14px', borderRadius: 8, border: 'none', background: accentColor, color: readable(accentColor), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('settings.viewPortal')}</button>
         </div>
       </div>
     </div>
