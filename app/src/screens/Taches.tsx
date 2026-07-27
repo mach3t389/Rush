@@ -14,7 +14,6 @@ import type { Task, Priority, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { isSameDay, startOfWeek, addDays } from '../components/calendar/calendarUtils';
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
@@ -1296,7 +1295,6 @@ export function Taches() {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [groupByPriority, setGroupByPriority] = usePersistedState<boolean>('sf_taches_group_prio', false);
-  const [hideCompleted, setHideCompleted] = useSyncedViewState<boolean>('sf_taches_hide_completed', false);
 
   React.useEffect(() => subscribeMyTasks(() => { setTasks(getMyTasks()); setMySections(getMyTaskSections()); }), []);
 
@@ -1422,7 +1420,6 @@ export function Taches() {
   if (filterStatusesSet.size > 0)   visible = visible.filter(t => filterStatusesSet.has(t.status as string));
   // Les tâches terminées disparaissent de Mes tâches (elles restent dans leur projet).
   visible = visible.filter(t => !t.checked);
-  if (hideCompleted) visible = visible.filter(t => !t.checked);
 
   const activeTasks = tasks.filter(t => !t.checked);
   const lateCount = activeTasks.filter(t => isOverdue(t.dueDate ?? '') || t.status === 'danger').length;
@@ -1496,14 +1493,6 @@ export function Taches() {
         >
           <SFIcon name="layers" size={12} color={groupByPriority ? 'var(--accent)' : 'var(--text-3)'} />
           {t('tasks.priority')}
-        </button>
-        <button
-          onClick={() => setHideCompleted(v => !v)}
-          title={hideCompleted ? t('tasks.showCompleted') : t('tasks.hideCompleted')}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, border: `1px solid ${hideCompleted ? 'var(--accent)' : 'var(--border)'}`, background: hideCompleted ? 'rgba(249,255,0,0.08)' : 'transparent', color: hideCompleted ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0 }}
-        >
-          <SFIcon name={hideCompleted ? 'eye-off' : 'eye'} size={12} color={hideCompleted ? 'var(--accent)' : 'var(--text-3)'} />
-          {t('tasks.hideCompleted')}
         </button>
         <FilterBar
           filterPriorities={filterPrioritiesSet}
