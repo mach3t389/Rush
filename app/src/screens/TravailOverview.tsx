@@ -789,6 +789,42 @@ export function TravailOverview() {
             </div>
           </Card>
 
+          {/* ── Sections personnalisées ── */}
+          {customSections.map(section => (
+            <Card key={section.id} title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}>
+              <div style={{ padding: '14px 18px' }}>
+                {section.kind === 'note' ? (
+                  <textarea
+                    value={(customSectionData[section.id] as string) ?? ''}
+                    onChange={e => setCustomSectionData(prev => ({ ...prev, [section.id]: e.target.value }))}
+                    rows={5}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
+                  />
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    {(section.fields ?? []).map(field => {
+                      const values = (customSectionData[section.id] as Record<string, string>) ?? {};
+                      const onChange = (v: string) => setCustomSectionData(prev => ({
+                        ...prev,
+                        [section.id]: { ...(prev[section.id] as Record<string, string> ?? {}), [field.id]: v },
+                      }));
+                      return (
+                        <VisionField
+                          key={field.id}
+                          label={field.label}
+                          placeholder=""
+                          value={values[field.id] ?? ''}
+                          onChange={onChange}
+                          multiline={field.multiline}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+
         </div>
 
         {/* Right column — sidebar (order: -1 = visually on the left) */}
