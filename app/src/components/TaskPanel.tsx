@@ -174,9 +174,8 @@ const subColLabel = (label: string) => (
 
 // ── SubTaskRow ────────────────────────────────────────────────────────────────
 
-function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu }: {
+function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu }: {
   sub: LocalSubtask;
-  onToggle: () => void;
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
   onPasteMultiple: (lines: string[]) => void;
@@ -189,24 +188,39 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
   const [editing, setEditing] = useState(sub.title === '');
   const [editTitle, setEditTitle] = useState(sub.title);
   const [hovered, setHovered] = useState(false);
+  // Optimistic local checkbox state, same delayed-commit + undo pattern as
+  // a regular task row — keeping it here (rather than a plain onToggle
+  // callback) is what lets a subtask's completion be undone too.
+  const [checked, setChecked] = useState(sub.checked);
+  const completeTimer = useRef<number | null>(null);
+  useEffect(() => { setChecked(sub.checked); }, [sub.checked]);
+  const toggleChecked = () => {
+    const next = !checked;
+    setChecked(next);
+    if (completeTimer.current) { clearTimeout(completeTimer.current); completeTimer.current = null; }
+    if (next) {
+      completeTimer.current = window.setTimeout(() => { onUpdate({ checked: true }); }, 1100);
+      showToast({
+        type: 'subtask',
+        message: t('taskPanel.subtaskCompleted'),
+        onUndo: () => {
+          if (completeTimer.current) { clearTimeout(completeTimer.current); completeTimer.current = null; }
+          setChecked(false);
+          onUpdate({ checked: false });
+        },
+      });
+    } else {
+      onUpdate({ checked: false });
+    }
+  };
   // Priority/assignee/date all live inside one "fields" popover; `dropOpen`
   // is only for the nested date picker launched from within it.
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [fieldsRect, setFieldsRect] = useState<DOMRect | null>(null);
   const [dropOpen, setDropOpen] = useState<'date' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
-  const editTitleRef = useRef<HTMLTextAreaElement>(null);
+  const editTitleRef = useRef<HTMLInputElement>(null);
   const hasFields = sub.priority !== 'none' || !!sub.assignee || !!sub.dueDate;
-
-  // Auto-grow the title field to fit its content — same fix as the main
-  // task title, so a long subtask title doesn't get clipped while editing.
-  useEffect(() => {
-    if (editing && editTitleRef.current) {
-      const el = editTitleRef.current;
-      el.style.height = 'auto';
-      el.style.height = el.scrollHeight + 'px';
-    }
-  }, [editing, editTitle]);
 
   const openDrop = (key: typeof dropOpen, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -243,27 +257,35 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
       style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined }}
     >
       {/* Checkbox */}
-      <button onClick={onToggle}
-        style={{ width: 15, height: 15, borderRadius: '50%', cursor: 'pointer', border: sub.checked ? 'none' : '1.5px solid var(--border-2)', background: sub.checked ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', flexShrink: 0 }}>
-        {sub.checked && <SFIcon name="check" size={8} color="white" />}
+      <button onClick={toggleChecked}
+        style={{ width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', border: checked ? 'none' : '1.5px solid var(--border-2)', background: checked ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', flexShrink: 0 }}>
+        {checked && <SFIcon name="check" size={10} color="white" />}
       </button>
 
-      {/* Title */}
+      {/* Title — single-line input, same as a regular task row: box width
+          hugs the text, triple-click selects all, Escape discards, blur
+          only commits a non-empty change. */}
       {editing ? (
-        <textarea ref={editTitleRef} autoFocus value={editTitle} rows={1}
+        <input ref={editTitleRef} autoFocus value={editTitle}
           onChange={e => setEditTitle(e.target.value)}
-          onBlur={() => { onUpdate({ title: editTitle }); setEditing(false); }}
+          onBlur={() => {
+            const trimmed = editTitle.trim();
+            if (trimmed && trimmed !== sub.title) onUpdate({ title: trimmed });
+            else setEditTitle(sub.title);
+            setEditing(false);
+          }}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter') {
               e.preventDefault();
               const trimmed = editTitle.trim();
-              onUpdate({ title: editTitle });
+              if (trimmed && trimmed !== sub.title) onUpdate({ title: trimmed });
+              else setEditTitle(sub.title);
               setEditing(false);
               // Like AddTaskRow: Enter on a titled row opens a fresh blank
               // row right after it so a checklist can be typed line by line.
               if (trimmed) onEnterNext?.();
             }
-            if (e.key === 'Escape') { onUpdate({ title: editTitle }); setEditing(false); }
+            if (e.key === 'Escape') { setEditTitle(sub.title); setEditing(false); }
           }}
           onPaste={e => {
             const text = e.clipboardData.getData('text');
@@ -274,11 +296,11 @@ function SubTaskRow({ sub, onToggle, onUpdate, onDelete, onPasteMultiple, onEnte
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(30, editTitle.length + 1)}ch`, maxWidth: '100%', resize: 'none', overflowY: 'auto', maxHeight: 160, lineHeight: 1.4 }}
+          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(2, editTitle.length + 1)}ch`, maxWidth: '100%' }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
-          style={{ fontSize: 12, textDecoration: sub.checked ? 'line-through' : 'none', color: sub.title ? (sub.checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
+          style={{ fontSize: 12, textDecoration: checked ? 'line-through' : 'none', color: sub.title ? (checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
           {sub.title || t('tasks.newSubtask')}
         </span>
       )}
@@ -1314,11 +1336,6 @@ export function TaskPanel({
             )}
             {localSubtasks.filter(sub => !hideCompletedSubs || !sub.checked).map(sub => (
               <SubTaskRow key={sub.id} sub={sub}
-                onToggle={() => {
-                  const next = !sub.checked;
-                  updateSub(sub.id, { checked: next });
-                  if (next) showToast({ type: 'subtask', message: t('taskPanel.subtaskCompleted') });
-                }}
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => deleteSubtasks([sub.id])}
                 onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
