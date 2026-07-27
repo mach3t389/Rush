@@ -15,6 +15,11 @@ import { subscribeUploadStatus } from '../data/fileContentStore';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
+import { getClientExternalTeam } from '../data/clientTeamStore';
+import { getStudioInfo } from '../data/studioStore';
+import { isDemoSession } from '../data/authStore';
+import { sendEmail } from '../data/emailStore';
+import { showToast } from '../data/toastStore';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -328,6 +333,26 @@ export function InvoiceDetailPanel({
   const hasPdf  = !!invoice.hasPdf;
   const terms   = invoice.paymentTermsDays ?? 30;
 
+  const handleSendReminder = () => {
+    if (isDemoSession()) { showToast({ type: 'task', message: t('finance.reminderSent') }); return; }
+    const contacts = getClientExternalTeam(invoice.clientId).filter(c => c.email);
+    if (contacts.length === 0) { showToast({ type: 'task', message: t('finance.reminderNoContact') }); return; }
+    const studioName = getStudioInfo().name || 'Rush';
+    const amount = formatMoney(invoice.total, invoice.currency);
+    for (const contact of contacts) {
+      void sendEmail(
+        contact.email,
+        `${studioName} — Rappel : facture ${invoice.number} en retard`,
+        `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <p>Bonjour ${contact.name || ''},</p>
+          <p>Un petit rappel : la facture <strong>${invoice.number}</strong> (${invoice.title}) d'un montant de <strong>${amount}</strong> était due le ${fmtDate(invoice.dueDate)} et demeure impayée.</p>
+          <p>Merci de procéder au paiement dès que possible, ou de nous contacter si vous avez des questions.</p>
+        </div>`
+      );
+    }
+    showToast({ type: 'task', message: t('finance.reminderSent') });
+  };
+
   const handleComment = () => {
     const text = commentText.trim();
     if (!text) return;
@@ -393,9 +418,10 @@ export function InvoiceDetailPanel({
           </div>
 
           {/* Action buttons */}
-          {hasPdf && (
+          {(hasPdf || invoice.status === 'overdue') && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <SFButton variant="ghost" icon="file-text" onClick={() => setPdfOpen(true)}>{t('finance.viewPdf')}</SFButton>
+              {hasPdf && <SFButton variant="ghost" icon="file-text" onClick={() => setPdfOpen(true)}>{t('finance.viewPdf')}</SFButton>}
+              {invoice.status === 'overdue' && <SFButton variant="ghost" icon="mail" onClick={handleSendReminder}>{t('finance.sendReminder')}</SFButton>}
             </div>
           )}
         </div>
