@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, SFBar, SFLoadingState, PageHeader } from '../components/ui';
@@ -18,6 +18,7 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getPinnedIds, togglePin, subscribePinned } from '../data/pinnedStore';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate, type FolderNode } from '../data/templates';
 import { addResource, getResources, subscribeResources, updateResource } from '../data/resourceStore';
@@ -309,44 +310,13 @@ interface CtxMenuItem { label: string; icon: string; action: () => void; danger?
 function ContextMenu({ items, pos, onClose }: { items: CtxMenuItem[]; pos: { x: number; y: number }; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   // Position recalée pour que le menu reste entièrement visible dans la fenêtre
-  const [coords, setCoords] = useState<{ left: number; top: number; maxHeight?: number }>({ left: pos.x, top: pos.y });
+  const coords = useClampedMenuPosition(ref, pos, [items.length]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
-
-  // Après rendu, mesurer le menu et le rabattre vers le haut/la gauche s'il déborde
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const margin = 8;
-    const { width, height } = el.getBoundingClientRect();
-    const vw = window.innerWidth, vh = window.innerHeight;
-
-    let left = pos.x;
-    if (left + width + margin > vw) left = Math.max(margin, pos.x - width); // bascule à gauche du curseur
-    left = Math.min(left, vw - width - margin);
-    left = Math.max(margin, left);
-
-    const spaceBelow = vh - pos.y;
-    const spaceAbove = pos.y;
-    let top = pos.y;
-    let maxHeight: number | undefined;
-    if (height + margin > spaceBelow) {
-      // Pas assez de place en dessous : ouvrir vers le haut si plus d'espace, sinon clamp + scroll
-      if (spaceAbove > spaceBelow) {
-        top = Math.max(margin, pos.y - height);
-        maxHeight = pos.y - margin;
-      } else {
-        top = Math.min(pos.y, vh - height - margin);
-        maxHeight = vh - top - margin;
-      }
-    }
-    top = Math.max(margin, top);
-    setCoords({ left, top, maxHeight });
-  }, [pos.x, pos.y, items.length]);
 
   return (
     <div ref={ref} style={{

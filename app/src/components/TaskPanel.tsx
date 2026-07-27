@@ -7,6 +7,7 @@ import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
+import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status, TaskComment } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
@@ -386,6 +387,7 @@ function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, o
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const coords = useClampedMenuPosition(ref, pos);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
@@ -399,7 +401,7 @@ function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, o
     >{label}</button>
   );
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('taskPanel.convertSubtaskToTask', { count })}</span></>, onConvert)}
       {onMove && item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('board.moveTo')}</span></>, onMove)}
       {onCopy && item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>{t('taskPanel.copyTo')}</span></>, onCopy)}

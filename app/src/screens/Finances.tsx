@@ -18,6 +18,7 @@ import { notifyComment } from '../data/commentNotify';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
+import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -1065,6 +1066,7 @@ function InvoiceContextMenu({ pos, count, onOpen, onMove, onDelete, onClose }: {
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const coords = useClampedMenuPosition(ref, pos);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
@@ -1078,7 +1080,7 @@ function InvoiceContextMenu({ pos, count, onOpen, onMove, onDelete, onClose }: {
     >{label}</button>
   );
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {onOpen && item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
       {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('taskPanel.moveToProject')}</span></>, onMove)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />

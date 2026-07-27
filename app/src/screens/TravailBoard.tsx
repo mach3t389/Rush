@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate, TaskDatePopover } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { showToast } from '../data/toastStore';
+import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import type { Task, Priority, SectionData } from '../types';
 
 const PRIORITY_COLOR: Record<Priority, string> = {
@@ -32,15 +33,25 @@ const TEAM = Object.values(USERS);
 
 function DropMenu({ rect, onClose, children }: { rect: DOMRect; onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<React.CSSProperties>({ visibility: 'hidden' });
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [onClose]);
-  const top = rect.bottom + 4;
-  const left = Math.min(rect.left, window.innerWidth - 200);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const h = ref.current.offsetHeight;
+    const w = ref.current.offsetWidth;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    // Flip above the anchor when there isn't room below — same rule as InlineDropdown.
+    const top = rect.bottom + 4 + h > vh && rect.top >= h + 4 ? rect.top - h - 4 : rect.bottom + 4;
+    const left = Math.max(8, Math.min(rect.left, vw - w - 8));
+    setPos({ top, left, visibility: 'visible' });
+  }, [rect]);
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left, top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 168, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', ...pos, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 168, padding: '4px 0', overflow: 'hidden' }}>
       {children}
     </div>,
     document.body,
@@ -52,6 +63,7 @@ function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const coords = useClampedMenuPosition(ref, pos);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
@@ -65,7 +77,7 @@ function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }
     >{label}</button>
   );
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 180, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>{t('taskPanel.renameSection')}</span></>, onRename)}
       {item(<><SFIcon name="copy" size={13} color="var(--text-3)" /><span>{t('taskPanel.copyToProject')}</span></>, onCopy)}
       {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('taskPanel.moveToProject')}</span></>, onMove)}
@@ -102,6 +114,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onConvert, onClose, sections, 
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [showMove, setShowMove] = useState(false);
+  const coords = useClampedMenuPosition(ref, pos, [showMove]);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
@@ -119,7 +132,7 @@ function CardContextMenu({ pos, onOpen, onDelete, onConvert, onClose, sections, 
   );
 
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 700, minWidth: 200, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
       {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
 

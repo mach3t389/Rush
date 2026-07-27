@@ -13,6 +13,7 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
+import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { isSameDay, startOfWeek, addDays } from '../components/calendar/calendarUtils';
 import { markTaskRead } from '../data/notificationStore';
@@ -316,6 +317,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
 function TaskContextMenu({ pos, onOpen, onMove, onConvert, onDelete, onClose }: { pos: { x: number; y: number }; onOpen: () => void; onMove: () => void; onConvert?: () => void; onDelete: () => void; onClose: () => void }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const coords = useClampedMenuPosition(ref, pos);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
@@ -329,7 +331,7 @@ function TaskContextMenu({ pos, onOpen, onMove, onConvert, onDelete, onClose }: 
     >{label}</button>
   );
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
       {item(<><SFIcon name="move" size={13} color="var(--text-3)" /><span>{t('board.moveTo')}</span></>, onMove)}
       {onConvert && item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
@@ -345,6 +347,7 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const coords = useClampedMenuPosition(ref, pos);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener('mousedown', h);
@@ -358,7 +361,7 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
     >{label}</button>
   );
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: pos.x, top: pos.y, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden' }}>
+    <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 180, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="pencil" size={13} color="var(--text-3)" /><span>{t('taskPanel.renameSection')}</span></>, onRename)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('taskPanel.deleteSection')}</span></>, onDelete, true)}
