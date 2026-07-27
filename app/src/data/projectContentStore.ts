@@ -28,21 +28,46 @@ export interface CustomOverviewSection {
   title: string;
   icon: string;
   fields?: OverviewFieldDef[]; // uniquement pour kind: 'fields'
+  locked?: boolean; // ne peut pas être supprimée dans son ensemble (ex. Vision du projet) — ses champs restent éditables
 }
 
-export interface ProjectVision {
-  concept: string;
-  tonalite: string;
-  publicCible: string;
-  objectifs: string;
-  references: string;
-}
+export const VISION_SECTION_ID = 'vision';
+
+export const DEFAULT_VISION_SECTION: CustomOverviewSection = {
+  id: VISION_SECTION_ID,
+  kind: 'fields',
+  title: 'Vision du projet',
+  icon: 'compass',
+  locked: true,
+  fields: [
+    { id: 'concept', label: 'Concept créatif', multiline: true },
+    { id: 'tonalite', label: 'Tonalité', multiline: true },
+    { id: 'publicCible', label: 'Public cible', multiline: true },
+    { id: 'objectifs', label: 'Objectifs', multiline: true },
+    { id: 'references', label: 'Références', multiline: true },
+  ],
+};
 
 export interface ProjectContent {
   notes?: string;
-  vision?: ProjectVision;
   customSections?: CustomOverviewSection[];
   customSectionData?: Record<string, string | Record<string, string>>;
+}
+
+// Ancien format (avant unification de Vision dans customSections) :
+// { vision: { concept, tonalite, publicCible, objectifs, references } }.
+// Nouveau format : une entrée customSections avec id VISION_SECTION_ID + les valeurs dans
+// customSectionData[VISION_SECTION_ID]. Purement une lecture de confort — n'écrit rien ;
+// le prochain setProjectContent() persistera la nouvelle forme naturellement.
+function migrateLegacyVision(content: ProjectContent & { vision?: Record<string, string> }): ProjectContent {
+  const legacyVision = content.vision;
+  const hasSection = (content.customSections ?? []).some(s => s.id === VISION_SECTION_ID);
+  if (!legacyVision || hasSection) return content;
+  return {
+    ...content,
+    customSections: [DEFAULT_VISION_SECTION, ...(content.customSections ?? [])],
+    customSectionData: { ...content.customSectionData, [VISION_SECTION_ID]: legacyVision },
+  };
 }
 
 const STORAGE_KEY = 'sf_project_content';
@@ -99,9 +124,9 @@ async function setSupabaseContent(projectId: string, content: ProjectContent): P
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export function getProjectContent(projectId: string): ProjectContent {
-  if (isDemoSession()) return _demoContent[projectId] ?? {};
+  if (isDemoSession()) return migrateLegacyVision(_demoContent[projectId] ?? {});
   ensureFetchStarted(projectId);
-  return _supabaseContent[projectId] ?? {};
+  return migrateLegacyVision(_supabaseContent[projectId] ?? {});
 }
 
 export function setProjectContent(projectId: string, content: ProjectContent): void {

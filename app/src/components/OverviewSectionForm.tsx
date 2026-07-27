@@ -34,6 +34,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel }: {
       kind,
       title: title.trim(),
       icon,
+      ...(initial?.locked ? { locked: true } : {}),
       ...(kind === 'fields' ? { fields: fields.filter(f => f.label.trim().length > 0) } : {}),
     });
   };

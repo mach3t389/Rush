@@ -16,7 +16,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, type ProjectVision, type CustomOverviewSection } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, VISION_SECTION_ID, DEFAULT_VISION_SECTION, type CustomOverviewSection } from '../data/projectContentStore';
 import { loadAllResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -33,8 +33,6 @@ const RES_ICON: Record<ResourceType, string> = {
   document: 'file-text', inspirations: 'sparkles',
   form: 'clipboard-list', web_review: 'globe',
 };
-
-const DEFAULT_VISION: ProjectVision = { concept: '', tonalite: '', publicCible: '', objectifs: '', references: '' };
 
 const DELIVERABLE_TYPES: { value: DeliverableType; labelKey: string; icon: string }[] = [
   { value: 'video',     labelKey: 'overview.delivVideo',    icon: 'video'        },
@@ -208,7 +206,6 @@ export function TravailOverview() {
   const [, forceActivityTick] = useState(0);
   useEffect(() => subscribeNotifs(() => forceActivityTick(n => n + 1)), []);
 
-  const [vision, setVision] = useState<ProjectVision>(DEFAULT_VISION);
   const [notes, setNotes] = useState('');
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
   const [customSectionData, setCustomSectionData] = useState<Record<string, string | Record<string, string>>>({});
@@ -236,20 +233,20 @@ export function TravailOverview() {
   // isn't remounted on /projets/:id/overview navigation (see the project.id-keyed
   // effects above), so this can't just be the useState initializer.
   const loadedContentRef = useRef<{
-    projectId: string; notes: string; vision: ProjectVision;
+    projectId: string; notes: string;
     customSections: CustomOverviewSection[]; customSectionData: Record<string, string | Record<string, string>>;
   } | null>(null);
   useEffect(() => {
     const c = getProjectContent(project.id);
-    const loadedVision = c.vision ?? DEFAULT_VISION;
     const loadedNotes = c.notes ?? '';
-    const loadedSections = c.customSections ?? [];
+    const loadedSections = (c.customSections ?? []).some(s => s.id === VISION_SECTION_ID)
+      ? (c.customSections ?? [])
+      : [DEFAULT_VISION_SECTION, ...(c.customSections ?? [])];
     const loadedData = c.customSectionData ?? {};
-    setVision(loadedVision);
     setNotes(loadedNotes);
     setCustomSections(loadedSections);
     setCustomSectionData(loadedData);
-    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, vision: loadedVision, customSections: loadedSections, customSectionData: loadedData };
+    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, customSections: loadedSections, customSectionData: loadedData };
   }, [project.id]);
 
   // Debounced save — skipped when the current values are exactly what was
@@ -259,13 +256,12 @@ export function TravailOverview() {
     if (!loaded || loaded.projectId !== project.id) return;
     if (
       loaded.notes === notes &&
-      JSON.stringify(loaded.vision) === JSON.stringify(vision) &&
       JSON.stringify(loaded.customSections) === JSON.stringify(customSections) &&
       JSON.stringify(loaded.customSectionData) === JSON.stringify(customSectionData)
     ) return;
-    const timer = window.setTimeout(() => setProjectContent(project.id, { vision, notes, customSections, customSectionData }), 500);
+    const timer = window.setTimeout(() => setProjectContent(project.id, { notes, customSections, customSectionData }), 500);
     return () => clearTimeout(timer);
-  }, [vision, notes, customSections, customSectionData, project.id]);
+  }, [notes, customSections, customSectionData, project.id]);
 
   const toggleCompleted = () => {
     updateProject(project.id, { completed: !completed });
@@ -339,21 +335,6 @@ export function TravailOverview() {
               </button>
             </div>
           )}
-
-          {/* ── Vision & positionnement ── */}
-          <Card title={t('overview.visionTitle')} icon="compass" collapsible defaultOpen={true} persistKey={`${project.id}_vision`}>
-            <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <VisionField label={t('overview.visionConcept')} placeholder={t('overview.visionConceptPlaceholder')} value={vision.concept} onChange={v => setVision(p => ({ ...p, concept: v }))} multiline />
-                <VisionField label={t('overview.visionTone')} placeholder={t('overview.visionTonePlaceholder')} value={vision.tonalite} onChange={v => setVision(p => ({ ...p, tonalite: v }))} multiline />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <VisionField label={t('overview.visionAudience')} placeholder={t('overview.visionAudiencePlaceholder')} value={vision.publicCible} onChange={v => setVision(p => ({ ...p, publicCible: v }))} multiline />
-                <VisionField label={t('overview.visionGoals')} placeholder={t('overview.visionGoalsPlaceholder')} value={vision.objectifs} onChange={v => setVision(p => ({ ...p, objectifs: v }))} multiline />
-              </div>
-              <VisionField label={t('overview.visionReferences')} placeholder={t('overview.visionReferencesPlaceholder')} value={vision.references} onChange={v => setVision(p => ({ ...p, references: v }))} multiline />
-            </div>
-          </Card>
 
           {/* ── Factures ── */}
           <Card title={t('overview.invoicesTitle')} icon="receipt" action={<SFButton variant="ghost" size="sm" icon="plus" onClick={() => navigate(`/projets/${project.id}/finances`)}>{t('overview.newInvoice')}</SFButton>}>
@@ -827,10 +808,12 @@ export function TravailOverview() {
                           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
                           <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
                         </button>
-                        <button onClick={() => handleDeleteSection(section.id)}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
-                          <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
-                        </button>
+                        {!section.locked && (
+                          <button onClick={() => handleDeleteSection(section.id)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                            <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
