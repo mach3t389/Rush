@@ -224,6 +224,21 @@ Un middleware Vite personnalisé expose `/web-proxy/<url-encodée>` qui :
 
 Utilisé par `WebReview.tsx` pour afficher des sites externes dans un `<iframe>` avec annotations.
 
+### Envoi de courriels transactionnels (Resend)
+
+`app/api/send-email.ts` — endpoint serverless générique, protégé par un token de session Supabase (`Authorization: Bearer <access_token>`), qui envoie via **Resend** (`RESEND_API_KEY`, `RESEND_FROM_EMAIL` — sinon fallback `onboarding@resend.dev`). Accepte optionnellement `eventKey` + `recipientUserId` : dans ce cas, l'endpoint vérifie côté serveur les `notif_prefs` du destinataire (table scopée par `auth.uid()`, illisible depuis le client d'un autre utilisateur à cause de RLS) et n'envoie pas si son canal email est désactivé pour ce type d'événement.
+
+`app/src/data/emailStore.ts` — `sendEmail(to, subject, html, { eventKey?, recipientUserId? })`, fire-and-forget (même pattern que `pushToGoogleCalendar` dans `eventStore.ts` : un échec ne doit jamais bloquer l'action déclenchante).
+
+**Points câblés :**
+- `commentNotify.ts` — notification in-app + email pour commentaires/@mentions (résolution du nom mentionné contre `getTeamMembers()`), câblé dans tous les éditeurs de révision (Web/Image/Document Review, `ScriptCommentSidebar`/`DocumentView` dans `ResourceDetail.tsx`, `TaskPanel.tsx`).
+- `RequestApprovalButton.tsx` — email à chaque contact client externe (`getClientExternalTeam`) quand une approbation est demandée.
+- `Finances.tsx` — bouton manuel « Envoyer un rappel » sur une facture en retard (pas d'automatisation cron, pour ne pas consommer une fonction Vercel de plus — voir plus bas).
+
+**Pas encore fait — chantier futur, volontairement pas construit maintenant :** notifications par email pour les **soumissions de formulaire public**. La fonctionnalité elle-même (page publique de remplissage, stockage des réponses) n'existe pas du tout dans cette branche (`PublicFormFill.tsx` / `formSubmissionsStore.ts` absents ; `FormView` dans `ResourceDetail.tsx` n'est qu'une maquette avec `MOCK_RESPONSES`). Construire ça est un chantier à part entière (page publique + migration + RLS + notification), pas un simple ajout d'email — à faire plus tard, sur demande explicite.
+
+**⚠️ Fonctions serverless Vercel — plan Hobby plafonné à 12.** Actuellement 7/12 (`api/*.ts`). Vérifier avant d'ajouter une nouvelle fonction (ex. pour les formulaires publics plus tard).
+
 ### Assistant IA (`app/src/components/AIChat.tsx`)
 
 Panneau flottant connecté à **Ollama** en local (`http://localhost:11434/api/chat`). Boucle agentique : appel Ollama → si `tool_calls` présents → exécution locale → reboucle jusqu'à réponse textuelle.
