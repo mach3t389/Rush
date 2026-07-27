@@ -237,16 +237,22 @@ Panneau flottant propulsé par **l'API Anthropic (Claude Haiku)** côté serveur
 - Rendu markdown dans les réponses assistant (gras, listes, blocs de code)
 - **Idée future (pas commencée) :** laisser chaque studio choisir son propre fournisseur IA — clé API personnelle (ChatGPT/OpenAI ou Anthropic, coût à leur charge) ou un Ollama auto-hébergé pour les studios techniques. Nécessiterait une couche de traduction par fournisseur (chacun a son propre format d'outils/function-calling), en plus de celle qui existe déjà pour Anthropic dans `ai-chat.ts`. Volontairement pas prioritaire tant qu'aucun client ne le demande — un seul fournisseur avec quota est plus simple et moins cher à opérer.
 
-### Envoi de courriels transactionnels — chantier futur (Resend)
+### Envoi de courriels transactionnels (Resend)
 
-**Pas commencé.** Décision prise le 2026-07-26 : brancher **Resend** (gratuit jusqu'à 3000 courriels/mois, 100/jour) via une route Vercel dédiée (`app/api/send-email.ts` ou équivalent, même pattern que `ai-chat.ts`) quand ce chantier démarrera.
+**Infrastructure + invitations en place depuis le 2026-07-26.** `app/api/send-email.ts` — route Vercel générique branchée sur **Resend** (gratuit jusqu'à 3000 courriels/mois, 100/jour), protégée par un vrai jeton de session Supabase (même pattern que le handler push de `google-calendar-sync.ts`). Le front appelle `sendEmail()` dans `app/src/data/emailStore.ts` (fire-and-forget, même logique que `pushToGoogleCalendar` dans `eventStore.ts`). Nécessite `RESEND_API_KEY` (et optionnellement `RESEND_FROM_EMAIL`, sinon repli sur `onboarding@resend.dev` tant qu'aucun domaine n'est vérifié) dans les variables d'environnement Vercel.
+
+**⚠️ Vercel Hobby, plafond de 12 fonctions atteint à nouveau** en ajoutant `send-email.ts` — `google-calendar-pull.ts`/`google-calendar-push.ts` ont été fusionnés en `google-calendar-sync.ts` (routé selon l'en-tête Authorization : secret cron vs session utilisateur) pour libérer une place. **De retour à exactement 12/12** — aucune marge pour une prochaine fonction sans nouvelle fusion ou passage au plan Pro.
 
 **Déjà fonctionnel aujourd'hui, sans rien construire :** la réinitialisation de mot de passe (`resetPassword()` dans `authStore.ts`) passe par `supabase.auth.resetPasswordForEmail()` — Supabase envoie ce courriel lui-même. Ne pas dupliquer ça avec Resend.
 
-**Endroits qui auront besoin de Resend** (inventaire fait le 2026-07-26, à revisiter avant de commencer le chantier — le code peut avoir changé) :
+**Fait (2026-07-26) :**
+- **Invitations client** (`invitationStore.ts`'s `sendClientInvitationEmail()`, câblé dans `FicheClient.tsx`) — invitation initiale et "Renvoyer" envoient maintenant un vrai courriel, en plus du lien copié dans le presse-papier (toujours disponible en repli).
+- **Invitations équipe** (`teamStore.ts`'s `sendTeamInvitationEmail()`, câblé dans `MonEquipe.tsx`) — même chose pour l'invitation initiale.
+- Les deux sautent l'envoi en session démo (pas de vrai destinataire).
+- **Lacune connue, hors de ce chantier :** le bouton "Renvoyer l'invitation" du panneau détail membre dans `MonEquipe.tsx` n'a toujours aucun `onClick` — stub préexistant, pas encore raccordé (il faut d'abord faire transiter le token de l'invitation en attente dans ce panneau).
 
-- **Invitations client** (`invitationStore.ts`, `FicheClient.tsx`) — aujourd'hui, "inviter"/"renvoyer" ne fait que copier un lien dans le presse-papier ; rien n'est envoyé automatiquement.
-- **Invitations équipe** (`teamStore.ts`, `MonEquipe.tsx`) — même chose, lien à copier-coller manuellement.
+**Reste à brancher** (inventaire fait le 2026-07-26, à revérifier avant de continuer — le code peut avoir changé) :
+
 - **Préférences de notification** (`notifPrefsStore.ts`) — le type `ChannelPrefs` a déjà un champ `email` (activé par défaut pour `mention`/`approval`) affiché dans Paramètres, mais **rien ne lit ce champ pour envoyer un vrai courriel** — l'interface promet une fonctionnalité qui n'existe pas encore.
 - **Demandes d'approbation** (`RequestApprovalButton.tsx`, `Portail.tsx`) — notifie seulement dans l'app (`addNotif`), jamais par courriel, malgré la préférence ci-dessus.
 - **Commentaires et mentions** (`commentNotify.ts`) — pareil, in-app seulement, même pour une mention `@`.
