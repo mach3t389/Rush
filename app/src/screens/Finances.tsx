@@ -13,6 +13,7 @@ import {
   type Invoice, type InvoiceStatus, type InvoiceComment, type TaxLine,
 } from '../data/financeStore';
 import { subscribeUploadStatus } from '../data/fileContentStore';
+import { notifyComment } from '../data/commentNotify';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
@@ -308,9 +309,12 @@ function StatusDonut({ invoices }: { invoices: Invoice[] }) {
 // ── InvoiceDetailPanel ────────────────────────────────────────────────────────
 
 export function InvoiceDetailPanel({
-  open, invoice, onClose, onEdit,
+  open, invoice, onClose, onEdit, autoOpenPdf, onAutoOpenedPdf,
 }: {
   open: boolean; invoice: Invoice | null; onClose: () => void; onEdit: () => void;
+  // Set when opened via the table row's PDF icon — jumps straight to the
+  // PDF viewer instead of leaving the user to find "Voir le PDF" themselves.
+  autoOpenPdf?: boolean; onAutoOpenedPdf?: () => void;
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<'details' | 'comments'>('details');
@@ -325,6 +329,9 @@ export function InvoiceDetailPanel({
   useEffect(() => { if (open) { setTab('details'); setCommentText(''); } }, [open, invoice?.id]);
   useEffect(() => { if (tab === 'comments') bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [tab, invoice?.comments?.length]);
   useEffect(() => subscribeUploadStatus(() => setUploadTick(n => n + 1)), []);
+  useEffect(() => {
+    if (open && autoOpenPdf && invoice?.hasPdf) { setPdfOpen(true); onAutoOpenedPdf?.(); }
+  }, [open, autoOpenPdf, invoice?.hasPdf]);
 
   if (!open || !invoice) return null;
 
@@ -338,18 +345,19 @@ export function InvoiceDetailPanel({
     if (!text) return;
     const currentUser = getCurrentUser();
     const profile = currentUser ? loadProfile(currentUser.id) : null;
-    const name = profile?.name ?? 'Léa Marchand';
+    const name = profile?.name ?? currentUser?.name ?? 'Léa Marchand';
     const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
     const comment: InvoiceComment = {
       id: `cmt_${Date.now()}`,
       author: name,
       initials,
-      authorColor: '#5c3d8f',
+      authorColor: currentUser?.avatarColor ?? '#5c3d8f',
       text,
       ts: Date.now(),
     };
     addInvoiceComment(invoice.id, comment);
     setCommentText('');
+    notifyComment({ kind: 'add', text, itemLabel: invoice.title, projectId: invoice.projectId });
   };
 
   const inputStyle: React.CSSProperties = { width: '100%', fontSize: 12, padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
@@ -394,14 +402,14 @@ export function InvoiceDetailPanel({
             </div>
           </div>
 
-          <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 26, fontWeight: 700, color: invoice.status === 'overdue' ? 'var(--danger)' : 'var(--text)', marginBottom: 12 }}>
+          <div style={{ fontFamily: 'var(--ff-text)', fontSize: 27, fontWeight: 700, color: invoice.status === 'overdue' ? 'var(--danger)' : 'var(--text)', marginBottom: 12 }}>
             {formatMoney(invoice.total, invoice.currency)}
           </div>
 
           {/* Action buttons */}
           {hasPdf && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <SFButton variant="ghost" icon="file-text" onClick={() => setPdfOpen(true)}>{t('finance.viewPdf')}</SFButton>
+              <SFButton variant="secondary" icon="file-text" onClick={() => setPdfOpen(true)}>{t('finance.viewPdf')}</SFButton>
             </div>
           )}
         </div>
@@ -468,23 +476,23 @@ export function InvoiceDetailPanel({
               <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('finance.subtotal')}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{formatMoney(invoice.amount, invoice.currency)}</span>
+                  <span style={{ fontFamily: 'var(--ff-text)', fontSize: 12 }}>{formatMoney(invoice.amount, invoice.currency)}</span>
                 </div>
                 {invoice.taxLines.filter(l => l.enabled && l.rate > 0).map(l => (
                   <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{l.name} <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10 }}>({l.rate}%)</span></span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{formatMoney(Math.round(invoice.amount * l.rate / 100 * 100) / 100, invoice.currency)}</span>
+                    <span style={{ fontFamily: 'var(--ff-text)', fontSize: 12 }}>{formatMoney(Math.round(invoice.amount * l.rate / 100 * 100) / 100, invoice.currency)}</span>
                   </div>
                 ))}
                 {invoice.taxLines.filter(l => l.enabled && l.rate > 0).length === 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('finance.taxLines')}</span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>—</span>
+                    <span style={{ fontFamily: 'var(--ff-text)', fontSize: 12 }}>—</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{t('finance.total')}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700 }}>{formatMoney(invoice.total, invoice.currency)}</span>
+                  <span style={{ fontFamily: 'var(--ff-text)', fontSize: 14, fontWeight: 700 }}>{formatMoney(invoice.total, invoice.currency)}</span>
                 </div>
               </div>
 
@@ -868,7 +876,7 @@ export function InvoiceFormPanel({
                 <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>%</span>
                 {/* Montant calculé */}
                 {amtNum > 0 && (
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: line.enabled ? 'var(--text-2)' : 'var(--text-3)', width: 72, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--ff-text)', fontSize: 11, color: line.enabled ? 'var(--text-2)' : 'var(--text-3)', width: 72, textAlign: 'right', flexShrink: 0 }}>
                     {formatMoney(line.enabled ? Math.round(amtNum * line.rate / 100 * 100) / 100 : 0, currency)}
                   </span>
                 )}
@@ -898,17 +906,17 @@ export function InvoiceFormPanel({
             <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 5 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('finance.subtotal')}</span>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-2)' }}>{formatMoney(amtNum, currency)}</span>
+                <span style={{ fontFamily: 'var(--ff-text)', fontSize: 12, color: 'var(--text-2)' }}>{formatMoney(amtNum, currency)}</span>
               </div>
               {taxLines.filter(l => l.enabled && l.rate > 0).map(l => (
                 <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{l.name || t('finance.taxLines')} ({l.rate}%)</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--text-2)' }}>{formatMoney(Math.round(amtNum * l.rate / 100 * 100) / 100, currency)}</span>
+                  <span style={{ fontFamily: 'var(--ff-text)', fontSize: 12, color: 'var(--text-2)' }}>{formatMoney(Math.round(amtNum * l.rate / 100 * 100) / 100, currency)}</span>
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 5 }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{t('finance.total')}</span>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 15, fontWeight: 700 }}>{formatMoney(total, currency)}</span>
+                <span style={{ fontFamily: 'var(--ff-text)', fontSize: 15, fontWeight: 700 }}>{formatMoney(total, currency)}</span>
               </div>
             </div>
           )}
@@ -999,6 +1007,7 @@ export function Finances() {
   const [panelOpen,     setPanelOpen]     = useState(false);
   const [editInvoice,   setEditInvoice]   = useState<Invoice | null>(null);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
+  const [autoOpenPdf, setAutoOpenPdf] = useState(false);
   const [deleteId,      setDeleteId]      = useState<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoices())), []);
@@ -1116,7 +1125,7 @@ export function Finances() {
                 <SFIcon name={k.icon} size={12} color={k.iconColor} />
                 <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t(k.labelKey)}</span>
               </div>
-              <p style={{ fontSize: 18, fontWeight: 700, color: k.valueColor, fontFamily: 'var(--ff-mono)' }}>{k.value}</p>
+              <p style={{ fontSize: 19, fontWeight: 700, color: k.valueColor, fontFamily: 'var(--ff-text)' }}>{k.value}</p>
             </div>
           ))}
         </div>
@@ -1244,7 +1253,7 @@ export function Finances() {
 
                   <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                     {hasPdf && (
-                      <button title={t('finance.viewPdf')} onClick={() => openDetail(inv)} style={actionBtn}>
+                      <button title={t('finance.viewPdf')} onClick={() => { setAutoOpenPdf(true); openDetail(inv); }} style={actionBtn}>
                         <SFIcon name="file-text" size={13} />
                       </button>
                     )}
@@ -1274,6 +1283,8 @@ export function Finances() {
         invoice={detailInvoice}
         onClose={() => setDetailInvoice(null)}
         onEdit={() => { openEdit(detailInvoice!); setDetailInvoice(null); }}
+        autoOpenPdf={autoOpenPdf}
+        onAutoOpenedPdf={() => setAutoOpenPdf(false)}
       />
     </div>
   );

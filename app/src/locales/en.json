@@ -2065,6 +2065,7 @@
     "sentDate": "Sent date",
     "paidDate": "Payment date",
     "paymentTerms": "Payment terms",
+    "days": "days",
     "kpiTotalInvoiced": "Total invoiced",
     "kpiPayRate": "Payment rate",
     "allClients": "All clients",

@@ -2078,6 +2078,7 @@
     "sentDate": "Date d'envoi",
     "paidDate": "Date de paiement",
     "paymentTerms": "Conditions de paiement",
+    "days": "jours",
     "kpiTotalInvoiced": "Total facturé",
     "kpiPayRate": "Taux de paiement",
     "allClients": "Tous les clients",
