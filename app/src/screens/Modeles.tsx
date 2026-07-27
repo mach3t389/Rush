@@ -35,25 +35,43 @@ function OverviewSectionsEditor({ sections, onChange, color }: {
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleEditSection = (updated: CustomOverviewSection) => {
+    onChange(sections.map(s => s.id === updated.id ? updated : s));
+    setEditingId(null);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {sections.map(section => (
+        editingId === section.id ? (
+          <div key={section.id} style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
+            <OverviewSectionForm initial={section} onSave={handleEditSection} onCancel={() => setEditingId(null)} />
+          </div>
+        ) : (
         <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <SFIcon name={section.icon} size={14} color={color ?? 'var(--text-3)'} />
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditingId(section.id)} title={t('overview.editSection')}>
             <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</p>
             <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-              {section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields')}`}
+              {section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`}
             </p>
           </div>
-          <button onClick={() => onChange(sections.filter(s => s.id !== section.id))}
+          <button onClick={() => setEditingId(section.id)} title={t('overview.renameSection')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
+            <SFIcon name="square-pen" size={13} />
+          </button>
+          <button onClick={() => onChange(sections.filter(s => s.id !== section.id))} title={t('overview.deleteSection')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
             <SFIcon name="trash-2" size={13} />
           </button>
         </div>
+        )
       ))}
       {adding ? (
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
@@ -1860,7 +1878,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
           <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
             <SFIcon name={section.icon} size={13} color={tpl.color} />
             <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</span>
-            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{section.kind === 'note' ? 'note' : `${section.fields?.length ?? 0} champs`}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`}</span>
           </div>
         ))}
         {tpl.type === 'moodboard' && (tpl.moodboardRefs ?? []).map((ref, i) => (
