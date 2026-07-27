@@ -5,8 +5,7 @@ import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections, getProjectStats } from '../data/taskStore';
-import { getDeliverableDisplay } from '../data/deliverableStatus';
-import { STATUS_COLOR } from '../data/status';
+import { getDeliverableDisplay, DELIVERABLE_STATUS_OPTIONS } from '../data/deliverableStatus';
 import { getProjectColor } from '../data/pinnedStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
@@ -24,7 +23,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession } from '../data/authStore';
 import { sendEmail } from '../data/emailStore';
-import { InlineDropdown, ddItem, getTeam, STATUS_OPTIONS, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
+import { InlineDropdown, ddItem, getTeam, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
 
@@ -822,8 +821,8 @@ export function TravailOverview() {
                     </button>
                     {isStatusOpen && (
                       <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
-                        {STATUS_OPTIONS.filter(o => o.value !== '').map(o => ddItem(() => { updateTask(project.id, dl.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setOpenDl(null); },
-                          <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value] ?? 'var(--border-2)', display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
+                        {DELIVERABLE_STATUS_OPTIONS.map(o => ddItem(() => { updateTask(project.id, dl.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setOpenDl(null); },
+                          <><span style={{ width: 7, height: 7, borderRadius: '50%', background: o.color, display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
                           dl.status === o.value
                         ))}
                       </InlineDropdown>
@@ -868,9 +867,9 @@ export function TravailOverview() {
                       projectColor: project.clientColor,
                       assignee: null,
                       status: 'warn',
-                      statusLabel: 'À livrer',
-                      priority: 'normal',
-                      priorityLabel: 'Moyenne',
+                      statusLabel: t(DELIVERABLE_STATUS_OPTIONS.find(o => o.value === 'warn')!.labelKey),
+                      priority: 'none',
+                      priorityLabel: t(PRIORITY_LABEL_KEY.none),
                       dueDate: '—',
                       dueDateRed: false,
                       checked: false,

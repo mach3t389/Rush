@@ -28,3 +28,8 @@ export function getDeliverableDisplay(task: Task): DeliverableDisplay {
   if (task.correctionsRequested) return CORRECTIONS_REQUESTED;
   return DELIVERABLE_STATUS[task.status] ?? DELIVERABLE_STATUS['warn'];
 }
+
+// For the status-change dropdown — same source as getDeliverableDisplay, so
+// every option shown is guaranteed to match what the badge actually renders.
+export const DELIVERABLE_STATUS_OPTIONS: (DeliverableDisplay & { value: string })[] =
+  Object.entries(DELIVERABLE_STATUS).map(([value, display]) => ({ value, ...display }));
