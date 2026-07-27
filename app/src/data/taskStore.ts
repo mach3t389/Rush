@@ -202,12 +202,18 @@ export function getCurrentSectionLabel(projectId: string): string | null {
 // forever regardless of actual task activity. Demo mode's hand-seeded
 // numbers are curated to tell a story and don't necessarily match
 // PROJECT_TASKS's real section contents, so they're left untouched.
-export function getProjectStats(p: { id: string; progress: number; taskCount: number }): { progress: number; taskCount: number } {
-  if (isDemoSession()) return { progress: p.progress, taskCount: p.taskCount };
+export function getProjectStats(p: { id: string; progress: number; taskCount: number }): { progress: number; taskCount: number; doneCount: number } {
+  if (isDemoSession()) {
+    // Demo's hand-seeded progress/taskCount aren't derived from real task
+    // data, so doneCount can only be approximated the same lossy way
+    // callers used to before this field existed.
+    return { progress: p.progress, taskCount: p.taskCount, doneCount: Math.round((p.taskCount * p.progress) / 100) };
+  }
   const tasks = getSections(p.id).flatMap(s => s.tasks);
   const taskCount = tasks.length;
-  const progress = taskCount === 0 ? 0 : Math.round((tasks.filter(t => t.checked).length / taskCount) * 100);
-  return { progress, taskCount };
+  const doneCount = tasks.filter(t => t.checked).length;
+  const progress = taskCount === 0 ? 0 : Math.round((doneCount / taskCount) * 100);
+  return { progress, taskCount, doneCount };
 }
 
 export function setSections(projectId: string, sections: SectionData[]): void {

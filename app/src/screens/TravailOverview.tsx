@@ -863,7 +863,7 @@ export function TravailOverview() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <SFIcon name="circle-check" size={12} color="var(--ok)" />
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>
-                      {Math.round(stats.taskCount * stats.progress / 100)}/{stats.taskCount}
+                      {stats.doneCount}/{stats.taskCount}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -882,7 +882,7 @@ export function TravailOverview() {
                     <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Reçu</span>
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--ok)', fontWeight: 600 }}>{totalPaid.toLocaleString('fr-CA')} $</span>
                   </div>
-                  <SFBar value={Math.round((totalPaid / totalInvoiced) * 100)} height={4} />
+                  <SFBar value={totalInvoiced === 0 ? 0 : Math.round((totalPaid / totalInvoiced) * 100)} height={4} />
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textAlign: 'right' }}>
                     sur {totalInvoiced.toLocaleString('fr-CA')} $ facturés
                   </span>
