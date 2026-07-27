@@ -228,6 +228,19 @@ export function TravailOverview() {
     setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
     setSectionMenuOpenId(null);
   };
+  // Une section verrouillée (Vision) reste toujours en première position — on ne
+  // permute jamais par-dessus elle, ce qui garde ce garde-fou correct même si
+  // handleMoveSection est un jour appelé depuis un contexte qui l'oublierait.
+  const handleMoveSection = (id: string, dir: 'up' | 'down') => {
+    setCustomSections(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= prev.length || prev[swapIdx].locked) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
+  };
 
   // Load persisted content whenever the viewed project changes — TravailOverview
   // isn't remounted on /projets/:id/overview navigation (see the project.id-keyed
@@ -815,12 +828,32 @@ export function TravailOverview() {
           </Card>
 
           {/* ── Sections personnalisées ── */}
-          {customSections.map(section => (
+          {customSections.map((section, sectionIdx) => (
             <Card key={section.id} title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
               action={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  {!section.locked && (
+                    <>
+                      <button onClick={() => handleMoveSection(section.id, 'up')}
+                        disabled={sectionIdx === 0 || customSections[sectionIdx - 1].locked}
+                        title={t('overview.moveSectionUp')}
+                        style={{ background: 'none', border: 'none', display: 'flex', padding: 4, borderRadius: 6, color: 'var(--text-3)', cursor: (sectionIdx === 0 || customSections[sectionIdx - 1].locked) ? 'default' : 'pointer', opacity: (sectionIdx === 0 || customSections[sectionIdx - 1].locked) ? 0.3 : 1 }}>
+                        <SFIcon name="chevron-up" size={14} />
+                      </button>
+                      <button onClick={() => handleMoveSection(section.id, 'down')}
+                        disabled={sectionIdx === customSections.length - 1}
+                        title={t('overview.moveSectionDown')}
+                        style={{ background: 'none', border: 'none', display: 'flex', padding: 4, borderRadius: 6, color: 'var(--text-3)', cursor: sectionIdx === customSections.length - 1 ? 'default' : 'pointer', opacity: sectionIdx === customSections.length - 1 ? 0.3 : 1 }}>
+                        <SFIcon name="chevron-down" size={14} />
+                      </button>
+                    </>
+                  )}
                 <div style={{ position: 'relative' }}>
                   <button onClick={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                    title={t('overview.sectionOptions')}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <SFIcon name="ellipsis" size={15} />
                   </button>
                   {sectionMenuOpenId === section.id && (
@@ -840,6 +873,7 @@ export function TravailOverview() {
                       </div>
                     </>
                   )}
+                </div>
                 </div>
               }
             >
