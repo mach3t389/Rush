@@ -942,6 +942,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
             onEventClick={setSelectedEvent}
             onCellClick={handleCellClick}
             onEventChange={readOnly ? undefined : handleEventChange}
+            onNavigateMonth={dir => setCur(d => new Date(d.getFullYear(), d.getMonth() + dir, 1))}
           />
         )}
         {view==='week' && (

@@ -949,6 +949,7 @@ export function CalendrierGlobal() {
             onEventClick={setSelectedEvent}
             onCellClick={handleCellClick}
             onEventChange={handleEventChange}
+            onNavigateMonth={dir => setCur(d => new Date(d.getFullYear(), d.getMonth() + dir, 1))}
           />
         )}
         {view==='week' && (

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { TODAY, isSameDay, getMonthGrid, fmt2, fmtTime, type CalEvent } from './calendarUtils';
 import { getWeekStart } from '../../data/weekStartStore';
 
-export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick, onEventChange }: {
+export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCellClick, onEventChange, onNavigateMonth }: {
   cur: Date;
   events: CalEvent[];
   tasks: { date: Date; title: string; color: string }[];
@@ -11,6 +11,10 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
   onEventClick: (ev: CalEvent) => void;
   onCellClick: (d: Date) => void;
   onEventChange?: (ev: CalEvent, newStart: Date, newEnd: Date) => void;
+  // Wheel/trackpad scroll over the grid moves to the previous/next month —
+  // the grid itself has nothing to scroll (fixed 5-6 row layout), so the
+  // gesture is free to repurpose instead of just doing nothing.
+  onNavigateMonth?: (dir: 1 | -1) => void;
 }) {
   const { t } = useTranslation();
   const dayNames = t('calendar.daysShort', { returnObjects: true }) as string[];
@@ -30,6 +34,23 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
   const dayISOAtPoint = (x: number, y: number): string | null => {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
     return el?.closest('[data-cal-day]')?.getAttribute('data-cal-day') ?? null;
+  };
+
+  // Accumulate delta and fire once per "gesture" rather than once per wheel
+  // tick — trackpads emit dozens of small deltaY events per swipe, which
+  // would otherwise skip several months on a single gesture.
+  const wheelAccumRef = useRef(0);
+  const wheelCooldownRef = useRef(false);
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!onNavigateMonth || dragRef.current) return;
+    wheelAccumRef.current += e.deltaY;
+    if (wheelCooldownRef.current) return;
+    const THRESHOLD = 40;
+    if (Math.abs(wheelAccumRef.current) < THRESHOLD) return;
+    onNavigateMonth(wheelAccumRef.current > 0 ? 1 : -1);
+    wheelAccumRef.current = 0;
+    wheelCooldownRef.current = true;
+    setTimeout(() => { wheelCooldownRef.current = false; }, 450);
   };
 
   const beginEventDrag = (ev: CalEvent) => (e: React.MouseEvent) => {
@@ -82,7 +103,7 @@ export function MonthView({ cur, events, tasks, onDayClick, onEventClick, onCell
       </div>
 
       {/* Grid */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gridTemplateRows: `repeat(${days.length / 7},1fr)`, overflow: 'auto', userSelect: 'none' }}>
+      <div onWheel={handleWheel} style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gridTemplateRows: `repeat(${days.length / 7},1fr)`, overflow: 'auto', userSelect: 'none' }}>
         {days.map((day, i) => {
           const isToday = isSameDay(day, TODAY);
           const isCurMonth = day.getMonth() === cur.getMonth();
