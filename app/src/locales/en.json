@@ -554,7 +554,19 @@
     "deliverableOverdue": "Overdue",
     "deliverableCorrectionsRequested": "Corrections requested",
     "shareWithClient": "Share with client",
-    "unshareWithClient": "Remove from client portal"
+    "unshareWithClient": "Remove from client portal",
+    "addSection": "Add section",
+    "sectionTitlePlaceholder": "Section title…",
+    "sectionKindFields": "Custom fields",
+    "sectionKindNote": "Free note",
+    "sectionKindFieldsDesc": "A list of text fields you define",
+    "sectionKindNoteDesc": "A single free-text area",
+    "addField": "Add field",
+    "fieldLabelPlaceholder": "Field name…",
+    "fieldMultiline": "Long text",
+    "removeField": "Remove this field",
+    "sectionEditorSave": "Save",
+    "sectionEditorCancel": "Cancel"
   },
   "profile": {
     "myProfile": "My profile",

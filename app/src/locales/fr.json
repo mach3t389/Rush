@@ -554,7 +554,19 @@
     "deliverableOverdue": "En retard",
     "deliverableCorrectionsRequested": "Corrections demandées",
     "shareWithClient": "Partager avec le client",
-    "unshareWithClient": "Retirer du portail client"
+    "unshareWithClient": "Retirer du portail client",
+    "addSection": "Ajouter une section",
+    "sectionTitlePlaceholder": "Titre de la section…",
+    "sectionKindFields": "Champs personnalisés",
+    "sectionKindNote": "Note libre",
+    "sectionKindFieldsDesc": "Une liste de champs texte que tu définis",
+    "sectionKindNoteDesc": "Une seule zone de texte libre",
+    "addField": "Ajouter un champ",
+    "fieldLabelPlaceholder": "Nom du champ…",
+    "fieldMultiline": "Texte long",
+    "removeField": "Retirer ce champ",
+    "sectionEditorSave": "Enregistrer",
+    "sectionEditorCancel": "Annuler"
   },
   "profile": {
     "myProfile": "Mon profil",
