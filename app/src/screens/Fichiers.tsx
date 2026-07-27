@@ -5,8 +5,9 @@ import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { FileBrowser } from './FichiersGlobal';
 import { SFButton, SFIcon } from '../components/ui';
 import { findProject } from '../data/projectStore';
-import { getFolderTreeForProject } from '../data/fileStore';
-import { loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
+import { getFolderTreeForProject, addFolderTree } from '../data/fileStore';
+import { loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates, type ResourceTemplate } from '../data/templates';
+import { TemplateMenuButton } from '../components/TemplateMenuButton';
 
 const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
 
@@ -125,11 +126,24 @@ export function Fichiers() {
   if (!projectId) return null;
   const project = findProject(projectId);
 
+  const handleLoadFileTemplate = (templateId: string) => {
+    const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === 'file');
+    if (!tpl) return;
+    addFolderTree(tpl.folderStructure ?? [], { projectId });
+  };
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ flexShrink: 0 }}>
         <ProjectHeaderBar projectId={projectId}>
-          <SFButton variant="ghost" icon="layout-template" onClick={() => setSaveTemplateOpen(true)} style={{ color: 'var(--text-3)', border: '1px solid var(--border)', borderRadius: 9 }}>{t('board.saveAsTemplateButton')}</SFButton>
+          <TemplateMenuButton
+            icon="layout-template"
+            loadOptions={loadAllResourceTemplates().filter(tpl => tpl.type === 'file').map(tpl => ({ id: tpl.id, name: tpl.name, icon: tpl.icon }))}
+            onLoad={handleLoadFileTemplate}
+            onSave={() => setSaveTemplateOpen(true)}
+            loadLabel={t('templateMenuLoad')}
+            saveLabel={t('templateMenuSave')}
+          />
         </ProjectHeaderBar>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
