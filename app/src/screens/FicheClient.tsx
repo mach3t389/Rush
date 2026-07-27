@@ -17,7 +17,7 @@ import { FileBrowser } from './FichiersGlobal';
 import { type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from '../data/clientContactsStore';
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember, subscribeClientTeam } from '../data/clientTeamStore';
 import { getTeamMembers } from '../data/teamStore';
-import { createInvitation, getInvitationLink } from '../data/invitationStore';
+import { createInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
 import { syncClientContactAcrossProjects } from '../data/projectClientAccessStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { getProjects } from '../data/projectStore';
@@ -331,9 +331,11 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
     const handleResend = () => {
       void createInvitation(clientId, m.id).then(invitation => {
-        setResendLink(getInvitationLink(invitation.token));
+        const link = getInvitationLink(invitation.token);
+        setResendLink(link);
         setResent(true);
         setTimeout(() => setResent(false), 2000);
+        sendClientInvitationEmail(m.email, m.name, link);
       });
     };
 
@@ -702,7 +704,9 @@ function EquipeTab({ clientId }: { clientId: string }) {
             syncClientContactAcrossProjects(clientId, m.id);
             setMembers(getClientTeam(clientId));
             const invitation = await createInvitation(clientId, m.id);
-            return getInvitationLink(invitation.token);
+            const link = getInvitationLink(invitation.token);
+            sendClientInvitationEmail(m.email, m.name, link);
+            return link;
           }}
         />
       )}

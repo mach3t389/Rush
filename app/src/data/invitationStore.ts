@@ -18,13 +18,14 @@
 
 import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession } from './authStore';
-import { getStudioId } from './studioStore';
+import { getStudioId, getStudioInfo } from './studioStore';
 import { supabase } from './supabaseClient';
 import { findClient } from './clientStore';
 import { getClientTeam, setClientTeam, removeClientTeamMember } from './clientTeamStore';
 import { STUDIO_NAME_KEY } from './authStore';
 import { DEFAULT_PORTAL_PERMISSIONS, type PortalPermissions } from './clientContactsStore';
 import { getLogoFull, getLogoSquare } from './studioLogoStore';
+import { sendEmail } from './emailStore';
 
 const STORAGE_KEY = 'sf_client_invitations';
 
@@ -187,4 +188,23 @@ export async function declineInvitation(clientId: string, contactId: string, tok
 
 export function getInvitationLink(token: string): string {
   return `${window.location.origin}/invitation/${token}`;
+}
+
+// Fire-and-forget — demo sessions have no real contact address, so skip
+// entirely rather than emailing a fake one. A failed send never blocks the
+// invitation itself; the copy-link fallback in FicheClient.tsx still works
+// either way.
+export function sendClientInvitationEmail(contactEmail: string, contactName: string, link: string): void {
+  if (isDemoSession() || !contactEmail) return;
+  const studioName = getStudioInfo().name || 'Rush';
+  void sendEmail(
+    contactEmail,
+    `${studioName} vous invite à accéder à votre espace client`,
+    `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+      <p>Bonjour ${contactName || ''},</p>
+      <p><strong>${studioName}</strong> vous invite à accéder à votre espace client sur Rush, où vous pourrez suivre l'avancement de vos projets, consulter les fichiers partagés et donner vos approbations.</p>
+      <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Accéder à mon espace</a></p>
+      <p style="color: #888; font-size: 13px;">Si le bouton ne fonctionne pas, copiez ce lien : ${link}</p>
+    </div>`
+  );
 }

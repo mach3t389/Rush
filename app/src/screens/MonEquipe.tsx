@@ -6,7 +6,7 @@ import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
-import { getTeamMembers, subscribeTeam, createInvitation, getMyAccessLevel, type InvitableAccessLevel } from '../data/teamStore';
+import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, type InvitableAccessLevel } from '../data/teamStore';
 import { getProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
@@ -98,6 +98,7 @@ function InviteTeamModal({ onClose }: { onClose: () => void }) {
     if (isDemoSession()) savePermissions(email.trim(), perms);
     const result = await createInvitation(email.trim(), role.trim() || 'Membre', accessLevel, perms);
     setLink(result.link);
+    sendTeamInvitationEmail(email.trim(), role.trim() || 'Membre', result.link);
     setSending(false);
     if (isDemoSession()) setTimeout(onClose, 1500);
   };
