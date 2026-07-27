@@ -16,7 +16,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, type ProjectVision } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, type ProjectVision, type CustomOverviewSection } from '../data/projectContentStore';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
@@ -208,18 +208,27 @@ export function TravailOverview() {
 
   const [vision, setVision] = useState<ProjectVision>(DEFAULT_VISION);
   const [notes, setNotes] = useState('');
+  const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
+  const [customSectionData, setCustomSectionData] = useState<Record<string, string | Record<string, string>>>({});
 
   // Load persisted content whenever the viewed project changes — TravailOverview
   // isn't remounted on /projets/:id/overview navigation (see the project.id-keyed
   // effects above), so this can't just be the useState initializer.
-  const loadedContentRef = useRef<{ projectId: string; notes: string; vision: ProjectVision } | null>(null);
+  const loadedContentRef = useRef<{
+    projectId: string; notes: string; vision: ProjectVision;
+    customSections: CustomOverviewSection[]; customSectionData: Record<string, string | Record<string, string>>;
+  } | null>(null);
   useEffect(() => {
     const c = getProjectContent(project.id);
     const loadedVision = c.vision ?? DEFAULT_VISION;
     const loadedNotes = c.notes ?? '';
+    const loadedSections = c.customSections ?? [];
+    const loadedData = c.customSectionData ?? {};
     setVision(loadedVision);
     setNotes(loadedNotes);
-    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, vision: loadedVision };
+    setCustomSections(loadedSections);
+    setCustomSectionData(loadedData);
+    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, vision: loadedVision, customSections: loadedSections, customSectionData: loadedData };
   }, [project.id]);
 
   // Debounced save — skipped when the current values are exactly what was
@@ -227,10 +236,15 @@ export function TravailOverview() {
   useEffect(() => {
     const loaded = loadedContentRef.current;
     if (!loaded || loaded.projectId !== project.id) return;
-    if (loaded.notes === notes && JSON.stringify(loaded.vision) === JSON.stringify(vision)) return;
-    const timer = window.setTimeout(() => setProjectContent(project.id, { vision, notes }), 500);
+    if (
+      loaded.notes === notes &&
+      JSON.stringify(loaded.vision) === JSON.stringify(vision) &&
+      JSON.stringify(loaded.customSections) === JSON.stringify(customSections) &&
+      JSON.stringify(loaded.customSectionData) === JSON.stringify(customSectionData)
+    ) return;
+    const timer = window.setTimeout(() => setProjectContent(project.id, { vision, notes, customSections, customSectionData }), 500);
     return () => clearTimeout(timer);
-  }, [vision, notes, project.id]);
+  }, [vision, notes, customSections, customSectionData, project.id]);
 
   const toggleCompleted = () => {
     updateProject(project.id, { completed: !completed });
