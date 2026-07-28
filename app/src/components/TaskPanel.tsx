@@ -675,7 +675,13 @@ export function TaskPanel({
       subAnchorRef.current = subId;
       return;
     }
-    setSelectedSubIds(new Set([subId]));
+    // Plain click on the already-sole-selected row toggles it off — same
+    // convention as a task row's detail panel. Without this, clicking
+    // anywhere inside a row (most of its width isn't excluded by the
+    // button/input/textarea/a check) always re-selected it, so it looked
+    // like the empty-space-deselect fix was flaky when really the row's
+    // own click handler was winning almost every time.
+    setSelectedSubIds(prev => prev.size === 1 && prev.has(subId) ? new Set() : new Set([subId]));
     subAnchorRef.current = subId;
   };
 
