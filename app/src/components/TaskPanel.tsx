@@ -7,8 +7,10 @@ import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
+import { getTeam } from '../data/teamStore';
+import { getCurrentUser } from '../data/authStore';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
-import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status, TaskComment } from '../types';
+import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status, TaskComment, User } from '../types';
 import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
 import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments';
@@ -90,8 +92,6 @@ const TYPE_ICON: Record<ResourceType, string> = {
   web_review:   'globe',
 };
 
-const TEAM = Object.values(USERS);
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CommentObj = TaskComment;
@@ -103,7 +103,7 @@ export interface LocalSubtask {
   priority: Priority;
   status: string;
   statusLabel: string;
-  assignee: typeof TEAM[0] | null;
+  assignee: User | null;
   dueDate: string;
   comments: CommentObj[];
 }
@@ -179,7 +179,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
   onPasteMultiple: (lines: string[]) => void;
-  onEnterNext?: () => void;
+  onEnterNext?: (title: string) => void;
   selected?: boolean;
   onSelect?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -279,12 +279,15 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             if (e.key === 'Enter') {
               e.preventDefault();
               const trimmed = editTitle.trim();
-              if (trimmed && trimmed !== sub.title) onUpdate({ title: trimmed });
-              else setEditTitle(sub.title);
               setEditing(false);
-              // Like AddTaskRow: Enter on a titled row opens a fresh blank
-              // row right after it so a checklist can be typed line by line.
-              if (trimmed) onEnterNext?.();
+              if (trimmed) {
+                // Like AddTaskRow: Enter on a titled row commits the title
+                // AND opens a fresh blank row right after it, as one atomic
+                // update — so a checklist can be typed line by line.
+                onEnterNext?.(trimmed);
+              } else {
+                setEditTitle(sub.title);
+              }
             }
             if (e.key === 'Escape') { setEditTitle(sub.title); setEditing(false); }
           }}
@@ -357,7 +360,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
                       style={{ width: 22, height: 22, borderRadius: '50%', border: sub.assignee === null ? '2px solid var(--text)' : '1.5px dashed var(--border-2)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
                       <SFIcon name="user" size={10} color="var(--text-3)" />
                     </button>
-                    {TEAM.map(u => (
+                    {getTeam().map(u => (
                       <button key={u.id} onClick={() => onUpdate({ assignee: u })} title={u.name}
                         style={{ borderRadius: '50%', border: sub.assignee?.id === u.id ? '2px solid var(--text)' : '2px solid transparent', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex' }}>
                         <SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />
@@ -515,7 +518,7 @@ export function TaskPanel({
 
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
   const [editStatus, setEditStatus] = useState(task.status as string);
-  const [editAssignee, setEditAssignee] = useState<typeof TEAM[0] | null>(task.assignee);
+  const [editAssignee, setEditAssignee] = useState<User | null>(task.assignee);
   const [linkedResources, setLinkedResources] = useState<string[]>(task.linkedResources ?? []);
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
   const [resPickerRect, setResPickerRect] = useState<DOMRect | null>(null);
@@ -612,6 +615,21 @@ export function TaskPanel({
     onUpdate?.({ subtasks: next as unknown as Task[] });
   };
 
+  // Pressing Enter on a titled subtask row commits its title AND inserts a
+  // fresh blank row after it — two mutations of the same localSubtasks
+  // array in the same event. Doing them as separate updateSub()/addSubtask()
+  // calls made the second one clobber the first (both read the same stale
+  // pre-render `localSubtasks` closure), silently discarding the just-typed
+  // title. Compute both from one snapshot and commit them together instead.
+  const commitTitleAndAddNext = (id: string, title: string) => {
+    const withTitle = localSubtasks.map(s => s.id === id ? { ...s, title } : s);
+    const idx = withTitle.findIndex(s => s.id === id);
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'none', status: '', statusLabel: '', assignee: null, dueDate: '', comments: [] };
+    const next = idx === -1 ? [...withTitle, sub] : [...withTitle.slice(0, idx + 1), sub, ...withTitle.slice(idx + 1)];
+    setLocalSubtasks(next);
+    onUpdate?.({ subtasks: next as unknown as Task[] });
+  };
+
   // Pasting multi-line text (e.g. a checklist from a client email) into a
   // subtask title creates one subtask per non-empty line, replacing the
   // row that received the paste.
@@ -666,7 +684,10 @@ export function TaskPanel({
     setSubCtxPos({ x: e.clientX, y: e.clientY });
   };
 
-  const ME = { initials: USERS.lea.initials, bg: USERS.lea.avatarColor, name: USERS.lea.name };
+  const currentUser = getCurrentUser();
+  const ME = currentUser
+    ? { initials: currentUser.initials, bg: currentUser.avatarColor, name: currentUser.name }
+    : { initials: USERS.lea.initials, bg: USERS.lea.avatarColor, name: USERS.lea.name };
 
   // CommentObj (TaskComment) predates the shared RevisionComment shape and
   // has no resolve/reopen concept and a slightly different author field
@@ -916,7 +937,7 @@ export function TaskPanel({
                       <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
                       editAssignee === null
                     )}
-                    {TEAM.map(u => ddItem(() => { setEditAssignee(u); setPanelOpen(null); onUpdate?.({ assignee: u }); },
+                    {getTeam().map(u => ddItem(() => { setEditAssignee(u); setPanelOpen(null); onUpdate?.({ assignee: u }); },
                       <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
                       editAssignee?.id === u.id
                     ))}
@@ -1341,7 +1362,7 @@ export function TaskPanel({
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => deleteSubtasks([sub.id])}
                 onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
-                onEnterNext={() => addSubtask(sub.id)}
+                onEnterNext={title => commitTitleAndAddNext(sub.id, title)}
                 selected={subtaskActionsEnabled ? selectedSubIds.has(sub.id) : undefined}
                 onSelect={subtaskActionsEnabled ? e => selectSubtask(sub.id, e) : undefined}
                 onContextMenu={subtaskActionsEnabled ? e => openSubtaskContextMenu(sub.id, e) : undefined}
