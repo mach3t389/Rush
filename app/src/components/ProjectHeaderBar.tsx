@@ -41,19 +41,28 @@ export function ProjectHeaderBar({
   // création si le cleanup agissait de façon synchrone. Le second `setup`
   // annule la suppression programmée par le `cleanup` précédent ; seul un
   // vrai démontage (rien pour l'annuler ensuite) laisse le timeout s'exécuter.
-  const pendingRemovalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRemovalRef = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   useEffect(() => {
-    if (pendingRemovalRef.current) {
-      clearTimeout(pendingRemovalRef.current);
+    // Only cancel a pending removal if it belongs to THIS same draft (a true
+    // StrictMode double-invoke of setup→cleanup→setup for the same project).
+    // If the pending removal is for a DIFFERENT draft — this component
+    // instance persists across route changes when navigating between
+    // projects — let it fire instead of clobbering it, otherwise that other
+    // draft survives forever, undeletable.
+    if (pendingRemovalRef.current && pendingRemovalRef.current.id === project?.id) {
+      clearTimeout(pendingRemovalRef.current.timer);
       pendingRemovalRef.current = null;
     }
     if (!project?.isTemplateDraft) return;
     const draftId = project.id;
     return () => {
-      pendingRemovalRef.current = setTimeout(() => {
-        removeProject(draftId);
-        pendingRemovalRef.current = null;
-      }, 0);
+      pendingRemovalRef.current = {
+        id: draftId,
+        timer: setTimeout(() => {
+          removeProject(draftId);
+          pendingRemovalRef.current = null;
+        }, 0),
+      };
     };
   }, [project?.id, project?.isTemplateDraft]);
 
@@ -102,7 +111,7 @@ export function ProjectHeaderBar({
             color: 'var(--text-3)', marginBottom: 8,
           }}>
             <SFIcon name="layout-template" size={12} color="var(--accent)" />
-            <span>Édition du modèle « {project.name} »</span>
+            <span>{t('projects.templateDraftEditing', { name: project.name })}</span>
           </div>
         ) : (
         <div style={{
@@ -209,6 +218,7 @@ export function ProjectHeaderBar({
           </span>
         )}
         {children}
+        {!project.isTemplateDraft && (
         <button
           onClick={() => setEditOpen(true)}
           title={t('projects.editProject')}
@@ -218,6 +228,7 @@ export function ProjectHeaderBar({
         >
           <SFIcon name="square-pen" size={14} />
         </button>
+        )}
         {!project.isTemplateDraft && (
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(v => !v)} title={t('projects.projectMenu')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
@@ -277,7 +288,7 @@ export function ProjectHeaderBar({
         )}
         {project.isTemplateDraft && (
           <SFButton variant="secondary" size="sm" icon="check" onClick={() => navigate('/modeles')}>
-            Terminer
+            {t('projects.templateDraftFinish')}
           </SFButton>
         )}
       </div>

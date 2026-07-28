@@ -1555,9 +1555,9 @@ function SaveAsTemplateModal({ projectName, sections, originTasksTemplate, onClo
   const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState(originTasksTemplate?.name ?? projectName);
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState('#3b4f8f');
-  const [tags, setTags] = useState('');
+  const [description, setDescription] = useState(originTasksTemplate?.description ?? '');
+  const [color, setColor] = useState(originTasksTemplate?.color ?? '#3b4f8f');
+  const [tags, setTags] = useState(originTasksTemplate?.tags?.join(', ') ?? '');
   const [keepPriorities, setKeepPriorities] = useState(true);
   const [keepStatuses, setKeepStatuses] = useState(true);
   const [keepDueDates, setKeepDueDates] = useState(false);
@@ -1583,6 +1583,9 @@ function SaveAsTemplateModal({ projectName, sections, originTasksTemplate, onClo
       const updatedTasksTpl: ResourceTemplate = {
         ...originTasksTemplate,
         name: name.trim(),
+        description: description.trim(),
+        color,
+        tags: tags.split(',').map(t2 => t2.trim()).filter(Boolean),
         sections: sections.map(s => ({
           label: s.label,
           tasks: s.tasks.map(convertTask),

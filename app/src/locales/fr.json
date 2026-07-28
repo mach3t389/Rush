@@ -450,6 +450,8 @@
     "unpin": "Désépingler",
     "pinToSidebar": "Épingler dans la barre latérale",
     "editProject": "Modifier le projet",
+    "templateDraftEditing": "Édition du modèle « {{name}} »",
+    "templateDraftFinish": "Terminer",
     "projectMenu": "Options du projet",
     "viewGrid": "Grille",
     "viewList": "Liste",

@@ -1898,7 +1898,14 @@ export function Modeles() {
   });
 
   const openTemplateDraft = async (tpl: { id: string; name: string; type: ResourceTemplateType } & Partial<ResourceTemplate>) => {
-    const draftId = await createTemplateDraft(tpl.name, tpl.id);
+    let draftId: string;
+    try {
+      draftId = await createTemplateDraft(tpl.name, tpl.builtIn ? undefined : tpl.id);
+    } catch {
+      // addSupabaseProject already showed an error toast — just bail out
+      // without navigating to a draft that doesn't exist server-side.
+      return;
+    }
     if (tpl.type === 'file') {
       addFolderTree(tpl.folderStructure ?? [], { projectId: draftId });
       navigate(`/projets/${draftId}/fichiers`);
@@ -1933,7 +1940,14 @@ export function Modeles() {
   };
 
   const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview') => {
-    const draftId = await createTemplateDraft('Nouveau modèle');
+    let draftId: string;
+    try {
+      draftId = await createTemplateDraft('Nouveau modèle');
+    } catch {
+      // addSupabaseProject already showed an error toast — just bail out
+      // without navigating to a draft that doesn't exist server-side.
+      return;
+    }
     if (type === 'file') navigate(`/projets/${draftId}/fichiers`);
     else if (type === 'tasks') navigate(`/projets/${draftId}`);
     else navigate(`/projets/${draftId}/overview`);

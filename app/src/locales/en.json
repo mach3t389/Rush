@@ -450,6 +450,8 @@
     "unpin": "Unpin",
     "pinToSidebar": "Pin to sidebar",
     "editProject": "Edit project",
+    "templateDraftEditing": "Editing template \"{{name}}\"",
+    "templateDraftFinish": "Finish",
     "projectMenu": "Project options",
     "viewGrid": "Grid",
     "viewList": "List",

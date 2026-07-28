@@ -164,7 +164,10 @@ async function addSupabaseProject(p: Project): Promise<void> {
   if (error) {
     console.error('addSupabaseProject failed', error);
     showToast({ type: 'section', message: "Le projet n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
-    return;
+    // Reject rather than silently resolving: callers (e.g. createTemplateDraft)
+    // rely on the promise settling to know whether the row actually exists
+    // server-side before navigating to it.
+    throw error;
   }
   await fetchSupabaseProjects();
   syncNewProjectAcrossClientContacts(p.id, p.clientId);
@@ -249,6 +252,12 @@ export function addProject(p: Project): Promise<void> {
   return addSupabaseProject(p);
 }
 
+// Note: the returned promise rejects if the underlying insert fails (see
+// addSupabaseProject) — callers MUST await/catch this before navigating to
+// the draft's route, otherwise they can navigate to a project id that was
+// never actually created server-side (e.g. if the is_template_draft /
+// draft_origin_template_id migration hasn't been applied yet and Postgres
+// rejects the insert on unknown columns).
 export function createTemplateDraft(name: string, originTemplateId?: string): Promise<string> {
   const id = `draft-${Date.now()}`;
   const draft: Project = {
