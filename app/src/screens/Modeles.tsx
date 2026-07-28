@@ -20,6 +20,8 @@ import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './Resource
 import { VideoReviewBody } from './VideoReview';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { CustomOverviewSection } from '../data/projectContentStore';
+import { setProjectContent, VISION_SECTION_ID, getDefaultVisionSection } from '../data/projectContentStore';
+import { createTemplateDraft } from '../data/projectStore';
 
 // ── OverviewSectionsEditor ─────────────────────────────────────────────────────
 // Éditeur partagé de la STRUCTURE des sections d'Aperçu d'un modèle.
@@ -1674,6 +1676,7 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
 export function Modeles() {
   const { t } = useTranslation();
   const plan = usePlan();
+  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>('projets');
   const [searchQuery, setSearchQuery] = useState('');
   const [resNavExpanded, setResNavExpanded] = useState(true);
@@ -1894,6 +1897,48 @@ export function Modeles() {
     return matchType && matchSearch;
   });
 
+  const openTemplateDraft = async (tpl: { id: string; name: string; type: ResourceTemplateType } & Partial<ResourceTemplate>) => {
+    const draftId = await createTemplateDraft(tpl.name, tpl.id);
+    if (tpl.type === 'file') {
+      addFolderTree(tpl.folderStructure ?? [], { projectId: draftId });
+      navigate(`/projets/${draftId}/fichiers`);
+    } else if (tpl.type === 'tasks') {
+      const newSections: SectionData[] = (tpl.sections ?? []).map(sec => ({
+        label: sec.label,
+        progress: 0,
+        tasks: sec.tasks.map((tt, i): Task => ({
+          id: `${draftId}-${sec.label}-${i}-${Date.now()}`,
+          title: tt.title,
+          projectId: draftId,
+          projectName: tpl.name,
+          projectColor: '#6b7280',
+          assignee: USERS.lea,
+          status: 'warn',
+          statusLabel: 'En attente',
+          priority: tt.priority ?? 'normal',
+          priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+          dueDate: '',
+          checked: false,
+          subtasks: [],
+        })),
+      }));
+      setSections(draftId, newSections);
+      navigate(`/projets/${draftId}`);
+    } else if (tpl.type === 'overview') {
+      const vision = getDefaultVisionSection();
+      const reusable = (tpl.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID);
+      setProjectContent(draftId, { customSections: [vision, ...reusable], customSectionData: {} });
+      navigate(`/projets/${draftId}/overview`);
+    }
+  };
+
+  const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview') => {
+    const draftId = await createTemplateDraft('Nouveau modèle');
+    if (type === 'file') navigate(`/projets/${draftId}/fichiers`);
+    else if (type === 'tasks') navigate(`/projets/${draftId}`);
+    else navigate(`/projets/${draftId}/overview`);
+  };
+
   const handleNew = () => {
     if (!canUseFeature(plan, 'customTemplates')) {
       requestUpgrade({ feature: 'customTemplates' });
@@ -1901,6 +1946,7 @@ export function Modeles() {
     }
     if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
+    else if (typeFilter === 'file' || typeFilter === 'tasks' || typeFilter === 'overview') { void openNewTemplateDraft(typeFilter); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };
 
@@ -2204,7 +2250,13 @@ export function Modeles() {
           {isResType(typeFilter) && (
             selectedRes
               ? <ResourceTemplateDetail tpl={selectedRes}
-                  onOpen={() => setTemplateResViewTpl(selectedRes)}
+                  onOpen={() => {
+                    if (selectedRes.type === 'file' || selectedRes.type === 'tasks' || selectedRes.type === 'overview') {
+                      void openTemplateDraft(selectedRes);
+                    } else {
+                      setTemplateResViewTpl(selectedRes);
+                    }
+                  }}
                   onDuplicate={() => duplicateRes(selectedRes)}
                   onDelete={() => deleteRes(selectedRes)}
                   onRename={(name, desc) => renameRes(selectedRes.id, name, desc)}
