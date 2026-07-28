@@ -47,3 +47,8 @@ export function checkStorageThreshold(usedGB: number, limitGB: number): void {
 
   addNotif({ kind: 'storageLimit', actor: 'Rush', text: `Stockage à ${Math.round(pct)}% de la limite du plan`, timestamp: Date.now() });
 }
+
+export function isStorageOverLimit(usedBytes: number, limitGB: number): boolean {
+  if (limitGB <= 0) return false;
+  return usedBytes >= limitGB * 1024 * 1024 * 1024;
+}

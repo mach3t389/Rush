@@ -1,10 +1,12 @@
 // app/src/data/upgradePromptStore.ts
 // Singleton "show the upgrade modal" state, same pattern as toastStore.ts.
 
-import { PLAN_LIMITS, type GatedFeature, type PlanKey } from './planFeatures';
+import { PLAN_LIMITS, getStorageLimitGB, type GatedFeature, type PlanKey } from './planFeatures';
 import { getProjects } from './projectStore';
+import { getTotalStorageUsedBytes, isStorageOverLimit } from './storageStore';
+import { getCurrentPlan, getCurrentStorageTier } from './planStore';
 
-export type UpgradeReason = { feature: GatedFeature } | { reason: 'seats' } | { reason: 'projects' } | { reason: 'membersGratuit' };
+export type UpgradeReason = { feature: GatedFeature } | { reason: 'seats' } | { reason: 'projects' } | { reason: 'membersGratuit' } | { reason: 'storage' };
 
 let current: UpgradeReason | null = null;
 const listeners: (() => void)[] = [];
@@ -27,6 +29,16 @@ export function getUpgradePrompt(): UpgradeReason | null {
 export function subscribeUpgradePrompt(fn: () => void): () => void {
   listeners.push(fn);
   return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); };
+}
+
+export function canUploadFile(): boolean {
+  const usedBytes = getTotalStorageUsedBytes();
+  const limitGB = getStorageLimitGB(getCurrentPlan(), getCurrentStorageTier());
+  if (isStorageOverLimit(usedBytes, limitGB)) {
+    requestUpgrade({ reason: 'storage' });
+    return false;
+  }
+  return true;
 }
 
 // Shared plan-limit gate for "Nouveau projet" — used both by ProjectsListView's
