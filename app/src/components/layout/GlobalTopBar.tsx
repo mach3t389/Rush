@@ -46,18 +46,6 @@ export function GlobalTopBar({ onSearch }: Props) {
   const displayName = profileOverrides.name ?? me.name;
   const displayRole = profileOverrides.role ?? me.role;
 
-  // Close user menu on outside click
-  useEffect(() => {
-    if (!showUserMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showUserMenu]);
-
   useEffect(() => subscribeNotifs(() => setUnreadCount(getNotifHistory().filter(n => !n.read).length)), []);
   useEffect(() => subscribeShortcuts(() => setShortcuts(getShortcuts())), []);
 
@@ -177,6 +165,8 @@ export function GlobalTopBar({ onSearch }: Props) {
           </button>
 
           {showUserMenu && (
+            <>
+            <div onClick={() => setShowUserMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 299 }} />
             <div style={{
               position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300,
               background: 'var(--surface)', border: '1px solid var(--border-2)',
@@ -210,6 +200,7 @@ export function GlobalTopBar({ onSearch }: Props) {
                 void logout().then(() => navigate('/login', { replace: true }));
               }} />
             </div>
+            </>
           )}
         </div>
       </div>

@@ -259,14 +259,6 @@ export function Sidebar() {
   const toggleProjectsSection = () => setProjectsSectionOpen(v => { const next = !v; savePersisted('sf_pinned_projects_open', next); return next; });
   const toggleClientsSection = () => setClientsSectionOpen(v => { const next = !v; savePersisted('sf_pinned_clients_open', next); return next; });
 
-  // Close color picker on outside click
-  useEffect(() => {
-    if (!colorPickerId) return;
-    const handler = () => setColorPickerId(null);
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [colorPickerId]);
-
   const [logoFull, setLogoFullState] = useState(getLogoFull);
   const [logoSquare, setLogoSquareState] = useState(getLogoSquare);
   const [viewAs, setViewAs] = useState(getViewAsUser);
@@ -537,6 +529,8 @@ export function Sidebar() {
 
                     {/* Color picker popover */}
                     {colorPickerId === p.id && (
+                      <>
+                      <div onClick={() => setColorPickerId(null)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
                       <div
                         onMouseDown={e => e.stopPropagation()}
                         style={{
@@ -558,6 +552,7 @@ export function Sidebar() {
                           />
                         ))}
                       </div>
+                      </>
                     )}
 
                     {/* Unpin button */}

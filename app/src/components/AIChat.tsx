@@ -160,6 +160,8 @@ export function AIChat() {
     <>
       {/* Panel */}
       {open && (
+        <>
+        <div onClick={close} style={{ position: 'fixed', inset: 0, zIndex: 88 }} />
         <div data-ai-panel style={{
           position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 89,
           width: 380,
@@ -466,6 +468,7 @@ export function AIChat() {
             </p>
           </div>
         </div>
+        </>
       )}
     </>
   );
