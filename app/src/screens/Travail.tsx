@@ -1619,7 +1619,6 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
       icon: 'folder',
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       tasksTemplateId: tasksTpl.id,
-      resources: [],
       builtIn: false,
       createdAt,
     };

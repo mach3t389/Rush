@@ -1,4 +1,4 @@
-import type { Priority, ResourceType } from '../types';
+import type { Priority } from '../types';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
@@ -59,12 +59,6 @@ export interface TemplateSection {
   tasks: TemplateTask[];
 }
 
-export interface TemplateResource {
-  type: ResourceType;
-  title: string;
-  templateId?: string; // links to a ResourceTemplate
-}
-
 export interface ProjectTemplate {
   id: string;
   name: string;
@@ -72,7 +66,6 @@ export interface ProjectTemplate {
   color: string;
   icon: string;
   tags: string[];
-  resources: TemplateResource[];
   builtIn?: boolean;
   createdAt: string;
   tasksTemplateId?: string; // référence un ResourceTemplate type 'tasks'
@@ -145,11 +138,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Vidéo', 'Social media', 'Court format'],
     builtIn: true,
     createdAt: '2025-01-01',
-    resources: [
-      { type: 'screenplay', title: 'Script' },
-      { type: 'moodboard',  title: 'Moodboard' },
-      { type: 'document',   title: 'Contrat de production' },
-    ],
     defaultFolderStructureId: 'res-file-structure',
     tasksTemplateId: 'res-tasks-video-sociale',
   },
@@ -162,12 +150,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Corporate', 'Long format', 'Interview'],
     builtIn: true,
     createdAt: '2025-01-01',
-    resources: [
-      { type: 'screenplay',   title: 'Conducteur & script' },
-      { type: 'moodboard',    title: 'Direction artistique' },
-      { type: 'document',     title: 'Contrat' },
-      { type: 'video_review', title: 'V1 client' },
-    ],
     defaultFolderStructureId: 'res-file-structure',
     tasksTemplateId: 'res-tasks-film-institutionnel',
   },
@@ -180,10 +162,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Photo', 'Portrait', 'Produit'],
     builtIn: true,
     createdAt: '2025-01-01',
-    resources: [
-      { type: 'moodboard',    title: 'Moodboard' },
-      { type: 'inspirations', title: 'Références visuelles' },
-    ],
     tasksTemplateId: 'res-tasks-shoot-photo',
   },
   {
@@ -195,12 +173,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Motion', 'Animation', '2D/3D'],
     builtIn: true,
     createdAt: '2025-01-01',
-    resources: [
-      { type: 'moodboard',    title: 'Direction artistique' },
-      { type: 'screenplay',   title: 'Storyboard' },
-      { type: 'video_review', title: 'Preview V1' },
-      { type: 'document',     title: 'Cahier des charges' },
-    ],
     tasksTemplateId: 'res-tasks-motion-design',
   },
   {
@@ -212,7 +184,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Libre'],
     builtIn: true,
     createdAt: '2025-01-01',
-    resources: [],
   },
 ];
 

@@ -304,16 +304,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 // ── Shared constants ───────────────────────────────────────────────────────────
 
 const PRIORITY_COLOR: Record<Priority, string> = { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' };
-const RESOURCE_LABEL_KEYS: Record<ResourceType, string> = {
-  screenplay: 'models.resScript', video_review: 'models.resReviewShort', moodboard: 'models.resMoodboard',
-  document: 'models.resDocument', inspirations: 'models.resInspirations', form: 'models.resForm',
-  web_review: 'models.resWebReview',
-};
-const RESOURCE_ICON: Record<ResourceType, string> = {
-  screenplay: 'file-text', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file', inspirations: 'image', form: 'clipboard-list',
-  web_review: 'globe',
-};
 
 const TAG_COLORS: Record<string, string> = {
   'Vidéo': '#3b4f8f', 'Social media': '#7d4e57', 'Court format': '#1a6b4a',
@@ -467,20 +457,6 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
             </div>
           </div>
         ))}
-        {tpl.resources.length > 0 && (
-          <div style={{ marginTop: 6 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('models.includedResources')}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {tpl.resources.map((r, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SFIcon name={RESOURCE_ICON[r.type]} size={12} color="var(--text-3)" />
-                  <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{r.title}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>({t(RESOURCE_LABEL_KEYS[r.type])})</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
       <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
         <SFButton variant="primary" icon="plus" onClick={onCreateProject} style={{ width: '100%', justifyContent: 'center' }}>{t('models.createProjectFromTemplate')}</SFButton>
@@ -599,7 +575,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
           <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{t('models.projectWillInclude')}</p>
             <div style={{ display: 'flex', gap: 14 }}>
-              {[{ icon: 'layers', val: t('models.sectionsCount', { count: templateSections.length }) }, { icon: 'check-square', val: t('models.tasksCount', { count: templateSections.reduce((s, sec) => s + sec.tasks.length, 0) }) }, { icon: 'file', val: t('models.resourcesCount', { count: template.resources.length }) }].map(s => (
+              {[{ icon: 'layers', val: t('models.sectionsCount', { count: templateSections.length }) }, { icon: 'check-square', val: t('models.tasksCount', { count: templateSections.reduce((s, sec) => s + sec.tasks.length, 0) }) }].map(s => (
                 <div key={s.val} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <SFIcon name={s.icon} size={12} color="var(--text-3)" />
                   <span style={{ fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>{s.val}</span>
@@ -1079,19 +1055,6 @@ function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isD
 // ── Template Project View (full-screen overlay, identical to Travail) ──────────
 
 
-type LResource = { id: string; type: ResourceType; title: string; templateId?: string };
-
-const RESOURCE_TYPE_ICONS_TPV: Record<ResourceType, string> = {
-  screenplay: 'clapperboard', video_review: 'video', moodboard: 'grid-2x2',
-  document: 'file-text', inspirations: 'lightbulb',
-  form: 'clipboard-list', web_review: 'globe',
-};
-const RESOURCE_TYPE_LABELS_TPV: Record<ResourceType, string> = {
-  screenplay: 'models.resTypeScreenplay', video_review: 'models.resTypeVideoReview', moodboard: 'models.resMoodboard',
-  document: 'models.resDocument', inspirations: 'models.resInspirations',
-  form: 'models.resForm', web_review: 'models.resTypeWebReview',
-};
-
 // Priority badge for board cards
 function TPVPriBadge({ priority }: { priority: Priority }) {
   const MAP: Record<Priority, { label: string; color: string }> = {
@@ -1111,19 +1074,13 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
   onClose: () => void;
   onSave: (updated: ProjectTemplate) => void;
 }) {
-  const { t } = useTranslation();
   const [tplName, setTplName] = useState(initialTpl.name);
   const [tplDescription, setTplDescription] = useState(initialTpl.description ?? '');
-  const [resources, setResources] = useState<LResource[]>(() =>
-    (initialTpl.resources ?? []).map((r, i) => ({ id: `r-${Date.now()}-${i}`, ...r }))
-  );
   const [tasksTemplateId, setTasksTemplateId] = useState<string | undefined>(initialTpl.tasksTemplateId);
   const [showTasksPicker, setShowTasksPicker] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'resources'>('tasks');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tasks'>('tasks');
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
-  const [showAddResource, setShowAddResource] = useState(false);
-  const [resTypeFilter, setResTypeFilter] = useState<ResourceType | null>(null);
 
   const allTasksTpls = loadAllResourceTemplates().filter(r => r.type === 'tasks');
   const linkedTasksTpl = tasksTemplateId ? allTasksTpls.find(r => r.id === tasksTemplateId) : undefined;
@@ -1135,14 +1092,11 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
       name: tplName,
       description: tplDescription,
       tasksTemplateId,
-      resources: resources.map(({ id: _id, ...r }) => r),
     });
     setDirty(false);
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 2000);
   };
-
-  const allResTpls = loadAllResourceTemplates();
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1177,7 +1131,6 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
         {([
           { key: 'overview', label: "Vue d'ensemble" },
           { key: 'tasks',    label: 'Tâches' },
-          { key: 'resources', label: 'Ressources' },
         ] as const).map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             style={{ padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--ff-text)', fontWeight: activeTab === tab.key ? 600 : 400, color: activeTab === tab.key ? 'var(--text)' : 'var(--text-3)', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1, transition: 'color 0.15s' }}>
@@ -1191,11 +1144,10 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
           <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
             {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
               {[
                 { icon: 'layers', label: 'Sections', value: resolvedSections.length },
                 { icon: 'check-square', label: 'Tâches', value: resolvedSections.reduce((n, s) => n + s.tasks.length, 0) },
-                { icon: 'paperclip', label: 'Ressources', value: resources.length },
               ].map(card => (
                 <div key={card.label} style={{ padding: '18px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1313,124 +1265,6 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
         </div>
       )}
 
-      {/* ── Ressources ─────────────────────────────────────────────────────────── */}
-      {activeTab === 'resources' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
-          <div style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Header row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Ressources du modèle</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>Les ressources seront créées automatiquement à partir de ces modèles lorsqu'un projet est créé.</p>
-              </div>
-              <SFButton variant="primary" size="sm" icon="plus" onClick={() => setShowAddResource(true)}>Ajouter une ressource</SFButton>
-            </div>
-            {/* Existing resources */}
-            {resources.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                <SFIcon name="paperclip" size={28} color="var(--border-2)" />
-                <p style={{ marginTop: 12 }}>Aucune ressource — ajoutez des modèles de ressources pour les inclure automatiquement.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {resources.map(res => (
-                  <div key={res.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name={RESOURCE_TYPE_ICONS_TPV[res.type] ?? 'file'} size={16} color="var(--text-2)" />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.title}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t(RESOURCE_TYPE_LABELS_TPV[res.type])}</p>
-                    </div>
-                    <button onClick={() => { setResources(r => r.filter(x => x.id !== res.id)); setDirty(true); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 6, borderRadius: 7 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-                      <SFIcon name="trash-2" size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Add resource modal ─────────────────────────────────────────────────── */}
-      {showAddResource && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onMouseDown={e => { if (e.target === e.currentTarget) setShowAddResource(false); }}>
-          <div style={{ width: 560, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontWeight: 700, fontSize: 15 }}>Ajouter une ressource</p>
-              <button onClick={() => setShowAddResource(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                <SFIcon name="x" size={15} />
-              </button>
-            </div>
-            {/* Type filter pills */}
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button onClick={() => setResTypeFilter(null)}
-                style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === null ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === null ? 'var(--on-accent)' : 'var(--text-2)' }}>
-                Tous
-              </button>
-              {(['document','screenplay','video_review','moodboard','form'] as ResourceType[]).map(rt => (
-                <button key={rt} onClick={() => setResTypeFilter(f => f === rt ? null : rt)}
-                  style={{ padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-mono)', background: resTypeFilter === rt ? 'var(--accent)' : 'var(--surface-2)', color: resTypeFilter === rt ? 'var(--on-accent)' : 'var(--text-2)' }}>
-                  {t(RESOURCE_TYPE_LABELS_TPV[rt])}
-                </button>
-              ))}
-            </div>
-            {/* Resource list */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {allResTpls
-                .filter(r => r.type !== 'file' && r.type !== 'overview' && r.type !== 'tasks')
-                .filter(r => resTypeFilter === null || r.type === resTypeFilter)
-                .map(r => (
-                  <button key={r.id} onClick={() => {
-                    const newRes: LResource = { id: `r-${Date.now()}`, type: r.type as ResourceType, title: r.name, templateId: r.id };
-                    setResources(prev => [...prev, newRes]);
-                    setDirty(true);
-                    setShowAddResource(false);
-                  }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: r.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name={r.icon} size={14} color="rgba(255,255,255,0.9)" />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{r.name}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t(RESOURCE_TYPE_LABELS_TPV[r.type as ResourceType])}</p>
-                    </div>
-                    <SFIcon name="plus" size={14} color="var(--text-3)" />
-                  </button>
-                ))}
-              {/* Custom: add blank resource by type */}
-              {(['document','screenplay','video_review','moodboard','form'] as ResourceType[])
-                .filter(rt => resTypeFilter === null || rt === resTypeFilter)
-                .map(rt => (
-                  <button key={`blank-${rt}`} onClick={() => {
-                    const newRes: LResource = { id: `r-${Date.now()}`, type: rt, title: t(RESOURCE_TYPE_LABELS_TPV[rt]) };
-                    setResources(prev => [...prev, newRes]);
-                    setDirty(true);
-                    setShowAddResource(false);
-                  }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px dashed var(--border-2)', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name={RESOURCE_TYPE_ICONS_TPV[rt]} size={14} color="var(--text-3)" />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Nouveau {t(RESOURCE_TYPE_LABELS_TPV[rt])} (vide)</p>
-                    </div>
-                    <SFIcon name="plus" size={14} color="var(--text-3)" />
-                  </button>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -2065,7 +1899,7 @@ export function Modeles() {
       requestUpgrade({ feature: 'customTemplates' });
       return;
     }
-    if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], resources: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
+    if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };
