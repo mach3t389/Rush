@@ -2,9 +2,9 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate, TaskDatePopover } from '../components/ui';
-import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { showToast } from '../data/toastStore';
+import { getTeam } from '../data/teamStore';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import type { Task, Priority, SectionData } from '../types';
 
@@ -26,8 +26,6 @@ const STATUS_OPTIONS = [
   { value: 'danger', labelKey: 'tasks.overdue'   },
   { value: 'review', labelKey: 'tasks.inReview'  },
 ];
-
-const TEAM = Object.values(USERS);
 
 // ── Dropdown portal ───────────────────────────────────────────────────────────
 
@@ -222,7 +220,7 @@ export function TravailBoard({
   const [editingSectionLabel, setEditingSectionLabel] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
-  const firstUser = TEAM[0];
+  const firstUser = getTeam()[0];
 
   useEffect(() => {
     if (editingSectionLabel !== null) labelInputRef.current?.select();
@@ -713,7 +711,7 @@ export function TravailBoard({
             active={!dropTask.assignee}
             onClick={() => { onUpdateTask(dropTask.id, { assignee: firstUser }); closeDrop(); }}
           />
-          {TEAM.map(u => (
+          {getTeam().map(u => (
             <DItem
               key={u.id}
               active={dropTask.assignee?.id === u.id}

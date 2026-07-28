@@ -14,6 +14,7 @@ import { incrementCommentCount } from '../data/commentStore';
 import { notifyComment } from '../data/commentNotify';
 import { addDeliverable } from '../data/taskStore';
 import { STATUS_COLOR } from '../data/status';
+import { getTeam } from '../data/teamStore';
 import type { Resource, Status } from '../types';
 import type { RegisterExport } from './ResourceDetail';
 
@@ -113,8 +114,6 @@ const REVIEW_STATUSES: { key: ReviewStatus; labelKey: string; status: 'review' |
   { key: 'approved', labelKey: 'review.statusApproved', status: 'ok'      },
   { key: 'closed',   labelKey: 'review.statusClosed',   status: 'warn'    },
 ];
-
-const TEAM = Object.values(USERS);
 
 // ── Annotation SVG overlay ────────────────────────────────────────────────────
 
@@ -1382,7 +1381,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
                             <div style={{ display: 'flex', gap: 6, padding: '6px 16px 0 42px', position: 'relative' }} onClick={e => e.stopPropagation()}>
                               {replyMentionQuery !== null && (
                                 <div style={{ position: 'fixed', bottom: replyMentionRect ? window.innerHeight - replyMentionRect.top + 4 : 60, left: replyMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-                                  {TEAM.filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
+                                  {getTeam().filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
                                     <button key={u.id} onMouseDown={e => { e.preventDefault(); pickReplyMention(u.name); }}
                                       style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
                                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -1470,7 +1469,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
               <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
                 {commentMentionQuery !== null && (
                   <div style={{ position: 'fixed', bottom: commentMentionRect ? window.innerHeight - commentMentionRect.top + 4 : 80, left: commentMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-                    {TEAM.filter(u => u.name.toLowerCase().includes(commentMentionQuery.toLowerCase())).map(u => (
+                    {getTeam().filter(u => u.name.toLowerCase().includes(commentMentionQuery.toLowerCase())).map(u => (
                       <button key={u.id} onMouseDown={e => { e.preventDefault(); pickCommentMention(u.name); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}

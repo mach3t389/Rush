@@ -17,8 +17,8 @@ import { loadCustomTemplates, saveCustomTemplates, loadCustomResourceTemplates, 
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import type { ProjectTemplate, ResourceTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, User } from '../types';
-import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getTeamMembers } from '../data/teamStore';
+import { getTeam } from '../data/teamStore';
+export { getTeam };
 import { TravailBoard } from './TravailBoard';
 import { TaskPanel } from '../components/TaskPanel';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
@@ -406,23 +406,6 @@ function SectionContextMenu({ pos, onRename, onCopy, onMove, onDelete, onClose }
     </div>,
     document.body,
   );
-}
-
-// Demo sessions can assign to any of the 5 mock people. Real sessions read
-// the studio's real team roster (teamStore.ts) — invited members, not just
-// the current user.
-export function getTeam(): User[] {
-  if (isDemoSession()) return Object.values(USERS);
-  const team = getTeamMembers();
-  if (team.length > 0) return team;
-  // teamStore's fetch hasn't resolved yet (or getCurrentUser() briefly
-  // returns null right after login, same one-frame window already accepted
-  // in GlobalTopBar.tsx) — fall back to a placeholder so callers that assume
-  // getTeam()[0] is always defined (e.g. the "add task" row's default
-  // assignee) never see undefined.
-  const authUser = getCurrentUser();
-  if (!authUser) return [USERS.lea];
-  return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
 }
 
 function TaskRow({

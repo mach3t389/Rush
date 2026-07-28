@@ -2,8 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon } from './ui';
 import { USERS } from '../data/mock';
-
-const TEAM = Object.values(USERS);
+import { getTeam } from '../data/teamStore';
 
 function renderMentions(text: string) {
   return text.split(/(@\S+)/g).map((part, i) =>
@@ -282,7 +281,7 @@ function CommentCard({
         <div style={{ marginTop: 8, display: 'flex', gap: 6, position: 'relative' }} onClick={e => e.stopPropagation()}>
           {replyMentionQuery !== null && (
             <div style={{ position: 'fixed', bottom: replyMentionRect ? window.innerHeight - replyMentionRect.top + 4 : 80, left: replyMentionRect?.left ?? 80, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-              {TEAM.filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
+              {getTeam().filter(u => u.name.toLowerCase().includes(replyMentionQuery.toLowerCase())).map(u => (
                 <button key={u.id} onMouseDown={e => { e.preventDefault(); pickReplyMention(u.name); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -475,7 +474,7 @@ export function RevisionCommentSidebar({
           <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
             {addMentionQuery !== null && (
               <div style={{ position: 'absolute', bottom: 'calc(100% + 4px)', left: 0, zIndex: 1100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-                {TEAM.filter(u => u.name.toLowerCase().includes(addMentionQuery.toLowerCase())).map(u => (
+                {getTeam().filter(u => u.name.toLowerCase().includes(addMentionQuery.toLowerCase())).map(u => (
                   <button key={u.id} onMouseDown={e => { e.preventDefault(); pickAddMention(u.name); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text)', textAlign: 'left' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}

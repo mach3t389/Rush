@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFAvatar, SFIcon, SFModal, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
-import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
+import { getTeam } from '../data/teamStore';
 import type { Task, Priority, SectionData } from '../types';
 
 // ── Shared task-row constants ──────────────────────────────────────────────────
@@ -30,8 +30,6 @@ export const STATUS_OPTIONS: { value: string; labelKey: string }[] = [
   { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
-
-export const TEAM = Object.values(USERS);
 
 export const GRID = '28px 1fr 80px 65px 160px 110px 130px 90px 28px';
 
@@ -348,7 +346,7 @@ export function ProjectTaskRow({
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee == null
             )}
-            {TEAM.map(u => ddItem(() => { onUpdate({ assignee: u }); setOpen(null); },
+            {getTeam().map(u => ddItem(() => { onUpdate({ assignee: u }); setOpen(null); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}

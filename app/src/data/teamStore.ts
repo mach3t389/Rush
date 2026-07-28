@@ -119,6 +119,22 @@ export function getTeamMembers(): TeamMemberInfo[] {
   return _members;
 }
 
+// Assignee-picker helper — returns plain User[] (not the studio-membership
+// TeamMemberInfo shape) so callers like task/subtask assignee dropdowns
+// don't need to care about email/joinedAt/accessLevel.
+export function getTeam(): User[] {
+  const team = getTeamMembers();
+  if (team.length > 0) return team;
+  // teamStore's fetch hasn't resolved yet (or getCurrentUser() briefly
+  // returns null right after login, same one-frame window already accepted
+  // in GlobalTopBar.tsx) — fall back to a placeholder so callers that assume
+  // getTeam()[0] is always defined (e.g. the "add task" row's default
+  // assignee) never see undefined.
+  const authUser = getCurrentUser();
+  if (!authUser) return [USERS.lea];
+  return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
+}
+
 export function subscribeTeam(fn: () => void): () => void {
   _listeners.add(fn);
   return () => _listeners.delete(fn);
