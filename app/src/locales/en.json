@@ -3,6 +3,8 @@
   "templateMenuLoad": "Load a template",
   "templateMenuSave": "Save as template",
   "templateMenuNoOptions": "No template available",
+  "templateMenuConfirmReplace": "Replace the current content with this template?",
+  "templateMenuPromptName": "Template name",
   "nav": {
     "dashboard": "Home",
     "myTasks": "My Tasks",

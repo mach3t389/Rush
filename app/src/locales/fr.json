@@ -3,6 +3,8 @@
   "templateMenuLoad": "Charger un modèle",
   "templateMenuSave": "Enregistrer comme modèle",
   "templateMenuNoOptions": "Aucun modèle disponible",
+  "templateMenuConfirmReplace": "Remplacer le contenu actuel par ce modèle ?",
+  "templateMenuPromptName": "Nom du modèle",
   "nav": {
     "dashboard": "Accueil",
     "myTasks": "Mes tâches",
