@@ -13,7 +13,7 @@ import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { sendAiChat, AiChatError } from '../data/aiClient';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
-import { requestUpgrade } from '../data/upgradePromptStore';
+import { requestUpgrade, canUploadFile } from '../data/upgradePromptStore';
 import {
   AnnotationLayer, RevisionCommentSidebar,
   type RevisionComment, type RevisionAnnotation,
@@ -312,7 +312,8 @@ export function DocumentReview() {
   const goTo = (n: number) => setCurrentPage(Math.max(1, Math.min(totalPages, n)));
 
   // Stocke le contenu réel d'un fichier et renvoie ses métadonnées (avec fileId)
-  const storeUploaded = (f: File): UploadedFile => {
+  const storeUploaded = (f: File): UploadedFile | null => {
+    if (!canUploadFile()) return null;
     const fileId = `doc-${resourceId}-${Date.now()}`;
     setFileContent(fileId, f);
     return { name: f.name, size: f.size, type: f.type, fileId };
@@ -322,13 +323,16 @@ export function DocumentReview() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    setPendingUpload(storeUploaded(f));
+    const uploaded = storeUploaded(f);
+    if (!uploaded) return;
+    setPendingUpload(uploaded);
     e.target.value = '';
   };
 
   // Glisser-déposer un document directement dans la version active
   const dropToActive = (f: File) => {
     const uploaded = storeUploaded(f);
+    if (!uploaded) return;
     setRounds(prev => prev.map(r => r.v === activeRound ? { ...r, file: uploaded } : r));
   };
 
