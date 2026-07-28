@@ -13,6 +13,7 @@ import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
 import { notifyComment } from '../data/commentNotify';
 import { addDeliverable } from '../data/taskStore';
+import { canUploadFile } from '../data/upgradePromptStore';
 import { STATUS_COLOR } from '../data/status';
 import { getTeam } from '../data/teamStore';
 import type { Resource, Status } from '../types';
@@ -287,6 +288,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
 
   // Dépose / remplace le média de la version active
   const assignMediaToActive = (file: File) => {
+    if (!canUploadFile()) return;
     const fileId = `media-${persistKey ?? resource.id}-${activeVersion}-${Date.now()}`;
     setFileContent(fileId, file);
     setVersions(prev => prev.map(v => v.v === activeVersion
