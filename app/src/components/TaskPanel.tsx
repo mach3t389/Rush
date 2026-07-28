@@ -296,7 +296,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(2, editTitle.length + 1)}ch`, maxWidth: '100%' }}
+          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(editTitle ? 2 : t('tasks.newSubtask').length + 2, editTitle.length + 1)}ch`, maxWidth: '100%' }}
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
