@@ -1079,10 +1079,10 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
   );
 }
 
-function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void; compact?: boolean }) {
+function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAutoOpened }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void; compact?: boolean; autoOpen?: boolean; onAutoOpened?: () => void }) {
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
-  const [open, setOpen]         = useState(false);
+  const [open, setOpen]         = useState(() => !!autoOpen);
   const [assignee, setAssignee] = useState<User | null>(null);
   const [project, setProject]   = useState<typeof PROJECTS[0] | null>(null);
   const [priority, setPriority] = useState<Priority>(defaultPriority);
@@ -1092,6 +1092,19 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact }: { defaultPri
   const [openField, setOpenField] = useState<'assignee' | 'project' | 'priority' | 'status' | 'dueDate' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Created via "Ajouter une section" + Entrée — jump straight into this
+  // freshly-created section's own add-task row, same as pressing Entrée on a
+  // task keeps you typing the next one. Runs once on mount only: this row is
+  // freshly mounted for a just-created section (new key in the parent list),
+  // never re-triggered by a later prop change.
+  useEffect(() => {
+    if (autoOpen) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+      onAutoOpened?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openDrop = (key: typeof openField, e: React.MouseEvent<HTMLButtonElement>) => {
     setOpenField(prev => prev === key ? null : key);
@@ -1332,6 +1345,7 @@ export function Taches() {
   const [mySections, setMySections]   = useState<string[]>(getMyTaskSections);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
+  const [justCreatedSection, setJustCreatedSection] = useState<string | null>(null);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
@@ -1660,7 +1674,8 @@ export function Taches() {
                       {g.tasks.map(task => (
                         <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
                       ))}
-                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} compact={compactColumns} />
+                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} compact={compactColumns}
+                        autoOpen={justCreatedSection === g.label} onAutoOpened={() => setJustCreatedSection(null)} />
                     </>
                   )}
                 </div>
@@ -1678,9 +1693,11 @@ export function Taches() {
                   onChange={e => setNewSectionLabel(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && newSectionLabel.trim()) {
-                      addMyTaskSection(newSectionLabel.trim());
+                      const label = newSectionLabel.trim();
+                      addMyTaskSection(label);
                       setNewSectionLabel('');
                       setAddingSection(false);
+                      setJustCreatedSection(label);
                     }
                     if (e.key === 'Escape') { setAddingSection(false); setNewSectionLabel(''); }
                   }}
