@@ -26,6 +26,7 @@ import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStor
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
+import { canUploadFile } from '../data/upgradePromptStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -2031,6 +2032,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
   // Traite des fichiers réels déposés (drag-and-drop OS ou input[type=file])
   const processUploadedFiles = useCallback((files: File[]) => {
+    if (!canUploadFile()) return;
     const { scope, scopeId, folderId } = addTargetLoc ?? location;
     for (const file of files) {
       const ext = (file.name.split('.').pop() ?? '').toLowerCase();
