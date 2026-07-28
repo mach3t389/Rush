@@ -6,7 +6,9 @@ import { USERS } from '../data/mock';
 import { addProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
-import { addFolderTree } from '../data/fileStore';
+import { addFolderTree, addFile } from '../data/fileStore';
+import { addResource } from '../data/resourceStore';
+import { setResourceContent } from '../data/resourceContentStore';
 import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
@@ -1913,6 +1915,21 @@ export function Modeles() {
     return matchType && matchSearch;
   });
 
+  function createDraftResource(draftId: string, type: ResourceType, title: string): string {
+    const resourceId = `res-draft-${Date.now()}`;
+    addResource({
+      id: resourceId,
+      type,
+      eyebrow: type.toUpperCase(),
+      title,
+      status: 'info',
+      statusLabel: 'En cours',
+      meta: '',
+    });
+    addFile({ name: title, type: 'resource', ext: 'res', parentFolderId: null, projectId: draftId, resourceId, resourceType: type });
+    return resourceId;
+  }
+
   const openTemplateDraft = async (tpl: { id: string; name: string; type: ResourceTemplateType } & Partial<ResourceTemplate>) => {
     let draftId: string;
     try {
@@ -1952,10 +1969,20 @@ export function Modeles() {
       const reusable = (tpl.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID);
       setProjectContent(draftId, { customSections: [vision, ...reusable], customSectionData: {} });
       navigate(`/projets/${draftId}/overview`);
+    } else if (tpl.type === 'document' || tpl.type === 'screenplay') {
+      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name);
+      if (tpl.type === 'document') {
+        const html = tpl.rawHTML ?? (tpl.documentSections ? documentSectionsToHTML(tpl.documentSections) : '');
+        setResourceContent(resourceId, { html });
+      } else {
+        const elements = tpl.rawElements ? (JSON.parse(tpl.rawElements) as ScriptEl[]) : (tpl.sceneBlocks ? sceneBlocksToElements(tpl.sceneBlocks) : []);
+        setResourceContent(resourceId, { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements }], activeId: 'v1' });
+      }
+      navigate(`/projets/${draftId}/ressources/${resourceId}`);
     }
   };
 
-  const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview') => {
+  const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview' | 'document' | 'screenplay') => {
     let draftId: string;
     try {
       draftId = await createTemplateDraft('Nouveau modèle');
@@ -1966,7 +1993,11 @@ export function Modeles() {
     }
     if (type === 'file') navigate(`/projets/${draftId}/fichiers`);
     else if (type === 'tasks') navigate(`/projets/${draftId}`);
-    else navigate(`/projets/${draftId}/overview`);
+    else if (type === 'overview') navigate(`/projets/${draftId}/overview`);
+    else {
+      const resourceId = createDraftResource(draftId, type as ResourceType, 'Nouveau modèle');
+      navigate(`/projets/${draftId}/ressources/${resourceId}`);
+    }
   };
 
   const handleNew = () => {
@@ -1976,7 +2007,7 @@ export function Modeles() {
     }
     if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
-    else if (typeFilter === 'file' || typeFilter === 'tasks' || typeFilter === 'overview') { void openNewTemplateDraft(typeFilter); }
+    else if (typeFilter === 'file' || typeFilter === 'tasks' || typeFilter === 'overview' || typeFilter === 'document' || typeFilter === 'screenplay') { void openNewTemplateDraft(typeFilter); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };
 
@@ -2281,7 +2312,7 @@ export function Modeles() {
             selectedRes
               ? <ResourceTemplateDetail tpl={selectedRes}
                   onOpen={() => {
-                    if (selectedRes.type === 'file' || selectedRes.type === 'tasks' || selectedRes.type === 'overview') {
+                    if (selectedRes.type === 'file' || selectedRes.type === 'tasks' || selectedRes.type === 'overview' || selectedRes.type === 'document' || selectedRes.type === 'screenplay') {
                       void openTemplateDraft(selectedRes);
                     } else {
                       setTemplateResViewTpl(selectedRes);
