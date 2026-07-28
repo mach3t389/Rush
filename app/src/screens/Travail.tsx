@@ -2309,6 +2309,7 @@ export function Travail() {
           multiSelIds={multiSelIds}
           onConvertRequest={handleConvertRequest}
           onSelectTask={handleSelectTask}
+          onClearSelection={clearTaskSelection}
           onUpdateTask={(taskId, patch) => {
             updateTask(projectId!, taskId, patch);
             setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t) })));
@@ -2330,7 +2331,7 @@ export function Travail() {
       )}
 
       {/* List view */}
-      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div style={{ minWidth: 900 }}>
+      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
         <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {visibleSections.map((section, vIdx) => {
           const globalIdx = sections.findIndex(s => s.label === section.label);

@@ -1518,6 +1518,14 @@ export function Taches() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noSectionTasks, sectionGroups]);
 
+  // Clicking empty space (not a row, not a control) clears selection —
+  // both the bulk multi-select set and whichever task has its detail panel
+  // open. Only fires when the click target IS the background element
+  // itself (e.target === e.currentTarget), never on bubbled clicks from a
+  // row/button/etc., so this can't fight with row-level click handlers.
+  const clearTaskSelection = () => { setMultiSelIds(new Set()); setSelectedTask(null); };
+  const onBackgroundClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) clearTaskSelection(); };
+
   const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort, compact: compactColumns };
 
   const filterTabBtn = (f: { key: Filter; labelKey: string }) => (
@@ -1560,8 +1568,8 @@ export function Taches() {
       </PageHeader>
 
       {/* Body */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px' }}>
+      <div onClick={onBackgroundClick} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {visible.length === 0 && hasActiveFilters && (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>

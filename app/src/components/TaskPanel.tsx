@@ -1338,7 +1338,10 @@ export function TaskPanel({
 
           {/* Sous-tâches */}
           {divider}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, position: 'relative' }}>
+          <div
+            onClick={e => { if (e.target === e.currentTarget) setSelectedSubIds(new Set()); }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 2, position: 'relative' }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               {panelSectionLabel(`${t('tasks.subtasks')}${localSubtasks.length ? ` (${localSubtasks.filter(s => s.checked).length}/${localSubtasks.length})` : ''}`)}
               {localSubtasks.some(s => s.checked) && (

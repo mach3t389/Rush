@@ -180,6 +180,7 @@ interface Props {
   multiSelIds?: Set<string>;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
   onSelectTask: (t: Task, e?: React.MouseEvent) => void;
+  onClearSelection?: () => void;
   onUpdateTask: (taskId: string, patch: Partial<Task>) => void;
   onToggleSectionComplete: (sectionLabel: string) => void;
   onAddTask: (sectionIdx: number, task: Task) => void;
@@ -199,7 +200,7 @@ interface Props {
 
 export function TravailBoard({
   sections, selectedTask, multiSelIds, onConvertRequest,
-  onSelectTask, onUpdateTask, onToggleSectionComplete,
+  onSelectTask, onClearSelection, onUpdateTask, onToggleSectionComplete,
   onAddTask, onMoveTask, onAddSection,
   onDeleteTask, onDeleteSection, onRenameSection,
   onMoveSection, onCopySection,
@@ -255,7 +256,10 @@ export function TravailBoard({
   const dropTask = openDrop ? sections.flatMap(s => s.tasks).find(t => t.id === openDrop.taskId) : null;
 
   return (
-    <div style={{ display: 'flex', gap: 16, overflowX: 'auto', overflowY: 'hidden', padding: '20px 24px', alignItems: 'flex-start', flex: 1, boxSizing: 'border-box' }}>
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClearSelection?.(); }}
+      style={{ display: 'flex', gap: 16, overflowX: 'auto', overflowY: 'hidden', padding: '20px 24px', alignItems: 'flex-start', flex: 1, boxSizing: 'border-box' }}
+    >
       {sections.map((section, sIdx) => {
         const done = section.tasks.filter(t => t.checked || t.status === 'ok').length;
         const total = section.tasks.length;
@@ -406,7 +410,10 @@ export function TravailBoard({
                 <div style={{ height: 1, background: 'var(--border)', flexShrink: 0 }} />
 
                 {/* Cards */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 0' }}>
+                <div
+                  onClick={e => { if (e.target === e.currentTarget) onClearSelection?.(); }}
+                  style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 0' }}
+                >
                   {section.tasks.length === 0 && (
                     <div style={{ padding: '20px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--text-3)' }}>
                       <SFIcon name="inbox" size={22} color="var(--border-2)" />
