@@ -2198,6 +2198,11 @@ export function Travail() {
       {/* Headers wrapper */}
       <div style={{ flexShrink: 0 }}>
       <ProjectHeaderBar projectId={project.id}>
+        {/* Hidden while the task detail panel is open — with the left
+            column squeezed narrower, this toolbar (template menu, view
+            switcher, view settings) had no room and visibly crammed/
+            reflowed instead of just staying out of the way. */}
+        {!selectedTask && <>
         {/* Save as template */}
         <TemplateMenuButton
           icon="layout-template"
@@ -2256,6 +2261,7 @@ export function Travail() {
             </>
           )}
         </div>
+        </>}
       </ProjectHeaderBar>
 
       {/* Section nav bar — only in list view */}
