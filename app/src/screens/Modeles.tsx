@@ -22,6 +22,7 @@ import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { CustomOverviewSection } from '../data/projectContentStore';
 import { setProjectContent, VISION_SECTION_ID, getDefaultVisionSection } from '../data/projectContentStore';
 import { createTemplateDraft } from '../data/projectStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── OverviewSectionsEditor ─────────────────────────────────────────────────────
 // Éditeur partagé de la STRUCTURE des sections d'Aperçu d'un modèle.
@@ -1677,7 +1678,7 @@ export function Modeles() {
   const { t } = useTranslation();
   const plan = usePlan();
   const navigate = useNavigate();
-  const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>('projets');
+  const [typeFilter, setTypeFilter] = usePersistedState<UnifiedTypeFilter>('sf_modeles_type_filter', 'projets');
   const [searchQuery, setSearchQuery] = useState('');
   const [resNavExpanded, setResNavExpanded] = useState(true);
 
@@ -1692,7 +1693,12 @@ export function Modeles() {
 
   // ── Project templates state
   const [templates, setTemplates] = useState(loadAllTemplates);
-  const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => { const all = loadAllTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
+  const [lastSelectedTplId, setLastSelectedTplId] = usePersistedState<string | null>('sf_modeles_selected_tpl_id', null);
+  const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => {
+    const all = loadAllTemplates();
+    return all.find(t => t.id === lastSelectedTplId) ?? all.find(t => !t.builtIn) ?? all[0] ?? null;
+  });
+  useEffect(() => { setLastSelectedTplId(selectedTpl?.id ?? null); }, [selectedTpl?.id]);
   const [createProjectFrom, setCreateProjectFrom] = useState<ProjectTemplate | null>(null);
   const [previewTpl, setPreviewTpl] = useState<ProjectTemplate | null>(null);
   const [builtInsCollapsed, setBuiltInsCollapsed] = useState(false);
@@ -1701,7 +1707,12 @@ export function Modeles() {
 
   // ── Resource templates state
   const [resourceTemplates, setResourceTemplates] = useState(loadAllResourceTemplates);
-  const [selectedRes, setSelectedRes] = useState<ResourceTemplate | null>(() => { const all = loadAllResourceTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
+  const [lastSelectedResId, setLastSelectedResId] = usePersistedState<string | null>('sf_modeles_selected_res_id', null);
+  const [selectedRes, setSelectedRes] = useState<ResourceTemplate | null>(() => {
+    const all = loadAllResourceTemplates();
+    return all.find(t => t.id === lastSelectedResId) ?? all.find(t => !t.builtIn) ?? all[0] ?? null;
+  });
+  useEffect(() => { setLastSelectedResId(selectedRes?.id ?? null); }, [selectedRes?.id]);
   const [resEditorOpen, setResEditorOpen] = useState(false);
   const [resEditorData, setResEditorData] = useState<Partial<ResourceTemplate>>({});
   const [resBuiltInsCollapsed, setResBuiltInsCollapsed] = useState(false);
@@ -1711,7 +1722,12 @@ export function Modeles() {
 
   // ── Form templates state
   const [formTemplates, setFormTemplates] = useState(loadAllFormTemplates);
-  const [selectedForm, setSelectedForm] = useState<FormTemplate | null>(() => { const all = loadAllFormTemplates(); return all.find(t => !t.builtIn) ?? all[0] ?? null; });
+  const [lastSelectedFormId, setLastSelectedFormId] = usePersistedState<string | null>('sf_modeles_selected_form_id', null);
+  const [selectedForm, setSelectedForm] = useState<FormTemplate | null>(() => {
+    const all = loadAllFormTemplates();
+    return all.find(t => t.id === lastSelectedFormId) ?? all.find(t => !t.builtIn) ?? all[0] ?? null;
+  });
+  useEffect(() => { setLastSelectedFormId(selectedForm?.id ?? null); }, [selectedForm?.id]);
   const [formViewOpen, setFormViewOpen] = useState(false);
   const [formViewData, setFormViewData] = useState<Partial<FormTemplate>>({});
   const [formFillerOpen, setFormFillerOpen] = useState(false);
