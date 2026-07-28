@@ -1455,13 +1455,17 @@ export function Taches() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Escape — ferme le panneau de détail de tâche
+  // Escape — ferme le panneau de détail de tâche. Capture phase, donc si on
+  // ne filtre pas les champs en édition (titre de tâche/sous-tâche, libellé
+  // de section…), Escape ferme tout le panneau au lieu de laisser le champ
+  // annuler sa propre édition — il ne peut jamais recevoir l'événement.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedTask) {
-        setSelectedTask(null);
-        e.stopPropagation();
-      }
+      if (e.key !== 'Escape' || !selectedTask) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      setSelectedTask(null);
+      e.stopPropagation();
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);

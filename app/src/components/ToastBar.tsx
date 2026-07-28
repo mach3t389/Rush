@@ -84,11 +84,13 @@ export function ToastBar() {
             color: 'var(--text)',
             fontFamily: 'var(--ff-text)',
             whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}>
             {toast.message}
           </p>
           {toast.subMessage && (
-            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)', marginTop: 1 }}>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {toast.subMessage}
             </p>
           )}
