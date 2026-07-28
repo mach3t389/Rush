@@ -64,7 +64,18 @@
     "noTasksYet": "Aucune tâche pour l'instant — elles apparaîtront ici dès que vous en créerez une.",
     "noProjectsYet": "Aucun projet pour l'instant — créez votre premier projet pour le voir ici.",
     "noApprovalsPending": "Aucune approbation en attente pour l'instant.",
-    "noActivityYet": "Aucune activité pour l'instant."
+    "noActivityYet": "Aucune activité pour l'instant.",
+    "aiHero": {
+      "title": "Qu'est-ce qu'on fait aujourd'hui ?",
+      "placeholder": "Demandez-moi n'importe quoi…",
+      "summaryBase": "Vous avez {{tasksCount}} tâche(s) à faire et {{projectsCount}} projet(s) actif(s) en ce moment.",
+      "summaryLate": " {{lateCount}} projet(s) accuse(nt) du retard.",
+      "suggestion1": "Créer une tâche",
+      "suggestion2": "Résumer mes projets actifs",
+      "suggestion3": "Que dois-je prioriser aujourd'hui ?",
+      "suggestion4": "Créer un événement",
+      "newConversation": "Nouvelle conversation"
+    }
   },
   "priority": {
     "urgent": "Urgente",

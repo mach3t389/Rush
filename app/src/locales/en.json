@@ -64,7 +64,18 @@
     "noTasksYet": "No tasks yet — they'll show up here once you create one.",
     "noProjectsYet": "No projects yet — create your first project to see it here.",
     "noApprovalsPending": "No pending approvals right now.",
-    "noActivityYet": "No activity yet."
+    "noActivityYet": "No activity yet.",
+    "aiHero": {
+      "title": "What are we doing today?",
+      "placeholder": "Ask me anything…",
+      "summaryBase": "You have {{tasksCount}} task(s) to do and {{projectsCount}} active project(s) right now.",
+      "summaryLate": " {{lateCount}} project(s) running late.",
+      "suggestion1": "Create a task",
+      "suggestion2": "Summarize my active projects",
+      "suggestion3": "What should I prioritize today?",
+      "suggestion4": "Create an event",
+      "newConversation": "New conversation"
+    }
   },
   "priority": {
     "urgent": "Urgent",
