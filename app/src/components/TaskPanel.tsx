@@ -244,6 +244,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
+      onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
       onClick={e => {
         if (editing) return;
         if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
@@ -254,7 +255,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         e.preventDefault();
         onContextMenu(e);
       }}
-      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined }}
+      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined, userSelect: 'none' }}
     >
       {/* Checkbox */}
       <button onClick={toggleChecked}
