@@ -300,7 +300,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         />
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
-          style={{ fontSize: 12, textDecoration: checked ? 'line-through' : 'none', color: sub.title ? (checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
+          style={{ justifySelf: 'start', maxWidth: '100%', fontSize: 12, textDecoration: checked ? 'line-through' : 'none', color: sub.title ? (checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
           {sub.title || t('tasks.newSubtask')}
         </span>
       )}
