@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFModal, SFButton } from './ui';
@@ -34,10 +34,27 @@ export function ProjectHeaderBar({
   // quitte cet écran, quel que soit le chemin de sortie (bouton "Terminer",
   // navigation ailleurs, retour arrière). removeProject() cascade déjà
   // correctement (sections/fichiers/événements) — rien d'autre à nettoyer ici.
+  //
+  // La suppression est différée d'un tick (setTimeout 0) et annulable : en
+  // StrictMode (dev), React invoque setup → cleanup → setup pour chaque effet
+  // au montage, ce qui supprimerait le brouillon immédiatement après sa
+  // création si le cleanup agissait de façon synchrone. Le second `setup`
+  // annule la suppression programmée par le `cleanup` précédent ; seul un
+  // vrai démontage (rien pour l'annuler ensuite) laisse le timeout s'exécuter.
+  const pendingRemovalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (pendingRemovalRef.current) {
+      clearTimeout(pendingRemovalRef.current);
+      pendingRemovalRef.current = null;
+    }
     if (!project?.isTemplateDraft) return;
     const draftId = project.id;
-    return () => { removeProject(draftId); };
+    return () => {
+      pendingRemovalRef.current = setTimeout(() => {
+        removeProject(draftId);
+        pendingRemovalRef.current = null;
+      }, 0);
+    };
   }, [project?.id, project?.isTemplateDraft]);
 
   const [, forceUpdate] = useState(0);
