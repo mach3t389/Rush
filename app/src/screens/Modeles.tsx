@@ -1233,10 +1233,10 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave, onOpenResourceT
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure de tâches</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                   {linkedTasksTpl
-                    ? <>Liée au modèle de tâches « {linkedTasksTpl.name} ». Éditable depuis la catégorie « Tâches » des modèles.
-                        <button onClick={() => onOpenResourceTemplate(linkedTasksTpl)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
+                    ? <>Liée au modèle de tâches « {linkedTasksTpl.name} ».
+                        <button onClick={() => { handleSave(); onOpenResourceTemplate(linkedTasksTpl); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
                           <SFIcon name="external-link" size={11} />Ouvrir
                         </button>
                       </>
@@ -1319,10 +1319,10 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave, onOpenResourceT
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure d'Aperçu</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                   {linkedOverviewTpl
                     ? <>Lié au modèle d'Aperçu « {linkedOverviewTpl.name} ».
-                        <button onClick={() => onOpenResourceTemplate(linkedOverviewTpl)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
+                        <button onClick={() => { handleSave(); onOpenResourceTemplate(linkedOverviewTpl); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
                           <SFIcon name="external-link" size={11} />Ouvrir
                         </button>
                       </>
@@ -1392,10 +1392,10 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave, onOpenResourceT
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure de fichiers</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                   {linkedFileTpl
                     ? <>Liée au modèle de fichiers « {linkedFileTpl.name} ».
-                        <button onClick={() => onOpenResourceTemplate(linkedFileTpl)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
+                        <button onClick={() => { handleSave(); onOpenResourceTemplate(linkedFileTpl); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
                           <SFIcon name="external-link" size={11} />Ouvrir
                         </button>
                       </>
@@ -2128,14 +2128,14 @@ export function Modeles() {
     return resourceId;
   }
 
-  const openTemplateDraft = async (tpl: { id: string; name: string; type: ResourceTemplateType } & Partial<ResourceTemplate>) => {
+  const openTemplateDraft = async (tpl: { id: string; name: string; type: ResourceTemplateType } & Partial<ResourceTemplate>): Promise<boolean> => {
     let draftId: string;
     try {
       draftId = await createTemplateDraft(tpl.name, tpl.builtIn ? undefined : tpl.id);
     } catch {
       // addSupabaseProject already showed an error toast — just bail out
       // without navigating to a draft that doesn't exist server-side.
-      return;
+      return false;
     }
     if (tpl.type === 'file') {
       addFolderTree(tpl.folderStructure ?? [], { projectId: draftId });
@@ -2203,6 +2203,7 @@ export function Modeles() {
       }
       navigate(`/projets/${draftId}/ressources/${resourceId}`);
     }
+    return true;
   };
 
   const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview' | 'document' | 'screenplay' | 'moodboard' | 'video_review') => {
@@ -2636,7 +2637,7 @@ export function Modeles() {
             saveTpl(updated);
             setPreviewTpl(updated);
           }}
-          onOpenResourceTemplate={tpl => { setPreviewTpl(null); void openTemplateDraft(tpl); }}
+          onOpenResourceTemplate={async tpl => { const ok = await openTemplateDraft(tpl); if (ok) setPreviewTpl(null); }}
         />
       )}
     </div>
