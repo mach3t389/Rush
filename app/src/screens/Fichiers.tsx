@@ -14,16 +14,17 @@ const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', 
 // Mirrors Travail.tsx's "+ Modèle" flow (same button label/fields), but
 // captures the project's current folder tree into a "Fichiers" resource
 // template instead of its sections/tasks.
-function SaveFolderTemplateModal({ projectId, projectName, onClose }: {
+function SaveFolderTemplateModal({ projectId, projectName, originTemplate, onClose }: {
   projectId: string;
   projectName: string;
+  originTemplate?: ResourceTemplate;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState(projectName);
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState(TEMPLATE_COLORS[0]);
-  const [tags, setTags] = useState('');
+  const [name, setName] = useState(originTemplate?.name ?? projectName);
+  const [description, setDescription] = useState(originTemplate?.description ?? '');
+  const [color, setColor] = useState(originTemplate?.color ?? TEMPLATE_COLORS[0]);
+  const [tags, setTags] = useState(originTemplate?.tags?.join(', ') ?? '');
   const [saved, setSaved] = useState(false);
 
   const tree = getFolderTreeForProject(projectId);
@@ -31,7 +32,7 @@ function SaveFolderTemplateModal({ projectId, projectName, onClose }: {
   const handleSave = () => {
     if (!name.trim()) return;
     const tpl: ResourceTemplate = {
-      id: `res-${Date.now()}`,
+      id: originTemplate?.id ?? `res-${Date.now()}`,
       type: 'file',
       name: name.trim(),
       description: description.trim(),
@@ -39,10 +40,14 @@ function SaveFolderTemplateModal({ projectId, projectName, onClose }: {
       icon: 'folder',
       tags: tags.split(',').map(x => x.trim()).filter(Boolean),
       builtIn: false,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: originTemplate?.createdAt ?? new Date().toISOString().split('T')[0],
       folderStructure: tree,
     };
-    saveCustomResourceTemplates([...loadCustomResourceTemplates(), tpl]);
+    const existing = loadCustomResourceTemplates();
+    const updated = originTemplate
+      ? existing.map(t2 => t2.id === tpl.id ? tpl : t2)
+      : [...existing, tpl];
+    saveCustomResourceTemplates(updated);
     setSaved(true);
     setTimeout(onClose, 1400);
   };
@@ -125,6 +130,9 @@ export function Fichiers() {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   if (!projectId) return null;
   const project = findProject(projectId);
+  const originTemplate = project?.draftOriginTemplateId
+    ? loadAllResourceTemplates().find(t2 => t2.id === project.draftOriginTemplateId && t2.type === 'file')
+    : undefined;
 
   const handleLoadFileTemplate = (templateId: string) => {
     const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === 'file');
@@ -157,6 +165,7 @@ export function Fichiers() {
         <SaveFolderTemplateModal
           projectId={projectId}
           projectName={project.name}
+          originTemplate={originTemplate}
           onClose={() => setSaveTemplateOpen(false)}
         />
       )}
