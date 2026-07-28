@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate, PageHeader } from '../components/ui';
@@ -11,6 +11,9 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { getMyTasks, subscribeMyTasks, updateMyTask } from '../data/myTaskStore';
 import { getProjectStats, subscribeStore } from '../data/taskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { useAIAgentChat, renderMarkdown } from '../components/ai/aiAgentCore';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
 import type { Task } from '../types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -214,6 +217,175 @@ function CompactTaskRow({ task, onClick }: { task: Task; onClick?: () => void })
   );
 }
 
+// ── AI Hero — accueil-first entry point into the AI assistant ────────────────
+
+function DashboardAIHero({
+  tasksCount, projectsCount, lateCount,
+}: { tasksCount: number; projectsCount: number; lateCount: number }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const plan = usePlan();
+  const demo = isDemoSession();
+  const { messages, loading, send, clear } = useAIAgentChat(navigate);
+  const [input, setInput] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  // Réel plan Gratuit sans accès IA → bloc absent. Session démo → toujours
+  // visible (vitrine produit), écrire dedans montre le message démo statique
+  // via useAIAgentChat lui-même (même comportement que le panneau flottant).
+  if (!demo && !canUseFeature(plan, 'ai')) return null;
+
+  const summary = t('dashboard.aiHero.summaryBase', { tasksCount, projectsCount })
+    + (lateCount > 0 ? t('dashboard.aiHero.summaryLate', { lateCount }) : '');
+
+  const suggestions = [
+    t('dashboard.aiHero.suggestion1'),
+    t('dashboard.aiHero.suggestion2'),
+    t('dashboard.aiHero.suggestion3'),
+    t('dashboard.aiHero.suggestion4'),
+  ];
+
+  const submit = (text: string) => {
+    const content = text.trim();
+    if (!content || loading) return;
+    send(content);
+    setInput('');
+  };
+
+  return (
+    <div style={{
+      marginBottom: 20, borderRadius: 'var(--radius-lg)', padding: 24,
+      background: 'linear-gradient(160deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface))',
+      border: '1px solid color-mix(in srgb, var(--accent) 25%, var(--border))',
+    }}>
+      {messages.length === 0 ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <SFIcon name="sparkles" size={20} color="var(--accent)" />
+            <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: 22, color: 'var(--text)' }}>
+              {t('dashboard.aiHero.title')}
+            </h2>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>{summary}</p>
+        </>
+      ) : (
+        <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+          {messages.map((msg, i) => {
+            if (msg.role === 'tool') {
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 10px', borderRadius: 7,
+                  background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)',
+                  fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
+                }}>
+                  <SFIcon name="zap" size={10} color="var(--accent)" />
+                  <span style={{ color: 'var(--accent)' }}>{msg._toolLabel}</span>
+                  <span>{t('ai.toolExecuted')}</span>
+                </div>
+              );
+            }
+            const isUser = msg.role === 'user';
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                <div style={{
+                  maxWidth: '80%', padding: '9px 13px',
+                  borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+                  background: isUser ? 'var(--accent)' : 'var(--surface-2)',
+                  color: isUser ? 'var(--on-accent)' : 'var(--text)',
+                  fontSize: 13, lineHeight: 1.6,
+                  border: isUser ? 'none' : '1px solid var(--border)',
+                }}>
+                  {isUser ? msg.content : renderMarkdown(msg.content)}
+                </div>
+              </div>
+            );
+          })}
+          {loading && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{
+                padding: '10px 14px', borderRadius: '4px 14px 14px 14px',
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                display: 'flex', gap: 5, alignItems: 'center',
+              }}>
+                {[0, 1, 2].map(n => (
+                  <div key={n} style={{
+                    width: 6, height: 6, borderRadius: '50%', background: 'var(--text-3)',
+                    animation: `ai-dot 1.2s ${n * 0.2}s ease-in-out infinite`,
+                  }} />
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'center',
+        background: 'var(--surface)', border: '1px solid var(--border-2)',
+        borderRadius: 13, padding: '8px 8px 8px 14px',
+      }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(input); }}
+          placeholder={t('dashboard.aiHero.placeholder')}
+          style={{
+            flex: 1, border: 'none', background: 'none', outline: 'none',
+            fontSize: 14, color: 'var(--text)', fontFamily: 'var(--ff-text)',
+          }}
+        />
+        <button
+          onClick={() => submit(input)}
+          disabled={!input.trim() || loading}
+          style={{
+            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+            background: input.trim() && !loading ? 'var(--accent)' : 'var(--surface-3)',
+            border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <SFIcon name="send" size={14} color={input.trim() && !loading ? 'var(--on-accent)' : 'var(--text-3)'} />
+        </button>
+      </div>
+
+      {messages.length === 0 ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+          {suggestions.map(s => (
+            <button
+              key={s}
+              onClick={() => setInput(s)}
+              style={{
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                borderRadius: 99, padding: '6px 14px', cursor: 'pointer',
+                fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)',
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <button
+          onClick={clear}
+          style={{
+            marginTop: 10, background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)',
+          }}
+        >
+          {t('dashboard.aiHero.newConversation')}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
@@ -314,6 +486,7 @@ export function Dashboard() {
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+      <DashboardAIHero tasksCount={myTasks.length} projectsCount={activeProjects.length} lateCount={lateProjects} />
       {/* Main body: 2 columns */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16 }}>
 
