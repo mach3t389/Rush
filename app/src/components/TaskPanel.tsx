@@ -255,6 +255,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         e.preventDefault();
         onContextMenu(e);
       }}
+      data-subtask-row
       style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined, userSelect: 'none' }}
     >
       {/* Checkbox */}
@@ -1039,7 +1040,21 @@ export function TaskPanel({
         </div>
 
         {/* Body — single scrollable column */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div
+          onClick={e => {
+            // Clicking anywhere in the panel that ISN'T a subtask row (or a
+            // button/input/etc — those have their own click behavior) clears
+            // subtask selection. The subtask list itself has almost no truly
+            // empty pixels to click (rows sit flush against each other), so
+            // relying only on that container's own background click left
+            // "click away to deselect" without anywhere real to click.
+            if (selectedSubIds.size === 0) return;
+            const target = e.target as HTMLElement;
+            if (target.closest('[data-subtask-row], button, input, textarea, a')) return;
+            setSelectedSubIds(new Set());
+          }}
+          style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}
+        >
 
           {/* Livrable toggle + format */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
