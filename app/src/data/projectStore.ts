@@ -62,6 +62,8 @@ interface ProjectRow {
   members: Project['members'];
   archived: boolean;
   completed: boolean;
+  is_template_draft: boolean | null;
+  draft_origin_template_id: string | null;
 }
 
 function toProject(row: ProjectRow): Project {
@@ -87,6 +89,8 @@ function toProject(row: ProjectRow): Project {
     overviewTemplateId: row.overview_template_id ?? undefined,
     archived: row.archived,
     completed: row.completed,
+    isTemplateDraft: row.is_template_draft ?? undefined,
+    draftOriginTemplateId: row.draft_origin_template_id ?? undefined,
   };
 }
 
@@ -114,6 +118,8 @@ function toRow(p: Project, studioId: string): ProjectRow {
     members: p.members,
     archived: p.archived ?? false,
     completed: p.completed ?? false,
+    is_template_draft: p.isTemplateDraft ?? false,
+    draft_origin_template_id: p.draftOriginTemplateId ?? null,
   };
 }
 
@@ -207,7 +213,7 @@ async function updateSupabaseProject(id: string, updates: Partial<Project>): Pro
 
 // ── Public API (unchanged signatures) ─────────────────────────────────────
 
-export function getProjects(): Project[] {
+function getAllProjectsUnfiltered(): Project[] {
   if (isDemoSession()) {
     return [...PROJECTS, ..._added].map(p =>
       _overrides[p.id] ? { ...p, ..._overrides[p.id] } : p
@@ -217,12 +223,16 @@ export function getProjects(): Project[] {
   return _supabaseProjects;
 }
 
+export function getProjects(): Project[] {
+  return getAllProjectsUnfiltered().filter(p => !p.isTemplateDraft);
+}
+
 export function getProjectsByClient(clientId: string): Project[] {
   return getProjects().filter(p => p.clientId === clientId);
 }
 
 export function findProject(id: string): Project | undefined {
-  return getProjects().find(p => p.id === id);
+  return getAllProjectsUnfiltered().find(p => p.id === id);
 }
 
 // Renvoie une promesse résolue quand la ligne projet existe réellement côté
@@ -237,6 +247,30 @@ export function addProject(p: Project): Promise<void> {
     return Promise.resolve();
   }
   return addSupabaseProject(p);
+}
+
+export function createTemplateDraft(name: string, originTemplateId?: string): Promise<string> {
+  const id = `draft-${Date.now()}`;
+  const draft: Project = {
+    id,
+    name,
+    clientId: '',
+    clientName: '',
+    clientColor: '#6b7280',
+    phase: 'production',
+    phaseLabel: '',
+    progress: 0,
+    taskCount: 0,
+    deliverableCount: 0,
+    members: [],
+    deliveryDate: '',
+    status: 'info',
+    statusLabel: '',
+    modifiedAt: new Date().toISOString(),
+    isTemplateDraft: true,
+    draftOriginTemplateId: originTemplateId,
+  };
+  return addProject(draft).then(() => id);
 }
 
 export function updateProject(id: string, updates: Partial<Project>): void {

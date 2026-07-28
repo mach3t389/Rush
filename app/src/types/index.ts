@@ -66,6 +66,10 @@ export interface Project {
   archived?: boolean;
   /** Marked done from the project's Aperçu tab — a real status, like `archived`. */
   completed?: boolean;
+  /** Projet invisible créé pour éditer un modèle via le vrai écran (Fichiers/Tâches/Aperçu) — jamais listé, supprimé en quittant l'écran. */
+  isTemplateDraft?: boolean;
+  /** Présent uniquement sur un brouillon : id du ResourceTemplate à écraser en sauvegardant, plutôt que d'en créer un nouveau. */
+  draftOriginTemplateId?: string;
 }
 
 // ── Task ──────────────────────────────────────────────────────────────────────
