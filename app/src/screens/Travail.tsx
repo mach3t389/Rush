@@ -1546,14 +1546,15 @@ const STATUS_DOT: Record<string, string> = {
   danger: 'var(--danger)', review: 'var(--accent)', neutral: 'var(--text-3)',
 };
 
-function SaveAsTemplateModal({ projectName, sections, onClose }: {
+function SaveAsTemplateModal({ projectName, sections, originTasksTemplate, onClose }: {
   projectName: string;
   sections: SectionData[];
+  originTasksTemplate?: ResourceTemplate;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2>(1);
-  const [name, setName] = useState(projectName);
+  const [name, setName] = useState(originTasksTemplate?.name ?? projectName);
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3b4f8f');
   const [tags, setTags] = useState('');
@@ -1577,6 +1578,23 @@ function SaveAsTemplateModal({ projectName, sections, onClose }: {
   const handleSave = () => {
     if (!name.trim()) return;
     const createdAt = new Date().toISOString().split('T')[0];
+
+    if (originTasksTemplate) {
+      const updatedTasksTpl: ResourceTemplate = {
+        ...originTasksTemplate,
+        name: name.trim(),
+        sections: sections.map(s => ({
+          label: s.label,
+          tasks: s.tasks.map(convertTask),
+        })),
+      };
+      const existing = loadCustomResourceTemplates();
+      saveCustomResourceTemplates(existing.map(t2 => t2.id === updatedTasksTpl.id ? updatedTasksTpl : t2));
+      setSaved(true);
+      setTimeout(onClose, 1400);
+      return;
+    }
+
     const tasksTpl: ResourceTemplate = {
       id: `tasks-${Date.now()}`,
       type: 'tasks',
@@ -1800,6 +1818,9 @@ export function Travail() {
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const project = findProject(projectId ?? '') ?? getProjects()[0]!;
+  const originTasksTemplate = project.draftOriginTemplateId
+    ? loadAllResourceTemplates().find(t2 => t2.id === project.draftOriginTemplateId && t2.type === 'tasks')
+    : undefined;
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);
 
@@ -1996,6 +2017,12 @@ export function Travail() {
     setMultiSelIds(new Set());
     setSelectedTask(prev => prev?.id === task.id ? null : task);
   };
+
+  // Clicking empty space (not a row/control) clears selection — same
+  // target-equality guard as Taches.tsx, so it never fires on bubbled
+  // clicks from inside a row or the (separately-scoped) TaskPanel.
+  const clearTaskSelection = () => { setMultiSelIds(new Set()); setSelectedTask(null); };
+  const onBackgroundClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) clearTaskSelection(); };
 
   const handleAddSection = () => {
     const label = newSectionLabel.trim();
@@ -2429,6 +2456,7 @@ export function Travail() {
         <SaveAsTemplateModal
           projectName={project.name}
           sections={sections}
+          originTasksTemplate={originTasksTemplate}
           onClose={() => setSaveTemplateOpen(false)}
         />
       )}
