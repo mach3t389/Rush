@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFModal } from './ui';
+import { SFIcon, SFModal, SFButton } from './ui';
 import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject } from '../data/projectStore';
 import { ProjectEditPanel } from './ProjectCard';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
@@ -27,7 +27,18 @@ export function ProjectHeaderBar({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const project = findProject(projectId);
+
+  // Un projet brouillon (édition de modèle) est jetable : il disparaît dès qu'on
+  // quitte cet écran, quel que soit le chemin de sortie (bouton "Terminer",
+  // navigation ailleurs, retour arrière). removeProject() cascade déjà
+  // correctement (sections/fichiers/événements) — rien d'autre à nettoyer ici.
+  useEffect(() => {
+    if (!project?.isTemplateDraft) return;
+    const draftId = project.id;
+    return () => { removeProject(draftId); };
+  }, [project?.id, project?.isTemplateDraft]);
 
   const [, forceUpdate] = useState(0);
   const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
@@ -44,7 +55,7 @@ export function ProjectHeaderBar({
 
   if (!project) return null;
 
-  const tabs = [
+  const allTabs = [
     { label: t('projects.tabOverview'),   path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
     { label: t('projects.tabTasks'),      path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
     { label: t('projects.tabCalendar'),   path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
@@ -53,6 +64,9 @@ export function ProjectHeaderBar({
     { label: t('projects.tabTeam'),       path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
     { label: t('projects.tabActivity'),   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
   ];
+  const tabs = project.isTemplateDraft
+    ? allTabs.filter(tb => tb.end ? location.pathname === tb.path : location.pathname.startsWith(tb.path))
+    : allTabs;
 
   return (
     <div style={{
@@ -64,6 +78,16 @@ export function ProjectHeaderBar({
     }}>
       <div>
         {/* Breadcrumb row */}
+        {project.isTemplateDraft ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontFamily: 'var(--ff-mono)', fontSize: 11,
+            color: 'var(--text-3)', marginBottom: 8,
+          }}>
+            <SFIcon name="layout-template" size={12} color="var(--accent)" />
+            <span>Édition du modèle « {project.name} »</span>
+          </div>
+        ) : (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
           fontFamily: 'var(--ff-mono)', fontSize: 11,
@@ -130,6 +154,7 @@ export function ProjectHeaderBar({
 
           <span style={{ color: 'var(--text-2)' }}>{project.name}</span>
         </div>
+        )}
 
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: 18 }}>
@@ -176,6 +201,7 @@ export function ProjectHeaderBar({
         >
           <SFIcon name="square-pen" size={14} />
         </button>
+        {!project.isTemplateDraft && (
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(v => !v)} title={t('projects.projectMenu')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
             <SFIcon name="ellipsis" size={15} />
@@ -231,6 +257,12 @@ export function ProjectHeaderBar({
             </>
           )}
         </div>
+        )}
+        {project.isTemplateDraft && (
+          <SFButton variant="secondary" size="sm" icon="check" onClick={() => navigate('/modeles')}>
+            Terminer
+          </SFButton>
+        )}
       </div>
 
       {editOpen && (
