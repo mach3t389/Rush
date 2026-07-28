@@ -133,20 +133,20 @@ function questionsToFields(questions: FormQuestion[]): FormField[] {
 
 // ── Template resource view helpers ────────────────────────────────────────────
 
-function documentSectionsToHTML(sections: DocumentSection[]): string {
+export function documentSectionsToHTML(sections: DocumentSection[]): string {
   return sections.map(sec =>
     `<h2>${sec.title}</h2><p>${sec.body.replace(/\n/g, '</p><p>')}</p>`
   ).join('\n');
 }
 
-function sceneBlocksToElements(blocks: SceneBlock[]): ScriptEl[] {
+export function sceneBlocksToElements(blocks: SceneBlock[]): ScriptEl[] {
   return blocks.flatMap(b => [
     { id: b.id + '_scene', type: 'scene' as ScriptElType, text: `${b.location} — ${b.time}` },
     { id: b.id + '_action', type: 'action' as ScriptElType, text: b.action },
   ]);
 }
 
-function elementsToSceneBlocks(elements: ScriptEl[]): SceneBlock[] {
+export function elementsToSceneBlocks(elements: ScriptEl[]): SceneBlock[] {
   const blocks: SceneBlock[] = [];
   let i = 0;
   while (i < elements.length) {
