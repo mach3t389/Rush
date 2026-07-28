@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isDemoSession } from '../../data/authStore';
 import { getStudioId } from '../../data/studioStore';
@@ -370,18 +370,28 @@ export function useAIAgentChat(navigate: (path: string) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const generationRef = useRef(0);
+
+  const setMessagesBoth = useCallback((next: ChatMessage[]) => {
+    messagesRef.current = next;
+    setMessages(next);
+  }, []);
 
   const send = useCallback(async (text: string) => {
     const content = text.trim();
     if (!content || loading) return;
 
+    const myGeneration = generationRef.current;
     const userMsg: ChatMessage = { role: 'user', content };
-    let currentMessages: ChatMessage[] = [];
-    setMessages(prev => { currentMessages = [...prev, userMsg]; return currentMessages; });
+    const currentMessages = [...messagesRef.current, userMsg];
+    setMessagesBoth(currentMessages);
     setLoading(true);
 
     if (isDemoSession()) {
-      setMessages(prev => [...prev, { role: 'assistant', content: t('ai.demoNotice') }]);
+      if (generationRef.current === myGeneration) {
+        setMessagesBoth([...currentMessages, { role: 'assistant', content: t('ai.demoNotice') }]);
+      }
       setLoading(false);
       return;
     }
@@ -441,12 +451,14 @@ export function useAIAgentChat(navigate: (path: string) => void) {
 
             const toolMsg: ChatMessage = { role: 'tool', content: result, name: toolName, toolUseId: tc.id, _toolLabel: toolName };
             displayMsgs = [...displayMsgs, toolMsg];
-            setMessages([...displayMsgs]);
+            if (generationRef.current !== myGeneration) return;
+            setMessagesBoth([...displayMsgs]);
           }
         } else {
           const final: ChatMessage = { role: 'assistant', content: msg.content ?? '' };
           displayMsgs = [...displayMsgs, final];
-          setMessages([...displayMsgs]);
+          if (generationRef.current !== myGeneration) return;
+          setMessagesBoth([...displayMsgs]);
           break;
         }
       }
@@ -455,13 +467,19 @@ export function useAIAgentChat(navigate: (path: string) => void) {
         : e?.message === 'quota_exceeded' ? 'ai.quotaExceeded'
         : 'ai.assistantError';
       const errMsg: ChatMessage = { role: 'assistant', content: t(key) };
-      setMessages(prev => [...prev, errMsg]);
+      if (generationRef.current === myGeneration) {
+        setMessagesBoth([...messagesRef.current, errMsg]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [loading, navigate, t]);
+  }, [loading, navigate, t, setMessagesBoth]);
 
-  const clear = useCallback(() => setMessages([]), []);
+  const clear = useCallback(() => {
+    generationRef.current++;
+    messagesRef.current = [];
+    setMessages([]);
+  }, []);
 
   return { messages, loading, quota, send, clear };
 }
