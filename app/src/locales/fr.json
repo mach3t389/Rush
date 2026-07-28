@@ -2135,6 +2135,8 @@
     "taxRate2": "Taux (%)"
   },
   "resourceDetail": {
+    "archivedBannerTitle": "Ressource archivée",
+    "archivedBannerDesc": "Elle n'apparaît plus dans les vues actives. Désarchivez-la depuis l'onglet Fichiers pour la remettre en circulation.",
     "elScene": "Scène",
     "elScenePlaceholder": "INT./EXT. LIEU — MOMENT",
     "elAction": "Action",

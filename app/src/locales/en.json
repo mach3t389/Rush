@@ -2122,6 +2122,8 @@
     "taxRate2": "Rate (%)"
   },
   "resourceDetail": {
+    "archivedBannerTitle": "Archived resource",
+    "archivedBannerDesc": "It no longer appears in active views. Unarchive it from the Files tab to bring it back.",
     "elScene": "Scene",
     "elScenePlaceholder": "INT./EXT. LOCATION — TIME",
     "elAction": "Action",

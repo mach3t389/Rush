@@ -235,29 +235,15 @@ Panneau flottant propulsé par **l'API Anthropic (Claude Haiku)** côté serveur
 - Outils disponibles : `list_projects`, `list_clients`, `list_tasks`, `create_project`, `create_event`, `create_resource`, `navigate`
 - Reconnaissance vocale via Web Speech API (Chrome/Edge uniquement)
 - Rendu markdown dans les réponses assistant (gras, listes, blocs de code)
-- **Idée future (pas commencée) :** laisser chaque studio choisir son propre fournisseur IA — clé API personnelle (ChatGPT/OpenAI ou Anthropic, coût à leur charge) ou un Ollama auto-hébergé pour les studios techniques. Nécessiterait une couche de traduction par fournisseur (chacun a son propre format d'outils/function-calling), en plus de celle qui existe déjà pour Anthropic dans `ai-chat.ts`. Volontairement pas prioritaire tant qu'aucun client ne le demande — un seul fournisseur avec quota est plus simple et moins cher à opérer.
+- Idée future (pas commencée, pas prioritaire) : fournisseur IA au choix du studio — voir `docs/superpowers/notes/2026-07-28-claude-md-archive.md`.
 
 ### Envoi de courriels transactionnels (Resend)
 
-**Infrastructure + invitations en place depuis le 2026-07-26.** `app/api/send-email.ts` — route Vercel générique branchée sur **Resend** (gratuit jusqu'à 3000 courriels/mois, 100/jour), protégée par un vrai jeton de session Supabase (même pattern que le handler push de `google-calendar-sync.ts`). Le front appelle `sendEmail()` dans `app/src/data/emailStore.ts` (fire-and-forget, même logique que `pushToGoogleCalendar` dans `eventStore.ts`). Nécessite `RESEND_API_KEY` (et optionnellement `RESEND_FROM_EMAIL`, sinon repli sur `onboarding@resend.dev` tant qu'aucun domaine n'est vérifié) dans les variables d'environnement Vercel.
+`app/api/send-email.ts` — route Vercel générique branchée sur **Resend**, protégée par un jeton de session Supabase. Le front appelle `sendEmail()` dans `app/src/data/emailStore.ts` (fire-and-forget). Nécessite `RESEND_API_KEY` (+ `RESEND_FROM_EMAIL` optionnel) dans les variables d'environnement Vercel. Invitations client et équipe déjà câblées (`invitationStore.ts`, `teamStore.ts`) ; backlog restant (notifs, approbations, commentaires, formulaires, factures) dans `docs/superpowers/notes/2026-07-28-claude-md-archive.md` et la mémoire auto.
 
-**⚠️ Vercel Hobby, plafond de 12 fonctions atteint à nouveau** en ajoutant `send-email.ts` — `google-calendar-pull.ts`/`google-calendar-push.ts` ont été fusionnés en `google-calendar-sync.ts` (routé selon l'en-tête Authorization : secret cron vs session utilisateur) pour libérer une place. **De retour à exactement 12/12** — aucune marge pour une prochaine fonction sans nouvelle fusion ou passage au plan Pro.
+**⚠️ Vercel Hobby : plafond de 12 fonctions atteint** — actuellement à exactement 12/12. Toute nouvelle fonction API nécessite une fusion de routes existantes ou un passage au plan Pro.
 
-**Déjà fonctionnel aujourd'hui, sans rien construire :** la réinitialisation de mot de passe (`resetPassword()` dans `authStore.ts`) passe par `supabase.auth.resetPasswordForEmail()` — Supabase envoie ce courriel lui-même. Ne pas dupliquer ça avec Resend.
-
-**Fait (2026-07-26) :**
-- **Invitations client** (`invitationStore.ts`'s `sendClientInvitationEmail()`, câblé dans `FicheClient.tsx`) — invitation initiale et "Renvoyer" envoient maintenant un vrai courriel, en plus du lien copié dans le presse-papier (toujours disponible en repli).
-- **Invitations équipe** (`teamStore.ts`'s `sendTeamInvitationEmail()`, câblé dans `MonEquipe.tsx`) — même chose pour l'invitation initiale.
-- Les deux sautent l'envoi en session démo (pas de vrai destinataire).
-- **Lacune connue, hors de ce chantier :** le bouton "Renvoyer l'invitation" du panneau détail membre dans `MonEquipe.tsx` n'a toujours aucun `onClick` — stub préexistant, pas encore raccordé (il faut d'abord faire transiter le token de l'invitation en attente dans ce panneau).
-
-**Reste à brancher** (inventaire fait le 2026-07-26, à revérifier avant de continuer — le code peut avoir changé) :
-
-- **Préférences de notification** (`notifPrefsStore.ts`) — le type `ChannelPrefs` a déjà un champ `email` (activé par défaut pour `mention`/`approval`) affiché dans Paramètres, mais **rien ne lit ce champ pour envoyer un vrai courriel** — l'interface promet une fonctionnalité qui n'existe pas encore.
-- **Demandes d'approbation** (`RequestApprovalButton.tsx`, `Portail.tsx`) — notifie seulement dans l'app (`addNotif`), jamais par courriel, malgré la préférence ci-dessus.
-- **Commentaires et mentions** (`commentNotify.ts`) — pareil, in-app seulement, même pour une mention `@`.
-- **Soumission de formulaire public** (`PublicFormFill.tsx` → `formSubmissionsStore.ts`) — **aucune notification du tout**, ni in-app ni courriel ; le studio ne voit une soumission qu'en ouvrant la liste manuellement.
-- **Finances/factures** (`financeStore.ts`, `Finances.tsx`) — aucune relance automatique de facture en retard.
+**La réinitialisation de mot de passe passe déjà par Supabase** (`resetPassword()` → `supabase.auth.resetPasswordForEmail()`) — ne pas dupliquer avec Resend.
 
 ### IA dans DocumentView (`app/src/screens/ResourceDetail.tsx`)
 
@@ -272,35 +258,9 @@ Migré vers `/api/ai-chat` (Claude Haiku, même backend qu'`AIChat.tsx`) via le 
 
 ### Génération IA dans StoryboardView (`app/src/screens/ResourceDetail.tsx`)
 
-⚠️ **Mock, pas un vrai appel IA** — `generateImage()` ne contacte aucun backend : un `setTimeout` de 2,2s renvoie une image Unsplash aléatoire (ou le croquis dessiné par l'utilisateur, tel quel). Claude (Anthropic) ne fait pas de génération d'image ; une vraie implémentation demanderait un autre fournisseur (ex. l'API image d'OpenAI) avec son propre modèle de coût/quota — chantier séparé, pas commencé.
+⚠️ **Mock, pas un vrai appel IA** — `generateImage()` ne contacte aucun backend : un `setTimeout` de 2,2s renvoie une image Unsplash aléatoire (ou le croquis dessiné par l'utilisateur, tel quel). Claude (Anthropic) ne fait pas de génération d'image ; une vraie implémentation demanderait un autre fournisseur (ex. l'API image d'OpenAI) — chantier séparé, pas commencé.
 
-Le modal de génération IA du storyboard (`StoryboardView`) supporte trois modes de prompt accessibles depuis un toggle **Texte / Dessin** :
-
-**Mode Texte :**
-- Textarea de description libre avec pré-remplissage depuis le label du plan
-- Bouton dictée vocale (Web Speech API, icône `mic`/`mic-off`) — état `sbListening` + `sbRecognitionRef`
-- Transcription en temps réel ajoutée au prompt
-
-**Mode Dessin (canvas 16:9) :**
-- Canvas HTML5 (`canvasRef`, 544×306 px, ratio 16/9) avec fond noir initialisé via `useEffect` sur `[showAIModal, promptMode]`
-- Palette de 8 couleurs (points colorés), slider de taille de brosse (1–20 px), bouton Gomme (toggle `isErasing`), bouton Effacer (`clearCanvas`)
-- Dessin souris + touch (`startDraw`/`continueDraw`/`endDraw`) via `globalCompositeOperation`: `'source-over'` (pinceau) ou `'destination-out'` (gomme)
-- Champ description optionnel sous le canvas
-- `generateImage()` capture le canvas via `canvas.toDataURL('image/png')` et préfixe le prompt avec `[Croquis]`
-
-**États et refs :**
-```typescript
-const [promptMode, setPromptMode]  = useState<'text' | 'draw'>('text');
-const [sbListening, setSbListening] = useState(false);
-const [drawColor, setDrawColor]    = useState('#ffffff');
-const [brushSize, setBrushSize]    = useState(4);
-const [isErasing, setIsErasing]    = useState(false);
-const canvasRef     = useRef<HTMLCanvasElement>(null);
-const isDrawingRef  = useRef(false);
-const sbRecognitionRef = useRef<any>(null);
-```
-
-`openAI()` remet `promptMode` à `'text'` et `isErasing` à `false` à chaque ouverture. En mode dessin, le bouton Générer est actif même sans texte (le croquis suffit).
+Le modal de génération (`StoryboardView`) a un toggle **Texte / Dessin** (canvas 16:9 avec palette/gomme/dictée vocale). Détails d'implémentation (états, refs, mécanique du canvas) dans `docs/superpowers/notes/2026-07-28-claude-md-archive.md` si besoin de toucher ce code.
 
 ### Internationalization (i18n)
 

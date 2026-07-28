@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getResources } from '../data/resourceStore';
+import { getFiles } from '../data/fileStore';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
+import { SFIcon } from '../components/ui';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { findProject } from '../data/projectStore';
 import { loadAllResourceTemplates, saveCustomResourceTemplates, loadCustomResourceTemplates } from '../data/templates';
@@ -24,6 +26,9 @@ export function ResourceRouter() {
   const resource = getResources().find(r => r.id === resourceId);
   const project = projectId ? findProject(projectId) : undefined;
   const [reloadTick, setReloadTick] = useState(0);
+
+  const resourceFile = resourceId ? getFiles().find(f => f.resourceId === resourceId) : undefined;
+  const isArchived = resourceFile?.state === 'archived';
 
   const templateType = resource?.type as ResourceTemplateType | undefined;
   const isDraftableType = templateType === 'document' || templateType === 'screenplay' || templateType === 'moodboard' || templateType === 'video_review';
@@ -138,6 +143,15 @@ export function ResourceRouter() {
           />
         )}
       </ProjectHeaderBar>
+      {isArchived && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 24px', borderBottom: '1px solid rgba(240,180,0,0.25)', background: 'rgba(240,180,0,0.06)' }}>
+          <SFIcon name="archive" size={16} color="var(--warn)" />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--warn)' }}>{t('resourceDetail.archivedBannerTitle')}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 1 }}>{t('resourceDetail.archivedBannerDesc')}</p>
+          </div>
+        </div>
+      )}
       <div style={{ flex: 1, overflow: 'hidden' }} key={reloadTick}>
         {detail}
       </div>
