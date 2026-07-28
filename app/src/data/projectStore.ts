@@ -17,9 +17,10 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { setSections } from './taskStore';
 import { deleteEventsForProject } from './eventStore';
-import { deleteAllFilesForProject, archiveAllFilesForProject } from './fileStore';
+import { deleteAllFilesForProject, archiveAllFilesForProject, getFiles } from './fileStore';
 import { syncNewProjectAcrossClientContacts } from './projectClientAccessStore';
 import { getInvoicesByProject, removeInvoice } from './financeStore';
+import { removeResource } from './resourceStore';
 import { createLoadingFlag } from './loadingFlag';
 import { showToast } from './toastStore';
 
@@ -362,6 +363,12 @@ async function removeSupabaseProject(id: string): Promise<void> {
 export function removeProject(id: string): void {
   setSections(id, []);
   deleteEventsForProject(id);
+  // Doit tourner AVANT deleteAllFilesForProject : on a besoin des FileItem
+  // (type 'resource') encore en place pour retrouver les resourceId à
+  // nettoyer — deleteAllFilesForProject les supprime juste après.
+  getFiles()
+    .filter(f => f.projectId === id && f.type === 'resource' && f.resourceId)
+    .forEach(f => removeResource(f.resourceId!));
   deleteAllFilesForProject(id);
   getInvoicesByProject(id).forEach(inv => removeInvoice(inv.id));
 
