@@ -230,6 +230,7 @@
     "invitation": "INVITATION",
     "deliverableApproved": "DELIVERABLE APPROVED",
     "storageLimit": "STORAGE",
+    "storageOverLimit": "Storage limit reached — delete files or upgrade your plan",
     "unreadCount": "Unread ({{count}})",
     "markAllRead": "Mark all as read",
     "noNotifications": "No notifications",
@@ -2572,7 +2573,9 @@
     "projectsTitle": "Project limit reached",
     "projectsBody": "The Gratuit plan allows 3 active projects at a time. Upgrade to Studio for unlimited projects.",
     "membersGratuitTitle": "Member limit reached",
-    "membersGratuitBody": "The Gratuit plan allows 2 team members. Upgrade to Studio or Agence to invite more people."
+    "membersGratuitBody": "The Gratuit plan allows 2 team members. Upgrade to Studio or Agence to invite more people.",
+    "storageTitle": "Storage limit reached",
+    "storageBody": "You've reached the storage limit of your plan. Delete files or upgrade to a higher plan to continue uploading."
   },
   "clientPreview": {
     "title": "Client preview",
