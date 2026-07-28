@@ -139,6 +139,12 @@ export interface Resource {
   colors?: string[];
   mediaSubtype?: 'video' | 'photo' | 'file' | 'audio';
   webUrl?: string;
+  // Set on draft resources created from a resource template (built-in or custom)
+  // so "Enregistrer comme modèle" can carry the source template's color/icon/
+  // description/tags into the saved copy, even for built-in templates that have
+  // no custom-template id to look them back up from (see Modeles.tsx openTemplateDraft
+  // / ResourceRouter.tsx handleSave).
+  templateOrigin?: { color: string; icon: string; description: string; tags: string[] };
 }
 
 // ── Video Review ──────────────────────────────────────────────────────────────

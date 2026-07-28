@@ -5,6 +5,7 @@
   "templateMenuNoOptions": "No template available",
   "templateMenuConfirmReplace": "Replace the current content with this template?",
   "templateMenuPromptName": "Template name",
+  "templateMenuSavedToast": "Template saved",
   "nav": {
     "dashboard": "Home",
     "myTasks": "My Tasks",

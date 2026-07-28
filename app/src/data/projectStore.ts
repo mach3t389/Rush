@@ -31,6 +31,22 @@ let _added: Project[] = loadPersisted<Project[]>(STORAGE_KEY, []);
 let _overrides: Record<string, Partial<Project>> = loadPersisted<Record<string, Partial<Project>>>(OVERRIDES_KEY, {});
 const _listeners = new Set<() => void>();
 
+// In-memory only (tab lifetime, not persisted): draft template project id →
+// the id of the single draft Resource created for it (Modeles.tsx
+// openTemplateDraft / openNewTemplateDraft). removeProject() consults this
+// FIRST, before falling back to scanning file_items, because in a real
+// (Supabase) session file_items' synchronous cache is only refreshed after
+// an async round-trip completes — if the user leaves the draft (triggering
+// cleanup) before that refresh lands, the file_items scan finds nothing and
+// the draft's Resource/resource_content rows leak. Populated synchronously
+// at draft-resource-creation time, so it has no such lag.
+const _draftResourceByProject: Record<string, string> = {};
+
+/** Called right after a draft resource is created for a template-draft project. */
+export function registerDraftResource(projectId: string, resourceId: string): void {
+  _draftResourceByProject[projectId] = resourceId;
+}
+
 function notify() { _listeners.forEach(fn => fn()); }
 function persist() { savePersisted(STORAGE_KEY, _added); }
 function persistOverrides() { savePersisted(OVERRIDES_KEY, _overrides); }
@@ -366,9 +382,14 @@ export function removeProject(id: string): void {
   // Doit tourner AVANT deleteAllFilesForProject : on a besoin des FileItem
   // (type 'resource') encore en place pour retrouver les resourceId à
   // nettoyer — deleteAllFilesForProject les supprime juste après.
+  const resourceIdsToClean = new Set<string>();
+  const registeredDraftResourceId = _draftResourceByProject[id];
+  if (registeredDraftResourceId) resourceIdsToClean.add(registeredDraftResourceId);
   getFiles()
     .filter(f => f.projectId === id && f.type === 'resource' && f.resourceId)
-    .forEach(f => removeResource(f.resourceId!));
+    .forEach(f => resourceIdsToClean.add(f.resourceId!));
+  resourceIdsToClean.forEach(resId => removeResource(resId));
+  delete _draftResourceByProject[id];
   deleteAllFilesForProject(id);
   getInvoicesByProject(id).forEach(inv => removeInvoice(inv.id));
 

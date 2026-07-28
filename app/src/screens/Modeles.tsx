@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
-import { addProject } from '../data/projectStore';
+import { addProject, registerDraftResource } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree, addFile } from '../data/fileStore';
@@ -137,6 +137,27 @@ export function documentSectionsToHTML(sections: DocumentSection[]): string {
   return sections.map(sec =>
     `<h2>${sec.title}</h2><p>${sec.body.replace(/\n/g, '</p><p>')}</p>`
   ).join('\n');
+}
+
+// Best-effort reverse of documentSectionsToHTML: split saved HTML on <h2> headings
+// into {title, body} pairs, so a document template saved via the live editor still
+// has a documentSections list (used for item counts / previews in Modeles.tsx).
+export function htmlToDocumentSections(html: string): DocumentSection[] {
+  if (!html.trim()) return [];
+  const parts = html.split(/<h2[^>]*>/i).filter(Boolean);
+  // If there's no <h2> at all, treat the whole thing as a single untitled section.
+  if (parts.length === (html.match(/<h2[^>]*>/gi)?.length ?? 0) && parts.length === 0) return [];
+  if (!/<h2[^>]*>/i.test(html)) {
+    const body = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return body ? [{ title: 'Section', body }] : [];
+  }
+  return parts.map(part => {
+    const closeIdx = part.indexOf('</h2>');
+    const title = (closeIdx >= 0 ? part.slice(0, closeIdx) : part).replace(/<[^>]+>/g, '').trim();
+    const rest = closeIdx >= 0 ? part.slice(closeIdx + 5) : '';
+    const body = rest.replace(/<\/p>\s*<p>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+    return { title: title || 'Section', body };
+  }).filter(sec => sec.title || sec.body);
 }
 
 export function sceneBlocksToElements(blocks: SceneBlock[]): ScriptEl[] {
@@ -1915,7 +1936,10 @@ export function Modeles() {
     return matchType && matchSearch;
   });
 
-  function createDraftResource(draftId: string, type: ResourceType, title: string): string {
+  function createDraftResource(
+    draftId: string, type: ResourceType, title: string,
+    templateOrigin?: { color: string; icon: string; description: string; tags: string[] },
+  ): string {
     const resourceId = `res-draft-${Date.now()}`;
     addResource({
       id: resourceId,
@@ -1925,8 +1949,10 @@ export function Modeles() {
       status: 'info',
       statusLabel: 'En cours',
       meta: '',
+      templateOrigin,
     });
     addFile({ name: title, type: 'resource', ext: 'res', parentFolderId: null, projectId: draftId, resourceId, resourceType: type });
+    registerDraftResource(draftId, resourceId);
     return resourceId;
   }
 
@@ -1970,7 +1996,9 @@ export function Modeles() {
       setProjectContent(draftId, { customSections: [vision, ...reusable], customSectionData: {} });
       navigate(`/projets/${draftId}/overview`);
     } else if (tpl.type === 'document' || tpl.type === 'screenplay') {
-      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name);
+      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name, {
+        color: tpl.color ?? '#6b7280', icon: tpl.icon ?? 'file', description: tpl.description ?? '', tags: tpl.tags ?? [],
+      });
       if (tpl.type === 'document') {
         const html = tpl.rawHTML ?? (tpl.documentSections ? documentSectionsToHTML(tpl.documentSections) : '');
         setResourceContent(resourceId, { html });
@@ -1980,7 +2008,9 @@ export function Modeles() {
       }
       navigate(`/projets/${draftId}/ressources/${resourceId}`);
     } else if (tpl.type === 'moodboard' || tpl.type === 'video_review') {
-      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name);
+      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name, {
+        color: tpl.color ?? '#6b7280', icon: tpl.icon ?? 'file', description: tpl.description ?? '', tags: tpl.tags ?? [],
+      });
       if (tpl.type === 'moodboard') {
         const items = (tpl.moodboardRefs ?? []).map((r, i) => ({
           id: r.id, type: 'postit' as const,
@@ -2017,6 +2047,15 @@ export function Modeles() {
     else if (type === 'overview') navigate(`/projets/${draftId}/overview`);
     else {
       const resourceId = createDraftResource(draftId, type as ResourceType, 'Nouveau modèle');
+      if (type === 'document') {
+        setResourceContent(resourceId, { html: '' });
+      } else if (type === 'screenplay') {
+        setResourceContent(resourceId, { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements: [] }], activeId: 'v1' });
+      } else if (type === 'moodboard') {
+        setResourceContent(resourceId, { items: [], arrows: [], comments: [] });
+      } else if (type === 'video_review') {
+        setResourceContent(resourceId, { versions: [], activeVersion: undefined, comments: [], tasks: [], reviewStatus: 'review' as const });
+      }
       navigate(`/projets/${draftId}/ressources/${resourceId}`);
     }
   };

@@ -8,7 +8,8 @@ import { findProject } from '../data/projectStore';
 import { loadAllResourceTemplates, saveCustomResourceTemplates, loadCustomResourceTemplates } from '../data/templates';
 import type { ResourceTemplate, ResourceTemplateType } from '../data/templates';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
-import { documentSectionsToHTML, sceneBlocksToElements, elementsToSceneBlocks } from './Modeles';
+import { showToast } from '../data/toastStore';
+import { documentSectionsToHTML, htmlToDocumentSections, sceneBlocksToElements, elementsToSceneBlocks } from './Modeles';
 import type { ScriptEl } from './ResourceDetail';
 import { USERS } from '../data/mock';
 import { VideoReview } from './VideoReview';
@@ -32,27 +33,37 @@ export function ResourceRouter() {
     const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === templateType);
     if (!tpl) return;
     if (!confirm(t('templateMenuConfirmReplace', { defaultValue: 'Remplacer le contenu actuel par ce modèle ?' }))) return;
+    let content: unknown;
     if (templateType === 'document') {
       const html = tpl.rawHTML ?? (tpl.documentSections ? documentSectionsToHTML(tpl.documentSections) : '');
-      setResourceContent(resourceId, { html });
+      content = { html };
     } else if (templateType === 'screenplay') {
       const elements = tpl.rawElements ? (JSON.parse(tpl.rawElements) as ScriptEl[]) : (tpl.sceneBlocks ? sceneBlocksToElements(tpl.sceneBlocks) : []);
-      setResourceContent(resourceId, { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements }], activeId: 'v1' });
+      content = { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements }], activeId: 'v1' };
     } else if (templateType === 'moodboard') {
       const items = (tpl.moodboardRefs ?? []).map((r, i) => ({
         id: r.id, type: 'postit' as const,
         x: 40 + (i % 4) * 220, y: 40 + Math.floor(i / 4) * 180, w: 200, h: 160,
         text: r.note ? `${r.title}\n${r.note}` : r.title, postitColor: '#f9ff00',
       }));
-      setResourceContent(resourceId, { items, arrows: [], comments: [] });
+      content = { items, arrows: [], comments: [] };
     } else if (templateType === 'video_review') {
       const versions = (tpl.reviewRounds ?? []).map(r => ({
         v: r.id, status: 'review' as const, label: r.label,
         date: new Date().toISOString().split('T')[0], author: USERS.lea,
       }));
-      setResourceContent(resourceId, { versions, activeVersion: versions[0]?.v, comments: [], tasks: [], reviewStatus: 'review' as const });
+      content = { versions, activeVersion: versions[0]?.v, comments: [], tasks: [], reviewStatus: 'review' as const };
     }
+    if (content === undefined) return;
+    setResourceContent(resourceId, content);
     setReloadTick(n => n + 1);
+    // DocumentView (and VideoReviewBody) flush their own pending debounced edits
+    // to resourceContentStore on unmount. That unmount happens right after the
+    // remount above (new `key`), so it can land AFTER this write and silently
+    // clobber the just-loaded template with the stale pre-load draft content.
+    // Re-apply the same write once the old, keyed-out instance has finished
+    // unmounting so the store ends up with the loaded template, not the stale draft.
+    window.setTimeout(() => setResourceContent(resourceId, content), 60);
   };
 
   const handleSave = () => {
@@ -60,10 +71,18 @@ export function ResourceRouter() {
     const origin = project?.draftOriginTemplateId
       ? loadAllResourceTemplates().find(t2 => t2.id === project.draftOriginTemplateId && t2.type === templateType)
       : undefined;
+    // `origin` is only found for drafts of NON-built-in templates (built-ins are
+    // intentionally forked into a new custom template, see Modeles.tsx
+    // openTemplateDraft). For a built-in-derived draft we fall back to
+    // resource.templateOrigin, set when the draft resource was created, so the
+    // saved copy still inherits the built-in's real color/icon/description/tags
+    // instead of the generic defaults below.
+    const originMeta = origin ?? resource.templateOrigin;
     let patch: Partial<ResourceTemplate> = {};
     if (templateType === 'document') {
       const c = getResourceContent<{ html?: string }>(resourceId);
-      patch = { rawHTML: c?.html ?? '' };
+      const html = c?.html ?? '';
+      patch = { rawHTML: html, documentSections: htmlToDocumentSections(html) };
     } else if (templateType === 'screenplay') {
       const c = getResourceContent<{ versions: { id: string; elements: ScriptEl[] }[]; activeId: string }>(resourceId);
       const active = c?.versions.find(v => v.id === c.activeId) ?? c?.versions[0];
@@ -81,10 +100,10 @@ export function ResourceRouter() {
       id: origin?.id ?? `res-${Date.now()}`,
       type: templateType,
       name,
-      description: origin?.description ?? '',
-      color: origin?.color ?? '#6b7280',
-      icon: origin?.icon ?? 'file',
-      tags: origin?.tags ?? [],
+      description: originMeta?.description ?? '',
+      color: originMeta?.color ?? '#6b7280',
+      icon: originMeta?.icon ?? 'file',
+      tags: originMeta?.tags ?? [],
       builtIn: false,
       createdAt: origin?.createdAt ?? new Date().toISOString().split('T')[0],
       ...patch,
@@ -92,6 +111,7 @@ export function ResourceRouter() {
     const existing = loadCustomResourceTemplates();
     const updated = origin ? existing.map(t2 => t2.id === tpl.id ? tpl : t2) : [...existing, tpl];
     saveCustomResourceTemplates(updated);
+    showToast({ type: 'section', message: t('templateMenuSavedToast', { defaultValue: 'Modèle enregistré' }) });
   };
 
   let detail: React.ReactElement;

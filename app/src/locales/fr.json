@@ -5,6 +5,7 @@
   "templateMenuNoOptions": "Aucun modèle disponible",
   "templateMenuConfirmReplace": "Remplacer le contenu actuel par ce modèle ?",
   "templateMenuPromptName": "Nom du modèle",
+  "templateMenuSavedToast": "Modèle enregistré",
   "nav": {
     "dashboard": "Accueil",
     "myTasks": "Mes tâches",
