@@ -159,16 +159,17 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true, 
 
 const OVERVIEW_TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
 
-function SaveOverviewTemplateModal({ projectName, customSections, onClose }: {
+function SaveOverviewTemplateModal({ projectName, customSections, originTemplate, onClose }: {
   projectName: string;
   customSections: CustomOverviewSection[];
+  originTemplate?: ResourceTemplate;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState(projectName);
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState(OVERVIEW_TEMPLATE_COLORS[0]);
-  const [tags, setTags] = useState('');
+  const [name, setName] = useState(originTemplate?.name ?? projectName);
+  const [description, setDescription] = useState(originTemplate?.description ?? '');
+  const [color, setColor] = useState(originTemplate?.color ?? OVERVIEW_TEMPLATE_COLORS[0]);
+  const [tags, setTags] = useState(originTemplate?.tags?.join(', ') ?? '');
   const [saved, setSaved] = useState(false);
 
   // La section Vision est unique à chaque projet — jamais incluse dans un modèle réutilisable.
@@ -177,7 +178,7 @@ function SaveOverviewTemplateModal({ projectName, customSections, onClose }: {
   const handleSave = () => {
     if (!name.trim()) return;
     const tpl: ResourceTemplate = {
-      id: `res-${Date.now()}`,
+      id: originTemplate?.id ?? `res-${Date.now()}`,
       type: 'overview',
       name: name.trim(),
       description: description.trim(),
@@ -185,10 +186,14 @@ function SaveOverviewTemplateModal({ projectName, customSections, onClose }: {
       icon: 'layout-grid',
       tags: tags.split(',').map(x => x.trim()).filter(Boolean),
       builtIn: false,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: originTemplate?.createdAt ?? new Date().toISOString().split('T')[0],
       overviewSections: reusableSections,
     };
-    saveCustomResourceTemplates([...loadCustomResourceTemplates(), tpl]);
+    const existing = loadCustomResourceTemplates();
+    const updated = originTemplate
+      ? existing.map(t2 => t2.id === tpl.id ? tpl : t2)
+      : [...existing, tpl];
+    saveCustomResourceTemplates(updated);
     setSaved(true);
     setTimeout(onClose, 1400);
   };
@@ -273,6 +278,9 @@ export function TravailOverview() {
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
   const project = findProject(projectId ?? '') ?? getProjects()[0];
   const stats = getProjectStats(project);
+  const originTemplate = project.draftOriginTemplateId
+    ? loadAllResourceTemplates().find(t2 => t2.id === project.draftOriginTemplateId && t2.type === 'overview')
+    : undefined;
 
   const completed = !!project.completed;
   const [editOpen, setEditOpen] = useState(false);
@@ -1064,6 +1072,7 @@ export function TravailOverview() {
             <SaveOverviewTemplateModal
               projectName={project.name}
               customSections={customSections}
+              originTemplate={originTemplate}
               onClose={() => setSaveOverviewTemplateModalOpen(false)}
             />
           )}
