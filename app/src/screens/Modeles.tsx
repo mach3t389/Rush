@@ -1104,7 +1104,11 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
   const [tplDescription, setTplDescription] = useState(initialTpl.description ?? '');
   const [tasksTemplateId, setTasksTemplateId] = useState<string | undefined>(initialTpl.tasksTemplateId);
   const [showTasksPicker, setShowTasksPicker] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks'>('tasks');
+  const [overviewTemplateId, setOverviewTemplateId] = useState<string | undefined>(initialTpl.defaultOverviewTemplateId);
+  const [showOverviewPicker, setShowOverviewPicker] = useState(false);
+  const [folderStructureId, setFolderStructureId] = useState<string | undefined>(initialTpl.defaultFolderStructureId);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'apercu' | 'tasks' | 'file'>('tasks');
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -1112,12 +1116,22 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
   const linkedTasksTpl = tasksTemplateId ? allTasksTpls.find(r => r.id === tasksTemplateId) : undefined;
   const resolvedSections: TemplateSection[] = linkedTasksTpl?.sections ?? [];
 
+  const allOverviewTpls = loadAllResourceTemplates().filter(r => r.type === 'overview');
+  const linkedOverviewTpl = overviewTemplateId ? allOverviewTpls.find(r => r.id === overviewTemplateId) : undefined;
+  const resolvedOverviewSections = linkedOverviewTpl?.overviewSections ?? [];
+
+  const allFileTpls = loadAllResourceTemplates().filter(r => r.type === 'file');
+  const linkedFileTpl = folderStructureId ? allFileTpls.find(r => r.id === folderStructureId) : undefined;
+  const resolvedFolders = linkedFileTpl?.folderStructure ?? [];
+
   const handleSave = () => {
     onSave({
       ...initialTpl,
       name: tplName,
       description: tplDescription,
       tasksTemplateId,
+      defaultOverviewTemplateId: overviewTemplateId,
+      defaultFolderStructureId: folderStructureId,
     });
     setDirty(false);
     setSavedFlash(true);
@@ -1156,7 +1170,9 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
       <div style={{ padding: '0 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0 }}>
         {([
           { key: 'overview', label: "Vue d'ensemble" },
+          { key: 'apercu',   label: 'Aperçu' },
           { key: 'tasks',    label: 'Tâches' },
+          { key: 'file',     label: 'Fichiers' },
         ] as const).map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             style={{ padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--ff-text)', fontWeight: activeTab === tab.key ? 600 : 400, color: activeTab === tab.key ? 'var(--text)' : 'var(--text-3)', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1, transition: 'color 0.15s' }}>
@@ -1281,6 +1297,149 @@ function TemplateProjectView({ tpl: initialTpl, onClose, onSave }: {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
                         <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.sections ?? []).length} sections</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Aperçu ─────────────────────────────────────────────────────────────── */}
+      {activeTab === 'apercu' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
+          <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure d'Aperçu</p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
+                  {linkedOverviewTpl
+                    ? <>Lié au modèle d'Aperçu « {linkedOverviewTpl.name} ».</>
+                    : "Aucun modèle d'Aperçu lié — le projet créé n'aura aucune section personnalisée par défaut."}
+                </p>
+              </div>
+              <SFButton variant="secondary" size="sm" icon="repeat" onClick={() => setShowOverviewPicker(true)}>Changer de structure d'Aperçu</SFButton>
+            </div>
+            {resolvedOverviewSections.length === 0 ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+                <SFIcon name="layout-grid" size={28} color="var(--border-2)" />
+                <p style={{ marginTop: 12 }}>Aucune section — reliez un modèle d'Aperçu pour en afficher ici.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {resolvedOverviewSections.map(sec => (
+                  <div key={sec.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <SFIcon name={sec.icon ?? 'layout-grid'} size={14} color="var(--text-3)" />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{sec.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {showOverviewPicker && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onMouseDown={e => { if (e.target === e.currentTarget) setShowOverviewPicker(false); }}>
+              <div style={{ width: 420, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <p style={{ fontWeight: 700, fontSize: 15 }}>Structure d'Aperçu</p>
+                  <button onClick={() => setShowOverviewPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                    <SFIcon name="x" size={15} />
+                  </button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button onClick={() => { setOverviewTemplateId(undefined); setDirty(true); setShowOverviewPicker(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${!overviewTemplateId ? 'var(--border-2)' : 'var(--border)'}`, background: !overviewTemplateId ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <SFIcon name="circle-slash" size={14} color="var(--text-3)" />
+                    </div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Aucune</p>
+                  </button>
+                  {allOverviewTpls.map(rt => (
+                    <button key={rt.id} onClick={() => { setOverviewTemplateId(rt.id); setDirty(true); setShowOverviewPicker(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${overviewTemplateId === rt.id ? 'var(--border-2)' : 'var(--border)'}`, background: overviewTemplateId === rt.id ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: rt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <SFIcon name={rt.icon} size={14} color="rgba(255,255,255,0.9)" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.overviewSections ?? []).length} sections</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Fichiers ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'file' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
+          <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure de fichiers</p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
+                  {linkedFileTpl
+                    ? <>Liée au modèle de fichiers « {linkedFileTpl.name} ».</>
+                    : 'Aucun modèle de fichiers lié — le projet créé n\'aura aucun dossier par défaut.'}
+                </p>
+              </div>
+              <SFButton variant="secondary" size="sm" icon="repeat" onClick={() => setShowFolderPicker(true)}>Changer de structure de fichiers</SFButton>
+            </div>
+            {resolvedFolders.length === 0 ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+                <SFIcon name="folder" size={28} color="var(--border-2)" />
+                <p style={{ marginTop: 12 }}>Aucun dossier — reliez un modèle de fichiers pour en afficher ici.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {(function renderFolders(nodes: typeof resolvedFolders, depth: number): React.ReactNode {
+                  return nodes.map((node, i) => (
+                    <React.Fragment key={node.id ?? `${depth}-${i}`}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', paddingLeft: 10 + depth * 20, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                        <SFIcon name="folder" size={13} color="var(--text-3)" />
+                        <span style={{ fontSize: 13 }}>{node.name}</span>
+                      </div>
+                      {node.children && node.children.length > 0 && renderFolders(node.children, depth + 1)}
+                    </React.Fragment>
+                  ));
+                })(resolvedFolders, 0)}
+              </div>
+            )}
+          </div>
+
+          {showFolderPicker && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onMouseDown={e => { if (e.target === e.currentTarget) setShowFolderPicker(false); }}>
+              <div style={{ width: 420, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <p style={{ fontWeight: 700, fontSize: 15 }}>Structure de fichiers</p>
+                  <button onClick={() => setShowFolderPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                    <SFIcon name="x" size={15} />
+                  </button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button onClick={() => { setFolderStructureId(undefined); setDirty(true); setShowFolderPicker(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${!folderStructureId ? 'var(--border-2)' : 'var(--border)'}`, background: !folderStructureId ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <SFIcon name="circle-slash" size={14} color="var(--text-3)" />
+                    </div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Aucune</p>
+                  </button>
+                  {allFileTpls.map(rt => (
+                    <button key={rt.id} onClick={() => { setFolderStructureId(rt.id); setDirty(true); setShowFolderPicker(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${folderStructureId === rt.id ? 'var(--border-2)' : 'var(--border)'}`, background: folderStructureId === rt.id ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: rt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <SFIcon name={rt.icon} size={14} color="rgba(255,255,255,0.9)" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.folderStructure ?? []).length} dossier(s) racine</p>
                       </div>
                     </button>
                   ))}
