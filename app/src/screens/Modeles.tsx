@@ -1979,10 +1979,31 @@ export function Modeles() {
         setResourceContent(resourceId, { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements }], activeId: 'v1' });
       }
       navigate(`/projets/${draftId}/ressources/${resourceId}`);
+    } else if (tpl.type === 'moodboard' || tpl.type === 'video_review') {
+      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name);
+      if (tpl.type === 'moodboard') {
+        const items = (tpl.moodboardRefs ?? []).map((r, i) => ({
+          id: r.id, type: 'postit' as const,
+          x: 40 + (i % 4) * 220, y: 40 + Math.floor(i / 4) * 180, w: 200, h: 160,
+          text: r.note ? `${r.title}\n${r.note}` : r.title,
+          postitColor: '#f9ff00',
+        }));
+        setResourceContent(resourceId, { items, arrows: [], comments: [] });
+      } else {
+        const versions = (tpl.reviewRounds ?? []).map(r => ({
+          v: r.id, status: 'review' as const, label: r.label,
+          date: new Date().toISOString().split('T')[0], author: USERS.lea,
+        }));
+        setResourceContent(resourceId, {
+          versions, activeVersion: versions[0]?.v, comments: [], tasks: [],
+          reviewStatus: 'review' as const,
+        });
+      }
+      navigate(`/projets/${draftId}/ressources/${resourceId}`);
     }
   };
 
-  const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview' | 'document' | 'screenplay') => {
+  const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview' | 'document' | 'screenplay' | 'moodboard' | 'video_review') => {
     let draftId: string;
     try {
       draftId = await createTemplateDraft('Nouveau modèle');
@@ -2007,7 +2028,7 @@ export function Modeles() {
     }
     if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
-    else if (typeFilter === 'file' || typeFilter === 'tasks' || typeFilter === 'overview' || typeFilter === 'document' || typeFilter === 'screenplay') { void openNewTemplateDraft(typeFilter); }
+    else if (typeFilter === 'file' || typeFilter === 'tasks' || typeFilter === 'overview' || typeFilter === 'document' || typeFilter === 'screenplay' || typeFilter === 'moodboard' || typeFilter === 'video_review') { void openNewTemplateDraft(typeFilter); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };
 
@@ -2312,7 +2333,7 @@ export function Modeles() {
             selectedRes
               ? <ResourceTemplateDetail tpl={selectedRes}
                   onOpen={() => {
-                    if (selectedRes.type === 'file' || selectedRes.type === 'tasks' || selectedRes.type === 'overview' || selectedRes.type === 'document' || selectedRes.type === 'screenplay') {
+                    if (selectedRes.type === 'file' || selectedRes.type === 'tasks' || selectedRes.type === 'overview' || selectedRes.type === 'document' || selectedRes.type === 'screenplay' || selectedRes.type === 'moodboard' || selectedRes.type === 'video_review') {
                       void openTemplateDraft(selectedRes);
                     } else {
                       setTemplateResViewTpl(selectedRes);
