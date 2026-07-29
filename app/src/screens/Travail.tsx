@@ -419,6 +419,7 @@ function TaskRow({
   onDelete,
   onConvertRequest,
   compact,
+  onBulkMove,
 }: {
   task: Task;
   selected: boolean;
@@ -431,6 +432,7 @@ function TaskRow({
   onDelete?: () => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
   compact?: boolean;
+  onBulkMove?: () => void;
 }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
@@ -749,7 +751,7 @@ function TaskRow({
         pos={ctxPos}
         onDelete={() => { onDelete?.(); setCtxPos(null); }}
         onOpen={() => { onSelect(task); setCtxPos(null); }}
-        onMove={allSections && allSections.length > 1 ? () => { setCtxPos(null); setShowMoveModal(true); } : undefined}
+        onMove={allSections && allSections.length > 1 ? () => { setCtxPos(null); if (onBulkMove) onBulkMove(); else setShowMoveModal(true); } : undefined}
         onConvert={() => { onConvertRequest(task, ctxPos); setCtxPos(null); }}
         onClose={() => setCtxPos(null)}
       />
@@ -1012,6 +1014,7 @@ function Section({
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
+  onBulkMoveTask,
   autoOpenAddTask,
 }: {
   label: string;
@@ -1044,6 +1047,7 @@ function Section({
   allSections: SectionData[];
   onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
+  onBulkMoveTask?: () => void;
   // Pressing Enter to create a section should land straight on a blank
   // task row ready to type, instead of leaving the user to click "+
   // Ajouter une tâche" themselves right after.
@@ -1322,6 +1326,7 @@ function Section({
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
                 compact={compactColumns}
+                onBulkMove={multiSelIds.has(task.id) && multiSelIds.size > 1 ? onBulkMoveTask : undefined}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
@@ -2380,6 +2385,7 @@ export function Travail() {
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
                 onConvertRequest={handleConvertRequest}
+                onBulkMoveTask={() => setBulkMoveOpen(true)}
                 autoOpenAddTask={section.label === autoOpenSectionLabel}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
