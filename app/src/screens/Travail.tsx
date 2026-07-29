@@ -612,6 +612,11 @@ function TaskRow({
             {titleDraft}
           </span>
         )}
+        {!editingTitle && task.description && (
+          <span title={task.description.slice(0, 120)} style={{ flexShrink: 0, marginLeft: 2, display: 'flex', alignItems: 'center' }}>
+            <SFIcon name="align-left" size={11} color="var(--text-3)" />
+          </span>
+        )}
       </div>
 
       {!compact && (
