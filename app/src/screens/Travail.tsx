@@ -482,7 +482,8 @@ function TaskRow({
     const val = titleDraft.trim() || task.title;
     setTitleDraft(val);
     setEditingTitle(false);
-    if (rowProjectId && val !== task.title) updateTask(rowProjectId, task.id, { title: val });
+    const pid = rowProjectId ?? task.projectId;
+    if (pid && val !== task.title) updateTask(pid, task.id, { title: val });
   };
 
   const openDrop = (key: typeof open, e: React.MouseEvent<HTMLButtonElement>) => {
