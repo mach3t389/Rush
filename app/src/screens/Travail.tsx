@@ -80,11 +80,12 @@ function MoveTaskModal({ task, sections, onMove, onClose }: {
   onMove: (toSectionLabel: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const otherSections = sections;
   return (
-    <SFModal open onClose={onClose} title="Déplacer la tâche" width={400}>
-      <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Tâche : {task.title}</p>
-      <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>Sections disponibles</div>
+    <SFModal open onClose={onClose} title={t('board.moveTaskToSectionTitle')} width={400}>
+      <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('board.moveTaskLabel')} : {task.title}</p>
+      <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>{t('board.availableSections')}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {otherSections.map(s => (
           <button
@@ -342,13 +343,17 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
 
 // ── Task row ──────────────────────────────────────────────────────────────────
 
-function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose }: {
+function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose, moveTargetsProject }: {
   pos: { x: number; y: number };
   onDelete: () => void;
   onOpen: () => void;
   onMove?: () => void;
   onConvert: () => void;
   onClose: () => void;
+  // Le libellé doit dire laquelle des deux destinations l'action ouvre : la
+  // multi-sélection va vers un autre projet (BulkMoveModal), une tâche seule
+  // reste dans le projet et change de section (MoveTaskModal).
+  moveTargetsProject?: boolean;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -368,7 +373,7 @@ function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose }: 
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 200, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
-      {onMove && item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('board.moveTo')}</span></>, onMove)}
+      {onMove && item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t(moveTargetsProject ? 'board.moveToOtherProject' : 'board.moveToSection')}</span></>, onMove)}
       {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
@@ -616,7 +621,10 @@ function TaskRow({
         )}
         {!editingTitle && task.description && (
           <span title={task.description.slice(0, 120)} style={{ flexShrink: 0, marginLeft: 2, display: 'flex', alignItems: 'center' }}>
-            <SFIcon name="align-left" size={11} color="var(--text-3)" />
+            {/* text-align-start, pas align-left : ce dernier n'existe pas dans
+                la version de lucide-react installée et SFIcon renvoie null
+                silencieusement — l'icône ne s'affichait donc jamais. */}
+            <SFIcon name="text-align-start" size={11} color="var(--text-3)" />
           </span>
         )}
         {!editingTitle && hasSubtasks && (
@@ -752,7 +760,14 @@ function TaskRow({
         pos={ctxPos}
         onDelete={() => { onDelete?.(); setCtxPos(null); }}
         onOpen={() => { onSelect(task); setCtxPos(null); }}
-        onMove={allSections && allSections.length > 1 ? () => { setCtxPos(null); if (onBulkMove) onBulkMove(); else setShowMoveModal(true); } : undefined}
+        // La multi-sélection va vers un autre projet : toujours proposable,
+        // même dans un projet qui n'a qu'une seule section. Le déplacement
+        // d'une tâche seule ne change que de section — inutile s'il n'y en a
+        // qu'une.
+        onMove={onBulkMove ? () => { setCtxPos(null); onBulkMove(); }
+          : allSections && allSections.length > 1 ? () => { setCtxPos(null); setShowMoveModal(true); }
+          : undefined}
+        moveTargetsProject={!!onBulkMove}
         onConvert={() => { onConvertRequest(task, ctxPos); setCtxPos(null); }}
         onClose={() => setCtxPos(null)}
       />
@@ -774,6 +789,11 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(!!autoOpen);
+  // Le useState ci-dessus ne capture `autoOpen` qu'au montage, mais la section
+  // qui vient d'être créée se monte AVANT que le parent ait pu lever le drapeau
+  // (il l'applique dans un effet, donc au rendu suivant) : sans cet effet la
+  // ligne restait fermée quelle que soit la temporisation côté parent.
+  useEffect(() => { if (autoOpen) setAdding(true); }, [autoOpen]);
   const [title, setTitle] = useState('');
   const [assignee, setAssignee] = useState<User | null>(null);
   const [priority, setPriority] = useState<Priority>('none');
@@ -1881,10 +1901,24 @@ export function Travail() {
     return subscribeStore(sync);
   }, [project.id]);
 
+  // L'écriture au store est différée hors de l'updater : la faire dedans est
+  // un effet de bord en phase de rendu, que StrictMode double en dev. Le
+  // premier appel écrivait au store, dont le notify() re-synchronisait l'état
+  // depuis l'intérieur même de l'updater ; la seconde invocation repartait du
+  // `prev` d'origine et réappliquait la mutation — d'où des tâches ajoutées
+  // en double (même id) à chaque création.
+  const pendingStoreWriteRef = useRef<SectionData[] | null>(null);
+  useEffect(() => {
+    if (pendingStoreWriteRef.current === null) return;
+    const next = pendingStoreWriteRef.current;
+    pendingStoreWriteRef.current = null;
+    setSections_store(project.id, next);
+  });
+
   const setSections = (updater: SectionData[] | ((prev: SectionData[]) => SectionData[])) => {
     setSectionsState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      setSections_store(project.id, next);
+      pendingStoreWriteRef.current = next;
       return next;
     });
   };
@@ -1947,22 +1981,31 @@ export function Travail() {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
   useEffect(() => {
-    if (draggedIdx === null) return;
+    if (draggedIdx === null && draggedTask === null) return;
     const container = scrollContainerRef.current;
     if (!container) return;
-    const EDGE = 80;
-    const SPEED = 8;
+    // Zone généreuse : pendant un glisser la souris est souvent déjà hors du
+    // conteneur, donc on accepte aussi les positions au-delà du bord (d'où le
+    // ratio non borné) et la vitesse monte avec la proximité — un seuil fixe
+    // trop étroit donnait l'impression que l'auto-défilement ne marchait pas.
+    const EDGE = 160;
+    const MAX_SPEED = 26;
     let frame: number;
     const scroll = () => {
       const { top, bottom } = container.getBoundingClientRect();
       const y = pointerYRef.current;
-      if (y < top + EDGE) container.scrollTop -= SPEED;
-      else if (y > bottom - EDGE) container.scrollTop += SPEED;
+      if (y < top + EDGE) {
+        const ratio = Math.min(1, (top + EDGE - y) / EDGE);
+        container.scrollTop -= Math.max(2, MAX_SPEED * ratio);
+      } else if (y > bottom - EDGE) {
+        const ratio = Math.min(1, (y - (bottom - EDGE)) / EDGE);
+        container.scrollTop += Math.max(2, MAX_SPEED * ratio);
+      }
       frame = requestAnimationFrame(scroll);
     };
     frame = requestAnimationFrame(scroll);
     return () => cancelAnimationFrame(frame);
-  }, [draggedIdx]);
+  }, [draggedIdx, draggedTask]);
 
   const handleLoadTasksTemplate = (templateId: string) => {
     const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === 'tasks');
@@ -2371,7 +2414,10 @@ export function Travail() {
       )}
 
       {/* List view */}
-      {view === 'list' && <div ref={scrollContainerRef} onPointerMove={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
+      {/* onDragOver, pas onPointerMove : pendant un glisser HTML5 natif le
+          navigateur ne émet plus d'événements pointeur/souris — seuls les
+          événements de glisser portent la position du curseur. */}
+      {view === 'list' && <div ref={scrollContainerRef} onDragOver={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
         <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {visibleSections.map((section, vIdx) => {
           const globalIdx = sections.findIndex(s => s.label === section.label);
