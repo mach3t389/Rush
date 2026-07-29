@@ -343,17 +343,18 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
 
 // ── Task row ──────────────────────────────────────────────────────────────────
 
-function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose, moveTargetsProject }: {
+// Les deux destinations sont proposées séparément et toujours toutes les deux
+// (tâche seule comme multi-sélection) : changer de section dans le projet
+// courant, ou partir vers un autre projet. `onMoveToSection` est omis quand le
+// projet n'a qu'une seule section — il n'y aurait nulle part où aller.
+function TaskContextMenu({ pos, onDelete, onOpen, onMoveToSection, onMoveToProject, onConvert, onClose }: {
   pos: { x: number; y: number };
   onDelete: () => void;
   onOpen: () => void;
-  onMove?: () => void;
+  onMoveToSection?: () => void;
+  onMoveToProject: () => void;
   onConvert: () => void;
   onClose: () => void;
-  // Le libellé doit dire laquelle des deux destinations l'action ouvre : la
-  // multi-sélection va vers un autre projet (BulkMoveModal), une tâche seule
-  // reste dans le projet et change de section (MoveTaskModal).
-  moveTargetsProject?: boolean;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -373,7 +374,8 @@ function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose, mo
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 200, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
-      {onMove && item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t(moveTargetsProject ? 'board.moveToOtherProject' : 'board.moveToSection')}</span></>, onMove)}
+      {onMoveToSection && item(<><SFIcon name="corner-down-right" size={13} color="var(--text-3)" /><span>{t('board.moveToSection')}</span></>, onMoveToSection)}
+      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('board.moveToOtherProject')}</span></>, onMoveToProject)}
       {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
@@ -424,7 +426,7 @@ function TaskRow({
   onDelete,
   onConvertRequest,
   compact,
-  onBulkMove,
+  onMoveToProject,
 }: {
   task: Task;
   selected: boolean;
@@ -437,7 +439,9 @@ function TaskRow({
   onDelete?: () => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
   compact?: boolean;
-  onBulkMove?: () => void;
+  // Ouvre le sélecteur projet+section du parent, qui décide seul si l'action
+  // porte sur cette tâche ou sur toute la multi-sélection.
+  onMoveToProject?: (task: Task) => void;
 }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
@@ -760,14 +764,12 @@ function TaskRow({
         pos={ctxPos}
         onDelete={() => { onDelete?.(); setCtxPos(null); }}
         onOpen={() => { onSelect(task); setCtxPos(null); }}
-        // La multi-sélection va vers un autre projet : toujours proposable,
-        // même dans un projet qui n'a qu'une seule section. Le déplacement
-        // d'une tâche seule ne change que de section — inutile s'il n'y en a
-        // qu'une.
-        onMove={onBulkMove ? () => { setCtxPos(null); onBulkMove(); }
-          : allSections && allSections.length > 1 ? () => { setCtxPos(null); setShowMoveModal(true); }
+        // Changer de section n'a de sens que s'il en existe une autre ; partir
+        // vers un autre projet reste toujours proposé.
+        onMoveToSection={allSections && allSections.length > 1
+          ? () => { setCtxPos(null); setShowMoveModal(true); }
           : undefined}
-        moveTargetsProject={!!onBulkMove}
+        onMoveToProject={() => { setCtxPos(null); onMoveToProject?.(task); }}
         onConvert={() => { onConvertRequest(task, ctxPos); setCtxPos(null); }}
         onClose={() => setCtxPos(null)}
       />
@@ -1035,7 +1037,7 @@ function Section({
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
-  onBulkMoveTask,
+  onMoveTaskToProject,
   autoOpenAddTask,
 }: {
   label: string;
@@ -1068,7 +1070,7 @@ function Section({
   allSections: SectionData[];
   onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
-  onBulkMoveTask?: () => void;
+  onMoveTaskToProject?: (task: Task) => void;
   // Pressing Enter to create a section should land straight on a blank
   // task row ready to type, instead of leaving the user to click "+
   // Ajouter une tâche" themselves right after.
@@ -1275,7 +1277,7 @@ function Section({
         <button
           onClick={e => { e.stopPropagation(); onCopySection(); }}
           title="Copier la section vers un autre projet"
-          style={{ visibility: headerHovered && !confirmDelete ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          style={{ visibility: headerHovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
         >
@@ -1286,7 +1288,7 @@ function Section({
         <button
           onClick={e => { e.stopPropagation(); onMoveSection(); }}
           title="Déplacer la section vers un autre projet"
-          style={{ visibility: headerHovered && !confirmDelete ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          style={{ visibility: headerHovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
         >
@@ -1297,26 +1299,32 @@ function Section({
         <button
           onClick={e => { e.stopPropagation(); if (tasks.length > 0) { setConfirmDelete(true); } else { onDelete(); } }}
           title="Supprimer la section"
-          style={{ visibility: headerHovered && !confirmDelete ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
+          style={{ visibility: headerHovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
         >
           <SFIcon name="trash-2" size={11} />
         </button>
-        {confirmDelete && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: tasks.length })}</span>
-            <button
-              onClick={e => { e.stopPropagation(); onDelete(); }}
-              style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--danger)', background: 'rgba(255,60,60,0.1)', color: 'var(--danger)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            >{t('tasks.yes')}</button>
-            <button
-              onClick={e => { e.stopPropagation(); setConfirmDelete(false); }}
-              style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            >{t('tasks.cancel')}</button>
-          </div>
-        )}
       </div>
+
+      {/* Confirmation de suppression — SFModal, comme le reste de l'app : la
+          version précédente s'affichait en ligne dans l'en-tête de section,
+          seul vestige de cet ancien style. */}
+      <SFModal open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t('board.deleteSectionTitle')} width={380}>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 22 }}>
+          {t('board.deleteSectionConfirm', { count: tasks.length, section: label })}
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+          >{t('tasks.cancel')}</button>
+          <button
+            onClick={() => { setConfirmDelete(false); onDelete(); }}
+            style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+          >{t('tasks.delete')}</button>
+        </div>
+      </SFModal>
 
       {ctxPos && (
         <SectionContextMenu
@@ -1347,7 +1355,7 @@ function Section({
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
                 compact={compactColumns}
-                onBulkMove={multiSelIds.has(task.id) && multiSelIds.size > 1 ? onBulkMoveTask : undefined}
+                onMoveToProject={onMoveTaskToProject}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
@@ -1939,7 +1947,13 @@ export function Travail() {
     const ids = multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id];
     setConvertRequest({ taskIds: ids, pos });
   };
-  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  // Ids visés par le sélecteur « déplacer vers un autre projet ». Même règle
+  // que handleConvertRequest ci-dessus : la sélection multiple l'emporte quand
+  // la tâche visée en fait partie, sinon on ne déplace que celle-là.
+  const [moveToProjectIds, setMoveToProjectIds] = useState<string[] | null>(null);
+  const handleMoveToProjectRequest = (task: Task) => {
+    setMoveToProjectIds(multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id]);
+  };
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [convertRequest, setConvertRequest] = useState<{ taskIds: string[]; pos: { x: number; y: number } } | null>(null);
   // Déplacer/copier des sous-tâches vers un projet+section — TaskPanel
@@ -2452,7 +2466,7 @@ export function Travail() {
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
                 onConvertRequest={handleConvertRequest}
-                onBulkMoveTask={() => setBulkMoveOpen(true)}
+                onMoveTaskToProject={handleMoveToProjectRequest}
                 autoOpenAddTask={section.label === autoOpenSectionLabel}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
@@ -2554,7 +2568,7 @@ export function Travail() {
         <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
           <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('board.selectedTasksCount', { count: multiSelIds.size })}</span>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-          <button onClick={() => setBulkMoveOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+          <button onClick={() => setMoveToProjectIds([...multiSelIds])} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="move-right" size={13} />
             {t('board.move')}
           </button>
@@ -2581,10 +2595,10 @@ export function Travail() {
         document.body,
       )}
 
-      {/* Bulk move tasks modal */}
-      {bulkMoveOpen && (
+      {/* Déplacement vers un autre projet — une tâche seule ou la sélection */}
+      {moveToProjectIds && (
         <BulkMoveModal
-          title={t('board.moveTasksTitle', { count: multiSelIds.size })}
+          title={t('board.moveTasksTitle', { count: moveToProjectIds.length })}
           mode="move"
           onMove={(toProjectId, toSectionLabel) => {
             // moveTasks() already writes the store; the subscribeStore sync
@@ -2592,10 +2606,10 @@ export function Travail() {
             // sections here raced the async Supabase write and could clobber
             // it back to the pre-move snapshot (same bug as the convert-to-
             // subtask picker below).
-            moveTasks(project.id, [...multiSelIds], toProjectId, toSectionLabel);
+            moveTasks(project.id, moveToProjectIds, toProjectId, toSectionLabel);
             setMultiSelIds(new Set());
           }}
-          onClose={() => setBulkMoveOpen(false)}
+          onClose={() => setMoveToProjectIds(null)}
         />
       )}
 
