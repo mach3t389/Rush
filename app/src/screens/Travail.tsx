@@ -1130,6 +1130,7 @@ function Section({
 
   return (
     <div
+      data-section-label={label}
       draggable
       onDragStart={e => {
         if (!sectionDragHandleActive.current) { e.preventDefault(); return; }
@@ -1931,7 +1932,7 @@ export function Travail() {
     if (pending && sections.some(s => s.label === pending)) {
       setAutoOpenSectionLabel(pending);
       pendingAutoOpenLabelRef.current = null;
-      setTimeout(() => setAutoOpenSectionLabel(null), 0);
+      setTimeout(() => setAutoOpenSectionLabel(null), 50);
     }
   }, [sections]);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -2038,6 +2039,11 @@ export function Travail() {
     setNewSectionLabel('');
     setAddingSection(false);
     pendingAutoOpenLabelRef.current = label;
+    // Scroll to the bottom where the new section will appear
+    setTimeout(() => {
+      const el = document.querySelector(`[data-section-label="${CSS.escape(label)}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   };
 
   const handleRenameSection = (idx: number, newLabel: string) => {
