@@ -108,7 +108,7 @@ function MoveTaskModal({ task, sections, onMove, onClose }: {
 
 // ── Column header ──────────────────────────────────────────────────────────────
 
-const GRID = '28px 1fr 80px 65px 120px 75px 95px 85px 24px';
+const GRID = '28px 1fr 65px 120px 75px 95px 85px 24px';
 // Quand le panneau de détail est ouvert, ces infos sont déjà visibles à
 // droite — les cacher dans la liste centrale libère toute la largeur pour
 // lire le titre en entier (checkbox + titre + suppression seulement).
@@ -134,7 +134,6 @@ function ColHeader({ compact }: { compact?: boolean }) {
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
       <span style={COL_STYLE}>{t('tasks.title')}</span>
-      <span style={COL_STYLE}>{t('tasks.subtasks')}</span>
       <span style={COL_STYLE}>{t('tasks.activity')}</span>
       <span style={COL_STYLE}>{t('tasks.assignedTo')}</span>
       <span style={COL_STYLE}>{t('tasks.priority')}</span>
@@ -617,24 +616,16 @@ function TaskRow({
             <SFIcon name="align-left" size={11} color="var(--text-3)" />
           </span>
         )}
+        {!editingTitle && hasSubtasks && (
+          <span style={{ flexShrink: 0, marginLeft: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <SFIcon name="git-branch" size={11} color="var(--text-3)" />
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{task.subtasks!.length}</span>
+          </span>
+        )}
       </div>
 
       {!compact && (
       <>
-      {/* Sous-tâches */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        {hasSubtasks ? (
-          <>
-            <SFIcon name="git-branch" size={11} color="var(--text-3)" />
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-              {task.subtasks!.length}
-            </span>
-          </>
-        ) : (
-          <span style={{ color: 'var(--border-2)', fontFamily: 'var(--ff-mono)', fontSize: 10 }}>—</span>
-        )}
-      </div>
-
       {/* Activité */}
       <TaskActivityCell taskId={task.id} />
 
@@ -897,7 +888,6 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
 
         {!compact && (
         <>
-        <span />{/* Sous-tâches */}
         <span />{/* Activité */}
 
         {/* Assignee — custom dropdown */}
