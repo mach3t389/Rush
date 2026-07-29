@@ -1935,6 +1935,8 @@ export function Travail() {
       setTimeout(() => setAutoOpenSectionLabel(null), 50);
     }
   }, [sections]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pointerYRef = useRef(0);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
   const [view, setView] = useSyncedViewState<'list' | 'board'>('sf_view_travail', 'list');
@@ -1942,6 +1944,24 @@ export function Travail() {
   const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
   const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+
+  useEffect(() => {
+    if (draggedIdx === null) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const EDGE = 80;
+    const SPEED = 8;
+    let frame: number;
+    const scroll = () => {
+      const { top, bottom } = container.getBoundingClientRect();
+      const y = pointerYRef.current;
+      if (y < top + EDGE) container.scrollTop -= SPEED;
+      else if (y > bottom - EDGE) container.scrollTop += SPEED;
+      frame = requestAnimationFrame(scroll);
+    };
+    frame = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(frame);
+  }, [draggedIdx]);
 
   const handleLoadTasksTemplate = (templateId: string) => {
     const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === 'tasks');
@@ -2350,7 +2370,7 @@ export function Travail() {
       )}
 
       {/* List view */}
-      {view === 'list' && <div onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
+      {view === 'list' && <div ref={scrollContainerRef} onPointerMove={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
         <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {visibleSections.map((section, vIdx) => {
           const globalIdx = sections.findIndex(s => s.label === section.label);
