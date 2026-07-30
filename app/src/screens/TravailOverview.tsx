@@ -571,8 +571,10 @@ export function TravailOverview() {
             action={
               <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
                 setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
-                const existing = getSections(project.id);
-                setNewDlSection(existing.find(s => s.label === 'Livraison')?.label ?? existing[0]?.label ?? 'Livraison');
+                // Pas de présélection — l'utilisateur ne veut plus qu'un livrable
+                // atterrisse dans une section "Livraison" choisie sans le
+                // demander, même comme valeur par défaut implicite.
+                setNewDlSection('');
                 setNewDlSectionCustom('');
               }}>
                 {t('overview.add')}
@@ -868,8 +870,9 @@ export function TravailOverview() {
             {addingDeliverable && (
               <div style={{ padding: '12px 18px', borderTop: deliverables.length ? '1px solid var(--border)' : 'none', background: 'rgba(249,255,0,0.03)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(() => {
+                  const chosenSection = (newDlSectionCustom.trim() || newDlSection).trim();
                   const submitNewDl = () => {
-                    if (!newDlTitle.trim()) return;
+                    if (!newDlTitle.trim() || !chosenSection) return;
                     const task: Task = {
                       id: `dl-${Date.now()}`,
                       title: newDlTitle.trim(),
@@ -889,7 +892,7 @@ export function TravailOverview() {
                       deliverableType: newDlType,
                       format: newDlFormat,
                     };
-                    addDeliverable(project.id, task, (newDlSectionCustom.trim() || newDlSection).trim() || undefined);
+                    addDeliverable(project.id, task, chosenSection);
                     setAddingDeliverable(false);
                     setNewDlTitle('');
                   };
@@ -906,7 +909,7 @@ export function TravailOverview() {
                         placeholder="Nom du livrable…"
                         style={{ flex: 1, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box' }}
                       />
-                      <SFButton variant="primary" size="sm" icon="check" disabled={!newDlTitle.trim()} onClick={submitNewDl}>
+                      <SFButton variant="primary" size="sm" icon="check" disabled={!newDlTitle.trim() || !chosenSection} onClick={submitNewDl}>
                         {t('overview.add')}
                       </SFButton>
                     </div>
@@ -934,7 +937,7 @@ export function TravailOverview() {
                     value={newDlSectionCustom}
                     onChange={e => setNewDlSectionCustom(e.target.value)}
                     placeholder={t('taskPanel.orCreateSection')}
-                    style={{ width: 160, padding: '4px 9px', borderRadius: 7, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+                    style={{ flex: '1 1 200px', minWidth: 200, padding: '4px 9px', borderRadius: 7, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
