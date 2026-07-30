@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, isOverdue, fmtTaskDate, PageHeader } from '../components/ui';
 import { ACTIVITY, USERS } from '../data/mock';
-import { getEvents, subscribeEvents, isEventsLoading, type CalendarEvent } from '../data/eventStore';
+import { getEvents, subscribeEvents, isEventsLoading, pullFromGoogleCalendar, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
 import { getProjects } from '../data/projectStore';
@@ -407,6 +407,10 @@ export function Dashboard() {
 
   const [events, setEvents] = useState<CalendarEvent[]>(getEvents);
   useEffect(() => subscribeEvents(() => setEvents(getEvents())), []);
+  // Fetch anything changed in Google since the last sweep (throttled in the
+  // store). Done here too, not just on the calendar screens, so the app is
+  // already up to date by the time you get to one.
+  useEffect(() => { void pullFromGoogleCalendar(); }, []);
   // Event-type badges below are resolved via getEventTypeById(), which reads
   // this store's own cache — without subscribing here too, an event type
   // added/renamed/loaded after this component's initial events-driven

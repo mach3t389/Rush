@@ -8,7 +8,7 @@ import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
-import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents } from '../data/eventStore';
+import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, pullFromGoogleCalendar } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import {
@@ -725,6 +725,10 @@ export function CalendrierGlobal() {
     const unsub2 = subscribeEventTypes(() => { const et = getEventTypes(); setEventTypes(et); setEvents(resolveEvents(et)); });
     return () => { unsub1(); unsub2(); };
   }, []);
+
+  // Fetch anything changed in Google since the last sweep (throttled in the
+  // store) — the daily cron alone would leave this view a day behind.
+  useEffect(() => { void pullFromGoogleCalendar(); }, []);
 
   const [, forceWeekStart] = useState(0);
   useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);

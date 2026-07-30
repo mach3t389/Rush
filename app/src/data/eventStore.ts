@@ -11,6 +11,7 @@ import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
+import { getGoogleCalendarStatus } from './googleCalendarStore';
 
 async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update' | 'delete', projectId?: string, googleEventId?: string): Promise<void> {
   try {
@@ -26,6 +27,65 @@ async function pushToGoogleCalendar(eventId: string, action: 'create' | 'update'
     // Fire-and-forget — a push failure must never block the Rush-side write.
     console.error('pushToGoogleCalendar failed', err);
   }
+}
+
+// Google → Rush, on demand.
+//
+// The Vercel cron only runs once a day (Hobby plan cap), so a change made in
+// Google would otherwise stay invisible in Rush until 8am the next morning.
+// Calendar screens call this on mount so what you're looking at is fresh.
+//
+// Throttled through localStorage rather than a module variable so a page
+// reload (or a second tab) doesn't re-trigger a sweep that just ran.
+const LAST_PULL_KEY = 'sf_gcal_last_pull';
+const PULL_MIN_INTERVAL_MS = 2 * 60 * 1000;
+let _pullInFlight: Promise<void> | null = null;
+
+function lastPullAt(): number {
+  const raw = localStorage.getItem(LAST_PULL_KEY);
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function pullFromGoogleCalendar(): Promise<void> {
+  if (isDemoSession()) return Promise.resolve();
+  if (_pullInFlight) return _pullInFlight;
+  if (Date.now() - lastPullAt() < PULL_MIN_INTERVAL_MS) return Promise.resolve();
+
+  _pullInFlight = (async () => {
+    try {
+      // Cached in memory for the session, so this costs a round-trip once and
+      // then keeps studios without Google connected from calling the sync
+      // endpoint at all.
+      const { connected } = await getGoogleCalendarStatus();
+      if (!connected) return;
+
+      const studioId = await getStudioId();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      // Marked before the request, not after: a pull that fails (or times out)
+      // must not let every subsequent mount retry it in a tight loop.
+      localStorage.setItem(LAST_PULL_KEY, String(Date.now()));
+
+      const resp = await fetch('/api/google-calendar-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: 'pull', studioId }),
+      });
+      if (!resp.ok) { console.error('pullFromGoogleCalendar failed', resp.status); return; }
+
+      // The pull writes straight to Postgres with the service-role key, so the
+      // in-memory cache here knows nothing about it until we refetch.
+      await fetchSupabaseEvents();
+    } catch (err) {
+      console.error('pullFromGoogleCalendar failed', err);
+    } finally {
+      _pullInFlight = null;
+    }
+  })();
+
+  return _pullInFlight;
 }
 
 export interface CalendarEvent {
@@ -171,6 +231,9 @@ export function resetEventsCache(): void {
   _supabaseEvents = [];
   _supabaseFetchStarted = false;
   _loading.reset();
+  // Otherwise the next account to sign in on this browser inherits this one's
+  // throttle window and waits up to two minutes for its first Google pull.
+  try { localStorage.removeItem(LAST_PULL_KEY); } catch { /* noop */ }
 }
 
 onLogout(resetEventsCache);

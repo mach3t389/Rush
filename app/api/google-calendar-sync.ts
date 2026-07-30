@@ -10,6 +10,11 @@
 // which each caller already sends for its own reason (cron secret vs a
 // real user's Supabase session) — no change needed to either caller
 // beyond pointing at this file's URL instead of the old two.
+//
+// A third caller was added later: a signed-in user opening a calendar screen
+// asks for a pull of their own studio only (`action: 'pull'`), because Vercel
+// Hobby caps the cron above at one run per day and waiting until 8am for a
+// change made in Google is too slow. Same handler, one studio instead of all.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getValidAccessToken, getOrgDefaultCalendarId, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody } from './_lib/googleCalendarApi.js';
@@ -19,7 +24,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
     return handlePull(req, res);
   }
+  if (req.body && (req.body as { action?: string }).action === 'pull') {
+    return handleUserPull(req, res);
+  }
   return handlePush(req, res);
+}
+
+// Shared by the push and user-pull handlers: both are called by a real
+// signed-in user and must confirm the session belongs to a member of the
+// studio it claims to act on. Returns an admin client on success, or null
+// after having already written the error response.
+async function authorizeStudioMember(req: VercelRequest, res: VercelResponse, studioId: string): Promise<SupabaseClient | null> {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return null;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return null;
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'Not a member of this studio' });
+    return null;
+  }
+
+  return supabaseAdmin;
 }
 
 // ── Push: one event, Rush → Google (eventStore.ts, on create/update/delete) ──
@@ -44,35 +90,8 @@ async function handlePush(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) {
-    res.status(401).json({ error: 'Missing authorization token' });
-    return;
-  }
-
-  const supabaseAdmin = createClient(
-    process.env.VITE_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !user) {
-    res.status(401).json({ error: 'Invalid or expired token' });
-    return;
-  }
-
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('studio_members')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('studio_id', studioId)
-    .maybeSingle();
-
-  if (membershipError || !membership) {
-    res.status(403).json({ error: 'Not a member of this studio' });
-    return;
-  }
+  const supabaseAdmin = await authorizeStudioMember(req, res, studioId);
+  if (!supabaseAdmin) return;
 
   try {
     const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
@@ -150,7 +169,7 @@ interface GoogleEventItem {
   end?: { date?: string; dateTime?: string };
 }
 
-async function handlePull(req: VercelRequest, res: VercelResponse) {
+async function handlePull(_req: VercelRequest, res: VercelResponse) {
   const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -169,79 +188,110 @@ async function handlePull(req: VercelRequest, res: VercelResponse) {
   const results: Record<string, string> = {};
 
   for (const conn of connections ?? []) {
-    const studioId = conn.studio_id as string;
-
-    let accessToken: string | null = null;
-    try {
-      accessToken = await getValidAccessToken(supabaseAdmin, studioId);
-    } catch (err) {
-      console.error(`Failed to get access token for studio ${studioId}:`, err);
-      results[`studio:${studioId}:default`] = 'error';
-      continue;
-    }
-    if (!accessToken) {
-      results[`studio:${studioId}:default`] = 'not_connected';
-      continue;
-    }
-
-    try {
-      const orgCalendarId = await getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
-      if (orgCalendarId) {
-        const { data: connRow } = await supabaseAdmin
-          .from('google_calendar_connections')
-          .select('sync_token')
-          .eq('studio_id', studioId)
-          .maybeSingle();
-
-        results[`studio:${studioId}:default`] = await pullCalendar({
-          supabaseAdmin, studioId, calendarId: orgCalendarId, accessToken, insertProjectId: null,
-          syncToken: connRow?.sync_token ?? null,
-          persistSyncToken: async (token) => {
-            await supabaseAdmin
-              .from('google_calendar_connections')
-              .update({ sync_token: token ?? null, last_synced_at: new Date().toISOString() })
-              .eq('studio_id', studioId);
-          },
-        });
-      }
-    } catch (err) {
-      console.error(`Pull failed for studio ${studioId} default calendar:`, err);
-      results[`studio:${studioId}:default`] = 'error';
-    }
-
-    const { data: projectCals, error: projectCalsError } = await supabaseAdmin
-      .from('project_google_calendars')
-      .select('project_id, google_calendar_id, sync_token')
-      .eq('studio_id', studioId)
-      .eq('active', true);
-
-    if (projectCalsError) {
-      console.error(`Failed to load project calendars for studio ${studioId}:`, projectCalsError);
-      results[`studio:${studioId}:projects`] = 'error';
-      continue;
-    }
-
-    for (const pc of projectCals ?? []) {
-      const projectId = pc.project_id as string;
-      try {
-        results[`project:${projectId}`] = await pullCalendar({
-          supabaseAdmin, studioId, calendarId: pc.google_calendar_id as string, accessToken, insertProjectId: projectId,
-          syncToken: pc.sync_token as string | null,
-          persistSyncToken: async (token) => {
-            await supabaseAdmin
-              .from('project_google_calendars')
-              .update({ sync_token: token ?? null, last_synced_at: new Date().toISOString() })
-              .eq('project_id', projectId);
-          },
-        });
-      } catch (err) {
-        console.error(`Pull failed for project calendar ${projectId}:`, err);
-        results[`project:${projectId}`] = 'error';
-      }
-    }
+    await pullStudio(supabaseAdmin, conn.studio_id as string, results);
   }
 
   res.status(200).json({ ok: true, results });
+}
+
+// ── User-triggered pull: one studio, Google → Rush ───────────────────────────
+//
+// Called by eventStore.ts when a signed-in user opens a calendar screen (see
+// the throttle there). Same work as one iteration of the cron loop above, but
+// scoped to the caller's own studio and authenticated by their session.
+
+async function handleUserPull(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { studioId } = req.body as { studioId?: string };
+  if (!studioId) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+
+  const supabaseAdmin = await authorizeStudioMember(req, res, studioId);
+  if (!supabaseAdmin) return;
+
+  const results: Record<string, string> = {};
+  await pullStudio(supabaseAdmin, studioId, results);
+  res.status(200).json({ ok: true, results });
+}
+
+// Pulls one studio's org default calendar plus each of its active project
+// calendars. Never throws: every failure is recorded in `results` so one bad
+// studio (or one bad calendar) can't abort the cron sweep over the others.
+async function pullStudio(supabaseAdmin: SupabaseClient, studioId: string, results: Record<string, string>): Promise<void> {
+  let accessToken: string | null = null;
+  try {
+    accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+  } catch (err) {
+    console.error(`Failed to get access token for studio ${studioId}:`, err);
+    results[`studio:${studioId}:default`] = 'error';
+    return;
+  }
+  if (!accessToken) {
+    results[`studio:${studioId}:default`] = 'not_connected';
+    return;
+  }
+
+  try {
+    const orgCalendarId = await getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
+    if (orgCalendarId) {
+      const { data: connRow } = await supabaseAdmin
+        .from('google_calendar_connections')
+        .select('sync_token')
+        .eq('studio_id', studioId)
+        .maybeSingle();
+
+      results[`studio:${studioId}:default`] = await pullCalendar({
+        supabaseAdmin, studioId, calendarId: orgCalendarId, accessToken, insertProjectId: null,
+        syncToken: connRow?.sync_token ?? null,
+        persistSyncToken: async (token) => {
+          await supabaseAdmin
+            .from('google_calendar_connections')
+            .update({ sync_token: token ?? null, last_synced_at: new Date().toISOString() })
+            .eq('studio_id', studioId);
+        },
+      });
+    }
+  } catch (err) {
+    console.error(`Pull failed for studio ${studioId} default calendar:`, err);
+    results[`studio:${studioId}:default`] = 'error';
+  }
+
+  const { data: projectCals, error: projectCalsError } = await supabaseAdmin
+    .from('project_google_calendars')
+    .select('project_id, google_calendar_id, sync_token')
+    .eq('studio_id', studioId)
+    .eq('active', true);
+
+  if (projectCalsError) {
+    console.error(`Failed to load project calendars for studio ${studioId}:`, projectCalsError);
+    results[`studio:${studioId}:projects`] = 'error';
+    return;
+  }
+
+  for (const pc of projectCals ?? []) {
+    const projectId = pc.project_id as string;
+    try {
+      results[`project:${projectId}`] = await pullCalendar({
+        supabaseAdmin, studioId, calendarId: pc.google_calendar_id as string, accessToken, insertProjectId: projectId,
+        syncToken: pc.sync_token as string | null,
+        persistSyncToken: async (token) => {
+          await supabaseAdmin
+            .from('project_google_calendars')
+            .update({ sync_token: token ?? null, last_synced_at: new Date().toISOString() })
+            .eq('project_id', projectId);
+        },
+      });
+    } catch (err) {
+      console.error(`Pull failed for project calendar ${projectId}:`, err);
+      results[`project:${projectId}`] = 'error';
+    }
+  }
 }
 
 interface PullCalendarOpts {

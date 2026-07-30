@@ -9,7 +9,7 @@ import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
-import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading } from '../data/eventStore';
+import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading, pullFromGoogleCalendar } from '../data/eventStore';
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
@@ -676,6 +676,10 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
     const unsub2 = subscribeEventTypes(() => { setEventTypes(getEventTypes()); refresh(); });
     return () => { unsub1(); unsub2(); };
   }, [activeProjectIds.join(',')]);
+
+  // Fetch anything changed in Google since the last sweep (throttled in the
+  // store) — the daily cron alone would leave this view a day behind.
+  useEffect(() => { void pullFromGoogleCalendar(); }, []);
 
   const [, forceWeekStart] = useState(0);
   useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);
