@@ -233,6 +233,7 @@
     "invitation": "INVITATION",
     "deliverableApproved": "DELIVERABLE APPROVED",
     "storageLimit": "STORAGE",
+    "taskCompleted": "Task completed",
     "storageOverLimit": "Storage limit reached — delete files or upgrade your plan",
     "unreadCount": "Unread ({{count}})",
     "markAllRead": "Mark all as read",
@@ -253,6 +254,7 @@
     "verbInvitation": "joined the team",
     "verbDeliverableApproved": "approved the deliverable",
     "verbStorageLimit": "is warning you: storage is approaching your plan's limit",
+    "verbTaskCompleted": "completed",
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} and {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"

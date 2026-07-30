@@ -233,6 +233,7 @@
     "invitation": "INVITATION",
     "deliverableApproved": "LIVRABLE APPROUVÉ",
     "storageLimit": "STOCKAGE",
+    "taskCompleted": "Tâche terminée",
     "storageOverLimit": "Limite de stockage atteinte — supprimez des fichiers ou upgradez votre plan",
     "unreadCount": "Non lues ({{count}})",
     "markAllRead": "Tout marquer comme lu",
@@ -253,6 +254,7 @@
     "verbInvitation": "a rejoint l'équipe",
     "verbDeliverableApproved": "a approuvé le livrable",
     "verbStorageLimit": "vous avertit : le stockage approche la limite de votre plan",
+    "verbTaskCompleted": "a terminé",
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} et {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"

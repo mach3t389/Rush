@@ -17,10 +17,11 @@
 import { PROJECT_TASKS } from './mock';
 import type { Task, SectionData } from '../types';
 import { loadPersisted, savePersisted } from './persist';
-import { isDemoSession, onLogout } from './authStore';
+import { isDemoSession, onLogout, getCurrentUser } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { normalizeSectionTasks, normalizeTask } from './normalizeTask';
+import { addNotif } from './notificationStore';
 
 type ProjectStore = Record<string, SectionData[]>;
 
@@ -245,6 +246,24 @@ export function addDeliverable(projectId: string, task: Task): void {
 
 export function updateTask(projectId: string, taskId: string, patch: Partial<Task>): void {
   const sections = getSections(projectId);
+
+  // Une tâche partagée qui passe à « terminée » l'est pour tout le monde :
+  // on prévient l'équipe, sinon elle disparaît de la liste des autres
+  // assignés sans explication. Seulement au passage non-cochée → cochée, et
+  // seulement si la tâche est effectivement partagée.
+  const before = sections.flatMap(s => s.tasks).find(t => t.id === taskId);
+  if (before && patch.checked === true && before.checked !== true && before.assignees.length > 1) {
+    const me = getCurrentUser();
+    addNotif({
+      kind: 'taskCompleted',
+      actor: me?.name ?? 'Rush',
+      text: `a terminé « ${before.title} »`,
+      timestamp: Date.now(),
+      taskId,
+      projectId,
+    });
+  }
+
   const next = sections.map(s => ({
     ...s,
     tasks: s.tasks.map(t => {
