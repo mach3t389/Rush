@@ -8,7 +8,7 @@ import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
-import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, pullFromGoogleCalendar } from '../data/eventStore';
+import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, pullFromGoogleCalendar, isEventsLoading } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import {
@@ -892,6 +892,9 @@ export function CalendrierGlobal() {
         <div style={{ flexShrink:0,borderTop:'1px solid var(--border)',padding:'12px 16px',display:'flex',flexDirection:'column',gap:8 }}>
           <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.upcomingEvents')}</p>
           <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
+            {upcoming.length === 0 && (
+              <p style={{ fontSize:12,color:'var(--text-3)',fontStyle:'italic' }}>{isEventsLoading() ? t('common.loading') : t('calendar.noUpcomingEvents')}</p>
+            )}
             {upcoming.map(ev=>(
               <div key={ev.id} onClick={()=>setSelectedEvent(ev)} style={{ display:'flex',gap:8,cursor:'pointer',padding:'6px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)' }}
                 onMouseEnter={e=>(e.currentTarget.style.borderColor='var(--border-2)')}

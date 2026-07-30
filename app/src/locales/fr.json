@@ -993,6 +993,7 @@
     "bulkCopyTitle_other": "Copier {{count}} tâches",
     "destinationProject": "Projet destination",
     "destinationSection": "Section destination",
+    "pickProjectFirst": "Choisissez d'abord un projet",
     "orCreateSection": "Ou créer une nouvelle section…",
     "moveSectionTitle": "Déplacer la section",
     "copySectionTitle": "Copier la section",

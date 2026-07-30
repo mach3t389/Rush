@@ -993,6 +993,7 @@
     "bulkCopyTitle_other": "Copy {{count}} tasks",
     "destinationProject": "Destination project",
     "destinationSection": "Destination section",
+    "pickProjectFirst": "Pick a project first",
     "orCreateSection": "Or create a new section…",
     "moveSectionTitle": "Move section",
     "copySectionTitle": "Copy section",

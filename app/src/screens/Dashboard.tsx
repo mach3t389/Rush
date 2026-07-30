@@ -6,9 +6,9 @@ import { ACTIVITY, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, isEventsLoading, pullFromGoogleCalendar, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
-import { getProjects } from '../data/projectStore';
+import { getProjects, isProjectsLoading } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
-import { getMyTasks, subscribeMyTasks, updateMyTask } from '../data/myTaskStore';
+import { getMyTasks, subscribeMyTasks, updateMyTask, isMyTasksLoading } from '../data/myTaskStore';
 import { getProjectStats, subscribeStore } from '../data/taskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { useAIAgentChat, renderMarkdown } from '../components/ai/aiAgentCore';
@@ -503,7 +503,7 @@ export function Dashboard() {
             linkLabel={t('dashboard.viewAllFem')} onLink={() => navigate('/taches')}
           >
             {myTasks.length === 0 && (
-              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noTasksYet')}</p>
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{isMyTasksLoading() ? t('common.loading') : t('dashboard.noTasksYet')}</p>
             )}
             {myTasks.slice(0, 5).map(t => (
               <CompactTaskRow key={t.id} task={t} onClick={() => navigate('/taches')} />
@@ -555,7 +555,7 @@ export function Dashboard() {
                 </div>
               ))}
               {tasksByDay.flatMap(({ tasks: dTasks }) => dTasks).length === 0 && (
-                <p style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noDeadlineThisWeek')}</p>
+                <p style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>{isMyTasksLoading() ? t('common.loading') : t('dashboard.noDeadlineThisWeek')}</p>
               )}
             </div>
           </CollapsibleCard>
@@ -662,7 +662,7 @@ export function Dashboard() {
             linkLabel={t('dashboard.viewAllMasc')} onLink={() => navigate('/projets')}
           >
             {projects.length === 0 && (
-              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{t('dashboard.noProjectsYet')}</p>
+              <p style={{ padding: '16px 16px', color: 'var(--text-3)', fontSize: 13 }}>{isProjectsLoading() ? t('common.loading') : t('dashboard.noProjectsYet')}</p>
             )}
             {projects.slice(0, 6).map((p, i) => (
               <div

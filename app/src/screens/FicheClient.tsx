@@ -2,7 +2,7 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
-import { SFPill, SFBar, SFButton, SFIcon, SFAvatar } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
@@ -20,7 +20,8 @@ import { getTeamMembers } from '../data/teamStore';
 import { createInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
 import { syncClientContactAcrossProjects } from '../data/projectClientAccessStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
-import { getProjects } from '../data/projectStore';
+import { isInvoicesLoading } from '../data/financeStore';
+import { getProjects, isProjectsLoading } from '../data/projectStore';
 import { getCurrentSectionLabel } from '../data/taskStore';
 import { isDemoSession } from '../data/authStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
@@ -827,11 +828,15 @@ function FinancesTab({ clientId }: { clientId: string }) {
 
       {/* Invoice list */}
       {invoices.length === 0 ? (
+        isInvoicesLoading() ? (
+          <SFLoadingState />
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: 'var(--text-3)', gap: 10 }}>
           <SFIcon name="receipt" size={28} color="var(--text-3)" />
           <p style={{ fontSize: 13 }}>{t('finance.noInvoicesClient')}</p>
           <SFButton variant="secondary" icon="plus" onClick={openAdd}>{t('finance.addInvoice')}</SFButton>
         </div>
+        )
       ) : (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '140px 140px 1fr 120px 100px 100px 80px', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
@@ -1008,7 +1013,11 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
           <div style={cardStyle}>
             <SectionHeader title={t('client.projects')} action={t('client.seeAll')} onAction={() => onGoTab('projets')} />
             {projects.length === 0 ? (
+              isProjectsLoading() ? (
+                <SFLoadingState />
+              ) : (
               <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('client.noProjectsForClient')}</p>
+              )
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {projects.slice(0, 4).map(p => (

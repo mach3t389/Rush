@@ -895,7 +895,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
               </div>
             ))}
             {visibleEvents.filter(ev=>ev.startDate>=TODAY).length===0 && (
-              <p style={{ fontSize:12,color:'var(--text-3)',fontStyle:'italic' }}>{isEventsLoading() ? t('common.loading') : 'Aucun événement à venir'}</p>
+              <p style={{ fontSize:12,color:'var(--text-3)',fontStyle:'italic' }}>{isEventsLoading() ? t('common.loading') : t('calendar.noUpcomingEvents')}</p>
             )}
           </div>
         </div>
