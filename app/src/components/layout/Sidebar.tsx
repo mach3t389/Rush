@@ -181,15 +181,21 @@ function NavGroup({ icon, label, collapsed, active, children }: { icon: string; 
 
   return (
     <div>
+      {/* Pas de fond/bordure accent ici même quand `active` est vrai — un
+          sous-élément (SubNavItem) porte déjà ce traitement pour indiquer
+          où on se trouve réellement ; le dupliquer sur le groupe parent (qui
+          n'est pas lui-même une destination, juste un bouton d'ouverture)
+          donnait l'impression fausse que deux choses étaient sélectionnées
+          à la fois. */}
       <button
         onClick={() => { const next = !open; setOpen(next); savePersisted('sf_nav_global_open', next); }}
         style={{
           display: 'flex', alignItems: 'center', gap: 10, width: '100%',
           padding: '8px 12px', borderRadius: 9, border: 'none',
-          background: active ? 'var(--surface-3)' : 'transparent',
-          color: active ? 'var(--text)' : 'var(--text-2)',
+          background: 'transparent',
+          color: 'var(--text-2)',
           fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left',
-          borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+          borderLeft: '2px solid transparent',
         }}
       >
         <SFIcon name={icon} size={16} />
