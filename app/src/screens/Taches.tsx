@@ -1,13 +1,12 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill } from '../components/ui';
+import { SFPill, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
-import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks } from '../data/myTaskStore';
+import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks, isMyTasksLoading } from '../data/myTaskStore';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getTeamMembers } from '../data/teamStore';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, User } from '../types';
@@ -174,15 +173,6 @@ function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir
 }
 
 // �"?�"? Shared helpers �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
-
-function getTeam(): User[] {
-  if (isDemoSession()) return Object.values(USERS);
-  const team = getTeamMembers();
-  if (team.length > 0) return team;
-  const authUser = getCurrentUser();
-  if (!authUser) return [USERS.lea];
-  return [{ id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }];
-}
 
 const STATUS_OPTIONS: { value: string; labelKey: string }[] = [
   { value: '',       labelKey: 'tasks.noStatus'   },
@@ -380,15 +370,16 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   const [endDate, setEndDate] = useState(task.endDate ?? '');
   const [startTime, setStartTime] = useState(task.startTime ?? '');
   const [endTime, setEndTime] = useState(task.endTime ?? '');
-  const [assignee, setAssignee] = useState<User | null>(task.assignees[0] ?? null);
+  const [assignees, setAssignees] = useState<User[]>(task.assignees);
   const [sectionLabel, setSectionLabel] = useState(task.sectionLabel ?? '');
-  const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | 'assignee' | 'projsec' | null>(null);
+  const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | 'projsec' | null>(null);
   const [projSearch, setProjSearch] = useState('');
   const [pendingProjId, setPendingProjId] = useState<string | null>(null);
   const projSecBtnRef = useRef<HTMLButtonElement>(null);
   const isFlashing = flashId === task.id;
+  const me = getCurrentUser();
+  const others = assignees.filter(u => u.id !== me?.id);
 
-  const assigneeBtnRef = useRef<HTMLButtonElement>(null);
   const priorityBtnRef = useRef<HTMLButtonElement>(null);
   const statusBtnRef = useRef<HTMLButtonElement>(null);
   const dueDateBtnRef = useRef<HTMLButtonElement>(null);
@@ -415,7 +406,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
     setEndDate(task.endDate ?? '');
     setStartTime(task.startTime ?? '');
     setEndTime(task.endTime ?? '');
-    setAssignee(task.assignees[0] ?? null);
+    setAssignees(task.assignees);
     setSectionLabel(task.sectionLabel ?? '');
     if (!editingTitle) setTitleDraft(task.title);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -557,6 +548,12 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
             color: 'var(--text)', display: 'inline-block', maxWidth: '100%',
           }}>
             {task.title}
+          </span>
+        )}
+        {!editingTitle && others.length > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 8, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)' }}>{t('tasks.sharedWith')}</span>
+            <AssigneeGroup assignees={others} size={16} readOnly />
           </span>
         )}
       </div>
@@ -726,32 +723,12 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         )}
       </div>
 
-      {/* Assigné — avatar only */}
-      <div style={{ position: 'relative' }}>
-        <button
-          ref={assigneeBtnRef}
-          onClick={() => setOpen(open === 'assignee' ? null : 'assignee')}
-          title={assignee?.name ?? t('tasks.unassigned')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
-        >
-          {assignee
-            ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={22} />
-            : <span style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
-          }
-        </button>
-        {open === 'assignee' && (
-          <InlineDropdown anchorRef={assigneeBtnRef} onClose={() => setOpen(null)}>
-            {ddItem(() => { setAssignee(null); setOpen(null); updateMyTask(task.id, { assignees: [] }); },
-              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-              assignee === null
-            )}
-            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); updateMyTask(task.id, { assignees: [u] }); },
-              <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-              assignee?.id === u.id
-            ))}
-          </InlineDropdown>
-        )}
-      </div>
+      {/* Assigné — sélecteur multi */}
+      <AssigneeGroup
+        assignees={assignees}
+        size={22}
+        onChange={next => { setAssignees(next); updateMyTask(task.id, { assignees: next }); }}
+      />
 
       {/* Priorité — inline dropdown */}
       <div>
@@ -994,7 +971,7 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 
 // �"?�"? Add task row �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-type AddOpts = { priority: Priority; assignee: User | null; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
+type AddOpts = { priority: Priority; assignees: User[]; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
 
 function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void; onRename: (newLabel: string) => void }) {
   const { t } = useTranslation();
@@ -1083,13 +1060,13 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(() => !!autoOpen);
-  const [assignee, setAssignee] = useState<User | null>(null);
+  const [assignees, setAssignees] = useState<User[]>([]);
   const [project, setProject]   = useState<typeof PROJECTS[0] | null>(null);
   const [priority, setPriority] = useState<Priority>(defaultPriority);
   const [status, setStatus]     = useState('');
   const [statusLabel, setStatusLabel] = useState('');
   const [dueDate, setDueDate]   = useState('');
-  const [openField, setOpenField] = useState<'assignee' | 'project' | 'priority' | 'status' | 'dueDate' | null>(null);
+  const [openField, setOpenField] = useState<'project' | 'priority' | 'status' | 'dueDate' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1112,7 +1089,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
   };
 
   const clearFields = () => {
-    setTitle(''); setAssignee(null); setProject(null); setPriority(defaultPriority);
+    setTitle(''); setAssignees([]); setProject(null); setPriority(defaultPriority);
     setStatus(''); setStatusLabel(''); setDueDate('');
     setOpenField(null);
   };
@@ -1127,7 +1104,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
   const submitAndContinue = () => {
     const t = title.trim();
     if (!t) { cancel(); return; }
-    onAdd(t, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project });
+    onAdd(t, { priority, assignees, status, statusLabel, dueDate: dueDate || '—', project });
     clearFields();
     setTimeout(() => inputRef.current?.focus(), 0);
   };
@@ -1136,7 +1113,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
   // discard the empty row. Either way the row closes — only Enter keeps it open.
   const commitOnBlur = () => {
     const t = title.trim();
-    if (t) onAdd(t, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project });
+    if (t) onAdd(t, { priority, assignees, status, statusLabel, dueDate: dueDate || '—', project });
     cancel();
   };
 
@@ -1147,7 +1124,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
     const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length <= 1) return;
     e.preventDefault();
-    onAddMany(lines, { priority, assignee, status, statusLabel, dueDate: dueDate || '—', project });
+    onAddMany(lines, { priority, assignees, status, statusLabel, dueDate: dueDate || '—', project });
     clearFields();
     setTimeout(() => inputRef.current?.focus(), 0);
   };
@@ -1226,28 +1203,8 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
           )}
         </div>
 
-        {/* Assigné — avatar only */}
-        <div style={{ position: 'relative' }}>
-          <button onMouseDown={e => e.preventDefault()} onClick={e => openDrop('assignee', e)}
-            title={assignee?.name ?? t('tasks.unassigned')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-            {assignee
-              ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={22} />
-              : <span style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
-            }
-          </button>
-          {openField === 'assignee' && (
-            <PanelDropdown onClose={() => setOpenField(null)} anchorRect={dropRect} minWidth={180}>
-              {ddItem(() => { setAssignee(null); setOpenField(null); },
-                <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-                assignee === null)}
-              {getTeam().map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
-                <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-                assignee?.id === u.id
-              ))}
-            </PanelDropdown>
-          )}
-        </div>
+        {/* Assigné — sélecteur multi */}
+        <AssigneeGroup assignees={assignees} size={22} onChange={setAssignees} />
 
         {/* Priority */}
         <div style={{ position: 'relative' }}>
@@ -1392,7 +1349,7 @@ export function Taches() {
       projectId: opts.project?.id ?? 'int',
       projectName: opts.project?.name ?? 'Interne',
       projectColor: opts.project?.clientColor ?? 'var(--text-3)',
-      assignees: [opts.assignee ?? defaultAssignee],
+      assignees: opts.assignees.length ? opts.assignees : [defaultAssignee],
       status: opts.status as Task['status'],
       statusLabel: opts.statusLabel,
       priority: opts.priority,
@@ -1589,6 +1546,13 @@ export function Taches() {
       <div onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px' }}>
       <div onClick={onBackgroundClick} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
+        {/* Nothing to show yet because the first fetch hasn't resolved — not because
+            there's genuinely no task. Without this, the invitational empty state
+            below (which is correct once loaded) flashes on every fresh page load. */}
+        {tasks.length === 0 && isMyTasksLoading() ? (
+          <SFLoadingState />
+        ) : <>
+
         {visible.length === 0 && hasActiveFilters && (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <SFIcon name="circle-check" size={32} color="var(--text-3)" />
@@ -1721,6 +1685,7 @@ export function Taches() {
               </button>
             ) : null}
           </>}
+        </>}
       </div>
       </div>
       </div>{/* end left column */}

@@ -108,6 +108,7 @@
     "overdue": "En retard",
     "inReview": "En révision",
     "unassigned": "Non assigné",
+    "sharedWith": "avec",
     "noOne": "Personne",
     "noProject": "Aucun projet",
     "deleteConfirm": "Supprimer ?",
