@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFPill, SFAvatar, isOverdue, fmtTaskDate, TaskDatePopover } from '../components/ui';
+import { SFIcon, SFPill, isOverdue, fmtTaskDate, TaskDatePopover, AssigneeGroup } from '../components/ui';
 import { STATUS_COLOR } from '../data/status';
 import { showToast } from '../data/toastStore';
-import { getTeam } from '../data/teamStore';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import type { Task, Priority, SectionData } from '../types';
 
@@ -217,7 +216,7 @@ export function TravailBoard({
   const [hoveredHeader, setHoveredHeader] = useState<string | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const [openDrop, setOpenDrop] = useState<{ taskId: string; type: 'status' | 'priority' | 'assignee' | 'date'; rect: DOMRect } | null>(null);
+  const [openDrop, setOpenDrop] = useState<{ taskId: string; type: 'status' | 'priority' | 'date'; rect: DOMRect } | null>(null);
   const [editingSectionLabel, setEditingSectionLabel] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
@@ -559,18 +558,11 @@ export function TravailBoard({
                               )}
                             </button>
 
-                            {/* Assignee (clickable) */}
-                            <button
-                              onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'assignee', rect: e.currentTarget.getBoundingClientRect() }); }}
-                              onMouseDown={e => e.stopPropagation()}
-                              title={t('board.changeAssignee')}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, borderRadius: '50%', display: 'flex' }}
-                            >
-                              {task.assignees[0]
-                                ? <SFAvatar initials={task.assignees[0].initials} bg={task.assignees[0].avatarColor} size={20} />
-                                : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>
-                              }
-                            </button>
+                            <AssigneeGroup
+                              assignees={task.assignees}
+                              size={20}
+                              onChange={next => onUpdateTask(task.id, { assignees: next })}
+                            />
                           </div>
                         </div>
                       </div>
@@ -710,23 +702,6 @@ export function TravailBoard({
         />
       )}
 
-      {openDrop && dropTask && openDrop.type === 'assignee' && (
-        <DropMenu rect={openDrop.rect} onClose={closeDrop}>
-          <DItem
-            label={<><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>}
-            active={dropTask.assignees.length === 0}
-            onClick={() => { onUpdateTask(dropTask.id, { assignees: [] }); closeDrop(); }}
-          />
-          {getTeam().map(u => (
-            <DItem
-              key={u.id}
-              active={dropTask.assignees[0]?.id === u.id}
-              label={<><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>}
-              onClick={() => { onUpdateTask(dropTask.id, { assignees: [u] }); closeDrop(); }}
-            />
-          ))}
-        </DropMenu>
-      )}
     </div>
   );
 }

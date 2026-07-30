@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SFPill, SFBar, SFAvatar, SFButton, SFIcon } from '../components/ui';
+import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, AssigneeGroup } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
 import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections, getProjectStats } from '../data/taskStore';
@@ -23,7 +23,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession } from '../data/authStore';
 import { sendEmail } from '../data/emailStore';
-import { InlineDropdown, ddItem, getTeam, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
+import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
 
@@ -302,7 +302,7 @@ export function TravailOverview() {
   // render via InlineDropdown (a portal, fixed-positioned from anchorRect),
   // which is what lets them escape the Card's `overflow: hidden` instead of
   // being clipped at the row's edge.
-  const [openDl, setOpenDl] = useState<{ id: string; field: 'link' | 'type' | 'format' | 'assignee' | 'priority' | 'status' } | null>(null);
+  const [openDl, setOpenDl] = useState<{ id: string; field: 'link' | 'type' | 'format' | 'priority' | 'status' } | null>(null);
   const [dlDropRect, setDlDropRect] = useState<DOMRect | null>(null);
   const openDlDrop = (id: string, field: NonNullable<typeof openDl>['field'], e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -592,7 +592,6 @@ export function TravailOverview() {
               const dlType = DELIVERABLE_TYPES.find(dt => dt.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
               const isPickerOpen = openDl?.id === dl.id && openDl.field === 'format';
               const isTypeOpen = openDl?.id === dl.id && openDl.field === 'type';
-              const isAssigneeOpen = openDl?.id === dl.id && openDl.field === 'assignee';
               const isStatusOpen = openDl?.id === dl.id && openDl.field === 'status';
               const priority: Priority = dl.priority ?? 'none';
               const linkedIds = dl.linkedResources ?? [];
@@ -804,26 +803,13 @@ export function TravailOverview() {
                     )}
                   </div>
 
-                  {/* Assignee — clickable dropdown */}
+                  {/* Assignés */}
                   <div>
-                    <button onClick={e => openDlDrop(dl.id, 'assignee', e)} title={dl.assignees[0]?.name ?? t('tasks.unassigned')}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                      {dl.assignees[0]
-                        ? <SFAvatar initials={dl.assignees[0].initials} bg={dl.assignees[0].avatarColor} size={24} />
-                        : <span style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={12} color="var(--text-3)" /></span>}
-                    </button>
-                    {isAssigneeOpen && (
-                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={180}>
-                        {ddItem(() => { updateTask(project.id, dl.id, { assignees: [] }); setOpenDl(null); },
-                          <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-                          dl.assignees.length === 0
-                        )}
-                        {getTeam().map(u => ddItem(() => { updateTask(project.id, dl.id, { assignees: [u] }); setOpenDl(null); },
-                          <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-                          dl.assignees[0]?.id === u.id
-                        ))}
-                      </InlineDropdown>
-                    )}
+                    <AssigneeGroup
+                      assignees={dl.assignees}
+                      size={24}
+                      onChange={next => updateTask(project.id, dl.id, { assignees: next })}
+                    />
                   </div>
 
                   {/* Statut — clickable dropdown */}
