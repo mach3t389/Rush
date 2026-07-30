@@ -231,15 +231,20 @@ export function setSections(projectId: string, sections: SectionData[]): void {
   enqueueWrite(projectId, () => writeSupabaseSections(projectId, sections));
 }
 
-export function addDeliverable(projectId: string, task: Task): void {
+// sectionLabel lets the caller choose where the deliverable lands (see the
+// section picker in TravailOverview.tsx's "add deliverable" form). Left
+// unspecified, callers that don't care about placement (RequestApprovalButton,
+// VideoReview's comment-to-task) keep the old default: an existing "Livraison"
+// section, or a freshly created one — a task always needs *some* section to
+// live in, getDeliverables() itself doesn't care which one.
+export function addDeliverable(projectId: string, task: Task, sectionLabel = 'Livraison'): void {
   const sections = getSections(projectId);
-  const SECTION = 'Livraison';
-  const idx = sections.findIndex(s => s.label === SECTION);
+  const idx = sections.findIndex(s => s.label === sectionLabel);
   let next: SectionData[];
   if (idx >= 0) {
     next = sections.map((s, i) => i === idx ? { ...s, tasks: [...s.tasks, task] } : s);
   } else {
-    next = [...sections, { label: SECTION, tasks: [task] }];
+    next = [...sections, { label: sectionLabel, tasks: [task] }];
   }
   setSections(projectId, next);
 }

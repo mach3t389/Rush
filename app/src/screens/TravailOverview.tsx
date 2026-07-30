@@ -295,6 +295,12 @@ export function TravailOverview() {
   const [newDlTitle, setNewDlTitle] = useState('');
   const [newDlFormat, setNewDlFormat] = useState<DeliverableFormat>('16:9');
   const [newDlType, setNewDlType] = useState<DeliverableType>('video');
+  // Which section of the project's own Kanban a new deliverable lands in —
+  // was silently hardcoded to a "Livraison" section it created behind the
+  // scenes; now the user picks, defaulting to an existing "Livraison"
+  // section if there is one, else the project's first section.
+  const [newDlSection, setNewDlSection] = useState('');
+  const [newDlSectionCustom, setNewDlSectionCustom] = useState('');
   const [editingDlId, setEditingDlId] = useState<string | null>(null);
   const [dlTitleDraft, setDlTitleDraft] = useState('');
   // Single open-dropdown tracker for every deliverable row control (link
@@ -563,7 +569,12 @@ export function TravailOverview() {
           {/* ── Livrables client ── */}
           <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
             action={
-              <SFButton variant="ghost" size="sm" icon="plus" onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9'); }}>
+              <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
+                setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
+                const existing = getSections(project.id);
+                setNewDlSection(existing.find(s => s.label === 'Livraison')?.label ?? existing[0]?.label ?? 'Livraison');
+                setNewDlSectionCustom('');
+              }}>
                 {t('overview.add')}
               </SFButton>
             }
@@ -878,7 +889,7 @@ export function TravailOverview() {
                       deliverableType: newDlType,
                       format: newDlFormat,
                     };
-                    addDeliverable(project.id, task);
+                    addDeliverable(project.id, task, (newDlSectionCustom.trim() || newDlSection).trim() || undefined);
                     setAddingDeliverable(false);
                     setNewDlTitle('');
                   };
@@ -910,6 +921,21 @@ export function TravailOverview() {
                       {t(dt.labelKey)}
                     </button>
                   ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Section :</span>
+                  {getSections(project.id).map(s => (
+                    <button key={s.label} onClick={() => { setNewDlSection(s.label); setNewDlSectionCustom(''); }}
+                      style={{ padding: '4px 9px', borderRadius: 7, border: `1px solid ${!newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--border)'}`, background: !newDlSectionCustom && newDlSection === s.label ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: !newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                      {s.label}
+                    </button>
+                  ))}
+                  <input
+                    value={newDlSectionCustom}
+                    onChange={e => setNewDlSectionCustom(e.target.value)}
+                    placeholder={t('taskPanel.orCreateSection')}
+                    style={{ width: 160, padding: '4px 9px', borderRadius: 7, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark' }}
+                  />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
