@@ -806,21 +806,21 @@ export function TravailOverview() {
 
                   {/* Assignee — clickable dropdown */}
                   <div>
-                    <button onClick={e => openDlDrop(dl.id, 'assignee', e)} title={dl.assignee?.name ?? t('tasks.unassigned')}
+                    <button onClick={e => openDlDrop(dl.id, 'assignee', e)} title={dl.assignees[0]?.name ?? t('tasks.unassigned')}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                      {dl.assignee
-                        ? <SFAvatar initials={dl.assignee.initials} bg={dl.assignee.avatarColor} size={24} />
+                      {dl.assignees[0]
+                        ? <SFAvatar initials={dl.assignees[0].initials} bg={dl.assignees[0].avatarColor} size={24} />
                         : <span style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={12} color="var(--text-3)" /></span>}
                     </button>
                     {isAssigneeOpen && (
                       <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={180}>
-                        {ddItem(() => { updateTask(project.id, dl.id, { assignee: null }); setOpenDl(null); },
+                        {ddItem(() => { updateTask(project.id, dl.id, { assignees: [] }); setOpenDl(null); },
                           <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-                          dl.assignee === null
+                          dl.assignees.length === 0
                         )}
-                        {getTeam().map(u => ddItem(() => { updateTask(project.id, dl.id, { assignee: u }); setOpenDl(null); },
+                        {getTeam().map(u => ddItem(() => { updateTask(project.id, dl.id, { assignees: [u] }); setOpenDl(null); },
                           <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-                          dl.assignee?.id === u.id
+                          dl.assignees[0]?.id === u.id
                         ))}
                       </InlineDropdown>
                     )}
@@ -879,7 +879,7 @@ export function TravailOverview() {
                       projectId: project.id,
                       projectName: project.name,
                       projectColor: project.clientColor,
-                      assignee: null,
+                      assignees: [],
                       status: '' as Task['status'],
                       statusLabel: t(DELIVERABLE_STATUS_OPTIONS.find(o => o.value === '')!.labelKey),
                       priority: 'none',

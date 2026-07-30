@@ -20,11 +20,12 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { updateTask as updateProjectTask, subscribeStore as subscribeTaskStore } from './taskStore';
 import { createLoadingFlag } from './loadingFlag';
+import { normalizeTask } from './normalizeTask';
 
 const STORAGE_KEY = 'sf_my_tasks';
 const SECTIONS_KEY = 'sf_my_task_sections';
 
-let _tasks: Task[] = loadPersisted(STORAGE_KEY, MY_TASKS.map(t => ({ ...t })));
+let _tasks: Task[] = loadPersisted(STORAGE_KEY, MY_TASKS.map(t => ({ ...t }))).map(normalizeTask);
 let _sections: string[] = loadPersisted(SECTIONS_KEY, []);
 const _listeners = new Set<() => void>();
 const notify = () => _listeners.forEach(fn => fn());
@@ -85,10 +86,10 @@ async function fetchSupabaseMyTasks(): Promise<void> {
   if (projectTasksError) { console.error('fetchSupabaseMyTasks: tasks failed', projectTasksError); _loading.markLoaded(); notify(); return; }
 
   _supabaseSectionRows = ((sectionRows ?? []) as MySectionRow[]).map(r => ({ id: r.id, label: r.label }));
-  _freestandingTasks = ((freestandingRows ?? []) as MyTaskRow[]).map(r => r.data);
+  _freestandingTasks = ((freestandingRows ?? []) as MyTaskRow[]).map(r => normalizeTask(r.data));
   _assignedTasks = ((projectTaskRows ?? []) as ProjectTaskRow[])
-    .map(r => r.data)
-    .filter(t => !!myUserId && t.assignee?.id === myUserId);
+    .map(r => normalizeTask(r.data))
+    .filter(t => !!myUserId && t.assignees.some(u => u.id === myUserId));
   _loading.markLoaded();
   notify();
 }

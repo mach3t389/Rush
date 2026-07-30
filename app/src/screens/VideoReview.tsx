@@ -625,7 +625,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
         projectId: projectId,
         projectName: project?.name ?? '',
         projectColor: project?.clientColor ?? '#888',
-        assignee: USERS.lea,
+        assignees: [USERS.lea],
         status: '' as any,
         statusLabel: '',
         priority: 'normal',

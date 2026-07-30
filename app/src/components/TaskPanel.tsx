@@ -497,7 +497,7 @@ export function TaskPanel({
     task.subtasks?.map(s => ({
       id: s.id, title: s.title, checked: s.checked,
       priority: s.priority, status: s.status as string, statusLabel: s.statusLabel,
-      assignee: task.assignee ?? null, dueDate: '', comments: [] as CommentObj[],
+      assignee: task.assignees[0] ?? null, dueDate: '', comments: [] as CommentObj[],
     })) ?? []
   );
   // Subtasks removed elsewhere (converted to a task, moved out) leave via the
@@ -519,7 +519,7 @@ export function TaskPanel({
 
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
   const [editStatus, setEditStatus] = useState(task.status as string);
-  const [editAssignee, setEditAssignee] = useState<User | null>(task.assignee);
+  const [editAssignee, setEditAssignee] = useState<User | null>(task.assignees[0] ?? null);
   const [linkedResources, setLinkedResources] = useState<string[]>(task.linkedResources ?? []);
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
   const [resPickerRect, setResPickerRect] = useState<DOMRect | null>(null);
@@ -745,7 +745,7 @@ export function TaskPanel({
   };
 
   const convertToSubtask = (c: CommentObj) => {
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'none', status: '', statusLabel: '', assignee: task.assignee ?? null, dueDate: '', comments: [] };
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'none', status: '', statusLabel: '', assignee: task.assignees[0] ?? null, dueDate: '', comments: [] };
     const nextSubs = [...localSubtasks, sub];
     setLocalSubtasks(nextSubs);
     onUpdate?.({ subtasks: nextSubs as unknown as Task[] });
@@ -940,11 +940,11 @@ export function TaskPanel({
                 </button>
                 {panelOpen === 'assignee' && (
                   <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} minWidth={180} zIndex={300}>
-                    {ddItem(() => { setEditAssignee(null); setPanelOpen(null); onUpdate?.({ assignee: undefined }); },
+                    {ddItem(() => { setEditAssignee(null); setPanelOpen(null); onUpdate?.({ assignees: [] }); },
                       <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
                       editAssignee === null
                     )}
-                    {getTeam().map(u => ddItem(() => { setEditAssignee(u); setPanelOpen(null); onUpdate?.({ assignee: u }); },
+                    {getTeam().map(u => ddItem(() => { setEditAssignee(u); setPanelOpen(null); onUpdate?.({ assignees: [u] }); },
                       <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
                       editAssignee?.id === u.id
                     ))}

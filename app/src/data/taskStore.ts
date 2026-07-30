@@ -20,6 +20,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { normalizeSectionTasks, normalizeTask } from './normalizeTask';
 
 type ProjectStore = Record<string, SectionData[]>;
 
@@ -37,7 +38,10 @@ function seedStore(): ProjectStore {
 let _store: ProjectStore = (() => {
   const seeded = seedStore();
   const persisted = loadPersisted<ProjectStore | null>(STORAGE_KEY, null);
-  return persisted ? { ...seeded, ...persisted } : seeded;
+  const merged = persisted ? { ...seeded, ...persisted } : seeded;
+  return Object.fromEntries(
+    Object.entries(merged).map(([k, sections]) => [k, sections.map(normalizeSectionTasks)])
+  );
 })();
 
 const _listeners: Set<() => void> = new Set();
@@ -107,7 +111,7 @@ async function fetchSupabaseSections(projectId: string): Promise<void> {
   _supabaseSections[projectId] = rows.map(r => ({
     label: r.label,
     completed: r.completed,
-    tasks: trows.filter(t => t.section_id === r.id).map(t => t.data),
+    tasks: trows.filter(t => t.section_id === r.id).map(t => normalizeTask(t.data)),
   }));
   _loadingProjectIds.delete(projectId);
   notify();

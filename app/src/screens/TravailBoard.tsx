@@ -221,7 +221,6 @@ export function TravailBoard({
   const [editingSectionLabel, setEditingSectionLabel] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
-  const firstUser = getTeam()[0];
 
   useEffect(() => {
     if (editingSectionLabel !== null) labelInputRef.current?.select();
@@ -567,8 +566,8 @@ export function TravailBoard({
                               title={t('board.changeAssignee')}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, borderRadius: '50%', display: 'flex' }}
                             >
-                              {task.assignee
-                                ? <SFAvatar initials={task.assignee.initials} bg={task.assignee.avatarColor} size={20} />
+                              {task.assignees[0]
+                                ? <SFAvatar initials={task.assignees[0].initials} bg={task.assignees[0].avatarColor} size={20} />
                                 : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>
                               }
                             </button>
@@ -586,7 +585,7 @@ export function TravailBoard({
                       id: `task-${Date.now()}`,
                       title: 'Nouvelle tâche',
                       projectId, projectName, projectColor,
-                      assignee: null,
+                      assignees: [],
                       status: 'warn', statusLabel: 'À faire',
                       priority: 'none', priorityLabel: 'Aucune',
                       dueDate: '—', dueDateRed: false, checked: false, subtasks: [],
@@ -715,15 +714,15 @@ export function TravailBoard({
         <DropMenu rect={openDrop.rect} onClose={closeDrop}>
           <DItem
             label={<><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>}
-            active={!dropTask.assignee}
-            onClick={() => { onUpdateTask(dropTask.id, { assignee: firstUser }); closeDrop(); }}
+            active={dropTask.assignees.length === 0}
+            onClick={() => { onUpdateTask(dropTask.id, { assignees: [] }); closeDrop(); }}
           />
           {getTeam().map(u => (
             <DItem
               key={u.id}
-              active={dropTask.assignee?.id === u.id}
+              active={dropTask.assignees[0]?.id === u.id}
               label={<><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>}
-              onClick={() => { onUpdateTask(dropTask.id, { assignee: u }); closeDrop(); }}
+              onClick={() => { onUpdateTask(dropTask.id, { assignees: [u] }); closeDrop(); }}
             />
           ))}
         </DropMenu>

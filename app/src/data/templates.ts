@@ -50,7 +50,7 @@ export interface TemplateTask {
   status?: string;
   statusLabel?: string;
   dueDate?: string;
-  assignee?: { id: string; name: string; initials: string; avatarColor: string };
+  assignees?: { id: string; name: string; initials: string; avatarColor: string }[];
   subtasks?: TemplateTask[];
 }
 

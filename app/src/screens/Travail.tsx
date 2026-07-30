@@ -410,7 +410,7 @@ function TaskRow({
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
-  const [assignee, setAssignee] = useState<User | null>(task.assignee);
+  const [assignee, setAssignee] = useState<User | null>(task.assignees[0] ?? null);
   const [status, setStatus] = useState(task.status as string);
   const [dueDate, setDueDate] = useState(task.dueDate);
   const [endDate, setEndDate] = useState(task.endDate ?? '');
@@ -436,7 +436,7 @@ function TaskRow({
   React.useEffect(() => {
     setChecked(task.checked);
     setPriority(task.priority);
-    setAssignee(task.assignee);
+    setAssignee(task.assignees[0] ?? null);
     setStatus(task.status as string);
     setDueDate(task.dueDate);
     setEndDate(task.endDate ?? '');
@@ -622,11 +622,11 @@ function TaskRow({
         </button>
         {open === 'assignee' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
-            {ddItem(() => { setAssignee(null); setOpen(null); },
+            {ddItem(() => { setAssignee(null); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignees: [] }); },
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee === null
             )}
-            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignee: u }); },
+            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignees: [u] }); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}
@@ -776,7 +776,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
     id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title: taskTitle,
     projectId, projectName, projectColor,
-    assignee,
+    assignees: assignee ? [assignee] : [],
     status: status as Task['status'],
     statusLabel,
     priority,
@@ -1980,7 +1980,7 @@ export function Travail() {
         projectId: project.id,
         projectName: project.name,
         projectColor: project.clientColor,
-        assignee: USERS.lea,
+        assignees: [USERS.lea],
         status: 'warn',
         statusLabel: 'En attente',
         priority: tt.priority ?? 'normal',

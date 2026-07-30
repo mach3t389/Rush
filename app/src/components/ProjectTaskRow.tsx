@@ -167,7 +167,7 @@ export function ProjectTaskRow({
   const { t } = useTranslation();
   const checked = task.checked;
   const priority = task.priority;
-  const assignee = task.assignee;
+  const assignee = task.assignees[0] ?? null;
   const status = task.status as string;
   const statusLabel = task.statusLabel;
   const dueDate = task.dueDate;
@@ -342,11 +342,11 @@ export function ProjectTaskRow({
         </button>
         {open === 'assignee' && (
           <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
-            {ddItem(() => { onUpdate({ assignee: null as unknown as Task['assignee'] }); setOpen(null); },
+            {ddItem(() => { onUpdate({ assignees: [] }); setOpen(null); },
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee == null
             )}
-            {getTeam().map(u => ddItem(() => { onUpdate({ assignee: u }); setOpen(null); },
+            {getTeam().map(u => ddItem(() => { onUpdate({ assignees: [u] }); setOpen(null); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}

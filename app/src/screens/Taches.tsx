@@ -380,7 +380,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   const [endDate, setEndDate] = useState(task.endDate ?? '');
   const [startTime, setStartTime] = useState(task.startTime ?? '');
   const [endTime, setEndTime] = useState(task.endTime ?? '');
-  const [assignee, setAssignee] = useState<User | null>(task.assignee ?? null);
+  const [assignee, setAssignee] = useState<User | null>(task.assignees[0] ?? null);
   const [sectionLabel, setSectionLabel] = useState(task.sectionLabel ?? '');
   const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | 'assignee' | 'projsec' | null>(null);
   const [projSearch, setProjSearch] = useState('');
@@ -415,7 +415,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
     setEndDate(task.endDate ?? '');
     setStartTime(task.startTime ?? '');
     setEndTime(task.endTime ?? '');
-    setAssignee(task.assignee ?? null);
+    setAssignee(task.assignees[0] ?? null);
     setSectionLabel(task.sectionLabel ?? '');
     if (!editingTitle) setTitleDraft(task.title);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -741,11 +741,11 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         </button>
         {open === 'assignee' && (
           <InlineDropdown anchorRef={assigneeBtnRef} onClose={() => setOpen(null)}>
-            {ddItem(() => { setAssignee(null); setOpen(null); updateMyTask(task.id, { assignee: undefined }); },
+            {ddItem(() => { setAssignee(null); setOpen(null); updateMyTask(task.id, { assignees: [] }); },
               <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
               assignee === null
             )}
-            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); updateMyTask(task.id, { assignee: u }); },
+            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); updateMyTask(task.id, { assignees: [u] }); },
               <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
               assignee?.id === u.id
             ))}
@@ -1392,7 +1392,7 @@ export function Taches() {
       projectId: opts.project?.id ?? 'int',
       projectName: opts.project?.name ?? 'Interne',
       projectColor: opts.project?.clientColor ?? 'var(--text-3)',
-      assignee: opts.assignee ?? defaultAssignee,
+      assignees: [opts.assignee ?? defaultAssignee],
       status: opts.status as Task['status'],
       statusLabel: opts.statusLabel,
       priority: opts.priority,

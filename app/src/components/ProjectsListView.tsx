@@ -167,7 +167,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           projectId,
           projectName: newProject.name,
           projectColor: color,
-          assignee: members[0] ?? USERS.lea,
+          assignees: [members[0] ?? USERS.lea],
           status: 'warn',
           statusLabel: 'En attente',
           priority: tt.priority ?? 'normal',
