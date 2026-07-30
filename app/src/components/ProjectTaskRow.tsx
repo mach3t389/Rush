@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, SFModal, DatePickerDropdown, parseYMD, formatDisplay, isOverdue } from './ui';
+import { SFPill, SFIcon, SFModal, DatePickerDropdown, AssigneeGroup, parseYMD, formatDisplay, isOverdue } from './ui';
 import { STATUS_COLOR } from '../data/status';
-import { getTeam } from '../data/teamStore';
 import type { Task, Priority, SectionData } from '../types';
 
 // ── Shared task-row constants ──────────────────────────────────────────────────
@@ -167,11 +166,10 @@ export function ProjectTaskRow({
   const { t } = useTranslation();
   const checked = task.checked;
   const priority = task.priority;
-  const assignee = task.assignees[0] ?? null;
   const status = task.status as string;
   const statusLabel = task.statusLabel;
   const dueDate = task.dueDate;
-  const [open, setOpen] = useState<'priority' | 'assignee' | 'status' | 'dueDate' | 'context' | null>(null);
+  const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | 'context' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const [hovered, setHovered] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
@@ -327,31 +325,14 @@ export function ProjectTaskRow({
         )}
       </div>
 
-      {/* Assignee — inline dropdown */}
+      {/* Assignee — multi-sélection */}
       <div style={{ position: 'relative' }}>
-        <button
-          onClick={e => openDrop('assignee', e)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}
-        >
-          {assignee
-            ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={20} />
-            : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
-          }
-          <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee?.name ?? t('tasks.unassigned')}</span>
-          <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-        </button>
-        {open === 'assignee' && (
-          <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
-            {ddItem(() => { onUpdate({ assignees: [] }); setOpen(null); },
-              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-              assignee == null
-            )}
-            {getTeam().map(u => ddItem(() => { onUpdate({ assignees: [u] }); setOpen(null); },
-              <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-              assignee?.id === u.id
-            ))}
-          </InlineDropdown>
-        )}
+        <AssigneeGroup
+          assignees={task.assignees}
+          size={20}
+          showNames
+          onChange={next => onUpdate({ assignees: next })}
+        />
       </div>
 
       {/* Priority — inline dropdown */}
