@@ -3088,7 +3088,14 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
   // `location` was last set before column navigation happened.
   useEffect(() => {
     if (viewMode !== 'columns') return;
-    setLocation(columnSelections.length > 0 ? columnSelections[columnSelections.length - 1] : { scope: 'root', folderId: null });
+    // Un browser verrouillé (Fichiers d'un projet) n'a pas de racine globale
+    // à retomber dessus — columnSelections vide y signifie "toujours à la
+    // racine verrouillée", pas "remonter au vrai root". Sans ce garde-fou,
+    // location.scope devenait 'root' même en mode verrouillé, ce qui ouvrait
+    // la vue globale (et sa liste de tous les clients) depuis un projet.
+    setLocation(columnSelections.length > 0
+      ? columnSelections[columnSelections.length - 1]
+      : (lockedScope ?? { scope: 'root', folderId: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, columnSelections]);
 
