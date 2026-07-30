@@ -171,15 +171,10 @@
     "copy": "Copier",
     "selectedTasksCount_one": "{{count}} tâche",
     "selectedTasksCount_other": "{{count}} tâches",
-    "moveTasksTitle_one": "Déplacer {{count}} tâche vers un autre projet",
-    "moveTasksTitle_other": "Déplacer {{count}} tâches vers un autre projet",
+    "moveTasksTitle_one": "Déplacer {{count}} tâche",
+    "moveTasksTitle_other": "Déplacer {{count}} tâches",
     "copyTasksTitle_one": "Copier {{count}} tâche vers un autre projet",
-    "copyTasksTitle_other": "Copier {{count}} tâches vers un autre projet",
-    "moveTaskToSectionTitle": "Déplacer vers une autre section",
-    "moveTaskLabel": "Tâche",
-    "availableSections": "Sections disponibles",
-    "moveToSection": "Déplacer vers une autre section",
-    "moveToOtherProject": "Déplacer vers un autre projet"
+    "copyTasksTitle_other": "Copier {{count}} tâches vers un autre projet"
   },
   "templateModal": {
     "back": "Retour",

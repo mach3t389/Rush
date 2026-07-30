@@ -72,41 +72,6 @@ export function ddItem(onClick: () => void, children: React.ReactNode, active?: 
   );
 }
 
-// ── Move task modal ────────────────────────────────────────────────────────────
-
-function MoveTaskModal({ task, sections, onMove, onClose }: {
-  task: Task;
-  sections: SectionData[];
-  onMove: (toSectionLabel: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const otherSections = sections;
-  return (
-    <SFModal open onClose={onClose} title={t('board.moveTaskToSectionTitle')} width={400}>
-      <p style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--ff-mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('board.moveTaskLabel')} : {task.title}</p>
-      <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, marginTop: 14 }}>{t('board.availableSections')}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {otherSections.map(s => (
-          <button
-            key={s.label}
-            onClick={() => { onMove(s.label); onClose(); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-          >
-            <SFIcon name="layers" size={13} color="var(--text-3)" />
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 500 }}>{s.label}</p>
-              <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{s.tasks.length} tâche{s.tasks.length !== 1 ? 's' : ''}</p>
-            </div>
-          </button>
-        ))}
-      </div>
-    </SFModal>
-  );
-}
-
 // ── Column header ──────────────────────────────────────────────────────────────
 
 const GRID = '28px 1fr 65px 120px 75px 95px 85px 24px';
@@ -275,15 +240,21 @@ function SectionMoveModal({ sectionLabel, mode = 'move', onMove, onClose }: {
 
 // ── Bulk move modal (tasks or section) ────────────────────────────────────────
 
-function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
+function BulkMoveModal({ title, mode = 'move', onMove, onClose, defaultProjectId }: {
   title: string;
   mode?: 'move' | 'copy';
   onMove: (projectId: string, sectionLabel: string) => void;
   onClose: () => void;
+  // Projet pré-sélectionné à l'ouverture — passer le projet courant fait
+  // apparaître ses sections immédiatement, si bien que « déplacer vers une
+  // autre section » et « déplacer vers un autre projet » sont le même geste
+  // dans la même fenêtre : on choisit une section tout de suite, ou on change
+  // d'abord de projet.
+  defaultProjectId?: string;
 }) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState(() => getProjects().filter(p => !p.archived));
-  const [targetProjectId, setTargetProjectId] = useState('');
+  const [targetProjectId, setTargetProjectId] = useState(defaultProjectId ?? '');
   const [targetSection, setTargetSection] = useState('');
   const [newSection, setNewSection] = useState('');
 
@@ -343,16 +314,14 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose }: {
 
 // ── Task row ──────────────────────────────────────────────────────────────────
 
-// Les deux destinations sont proposées séparément et toujours toutes les deux
-// (tâche seule comme multi-sélection) : changer de section dans le projet
-// courant, ou partir vers un autre projet. `onMoveToSection` est omis quand le
-// projet n'a qu'une seule section — il n'y aurait nulle part où aller.
-function TaskContextMenu({ pos, onDelete, onOpen, onMoveToSection, onMoveToProject, onConvert, onClose }: {
+// Un seul « Déplacer » : la fenêtre qu'il ouvre propose les deux destinations
+// (une autre section du projet courant, ou un autre projet), plutôt que de
+// forcer le choix avant même de voir les options.
+function TaskContextMenu({ pos, onDelete, onOpen, onMove, onConvert, onClose }: {
   pos: { x: number; y: number };
   onDelete: () => void;
   onOpen: () => void;
-  onMoveToSection?: () => void;
-  onMoveToProject: () => void;
+  onMove: () => void;
   onConvert: () => void;
   onClose: () => void;
 }) {
@@ -374,8 +343,7 @@ function TaskContextMenu({ pos, onDelete, onOpen, onMoveToSection, onMoveToProje
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', left: coords.left, top: coords.top, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', zIndex: 500, minWidth: 200, padding: '4px 0', overflow: 'hidden', maxHeight: coords.maxHeight, overflowY: coords.maxHeight ? 'auto' : 'hidden' }}>
       {item(<><SFIcon name="maximize-2" size={13} color="var(--text-3)" /><span>{t('tasks.openDetail')}</span></>, onOpen)}
-      {onMoveToSection && item(<><SFIcon name="corner-down-right" size={13} color="var(--text-3)" /><span>{t('board.moveToSection')}</span></>, onMoveToSection)}
-      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('board.moveToOtherProject')}</span></>, onMoveToProject)}
+      {item(<><SFIcon name="move-right" size={13} color="var(--text-3)" /><span>{t('board.moveTo')}</span></>, onMove)}
       {item(<><SFIcon name="git-branch" size={13} color="var(--text-3)" /><span>{t('board.convertToSubtask')}</span></>, onConvert)}
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
       {item(<><SFIcon name="trash-2" size={13} color="var(--danger)" /><span>{t('tasks.delete')}</span></>, onDelete, true)}
@@ -421,12 +389,10 @@ function TaskRow({
   onSelect,
   onTaskDragStart,
   onTaskDragEnd,
-  allSections,
-  onMoveToSection,
   onDelete,
   onConvertRequest,
   compact,
-  onMoveToProject,
+  onMoveRequest,
 }: {
   task: Task;
   selected: boolean;
@@ -434,14 +400,12 @@ function TaskRow({
   multiSelected?: boolean;
   onTaskDragStart?: () => void;
   onTaskDragEnd?: () => void;
-  allSections?: SectionData[];
-  onMoveToSection?: (toSectionLabel: string) => void;
   onDelete?: () => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
   compact?: boolean;
   // Ouvre le sélecteur projet+section du parent, qui décide seul si l'action
   // porte sur cette tâche ou sur toute la multi-sélection.
-  onMoveToProject?: (task: Task) => void;
+  onMoveRequest?: (task: Task) => void;
 }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
@@ -456,7 +420,6 @@ function TaskRow({
   const [open, setOpen] = useState<'priority' | 'assignee' | 'status' | 'dueDate' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const [hovered, setHovered] = useState(false);
-  const [showMoveModal, setShowMoveModal] = useState(false);
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const dragHandleActive = React.useRef(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -751,25 +714,12 @@ function TaskRow({
         <SFIcon name="trash-2" size={13} />
       </button>
     </div>
-    {showMoveModal && allSections && onMoveToSection && (
-      <MoveTaskModal
-        task={task}
-        sections={allSections}
-        onMove={onMoveToSection}
-        onClose={() => setShowMoveModal(false)}
-      />
-    )}
     {ctxPos && (
       <TaskContextMenu
         pos={ctxPos}
         onDelete={() => { onDelete?.(); setCtxPos(null); }}
         onOpen={() => { onSelect(task); setCtxPos(null); }}
-        // Changer de section n'a de sens que s'il en existe une autre ; partir
-        // vers un autre projet reste toujours proposé.
-        onMoveToSection={allSections && allSections.length > 1
-          ? () => { setCtxPos(null); setShowMoveModal(true); }
-          : undefined}
-        onMoveToProject={() => { setCtxPos(null); onMoveToProject?.(task); }}
+        onMove={() => { setCtxPos(null); onMoveRequest?.(task); }}
         onConvert={() => { onConvertRequest(task, ctxPos); setCtxPos(null); }}
         onClose={() => setCtxPos(null)}
       />
@@ -1036,8 +986,8 @@ function Section({
   label, tasks, allTasks, completed, selectedTask, compactColumns, onSelectTask, onToggleComplete,
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
-  draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, allSections, onMoveTaskToSection, onConvertRequest,
-  onMoveTaskToProject,
+  draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, onConvertRequest,
+  onMoveTaskRequest,
   autoOpenAddTask,
 }: {
   label: string;
@@ -1067,10 +1017,8 @@ function Section({
   onTaskDragStart: (task: Task) => void;
   onTaskDragEnd: () => void;
   onTaskDrop: (task: Task, fromSectionLabel: string, toSectionLabel: string, beforeTaskId?: string) => void;
-  allSections: SectionData[];
-  onMoveTaskToSection: (task: Task, fromLabel: string, toLabel: string) => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
-  onMoveTaskToProject?: (task: Task) => void;
+  onMoveTaskRequest?: (task: Task) => void;
   // Pressing Enter to create a section should land straight on a blank
   // task row ready to type, instead of leaving the user to click "+
   // Ajouter une tâche" themselves right after.
@@ -1350,12 +1298,10 @@ function Section({
                 onSelect={onSelectTask}
                 onTaskDragStart={() => onTaskDragStart(task)}
                 onTaskDragEnd={onTaskDragEnd}
-                allSections={allSections}
-                onMoveToSection={toLabel => onMoveTaskToSection(task, label, toLabel)}
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
                 compact={compactColumns}
-                onMoveToProject={onMoveTaskToProject}
+                onMoveRequest={onMoveTaskRequest}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
@@ -1947,12 +1893,12 @@ export function Travail() {
     const ids = multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id];
     setConvertRequest({ taskIds: ids, pos });
   };
-  // Ids visés par le sélecteur « déplacer vers un autre projet ». Même règle
-  // que handleConvertRequest ci-dessus : la sélection multiple l'emporte quand
-  // la tâche visée en fait partie, sinon on ne déplace que celle-là.
-  const [moveToProjectIds, setMoveToProjectIds] = useState<string[] | null>(null);
-  const handleMoveToProjectRequest = (task: Task) => {
-    setMoveToProjectIds(multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id]);
+  // Ids visés par le sélecteur de destination. Même règle que
+  // handleConvertRequest ci-dessus : la sélection multiple l'emporte quand la
+  // tâche visée en fait partie, sinon on ne déplace que celle-là.
+  const [moveTaskIds, setMoveTaskIds] = useState<string[] | null>(null);
+  const handleMoveTaskRequest = (task: Task) => {
+    setMoveTaskIds(multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id]);
   };
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [convertRequest, setConvertRequest] = useState<{ taskIds: string[]; pos: { x: number; y: number } } | null>(null);
@@ -2260,10 +2206,6 @@ export function Travail() {
     setDraggedTask(null);
   };
 
-  const handleMoveTaskToSection = (task: Task, fromLabel: string, toLabel: string) => {
-    handleTaskDrop(task, fromLabel, toLabel);
-  };
-
   const handleSectionInsertAt = (beforeVisibleIdx: number) => {
     if (draggedIdx === null) return;
     setSections(prev => {
@@ -2460,13 +2402,11 @@ export function Travail() {
                 onTaskDragStart={task => handleTaskDragStart(task, section.label)}
                 onTaskDragEnd={() => setDraggedTask(null)}
                 onTaskDrop={handleTaskDrop}
-                allSections={sections}
-                onMoveTaskToSection={handleMoveTaskToSection}
                 onMoveSection={() => setSectionMoveLabel(section.label)}
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
                 onConvertRequest={handleConvertRequest}
-                onMoveTaskToProject={handleMoveToProjectRequest}
+                onMoveTaskRequest={handleMoveTaskRequest}
                 autoOpenAddTask={section.label === autoOpenSectionLabel}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
@@ -2568,7 +2508,7 @@ export function Travail() {
         <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', zIndex: 400 }}>
           <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, fontFamily: 'var(--ff-mono)' }}>{t('board.selectedTasksCount', { count: multiSelIds.size })}</span>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-          <button onClick={() => setMoveToProjectIds([...multiSelIds])} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+          <button onClick={() => setMoveTaskIds([...multiSelIds])} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="move-right" size={13} />
             {t('board.move')}
           </button>
@@ -2595,21 +2535,24 @@ export function Travail() {
         document.body,
       )}
 
-      {/* Déplacement vers un autre projet — une tâche seule ou la sélection */}
-      {moveToProjectIds && (
+      {/* Déplacement — une tâche seule ou la sélection. Le projet courant est
+          pré-sélectionné : ses sections sont donc listées d'emblée, et changer
+          de projet reste à un clic. */}
+      {moveTaskIds && (
         <BulkMoveModal
-          title={t('board.moveTasksTitle', { count: moveToProjectIds.length })}
+          title={t('board.moveTasksTitle', { count: moveTaskIds.length })}
           mode="move"
+          defaultProjectId={project.id}
           onMove={(toProjectId, toSectionLabel) => {
             // moveTasks() already writes the store; the subscribeStore sync
             // effect above picks up the change. Re-reading and re-writing
             // sections here raced the async Supabase write and could clobber
             // it back to the pre-move snapshot (same bug as the convert-to-
             // subtask picker below).
-            moveTasks(project.id, moveToProjectIds, toProjectId, toSectionLabel);
+            moveTasks(project.id, moveTaskIds, toProjectId, toSectionLabel);
             setMultiSelIds(new Set());
           }}
-          onClose={() => setMoveToProjectIds(null)}
+          onClose={() => setMoveTaskIds(null)}
         />
       )}
 
