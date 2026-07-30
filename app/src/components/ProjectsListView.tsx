@@ -422,7 +422,10 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {/* Step 3: Folder structure */}
           {step === 'fichiers' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                {t('models.resTypeFile')}
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: -8 }}>
                 {t('projects.folderStructureIntro')}
               </p>
 
@@ -532,7 +535,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${tasksTplId === null ? 'var(--accent)' : 'var(--border)'}`, background: tasksTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
                   >
                     <SFIcon name="list-checks" size={16} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.overviewTemplateNoneNew')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('projects.tasksTemplateNoneNew')}</span>
                     {tasksTplId === null && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                   </div>
                   {tasksTemplates.map(tpl => (
@@ -734,7 +737,7 @@ function ProjectListRow({ p }: { p: Project }) {
 function ProjectListView({ projects }: { projects: Project[] }) {
   const { t } = useTranslation();
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflowX: 'auto', overflowY: 'hidden', background: 'var(--surface)' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflowX: 'auto', overflowY: 'hidden', background: 'var(--surface)', flexShrink: 0 }}>
       <div style={{ minWidth: 780 }}>
         <div style={{ display: 'grid', gridTemplateColumns: PROJ_LIST_COLS, gap: 16, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <ProjColHead>{t('projects.colProject')}</ProjColHead>
