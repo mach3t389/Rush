@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue, AssigneeGroup } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
@@ -410,14 +410,14 @@ function TaskRow({
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
-  const [assignee, setAssignee] = useState<User | null>(task.assignees[0] ?? null);
+  const [assignees, setAssignees] = useState<User[]>(task.assignees);
   const [status, setStatus] = useState(task.status as string);
   const [dueDate, setDueDate] = useState(task.dueDate);
   const [endDate, setEndDate] = useState(task.endDate ?? '');
   const [startTime, setStartTime] = useState(task.startTime ?? '');
   const [endTime, setEndTime] = useState(task.endTime ?? '');
   const { projectId: rowProjectId } = useParams<{ projectId: string }>();
-  const [open, setOpen] = useState<'priority' | 'assignee' | 'status' | 'dueDate' | null>(null);
+  const [open, setOpen] = useState<'priority' | 'status' | 'dueDate' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const [hovered, setHovered] = useState(false);
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
@@ -436,7 +436,7 @@ function TaskRow({
   React.useEffect(() => {
     setChecked(task.checked);
     setPriority(task.priority);
-    setAssignee(task.assignees[0] ?? null);
+    setAssignees(task.assignees);
     setStatus(task.status as string);
     setDueDate(task.dueDate);
     setEndDate(task.endDate ?? '');
@@ -607,32 +607,15 @@ function TaskRow({
       {/* Activité */}
       <TaskActivityCell taskId={task.id} />
 
-      {/* Assignee — inline dropdown */}
-      <div style={{ position: 'relative' }}>
-        <button
-          onClick={e => openDrop('assignee', e)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}
-        >
-          {assignee
-            ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={20} />
-            : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
-          }
-          <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee?.name ?? t('tasks.unassigned')}</span>
-          <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-        </button>
-        {open === 'assignee' && (
-          <InlineDropdown onClose={() => setOpen(null)} anchorRect={dropRect} minWidth={180}>
-            {ddItem(() => { setAssignee(null); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignees: [] }); },
-              <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-              assignee === null
-            )}
-            {getTeam().map(u => ddItem(() => { setAssignee(u); setOpen(null); if (rowProjectId) updateTask(rowProjectId, task.id, { assignees: [u] }); },
-              <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-              assignee?.id === u.id
-            ))}
-          </InlineDropdown>
-        )}
-      </div>
+      {/* Assignés */}
+      <AssigneeGroup
+        assignees={assignees}
+        showNames
+        onChange={next => {
+          setAssignees(next);
+          if (rowProjectId) updateTask(rowProjectId, task.id, { assignees: next });
+        }}
+      />
 
       {/* Priority — inline dropdown */}
       <div style={{ position: 'relative' }}>
@@ -747,12 +730,12 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
   // ligne restait fermée quelle que soit la temporisation côté parent.
   useEffect(() => { if (autoOpen) setAdding(true); }, [autoOpen]);
   const [title, setTitle] = useState('');
-  const [assignee, setAssignee] = useState<User | null>(null);
+  const [assignees, setAssignees] = useState<User[]>([]);
   const [priority, setPriority] = useState<Priority>('none');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('');
   const [statusLabel, setStatusLabel] = useState('');
-  const [openField, setOpenField] = useState<'assignee' | 'priority' | 'status' | 'dueDate' | null>(null);
+  const [openField, setOpenField] = useState<'priority' | 'status' | 'dueDate' | null>(null);
   const [addDropRect, setAddDropRect] = useState<DOMRect | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -762,7 +745,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
   };
 
   const clearFields = () => {
-    setTitle(''); setAssignee(null); setPriority('none');
+    setTitle(''); setAssignees([]); setPriority('none');
     setDueDate(''); setStatus(''); setStatusLabel('');
     setOpenField(null);
   };
@@ -776,7 +759,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
     id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title: taskTitle,
     projectId, projectName, projectColor,
-    assignees: assignee ? [assignee] : [],
+    assignees,
     status: status as Task['status'],
     statusLabel,
     priority,
@@ -865,29 +848,8 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
         <>
         <span />{/* Activité */}
 
-        {/* Assignee — custom dropdown */}
-        <div style={{ position: 'relative' }}>
-          <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('assignee', e)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}>
-            {assignee
-              ? <SFAvatar initials={assignee.initials} bg={assignee.avatarColor} size={20} />
-              : <div style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', flexShrink: 0 }} />}
-            <span style={{ fontSize: 12, color: assignee ? 'var(--text-2)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee ? assignee.name : t('tasks.unassigned')}</span>
-            <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-          </button>
-          {openField === 'assignee' && (
-            <InlineDropdown onClose={() => setOpenField(null)} anchorRect={addDropRect} minWidth={180}>
-              {ddItem(() => { setAssignee(null); setOpenField(null); },
-                <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{t('tasks.unassigned')}</span>,
-                assignee === null
-              )}
-              {getTeam().map(u => ddItem(() => { setAssignee(u); setOpenField(null); },
-                <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-                assignee?.id === u.id
-              ))}
-            </InlineDropdown>
-          )}
-        </div>
+        {/* Assignés */}
+        <AssigneeGroup assignees={assignees} showNames onChange={setAssignees} />
 
         {/* Priority — custom dropdown */}
         <div style={{ position: 'relative' }}>
