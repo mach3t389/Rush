@@ -1,13 +1,12 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFAvatar, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, isOverdue } from './ui';
+import { SFPill, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, isOverdue, AssigneeGroup } from './ui';
 import { USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getSections } from '../data/taskStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
-import { getTeam } from '../data/teamStore';
 import { getCurrentUser } from '../data/authStore';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, Status, TaskComment, User } from '../types';
@@ -103,7 +102,7 @@ export interface LocalSubtask {
   priority: Priority;
   status: string;
   statusLabel: string;
-  assignee: User | null;
+  assignees: User[];
   dueDate: string;
   comments: CommentObj[];
 }
@@ -220,7 +219,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
   const [dropOpen, setDropOpen] = useState<'date' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const editTitleRef = useRef<HTMLInputElement>(null);
-  const hasFields = sub.priority !== 'none' || !!sub.assignee || !!sub.dueDate;
+  const hasFields = sub.priority !== 'none' || sub.assignees.length > 0 || !!sub.dueDate;
 
   const openDrop = (key: typeof dropOpen, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -320,8 +319,8 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
           {/* Compact glance row — shows what's set without opening the fields
               popover; each piece only renders when it has a value, so an
               empty subtask stays uncluttered. */}
-          {sub.assignee && (
-            <SFAvatar initials={sub.assignee.initials} bg={sub.assignee.avatarColor} size={16} />
+          {sub.assignees.length > 0 && (
+            <AssigneeGroup assignees={sub.assignees} size={16} readOnly />
           )}
           {sub.dueDate && (
             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{fmtDateCompact(sub.dueDate)}</span>
@@ -356,17 +355,12 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
                 {/* Assignee */}
                 <div>
                   {subColLabel(t('tasks.assigned'))}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
-                    <button onClick={() => onUpdate({ assignee: null })} title={t('tasks.unassigned')}
-                      style={{ width: 22, height: 22, borderRadius: '50%', border: sub.assignee === null ? '2px solid var(--text)' : '1.5px dashed var(--border-2)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
-                      <SFIcon name="user" size={10} color="var(--text-3)" />
-                    </button>
-                    {getTeam().map(u => (
-                      <button key={u.id} onClick={() => onUpdate({ assignee: u })} title={u.name}
-                        style={{ borderRadius: '50%', border: sub.assignee?.id === u.id ? '2px solid var(--text)' : '2px solid transparent', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex' }}>
-                        <SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />
-                      </button>
-                    ))}
+                  <div style={{ marginTop: 5 }}>
+                    <AssigneeGroup
+                      assignees={sub.assignees}
+                      size={22}
+                      onChange={next => onUpdate({ assignees: next })}
+                    />
                   </div>
                 </div>
                 {/* Date */}
@@ -497,7 +491,7 @@ export function TaskPanel({
     task.subtasks?.map(s => ({
       id: s.id, title: s.title, checked: s.checked,
       priority: s.priority, status: s.status as string, statusLabel: s.statusLabel,
-      assignee: task.assignees[0] ?? null, dueDate: '', comments: [] as CommentObj[],
+      assignees: s.assignees ?? [], dueDate: '', comments: [] as CommentObj[],
     })) ?? []
   );
   // Subtasks removed elsewhere (converted to a task, moved out) leave via the
@@ -519,11 +513,12 @@ export function TaskPanel({
 
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
   const [editStatus, setEditStatus] = useState(task.status as string);
-  const [editAssignee, setEditAssignee] = useState<User | null>(task.assignees[0] ?? null);
+  const [editAssignees, setEditAssignees] = useState<User[]>(task.assignees);
+  useEffect(() => { setEditAssignees(task.assignees); }, [task.assignees]);
   const [linkedResources, setLinkedResources] = useState<string[]>(task.linkedResources ?? []);
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
   const [resPickerRect, setResPickerRect] = useState<DOMRect | null>(null);
-  const [panelOpen, setPanelOpen] = useState<'assignee' | 'priority' | 'status' | 'heureDebut' | 'heureFin' | 'format' | null>(null);
+  const [panelOpen, setPanelOpen] = useState<'priority' | 'status' | 'heureDebut' | 'heureFin' | 'format' | null>(null);
   const [panelDropRect, setPanelDropRect] = useState<DOMRect | null>(null);
   const [fullscreenResource, setFullscreenResource] = useState<string | null>(null);
   const [resStatusDrop, setResStatusDrop] = useState<string | null>(null);
@@ -609,7 +604,7 @@ export function TaskPanel({
   // add-next, like AddTaskRow) instead of always appending at the end (the
   // "+ Ajouter une sous-tâche" button).
   const addSubtask = (afterId?: string) => {
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'none', status: '', statusLabel: '', assignee: null, dueDate: '', comments: [] };
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'none', status: '', statusLabel: '', assignees: [], dueDate: '', comments: [] };
     const idx = afterId ? localSubtasks.findIndex(s => s.id === afterId) : -1;
     const next = idx === -1 ? [...localSubtasks, sub] : [...localSubtasks.slice(0, idx + 1), sub, ...localSubtasks.slice(idx + 1)];
     setLocalSubtasks(next);
@@ -625,7 +620,7 @@ export function TaskPanel({
   const commitTitleAndAddNext = (id: string, title: string) => {
     const withTitle = localSubtasks.map(s => s.id === id ? { ...s, title } : s);
     const idx = withTitle.findIndex(s => s.id === id);
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'none', status: '', statusLabel: '', assignee: null, dueDate: '', comments: [] };
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: '', checked: false, priority: 'none', status: '', statusLabel: '', assignees: [], dueDate: '', comments: [] };
     const next = idx === -1 ? [...withTitle, sub] : [...withTitle.slice(0, idx + 1), sub, ...withTitle.slice(idx + 1)];
     setLocalSubtasks(next);
     onUpdate?.({ subtasks: next as unknown as Task[] });
@@ -638,7 +633,7 @@ export function TaskPanel({
     const base = localSubtasks.filter(s => s.id !== replaceId);
     const newSubs: LocalSubtask[] = lines.map((title, i) => ({
       id: `sub-${Date.now()}-${i}`, title, checked: false, priority: 'none',
-      status: '', statusLabel: '', assignee: null, dueDate: '', comments: [],
+      status: '', statusLabel: '', assignees: [], dueDate: '', comments: [],
     }));
     const next = [...base, ...newSubs];
     setLocalSubtasks(next);
@@ -745,7 +740,7 @@ export function TaskPanel({
   };
 
   const convertToSubtask = (c: CommentObj) => {
-    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'none', status: '', statusLabel: '', assignee: task.assignees[0] ?? null, dueDate: '', comments: [] };
+    const sub: LocalSubtask = { id: `sub-${Date.now()}`, title: c.text, checked: false, priority: 'none', status: '', statusLabel: '', assignees: [], dueDate: '', comments: [] };
     const nextSubs = [...localSubtasks, sub];
     setLocalSubtasks(nextSubs);
     onUpdate?.({ subtasks: nextSubs as unknown as Task[] });
@@ -928,29 +923,13 @@ export function TaskPanel({
             {/* Assigné */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.assignedTo')}</span>
-              <div style={{ position: 'relative' }}>
-                <button onClick={e => openPanelDrop('assignee', e)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  {editAssignee
-                    ? <SFAvatar initials={editAssignee.initials} bg={editAssignee.avatarColor} size={20} />
-                    : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={11} color="var(--text-3)" /></span>
-                  }
-                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{editAssignee?.name ?? t('tasks.unassigned')}</span>
-                  <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-                </button>
-                {panelOpen === 'assignee' && (
-                  <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} minWidth={180} zIndex={300}>
-                    {ddItem(() => { setEditAssignee(null); setPanelOpen(null); onUpdate?.({ assignees: [] }); },
-                      <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.unassigned')}</>,
-                      editAssignee === null
-                    )}
-                    {getTeam().map(u => ddItem(() => { setEditAssignee(u); setPanelOpen(null); onUpdate?.({ assignees: [u] }); },
-                      <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />{u.name}</>,
-                      editAssignee?.id === u.id
-                    ))}
-                  </InlineDropdown>
-                )}
-              </div>
+              <AssigneeGroup
+                assignees={editAssignees}
+                size={24}
+                max={3}
+                showNames
+                onChange={next => { setEditAssignees(next); onUpdate?.({ assignees: next }); }}
+              />
             </div>
             {/* Priorité */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
