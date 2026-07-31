@@ -8,6 +8,8 @@ import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree, addFile } from '../data/fileStore';
 import { addResource } from '../data/resourceStore';
+import { getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { setResourceContent } from '../data/resourceContentStore';
 import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections } from '../data/templates';
@@ -565,6 +567,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
         dueDate: '',
         checked: false,
         subtasks: [],
+        watchers: addWatchers([], [getCurrentUser()?.id, owner?.id]),
       })),
     }));
     if (sections.length) setSections(projectId, sections);
@@ -2161,6 +2164,7 @@ export function Modeles() {
           dueDate: '',
           checked: false,
           subtasks: [],
+          watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
         })),
       }));
       setSections(draftId, newSections);

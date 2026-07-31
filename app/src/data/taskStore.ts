@@ -18,6 +18,7 @@ import { PROJECT_TASKS } from './mock';
 import type { Task, SectionData } from '../types';
 import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout, getCurrentUser } from './authStore';
+import { addWatchers } from './watchers';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { normalizeSectionTasks, normalizeTask } from './normalizeTask';
@@ -285,7 +286,10 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
       const resolvedPatch = (patch.status !== undefined && patch.correctionsRequested === undefined)
         ? { ...patch, correctionsRequested: false }
         : patch;
-      return { ...t, ...resolvedPatch };
+      const watchers = resolvedPatch.assignees
+        ? addWatchers(t.watchers, resolvedPatch.assignees.map(a => a.id))
+        : t.watchers;
+      return { ...t, ...resolvedPatch, watchers };
     }),
   }));
   setSections(projectId, next);

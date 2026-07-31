@@ -7,6 +7,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks, isMyTasksLoading } from '../data/myTaskStore';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { getSections, moveTasks, copyTasks } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, User } from '../types';
@@ -1363,13 +1364,14 @@ export function Taches() {
     const defaultAssignee = isDemoSession() || !authUser
       ? USERS.lea
       : { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role };
+    const finalAssignees = opts.assignees.length ? opts.assignees : [defaultAssignee];
     return {
       id: `my-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title,
       projectId: opts.project?.id ?? 'int',
       projectName: opts.project?.name ?? 'Interne',
       projectColor: opts.project?.clientColor ?? 'var(--text-3)',
-      assignees: opts.assignees.length ? opts.assignees : [defaultAssignee],
+      assignees: finalAssignees,
       status: opts.status as Task['status'],
       statusLabel: opts.statusLabel,
       priority: opts.priority,
@@ -1379,6 +1381,7 @@ export function Taches() {
       checked: false,
       subtasks: [],
       mySection: opts.mySection,
+      watchers: addWatchers([], [getCurrentUser()?.id, ...finalAssignees.map(a => a.id)]),
     };
   }, [t]);
 

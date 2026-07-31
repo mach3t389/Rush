@@ -8,6 +8,8 @@ import { addDeliverable, findLinkedDeliverable, subscribeStore, isSectionsLoadin
 import { getProjects } from '../data/projectStore';
 import { USERS } from '../data/mock';
 import { showToast } from '../data/toastStore';
+import { getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import type { Resource, Status, DeliverableType, Task } from '../types';
 
 function inferDeliverableType(resource: Resource): DeliverableType {
@@ -73,6 +75,7 @@ export function RequestApprovalButton({
       dueDateRed: false,
       checked: false,
       subtasks: [],
+      watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
       deliverable: true,
       deliverableType: inferDeliverableType(resource),
       linkedResources: [resource.id],

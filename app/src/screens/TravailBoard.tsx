@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFPill, isOverdue, fmtTaskDate, TaskDatePopover, AssigneeGroup } from '../components/ui';
 import { STATUS_COLOR } from '../data/status';
 import { showToast } from '../data/toastStore';
+import { getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import type { Task, Priority, SectionData } from '../types';
 
@@ -587,6 +589,7 @@ export function TravailBoard({
                       status: 'warn', statusLabel: 'À faire',
                       priority: 'none', priorityLabel: 'Aucune',
                       dueDate: '—', dueDateRed: false, checked: false, subtasks: [],
+                      watchers: addWatchers([], [getCurrentUser()?.id]),
                     };
                     onAddTask(sIdx, newTask);
                     onSelectTask(newTask);

@@ -22,7 +22,8 @@ import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
-import { isDemoSession } from '../data/authStore';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { sendEmail } from '../data/emailStore';
 import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
@@ -1189,6 +1190,7 @@ export function TravailOverview() {
                               dueDateRed: false,
                               checked: false,
                               subtasks: [],
+                              watchers: addWatchers([], [getCurrentUser()?.id]),
                               deliverable: true,
                               deliverableType: newDlType,
                               format: (newDlType === 'video' || newDlType === 'photo') ? newDlFormat : undefined,
