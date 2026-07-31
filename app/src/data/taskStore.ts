@@ -170,9 +170,6 @@ async function writeSupabaseSections(projectId: string, sections: SectionData[])
     const { error: insertTasksError } = await supabase.from('tasks').insert(taskRows);
     if (insertTasksError) { console.error('writeSupabaseSections: insert tasks failed', insertTasksError); return; }
   }
-
-  _supabaseSections[projectId] = sections;
-  notify();
 }
 
 export function resetTasksCache(): void {
@@ -228,6 +225,17 @@ export function setSections(projectId: string, sections: SectionData[]): void {
     notify();
     return;
   }
+  // Update the in-memory cache immediately (optimistic), not just after the
+  // Supabase round-trip resolves. Consecutive mutations (e.g. delete a
+  // section, add a task, then convert tasks to subtasks) each call
+  // getSections() synchronously — if the cache only updated at the end of
+  // the async write, a mutation fired before an earlier write finished
+  // would read a stale pre-write snapshot, and since each write does a full
+  // delete-then-recreate, that stale write would clobber the intervening
+  // changes once the serialized queue got to it (sections reappearing,
+  // added tasks vanishing).
+  _supabaseSections[projectId] = sections;
+  notify();
   enqueueWrite(projectId, () => writeSupabaseSections(projectId, sections));
 }
 
