@@ -530,6 +530,12 @@ export function TravailBoard({
                           </button>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                            {task.description && (
+                              <span title={task.description.slice(0, 120)} style={{ display: 'flex', alignItems: 'center' }}>
+                                <SFIcon name="text-align-start" size={11} color="var(--text-3)" />
+                              </span>
+                            )}
+
                             {(task.subtasks?.length ?? 0) > 0 && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                                 <SFIcon name="git-branch" size={11} color="var(--text-3)" />

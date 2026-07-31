@@ -603,7 +603,9 @@ function TaskRow({
         {!editingTitle && hasSubtasks && (
           <span style={{ flexShrink: 0, marginLeft: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
             <SFIcon name="git-branch" size={11} color="var(--text-3)" />
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{task.subtasks!.length}</span>
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
+              {task.subtasks!.filter(s => s.checked).length}/{task.subtasks!.length}
+            </span>
           </span>
         )}
       </div>

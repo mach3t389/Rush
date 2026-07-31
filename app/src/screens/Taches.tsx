@@ -560,6 +560,11 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
             {task.title}
           </span>
         )}
+        {!editingTitle && task.description && (
+          <span title={task.description.slice(0, 120)} style={{ flexShrink: 0, marginLeft: 5, display: 'flex', alignItems: 'center' }}>
+            <SFIcon name="text-align-start" size={11} color="var(--text-3)" />
+          </span>
+        )}
         {/* assignees.length > 1, pas seulement others.length > 0 : une tâche
             personnelle réassignée à quelqu'un d'autre (sans moi) n'a qu'UN
             assigné au total — "avec X" serait trompeur, rien n'est partagé. */}
