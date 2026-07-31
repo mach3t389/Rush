@@ -1094,7 +1094,7 @@ export function TaskPanel({
                 {/* Type pills */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {DELIVERABLE_TYPE_OPTIONS.map(opt => (
-                    <button key={opt.value} onClick={() => { setDeliverableType(opt.value); onUpdate?.({ deliverableType: opt.value }); }}
+                    <button key={opt.value} onClick={() => { setDeliverableType(opt.value); onUpdate?.({ deliverableType: opt.value, format: (opt.value === 'video' || opt.value === 'photo') ? format : undefined }); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${deliverableType === opt.value ? 'var(--accent)' : 'var(--border)'}`, background: deliverableType === opt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
                       <SFIcon name={opt.icon} size={11} color={deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)'} />
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{t(opt.labelKey)}</span>

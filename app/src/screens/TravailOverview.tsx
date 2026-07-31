@@ -978,7 +978,7 @@ export function TravailOverview() {
                             {isTypeOpen && (
                               <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={150}>
                                 {DELIVERABLE_TYPES.map(dt => (
-                                  <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setOpenDl(null); }}
+                                  <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value, format: (dt.value === 'video' || dt.value === 'photo') ? dl.format : undefined }); setOpenDl(null); }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
                                     onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                                     onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
