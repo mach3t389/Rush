@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from './ui';
-import { SYSTEM_KIND_ID, type CustomOverviewSection, type OverviewFieldDef, type OverviewSectionKind } from '../data/projectContentStore';
+import { SYSTEM_KIND_ID, getDefaultVisionSection, type CustomOverviewSection, type OverviewFieldDef, type OverviewSectionKind } from '../data/projectContentStore';
 
 const SECTION_ICONS = ['sticky-note', 'users', 'link', 'target', 'briefcase', 'map-pin', 'phone', 'calendar', 'star', 'flag'];
 
@@ -12,18 +12,26 @@ function makeFieldId(): string {
 const KIND_LABEL_KEY: Record<OverviewSectionKind, string> = {
   fields: 'overview.sectionKindFields',
   note: 'overview.sectionKindNote',
+  vision: 'overview.sectionKindVision',
   deliverables: 'overview.sectionKindDeliverables',
   checklist: 'overview.sectionKindChecklist',
   gallery: 'overview.sectionKindGallery',
   links: 'overview.sectionKindLinks',
+  invoices: 'overview.sectionKindInvoices',
+  files: 'overview.sectionKindFiles',
+  notes: 'overview.sectionKindNotes',
 };
 const KIND_DESC_KEY: Record<OverviewSectionKind, string> = {
   fields: 'overview.sectionKindFieldsDesc',
   note: 'overview.sectionKindNoteDesc',
+  vision: 'overview.sectionKindVisionDesc',
   deliverables: 'overview.sectionKindDeliverablesDesc',
   checklist: 'overview.sectionKindChecklistDesc',
   gallery: 'overview.sectionKindGalleryDesc',
   links: 'overview.sectionKindLinksDesc',
+  invoices: 'overview.sectionKindInvoicesDesc',
+  files: 'overview.sectionKindFilesDesc',
+  notes: 'overview.sectionKindNotesDesc',
 };
 
 export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemIds = [] }: {
@@ -50,6 +58,14 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
 
   const handleSave = () => {
     if (!canSave) return;
+    if (!initial && kind === 'vision') {
+      // Vision garde toujours sa structure de champs fixe (concept, tonalité,
+      // public cible, objectifs, références) — elle n'est pas redéfinissable
+      // via l'éditeur de champs générique. Seuls le titre et l'icône sont
+      // personnalisables à la (re)création.
+      onSave({ ...getDefaultVisionSection(), title: title.trim(), icon });
+      return;
+    }
     onSave({
       // Un module système (vision/deliverables/invoices/files/notes) garde
       // toujours son id canonique même recréé après suppression, pour que
@@ -85,7 +101,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
       {!initial && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {(['fields', 'note', 'checklist', 'gallery', 'links'] as OverviewSectionKind[])
-            .concat((['deliverables'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+            .concat((['vision', 'deliverables'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
             .map(k => (
             <button key={k} onClick={() => setKind(k)}
               style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>

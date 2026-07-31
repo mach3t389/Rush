@@ -15,7 +15,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, SYSTEM_SECTION_IDS, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, SYSTEM_SECTION_IDS, SYSTEM_MODULES, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
@@ -609,19 +609,23 @@ export function TravailOverview() {
   const applyLoadedContent = useCallback(() => {
     const c = getProjectContent(project.id);
     const loadedNotes = c.notes ?? '';
-    let loadedSections = (c.customSections ?? []).some(s => s.id === VISION_SECTION_ID)
-      ? (c.customSections ?? [])
-      : [getDefaultVisionSection(), ...(c.customSections ?? [])];
-    // Ne réinsère le module Livrables client que s'il n'a jamais existé pour ce
-    // projet (ancien format) — pas si l'utilisateur l'a explicitement supprimé
-    // (deliverablesRemoved), sinon sa suppression n'aurait aucun effet persistant.
     const loadedRemovedSystemModules: string[] = c.removedSystemModules ?? (c.deliverablesRemoved ? [DELIVERABLES_SECTION_ID] : []);
-    if (!loadedSections.some(s => s.id === DELIVERABLES_SECTION_ID) && !loadedRemovedSystemModules.includes(DELIVERABLES_SECTION_ID)) {
-      const visionIdx = loadedSections.findIndex(s => s.id === VISION_SECTION_ID);
+    let loadedSections = c.customSections ?? [];
+    // Insère chaque module système qu'un projet n'a jamais eu (absent de
+    // customSections ET pas explicitement supprimé) — dans l'ordre canonique de
+    // SYSTEM_MODULES entre eux, juste avant le premier module non-système
+    // existant (généralement aucun, pour un projet neuf). Ne perturbe jamais
+    // l'ordre déjà choisi par l'utilisateur pour des modules système déjà migrés.
+    const missingSystemModules = SYSTEM_MODULES.filter(m =>
+      !loadedSections.some(s => s.id === m.id) && !loadedRemovedSystemModules.includes(m.id)
+    );
+    if (missingSystemModules.length > 0) {
+      const firstNonSystemIdx = loadedSections.findIndex(s => !SYSTEM_SECTION_IDS.includes(s.id));
+      const insertAt = firstNonSystemIdx === -1 ? loadedSections.length : firstNonSystemIdx;
       loadedSections = [
-        ...loadedSections.slice(0, visionIdx + 1),
-        getDefaultDeliverablesSection(),
-        ...loadedSections.slice(visionIdx + 1),
+        ...loadedSections.slice(0, insertAt),
+        ...missingSystemModules.map(m => m.factory()),
+        ...loadedSections.slice(insertAt),
       ];
     }
     const loadedData = c.customSectionData ?? {};
