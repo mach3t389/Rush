@@ -624,6 +624,9 @@ export function InvoiceFormPanel({
   const [hasExistingPdf, setHasExistingPdf] = useState(false);
   const [newPdfFile,     setNewPdfFile]     = useState<File | null>(null);
   const [pdfName,        setPdfName]        = useState('');
+  const [pdfDragOver,    setPdfDragOver]    = useState(false);
+  const [attemptedSave,  setAttemptedSave]  = useState(false);
+  const [titleTouched,   setTitleTouched]   = useState(false);
 
   const effectiveClientId  = lockedClientId  ?? defaultClientId  ?? (allClients[0]?.id ?? '');
   const effectiveProjectId = lockedProjectId ?? defaultProjectId ?? '';
@@ -639,7 +642,7 @@ export function InvoiceFormPanel({
       setPayTermsDays(invoice.paymentTermsDays ?? 30);
       setNotes(invoice.notes ?? '');   setInternalNote(invoice.internalNote ?? '');
       setHasExistingPdf(!!invoice.hasPdf); setNewPdfFile(null); setPdfName(invoice.hasPdf ? 'facture.pdf' : '');
-      setCustomDue(false);
+      setCustomDue(false);      setAttemptedSave(false); setTitleTouched(false);
     } else {
       const defs = getInvoiceDefaults();
       setNumber(nextInvoiceNumber());  setTitle('');
@@ -651,8 +654,16 @@ export function InvoiceFormPanel({
       setPayTermsDays(defs.paymentTermsDays); setCustomDue(false);
       setNotes(defs.notes);            setInternalNote('');
       setHasExistingPdf(false);        setNewPdfFile(null); setPdfName('');
+      setAttemptedSave(false); setTitleTouched(false);
     }
   }, [open, invoice]);
+
+  // Nom de fichier → intitulé lisible : retire l'extension, remplace
+  // tirets/underscores par des espaces, met en majuscule le premier mot.
+  const titleFromFilename = (filename: string): string => {
+    const base = filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ').trim();
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : base;
+  };
 
   const amtNum = parseFloat(amount) || 0;
   const { tax: taxAmt, total } = computeTaxLines(amtNum, taxLines);
@@ -674,15 +685,28 @@ export function InvoiceFormPanel({
     if (days > 0 && issuedDate) setDueDate(addDays(issuedDate, days));
   };
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const applyPdfFile = (file: File) => {
     setNewPdfFile(file);
     setPdfName(file.name);
     setHasExistingPdf(false);
+    if (!title.trim()) setTitle(titleFromFilename(file.name));
+  };
+
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    applyPdfFile(file);
+  };
+
+  const handlePdfDrop = (e: React.DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setPdfDragOver(false);
+    const file = [...e.dataTransfer.files].find(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+    if (file) applyPdfFile(file);
   };
 
   const handleSave = () => {
+    setAttemptedSave(true);
     if (!title.trim() || !clientId || !amount) return;
     const id = invoice?.id ?? `inv_${Date.now()}`;
     const inv: Invoice = {
@@ -731,8 +755,9 @@ export function InvoiceFormPanel({
 
           {/* Intitulé */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>{t('finance.invoiceTitle')}</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('finance.titlePlaceholder')} style={inputStyle} />
+            <label style={labelStyle}>{t('finance.invoiceTitle')} <span style={{ color: 'var(--danger)' }}>*</span></label>
+            <input value={title} onChange={e => setTitle(e.target.value)} onBlur={() => setTitleTouched(true)} placeholder={t('finance.titlePlaceholder')}
+              style={{ ...inputStyle, ...((titleTouched || attemptedSave) && !title.trim() ? { borderColor: 'var(--danger)' } : {}) }} />
           </div>
 
           {/* Client */}
@@ -949,7 +974,19 @@ export function InvoiceFormPanel({
                 </button>
               </div>
             ) : (
-              <button onClick={() => fileRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+              <button
+                onClick={() => fileRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setPdfDragOver(true); }}
+                onDragLeave={() => setPdfDragOver(false)}
+                onDrop={handlePdfDrop}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 8,
+                  border: `1px dashed ${pdfDragOver ? 'var(--accent)' : 'var(--border-2)'}`,
+                  background: pdfDragOver ? 'rgba(249,255,0,0.05)' : 'transparent',
+                  color: pdfDragOver ? 'var(--accent)' : 'var(--text-3)',
+                  fontSize: 12, cursor: 'pointer', width: '100%', justifyContent: 'center',
+                }}
+              >
                 <SFIcon name="upload" size={14} />
                 {t('finance.choosePdf')}
               </button>
