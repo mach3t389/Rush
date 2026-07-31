@@ -578,13 +578,8 @@ function TaskRow({
               borderRadius: 6, border: '1px solid var(--accent)',
               background: 'var(--surface-3)', color: 'var(--text)',
               fontFamily: 'var(--ff-text)', outline: 'none',
-              // content-box: the ch width should size the text itself, not
-              // include padding/border (the global reset defaults every
-              // element to border-box) — otherwise the padding eats nearly
-              // all the width when there are few characters, clipping the
-              // first letter.
-              boxSizing: 'content-box',
-              width: `${Math.max(2, titleDraft.length + 1)}ch`, maxWidth: '100%',
+              boxSizing: 'border-box',
+              width: '100%',
             }}
           />
         ) : (
