@@ -501,6 +501,10 @@
     "activityFilterLabel": "Visibility"
   },
   "overview": {
+    "checklistItemPlaceholder": "New item…",
+    "addChecklistItem": "Add item",
+    "galleryCaptionPlaceholder": "Caption…",
+    "addGalleryImage": "Add image",
     "markAsDone": "Mark as done",
     "done": "Done",
     "projectDone": "Project completed",

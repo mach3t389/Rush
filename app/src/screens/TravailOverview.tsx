@@ -15,7 +15,8 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, type CustomOverviewSection, type CustomSectionValue } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
+import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
@@ -265,6 +266,108 @@ function SaveOverviewTemplateModal({ projectName, customSections, originTemplate
         </div>
       </div>
     </>
+  );
+}
+
+function GalleryModuleBody({ images, onChange }: {
+  images: GalleryImage[];
+  onChange: (next: GalleryImage[]) => void;
+}) {
+  const { t } = useTranslation();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    [...files].forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setFileContent(id, file);
+      const dataUrl = getFileContent(id) ?? '';
+      onChange([...images, { id, dataUrl, caption: '' }]);
+    });
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+        {images.map(img => (
+          <div key={img.id} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+            <img src={img.dataUrl} alt={img.caption} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px' }}>
+              <input value={img.caption} onChange={e => onChange(images.map(i => i.id === img.id ? { ...i, caption: e.target.value } : i))}
+                placeholder={t('overview.galleryCaptionPlaceholder')}
+                style={{ flex: 1, minWidth: 0, padding: '2px 4px', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 11, outline: 'none' }} />
+              <button onClick={() => onChange(images.filter(i => i.id !== img.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', flexShrink: 0 }}>
+                <SFIcon name="x" size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+        onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+      <button onClick={() => fileInputRef.current?.click()}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer' }}>
+        <SFIcon name="image-plus" size={12} /> {t('overview.addGalleryImage')}
+      </button>
+    </div>
+  );
+}
+
+function LinksModuleBody({ linkedIds, resources, onChange, onOpen }: {
+  linkedIds: string[];
+  resources: ReturnType<typeof getResources>;
+  onChange: (next: string[]) => void;
+  onOpen: (resourceId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+  const linked = resources.filter(r => linkedIds.includes(r.id));
+
+  const toggle = (rid: string) => onChange(linkedIds.includes(rid) ? linkedIds.filter(id => id !== rid) : [...linkedIds, rid]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {linked.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {linked.map(r => (
+            <span key={r.id} onClick={() => onOpen(r.id)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: 200, padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer' }}>
+              <SFIcon name={RES_ICON[r.type] ?? 'file'} size={11} color="var(--text-3)" />
+              <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+              <span onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggle(r.id); }} style={{ display: 'inline-flex', flexShrink: 0 }}>
+                <SFIcon name="x" size={10} color="var(--text-3)" />
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ position: 'relative' }}>
+        <button ref={btnRef} onClick={() => { setAnchorRect(btnRef.current?.getBoundingClientRect() ?? null); setOpen(v => !v); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer' }}>
+          <SFIcon name="paperclip" size={12} /> {t('overview.linkExistingResource')}
+        </button>
+        {open && (
+          <InlineDropdown onClose={() => setOpen(false)} anchorRect={anchorRect} minWidth={280} zIndex={1000}>
+            <div style={{ maxHeight: 320, overflowY: 'auto', width: 280 }}>
+              {resources.length === 0 && (
+                <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>{t('overview.noResourcesHint')}</p>
+              )}
+              {resources.map(r => (
+                <button key={r.id} onClick={() => toggle(r.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: linkedIds.includes(r.id) ? 'rgba(249,255,0,0.07)' : 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                  <SFIcon name={RES_ICON[r.type] ?? 'file'} size={13} color="var(--text-3)" />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                  {linkedIds.includes(r.id) && <SFIcon name="check" size={13} color="var(--accent)" />}
+                </button>
+              ))}
+            </div>
+          </InlineDropdown>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1067,7 +1170,7 @@ export function TravailOverview() {
                     rows={5}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
                   />
-                ) : (
+                ) : section.kind === 'fields' ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     {(section.fields ?? []).map(field => {
                       const values = (customSectionData[section.id] as Record<string, string>) ?? {};
@@ -1087,7 +1190,52 @@ export function TravailOverview() {
                       );
                     })}
                   </div>
-                )}
+                ) : section.kind === 'checklist' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {((customSectionData[section.id] as ChecklistItem[]) ?? []).map(item => (
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button onClick={() => {
+                          const items = (customSectionData[section.id] as ChecklistItem[]) ?? [];
+                          setCustomSectionData(prev => ({ ...prev, [section.id]: items.map(i => i.id === item.id ? { ...i, checked: !i.checked } : i) }));
+                        }} style={{ width: 18, height: 18, borderRadius: '50%', border: item.checked ? 'none' : '1.5px solid var(--border-2)', background: item.checked ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          {item.checked && <SFIcon name="check" size={11} color="white" />}
+                        </button>
+                        <input value={item.text} onChange={e => {
+                          const items = (customSectionData[section.id] as ChecklistItem[]) ?? [];
+                          setCustomSectionData(prev => ({ ...prev, [section.id]: items.map(i => i.id === item.id ? { ...i, text: e.target.value } : i) }));
+                        }} placeholder={t('overview.checklistItemPlaceholder')} style={{ flex: 1, padding: '4px 8px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: item.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: item.checked ? 'line-through' : 'none', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none' }}
+                          onFocus={e => (e.currentTarget.style.border = '1px solid var(--border)')}
+                          onBlur={e => (e.currentTarget.style.border = '1px solid transparent')}
+                        />
+                        <button onClick={() => {
+                          const items = (customSectionData[section.id] as ChecklistItem[]) ?? [];
+                          setCustomSectionData(prev => ({ ...prev, [section.id]: items.filter(i => i.id !== item.id) }));
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+                          <SFIcon name="x" size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <button onClick={() => {
+                      const items = (customSectionData[section.id] as ChecklistItem[]) ?? [];
+                      const newItem: ChecklistItem = { id: `chk-${Date.now()}`, text: '', checked: false };
+                      setCustomSectionData(prev => ({ ...prev, [section.id]: [...items, newItem] }));
+                    }} style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer' }}>
+                      <SFIcon name="plus" size={12} /> {t('overview.addChecklistItem')}
+                    </button>
+                  </div>
+                ) : section.kind === 'gallery' ? (
+                  <GalleryModuleBody
+                    images={(customSectionData[section.id] as GalleryImage[]) ?? []}
+                    onChange={next => setCustomSectionData(prev => ({ ...prev, [section.id]: next }))}
+                  />
+                ) : section.kind === 'links' ? (
+                  <LinksModuleBody
+                    linkedIds={(customSectionData[section.id] as string[]) ?? []}
+                    resources={resources}
+                    onChange={next => setCustomSectionData(prev => ({ ...prev, [section.id]: next }))}
+                    onOpen={rid => navigate(`/projets/${project.id}/ressources/${rid}`)}
+                  />
+                ) : null}
               </div>
             </Card>
             );

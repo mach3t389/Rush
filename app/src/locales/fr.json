@@ -501,6 +501,10 @@
     "activityFilterLabel": "Activité"
   },
   "overview": {
+    "checklistItemPlaceholder": "Nouvel élément…",
+    "addChecklistItem": "Ajouter un élément",
+    "galleryCaptionPlaceholder": "Légende…",
+    "addGalleryImage": "Ajouter une image",
     "markAsDone": "Marquer comme terminé",
     "done": "Terminé",
     "projectDone": "Projet terminé",
