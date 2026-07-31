@@ -1050,6 +1050,7 @@
     "markAsDeliverable": "Marquer comme livrable",
     "disableDeliverable": "Désactiver le livrable",
     "confirm": "Confirmer",
+    "format": "Format",
     "duration": "Durée",
     "durationPlaceholder": "ex : 1:30",
     "quantity": "Quantité",

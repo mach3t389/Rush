@@ -20,6 +20,7 @@ export function AssigneeGroup({
   max = 2,
   readOnly = false,
   showNames = false,
+  zIndex = 200,
 }: {
   assignees: User[];
   onChange?: (next: User[]) => void;
@@ -28,6 +29,11 @@ export function AssigneeGroup({
   readOnly?: boolean;
   /** Affiche le nom à côté de l'avatar quand il n'y a qu'une personne. */
   showNames?: boolean;
+  /** À monter quand le composant vit déjà dans un popover porté : le menu
+   * est en `position: fixed` dans le body, donc un z-index inférieur à
+   * celui du popover hôte le ferait passer derrière lui (cas vécu : le
+   * panneau de champs d'une sous-tâche est à 600). */
+  zIndex?: number;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -96,6 +102,7 @@ export function AssigneeGroup({
       {open && <AssigneeMenu
         anchorRect={rect}
         assignees={assignees}
+        zIndex={zIndex}
         onToggle={toggle}
         onClearAll={() => { onChange?.([]); setOpen(false); }}
         onClose={() => setOpen(false)}
@@ -104,9 +111,10 @@ export function AssigneeGroup({
   );
 }
 
-function AssigneeMenu({ anchorRect, assignees, onToggle, onClearAll, onClose }: {
+function AssigneeMenu({ anchorRect, assignees, zIndex, onToggle, onClearAll, onClose }: {
   anchorRect: DOMRect | null;
   assignees: User[];
+  zIndex: number;
   onToggle: (u: User) => void;
   onClearAll: () => void;
   onClose: () => void;
@@ -136,9 +144,9 @@ function AssigneeMenu({ anchorRect, assignees, onToggle, onClearAll, onClose }: 
 
   return createPortal(
     <>
-      <div onClick={e => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+      <div onClick={e => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: zIndex - 1 }} />
       <div ref={ref} onClick={e => e.stopPropagation()} style={{
-        position: 'fixed', ...pos, zIndex: 200, background: 'var(--surface)',
+        position: 'fixed', ...pos, zIndex, background: 'var(--surface)',
         border: '1px solid var(--border-2)', borderRadius: 10, padding: 4,
         minWidth: 200, maxHeight: 280, overflowY: 'auto',
         boxShadow: '0 8px 24px rgba(0,0,0,0.5)',

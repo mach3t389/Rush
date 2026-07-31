@@ -367,6 +367,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
                     <AssigneeGroup
                       assignees={sub.assignees}
                       size={22}
+                      zIndex={700}
                       onChange={next => onUpdate({ assignees: next })}
                     />
                   </div>
@@ -1055,69 +1056,6 @@ export function TaskPanel({
                   <SFIcon name="package" size={12} />
                   {t('taskPanel.markAsDeliverable')}
                 </button>
-              ) : !deliverableExpanded ? (
-                // Mini-carte résumé — aperçu en lecture seule de l'éditeur déplié
-                // (même structure : type/format/quantité en grille, note en pleine
-                // largeur non tronquée), plutôt qu'une pastille à une seule ligne
-                // où tout était compressé et la note coupée à 120px.
-                (() => {
-                  const opt = DELIVERABLE_TYPE_OPTIONS.find(o => o.value === deliverableType);
-                  const showFormat = deliverableType === 'video' || deliverableType === 'photo';
-                  const showDuration = (deliverableType === 'video' || deliverableType === 'audio') && !!deliverableDuration;
-                  const showQuantity = deliverableType === 'photo' && !!deliverableQuantity;
-                  const hasMeta = showFormat || showDuration || showQuantity;
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--accent)', borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <button
-                          onClick={() => setDeliverableExpanded(true)}
-                          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', border: 'none', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' }}
-                        >
-                          <SFIcon name={opt?.icon ?? 'package'} size={12} color="var(--accent)" />
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>{opt ? t(opt.labelKey) : ''}</span>
-                          <SFIcon name="chevron-down" size={11} color="var(--text-3)" style={{ marginLeft: 'auto' }} />
-                        </button>
-                        <button
-                          onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
-                          title={t('taskPanel.disableDeliverable')}
-                          style={{ display: 'flex', alignItems: 'center', padding: 5, marginRight: 6, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-                        >
-                          <SFIcon name="x" size={12} />
-                        </button>
-                      </div>
-                      {hasMeta && (
-                        <div style={{ display: 'flex', gap: 20, padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
-                          {showFormat && (
-                            <div>
-                              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.format')}</p>
-                              <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{format === 'custom' ? `${customW}×${customH}` : format}</p>
-                            </div>
-                          )}
-                          {showDuration && (
-                            <div>
-                              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.duration')}</p>
-                              <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{deliverableDuration}</p>
-                            </div>
-                          )}
-                          {showQuantity && (
-                            <div>
-                              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.quantity')}</p>
-                              <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{deliverableQuantity}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {deliverableNote && (
-                        <div style={{ padding: '8px 10px', borderTop: hasMeta ? '1px solid var(--border)' : 'none' }}>
-                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{t('taskPanel.note')}</p>
-                          <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap' }}>{deliverableNote}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
               ) : (
                 <button
                   onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
@@ -1130,6 +1068,61 @@ export function TaskPanel({
                 </button>
               )}
             </div>
+
+            {/* Mini-carte résumé — pleine largeur, sous le label (pas à côté :
+                un bloc à plusieurs lignes dans la même rangée que le label
+                se retrouvait plaqué à droite au lieu de s'empiler dessous).
+                Aperçu en lecture seule de l'éditeur déplié (même structure :
+                type/format/quantité en grille, note en pleine largeur non
+                tronquée), plutôt qu'une pastille à une seule ligne où tout
+                était compressé et la note coupée à 120px. */}
+            {isDeliverable && !deliverableExpanded && (() => {
+              const opt = DELIVERABLE_TYPE_OPTIONS.find(o => o.value === deliverableType);
+              const showFormat = deliverableType === 'video' || deliverableType === 'photo';
+              const showDuration = (deliverableType === 'video' || deliverableType === 'audio') && !!deliverableDuration;
+              const showQuantity = deliverableType === 'photo' && !!deliverableQuantity;
+              const hasMeta = showFormat || showDuration || showQuantity;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--accent)', borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                  <button
+                    onClick={() => setDeliverableExpanded(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', border: 'none', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', width: '100%' }}
+                  >
+                    <SFIcon name={opt?.icon ?? 'package'} size={12} color="var(--accent)" />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{opt ? t(opt.labelKey) : ''}</span>
+                    <SFIcon name="chevron-down" size={11} color="var(--text-3)" style={{ marginLeft: 'auto' }} />
+                  </button>
+                  {hasMeta && (
+                    <div style={{ display: 'flex', gap: 20, padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
+                      {showFormat && (
+                        <div>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.format')}</p>
+                          <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{format === 'custom' ? `${customW}×${customH}` : format}</p>
+                        </div>
+                      )}
+                      {showDuration && (
+                        <div>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.duration')}</p>
+                          <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{deliverableDuration}</p>
+                        </div>
+                      )}
+                      {showQuantity && (
+                        <div>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.quantity')}</p>
+                          <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{deliverableQuantity}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {deliverableNote && (
+                    <div style={{ padding: '8px 10px', borderTop: hasMeta ? '1px solid var(--border)' : 'none' }}>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{t('taskPanel.note')}</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap' }}>{deliverableNote}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Expanded editor */}
             {isDeliverable && deliverableExpanded && (
