@@ -5,6 +5,7 @@ import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader, Catego
 import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import {
   getInvoices, addInvoice, updateInvoice, removeInvoice, removeInvoices, reorderInvoices, subscribeInvoices, findInvoice,
@@ -14,7 +15,6 @@ import {
   type Invoice, type InvoiceStatus, type InvoiceComment, type TaxLine,
 } from '../data/financeStore';
 import { subscribeUploadStatus } from '../data/fileContentStore';
-import { notifyComment } from '../data/commentNotify';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
@@ -370,9 +370,8 @@ export function InvoiceDetailPanel({
       text,
       ts: Date.now(),
     };
-    addInvoiceComment(invoice.id, comment);
+    addInvoiceComment(invoice.id, comment, currentUser?.id);
     setCommentText('');
-    notifyComment({ kind: 'add', text, itemLabel: invoice.title, projectId: invoice.projectId });
   };
 
   const inputStyle: React.CSSProperties = { width: '100%', fontSize: 12, padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
@@ -709,6 +708,7 @@ export function InvoiceFormPanel({
     setAttemptedSave(true);
     if (!title.trim() || !clientId || !amount) return;
     const id = invoice?.id ?? `inv_${Date.now()}`;
+    const project = projectId ? allProjects.find(p => p.id === projectId) : undefined;
     const inv: Invoice = {
       id, number, title: title.trim(), clientId,
       projectId: projectId || undefined,
@@ -720,6 +720,7 @@ export function InvoiceFormPanel({
       ...(invoice?.paidDate ? { paidDate: invoice.paidDate, paidAmount: invoice.paidAmount } : {}),
       ...(invoice?.sentDate ? { sentDate: invoice.sentDate } : {}),
       comments: invoice?.comments,
+      watchers: invoice?.watchers ?? addWatchers([], [getCurrentUser()?.id, ...(project?.members.map(m => m.id) ?? [])]),
     };
     if (invoice) { updateInvoice(id, inv); } else { addInvoice(inv); }
     if (newPdfFile) savePdf(id, newPdfFile);

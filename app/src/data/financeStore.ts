@@ -21,6 +21,10 @@ import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { setFileContent, getFileContent, removeFileContent } from './fileContentStore';
 import { createLoadingFlag } from './loadingFlag';
+import { addNotif } from './notificationStore';
+import { sendEmail } from './emailStore';
+import { getTeamMembers } from './teamStore';
+import { addWatcher } from './watchers';
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
 export type PaymentMethodType = 'bank_transfer' | 'interac' | 'stripe' | 'paypal' | 'cheque' | 'cash' | 'custom';
@@ -607,10 +611,34 @@ export function setInvoiceStatus(id: string, newStatus: InvoiceStatus): void {
   updateInvoice(id, { status: newStatus });
 }
 
-export function addInvoiceComment(invoiceId: string, comment: InvoiceComment): void {
+export function addInvoiceComment(invoiceId: string, comment: InvoiceComment, authorId?: string): void {
   const inv = getInvoices().find(i => i.id === invoiceId);
   if (!inv) return;
-  updateInvoice(invoiceId, { comments: [...(inv.comments ?? []), comment] });
+  const watchers = addWatcher(inv.watchers, authorId);
+  updateInvoice(invoiceId, { comments: [...(inv.comments ?? []), comment], watchers });
+
+  const recipientIds = watchers.filter(id => id !== authorId);
+  addNotif({
+    kind: 'comment',
+    actor: comment.author,
+    text: `a commenté la facture « ${inv.title} »`,
+    timestamp: Date.now(),
+    projectId: inv.projectId,
+    recipientIds,
+  });
+
+  if (isDemoSession()) return;
+  const members = getTeamMembers();
+  for (const id of recipientIds) {
+    const member = members.find(m => m.id === id);
+    if (!member?.email) continue;
+    void sendEmail(
+      member.email,
+      `${comment.author} a commenté la facture « ${inv.title} »`,
+      `<p>${comment.author} a commenté la facture « ${inv.title} » :</p><p>${comment.text}</p>`,
+      { eventKey: 'comment', recipientUserId: member.id }
+    );
+  }
 }
 
 // ── Payment methods — public API (unchanged signatures) ─────────────────────────
