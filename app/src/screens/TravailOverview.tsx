@@ -431,6 +431,33 @@ function InvoicesModuleBody({ invoices, totalInvoiced, totalPaid, onOpenInvoice,
   );
 }
 
+function FilesModuleBody({ files, onOpenFile }: { files: FileItem[]; onOpenFile: () => void }) {
+  const { t } = useTranslation();
+  return files.length === 0 ? (
+    <div style={{ padding: '24px 18px', textAlign: 'center' }}>
+      <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noFiles')}</p>
+    </div>
+  ) : (
+    <>
+      {files.map((doc, i) => (
+        <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < files.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+          onClick={onOpenFile}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name={FILE_TYPE_ICON[doc.type] ?? 'file'} size={15} color="var(--text-3)" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{doc.ext.toUpperCase()}{doc.size ? ` · ${formatFileSize(doc.size)}` : ''} · {formatFileDate(doc.updatedAt)}</p>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
   open: boolean; onToggle: () => void; onRename: () => void; onDelete: () => void;
 }) {
@@ -803,29 +830,6 @@ export function TravailOverview() {
               </button>
             </div>
           )}
-
-          {/* ── Fichiers ── */}
-          <Card title="Fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
-            {recentFiles.length === 0 ? (
-              <div style={{ padding: '24px 18px', textAlign: 'center' }}>
-                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noFiles')}</p>
-              </div>
-            ) : recentFiles.map((doc, i) => (
-              <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < recentFiles.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
-                onClick={() => navigate(`/projets/${project.id}/fichiers`)}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <SFIcon name={FILE_TYPE_ICON[doc.type] ?? 'file'} size={15} color="var(--text-3)" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{doc.ext.toUpperCase()}{doc.size ? ` · ${formatFileSize(doc.size)}` : ''} · {formatFileDate(doc.updatedAt)}</p>
-                </div>
-              </div>
-            ))}
-          </Card>
 
           {/* ── Notes internes ── */}
           <Card title="Notes internes" icon="sticky-note">
@@ -1268,6 +1272,9 @@ export function TravailOverview() {
                   {section.kind === 'invoices' && (
                     <SFButton variant="ghost" size="sm" icon="plus" onClick={() => navigate(`/projets/${project.id}/finances`)}>{t('overview.newInvoice')}</SFButton>
                   )}
+                  {section.kind === 'files' && (
+                    <SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>{t('overview.importFiles')}</SFButton>
+                  )}
                   <SectionOptionsMenu
                     open={sectionMenuOpenId === section.id}
                     onToggle={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
@@ -1277,7 +1284,7 @@ export function TravailOverview() {
                 </div>
               }
             >
-              <div style={{ padding: section.kind === 'invoices' ? 0 : '14px 18px' }}>
+              <div style={{ padding: (section.kind === 'invoices' || section.kind === 'files') ? 0 : '14px 18px' }}>
                 {section.kind === 'note' ? (
                   <textarea
                     value={(customSectionData[section.id] as string) ?? ''}
@@ -1357,6 +1364,11 @@ export function TravailOverview() {
                     totalPaid={totalPaid}
                     onOpenInvoice={() => navigate(`/projets/${project.id}/finances`)}
                     onStatusChange={(invoiceId, status) => setInvoiceStatus(invoiceId, status)}
+                  />
+                ) : section.kind === 'files' ? (
+                  <FilesModuleBody
+                    files={recentFiles}
+                    onOpenFile={() => navigate(`/projets/${project.id}/fichiers`)}
                   />
                 ) : null}
               </div>

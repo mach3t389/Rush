@@ -101,7 +101,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
       {!initial && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {(['fields', 'note', 'checklist', 'gallery', 'links'] as OverviewSectionKind[])
-            .concat((['vision', 'deliverables', 'invoices'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+            .concat((['vision', 'deliverables', 'invoices', 'files'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
             .map(k => (
             <button key={k} onClick={() => setKind(k)}
               style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>
