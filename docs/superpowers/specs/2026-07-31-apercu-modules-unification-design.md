@@ -16,7 +16,7 @@ Unifier les 5 blocs (Vision, Livrables client, Factures, Fichiers, Notes interne
 
 ### Nouveaux kinds
 
-`OverviewSectionKind` s'étend de 6 à 9 valeurs : `'fields' | 'note' | 'deliverables' | 'checklist' | 'gallery' | 'links' | 'invoices' | 'files' | 'notes'` — `'invoices'`, `'files'`, `'notes'` sont les 3 nouvelles.
+`OverviewSectionKind` s'étend de 6 à 10 valeurs : `'fields' | 'note' | 'vision' | 'deliverables' | 'checklist' | 'gallery' | 'links' | 'invoices' | 'files' | 'notes'` — `'invoices'`, `'files'`, `'notes'` sont les 3 nouvelles motivées par ce chantier, plus `'vision'` (découvert nécessaire au moment d'écrire le plan d'implémentation : Vision était jusqu'ici représentée avec `kind: 'fields'`, ce qui ne permet pas de la proposer comme choix distinct de « Champs personnalisés » dans le sélecteur « Ajouter un module ». Vision garde une restitution visuelle partagée avec le kind `fields` générique — un module système identifié par kind seul n'aurait pas été possible pour elle, d'où l'identification par **id canonique** retenue pour les 5 modules système, détaillée plus bas).
 
 Trois nouvelles constantes d'id canonique et constructeurs par défaut, sur le même modèle que `getDefaultVisionSection()`/`getDefaultDeliverablesSection()` :
 
