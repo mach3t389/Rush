@@ -382,6 +382,55 @@ function LinksModuleBody({ linkedIds, resources, onChange, onOpen }: {
   );
 }
 
+function InvoicesModuleBody({ invoices, totalInvoiced, totalPaid, onOpenInvoice, onStatusChange }: {
+  invoices: Invoice[]; totalInvoiced: number; totalPaid: number;
+  onOpenInvoice: () => void; onStatusChange: (invoiceId: string, status: Invoice['status']) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
+        {[
+          { label: t('overview.totalInvoiced'), value: `${totalInvoiced.toLocaleString('fr-CA')} $`, color: 'var(--text)' },
+          { label: t('overview.received'),      value: `${totalPaid.toLocaleString('fr-CA')} $`,     color: 'var(--ok)' },
+          { label: t('overview.pending'),       value: `${(totalInvoiced - totalPaid).toLocaleString('fr-CA')} $`, color: 'var(--warn)' },
+        ].map(s => (
+          <div key={s.label} style={{ padding: '12px 18px', borderRight: '1px solid var(--border)' }}>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
+            <p style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+      {invoices.length === 0 ? (
+        <div style={{ padding: '24px 18px', textAlign: 'center' }}>
+          <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noInvoices')}</p>
+        </div>
+      ) : invoices.map((inv, i) => (
+        <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+          onClick={onOpenInvoice}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name="file-text" size={15} color="var(--text-3)" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{inv.number}</span>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>{inv.title}</span>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.dueDate', { date: formatFileDate(inv.dueDate) })}</p>
+          </div>
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{inv.total.toLocaleString('fr-CA')} $</span>
+          <span onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+            <StatusPill status={inv.status} onChange={s => onStatusChange(inv.id, s)} />
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
   open: boolean; onToggle: () => void; onRename: () => void; onDelete: () => void;
 }) {
@@ -754,49 +803,6 @@ export function TravailOverview() {
               </button>
             </div>
           )}
-
-          {/* ── Factures ── */}
-          <Card title={t('overview.invoicesTitle')} icon="receipt" action={<SFButton variant="ghost" size="sm" icon="plus" onClick={() => navigate(`/projets/${project.id}/finances`)}>{t('overview.newInvoice')}</SFButton>}>
-            {/* Summary strip */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
-              {[
-                { label: t('overview.totalInvoiced'), value: `${totalInvoiced.toLocaleString('fr-CA')} $`, color: 'var(--text)' },
-                { label: t('overview.received'),      value: `${totalPaid.toLocaleString('fr-CA')} $`,     color: 'var(--ok)' },
-                { label: t('overview.pending'),       value: `${(totalInvoiced - totalPaid).toLocaleString('fr-CA')} $`, color: 'var(--warn)' },
-              ].map(s => (
-                <div key={s.label} style={{ padding: '12px 18px', borderRight: '1px solid var(--border)' }}>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</p>
-                  <p style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--ff-mono)', color: s.color }}>{s.value}</p>
-                </div>
-              ))}
-            </div>
-            {invoices.length === 0 ? (
-              <div style={{ padding: '24px 18px', textAlign: 'center' }}>
-                <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('overview.noInvoices')}</p>
-              </div>
-            ) : invoices.map((inv, i) => (
-              <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
-                onClick={() => navigate(`/projets/${project.id}/finances`)}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <SFIcon name="file-text" size={15} color="var(--text-3)" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{inv.number}</span>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{inv.title}</span>
-                  </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('overview.dueDate', { date: formatFileDate(inv.dueDate) })}</p>
-                </div>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>{inv.total.toLocaleString('fr-CA')} $</span>
-                <span onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
-                  <StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} />
-                </span>
-              </div>
-            ))}
-          </Card>
 
           {/* ── Fichiers ── */}
           <Card title="Fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
@@ -1258,15 +1264,20 @@ export function TravailOverview() {
               draggable
               onDragStart={() => setDraggedModuleIdx(sectionIdx)}
               action={
-                <SectionOptionsMenu
-                  open={sectionMenuOpenId === section.id}
-                  onToggle={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
-                  onRename={() => { setEditingSectionId(section.id); setSectionMenuOpenId(null); }}
-                  onDelete={() => handleDeleteSection(section.id)}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  {section.kind === 'invoices' && (
+                    <SFButton variant="ghost" size="sm" icon="plus" onClick={() => navigate(`/projets/${project.id}/finances`)}>{t('overview.newInvoice')}</SFButton>
+                  )}
+                  <SectionOptionsMenu
+                    open={sectionMenuOpenId === section.id}
+                    onToggle={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
+                    onRename={() => { setEditingSectionId(section.id); setSectionMenuOpenId(null); }}
+                    onDelete={() => handleDeleteSection(section.id)}
+                  />
+                </div>
               }
             >
-              <div style={{ padding: '14px 18px' }}>
+              <div style={{ padding: section.kind === 'invoices' ? 0 : '14px 18px' }}>
                 {section.kind === 'note' ? (
                   <textarea
                     value={(customSectionData[section.id] as string) ?? ''}
@@ -1338,6 +1349,14 @@ export function TravailOverview() {
                     resources={resources}
                     onChange={next => setCustomSectionData(prev => ({ ...prev, [section.id]: next }))}
                     onOpen={rid => navigate(`/projets/${project.id}/ressources/${rid}`)}
+                  />
+                ) : section.kind === 'invoices' ? (
+                  <InvoicesModuleBody
+                    invoices={invoices}
+                    totalInvoiced={totalInvoiced}
+                    totalPaid={totalPaid}
+                    onOpenInvoice={() => navigate(`/projets/${project.id}/finances`)}
+                    onStatusChange={(invoiceId, status) => setInvoiceStatus(invoiceId, status)}
                   />
                 ) : null}
               </div>
