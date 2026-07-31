@@ -66,8 +66,8 @@ function TaskActivityCell({ taskId }: { taskId: string }) {
 
 // �"?�"? Constants �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-// cb | titre | sous-tâches | activité | projet | assigné(avatar) | priorité | statut | échéance | more
-const GRID = '28px 1fr 80px 65px 140px 36px 75px 95px 85px 24px 28px';
+// cb | titre | activité | projet | assigné(avatar) | priorité | statut | échéance | more
+const GRID = '28px 1fr 65px 140px 36px 75px 95px 85px 24px 28px';
 // Quand le panneau de détail est ouvert, ces infos sont déjà visibles à
 // droite — les cacher dans la liste centrale libère toute la largeur pour
 // lire le titre en entier (checkbox + titre + suppression seulement).
@@ -160,7 +160,6 @@ function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
       {sortable(t('tasks.task'), 'title')}
-      {plain(t('tasks.subtasks'))}
       {plain(t('tasks.activity'))}
       {plain(t('tasks.project'))}
       {plain(t('tasks.assigned'))}
@@ -565,6 +564,14 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
             <SFIcon name="text-align-start" size={11} color="var(--text-3)" />
           </span>
         )}
+        {!editingTitle && !!task.subtasks?.length && (
+          <span style={{ flexShrink: 0, marginLeft: 5, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <SFIcon name="git-branch" size={11} color="var(--text-3)" />
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
+              {task.subtasks.filter(s => s.checked).length}/{task.subtasks.length}
+            </span>
+          </span>
+        )}
         {/* assignees.length > 1, pas seulement others.length > 0 : une tâche
             personnelle réassignée à quelqu'un d'autre (sans moi) n'a qu'UN
             assigné au total — "avec X" serait trompeur, rien n'est partagé. */}
@@ -578,18 +585,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
 
       {!compact && (
       <>
-      {/* Sous-tâches */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {task.subtasks?.length ? (
-          <>
-            <SFIcon name="git-branch" size={12} color="var(--text-3)" />
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-              {task.subtasks.filter(s => s.checked).length}/{task.subtasks.length}
-            </span>
-          </>
-        ) : <span style={{ color: 'var(--border-2)', fontFamily: 'var(--ff-mono)', fontSize: 10 }}>—</span>}
-      </div>
-
       {/* Activité */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <TaskActivityCell taskId={task.id} />
@@ -1194,7 +1189,6 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
 
         {!compact && (
         <>
-        <span />{/* Sous-tâches */}
         <span />{/* Activité */}
 
         {/* Projet */}
