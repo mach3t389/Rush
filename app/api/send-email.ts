@@ -20,6 +20,8 @@ interface SendEmailBody {
   to: string;
   subject: string;
   html: string;
+  eventKey?: string;
+  recipientUserId?: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -49,6 +51,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (authError || !user) {
     res.status(401).json({ error: 'Invalid or expired token' });
     return;
+  }
+
+  const { eventKey, recipientUserId } = req.body as SendEmailBody;
+  if (eventKey && recipientUserId) {
+    const { data: prefsRow } = await supabaseAdmin
+      .from('notif_prefs')
+      .select('prefs')
+      .eq('user_id', recipientUserId)
+      .maybeSingle();
+    const prefs = (prefsRow?.prefs as Record<string, { email?: boolean }> | undefined) ?? {};
+    // Absence de préférence = comportement par défaut (voir DEFAULTS dans
+    // notifPrefsStore.ts) — seule une valeur explicite `false` bloque l'envoi.
+    if (prefs[eventKey]?.email === false) {
+      res.status(200).json({ ok: true, skipped: true });
+      return;
+    }
   }
 
   if (!process.env.RESEND_API_KEY) {
