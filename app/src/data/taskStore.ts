@@ -456,6 +456,7 @@ function promoteSubtask(sub: Task, parent: Task, newId?: string): Task {
     dueDate: sub.dueDate || '—',
     dueDateRed: false,
     subtasks: [],
+    watchers: addWatchers([], [getCurrentUser()?.id, ...(sub.assignees ?? []).map(a => a.id)]),
   };
 }
 
