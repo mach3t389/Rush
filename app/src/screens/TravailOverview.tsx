@@ -462,9 +462,11 @@ function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
   open: boolean; onToggle: () => void; onRename: () => void; onDelete: () => void;
 }) {
   const { t } = useTranslation();
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={onToggle}
+      <button ref={btnRef} onClick={() => { setAnchorRect(btnRef.current?.getBoundingClientRect() ?? null); onToggle(); }}
         title={t('overview.sectionOptions')}
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
         onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
@@ -472,19 +474,19 @@ function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
         <SFIcon name="ellipsis" size={15} />
       </button>
       {open && (
-        <>
-          <div onClick={onToggle} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
-          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-            <button onClick={onRename}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
-              <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
-            </button>
-            <button onClick={onDelete}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
-              <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
-            </button>
-          </div>
-        </>
+        // Portail (InlineDropdown, déjà utilisé pour les menus des livrables) —
+        // un positionnement absolu classique se ferait couper par
+        // l'overflow:hidden du Card, rendant le menu invisible ou tronqué.
+        <InlineDropdown onClose={onToggle} anchorRect={anchorRect} minWidth={160} zIndex={500}>
+          <button onClick={onRename}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+            <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
+          </button>
+          <button onClick={onDelete}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+            <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
+          </button>
+        </InlineDropdown>
       )}
     </div>
   );
@@ -498,7 +500,7 @@ function ModuleInsertZone({ active, onDrop }: { active: boolean; onDrop: () => v
       onDragLeave={() => setOver(false)}
       onDrop={e => { if (active) { e.stopPropagation(); setOver(false); onDrop(); } }}
       style={{
-        height: active ? (over ? 36 : 10) : 12,
+        height: active ? (over ? 36 : 14) : 20,
         display: 'flex', alignItems: 'center', padding: '0 4px',
         transition: 'height 0.12s',
         flexShrink: 0,
@@ -824,11 +826,11 @@ export function TravailOverview() {
         style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
         {/* Left column — main content */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 
           {/* Completed banner */}
           {completed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(0,200,100,0.25)', background: 'rgba(0,200,100,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 20, borderRadius: 12, border: '1px solid rgba(0,200,100,0.25)', background: 'rgba(0,200,100,0.06)' }}>
               <SFIcon name="circle-check" size={18} color="var(--ok)" />
               <div>
                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ok)' }}>{t('overview.projectMarkedDone')}</p>

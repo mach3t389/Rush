@@ -54,7 +54,12 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
     setFields(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
   const removeField = (id: string) => setFields(prev => prev.filter(f => f.id !== id));
 
-  const canSave = title.trim().length > 0 && (kind !== 'fields' || fields.some(f => f.label.trim().length > 0));
+  // Le titre seul suffit pour créer un module, quel que soit son kind — même
+  // règle pour tous (Champs personnalisés n'exigeait auparavant au moins un
+  // champ que pour lui, incohérent avec Note/Checklist/etc. qui se créent
+  // vides et se remplissent après). Les champs déjà définis restent
+  // optionnellement modifiables dans ce même formulaire à la création.
+  const canSave = title.trim().length > 0;
 
   const handleSave = () => {
     if (!canSave) return;
