@@ -820,7 +820,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
               {secLabel(t('taskPanel.clientDeliverable'))}
               {!isDeliverable ? (
                 <button
-                  onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); }}
+                  onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); onUpdate?.({ deliverable: true, deliverableType, format: (deliverableType === 'video' || deliverableType === 'photo') ? format : undefined }); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                 >
                   <SFIcon name="package" size={12} />
@@ -855,7 +855,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                   </button>
                   {/* Disable button */}
                   <button
-                    onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); }}
+                    onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
                     title={t('taskPanel.disableDeliverable')}
                     style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
@@ -873,7 +873,11 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 {/* Type pills */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {DELIVERABLE_TYPE_OPTIONS.map(opt => (
-                    <button key={opt.value} onClick={() => setDeliverableType(opt.value)}
+                    <button key={opt.value} onClick={() => {
+                      setDeliverableType(opt.value);
+                      const stillHasFormat = opt.value === 'video' || opt.value === 'photo';
+                      onUpdate?.({ deliverableType: opt.value, format: stillHasFormat ? format : undefined });
+                    }}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${deliverableType === opt.value ? 'var(--accent)' : 'var(--border)'}`, background: deliverableType === opt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
                       <SFIcon name={opt.icon} size={11} color={deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)'} />
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: deliverableType === opt.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{t(opt.labelKey)}</span>
@@ -884,17 +888,17 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                 {(deliverableType === 'video' || deliverableType === 'photo') && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
                     {FORMAT_OPTIONS.map(f => (
-                      <button key={f.value} onClick={() => setFormat(f.value)}
+                      <button key={f.value} onClick={() => { setFormat(f.value); onUpdate?.({ format: f.value }); }}
                         style={{ padding: '3px 9px', borderRadius: 7, border: `1px solid ${format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface)', cursor: 'pointer', fontFamily: 'var(--ff-mono)', fontSize: 9, color: format === f.value ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.04em' }}>
                         {f.labelKey ? t(f.labelKey) : f.label}
                       </button>
                     ))}
                     {format === 'custom' && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginTop: 4 }}>
-                        <input type="number" value={customW} onChange={e => setCustomW(Number(e.target.value))}
+                        <input type="number" value={customW} onChange={e => { const v = Number(e.target.value); setCustomW(v); onUpdate?.({ customWidth: v }); }}
                           style={{ width: 72, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
                         <span style={{ color: 'var(--text-3)', fontSize: 12 }}>×</span>
-                        <input type="number" value={customH} onChange={e => setCustomH(Number(e.target.value))}
+                        <input type="number" value={customH} onChange={e => { const v = Number(e.target.value); setCustomH(v); onUpdate?.({ customHeight: v }); }}
                           style={{ width: 72, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
                         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>px</span>
                       </div>
@@ -909,7 +913,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                       <input
                         type="text"
                         value={deliverableDuration}
-                        onChange={e => setDeliverableDuration(e.target.value)}
+                        onChange={e => { setDeliverableDuration(e.target.value); onUpdate?.({ deliverableDuration: e.target.value }); }}
                         placeholder={t('taskPanel.durationPlaceholder')}
                         style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
@@ -922,7 +926,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                         type="number"
                         min={1}
                         value={deliverableQuantity}
-                        onChange={e => setDeliverableQuantity(Number(e.target.value))}
+                        onChange={e => { const v = Number(e.target.value); setDeliverableQuantity(v); onUpdate?.({ deliverableQuantity: v }); }}
                         style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
                       <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.photos')}</span>
@@ -932,7 +936,7 @@ export function TaskPanel({ task, onClose, onUpdate, onMove, sectionLabel, autoF
                     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68, paddingTop: 5 }}>{t('taskPanel.note')}</span>
                     <textarea
                       value={deliverableNote}
-                      onChange={e => setDeliverableNote(e.target.value)}
+                      onChange={e => { setDeliverableNote(e.target.value); onUpdate?.({ deliverableNote: e.target.value }); }}
                       placeholder={deliverableType === 'document' || deliverableType === 'web' ? t('taskPanel.notePlaceholderPages') : t('taskPanel.notePlaceholderCustom')}
                       rows={2}
                       style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5 }}

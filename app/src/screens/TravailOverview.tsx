@@ -46,6 +46,10 @@ const DELIVERABLE_TYPES: { value: DeliverableType; labelKey: string; icon: strin
   { value: 'autre',     labelKey: 'overview.delivOther',    icon: 'circle-dashed'},
 ];
 
+// Le format (ratio) n'a de sens que pour des livrables visuels — même
+// restriction que dans TaskPanel.tsx (panneau de détail d'une tâche).
+const TYPES_WITH_FORMAT: DeliverableType[] = ['video', 'photo'];
+
 const FORMAT_OPTIONS: { value: DeliverableFormat; label: string; ratio: string }[] = [
   { value: '16:9',   label: '16:9',        ratio: '16/9'   },
   { value: '9:16',   label: '9:16',        ratio: '9/16'   },
@@ -467,7 +471,7 @@ export function TravailOverview() {
                         <div onClick={() => setTypePickerOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
                         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 11, padding: 5, boxShadow: '0 10px 32px rgba(0,0,0,0.5)', minWidth: 150 }}>
                           {DELIVERABLE_TYPES.map(dt => (
-                            <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setTypePickerOpen(null); }}
+                            <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value, format: TYPES_WITH_FORMAT.includes(dt.value) ? dl.format : undefined }); setTypePickerOpen(null); }}
                               style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
                               onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                               onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
@@ -481,8 +485,12 @@ export function TravailOverview() {
                     )}
                   </div>
 
-                  {/* Format — clickable dropdown */}
+                  {/* Format — clickable dropdown (livrables visuels seulement) */}
                   <div style={{ position: 'relative' }}>
+                    {!TYPES_WITH_FORMAT.includes(dl.deliverableType ?? 'video') ? (
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
+                    ) : (
+                    <>
                     <button onClick={e => { e.stopPropagation(); setFormatPickerOpen(isPickerOpen ? null : dl.id); setTypePickerOpen(null); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isPickerOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
                       {fmt ? (
@@ -519,6 +527,8 @@ export function TravailOverview() {
                           )}
                         </div>
                       </>
+                    )}
+                    </>
                     )}
                   </div>
 
@@ -568,7 +578,7 @@ export function TravailOverview() {
                         subtasks: [],
                         deliverable: true,
                         deliverableType: newDlType,
-                        format: newDlFormat,
+                        format: TYPES_WITH_FORMAT.includes(newDlType) ? newDlFormat : undefined,
                       };
                       addDeliverable(project.id, task);
                       setAddingDeliverable(false);
@@ -590,14 +600,18 @@ export function TravailOverview() {
                   ))}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
-                  {FORMAT_OPTIONS.map(f => (
-                    <button key={f.value} onClick={() => setNewDlFormat(f.value)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlFormat === f.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlFormat === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlFormat === f.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
-                      <div style={{ width: 12, aspectRatio: f.ratio, border: `1.5px solid currentColor`, borderRadius: 1 }} />
-                      {f.label}
-                    </button>
-                  ))}
+                  {TYPES_WITH_FORMAT.includes(newDlType) && (
+                    <>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
+                      {FORMAT_OPTIONS.map(f => (
+                        <button key={f.value} onClick={() => setNewDlFormat(f.value)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlFormat === f.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlFormat === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlFormat === f.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
+                          <div style={{ width: 12, aspectRatio: f.ratio, border: `1.5px solid currentColor`, borderRadius: 1 }} />
+                          {f.label}
+                        </button>
+                      ))}
+                    </>
+                  )}
                   <button onClick={() => setAddingDeliverable(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
                     <SFIcon name="x" size={14} />
                   </button>
