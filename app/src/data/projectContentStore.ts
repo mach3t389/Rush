@@ -15,12 +15,25 @@ import i18n from '../i18n/i18n';
 // Demo sessions: localStorage. Real sessions: table `project_content`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type OverviewSectionKind = 'fields' | 'note';
+export type OverviewSectionKind = 'fields' | 'note' | 'deliverables' | 'checklist' | 'gallery' | 'links';
 
 export interface OverviewFieldDef {
   id: string;
   label: string;
   multiline?: boolean;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+export interface GalleryImage {
+  id: string;
+  /** Blob URL en mémoire ; persisté via fileContentStore (même mécanisme que l'import de fichiers réels). */
+  dataUrl: string;
+  caption: string;
 }
 
 export interface CustomOverviewSection {
@@ -33,6 +46,7 @@ export interface CustomOverviewSection {
 }
 
 export const VISION_SECTION_ID = 'vision';
+export const DELIVERABLES_SECTION_ID = 'deliverables';
 
 // Fonction (et non constante) pour que les libellés soient résolus dans la langue
 // COURANTE à chaque appel — une constante figerait la langue au chargement du module.
@@ -53,10 +67,26 @@ export function getDefaultVisionSection(): CustomOverviewSection {
   };
 }
 
+export function getDefaultDeliverablesSection(): CustomOverviewSection {
+  return {
+    id: DELIVERABLES_SECTION_ID,
+    kind: 'deliverables',
+    title: i18n.t('overview.clientDeliverables'),
+    icon: 'package',
+  };
+}
+
+export type CustomSectionValue =
+  | string                        // kind: 'note'
+  | Record<string, string>        // kind: 'fields'
+  | ChecklistItem[]                // kind: 'checklist'
+  | GalleryImage[]                 // kind: 'gallery'
+  | string[];                      // kind: 'links' — ids de ressources/fichiers liés
+
 export interface ProjectContent {
   notes?: string;
   customSections?: CustomOverviewSection[];
-  customSectionData?: Record<string, string | Record<string, string>>;
+  customSectionData?: Record<string, CustomSectionValue>;
 }
 
 // Ancien format (avant unification de Vision dans customSections) :
