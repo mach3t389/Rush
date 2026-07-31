@@ -135,6 +135,7 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true, 
   collapsible?: boolean; defaultOpen?: boolean; persistKey?: string;
   draggable?: boolean; onDragStart?: (e: React.DragEvent) => void;
 }) {
+  const { t } = useTranslation();
   const [localOpen, setLocalOpen] = useState(defaultOpen);
   const [persistedOpen, setPersistedOpen] = usePersistedState(`sf_overview_section_open_${persistKey}`, defaultOpen);
   const open = persistKey ? persistedOpen : localOpen;
@@ -146,6 +147,15 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true, 
         onClick={collapsible ? () => setOpen(v => !v) : undefined}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {draggable && (
+            <span
+              onClick={e => e.stopPropagation()}
+              title={t('overview.dragToReorder')}
+              style={{ cursor: 'grab', display: 'flex', color: 'var(--text-3)', marginRight: 2 }}
+            >
+              <SFIcon name="grip-vertical" size={14} />
+            </span>
+          )}
           <SFIcon name={icon} size={14} color="var(--text-2)" />
           <span style={{ fontWeight: 600, fontSize: 13 }}>{title}</span>
           {collapsible && (
@@ -368,6 +378,38 @@ function LinksModuleBody({ linkedIds, resources, onChange, onOpen }: {
           </InlineDropdown>
         )}
       </div>
+    </div>
+  );
+}
+
+function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
+  open: boolean; onToggle: () => void; onRename: () => void; onDelete: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={onToggle}
+        title={t('overview.sectionOptions')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+        <SFIcon name="ellipsis" size={15} />
+      </button>
+      {open && (
+        <>
+          <div onClick={onToggle} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
+          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+            <button onClick={onRename}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+              <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
+            </button>
+            <button onClick={onDelete}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+              <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -785,32 +827,26 @@ export function TravailOverview() {
               return (
                 <React.Fragment key={section.id}>
                   <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
-                    draggable={!section.locked}
-                    onDragStart={e => { if (section.locked) { e.preventDefault(); return; } setDraggedModuleIdx(sectionIdx); }}
+                    draggable
+                    onDragStart={() => setDraggedModuleIdx(sectionIdx)}
                     action={
                       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      {!section.locked && (
-                        <span title={t('overview.dragToReorder')} style={{ cursor: 'grab', display: 'flex', color: 'var(--text-3)', padding: 4 }}>
-                          <SFIcon name="grip-vertical" size={14} />
-                        </span>
-                      )}
-                      <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
-                        setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
-                        // Pas de présélection — l'utilisateur ne veut plus qu'un livrable
-                        // atterrisse dans une section "Livraison" choisie sans le
-                        // demander, même comme valeur par défaut implicite.
-                        setNewDlSection('');
-                        setNewDlSectionCustom('');
-                      }}>
-                        {t('overview.add')}
-                      </SFButton>
-                      <button onClick={() => handleDeleteSection(DELIVERABLES_SECTION_ID)}
-                        title={t('overview.deleteSection')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--danger)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
-                        <SFIcon name="trash-2" size={14} />
-                      </button>
+                        <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
+                          setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
+                          // Pas de présélection — l'utilisateur ne veut plus qu'un livrable
+                          // atterrisse dans une section "Livraison" choisie sans le
+                          // demander, même comme valeur par défaut implicite.
+                          setNewDlSection('');
+                          setNewDlSectionCustom('');
+                        }}>
+                          {t('overview.add')}
+                        </SFButton>
+                        <SectionOptionsMenu
+                          open={sectionMenuOpenId === section.id}
+                          onToggle={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
+                          onRename={() => { setEditingSectionId(section.id); setSectionMenuOpenId(null); }}
+                          onDelete={() => handleDeleteSection(section.id)}
+                        />
                       </div>
                     }
                   >
@@ -1205,42 +1241,15 @@ export function TravailOverview() {
             return (
             <React.Fragment key={section.id}>
             <Card title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
-              draggable={!section.locked}
-              onDragStart={e => { if (section.locked) { e.preventDefault(); return; } setDraggedModuleIdx(sectionIdx); }}
+              draggable
+              onDragStart={() => setDraggedModuleIdx(sectionIdx)}
               action={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  {!section.locked && (
-                    <span title={t('overview.dragToReorder')} style={{ cursor: 'grab', display: 'flex', color: 'var(--text-3)', padding: 4 }}>
-                      <SFIcon name="grip-vertical" size={14} />
-                    </span>
-                  )}
-                <div style={{ position: 'relative' }}>
-                  <button onClick={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
-                    title={t('overview.sectionOptions')}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <SFIcon name="ellipsis" size={15} />
-                  </button>
-                  {sectionMenuOpenId === section.id && (
-                    <>
-                      <div onClick={() => setSectionMenuOpenId(null)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />
-                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-                        <button onClick={() => { setEditingSectionId(section.id); setSectionMenuOpenId(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
-                          <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
-                        </button>
-                        {!section.locked && (
-                          <button onClick={() => handleDeleteSection(section.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
-                            <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                </div>
+                <SectionOptionsMenu
+                  open={sectionMenuOpenId === section.id}
+                  onToggle={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
+                  onRename={() => { setEditingSectionId(section.id); setSectionMenuOpenId(null); }}
+                  onDelete={() => handleDeleteSection(section.id)}
+                />
               }
             >
               <div style={{ padding: '14px 18px' }}>
