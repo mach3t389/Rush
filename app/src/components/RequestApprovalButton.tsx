@@ -8,8 +8,10 @@ import { addDeliverable, findLinkedDeliverable, subscribeStore, isSectionsLoadin
 import { getProjects } from '../data/projectStore';
 import { USERS } from '../data/mock';
 import { showToast } from '../data/toastStore';
-import { getCurrentUser } from '../data/authStore';
+import { getCurrentUser, isDemoSession } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
+import { sendEmail } from '../data/emailStore';
+import { getClientExternalTeam } from '../data/clientTeamStore';
 import type { Resource, Status, DeliverableType, Task } from '../types';
 
 function inferDeliverableType(resource: Resource): DeliverableType {
@@ -82,16 +84,29 @@ export function RequestApprovalButton({
       sharedWithClient: true,
     };
     addDeliverable(projectId, task);
+    const actorName = getCurrentUser()?.name ?? USERS.lea.name;
     addNotif({
       kind: 'approval',
-      actor: USERS.lea.name,
+      actor: actorName,
       text: `a demandé l'approbation de « ${resource.title} »`,
       timestamp: Date.now(),
       resourceId: resource.id,
       taskId: task.id,
       projectId,
-      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+      recipientIds: task.watchers ?? [],
     });
+    if (!isDemoSession()) {
+      const contacts = getClientExternalTeam(project?.clientId ?? '');
+      for (const contact of contacts) {
+        if (!contact.email) continue;
+        void sendEmail(
+          contact.email,
+          `Approbation demandée : « ${resource.title} »`,
+          `<p>${actorName} a demandé votre approbation pour « ${resource.title} ».</p>`,
+          contact.authUserId ? { eventKey: 'approval', recipientUserId: contact.authUserId } : undefined
+        );
+      }
+    }
     if (onStatusChange) onStatusChange('review', 'En révision');
     else updateResource(resource.id, { status: 'review', statusLabel: 'En révision' });
     showToast({ type: 'task', message: t('approval.livrableCreatedToast') });
@@ -102,16 +117,30 @@ export function RequestApprovalButton({
   const handleRelaunch = () => {
     if (!projectId || !linked) return;
     updateTask(projectId, linked.id, { status: 'review', correctionsRequested: false });
+    const actorName = getCurrentUser()?.name ?? USERS.lea.name;
     addNotif({
       kind: 'approval',
-      actor: USERS.lea.name,
+      actor: actorName,
       text: `a demandé l'approbation de « ${resource.title} »`,
       timestamp: Date.now(),
       resourceId: resource.id,
       taskId: linked.id,
       projectId,
-      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+      recipientIds: linked.watchers ?? [],
     });
+    if (!isDemoSession()) {
+      const project = getProjects().find(p => p.id === projectId);
+      const contacts = getClientExternalTeam(project?.clientId ?? '');
+      for (const contact of contacts) {
+        if (!contact.email) continue;
+        void sendEmail(
+          contact.email,
+          `Approbation demandée : « ${resource.title} »`,
+          `<p>${actorName} a demandé votre approbation pour « ${resource.title} ».</p>`,
+          contact.authUserId ? { eventKey: 'approval', recipientUserId: contact.authUserId } : undefined
+        );
+      }
+    }
     showToast({ type: 'task', message: t('approval.relaunchedToast') });
   };
 

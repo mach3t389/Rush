@@ -1735,7 +1735,8 @@ export function TravailOverview() {
                               <p>Bonjour ${approver.name || ''},</p>
                               <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>
                               <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Voir le projet</a></p>
-                            </div>`
+                            </div>`,
+                            approver.authUserId ? { eventKey: 'approval', recipientUserId: approver.authUserId } : undefined
                           );
                         }
                         setApprovalSent(true);
