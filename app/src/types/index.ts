@@ -102,7 +102,7 @@ export interface Task {
   customWidth?: number;
   customHeight?: number;
   deliverableDuration?: string;
-  deliverableQuantity?: number;
+  deliverableQuantity?: string;
   deliverableNote?: string;
   linkedResources?: string[];
   sharedWithClient?: boolean;      // livrable visible dans le portail client

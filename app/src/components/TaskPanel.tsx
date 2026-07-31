@@ -149,13 +149,21 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
     const left = Math.max(8, Math.min(anchorRect.left, vw - w - 8));
     setPos({ top, left, visibility: 'visible' });
   }, [anchorRect]);
-  return (
+  // Portaled to document.body — TaskPanel is a sliding side panel, and a
+  // `position: fixed` popover left in-tree gets trapped inside whatever
+  // ancestor establishes a containing block (transform/animation on the
+  // panel itself), clipping/misordering it against later siblings (e.g. a
+  // fields popover opened on an early subtask row rendering behind rows
+  // and sections further down). Portaling escapes that entirely, same fix
+  // already applied to the other InlineDropdown instances in this codebase.
+  return createPortal(
     <>
       <div onClick={e => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: zIndex - 1 }} />
       <div ref={dropRef} style={{ position: 'fixed', ...pos, zIndex, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -532,7 +540,7 @@ export function TaskPanel({
   const [customW, setCustomW] = useState(task.customWidth ?? 1920);
   const [customH, setCustomH] = useState(task.customHeight ?? 1080);
   const [deliverableDuration, setDeliverableDuration] = useState(task.deliverableDuration ?? '');
-  const [deliverableQuantity, setDeliverableQuantity] = useState(task.deliverableQuantity ?? 1);
+  const [deliverableQuantity, setDeliverableQuantity] = useState(task.deliverableQuantity ?? '');
   const [deliverableNote, setDeliverableNote] = useState(task.deliverableNote ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(task.title);
@@ -1047,44 +1055,79 @@ export function TaskPanel({
                   <SFIcon name="package" size={12} />
                   {t('taskPanel.markAsDeliverable')}
                 </button>
+              ) : !deliverableExpanded ? (
+                // Mini-carte résumé — aperçu en lecture seule de l'éditeur déplié
+                // (même structure : type/format/quantité en grille, note en pleine
+                // largeur non tronquée), plutôt qu'une pastille à une seule ligne
+                // où tout était compressé et la note coupée à 120px.
+                (() => {
+                  const opt = DELIVERABLE_TYPE_OPTIONS.find(o => o.value === deliverableType);
+                  const showFormat = deliverableType === 'video' || deliverableType === 'photo';
+                  const showDuration = (deliverableType === 'video' || deliverableType === 'audio') && !!deliverableDuration;
+                  const showQuantity = deliverableType === 'photo' && !!deliverableQuantity;
+                  const hasMeta = showFormat || showDuration || showQuantity;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--accent)', borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <button
+                          onClick={() => setDeliverableExpanded(true)}
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', border: 'none', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' }}
+                        >
+                          <SFIcon name={opt?.icon ?? 'package'} size={12} color="var(--accent)" />
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{opt ? t(opt.labelKey) : ''}</span>
+                          <SFIcon name="chevron-down" size={11} color="var(--text-3)" style={{ marginLeft: 'auto' }} />
+                        </button>
+                        <button
+                          onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
+                          title={t('taskPanel.disableDeliverable')}
+                          style={{ display: 'flex', alignItems: 'center', padding: 5, marginRight: 6, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                        >
+                          <SFIcon name="x" size={12} />
+                        </button>
+                      </div>
+                      {hasMeta && (
+                        <div style={{ display: 'flex', gap: 20, padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
+                          {showFormat && (
+                            <div>
+                              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.format')}</p>
+                              <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{format === 'custom' ? `${customW}×${customH}` : format}</p>
+                            </div>
+                          )}
+                          {showDuration && (
+                            <div>
+                              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.duration')}</p>
+                              <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{deliverableDuration}</p>
+                            </div>
+                          )}
+                          {showQuantity && (
+                            <div>
+                              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>{t('taskPanel.quantity')}</p>
+                              <p style={{ fontSize: 12, color: 'var(--text)', margin: 0 }}>{deliverableQuantity}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {deliverableNote && (
+                        <div style={{ padding: '8px 10px', borderTop: hasMeta ? '1px solid var(--border)' : 'none' }}>
+                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{t('taskPanel.note')}</p>
+                          <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap' }}>{deliverableNote}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  {/* Compact summary chip — click to expand/collapse editor */}
-                  <button
-                    onClick={() => setDeliverableExpanded(v => !v)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.08)', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)', letterSpacing: '0.03em' }}
-                  >
-                    <SFIcon name={DELIVERABLE_TYPE_OPTIONS.find(opt => opt.value === deliverableType)?.icon ?? 'package'} size={11} color="var(--accent)" />
-                    {(() => { const opt = DELIVERABLE_TYPE_OPTIONS.find(o => o.value === deliverableType); return opt ? t(opt.labelKey) : ''; })()}
-                    {(deliverableType === 'video' || deliverableType === 'photo') && (
-                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
-                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{format === 'custom' ? `${customW}×${customH}` : format}</span></>
-                    )}
-                    {(deliverableType === 'video' || deliverableType === 'audio') && deliverableDuration && (
-                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
-                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{deliverableDuration}</span></>
-                    )}
-                    {deliverableType === 'photo' && deliverableQuantity > 1 && (
-                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
-                      <span style={{ color: 'rgba(249,255,0,0.7)' }}>{t('taskPanel.photosCount', { count: deliverableQuantity })}</span></>
-                    )}
-                    {deliverableNote && (
-                      <><span style={{ color: 'rgba(249,255,0,0.45)', margin: '0 1px' }}>·</span>
-                      <span style={{ color: 'rgba(249,255,0,0.55)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliverableNote}</span></>
-                    )}
-                    <SFIcon name={deliverableExpanded ? 'chevron-up' : 'chevron-down'} size={10} color="var(--accent)" />
-                  </button>
-                  {/* Disable button */}
-                  <button
-                    onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
-                    title={t('taskPanel.disableDeliverable')}
-                    style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-                  >
-                    <SFIcon name="x" size={11} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
+                  title={t('taskPanel.disableDeliverable')}
+                  style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                >
+                  <SFIcon name="x" size={11} />
+                </button>
               )}
             </div>
 
@@ -1140,13 +1183,12 @@ export function TaskPanel({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>{t('taskPanel.quantity')}</span>
                       <input
-                        type="number"
-                        min={1}
+                        type="text"
                         value={deliverableQuantity}
-                        onChange={e => { const v = Number(e.target.value); setDeliverableQuantity(v); onUpdate?.({ deliverableQuantity: v }); }}
-                        style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+                        onChange={e => { setDeliverableQuantity(e.target.value); onUpdate?.({ deliverableQuantity: e.target.value }); }}
+                        placeholder={t('taskPanel.quantityPlaceholder')}
+                        style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
                       />
-                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.photos')}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
