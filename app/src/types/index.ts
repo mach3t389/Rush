@@ -111,6 +111,8 @@ export interface Task {
   mySection?: string;
   description?: string;
   comments?: TaskComment[];
+  /** Personnes notifiées des futurs commentaires/activités sur cet item — auto-rempli (créateur, assigné, commentateur, mentionné), éditable manuellement. */
+  watchers?: string[];
 }
 
 export interface TaskComment {
@@ -145,6 +147,8 @@ export interface Resource {
   // no custom-template id to look them back up from (see Modeles.tsx openTemplateDraft
   // / ResourceRouter.tsx handleSave).
   templateOrigin?: { color: string; icon: string; description: string; tags: string[] };
+  /** Personnes notifiées des futurs commentaires/activités sur cet item — auto-rempli (créateur, assigné, commentateur, mentionné), éditable manuellement. */
+  watchers?: string[];
 }
 
 // ── Video Review ──────────────────────────────────────────────────────────────

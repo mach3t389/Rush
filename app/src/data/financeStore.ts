@@ -99,6 +99,8 @@ export interface Invoice {
   // Manual drag-to-reorder position in the list — undefined until the user
   // reorders at least once, at which point every invoice gets a value.
   sortOrder?: number;
+  /** Personnes notifiées des futurs commentaires/activités sur cet item — auto-rempli (créateur, assigné, commentateur, mentionné), éditable manuellement. */
+  watchers?: string[];
 }
 
 export interface InvoiceDefaults {
