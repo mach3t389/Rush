@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from './ui';
-import type { CustomOverviewSection, OverviewFieldDef, OverviewSectionKind } from '../data/projectContentStore';
+import { DELIVERABLES_SECTION_ID, type CustomOverviewSection, type OverviewFieldDef, type OverviewSectionKind } from '../data/projectContentStore';
 
 const SECTION_ICONS = ['sticky-note', 'users', 'link', 'target', 'briefcase', 'map-pin', 'phone', 'calendar', 'star', 'flag'];
 
@@ -49,7 +49,10 @@ export function OverviewSectionForm({ initial, onSave, onCancel, deliverablesAlr
   const handleSave = () => {
     if (!canSave) return;
     onSave({
-      id: initial?.id ?? `sec-${Date.now()}`,
+      // Livrables client garde toujours son id canonique (comme Vision) même
+      // recréé après suppression, pour que handleDeleteSection/la migration à
+      // la lecture (comparaison par id) continuent de le reconnaître.
+      id: initial?.id ?? (kind === 'deliverables' ? DELIVERABLES_SECTION_ID : `sec-${Date.now()}`),
       kind,
       title: title.trim(),
       icon,

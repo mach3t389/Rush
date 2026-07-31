@@ -87,6 +87,10 @@ export interface ProjectContent {
   notes?: string;
   customSections?: CustomOverviewSection[];
   customSectionData?: Record<string, CustomSectionValue>;
+  /** L'utilisateur a explicitement supprimé le module Livrables client — la
+   * migration à la lecture ne doit alors PAS le réinsérer (sinon la suppression
+   * n'aurait aucun effet persistant, contrairement à tout autre module). */
+  deliverablesRemoved?: boolean;
 }
 
 // Ancien format (avant unification de Vision dans customSections) :

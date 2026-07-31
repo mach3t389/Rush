@@ -456,12 +456,14 @@ export function TravailOverview() {
   const [saveOverviewTemplateModalOpen, setSaveOverviewTemplateModalOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | null>(null);
+  const [deliverablesRemoved, setDeliverablesRemoved] = useState(false);
 
   const handleAddSection = (section: CustomOverviewSection) => {
     setCustomSections(prev => [...prev, section]);
     if (section.kind === 'checklist' || section.kind === 'gallery' || section.kind === 'links') {
       setCustomSectionData(prev => ({ ...prev, [section.id]: [] }));
     }
+    if (section.kind === 'deliverables') setDeliverablesRemoved(false);
     setAddingSectionOpen(false);
   };
   const handleEditSection = (updated: CustomOverviewSection) => {
@@ -470,8 +472,10 @@ export function TravailOverview() {
   };
   const handleDeleteSection = (id: string) => {
     if (!confirm(t('overview.confirmDeleteSection'))) return;
+    const isDeliverables = customSections.find(s => s.id === id)?.kind === 'deliverables';
     setCustomSections(prev => prev.filter(s => s.id !== id));
     setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
+    if (isDeliverables) setDeliverablesRemoved(true);
     setSectionMenuOpenId(null);
   };
   // Glisser-déposer pour réordonner les modules — mécanisme porté tel quel de
@@ -543,11 +547,12 @@ export function TravailOverview() {
   const loadedContentRef = useRef<{
     projectId: string; notes: string;
     customSections: CustomOverviewSection[]; customSectionData: Record<string, CustomSectionValue>;
+    deliverablesRemoved: boolean;
   } | null>(null);
   // Miroir synchrone de l'état courant — lu depuis le callback d'abonnement
   // (qui ne doit pas se ré-enregistrer à chaque frappe).
-  const stateRef = useRef({ notes, customSections, customSectionData });
-  stateRef.current = { notes, customSections, customSectionData };
+  const stateRef = useRef({ notes, customSections, customSectionData, deliverablesRemoved });
+  stateRef.current = { notes, customSections, customSectionData, deliverablesRemoved };
 
   const applyLoadedContent = useCallback(() => {
     const c = getProjectContent(project.id);
@@ -555,7 +560,11 @@ export function TravailOverview() {
     let loadedSections = (c.customSections ?? []).some(s => s.id === VISION_SECTION_ID)
       ? (c.customSections ?? [])
       : [getDefaultVisionSection(), ...(c.customSections ?? [])];
-    if (!loadedSections.some(s => s.id === DELIVERABLES_SECTION_ID)) {
+    // Ne réinsère le module Livrables client que s'il n'a jamais existé pour ce
+    // projet (ancien format) — pas si l'utilisateur l'a explicitement supprimé
+    // (deliverablesRemoved), sinon sa suppression n'aurait aucun effet persistant.
+    const loadedDeliverablesRemoved = c.deliverablesRemoved ?? false;
+    if (!loadedSections.some(s => s.id === DELIVERABLES_SECTION_ID) && !loadedDeliverablesRemoved) {
       const visionIdx = loadedSections.findIndex(s => s.id === VISION_SECTION_ID);
       loadedSections = [
         ...loadedSections.slice(0, visionIdx + 1),
@@ -567,7 +576,8 @@ export function TravailOverview() {
     setNotes(loadedNotes);
     setCustomSections(loadedSections);
     setCustomSectionData(loadedData);
-    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, customSections: loadedSections, customSectionData: loadedData };
+    setDeliverablesRemoved(loadedDeliverablesRemoved);
+    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, customSections: loadedSections, customSectionData: loadedData, deliverablesRemoved: loadedDeliverablesRemoved };
   }, [project.id]);
 
   useEffect(() => { applyLoadedContent(); }, [applyLoadedContent]);
@@ -583,7 +593,8 @@ export function TravailOverview() {
     const pristine =
       loaded.notes === cur.notes &&
       JSON.stringify(loaded.customSections) === JSON.stringify(cur.customSections) &&
-      JSON.stringify(loaded.customSectionData) === JSON.stringify(cur.customSectionData);
+      JSON.stringify(loaded.customSectionData) === JSON.stringify(cur.customSectionData) &&
+      loaded.deliverablesRemoved === cur.deliverablesRemoved;
     if (!pristine) return; // édition en cours — ne pas l'écraser
     applyLoadedContent();
   }), [project.id, applyLoadedContent]);
@@ -596,11 +607,12 @@ export function TravailOverview() {
     if (
       loaded.notes === notes &&
       JSON.stringify(loaded.customSections) === JSON.stringify(customSections) &&
-      JSON.stringify(loaded.customSectionData) === JSON.stringify(customSectionData)
+      JSON.stringify(loaded.customSectionData) === JSON.stringify(customSectionData) &&
+      loaded.deliverablesRemoved === deliverablesRemoved
     ) return;
-    const timer = window.setTimeout(() => setProjectContent(project.id, { notes, customSections, customSectionData }), 500);
+    const timer = window.setTimeout(() => setProjectContent(project.id, { notes, customSections, customSectionData, deliverablesRemoved }), 500);
     return () => clearTimeout(timer);
-  }, [notes, customSections, customSectionData, project.id]);
+  }, [notes, customSections, customSectionData, deliverablesRemoved, project.id]);
 
   const toggleCompleted = () => {
     updateProject(project.id, { completed: !completed });
@@ -792,6 +804,13 @@ export function TravailOverview() {
                       }}>
                         {t('overview.add')}
                       </SFButton>
+                      <button onClick={() => handleDeleteSection(DELIVERABLES_SECTION_ID)}
+                        title={t('overview.deleteSection')}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--danger)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
+                        <SFIcon name="trash-2" size={14} />
+                      </button>
                       </div>
                     }
                   >
