@@ -1413,6 +1413,19 @@ renommable, supprimable sans perte de données (les factures vivent
 dans financeStore, jamais dans customSectionData)."
 ```
 
+> **Correction post-écriture (trouvée en vérification manuelle) :** cette
+> Task 5 telle qu'écrite ci-dessus ne mettait PAS à jour le sélecteur
+> « Ajouter un module » — `OverviewSectionForm.tsx` n'offrait `invoices`
+> nulle part dans sa liste de candidats, donc supprimer Factures rendait le
+> module définitivement irrécupérable via l'UI, contredisant la garantie
+> « supprimable et ré-ajoutable ». Corrigé par un commit de suivi
+> (`fix(overview): offre Factures dans le sélecteur "Ajouter un module"`) :
+> dans `app/src/components/OverviewSectionForm.tsx`, la ligne
+> `.concat((['vision', 'deliverables'] as OverviewSectionKind[])...)` doit
+> devenir `.concat((['vision', 'deliverables', 'invoices'] as OverviewSectionKind[])...)`.
+> **Tasks 6 et 7 ci-dessous intègrent déjà cette correction pour `files`/`notes`
+> directement dans leur Step 4 — ne pas répéter cette erreur.**
+
 ---
 
 ### Task 6 : Fichiers rejoint le système de modules
@@ -1552,6 +1565,22 @@ devient :
 
 (`t('overview.importFiles')` remplace le texte en dur `"Importer"` — corrige au passage un manquement à la règle « jamais de texte en dur », clé déjà ajoutée à la Task 1.)
 
+- [ ] **Step 4bis : Offrir « Fichiers » dans le sélecteur « Ajouter un module »**
+
+**Important — ne pas sauter cette étape** (Task 5 l'avait initialement omise pour `invoices`, corrigé après coup en vérification manuelle — voir la note dans Task 5). Dans `app/src/components/OverviewSectionForm.tsx`, chercher la ligne :
+
+```tsx
+            .concat((['vision', 'deliverables', 'invoices'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+```
+
+remplacer par :
+
+```tsx
+            .concat((['vision', 'deliverables', 'invoices', 'files'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+```
+
+(`KIND_LABEL_KEY['files']`/`KIND_DESC_KEY['files']` existent déjà depuis la Task 4 — rien d'autre à ajouter côté locales pour cette étape.)
+
 - [ ] **Step 5 : Typecheck**
 
 ```bash
@@ -1641,6 +1670,22 @@ devient :
 ```
 
 `notes` reçoit le padding standard `14px 18px` (pas 0) — le padding conditionnel de la Task 6 reste tel quel (`(section.kind === 'invoices' || section.kind === 'files') ? 0 : '14px 18px'`), `notes` tombe naturellement dans le `else`.
+
+- [ ] **Step 2bis : Offrir « Notes internes » dans le sélecteur « Ajouter un module »**
+
+Même correction que Task 6, Step 4bis, pour le dernier kind système. Dans `app/src/components/OverviewSectionForm.tsx`, chercher :
+
+```tsx
+            .concat((['vision', 'deliverables', 'invoices', 'files'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+```
+
+remplacer par :
+
+```tsx
+            .concat((['vision', 'deliverables', 'invoices', 'files', 'notes'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+```
+
+Les 5 kinds système sont maintenant tous offerts dans le sélecteur quand ils sont absents du projet.
 
 - [ ] **Step 3 : Typecheck**
 
