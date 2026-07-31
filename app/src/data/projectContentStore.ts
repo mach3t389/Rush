@@ -15,7 +15,7 @@ import i18n from '../i18n/i18n';
 // Demo sessions: localStorage. Real sessions: table `project_content`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type OverviewSectionKind = 'fields' | 'note' | 'deliverables' | 'checklist' | 'gallery' | 'links';
+export type OverviewSectionKind = 'fields' | 'note' | 'vision' | 'deliverables' | 'checklist' | 'gallery' | 'links' | 'invoices' | 'files' | 'notes';
 
 export interface OverviewFieldDef {
   id: string;
@@ -53,10 +53,9 @@ export const DELIVERABLES_SECTION_ID = 'deliverables';
 export function getDefaultVisionSection(): CustomOverviewSection {
   return {
     id: VISION_SECTION_ID,
-    kind: 'fields',
+    kind: 'vision',
     title: i18n.t('overview.visionTitle'),
     icon: 'compass',
-    locked: true,
     fields: [
       { id: 'concept', label: i18n.t('overview.visionConcept'), multiline: true },
       { id: 'tonalite', label: i18n.t('overview.visionTone'), multiline: true },
@@ -76,6 +75,47 @@ export function getDefaultDeliverablesSection(): CustomOverviewSection {
   };
 }
 
+export const INVOICES_SECTION_ID = 'invoices';
+export const FILES_SECTION_ID = 'files';
+export const NOTES_SECTION_ID = 'notes';
+
+export function getDefaultInvoicesSection(): CustomOverviewSection {
+  return { id: INVOICES_SECTION_ID, kind: 'invoices', title: i18n.t('overview.invoicesTitle'), icon: 'receipt' };
+}
+
+export function getDefaultFilesSection(): CustomOverviewSection {
+  return { id: FILES_SECTION_ID, kind: 'files', title: i18n.t('overview.filesTitle'), icon: 'folder' };
+}
+
+export function getDefaultNotesSection(): CustomOverviewSection {
+  return { id: NOTES_SECTION_ID, kind: 'notes', title: i18n.t('overview.internalNotesTitle'), icon: 'sticky-note' };
+}
+
+// Table centrale des 5 modules système — un seul endroit à modifier pour ajouter
+// un futur module système. L'ORDRE de ce tableau EST l'ordre par défaut utilisé
+// à la migration (TravailOverview.tsx, applyLoadedContent) pour les modules
+// qu'un projet n'a jamais eus. Identifié par id canonique, pas par kind seul :
+// Vision garde une compatibilité de rendu avec le kind générique 'fields' (voir
+// Step 1), donc son kind seul ne suffit pas à la distinguer d'un module
+// "Champs personnalisés" ordinaire — l'id, lui, est toujours unique et stable.
+export const SYSTEM_MODULES: { id: string; kind: OverviewSectionKind; factory: () => CustomOverviewSection }[] = [
+  { id: VISION_SECTION_ID, kind: 'vision', factory: getDefaultVisionSection },
+  { id: DELIVERABLES_SECTION_ID, kind: 'deliverables', factory: getDefaultDeliverablesSection },
+  { id: INVOICES_SECTION_ID, kind: 'invoices', factory: getDefaultInvoicesSection },
+  { id: FILES_SECTION_ID, kind: 'files', factory: getDefaultFilesSection },
+  { id: NOTES_SECTION_ID, kind: 'notes', factory: getDefaultNotesSection },
+];
+
+export const SYSTEM_SECTION_IDS: string[] = SYSTEM_MODULES.map(m => m.id);
+
+// kind -> id canonique, pour les 5 kinds système uniquement. Utilisé par
+// OverviewSectionForm pour assigner l'id canonique à la création (au lieu d'un
+// id générique sec-<timestamp>) et pour savoir quels choix exclure du sélecteur
+// de kind quand le module existe déjà dans le projet (par id, pas par kind —
+// même raison qu'au Step 3 ci-dessus).
+export const SYSTEM_KIND_ID: Partial<Record<OverviewSectionKind, string>> =
+  Object.fromEntries(SYSTEM_MODULES.map(m => [m.kind, m.id]));
+
 export type CustomSectionValue =
   | string                        // kind: 'note'
   | Record<string, string>        // kind: 'fields'
@@ -87,10 +127,15 @@ export interface ProjectContent {
   notes?: string;
   customSections?: CustomOverviewSection[];
   customSectionData?: Record<string, CustomSectionValue>;
-  /** L'utilisateur a explicitement supprimé le module Livrables client — la
-   * migration à la lecture ne doit alors PAS le réinsérer (sinon la suppression
-   * n'aurait aucun effet persistant, contrairement à tout autre module). */
+  /** @deprecated remplacé par removedSystemModules — conservé uniquement pour la
+   * migration de lecture d'anciens projets (voir TravailOverview.tsx,
+   * applyLoadedContent). Plus jamais écrit après ce chantier. */
   deliverablesRemoved?: boolean;
+  /** Ids canoniques (VISION_SECTION_ID, DELIVERABLES_SECTION_ID, etc.) des
+   * modules système que l'utilisateur a explicitement supprimés de l'Aperçu —
+   * la migration à la lecture ne les réinsère pas, contrairement à un projet
+   * qui ne les a simplement jamais eus. */
+  removedSystemModules?: string[];
 }
 
 // Ancien format (avant unification de Vision dans customSections) :

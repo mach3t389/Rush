@@ -1251,7 +1251,7 @@ export function TravailOverview() {
                     rows={5}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
                   />
-                ) : section.kind === 'fields' ? (
+                ) : (section.kind === 'fields' || section.kind === 'vision') ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     {(section.fields ?? []).map(field => {
                       const values = (customSectionData[section.id] as Record<string, string>) ?? {};
