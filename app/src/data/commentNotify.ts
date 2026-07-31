@@ -47,5 +47,6 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
     resourceId,
     taskId,
     projectId,
+    recipientIds: [], // TODO(notifs): cibler les vrais destinataires
   });
 }

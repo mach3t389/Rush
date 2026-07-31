@@ -1721,6 +1721,7 @@ export function TravailOverview() {
                           text: `a demandé l'approbation finale du projet « ${project.name} »`,
                           timestamp: Date.now(),
                           projectId: project.id,
+                          recipientIds: [], // TODO(notifs): cibler les vrais destinataires
                         });
                         if (!isDemoSession() && approver.email) {
                           const studioName = getStudioInfo().name || 'Rush';

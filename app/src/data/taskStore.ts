@@ -274,6 +274,7 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
       timestamp: Date.now(),
       taskId,
       projectId,
+      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
     });
   }
 

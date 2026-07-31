@@ -32,6 +32,7 @@ export interface AppNotif {
   resourceId?: string;
   projectId?: string;
   clientId?: string;
+  recipientIds: string[];
 }
 
 // ── Seed data (demo sessions only) ──────────────────────────────────────────────
@@ -70,6 +71,7 @@ function seedNotifs(): AppNotif[] {
         read: false,
         taskId: task.id,
         projectId: task.projectId,
+        recipientIds: [],
       });
     }
   }
@@ -92,6 +94,7 @@ function seedNotifs(): AppNotif[] {
         read: false,
         resourceId,
         projectId,
+        recipientIds: [],
       });
     }
   }
@@ -120,6 +123,7 @@ interface NotificationRow {
   resource_id: string | null;
   project_id: string | null;
   client_id: string | null;
+  recipient_ids: string[];
 }
 
 function toNotif(row: NotificationRow, read: boolean): AppNotif {
@@ -134,6 +138,7 @@ function toNotif(row: NotificationRow, read: boolean): AppNotif {
     resourceId: row.resource_id ?? undefined,
     projectId: row.project_id ?? undefined,
     clientId: row.client_id ?? undefined,
+    recipientIds: row.recipient_ids ?? [],
   };
 }
 
@@ -149,6 +154,7 @@ function toRow(n: AppNotif, studioId: string): NotificationRow & { studio_id: st
     resource_id: n.resourceId ?? null,
     project_id: n.projectId ?? null,
     client_id: n.clientId ?? null,
+    recipient_ids: n.recipientIds,
   };
 }
 
@@ -159,7 +165,7 @@ async function fetchSupabaseNotifs(): Promise<void> {
 
     const { data: notifRows, error: notifError } = await supabase
       .from('notifications')
-      .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id')
+      .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids')
       .eq('studio_id', studioId)
       .order('timestamp', { ascending: false });
 
@@ -175,7 +181,9 @@ async function fetchSupabaseNotifs(): Promise<void> {
       readIds = new Set((readRows as { notification_id: string }[]).map(r => r.notification_id));
     }
 
-    _supabaseNotifs = (notifRows as NotificationRow[]).map(row => toNotif(row, readIds.has(row.id)));
+    _supabaseNotifs = (notifRows as NotificationRow[])
+      .filter(row => !user || row.recipient_ids.includes(user.id))
+      .map(row => toNotif(row, readIds.has(row.id)));
     notify();
   } catch (err) {
     console.error('fetchSupabaseNotifs failed', err);

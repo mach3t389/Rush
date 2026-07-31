@@ -38,6 +38,7 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
       text: `a envoyé un message : "${text.slice(0, 80)}${text.length > 80 ? '…' : ''}"`,
       timestamp: Date.now(),
       projectId,
+      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
     });
     setSent(true);
   };
@@ -127,6 +128,7 @@ export function Portail() {
       taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
+      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
     });
   };
 
@@ -139,6 +141,7 @@ export function Portail() {
       taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
+      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
     });
   };
 

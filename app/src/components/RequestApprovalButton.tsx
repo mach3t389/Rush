@@ -87,6 +87,7 @@ export function RequestApprovalButton({
       resourceId: resource.id,
       taskId: task.id,
       projectId,
+      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
     });
     if (onStatusChange) onStatusChange('review', 'En révision');
     else updateResource(resource.id, { status: 'review', statusLabel: 'En révision' });
@@ -106,6 +107,7 @@ export function RequestApprovalButton({
       resourceId: resource.id,
       taskId: linked.id,
       projectId,
+      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
     });
     showToast({ type: 'task', message: t('approval.relaunchedToast') });
   };

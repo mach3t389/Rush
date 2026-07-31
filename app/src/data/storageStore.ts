@@ -45,7 +45,13 @@ export function checkStorageThreshold(usedGB: number, limitGB: number): void {
     localStorage.setItem(ALERT_FLAG_KEY, '1');
   } catch { /* noop — pas de localStorage disponible, on tente quand même une fois */ }
 
-  addNotif({ kind: 'storageLimit', actor: 'Rush', text: `Stockage à ${Math.round(pct)}% de la limite du plan`, timestamp: Date.now() });
+  addNotif({
+    kind: 'storageLimit',
+    actor: 'Rush',
+    text: `Stockage à ${Math.round(pct)}% de la limite du plan`,
+    timestamp: Date.now(),
+    recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+  });
 }
 
 export function isStorageOverLimit(usedBytes: number, limitGB: number): boolean {
