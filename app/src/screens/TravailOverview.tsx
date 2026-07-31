@@ -15,7 +15,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, type CustomOverviewSection } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, type CustomOverviewSection } from '../data/projectContentStore';
 import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
@@ -397,9 +397,17 @@ export function TravailOverview() {
   const applyLoadedContent = useCallback(() => {
     const c = getProjectContent(project.id);
     const loadedNotes = c.notes ?? '';
-    const loadedSections = (c.customSections ?? []).some(s => s.id === VISION_SECTION_ID)
+    let loadedSections = (c.customSections ?? []).some(s => s.id === VISION_SECTION_ID)
       ? (c.customSections ?? [])
       : [getDefaultVisionSection(), ...(c.customSections ?? [])];
+    if (!loadedSections.some(s => s.id === DELIVERABLES_SECTION_ID)) {
+      const visionIdx = loadedSections.findIndex(s => s.id === VISION_SECTION_ID);
+      loadedSections = [
+        ...loadedSections.slice(0, visionIdx + 1),
+        getDefaultDeliverablesSection(),
+        ...loadedSections.slice(visionIdx + 1),
+      ];
+    }
     const loadedData = c.customSectionData ?? {};
     setNotes(loadedNotes);
     setCustomSections(loadedSections);
@@ -566,397 +574,6 @@ export function TravailOverview() {
             ))}
           </Card>
 
-          {/* ── Livrables client ── */}
-          <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
-            action={
-              <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
-                setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
-                // Pas de présélection — l'utilisateur ne veut plus qu'un livrable
-                // atterrisse dans une section "Livraison" choisie sans le
-                // demander, même comme valeur par défaut implicite.
-                setNewDlSection('');
-                setNewDlSectionCustom('');
-              }}>
-                {t('overview.add')}
-              </SFButton>
-            }
-          >
-            {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 100px 36px 100px 90px 28px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-              {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), t('overview.colPriority'), t('overview.colAssignee'), t('overview.colStatus'), '', ''].map((h, i) => (
-                <span key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
-              ))}
-            </div>
-
-            {deliverables.length === 0 && !addingDeliverable && (
-              <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                <SFIcon name="package" size={24} color="var(--border-2)" />
-                <p style={{ marginTop: 10, marginBottom: 10 }}>{t('overview.noDeliverables')}</p>
-                <button onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                  <SFIcon name="plus" size={12} /> {t('overview.createDeliverable')}
-                </button>
-              </div>
-            )}
-
-            {deliverables.map((dl) => {
-              const st = getDeliverableDisplay(dl);
-              const fmt = FORMAT_OPTIONS.find(f => f.value === dl.format);
-              const dlType = DELIVERABLE_TYPES.find(dt => dt.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
-              const isPickerOpen = openDl?.id === dl.id && openDl.field === 'format';
-              const isTypeOpen = openDl?.id === dl.id && openDl.field === 'type';
-              const isStatusOpen = openDl?.id === dl.id && openDl.field === 'status';
-              const priority: Priority = dl.priority ?? 'none';
-              const linkedIds = dl.linkedResources ?? [];
-              const linkedRes = resources.filter(r => linkedIds.includes(r.id));
-              const isLinkOpen = openDl?.id === dl.id && openDl.field === 'link';
-              const toggleResource = (rid: string) => updateTask(project.id, dl.id, {
-                linkedResources: linkedIds.includes(rid) ? linkedIds.filter(id => id !== rid) : [...linkedIds, rid],
-              });
-              const isEditingTitle = editingDlId === dl.id;
-              const commitDlTitle = () => {
-                const val = dlTitleDraft.trim();
-                setEditingDlId(null);
-                if (val && val !== dl.title) updateTask(project.id, dl.id, { title: val });
-              };
-              const handleDeleteDl = () => {
-                const snapshot = dl;
-                deleteTask(project.id, dl.id);
-                showToast({
-                  type: 'task',
-                  message: 'Livrable supprimé',
-                  onUndo: () => addDeliverable(project.id, snapshot),
-                });
-              };
-              return (
-                <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 100px 36px 100px 90px 28px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  {/* Label + sous-tâches + ressources liées */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer', flex: 1 }}
-                      onClick={() => navigate(`/projets/${project.id}`)}>
-                      <div style={{ width: 28, height: 28, borderRadius: 7, background: `${st.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <SFIcon name={st.icon} size={13} color={st.color} />
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        {isEditingTitle ? (
-                          <input
-                            autoFocus
-                            value={dlTitleDraft}
-                            onChange={e => setDlTitleDraft(e.target.value)}
-                            onBlur={commitDlTitle}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') { e.preventDefault(); commitDlTitle(); }
-                              if (e.key === 'Escape') setEditingDlId(null);
-                              e.stopPropagation();
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            style={{ fontSize: 13, fontWeight: 500, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'content-box', width: `${Math.max(4, dlTitleDraft.length + 1)}ch`, maxWidth: '100%' }}
-                          />
-                        ) : (
-                          <p
-                            onClick={e => { e.stopPropagation(); setDlTitleDraft(dl.title); setEditingDlId(dl.id); }}
-                            title={t('overview.editTitle')}
-                            style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
-                          >{dl.title}</p>
-                        )}
-                        {dl.subtasks && dl.subtasks.length > 0 && (
-                          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 1 }}>
-                            {t('overview.subtasksCount', { done: dl.subtasks.filter(s => s.checked).length, total: dl.subtasks.length })}
-                          </p>
-                        )}
-                        {/* Chips ressources liées */}
-                        {linkedRes.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
-                            {linkedRes.map(r => (
-                              <span key={r.id}
-                                onClick={e => { e.stopPropagation(); navigate(`/projets/${project.id}/ressources/${r.id}`); }}
-                                title={t('overview.openResource', { title: r.title })}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 160, padding: '2px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer' }}>
-                                <SFIcon name={RES_ICON[r.type] ?? 'file'} size={10} color="var(--text-3)" />
-                                <span style={{ fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                                <span onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleResource(r.id); }}
-                                  title={t('overview.remove')} style={{ display: 'inline-flex', flexShrink: 0 }}>
-                                  <SFIcon name="x" size={9} color="var(--text-3)" />
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Bouton lier une ressource existante */}
-                    <div style={{ flexShrink: 0 }}>
-                      <button onClick={e => openDlDrop(dl.id, 'link', e)}
-                        title={t('overview.linkExistingResource')}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: isLinkOpen ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${isLinkOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: linkedRes.length ? 'var(--accent)' : 'var(--text-3)' }}>
-                        <SFIcon name="paperclip" size={12} color={linkedRes.length ? 'var(--accent)' : 'var(--text-3)'} />
-                        {linkedRes.length > 0 && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10 }}>{linkedRes.length}</span>}
-                      </button>
-                      {isLinkOpen && (
-                        <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={280} zIndex={1000}>
-                          <div style={{ maxHeight: 320, overflowY: 'auto', width: 280 }}>
-                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 8px 4px' }}>{t('overview.existingResources')}</p>
-                            {resources.length === 0 && (
-                              <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>{t('overview.noResourcesHint')}</p>
-                            )}
-                            {resources.map(r => {
-                              const on = linkedIds.includes(r.id);
-                              return (
-                                <button key={r.id} onClick={() => toggleResource(r.id)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 8px', borderRadius: 8, border: 'none', background: on ? 'rgba(249,255,0,0.06)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
-                                  onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                                  onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                  <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <SFIcon name={RES_ICON[r.type] ?? 'file'} size={12} color="var(--text-3)" />
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
-                                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 1 }}>{r.eyebrow.startsWith('files.') ? t(r.eyebrow) : r.eyebrow}</p>
-                                  </div>
-                                  {on && <SFIcon name="check" size={13} color="var(--accent)" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </InlineDropdown>
-                      )}
-                    </div>
-
-                    {/* Bouton partager avec le client */}
-                    <button onClick={e => { e.stopPropagation(); updateTask(project.id, dl.id, { sharedWithClient: !dl.sharedWithClient }); }}
-                      title={dl.sharedWithClient ? t('overview.unshareWithClient') : t('overview.shareWithClient')}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, background: dl.sharedWithClient ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${dl.sharedWithClient ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: dl.sharedWithClient ? 'var(--accent)' : 'var(--text-3)', flexShrink: 0 }}>
-                      <SFIcon name={dl.sharedWithClient ? 'eye' : 'eye-off'} size={12} color={dl.sharedWithClient ? 'var(--accent)' : 'var(--text-3)'} />
-                    </button>
-                  </div>
-
-                  {/* Type — clickable dropdown */}
-                  <div>
-                    <button onClick={e => openDlDrop(dl.id, 'type', e)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isTypeOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-                      <SFIcon name={dlType.icon} size={12} color="var(--text-3)" />
-                      {t(dlType.labelKey)}
-                      <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
-                    </button>
-                    {isTypeOpen && (
-                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={150}>
-                        {DELIVERABLE_TYPES.map(dt => (
-                          <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setOpenDl(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-                            onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                            onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                            <SFIcon name={dt.icon} size={13} color={dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text-3)'} />
-                            {t(dt.labelKey)}
-                            {dl.deliverableType === dt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                          </button>
-                        ))}
-                      </InlineDropdown>
-                    )}
-                  </div>
-
-                  {/* Format — clickable dropdown */}
-                  <div>
-                    <button onClick={e => openDlDrop(dl.id, 'format', e)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isPickerOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
-                      {fmt ? (
-                        <>
-                          <div style={{ width: 14, aspectRatio: fmt.ratio, border: '1.5px solid var(--text-3)', borderRadius: 2, flexShrink: 0 }} />
-                          {fmt.value === 'custom' ? t('overview.formatCustom') : fmt.label}
-                        </>
-                      ) : <span style={{ color: 'var(--text-3)' }}>—</span>}
-                      <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
-                    </button>
-                    {isPickerOpen && (
-                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={260}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, width: 260, padding: 3 }}>
-                          {FORMAT_OPTIONS.map(f => (
-                            <button key={f.value}
-                              onClick={() => { updateTask(project.id, dl.id, { format: f.value }); setOpenDl(null); }}
-                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '8px 10px', borderRadius: 8, border: `1px solid ${dl.format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: dl.format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', minWidth: 60 }}>
-                              <div style={{ width: 22, aspectRatio: f.ratio, border: `2px solid ${dl.format === f.value ? 'var(--accent)' : 'var(--border-2)'}`, borderRadius: 2 }} />
-                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: dl.format === f.value ? 'var(--accent)' : 'var(--text-3)', whiteSpace: 'nowrap' }}>{f.label}</span>
-                            </button>
-                          ))}
-                          {dl.format === 'custom' && (
-                            <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
-                              <input type="number" defaultValue={dl.customWidth ?? 1920}
-                                onBlur={e => updateTask(project.id, dl.id, { customWidth: Number(e.target.value) })}
-                                style={{ width: 70, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
-                              <span style={{ color: 'var(--text-3)', fontSize: 12 }}>×</span>
-                              <input type="number" defaultValue={dl.customHeight ?? 1080}
-                                onBlur={e => updateTask(project.id, dl.id, { customHeight: Number(e.target.value) })}
-                                style={{ width: 70, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
-                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>px</span>
-                            </div>
-                          )}
-                        </div>
-                      </InlineDropdown>
-                    )}
-                  </div>
-
-                  {/* Priorité — clickable dropdown */}
-                  <div>
-                    <button onClick={e => openDlDrop(dl.id, 'priority', e)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
-                      {priority !== 'none' && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>}
-                      <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
-                    </button>
-                    {openDl?.id === dl.id && openDl.field === 'priority' && (
-                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
-                        {PRIORITY_OPTIONS.map(p => ddItem(() => { updateTask(project.id, dl.id, { priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); setOpenDl(null); },
-                          <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
-                          priority === p
-                        ))}
-                      </InlineDropdown>
-                    )}
-                  </div>
-
-                  {/* Assignés */}
-                  <div>
-                    <AssigneeGroup
-                      assignees={dl.assignees}
-                      size={24}
-                      onChange={next => updateTask(project.id, dl.id, { assignees: next })}
-                    />
-                  </div>
-
-                  {/* Statut — clickable dropdown */}
-                  <div>
-                    <button onClick={e => openDlDrop(dl.id, 'status', e)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
-                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color }}>{t(st.labelKey)}</span>
-                      <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
-                    </button>
-                    {isStatusOpen && (
-                      <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
-                        {DELIVERABLE_STATUS_OPTIONS.map(o => ddItem(() => { updateTask(project.id, dl.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setOpenDl(null); },
-                          <><span style={{ width: 7, height: 7, borderRadius: '50%', background: o.color, display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
-                          dl.status === o.value
-                        ))}
-                      </InlineDropdown>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(`/projets/${project.id}`); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: 'var(--text-3)', fontSize: 10, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-                  >
-                    <SFIcon name="list-checks" size={11} />
-                    Tâches
-                  </button>
-
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDeleteDl(); }}
-                    title={t('overview.deleteDeliverable')}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 7, padding: 6, cursor: 'pointer', color: 'var(--text-3)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    <SFIcon name="trash-2" size={13} />
-                  </button>
-                </div>
-              );
-            })}
-
-            {/* Inline add form */}
-            {addingDeliverable && (
-              <div style={{ padding: '12px 18px', borderTop: deliverables.length ? '1px solid var(--border)' : 'none', background: 'rgba(249,255,0,0.03)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {(() => {
-                  const chosenSection = (newDlSectionCustom.trim() || newDlSection).trim();
-                  const submitNewDl = () => {
-                    if (!newDlTitle.trim() || !chosenSection) return;
-                    const task: Task = {
-                      id: `dl-${Date.now()}`,
-                      title: newDlTitle.trim(),
-                      projectId: project.id,
-                      projectName: project.name,
-                      projectColor: project.clientColor,
-                      assignees: [],
-                      status: '' as Task['status'],
-                      statusLabel: t(DELIVERABLE_STATUS_OPTIONS.find(o => o.value === '')!.labelKey),
-                      priority: 'none',
-                      priorityLabel: t(PRIORITY_LABEL_KEY.none),
-                      dueDate: '—',
-                      dueDateRed: false,
-                      checked: false,
-                      subtasks: [],
-                      deliverable: true,
-                      deliverableType: newDlType,
-                      format: newDlFormat,
-                    };
-                    addDeliverable(project.id, task, chosenSection);
-                    setAddingDeliverable(false);
-                    setNewDlTitle('');
-                  };
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        autoFocus
-                        value={newDlTitle}
-                        onChange={e => setNewDlTitle(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') { e.preventDefault(); submitNewDl(); }
-                          if (e.key === 'Escape') setAddingDeliverable(false);
-                        }}
-                        placeholder="Nom du livrable…"
-                        style={{ flex: 1, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box' }}
-                      />
-                      <SFButton variant="primary" size="sm" icon="check" disabled={!newDlTitle.trim() || !chosenSection} onClick={submitNewDl}>
-                        {t('overview.add')}
-                      </SFButton>
-                    </div>
-                  );
-                })()}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type :</span>
-                  {DELIVERABLE_TYPES.map(dt => (
-                    <button key={dt.value} onClick={() => setNewDlType(dt.value)} title={t(dt.labelKey)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlType === dt.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlType === dt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlType === dt.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      <SFIcon name={dt.icon} size={11} />
-                      {t(dt.labelKey)}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Section :</span>
-                  {getSections(project.id).map(s => (
-                    <button key={s.label} onClick={() => { setNewDlSection(s.label); setNewDlSectionCustom(''); }}
-                      style={{ padding: '4px 9px', borderRadius: 7, border: `1px solid ${!newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--border)'}`, background: !newDlSectionCustom && newDlSection === s.label ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: !newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-                      {s.label}
-                    </button>
-                  ))}
-                  <input
-                    value={newDlSectionCustom}
-                    onChange={e => setNewDlSectionCustom(e.target.value)}
-                    placeholder={t('taskPanel.orCreateSection')}
-                    style={{ flex: '1 1 200px', minWidth: 200, padding: '4px 9px', borderRadius: 7, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
-                  {FORMAT_OPTIONS.map(f => (
-                    <button key={f.value} onClick={() => setNewDlFormat(f.value)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlFormat === f.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlFormat === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlFormat === f.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
-                      <div style={{ width: 12, aspectRatio: f.ratio, border: `1.5px solid currentColor`, borderRadius: 1 }} />
-                      {f.label}
-                    </button>
-                  ))}
-                  <button onClick={() => setAddingDeliverable(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
-                    <SFIcon name="x" size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </Card>
-
           {/* ── Fichiers ── */}
           <Card title="Fichiers" icon="folder" action={<SFButton variant="ghost" size="sm" icon="upload" onClick={() => navigate(`/projets/${project.id}/fichiers`)}>Importer</SFButton>}>
             {recentFiles.length === 0 ? (
@@ -994,7 +611,403 @@ export function TravailOverview() {
           </Card>
 
           {/* ── Sections personnalisées ── */}
-          {customSections.map((section, sectionIdx) => (
+          {customSections.map((section, sectionIdx) => {
+            if (section.kind === 'deliverables') {
+              return (
+                <React.Fragment key={section.id}>
+                  <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
+                    action={
+                      <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
+                        setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
+                        // Pas de présélection — l'utilisateur ne veut plus qu'un livrable
+                        // atterrisse dans une section "Livraison" choisie sans le
+                        // demander, même comme valeur par défaut implicite.
+                        setNewDlSection('');
+                        setNewDlSectionCustom('');
+                      }}>
+                        {t('overview.add')}
+                      </SFButton>
+                    }
+                  >
+                    {/* Column headers */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 100px 36px 100px 90px 28px', gap: 10, padding: '6px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                      {[t('overview.colDeliverable'), t('overview.colType'), t('overview.colFormat'), t('overview.colPriority'), t('overview.colAssignee'), t('overview.colStatus'), '', ''].map((h, i) => (
+                        <span key={i} style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
+                      ))}
+                    </div>
+
+                    {deliverables.length === 0 && !addingDeliverable && (
+                      <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+                        <SFIcon name="package" size={24} color="var(--border-2)" />
+                        <p style={{ marginTop: 10, marginBottom: 10 }}>{t('overview.noDeliverables')}</p>
+                        <button onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                          <SFIcon name="plus" size={12} /> {t('overview.createDeliverable')}
+                        </button>
+                      </div>
+                    )}
+
+                    {deliverables.map((dl) => {
+                      const st = getDeliverableDisplay(dl);
+                      const fmt = FORMAT_OPTIONS.find(f => f.value === dl.format);
+                      const dlType = DELIVERABLE_TYPES.find(dt => dt.value === dl.deliverableType) ?? DELIVERABLE_TYPES[0];
+                      const isPickerOpen = openDl?.id === dl.id && openDl.field === 'format';
+                      const isTypeOpen = openDl?.id === dl.id && openDl.field === 'type';
+                      const isStatusOpen = openDl?.id === dl.id && openDl.field === 'status';
+                      const priority: Priority = dl.priority ?? 'none';
+                      const linkedIds = dl.linkedResources ?? [];
+                      const linkedRes = resources.filter(r => linkedIds.includes(r.id));
+                      const isLinkOpen = openDl?.id === dl.id && openDl.field === 'link';
+                      const toggleResource = (rid: string) => updateTask(project.id, dl.id, {
+                        linkedResources: linkedIds.includes(rid) ? linkedIds.filter(id => id !== rid) : [...linkedIds, rid],
+                      });
+                      const isEditingTitle = editingDlId === dl.id;
+                      const commitDlTitle = () => {
+                        const val = dlTitleDraft.trim();
+                        setEditingDlId(null);
+                        if (val && val !== dl.title) updateTask(project.id, dl.id, { title: val });
+                      };
+                      const handleDeleteDl = () => {
+                        const snapshot = dl;
+                        deleteTask(project.id, dl.id);
+                        showToast({
+                          type: 'task',
+                          message: 'Livrable supprimé',
+                          onUndo: () => addDeliverable(project.id, snapshot),
+                        });
+                      };
+                      return (
+                        <div key={dl.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 120px 100px 36px 100px 90px 28px', gap: 10, alignItems: 'center', padding: '11px 18px', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', position: 'relative' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          {/* Label + sous-tâches + ressources liées */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer', flex: 1 }}
+                              onClick={() => navigate(`/projets/${project.id}`)}>
+                              <div style={{ width: 28, height: 28, borderRadius: 7, background: `${st.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <SFIcon name={st.icon} size={13} color={st.color} />
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                {isEditingTitle ? (
+                                  <input
+                                    autoFocus
+                                    value={dlTitleDraft}
+                                    onChange={e => setDlTitleDraft(e.target.value)}
+                                    onBlur={commitDlTitle}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') { e.preventDefault(); commitDlTitle(); }
+                                      if (e.key === 'Escape') setEditingDlId(null);
+                                      e.stopPropagation();
+                                    }}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{ fontSize: 13, fontWeight: 500, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'content-box', width: `${Math.max(4, dlTitleDraft.length + 1)}ch`, maxWidth: '100%' }}
+                                  />
+                                ) : (
+                                  <p
+                                    onClick={e => { e.stopPropagation(); setDlTitleDraft(dl.title); setEditingDlId(dl.id); }}
+                                    title={t('overview.editTitle')}
+                                    style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
+                                  >{dl.title}</p>
+                                )}
+                                {dl.subtasks && dl.subtasks.length > 0 && (
+                                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', marginTop: 1 }}>
+                                    {t('overview.subtasksCount', { done: dl.subtasks.filter(s => s.checked).length, total: dl.subtasks.length })}
+                                  </p>
+                                )}
+                                {/* Chips ressources liées */}
+                                {linkedRes.length > 0 && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                                    {linkedRes.map(r => (
+                                      <span key={r.id}
+                                        onClick={e => { e.stopPropagation(); navigate(`/projets/${project.id}/ressources/${r.id}`); }}
+                                        title={t('overview.openResource', { title: r.title })}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 160, padding: '2px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-3)', cursor: 'pointer' }}>
+                                        <SFIcon name={RES_ICON[r.type] ?? 'file'} size={10} color="var(--text-3)" />
+                                        <span style={{ fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                                        <span onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleResource(r.id); }}
+                                          title={t('overview.remove')} style={{ display: 'inline-flex', flexShrink: 0 }}>
+                                          <SFIcon name="x" size={9} color="var(--text-3)" />
+                                        </span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Bouton lier une ressource existante */}
+                            <div style={{ flexShrink: 0 }}>
+                              <button onClick={e => openDlDrop(dl.id, 'link', e)}
+                                title={t('overview.linkExistingResource')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, background: isLinkOpen ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${isLinkOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: linkedRes.length ? 'var(--accent)' : 'var(--text-3)' }}>
+                                <SFIcon name="paperclip" size={12} color={linkedRes.length ? 'var(--accent)' : 'var(--text-3)'} />
+                                {linkedRes.length > 0 && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10 }}>{linkedRes.length}</span>}
+                              </button>
+                              {isLinkOpen && (
+                                <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={280} zIndex={1000}>
+                                  <div style={{ maxHeight: 320, overflowY: 'auto', width: 280 }}>
+                                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 8px 4px' }}>{t('overview.existingResources')}</p>
+                                    {resources.length === 0 && (
+                                      <p style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px', textAlign: 'center' }}>{t('overview.noResourcesHint')}</p>
+                                    )}
+                                    {resources.map(r => {
+                                      const on = linkedIds.includes(r.id);
+                                      return (
+                                        <button key={r.id} onClick={() => toggleResource(r.id)}
+                                          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 8px', borderRadius: 8, border: 'none', background: on ? 'rgba(249,255,0,0.06)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                                          onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                                          onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                                          <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <SFIcon name={RES_ICON[r.type] ?? 'file'} size={12} color="var(--text-3)" />
+                                          </div>
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
+                                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 1 }}>{r.eyebrow.startsWith('files.') ? t(r.eyebrow) : r.eyebrow}</p>
+                                          </div>
+                                          {on && <SFIcon name="check" size={13} color="var(--accent)" />}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </InlineDropdown>
+                              )}
+                            </div>
+
+                            {/* Bouton partager avec le client */}
+                            <button onClick={e => { e.stopPropagation(); updateTask(project.id, dl.id, { sharedWithClient: !dl.sharedWithClient }); }}
+                              title={dl.sharedWithClient ? t('overview.unshareWithClient') : t('overview.shareWithClient')}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, background: dl.sharedWithClient ? 'rgba(249,255,0,0.08)' : 'var(--surface-3)', border: `1px solid ${dl.sharedWithClient ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: dl.sharedWithClient ? 'var(--accent)' : 'var(--text-3)', flexShrink: 0 }}>
+                              <SFIcon name={dl.sharedWithClient ? 'eye' : 'eye-off'} size={12} color={dl.sharedWithClient ? 'var(--accent)' : 'var(--text-3)'} />
+                            </button>
+                          </div>
+
+                          {/* Type — clickable dropdown */}
+                          <div>
+                            <button onClick={e => openDlDrop(dl.id, 'type', e)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isTypeOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
+                              <SFIcon name={dlType.icon} size={12} color="var(--text-3)" />
+                              {t(dlType.labelKey)}
+                              <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+                            </button>
+                            {isTypeOpen && (
+                              <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={150}>
+                                {DELIVERABLE_TYPES.map(dt => (
+                                  <button key={dt.value} onClick={() => { updateTask(project.id, dl.id, { deliverableType: dt.value }); setOpenDl(null); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: dl.deliverableType === dt.value ? 'rgba(249,255,0,0.07)' : 'transparent', color: dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                                    onMouseEnter={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                                    onMouseLeave={e => { if (dl.deliverableType !== dt.value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                                    <SFIcon name={dt.icon} size={13} color={dl.deliverableType === dt.value ? 'var(--accent)' : 'var(--text-3)'} />
+                                    {t(dt.labelKey)}
+                                    {dl.deliverableType === dt.value && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                                  </button>
+                                ))}
+                              </InlineDropdown>
+                            )}
+                          </div>
+
+                          {/* Format — clickable dropdown */}
+                          <div>
+                            <button onClick={e => openDlDrop(dl.id, 'format', e)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isPickerOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
+                              {fmt ? (
+                                <>
+                                  <div style={{ width: 14, aspectRatio: fmt.ratio, border: '1.5px solid var(--text-3)', borderRadius: 2, flexShrink: 0 }} />
+                                  {fmt.value === 'custom' ? t('overview.formatCustom') : fmt.label}
+                                </>
+                              ) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+                              <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+                            </button>
+                            {isPickerOpen && (
+                              <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect} minWidth={260}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, width: 260, padding: 3 }}>
+                                  {FORMAT_OPTIONS.map(f => (
+                                    <button key={f.value}
+                                      onClick={() => { updateTask(project.id, dl.id, { format: f.value }); setOpenDl(null); }}
+                                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '8px 10px', borderRadius: 8, border: `1px solid ${dl.format === f.value ? 'var(--accent)' : 'var(--border)'}`, background: dl.format === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', minWidth: 60 }}>
+                                      <div style={{ width: 22, aspectRatio: f.ratio, border: `2px solid ${dl.format === f.value ? 'var(--accent)' : 'var(--border-2)'}`, borderRadius: 2 }} />
+                                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: dl.format === f.value ? 'var(--accent)' : 'var(--text-3)', whiteSpace: 'nowrap' }}>{f.label}</span>
+                                    </button>
+                                  ))}
+                                  {dl.format === 'custom' && (
+                                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
+                                      <input type="number" defaultValue={dl.customWidth ?? 1920}
+                                        onBlur={e => updateTask(project.id, dl.id, { customWidth: Number(e.target.value) })}
+                                        style={{ width: 70, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+                                      <span style={{ color: 'var(--text-3)', fontSize: 12 }}>×</span>
+                                      <input type="number" defaultValue={dl.customHeight ?? 1080}
+                                        onBlur={e => updateTask(project.id, dl.id, { customHeight: Number(e.target.value) })}
+                                        style={{ width: 70, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--ff-mono)', outline: 'none' }} />
+                                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>px</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </InlineDropdown>
+                            )}
+                          </div>
+
+                          {/* Priorité — clickable dropdown */}
+                          <div>
+                            <button onClick={e => openDlDrop(dl.id, 'priority', e)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
+                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[priority], flexShrink: 0, display: 'block' }} />
+                              {priority !== 'none' && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[priority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[priority])}</span>}
+                              <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+                            </button>
+                            {openDl?.id === dl.id && openDl.field === 'priority' && (
+                              <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
+                                {PRIORITY_OPTIONS.map(p => ddItem(() => { updateTask(project.id, dl.id, { priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); setOpenDl(null); },
+                                  <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
+                                  priority === p
+                                ))}
+                              </InlineDropdown>
+                            )}
+                          </div>
+
+                          {/* Assignés */}
+                          <div>
+                            <AssigneeGroup
+                              assignees={dl.assignees}
+                              size={24}
+                              onChange={next => updateTask(project.id, dl.id, { assignees: next })}
+                            />
+                          </div>
+
+                          {/* Statut — clickable dropdown */}
+                          <div>
+                            <button onClick={e => openDlDrop(dl.id, 'status', e)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, fontWeight: 600, color: st.color }}>{t(st.labelKey)}</span>
+                              <SFIcon name="chevron-down" size={9} color="var(--text-3)" />
+                            </button>
+                            {isStatusOpen && (
+                              <InlineDropdown onClose={() => setOpenDl(null)} anchorRect={dlDropRect}>
+                                {DELIVERABLE_STATUS_OPTIONS.map(o => ddItem(() => { updateTask(project.id, dl.id, { status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setOpenDl(null); },
+                                  <><span style={{ width: 7, height: 7, borderRadius: '50%', background: o.color, display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
+                                  dl.status === o.value
+                                ))}
+                              </InlineDropdown>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <button
+                            onClick={e => { e.stopPropagation(); navigate(`/projets/${project.id}`); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: 'var(--text-3)', fontSize: 10, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                          >
+                            <SFIcon name="list-checks" size={11} />
+                            Tâches
+                          </button>
+
+                          <button
+                            onClick={e => { e.stopPropagation(); handleDeleteDl(); }}
+                            title={t('overview.deleteDeliverable')}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 7, padding: 6, cursor: 'pointer', color: 'var(--text-3)' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                          >
+                            <SFIcon name="trash-2" size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {/* Inline add form */}
+                    {addingDeliverable && (
+                      <div style={{ padding: '12px 18px', borderTop: deliverables.length ? '1px solid var(--border)' : 'none', background: 'rgba(249,255,0,0.03)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {(() => {
+                          const chosenSection = (newDlSectionCustom.trim() || newDlSection).trim();
+                          const submitNewDl = () => {
+                            if (!newDlTitle.trim() || !chosenSection) return;
+                            const task: Task = {
+                              id: `dl-${Date.now()}`,
+                              title: newDlTitle.trim(),
+                              projectId: project.id,
+                              projectName: project.name,
+                              projectColor: project.clientColor,
+                              assignees: [],
+                              status: '' as Task['status'],
+                              statusLabel: t(DELIVERABLE_STATUS_OPTIONS.find(o => o.value === '')!.labelKey),
+                              priority: 'none',
+                              priorityLabel: t(PRIORITY_LABEL_KEY.none),
+                              dueDate: '—',
+                              dueDateRed: false,
+                              checked: false,
+                              subtasks: [],
+                              deliverable: true,
+                              deliverableType: newDlType,
+                              format: newDlFormat,
+                            };
+                            addDeliverable(project.id, task, chosenSection);
+                            setAddingDeliverable(false);
+                            setNewDlTitle('');
+                          };
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input
+                                autoFocus
+                                value={newDlTitle}
+                                onChange={e => setNewDlTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') { e.preventDefault(); submitNewDl(); }
+                                  if (e.key === 'Escape') setAddingDeliverable(false);
+                                }}
+                                placeholder="Nom du livrable…"
+                                style={{ flex: 1, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', outline: 'none', boxSizing: 'border-box' }}
+                              />
+                              <SFButton variant="primary" size="sm" icon="check" disabled={!newDlTitle.trim() || !chosenSection} onClick={submitNewDl}>
+                                {t('overview.add')}
+                              </SFButton>
+                            </div>
+                          );
+                        })()}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type :</span>
+                          {DELIVERABLE_TYPES.map(dt => (
+                            <button key={dt.value} onClick={() => setNewDlType(dt.value)} title={t(dt.labelKey)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlType === dt.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlType === dt.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlType === dt.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                              <SFIcon name={dt.icon} size={11} />
+                              {t(dt.labelKey)}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Section :</span>
+                          {getSections(project.id).map(s => (
+                            <button key={s.label} onClick={() => { setNewDlSection(s.label); setNewDlSectionCustom(''); }}
+                              style={{ padding: '4px 9px', borderRadius: 7, border: `1px solid ${!newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--border)'}`, background: !newDlSectionCustom && newDlSection === s.label ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: !newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                              {s.label}
+                            </button>
+                          ))}
+                          <input
+                            value={newDlSectionCustom}
+                            onChange={e => setNewDlSectionCustom(e.target.value)}
+                            placeholder={t('taskPanel.orCreateSection')}
+                            style={{ flex: '1 1 200px', minWidth: 200, padding: '4px 9px', borderRadius: 7, border: '1px dashed var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 11, outline: 'none', fontFamily: 'var(--ff-text)', colorScheme: 'dark', boxSizing: 'border-box' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
+                          {FORMAT_OPTIONS.map(f => (
+                            <button key={f.value} onClick={() => setNewDlFormat(f.value)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlFormat === f.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlFormat === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlFormat === f.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
+                              <div style={{ width: 12, aspectRatio: f.ratio, border: `1.5px solid currentColor`, borderRadius: 1 }} />
+                              {f.label}
+                            </button>
+                          ))}
+                          <button onClick={() => setAddingDeliverable(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
+                            <SFIcon name="x" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                </React.Fragment>
+              );
+            }
+            return (
             <Card key={section.id} title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1074,7 +1087,8 @@ export function TravailOverview() {
                 )}
               </div>
             </Card>
-          ))}
+            );
+          })}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setAddingSectionOpen(true)}
