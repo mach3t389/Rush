@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from './ui';
-import { DELIVERABLES_SECTION_ID, type CustomOverviewSection, type OverviewFieldDef, type OverviewSectionKind } from '../data/projectContentStore';
+import { SYSTEM_KIND_ID, type CustomOverviewSection, type OverviewFieldDef, type OverviewSectionKind } from '../data/projectContentStore';
 
 const SECTION_ICONS = ['sticky-note', 'users', 'link', 'target', 'briefcase', 'map-pin', 'phone', 'calendar', 'star', 'flag'];
 
@@ -26,12 +26,14 @@ const KIND_DESC_KEY: Record<OverviewSectionKind, string> = {
   links: 'overview.sectionKindLinksDesc',
 };
 
-export function OverviewSectionForm({ initial, onSave, onCancel, deliverablesAlreadyExists }: {
+export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemIds = [] }: {
   initial?: CustomOverviewSection;
   onSave: (section: CustomOverviewSection) => void;
   onCancel: () => void;
-  /** true si customSections contient déjà une entrée kind:'deliverables' — n'affiche pas ce choix, comme Vision n'est jamais proposée. */
-  deliverablesAlreadyExists?: boolean;
+  /** Ids canoniques des modules système déjà présents dans le projet (ex:
+   * customSections.map(s => s.id)) — n'affiche pas ces choix dans le
+   * sélecteur de kind, un module système ne peut exister qu'une fois. */
+  existingSystemIds?: string[];
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -49,14 +51,14 @@ export function OverviewSectionForm({ initial, onSave, onCancel, deliverablesAlr
   const handleSave = () => {
     if (!canSave) return;
     onSave({
-      // Livrables client garde toujours son id canonique (comme Vision) même
-      // recréé après suppression, pour que handleDeleteSection/la migration à
-      // la lecture (comparaison par id) continuent de le reconnaître.
-      id: initial?.id ?? (kind === 'deliverables' ? DELIVERABLES_SECTION_ID : `sec-${Date.now()}`),
+      // Un module système (vision/deliverables/invoices/files/notes) garde
+      // toujours son id canonique même recréé après suppression, pour que
+      // handleDeleteSection/la migration à la lecture (comparaison par id)
+      // continuent de le reconnaître.
+      id: initial?.id ?? (SYSTEM_KIND_ID[kind] ?? `sec-${Date.now()}`),
       kind,
       title: title.trim(),
       icon,
-      ...(initial?.locked ? { locked: true } : {}),
       ...(kind === 'fields' ? { fields: fields.filter(f => f.label.trim().length > 0) } : {}),
     });
   };
@@ -83,7 +85,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel, deliverablesAlr
       {!initial && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {(['fields', 'note', 'checklist', 'gallery', 'links'] as OverviewSectionKind[])
-            .concat(deliverablesAlreadyExists ? [] : ['deliverables'])
+            .concat((['deliverables'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
             .map(k => (
             <button key={k} onClick={() => setKind(k)}
               style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>

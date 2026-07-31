@@ -15,7 +15,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, SYSTEM_SECTION_IDS, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
@@ -498,14 +498,16 @@ export function TravailOverview() {
   const [saveOverviewTemplateModalOpen, setSaveOverviewTemplateModalOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | null>(null);
-  const [deliverablesRemoved, setDeliverablesRemoved] = useState(false);
+  const [removedSystemModules, setRemovedSystemModules] = useState<string[]>([]);
 
   const handleAddSection = (section: CustomOverviewSection) => {
     setCustomSections(prev => [...prev, section]);
     if (section.kind === 'checklist' || section.kind === 'gallery' || section.kind === 'links') {
       setCustomSectionData(prev => ({ ...prev, [section.id]: [] }));
     }
-    if (section.kind === 'deliverables') setDeliverablesRemoved(false);
+    if (SYSTEM_SECTION_IDS.includes(section.id)) {
+      setRemovedSystemModules(prev => prev.filter(id => id !== section.id));
+    }
     setAddingSectionOpen(false);
   };
   const handleEditSection = (updated: CustomOverviewSection) => {
@@ -514,10 +516,18 @@ export function TravailOverview() {
   };
   const handleDeleteSection = (id: string) => {
     if (!confirm(t('overview.confirmDeleteSection'))) return;
-    const isDeliverables = customSections.find(s => s.id === id)?.kind === 'deliverables';
+    const isSystem = SYSTEM_SECTION_IDS.includes(id);
     setCustomSections(prev => prev.filter(s => s.id !== id));
-    setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
-    if (isDeliverables) setDeliverablesRemoved(true);
+    // Un module système (Vision, Livrables client, Factures, Fichiers, Notes
+    // internes) ne perd jamais son contenu à la suppression — ses données
+    // vivent ailleurs (taskStore/financeStore/fileStore) ou, pour Vision,
+    // restent en mémoire pour réapparaître intactes si on le ré-ajoute. Un
+    // module personnalisé, lui, perd bel et bien son contenu : un nouvel ajout
+    // crée toujours un id frais, sans possibilité de retrouver l'ancien.
+    if (!isSystem) {
+      setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
+    }
+    if (isSystem) setRemovedSystemModules(prev => prev.includes(id) ? prev : [...prev, id]);
     setSectionMenuOpenId(null);
   };
   // Glisser-déposer pour réordonner les modules — mécanisme porté tel quel de
@@ -589,12 +599,12 @@ export function TravailOverview() {
   const loadedContentRef = useRef<{
     projectId: string; notes: string;
     customSections: CustomOverviewSection[]; customSectionData: Record<string, CustomSectionValue>;
-    deliverablesRemoved: boolean;
+    removedSystemModules: string[];
   } | null>(null);
   // Miroir synchrone de l'état courant — lu depuis le callback d'abonnement
   // (qui ne doit pas se ré-enregistrer à chaque frappe).
-  const stateRef = useRef({ notes, customSections, customSectionData, deliverablesRemoved });
-  stateRef.current = { notes, customSections, customSectionData, deliverablesRemoved };
+  const stateRef = useRef({ notes, customSections, customSectionData, removedSystemModules });
+  stateRef.current = { notes, customSections, customSectionData, removedSystemModules };
 
   const applyLoadedContent = useCallback(() => {
     const c = getProjectContent(project.id);
@@ -605,8 +615,8 @@ export function TravailOverview() {
     // Ne réinsère le module Livrables client que s'il n'a jamais existé pour ce
     // projet (ancien format) — pas si l'utilisateur l'a explicitement supprimé
     // (deliverablesRemoved), sinon sa suppression n'aurait aucun effet persistant.
-    const loadedDeliverablesRemoved = c.deliverablesRemoved ?? false;
-    if (!loadedSections.some(s => s.id === DELIVERABLES_SECTION_ID) && !loadedDeliverablesRemoved) {
+    const loadedRemovedSystemModules: string[] = c.removedSystemModules ?? (c.deliverablesRemoved ? [DELIVERABLES_SECTION_ID] : []);
+    if (!loadedSections.some(s => s.id === DELIVERABLES_SECTION_ID) && !loadedRemovedSystemModules.includes(DELIVERABLES_SECTION_ID)) {
       const visionIdx = loadedSections.findIndex(s => s.id === VISION_SECTION_ID);
       loadedSections = [
         ...loadedSections.slice(0, visionIdx + 1),
@@ -618,8 +628,8 @@ export function TravailOverview() {
     setNotes(loadedNotes);
     setCustomSections(loadedSections);
     setCustomSectionData(loadedData);
-    setDeliverablesRemoved(loadedDeliverablesRemoved);
-    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, customSections: loadedSections, customSectionData: loadedData, deliverablesRemoved: loadedDeliverablesRemoved };
+    setRemovedSystemModules(loadedRemovedSystemModules);
+    loadedContentRef.current = { projectId: project.id, notes: loadedNotes, customSections: loadedSections, customSectionData: loadedData, removedSystemModules: loadedRemovedSystemModules };
   }, [project.id]);
 
   useEffect(() => { applyLoadedContent(); }, [applyLoadedContent]);
@@ -636,7 +646,7 @@ export function TravailOverview() {
       loaded.notes === cur.notes &&
       JSON.stringify(loaded.customSections) === JSON.stringify(cur.customSections) &&
       JSON.stringify(loaded.customSectionData) === JSON.stringify(cur.customSectionData) &&
-      loaded.deliverablesRemoved === cur.deliverablesRemoved;
+      JSON.stringify(loaded.removedSystemModules) === JSON.stringify(cur.removedSystemModules);
     if (!pristine) return; // édition en cours — ne pas l'écraser
     applyLoadedContent();
   }), [project.id, applyLoadedContent]);
@@ -650,11 +660,11 @@ export function TravailOverview() {
       loaded.notes === notes &&
       JSON.stringify(loaded.customSections) === JSON.stringify(customSections) &&
       JSON.stringify(loaded.customSectionData) === JSON.stringify(customSectionData) &&
-      loaded.deliverablesRemoved === deliverablesRemoved
+      JSON.stringify(loaded.removedSystemModules) === JSON.stringify(removedSystemModules)
     ) return;
-    const timer = window.setTimeout(() => setProjectContent(project.id, { notes, customSections, customSectionData, deliverablesRemoved }), 500);
+    const timer = window.setTimeout(() => setProjectContent(project.id, { notes, customSections, customSectionData, removedSystemModules }), 500);
     return () => clearTimeout(timer);
-  }, [notes, customSections, customSectionData, deliverablesRemoved, project.id]);
+  }, [notes, customSections, customSectionData, removedSystemModules, project.id]);
 
   const toggleCompleted = () => {
     updateProject(project.id, { completed: !completed });
@@ -1354,7 +1364,7 @@ export function TravailOverview() {
               onMouseDown={e => { if (e.target === e.currentTarget) setAddingSectionOpen(false); }}>
               <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
                 <OverviewSectionForm onSave={handleAddSection} onCancel={() => setAddingSectionOpen(false)}
-                  deliverablesAlreadyExists={customSections.some(s => s.kind === 'deliverables')} />
+                  existingSystemIds={customSections.map(s => s.id)} />
               </div>
             </div>
           )}
