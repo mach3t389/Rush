@@ -831,19 +831,6 @@ export function TravailOverview() {
             </div>
           )}
 
-          {/* ── Notes internes ── */}
-          <Card title="Notes internes" icon="sticky-note">
-            <div style={{ padding: '14px 18px' }}>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Ajouter des notes de projet, contexte, instructions importantes..."
-                rows={5}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
-              />
-            </div>
-          </Card>
-
           {/* ── Sections personnalisées ── */}
           <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(1)} />
           {customSections.map((section, sectionIdx) => {
@@ -1369,6 +1356,14 @@ export function TravailOverview() {
                   <FilesModuleBody
                     files={recentFiles}
                     onOpenFile={() => navigate(`/projets/${project.id}/fichiers`)}
+                  />
+                ) : section.kind === 'notes' ? (
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder={t('overview.internalNotesPlaceholder')}
+                    rows={5}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
                   />
                 ) : null}
               </div>
