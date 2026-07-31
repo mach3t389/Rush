@@ -538,6 +538,12 @@ export function TravailOverview() {
   const [newDlTitle, setNewDlTitle] = useState('');
   const [newDlFormat, setNewDlFormat] = useState<DeliverableFormat>('16:9');
   const [newDlType, setNewDlType] = useState<DeliverableType>('video');
+  // Champs additionnels — mêmes que l'éditeur de livrable dans TaskPanel.tsx
+  // (durée pour vidéo/audio, quantité pour photo, note toujours visible),
+  // absents ici jusqu'ici alors que le livrable créé les supporte déjà.
+  const [newDlNote, setNewDlNote] = useState('');
+  const [newDlDuration, setNewDlDuration] = useState('');
+  const [newDlQuantity, setNewDlQuantity] = useState(1);
   // Which section of the project's own Kanban a new deliverable lands in —
   // was silently hardcoded to a "Livraison" section it created behind the
   // scenes; now the user picks, defaulting to an existing "Livraison"
@@ -860,6 +866,7 @@ export function TravailOverview() {
                           // demander, même comme valeur par défaut implicite.
                           setNewDlSection('');
                           setNewDlSectionCustom('');
+                          setNewDlNote(''); setNewDlDuration(''); setNewDlQuantity(1);
                         }}>
                           {t('overview.add')}
                         </SFButton>
@@ -883,7 +890,7 @@ export function TravailOverview() {
                       <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
                         <SFIcon name="package" size={24} color="var(--border-2)" />
                         <p style={{ marginTop: 10, marginBottom: 10 }}>{t('overview.noDeliverables')}</p>
-                        <button onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); }}
+                        <button onClick={() => { setAddingDeliverable(true); setNewDlTitle(''); setNewDlNote(''); setNewDlDuration(''); setNewDlQuantity(1); }}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
                           <SFIcon name="plus" size={12} /> {t('overview.createDeliverable')}
                         </button>
@@ -1184,7 +1191,10 @@ export function TravailOverview() {
                               subtasks: [],
                               deliverable: true,
                               deliverableType: newDlType,
-                              format: newDlFormat,
+                              format: (newDlType === 'video' || newDlType === 'photo') ? newDlFormat : undefined,
+                              deliverableNote: newDlNote.trim() || undefined,
+                              deliverableDuration: (newDlType === 'video' || newDlType === 'audio') ? (newDlDuration.trim() || undefined) : undefined,
+                              deliverableQuantity: newDlType === 'photo' ? newDlQuantity : undefined,
                             };
                             addDeliverable(project.id, task, chosenSection);
                             setAddingDeliverable(false);
@@ -1249,7 +1259,48 @@ export function TravailOverview() {
                               ))}
                             </>
                           )}
-                          <button onClick={() => setAddingDeliverable(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
+                        </div>
+
+                        {/* Durée / Quantité / Note — mêmes champs que l'éditeur de
+                            livrable dans TaskPanel.tsx, absents ici jusqu'ici alors
+                            que le livrable créé les supporte déjà (incohérence
+                            signalée). Durée pour vidéo/audio, quantité pour photo,
+                            note toujours visible (placeholder différent selon le type). */}
+                        {(newDlType === 'video' || newDlType === 'audio') && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>{t('taskPanel.duration')}</span>
+                            <input
+                              type="text"
+                              value={newDlDuration}
+                              onChange={e => setNewDlDuration(e.target.value)}
+                              placeholder={t('taskPanel.durationPlaceholder')}
+                              style={{ flex: '0 0 160px', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+                            />
+                          </div>
+                        )}
+                        {newDlType === 'photo' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68 }}>{t('taskPanel.quantity')}</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={newDlQuantity}
+                              onChange={e => setNewDlQuantity(Number(e.target.value))}
+                              style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+                            />
+                            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.photos')}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, width: 68, paddingTop: 5 }}>{t('taskPanel.note')}</span>
+                          <textarea
+                            value={newDlNote}
+                            onChange={e => setNewDlNote(e.target.value)}
+                            placeholder={(newDlType === 'document' || newDlType === 'web') ? t('taskPanel.notePlaceholderPages') : t('taskPanel.notePlaceholderCustom')}
+                            rows={2}
+                            style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none', resize: 'none', lineHeight: 1.5 }}
+                          />
+                          <button onClick={() => setAddingDeliverable(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6, flexShrink: 0 }}>
                             <SFIcon name="x" size={14} />
                           </button>
                         </div>
