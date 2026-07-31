@@ -8,7 +8,26 @@ import { getDeliverables, updateTask, subscribeStore, getProjectStats } from '..
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { SFPill, SFBar, SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoice } from '../data/financeStore';
+import { getTeamMembers } from '../data/teamStore';
+import { isDemoSession } from '../data/authStore';
+import { sendEmail } from '../data/emailStore';
 import type { Task, DeliverableType } from '../types';
+
+/** Notifie + emaile les observateurs concernés par une action du portail client. */
+function notifyWatchers(
+  recipientIds: string[],
+  eventKey: 'comment' | 'approval',
+  subject: string,
+  html: string,
+): void {
+  if (isDemoSession()) return;
+  const members = getTeamMembers();
+  for (const id of recipientIds) {
+    const member = members.find(m => m.id === id);
+    if (!member?.email) continue;
+    void sendEmail(member.email, subject, html, { eventKey, recipientUserId: member.id });
+  }
+}
 
 const DELIVERABLE_TYPE_ICON: Record<DeliverableType, string> = {
   video: 'video', photo: 'image', audio: 'music', document: 'file-text', web: 'globe',
@@ -32,14 +51,23 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
 
   const send = () => {
     if (!text.trim()) return;
+    const excerpt = `${text.slice(0, 80)}${text.length > 80 ? '…' : ''}`;
+    const project = findProject(projectId);
+    const recipientIds = (project?.members ?? []).map(m => m.id);
     addNotif({
       kind: 'comment',
       actor: clientName,
-      text: `a envoyé un message : "${text.slice(0, 80)}${text.length > 80 ? '…' : ''}"`,
+      text: `a envoyé un message : "${excerpt}"`,
       timestamp: Date.now(),
       projectId,
-      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+      recipientIds,
     });
+    notifyWatchers(
+      recipientIds,
+      'comment',
+      `${clientName} a envoyé un message`,
+      `<p>${clientName} a envoyé un message : "${excerpt}"</p>`,
+    );
     setSent(true);
   };
 
@@ -121,6 +149,7 @@ export function Portail() {
 
   const handleApprove = (dl: Task) => {
     updateTask(project.id, dl.id, { status: 'ok', correctionsRequested: false });
+    const recipientIds = dl.watchers?.length ? dl.watchers : project.members.map(m => m.id);
     addNotif({
       kind: 'deliverableApproved',
       actor: project.clientName,
@@ -128,12 +157,19 @@ export function Portail() {
       taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
-      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+      recipientIds,
     });
+    notifyWatchers(
+      recipientIds,
+      'approval',
+      `${project.clientName} a approuvé le livrable "${dl.title}"`,
+      `<p>${project.clientName} a approuvé le livrable "${dl.title}".</p>`,
+    );
   };
 
   const handleCorrections = (dl: Task) => {
     updateTask(project.id, dl.id, { correctionsRequested: true });
+    const recipientIds = dl.watchers?.length ? dl.watchers : project.members.map(m => m.id);
     addNotif({
       kind: 'comment',
       actor: project.clientName,
@@ -141,8 +177,14 @@ export function Portail() {
       taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
-      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+      recipientIds,
     });
+    notifyWatchers(
+      recipientIds,
+      'comment',
+      `${project.clientName} a demandé des corrections sur "${dl.title}"`,
+      `<p>${project.clientName} a demandé des corrections sur "${dl.title}".</p>`,
+    );
   };
 
   return (
