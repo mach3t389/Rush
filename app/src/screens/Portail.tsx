@@ -11,8 +11,28 @@ import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoi
 import { getTeamMembers } from '../data/teamStore';
 import { isDemoSession } from '../data/authStore';
 import { sendEmail } from '../data/emailStore';
+import { escapeHtml } from '../data/htmlEscape';
 import type { Task, DeliverableType } from '../types';
 
+// ⚠️ KNOWN LIMITATION (final-review finding, 2026-07-31): getTeamMembers()
+// is scoped to the CURRENT VIEWER's studio (via getStudioId() /
+// studioStore.ts's resolveStudioId), not the project's studio. This route
+// is viewed by an external client identity, not a studio member, so in a
+// real session this resolves the wrong roster (or none), and can trigger
+// resolveStudioId's auto-provision-a-new-studio path for that client
+// identity. `User` (Project.members' element type) carries no `email`
+// field, so there is no clean project-scoped way to resolve recipient
+// emails without adding a new SECURITY DEFINER RPC (see get_studio_invitation
+// in teamStore.ts for the pattern) — out of scope for this fix.
+//
+// This is currently moot in practice: `Portail.tsx` (this file, route
+// `/portail/:projectId`) is not registered in any router (checked
+// app/src/main.tsx and the whole app/src tree for imports of this file) —
+// it has been superseded by `/mon-espace/projets/:id`
+// (ClientProjectApercu.tsx) and `/apercu-client/:clientId/projets/:id`,
+// neither of which sends these emails at all today. If this file is ever
+// wired back into a route, this email-resolution path needs a real fix
+// (project/studio-scoped RPC) before it can be trusted.
 /** Notifie + emaile les observateurs concernés par une action du portail client. */
 function notifyWatchers(
   recipientIds: string[],
@@ -66,7 +86,7 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
       recipientIds,
       'comment',
       `${clientName} a envoyé un message`,
-      `<p>${clientName} a envoyé un message : "${excerpt}"</p>`,
+      `<p>${escapeHtml(clientName)} a envoyé un message : "${escapeHtml(excerpt)}"</p>`,
     );
     setSent(true);
   };
@@ -163,7 +183,7 @@ export function Portail() {
       recipientIds,
       'approval',
       `${project.clientName} a approuvé le livrable "${dl.title}"`,
-      `<p>${project.clientName} a approuvé le livrable "${dl.title}".</p>`,
+      `<p>${escapeHtml(project.clientName)} a approuvé le livrable "${escapeHtml(dl.title)}".</p>`,
     );
   };
 
@@ -183,7 +203,7 @@ export function Portail() {
       recipientIds,
       'comment',
       `${project.clientName} a demandé des corrections sur "${dl.title}"`,
-      `<p>${project.clientName} a demandé des corrections sur "${dl.title}".</p>`,
+      `<p>${escapeHtml(project.clientName)} a demandé des corrections sur "${escapeHtml(dl.title)}".</p>`,
     );
   };
 

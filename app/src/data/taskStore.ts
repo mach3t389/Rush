@@ -268,6 +268,9 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
   const before = sections.flatMap(s => s.tasks).find(t => t.id === taskId);
   if (before && patch.checked === true && before.checked !== true && before.assignees.length > 1) {
     const me = getCurrentUser();
+    // Target the task's other assignees (the people who'd actually notice
+    // a shared task disappearing from their list) — never the actor.
+    const recipientIds = before.assignees.map(a => a.id).filter(id => id !== me?.id);
     addNotif({
       kind: 'taskCompleted',
       actor: me?.name ?? 'Rush',
@@ -275,7 +278,7 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
       timestamp: Date.now(),
       taskId,
       projectId,
-      recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+      recipientIds,
     });
   }
 

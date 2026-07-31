@@ -1723,7 +1723,12 @@ export function TravailOverview() {
                           text: `a demandé l'approbation finale du projet « ${project.name} »`,
                           timestamp: Date.now(),
                           projectId: project.id,
-                          recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+                          // The approver here is an external client contact
+                          // (emailed separately below), not an in-app
+                          // notification recipient — target the rest of the
+                          // project's team so they know a final approval
+                          // request just went out.
+                          recipientIds: project.members.map(m => m.id).filter(id => id !== getCurrentUser()?.id),
                         });
                         if (!isDemoSession() && approver.email) {
                           const studioName = getStudioInfo().name || 'Rush';

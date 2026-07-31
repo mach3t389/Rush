@@ -25,6 +25,7 @@ import { addNotif } from './notificationStore';
 import { sendEmail } from './emailStore';
 import { getTeamMembers } from './teamStore';
 import { addWatcher } from './watchers';
+import { escapeHtml } from './htmlEscape';
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
 export type PaymentMethodType = 'bank_transfer' | 'interac' | 'stripe' | 'paypal' | 'cheque' | 'cash' | 'custom';
@@ -248,6 +249,7 @@ interface InvoiceRow {
   has_pdf: boolean;
   comments: InvoiceComment[];
   sort_order: number | null;
+  watchers: string[] | null;
 }
 
 function toInvoice(row: InvoiceRow): Invoice {
@@ -274,6 +276,7 @@ function toInvoice(row: InvoiceRow): Invoice {
     hasPdf: row.has_pdf,
     comments: row.comments ?? [],
     sortOrder: row.sort_order ?? undefined,
+    watchers: row.watchers ?? undefined,
   };
 }
 
@@ -302,6 +305,7 @@ function toInvoiceRow(inv: Invoice, studioId: string): InvoiceRow & { studio_id:
     has_pdf: inv.hasPdf ?? false,
     comments: inv.comments ?? [],
     sort_order: inv.sortOrder ?? null,
+    watchers: inv.watchers ?? null,
   };
 }
 
@@ -635,7 +639,7 @@ export function addInvoiceComment(invoiceId: string, comment: InvoiceComment, au
     void sendEmail(
       member.email,
       `${comment.author} a commenté la facture « ${inv.title} »`,
-      `<p>${comment.author} a commenté la facture « ${inv.title} » :</p><p>${comment.text}</p>`,
+      `<p>${escapeHtml(comment.author)} a commenté la facture « ${escapeHtml(inv.title)} » :</p><p>${escapeHtml(comment.text)}</p>`,
       { eventKey: 'comment', recipientUserId: member.id }
     );
   }

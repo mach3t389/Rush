@@ -77,13 +77,17 @@ export function RequestApprovalButton({
       dueDateRed: false,
       checked: false,
       subtasks: [],
-      watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
+      // Only the real actor is auto-seeded as a watcher — USERS.lea used to
+      // be hardcoded here too, which meant a mock/demo user id ended up
+      // persisted as a watcher on real-session deliverables.
+      watchers: addWatchers([], [getCurrentUser()?.id]),
       deliverable: true,
       deliverableType: inferDeliverableType(resource),
       linkedResources: [resource.id],
       sharedWithClient: true,
     };
     addDeliverable(projectId, task);
+    const actorId = getCurrentUser()?.id;
     const actorName = getCurrentUser()?.name ?? USERS.lea.name;
     addNotif({
       kind: 'approval',
@@ -93,7 +97,8 @@ export function RequestApprovalButton({
       resourceId: resource.id,
       taskId: task.id,
       projectId,
-      recipientIds: task.watchers ?? [],
+      // Never notify the actor of their own action.
+      recipientIds: (task.watchers ?? []).filter(id => id !== actorId),
     });
     if (!isDemoSession()) {
       const contacts = getClientExternalTeam(project?.clientId ?? '');
@@ -117,6 +122,7 @@ export function RequestApprovalButton({
   const handleRelaunch = () => {
     if (!projectId || !linked) return;
     updateTask(projectId, linked.id, { status: 'review', correctionsRequested: false });
+    const actorId = getCurrentUser()?.id;
     const actorName = getCurrentUser()?.name ?? USERS.lea.name;
     addNotif({
       kind: 'approval',
@@ -126,7 +132,8 @@ export function RequestApprovalButton({
       resourceId: resource.id,
       taskId: linked.id,
       projectId,
-      recipientIds: linked.watchers ?? [],
+      // Never notify the actor of their own action.
+      recipientIds: (linked.watchers ?? []).filter(id => id !== actorId),
     });
     if (!isDemoSession()) {
       const project = getProjects().find(p => p.id === projectId);

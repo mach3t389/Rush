@@ -8,6 +8,7 @@
 import { getStorageUsedBytes, subscribeFileStore } from './fileStore';
 import { getResourceContentSizeBytes, subscribeResourceContent } from './resourceContentStore';
 import { addNotif } from './notificationStore';
+import { getTeamMembers } from './teamStore';
 
 export function getTotalStorageUsedBytes(): number {
   return getStorageUsedBytes() + getResourceContentSizeBytes();
@@ -45,12 +46,15 @@ export function checkStorageThreshold(usedGB: number, limitGB: number): void {
     localStorage.setItem(ALERT_FLAG_KEY, '1');
   } catch { /* noop — pas de localStorage disponible, on tente quand même une fois */ }
 
+  // Storage is a studio-wide quota, not scoped to any one project, so the
+  // whole team is the right audience (same fallback teamStore.ts's own
+  // getTeam() uses when no narrower scope applies).
   addNotif({
     kind: 'storageLimit',
     actor: 'Rush',
     text: `Stockage à ${Math.round(pct)}% de la limite du plan`,
     timestamp: Date.now(),
-    recipientIds: [], // TODO(notifs): cibler les vrais destinataires
+    recipientIds: getTeamMembers().map(m => m.id),
   });
 }
 

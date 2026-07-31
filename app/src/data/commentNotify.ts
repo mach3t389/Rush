@@ -17,6 +17,7 @@ import { addWatchers } from './watchers';
 import { getSections, updateTask as updateTaskStore } from './taskStore';
 import { getResources, updateResource } from './resourceStore';
 import { USERS } from './mock';
+import { escapeHtml } from './htmlEscape';
 
 function actorName(): string {
   return getCurrentUser()?.name ?? USERS.lea.name;
@@ -49,6 +50,18 @@ function resolveWatchers(taskId?: string, resourceId?: string, projectId?: strin
   if (taskId && projectId) {
     const sections = getSections(projectId);
     const task = sections.flatMap(s => s.tasks).find(t => t.id === taskId);
+    // Guard against a data-loss race: getSections() returns [] synchronously
+    // both when the project genuinely has no sections AND when the
+    // background fetch hasn't resolved yet. updateTaskStore()/setSections()
+    // does a full delete-then-reinsert of the project's sections+tasks, so
+    // committing a watcher change while sections===[] would silently wipe
+    // every real section/task for this project the moment the fetch had
+    // simply not landed yet. Skip the commit in that case — the watcher
+    // change is lost for this one comment, but nothing gets destroyed.
+    if (sections.length === 0) {
+      console.warn('[commentNotify] resolveWatchers: sections not loaded yet for project, skipping watcher commit to avoid clobbering', { projectId, taskId });
+      return { current: task?.watchers ?? [], commit: () => {} };
+    }
     return {
       current: task?.watchers ?? [],
       commit: next => updateTaskStore(projectId, taskId, { watchers: next }),
@@ -110,7 +123,7 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
   const subject = mentionNames.length > 0
     ? `${actor} vous a mentionné dans « ${itemLabel} »`
     : `${actor} a commenté « ${itemLabel} »`;
-  const html = `<p>${actor} ${mentionNames.length > 0 ? 'vous a mentionné dans' : verb} « ${itemLabel} » :</p><p>${text}</p>`;
+  const html = `<p>${escapeHtml(actor)} ${mentionNames.length > 0 ? 'vous a mentionné dans' : verb} « ${escapeHtml(itemLabel)} » :</p><p>${escapeHtml(text)}</p>`;
 
   for (const id of recipientIds) {
     const member = members.find(m => m.id === id);

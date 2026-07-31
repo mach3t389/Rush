@@ -556,27 +556,30 @@ export function ImageReview() {
             </div>
 
             {/* Sidebar in gallery mode: shows all comments across all images */}
-            <div style={{ padding: '10px 12px 0' }}>
-              <WatchersRow
-                watchers={resource?.watchers ?? []}
-                onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
-                onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+            <div style={{ width: 320, flexShrink: 0, borderLeft: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '10px 12px 0' }}>
+                <WatchersRow
+                  watchers={resource?.watchers ?? []}
+                  onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                  onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+                />
+              </div>
+              <RevisionCommentSidebar
+                embedded
+                comments={comments.filter(c => !c.annotation || round.images.some(img => img.id === c.annotation?.assetId))}
+                activeId={activeCommentId}
+                onActivate={id => { setActiveCommentId(id); if (id) { const c = comments.find(x => x.id === id); if (c?.annotation?.assetId) openSingle(c.annotation.assetId); } }}
+                onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); if (resourceId) incrementCommentCount(resourceId); notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId }); }}
+                onResolve={handleResolve}
+                onReply={handleReply}
+                onDelete={handleDelete}
+                pendingAnnotation={false}
+                onCancelPending={() => {}}
+                drawing={false}
+                onToggleDrawing={() => openSingle(round.images[0]?.id ?? '')}
+                contextLabel={round.label}
               />
             </div>
-            <RevisionCommentSidebar
-              comments={comments.filter(c => !c.annotation || round.images.some(img => img.id === c.annotation?.assetId))}
-              activeId={activeCommentId}
-              onActivate={id => { setActiveCommentId(id); if (id) { const c = comments.find(x => x.id === id); if (c?.annotation?.assetId) openSingle(c.annotation.assetId); } }}
-              onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); if (resourceId) incrementCommentCount(resourceId); notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId }); }}
-              onResolve={handleResolve}
-              onReply={handleReply}
-              onDelete={handleDelete}
-              pendingAnnotation={false}
-              onCancelPending={() => {}}
-              drawing={false}
-              onToggleDrawing={() => openSingle(round.images[0]?.id ?? '')}
-              contextLabel={round.label}
-            />
           </>
         ) : (
           /* ── Single image view ── */
@@ -662,27 +665,30 @@ export function ImageReview() {
             </div>
 
             {/* Right: comment sidebar */}
-            <div style={{ padding: '10px 12px 0' }}>
-              <WatchersRow
-                watchers={resource?.watchers ?? []}
-                onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
-                onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+            <div style={{ width: 320, flexShrink: 0, borderLeft: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '10px 12px 0' }}>
+                <WatchersRow
+                  watchers={resource?.watchers ?? []}
+                  onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                  onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+                />
+              </div>
+              <RevisionCommentSidebar
+                embedded
+                comments={visibleComments}
+                activeId={activeCommentId}
+                onActivate={setActiveCommentId}
+                onAdd={handleAddComment}
+                onResolve={handleResolve}
+                onReply={handleReply}
+                onDelete={handleDelete}
+                pendingAnnotation={!!pendingAnno}
+                onCancelPending={() => setPendingAnno(null)}
+                drawing={drawing}
+                onToggleDrawing={() => { setDrawing(d => !d); setPendingAnno(null); }}
+                contextLabel={contextLabel}
               />
             </div>
-            <RevisionCommentSidebar
-              comments={visibleComments}
-              activeId={activeCommentId}
-              onActivate={setActiveCommentId}
-              onAdd={handleAddComment}
-              onResolve={handleResolve}
-              onReply={handleReply}
-              onDelete={handleDelete}
-              pendingAnnotation={!!pendingAnno}
-              onCancelPending={() => setPendingAnno(null)}
-              drawing={drawing}
-              onToggleDrawing={() => { setDrawing(d => !d); setPendingAnno(null); }}
-              contextLabel={contextLabel}
-            />
           </>
         )}
       </div>
