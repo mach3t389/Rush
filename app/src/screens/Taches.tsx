@@ -13,6 +13,7 @@ import type { Task, Priority, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
 import { showToast } from '../data/toastStore';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
+import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { isSameDay, startOfWeek, addDays } from '../components/calendar/calendarUtils';
 import { markTaskRead } from '../data/notificationStore';
@@ -398,6 +399,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const { measureRef: titleMeasureRef, width: titleInputWidth } = useAutoWidthInput(titleDraft, editingTitle);
 
   // The fields above are local (optimistic) copies of `task`, seeded once at
   // mount — editing them from THIS row also calls updateMyTask() so they
@@ -529,26 +531,32 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         style={{ overflow: 'hidden', cursor: editingTitle ? 'default' : 'text', display: 'flex', alignItems: 'center', height: '100%', maxWidth: editingTitle ? '100%' : 'calc(100% - 28px)', width: editingTitle ? '100%' : 'fit-content' }}
       >
         {editingTitle ? (
-          <input
-            ref={titleInputRef}
-            value={titleDraft}
-            onChange={e => setTitleDraft(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={e => {
-              if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
-              if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false); }
-              e.stopPropagation();
-            }}
-            onClick={e => e.stopPropagation()}
-            style={{
-              fontSize: 13, fontWeight: 500, padding: '2px 6px',
-              boxSizing: 'content-box',
-              width: `${Math.max(2, titleDraft.length + 1)}ch`, maxWidth: '100%',
-              borderRadius: 6, border: '1px solid var(--accent)',
-              background: 'var(--surface-3)', color: 'var(--text)',
-              fontFamily: 'var(--ff-text)', outline: 'none',
-            }}
-          />
+          <>
+            {/* Mesureur caché — même police que l'input, sert à calculer sa largeur réelle */}
+            <span ref={titleMeasureRef} style={{ position: 'fixed', top: -9999, left: -9999, visibility: 'hidden', whiteSpace: 'pre', fontSize: 13, fontWeight: 500, fontFamily: 'var(--ff-text)' }}>
+              {titleDraft || ' '}
+            </span>
+            <input
+              ref={titleInputRef}
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
+                if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false); }
+                e.stopPropagation();
+              }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                fontSize: 13, fontWeight: 500, padding: '2px 6px',
+                boxSizing: 'border-box',
+                width: `${titleInputWidth}px`, maxWidth: '100%',
+                borderRadius: 6, border: '1px solid var(--accent)',
+                background: 'var(--surface-3)', color: 'var(--text)',
+                fontFamily: 'var(--ff-text)', outline: 'none',
+              }}
+            />
+          </>
         ) : (
           <span style={{
             fontSize: 13, fontWeight: 500,
