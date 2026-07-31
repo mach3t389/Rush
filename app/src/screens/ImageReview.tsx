@@ -5,6 +5,8 @@ import { SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
+import { WatchersRow } from '../components/WatchersRow';
+import { addWatcher } from '../data/watchers';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
@@ -554,6 +556,13 @@ export function ImageReview() {
             </div>
 
             {/* Sidebar in gallery mode: shows all comments across all images */}
+            <div style={{ padding: '10px 12px 0' }}>
+              <WatchersRow
+                watchers={resource?.watchers ?? []}
+                onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+              />
+            </div>
             <RevisionCommentSidebar
               comments={comments.filter(c => !c.annotation || round.images.some(img => img.id === c.annotation?.assetId))}
               activeId={activeCommentId}
@@ -653,6 +662,13 @@ export function ImageReview() {
             </div>
 
             {/* Right: comment sidebar */}
+            <div style={{ padding: '10px 12px 0' }}>
+              <WatchersRow
+                watchers={resource?.watchers ?? []}
+                onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+              />
+            </div>
             <RevisionCommentSidebar
               comments={visibleComments}
               activeId={activeCommentId}

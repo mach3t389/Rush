@@ -2,6 +2,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFIcon, SFButton, SFPill } from '../components/ui';
 import { getResources, updateResource } from '../data/resourceStore';
+import { WatchersRow } from '../components/WatchersRow';
+import { addWatcher } from '../data/watchers';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
@@ -488,6 +490,14 @@ export function WebReview() {
           </div>
 
           {sidebarTab === 'annotations' && (
+            <>
+            <div style={{ padding: '10px 12px 0' }}>
+              <WatchersRow
+                watchers={resource?.watchers ?? []}
+                onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+              />
+            </div>
             <RevisionCommentSidebar
               comments={visible.map((ann, i) => toRevisionComment(ann, i))}
               activeId={selectedId}
@@ -499,6 +509,7 @@ export function WebReview() {
               onCancelPending={() => {}}
               embedded
             />
+            </>
           )}
 
           {sidebarTab === 'info' && (

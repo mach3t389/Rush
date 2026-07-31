@@ -14,6 +14,8 @@ import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
 import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments';
 import { notifyComment } from '../data/commentNotify';
+import { WatchersRow } from './WatchersRow';
+import { addWatcher } from '../data/watchers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1396,6 +1398,13 @@ export function TaskPanel({
 
           {/* Commentaires — même composant que Document/Révision web/Scénario/etc., pour un système identique partout */}
           <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
+            <div style={{ marginBottom: 10 }}>
+              <WatchersRow
+                watchers={task.watchers ?? []}
+                onAdd={id => onUpdate?.({ watchers: addWatcher(task.watchers, id) })}
+                onRemove={id => onUpdate?.({ watchers: (task.watchers ?? []).filter(w => w !== id) })}
+              />
+            </div>
             <RevisionCommentSidebar
               comments={comments.map(toRevisionComment)}
               activeId={activeCommentId}
