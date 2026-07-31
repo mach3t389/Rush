@@ -991,7 +991,9 @@ export function TravailOverview() {
                             )}
                           </div>
 
-                          {/* Format — clickable dropdown */}
+                          {/* Format — clickable dropdown, uniquement pertinent pour vidéo/photo
+                              (même règle que le format du livrable dans TaskPanel.tsx) */}
+                          {(dl.deliverableType === 'video' || dl.deliverableType === 'photo') ? (
                           <div>
                             <button onClick={e => openDlDrop(dl.id, 'format', e)}
                               style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-3)', border: `1px solid ${isPickerOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-2)', fontSize: 11, fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap' }}>
@@ -1030,6 +1032,7 @@ export function TravailOverview() {
                               </InlineDropdown>
                             )}
                           </div>
+                          ) : <div />}
 
                           {/* Priorité — clickable dropdown */}
                           <div>
@@ -1174,14 +1177,20 @@ export function TravailOverview() {
                           />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
-                          {FORMAT_OPTIONS.map(f => (
-                            <button key={f.value} onClick={() => setNewDlFormat(f.value)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlFormat === f.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlFormat === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlFormat === f.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
-                              <div style={{ width: 12, aspectRatio: f.ratio, border: `1.5px solid currentColor`, borderRadius: 1 }} />
-                              {f.label}
-                            </button>
-                          ))}
+                          {/* Format — uniquement pertinent pour vidéo/photo (même règle
+                              que le format du livrable dans TaskPanel.tsx) */}
+                          {(newDlType === 'video' || newDlType === 'photo') && (
+                            <>
+                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Format :</span>
+                              {FORMAT_OPTIONS.map(f => (
+                                <button key={f.value} onClick={() => setNewDlFormat(f.value)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 7, border: `1px solid ${newDlFormat === f.value ? 'var(--accent)' : 'var(--border)'}`, background: newDlFormat === f.value ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: newDlFormat === f.value ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-mono)' }}>
+                                  <div style={{ width: 12, aspectRatio: f.ratio, border: `1.5px solid currentColor`, borderRadius: 1 }} />
+                                  {f.label}
+                                </button>
+                              ))}
+                            </>
+                          )}
                           <button onClick={() => setAddingDeliverable(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
                             <SFIcon name="x" size={14} />
                           </button>
