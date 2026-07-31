@@ -130,16 +130,17 @@ function VisionField({ label, placeholder, value, onChange, multiline }: {
   );
 }
 
-function Card({ children, title, icon, action, collapsible, defaultOpen = true, persistKey }: {
+function Card({ children, title, icon, action, collapsible, defaultOpen = true, persistKey, draggable, onDragStart }: {
   children: React.ReactNode; title: string; icon: string; action?: React.ReactNode;
   collapsible?: boolean; defaultOpen?: boolean; persistKey?: string;
+  draggable?: boolean; onDragStart?: (e: React.DragEvent) => void;
 }) {
   const [localOpen, setLocalOpen] = useState(defaultOpen);
   const [persistedOpen, setPersistedOpen] = usePersistedState(`sf_overview_section_open_${persistKey}`, defaultOpen);
   const open = persistKey ? persistedOpen : localOpen;
   const setOpen = persistKey ? setPersistedOpen : setLocalOpen;
   return (
-    <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+    <div draggable={draggable} onDragStart={onDragStart} style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
       <div
         style={{ padding: '13px 18px', borderBottom: open ? '1px solid var(--border)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: collapsible ? 'pointer' : 'default' }}
         onClick={collapsible ? () => setOpen(v => !v) : undefined}
@@ -371,6 +372,25 @@ function LinksModuleBody({ linkedIds, resources, onChange, onOpen }: {
   );
 }
 
+function ModuleInsertZone({ active, onDrop }: { active: boolean; onDrop: () => void }) {
+  const [over, setOver] = React.useState(false);
+  return (
+    <div
+      onDragOver={e => { if (active) { e.preventDefault(); e.stopPropagation(); setOver(true); } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => { if (active) { e.stopPropagation(); setOver(false); onDrop(); } }}
+      style={{
+        height: active ? (over ? 36 : 10) : 12,
+        display: 'flex', alignItems: 'center', padding: '0 4px',
+        transition: 'height 0.12s',
+        flexShrink: 0,
+      }}
+    >
+      {active && over && <div style={{ width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }} />}
+    </div>
+  );
+}
+
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export function TravailOverview() {
@@ -454,18 +474,47 @@ export function TravailOverview() {
     setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
     setSectionMenuOpenId(null);
   };
-  // Une section verrouillée (Vision) reste toujours en première position — on ne
-  // permute jamais par-dessus elle, ce qui garde ce garde-fou correct même si
-  // handleMoveSection est un jour appelé depuis un contexte qui l'oublierait.
-  const handleMoveSection = (id: string, dir: 'up' | 'down') => {
+  // Glisser-déposer pour réordonner les modules — mécanisme porté tel quel de
+  // Travail.tsx (réordonnancement des sections de tâches). Vision (locked, index 0)
+  // reste toujours en première position : jamais draggable, jamais de zone de dépôt
+  // avant elle (la première zone insère en position 1).
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pointerYRef = useRef(0);
+  const [draggedModuleIdx, setDraggedModuleIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (draggedModuleIdx === null) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const EDGE = 160;
+    const MAX_SPEED = 26;
+    let frame: number;
+    const scroll = () => {
+      const { top, bottom } = container.getBoundingClientRect();
+      const y = pointerYRef.current;
+      if (y < top + EDGE) {
+        const ratio = Math.min(1, (top + EDGE - y) / EDGE);
+        container.scrollTop -= Math.max(2, MAX_SPEED * ratio);
+      } else if (y > bottom - EDGE) {
+        const ratio = Math.min(1, (y - (bottom - EDGE)) / EDGE);
+        container.scrollTop += Math.max(2, MAX_SPEED * ratio);
+      }
+      frame = requestAnimationFrame(scroll);
+    };
+    frame = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(frame);
+  }, [draggedModuleIdx]);
+
+  const handleModuleDrop = (beforeIdx: number) => {
+    if (draggedModuleIdx === null) return;
     setCustomSections(prev => {
-      const idx = prev.findIndex(s => s.id === id);
-      const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
-      if (idx < 0 || swapIdx < 0 || swapIdx >= prev.length || prev[swapIdx].locked) return prev;
       const next = [...prev];
-      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      const [moved] = next.splice(draggedModuleIdx, 1);
+      const insertAt = beforeIdx > draggedModuleIdx ? beforeIdx - 1 : beforeIdx;
+      next.splice(insertAt, 0, moved);
       return next;
     });
+    setDraggedModuleIdx(null);
   };
 
   // Charger un modèle d'Aperçu (ou "aucun modèle" via id '__none__') — remplace les
@@ -618,7 +667,8 @@ export function TravailOverview() {
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div ref={scrollContainerRef} onDragOver={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => setDraggedModuleIdx(null)}
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
         {/* Left column — main content */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -717,12 +767,21 @@ export function TravailOverview() {
           </Card>
 
           {/* ── Sections personnalisées ── */}
+          <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(1)} />
           {customSections.map((section, sectionIdx) => {
             if (section.kind === 'deliverables') {
               return (
                 <React.Fragment key={section.id}>
                   <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
+                    draggable={!section.locked}
+                    onDragStart={e => { if (section.locked) { e.preventDefault(); return; } setDraggedModuleIdx(sectionIdx); }}
                     action={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {!section.locked && (
+                        <span title={t('overview.dragToReorder')} style={{ cursor: 'grab', display: 'flex', color: 'var(--text-3)', padding: 4 }}>
+                          <SFIcon name="grip-vertical" size={14} />
+                        </span>
+                      )}
                       <SFButton variant="ghost" size="sm" icon="plus" onClick={() => {
                         setAddingDeliverable(true); setNewDlTitle(''); setNewDlFormat('16:9');
                         // Pas de présélection — l'utilisateur ne veut plus qu'un livrable
@@ -733,6 +792,7 @@ export function TravailOverview() {
                       }}>
                         {t('overview.add')}
                       </SFButton>
+                      </div>
                     }
                   >
                     {/* Column headers */}
@@ -1110,28 +1170,21 @@ export function TravailOverview() {
                       </div>
                     )}
                   </Card>
+                  <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(sectionIdx + 1)} />
                 </React.Fragment>
               );
             }
             return (
-            <Card key={section.id} title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
+            <React.Fragment key={section.id}>
+            <Card title={section.title} icon={section.icon} collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
+              draggable={!section.locked}
+              onDragStart={e => { if (section.locked) { e.preventDefault(); return; } setDraggedModuleIdx(sectionIdx); }}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   {!section.locked && (
-                    <>
-                      <button onClick={() => handleMoveSection(section.id, 'up')}
-                        disabled={sectionIdx === 0 || customSections[sectionIdx - 1].locked}
-                        title={t('overview.moveSectionUp')}
-                        style={{ background: 'none', border: 'none', display: 'flex', padding: 4, borderRadius: 6, color: 'var(--text-3)', cursor: (sectionIdx === 0 || customSections[sectionIdx - 1].locked) ? 'default' : 'pointer', opacity: (sectionIdx === 0 || customSections[sectionIdx - 1].locked) ? 0.3 : 1 }}>
-                        <SFIcon name="chevron-up" size={14} />
-                      </button>
-                      <button onClick={() => handleMoveSection(section.id, 'down')}
-                        disabled={sectionIdx === customSections.length - 1}
-                        title={t('overview.moveSectionDown')}
-                        style={{ background: 'none', border: 'none', display: 'flex', padding: 4, borderRadius: 6, color: 'var(--text-3)', cursor: sectionIdx === customSections.length - 1 ? 'default' : 'pointer', opacity: sectionIdx === customSections.length - 1 ? 0.3 : 1 }}>
-                        <SFIcon name="chevron-down" size={14} />
-                      </button>
-                    </>
+                    <span title={t('overview.dragToReorder')} style={{ cursor: 'grab', display: 'flex', color: 'var(--text-3)', padding: 4 }}>
+                      <SFIcon name="grip-vertical" size={14} />
+                    </span>
                   )}
                 <div style={{ position: 'relative' }}>
                   <button onClick={() => setSectionMenuOpenId(sectionMenuOpenId === section.id ? null : section.id)}
@@ -1238,6 +1291,8 @@ export function TravailOverview() {
                 ) : null}
               </div>
             </Card>
+            <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(sectionIdx + 1)} />
+            </React.Fragment>
             );
           })}
 

@@ -618,7 +618,8 @@
     "confirmDeleteSection": "Supprimer cette section et son contenu ?",
     "sectionOptions": "Options de la section",
     "moveSectionUp": "Déplacer vers le haut",
-    "moveSectionDown": "Déplacer vers le bas"
+    "moveSectionDown": "Déplacer vers le bas",
+    "dragToReorder": "Glisser pour réordonner"
   },
   "profile": {
     "myProfile": "Mon profil",
