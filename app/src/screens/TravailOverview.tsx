@@ -607,9 +607,9 @@ export function TravailOverview() {
     setSectionMenuOpenId(null);
   };
   // Glisser-déposer pour réordonner les modules — mécanisme porté tel quel de
-  // Travail.tsx (réordonnancement des sections de tâches). Vision (locked, index 0)
-  // reste toujours en première position : jamais draggable, jamais de zone de dépôt
-  // avant elle (la première zone insère en position 1).
+  // Travail.tsx (réordonnancement des sections de tâches). Tous les modules,
+  // Vision incluse, sont déplaçables — Vision garde seulement une position par
+  // défaut en tête pour les projets qui ne l'ont jamais eue autrement.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pointerYRef = useRef(0);
   const [draggedModuleIdx, setDraggedModuleIdx] = useState<number | null>(null);
@@ -652,14 +652,23 @@ export function TravailOverview() {
   // Charger un modèle d'Aperçu (ou "aucun modèle" via id '__none__') — remplace les
   // sections personnalisées mais préserve toujours la section Vision (verrouillée)
   // et sa valeur actuelle, comportement déjà correct, juste ré-entré via le menu partagé.
+  // TODO connu : appliquer un modèle ne modifie pas removedSystemModules pour
+  // invoices/files/notes — un module supprimé avant le changement de modèle
+  // peut donc réapparaître si le nouveau modèle ne le mentionne pas non plus.
+  // Décision de conception à trancher séparément.
   const applyTemplateById = (id: string | null) => {
     const tpl = id && id !== '__none__'
       ? loadAllResourceTemplates().find(tp => tp.id === id && tp.type === 'overview')
       : null;
     if (id && id !== '__none__' && !tpl) return;
     if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
-    const vision = customSections.find(s => s.id === VISION_SECTION_ID) ?? getDefaultVisionSection();
-    const newSections = [vision, ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID)];
+    const vision = removedSystemModules.includes(VISION_SECTION_ID)
+      ? null
+      : (customSections.find(s => s.id === VISION_SECTION_ID) ?? getDefaultVisionSection());
+    const newSections = [
+      ...(vision ? [vision] : []),
+      ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID),
+    ];
     setCustomSections(newSections);
     setCustomSectionData(prev => {
       const next: Record<string, CustomSectionValue> = {};

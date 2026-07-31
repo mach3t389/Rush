@@ -9,7 +9,7 @@ function makeFieldId(): string {
   return `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-const KIND_LABEL_KEY: Record<OverviewSectionKind, string> = {
+export const KIND_LABEL_KEY: Record<OverviewSectionKind, string> = {
   fields: 'overview.sectionKindFields',
   note: 'overview.sectionKindNote',
   vision: 'overview.sectionKindVision',
@@ -75,7 +75,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
       kind,
       title: title.trim(),
       icon,
-      ...(kind === 'fields' ? { fields: fields.filter(f => f.label.trim().length > 0) } : {}),
+      ...((kind === 'fields' || kind === 'vision') ? { fields: fields.filter(f => f.label.trim().length > 0) } : {}),
     });
   };
 

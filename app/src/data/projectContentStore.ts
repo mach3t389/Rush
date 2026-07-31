@@ -42,7 +42,10 @@ export interface CustomOverviewSection {
   title: string;
   icon: string;
   fields?: OverviewFieldDef[]; // uniquement pour kind: 'fields'
-  locked?: boolean; // ne peut pas être supprimée dans son ensemble (ex. Vision du projet) — ses champs restent éditables
+  /** @deprecated plus rien ne met jamais ce champ à true depuis que Vision a
+   * rejoint le système de modules — conservé uniquement pour tolérer d'anciennes
+   * données persistées, aucune logique ne le lit plus. */
+  locked?: boolean;
 }
 
 export const VISION_SECTION_ID = 'vision';

@@ -20,7 +20,7 @@ import type { Priority, ResourceType, Resource, Task, Project, SectionData } fro
 import { DocumentView, ScreenplayView, MoodboardView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
-import { OverviewSectionForm } from '../components/OverviewSectionForm';
+import { OverviewSectionForm, KIND_LABEL_KEY } from '../components/OverviewSectionForm';
 import type { CustomOverviewSection } from '../data/projectContentStore';
 import { setProjectContent, VISION_SECTION_ID, getDefaultVisionSection } from '../data/projectContentStore';
 import { createTemplateDraft } from '../data/projectStore';
@@ -58,7 +58,9 @@ function OverviewSectionsEditor({ sections, onChange, color }: {
           <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditingId(section.id)} title={t('overview.editSection')}>
             <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</p>
             <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-              {section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`}
+              {(section.kind === 'fields' || section.kind === 'vision')
+                ? `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`
+                : t(KIND_LABEL_KEY[section.kind])}
             </p>
           </div>
           <button onClick={() => setEditingId(section.id)} title={t('overview.renameSection')}
@@ -81,6 +83,7 @@ function OverviewSectionsEditor({ sections, onChange, color }: {
           <OverviewSectionForm
             onSave={section => { onChange([...sections, section]); setAdding(false); }}
             onCancel={() => setAdding(false)}
+            existingSystemIds={sections.map(s => s.id)}
           />
         </div>
       ) : (
@@ -1603,7 +1606,7 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
           <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--surface-2)' }}>
             <SFIcon name={section.icon} size={13} color={tpl.color} />
             <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</span>
-            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{section.kind === 'note' ? t('overview.sectionKindNote') : `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{(section.kind === 'fields' || section.kind === 'vision') ? `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}` : t(KIND_LABEL_KEY[section.kind])}</span>
           </div>
         ))}
         {tpl.type === 'tasks' && (tpl.sections ?? []).map((section, i) => (
