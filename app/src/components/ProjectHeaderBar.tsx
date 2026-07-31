@@ -210,25 +210,16 @@ export function ProjectHeaderBar({
 
       {/* Right slot — actions propres à l'onglet + menu du projet */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-        {/* height:32 (not just padding) so this matches the Modifier/"..."
-            buttons' height exactly instead of rendering visibly shorter. */}
+        {/* height:32 (not just padding) so this matches the "..." button's
+            height exactly instead of rendering visibly shorter. */}
         {project.archived && (
           <span style={{ display: 'flex', alignItems: 'center', height: 32, fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', letterSpacing: '0.05em', boxSizing: 'border-box' }}>
             {t('projects.archivedBadge')}
           </span>
         )}
         {children}
-        {!project.isTemplateDraft && (
-        <button
-          onClick={() => setEditOpen(true)}
-          title={t('projects.editProject')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
-          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
-        >
-          <SFIcon name="square-pen" size={14} />
-        </button>
-        )}
+        {/* "Modifier" est le premier item du menu "..." (voir ProjectCard.tsx
+            pour le même changement) plutôt qu'un bouton séparé. */}
         {!project.isTemplateDraft && (
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(v => !v)} title={t('projects.projectMenu')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
@@ -238,6 +229,14 @@ export function ProjectHeaderBar({
             <>
               <div onClick={() => { setMenuOpen(false); setConfirmDelete(false); }} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
               <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                <button
+                  onClick={() => { setEditOpen(true); setMenuOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name="square-pen" size={13} color="var(--text-3)" />
+                  {t('projects.editProject')}
+                </button>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <button
                   onClick={() => { setMoveClientOpen(true); setMenuOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}

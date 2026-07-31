@@ -1442,28 +1442,27 @@ export function FicheClient() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* height:34 (not just padding) so this matches the
-                Modifier/"..." buttons' height exactly instead of rendering
-                visibly shorter. */}
+            {/* height:34 (not just padding) so this matches the "..." button's
+                height exactly instead of rendering visibly shorter. */}
             {client.archived && (
               <span style={{ display: 'flex', alignItems: 'center', height: 34, fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '0 10px', letterSpacing: '0.05em', boxSizing: 'border-box' }}>
                 {t('client.archived')}
               </span>
             )}
-            <button onClick={() => setClientEditOpen(true)} title={t('client.editClient')}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, height: 34, padding: '0 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', boxSizing: 'border-box' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-            >
-              <SFIcon name="square-pen" size={14} color="var(--text-3)" />
-              {t('client.edit')}
-            </button>
             <div style={{ position: 'relative' }} ref={clientMenuRef}>
-              <button onClick={() => setClientMenuOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
+              <button onClick={() => setClientMenuOpen(v => !v)} title={t('client.editClient')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}>
                 <SFIcon name="ellipsis" size={15} />
               </button>
               {clientMenuOpen && (
                 <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                  <button
+                    onClick={() => { setClientEditOpen(true); setClientMenuOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name="square-pen" size={13} color="var(--text-3)" />
+                    {t('client.edit')}
+                  </button>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                   <button
                     onClick={() => { if (client.archived) { unarchiveClient(client.id); } else { archiveClient(client.id); } setClientMenuOpen(false); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}

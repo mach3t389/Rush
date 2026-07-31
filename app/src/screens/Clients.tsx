@@ -389,16 +389,6 @@ function ClientActions({ clientId, pinned, archived, onEdit }: { clientId: strin
       >
         <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
       </button>
-      <button
-        onClick={e => { e.stopPropagation(); onEdit(); }}
-        title={t('clients.editClient')}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
-        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
-        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
-      >
-        <SFIcon name="square-pen" size={13} />
-      </button>
-
       <div ref={menuRef} style={{ position: 'relative' }}>
         <button
           onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
@@ -412,6 +402,14 @@ function ClientActions({ clientId, pinned, archived, onEdit }: { clientId: strin
             onClick={e => e.stopPropagation()}
             style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
           >
+            <button
+              onClick={() => { onEdit(); setMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+            >
+              <SFIcon name="square-pen" size={13} color="var(--text-3)" />
+              {t('clients.editClient')}
+            </button>
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
             <button
               onClick={() => { if (archived) { unarchiveClient(clientId); } else { archiveClient(clientId); } setMenuOpen(false); }}
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}

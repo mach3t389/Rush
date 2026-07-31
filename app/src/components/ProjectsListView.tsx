@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, loadAllResourceTemplates, resolveTasksSections, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
-import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
+import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { setProjectContent } from '../data/projectContentStore';
@@ -648,6 +648,22 @@ function ProjectListRow({ p }: { p: Project }) {
   const [phase, setPhase] = useState<Phase>(p.phase);
   const [phaseLabel, setPhaseLabel] = useState(p.phaseLabel);
   const [deliveryDate, setDeliveryDate] = useState(p.deliveryDate);
+  // Menu "..." — même contenu que ProjectCard.tsx (carte grille) et
+  // ProjectHeaderBar.tsx (en-tête projet) : Modifier en premier, puis
+  // Déplacer/Archiver/Supprimer. La vue Liste n'avait aucun de ces trois
+  // derniers avant ce chantier.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [moveClientOpen, setMoveClientOpen] = useState(false);
+  const [moveClientSearch, setMoveClientSearch] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setMenuOpen(false); setConfirmDelete(false); } };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
 
   useEffect(() => subscribePinned(() => setPinnedState(isPinned(p.id))), [p.id]);
   const [, forceStatsTick] = useState(0);
@@ -712,15 +728,72 @@ function ProjectListRow({ p }: { p: Project }) {
         >
           <SFIcon name="star" size={14} fill={pinned ? 'currentColor' : 'none'} />
         </button>
-        <button
-          onClick={() => setEditOpen(true)}
-          title={t('projects.editProject')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border-2)', flexShrink: 0, background: 'var(--surface-3)', color: 'var(--text)', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent)'; el.style.color = 'var(--on-accent)'; el.style.borderColor = 'transparent'; }}
-          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--surface-3)'; el.style.color = 'var(--text)'; el.style.borderColor = 'var(--border-2)'; }}
-        >
-          <SFIcon name="square-pen" size={13} />
-        </button>
+        <div ref={menuRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            title={t('projects.projectMenu')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0, background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer' }}
+          >
+            <SFIcon name="ellipsis" size={14} />
+          </button>
+          {menuOpen && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 500, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+            >
+              <button
+                onClick={() => { setEditOpen(true); setMenuOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+              >
+                <SFIcon name="square-pen" size={13} color="var(--text-3)" />
+                {t('projects.editProject')}
+              </button>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <button
+                onClick={() => { if (p.archived) { unarchiveProject(p.id); } else { archiveProject(p.id); } setMenuOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+              >
+                <SFIcon name={p.archived ? 'rotate-ccw' : 'archive'} size={13} color="var(--text-3)" />
+                {p.archived ? t('projects.unarchiveProject') : t('projects.archiveProject')}
+              </button>
+              <button
+                onClick={() => { setMoveClientOpen(true); setMenuOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+              >
+                <SFIcon name="arrow-right-left" size={13} color="var(--text-3)" />
+                {t('projects.moveToClient')}
+              </button>
+              {p.archived && !confirmDelete && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name="trash-2" size={13} color="var(--danger)" />
+                  {t('projects.deleteProjectPermanently')}
+                </button>
+              )}
+              {p.archived && confirmDelete && (
+                <div style={{ padding: '8px 10px' }}>
+                  <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('projects.deleteProjectConfirm')}</p>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => { removeProject(p.id); setMenuOpen(false); setConfirmDelete(false); }}
+                      style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                    >
+                      {t('tasks.yes')}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+                    >
+                      {t('tasks.no')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {editOpen && (
@@ -729,6 +802,39 @@ function ProjectListRow({ p }: { p: Project }) {
           phase={phase} phaseLabel={phaseLabel} deliveryDate={deliveryDate}
           onClose={() => setEditOpen(false)} onSave={handleSave}
         />
+      )}
+
+      {moveClientOpen && (
+        <SFModal open onClose={() => { setMoveClientOpen(false); setMoveClientSearch(''); }} title={t('projects.moveToClient')} width={380} maxHeight="70vh">
+          <input
+            autoFocus
+            value={moveClientSearch}
+            onChange={e => setMoveClientSearch(e.target.value)}
+            placeholder={t('members.searchPlaceholder')}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', marginBottom: 10 }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 320, overflowY: 'auto' }}>
+            {getClients().filter(c => !c.archived && c.id !== p.clientId && c.name.toLowerCase().includes(moveClientSearch.toLowerCase())).map(c => (
+              <button
+                key={c.id}
+                onClick={e => {
+                  e.stopPropagation();
+                  updateProject(p.id, { clientId: c.id, clientName: c.name, clientColor: c.avatarColor });
+                  setMoveClientOpen(false);
+                  setMoveClientSearch('');
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                  {c.initials}
+                </div>
+                <span style={{ fontSize: 13 }}>{c.name}</span>
+              </button>
+            ))}
+          </div>
+        </SFModal>
       )}
     </div>
   );
