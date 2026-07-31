@@ -15,7 +15,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, type CustomOverviewSection } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, getDefaultDeliverablesSection, type CustomOverviewSection, type CustomSectionValue } from '../data/projectContentStore';
 import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
@@ -328,7 +328,7 @@ export function TravailOverview() {
 
   const [notes, setNotes] = useState('');
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
-  const [customSectionData, setCustomSectionData] = useState<Record<string, string | Record<string, string>>>({});
+  const [customSectionData, setCustomSectionData] = useState<Record<string, CustomSectionValue>>({});
   const [addingSectionOpen, setAddingSectionOpen] = useState(false);
   const [saveOverviewTemplateModalOpen, setSaveOverviewTemplateModalOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -336,6 +336,9 @@ export function TravailOverview() {
 
   const handleAddSection = (section: CustomOverviewSection) => {
     setCustomSections(prev => [...prev, section]);
+    if (section.kind === 'checklist' || section.kind === 'gallery' || section.kind === 'links') {
+      setCustomSectionData(prev => ({ ...prev, [section.id]: [] }));
+    }
     setAddingSectionOpen(false);
   };
   const handleEditSection = (updated: CustomOverviewSection) => {
@@ -375,7 +378,7 @@ export function TravailOverview() {
     const newSections = [vision, ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID)];
     setCustomSections(newSections);
     setCustomSectionData(prev => {
-      const next: Record<string, string | Record<string, string>> = {};
+      const next: Record<string, CustomSectionValue> = {};
       if (prev[VISION_SECTION_ID] !== undefined) next[VISION_SECTION_ID] = prev[VISION_SECTION_ID];
       return next;
     });
@@ -387,7 +390,7 @@ export function TravailOverview() {
   // effects above), so this can't just be the useState initializer.
   const loadedContentRef = useRef<{
     projectId: string; notes: string;
-    customSections: CustomOverviewSection[]; customSectionData: Record<string, string | Record<string, string>>;
+    customSections: CustomOverviewSection[]; customSectionData: Record<string, CustomSectionValue>;
   } | null>(null);
   // Miroir synchrone de l'état courant — lu depuis le callback d'abonnement
   // (qui ne doit pas se ré-enregistrer à chaque frappe).
@@ -1110,7 +1113,8 @@ export function TravailOverview() {
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
               onMouseDown={e => { if (e.target === e.currentTarget) setAddingSectionOpen(false); }}>
               <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-                <OverviewSectionForm onSave={handleAddSection} onCancel={() => setAddingSectionOpen(false)} />
+                <OverviewSectionForm onSave={handleAddSection} onCancel={() => setAddingSectionOpen(false)}
+                  deliverablesAlreadyExists={customSections.some(s => s.kind === 'deliverables')} />
               </div>
             </div>
           )}

@@ -9,10 +9,29 @@ function makeFieldId(): string {
   return `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function OverviewSectionForm({ initial, onSave, onCancel }: {
+const KIND_LABEL_KEY: Record<OverviewSectionKind, string> = {
+  fields: 'overview.sectionKindFields',
+  note: 'overview.sectionKindNote',
+  deliverables: 'overview.sectionKindDeliverables',
+  checklist: 'overview.sectionKindChecklist',
+  gallery: 'overview.sectionKindGallery',
+  links: 'overview.sectionKindLinks',
+};
+const KIND_DESC_KEY: Record<OverviewSectionKind, string> = {
+  fields: 'overview.sectionKindFieldsDesc',
+  note: 'overview.sectionKindNoteDesc',
+  deliverables: 'overview.sectionKindDeliverablesDesc',
+  checklist: 'overview.sectionKindChecklistDesc',
+  gallery: 'overview.sectionKindGalleryDesc',
+  links: 'overview.sectionKindLinksDesc',
+};
+
+export function OverviewSectionForm({ initial, onSave, onCancel, deliverablesAlreadyExists }: {
   initial?: CustomOverviewSection;
   onSave: (section: CustomOverviewSection) => void;
   onCancel: () => void;
+  /** true si customSections contient déjà une entrée kind:'deliverables' — n'affiche pas ce choix, comme Vision n'est jamais proposée. */
+  deliverablesAlreadyExists?: boolean;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -25,7 +44,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel }: {
     setFields(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
   const removeField = (id: string) => setFields(prev => prev.filter(f => f.id !== id));
 
-  const canSave = title.trim().length > 0 && (kind === 'note' || fields.some(f => f.label.trim().length > 0));
+  const canSave = title.trim().length > 0 && (kind !== 'fields' || fields.some(f => f.label.trim().length > 0));
 
   const handleSave = () => {
     if (!canSave) return;
@@ -59,12 +78,14 @@ export function OverviewSectionForm({ initial, onSave, onCancel }: {
       </div>
 
       {!initial && (
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['fields', 'note'] as const).map(k => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {(['fields', 'note', 'checklist', 'gallery', 'links'] as OverviewSectionKind[])
+            .concat(deliverablesAlreadyExists ? [] : ['deliverables'])
+            .map(k => (
             <button key={k} onClick={() => setKind(k)}
-              style={{ flex: 1, textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{k === 'fields' ? t('overview.sectionKindFields') : t('overview.sectionKindNote')}</p>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{k === 'fields' ? t('overview.sectionKindFieldsDesc') : t('overview.sectionKindNoteDesc')}</p>
+              style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t(KIND_LABEL_KEY[k])}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(KIND_DESC_KEY[k])}</p>
             </button>
           ))}
         </div>
