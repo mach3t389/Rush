@@ -712,7 +712,7 @@ export function TaskPanel({
     const next = [...comments, { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const }];
     setComments(next);
     onUpdate?.({ comments: next });
-    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id });
+    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
   };
 
   const submitReply = (commentId: string, text: string) => {
@@ -723,7 +723,7 @@ export function TaskPanel({
     );
     setComments(next);
     onUpdate?.({ comments: next });
-    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id });
+    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
   };
 
   const toggleCommentResolved = (id: string) => {

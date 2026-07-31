@@ -61,6 +61,9 @@ function resolveWatchers(taskId?: string, resourceId?: string, projectId?: strin
       commit: next => updateResource(resourceId, { watchers: next }),
     };
   }
+  if (taskId || resourceId) {
+    console.warn('[commentNotify] resolveWatchers: no target matched (taskId without projectId?), watchers will not be resolved', { taskId, resourceId, projectId });
+  }
   return { current: [], commit: () => {} };
 }
 
