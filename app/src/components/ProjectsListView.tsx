@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
-import { loadAllTemplates, loadAllResourceTemplates, resolveTasksSections, type ProjectTemplate } from '../data/templates';
+import { loadAllTemplates, resolveTasksSections, type ProjectTemplate } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
@@ -31,7 +31,7 @@ function getTeam(): User[] {
   const team = getTeamMembers();
   return team.length > 0 ? team : TEAM;
 }
-type Step = 'start' | 'info' | 'fichiers' | 'team';
+type Step = 'start' | 'info' | 'team';
 type SortKey = 'recent' | 'alpha' | 'alpha-desc' | 'delivery' | 'client' | 'progress';
 
 const ALL_SORT_OPTIONS: { value: SortKey; labelKey: string; icon: string }[] = [
@@ -87,9 +87,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const authUser = getCurrentUser();
   const defaultMemberId = (!isDemoSession() && authUser && team.some(u => u.id === authUser.id)) ? authUser.id : team[0]?.id;
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
-  const [folderStructTplId, setFolderStructTplId] = useState<string | null>(null);
-  const [overviewTplId, setOverviewTplId] = useState<string | null>(null);
-  const [tasksTplId, setTasksTplId] = useState<string | null>(null);
 
   // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
   // reste disponible dans la bibliothèque complète (Modèles). Ordre volontaire :
@@ -100,9 +97,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     .map(id => allTemplates.find(t => t.id === id))
     .filter((t): t is ProjectTemplate => !!t);
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
-  const folderStructTemplates = loadAllResourceTemplates().filter(t => t.type === 'file');
-  const overviewTemplates = loadAllResourceTemplates().filter(t => t.type === 'overview');
-  const tasksTemplates = loadAllResourceTemplates().filter(t => t.type === 'tasks');
 
   // The creator is always a member of their own project — can't deselect yourself.
   const toggleMember = (id: string) => {
@@ -112,17 +106,12 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
   const canNext = step === 'start' ? true
     : step === 'info' ? name.trim().length > 0
-    : true; // 'fichiers' et 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
+    : true; // 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
 
   const next = () => {
     if (step === 'start') {
-      setFolderStructTplId(selectedTemplate?.defaultFolderStructureId ?? null);
-      setOverviewTplId(selectedTemplate?.defaultOverviewTemplateId ?? null);
-      setTasksTplId(selectedTemplate?.tasksTemplateId ?? null);
       setStep('info');
     } else if (step === 'info') {
-      setStep('fichiers');
-    } else if (step === 'fichiers') {
       setStep('team');
     } else {
       create();
@@ -130,8 +119,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   };
   const back = () => {
     if (step === 'info') setStep('start');
-    else if (step === 'fichiers') setStep('info');
-    else if (step === 'team') setStep('fichiers');
+    else if (step === 'team') setStep('info');
   };
 
   const create = async () => {
@@ -139,6 +127,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     const client = allClients.find(c => c.id === clientId) ?? allClients[0];
     const members = team.filter(u => memberIds.includes(u.id));
     const projectId = `pj${Date.now()}`;
+    const templateSections = selectedTemplate ? resolveTasksSections(selectedTemplate) : [];
     const newProject: Project = {
       id: projectId,
       name: name.trim(),
@@ -148,18 +137,16 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       phase: 'preproduction',
       phaseLabel: 'Préproduction',
       progress: 0,
-      taskCount: selectedTemplate ? resolveTasksSections({ ...selectedTemplate, tasksTemplateId: tasksTplId ?? selectedTemplate.tasksTemplateId }).reduce((n, s) => n + s.tasks.length, 0) : 0,
+      taskCount: templateSections.reduce((n, s) => n + s.tasks.length, 0),
       deliverableCount: 0,
       members,
       deliveryDate: deliveryDate ? formatDisplay(deliveryDate) : '—',
       status: 'info',
       statusLabel: 'En cours',
       modifiedAt: new Date().toISOString(),
-      folderStructureTemplateId: folderStructTplId ?? undefined,
-      overviewTemplateId: overviewTplId ?? undefined,
     };
-    if (selectedTemplate) {
-      const sections: SectionData[] = resolveTasksSections({ ...selectedTemplate, tasksTemplateId: tasksTplId ?? selectedTemplate.tasksTemplateId }).map(sec => ({
+    if (templateSections.length) {
+      const sections: SectionData[] = templateSections.map(sec => ({
         label: sec.label,
         progress: 0,
         tasks: sec.tasks.map((tt, i): Task => ({
@@ -181,26 +168,20 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       }));
       setSections(projectId, sections);
     }
-    if (folderStructTplId) {
-      const fileTpl = loadAllResourceTemplates().find(t => t.id === folderStructTplId);
-      if (fileTpl?.folderStructure?.length) {
-        addFolderTree(fileTpl.folderStructure, { projectId });
-      }
+    if (selectedTemplate?.folderStructure?.length) {
+      addFolderTree(selectedTemplate.folderStructure, { projectId });
     }
     // `project_content.project_id` référence `projects(id)` : la ligne projet doit
     // exister AVANT d'écrire le contenu d'Aperçu (sinon violation de clé étrangère
     // en session réelle). On attend donc la création avant setProjectContent.
     await onCreate(newProject);
-    if (overviewTplId) {
-      const overviewTpl = loadAllResourceTemplates().find(t => t.id === overviewTplId);
-      if (overviewTpl?.overviewSections?.length) {
-        setProjectContent(projectId, { customSections: overviewTpl.overviewSections });
-      }
+    if (selectedTemplate?.overviewSections?.length) {
+      setProjectContent(projectId, { customSections: selectedTemplate.overviewSections });
     }
     onClose();
   };
 
-  const STEP_ORDER: Step[] = ['start', 'info', 'fichiers', 'team'];
+  const STEP_ORDER: Step[] = ['start', 'info', 'team'];
   const stepDone = (s: Step) => STEP_ORDER.indexOf(step) > STEP_ORDER.indexOf(s);
 
   return (
@@ -213,7 +194,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           <div>
             <h2 style={{ fontSize: 17, fontWeight: 700 }}>{t('projects.newProject')}</h2>
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              {step === 'start' ? t('projects.stepStartSubtitle') : step === 'info' ? t('projects.stepInfoSubtitle') : step === 'fichiers' ? t('projects.stepFilesSubtitle') : t('projects.stepTeamSubtitle')}
+              {step === 'start' ? t('projects.stepStartSubtitle') : step === 'info' ? t('projects.stepInfoSubtitle') : t('projects.stepTeamSubtitle')}
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -221,9 +202,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
             <StepDot label={t('projects.stepInfo')} num={2} active={step === 'info'} done={stepDone('info')} />
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepFiles')} num={3} active={step === 'fichiers'} done={stepDone('fichiers')} />
-            <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepTeam')} num={4} active={step === 'team'} done={stepDone('team')} />
+            <StepDot label={t('projects.stepTeam')} num={3} active={step === 'team'} done={stepDone('team')} />
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={17} />
@@ -421,140 +400,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             </div>
           )}
 
-          {/* Step 3: Folder structure */}
-          {step === 'fichiers' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                {t('models.resTypeFile')}
-              </p>
-              <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: -8 }}>
-                {t('projects.folderStructureIntro')}
-              </p>
-
-              <div
-                onClick={() => setFolderStructTplId(null)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
-                  border: `2px solid ${folderStructTplId === null ? 'var(--accent)' : 'var(--border)'}`,
-                  background: folderStructTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
-                  transition: 'border-color 0.15s',
-                }}
-              >
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <SFIcon name="folder-open" size={18} color="var(--text-3)" />
-                </div>
-                <div>
-                  <p style={{ fontWeight: 600, fontSize: 13 }}>{t('projects.noStructure')}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t('projects.noStructureDesc')}</p>
-                </div>
-                {folderStructTplId === null && <SFIcon name="circle-check" size={18} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                {folderStructTemplates.map(tpl => {
-                  const isSelected = folderStructTplId === tpl.id;
-                  const folders = tpl.folderStructure ?? [];
-                  return (
-                    <div
-                      key={tpl.id}
-                      onClick={() => setFolderStructTplId(tpl.id)}
-                      style={{
-                        padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
-                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                        background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
-                        transition: 'border-color 0.15s', position: 'relative',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 9, background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <SFIcon name={tpl.icon} size={17} color={tpl.color} />
-                        </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
-                            {tpl.builtIn && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>{t('projects.official')}</span>}
-                          </div>
-                          <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 8 }}>{tpl.description}</p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {folders.slice(0, 4).map(f => (
-                              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <SFIcon name="folder" size={10} color={tpl.color} />
-                                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)' }}>{f.name}</span>
-                                {f.children && f.children.length > 0 && (
-                                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', opacity: 0.6 }}>({f.children.length})</span>
-                                )}
-                              </div>
-                            ))}
-                            {folders.length > 4 && (
-                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', opacity: 0.6, paddingLeft: 15 }}>{t('projects.moreFolders', { count: folders.length - 4 })}</span>
-                            )}
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <div style={{ flexShrink: 0 }}>
-                            <SFIcon name="circle-check" size={16} color="var(--accent)" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {overviewTemplates.length > 0 && (
-                <>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>
-                    {t('models.resTypeOverview')}
-                  </p>
-                  <div
-                    onClick={() => setOverviewTplId(null)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${overviewTplId === null ? 'var(--accent)' : 'var(--border)'}`, background: overviewTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
-                  >
-                    <SFIcon name="layout-panel-top" size={16} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('overview.overviewTemplateNoneNew')}</span>
-                    {overviewTplId === null && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                  </div>
-                  {overviewTemplates.map(tpl => (
-                    <div key={tpl.id} onClick={() => setOverviewTplId(tpl.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${overviewTplId === tpl.id ? 'var(--accent)' : 'var(--border)'}`, background: overviewTplId === tpl.id ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
-                    >
-                      <SFIcon name={tpl.icon} size={16} color="var(--text-3)" />
-                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{tpl.name}</span>
-                      {overviewTplId === tpl.id && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {tasksTemplates.length > 0 && (
-                <>
-                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>
-                    {t('models.resTypeTasks')}
-                  </p>
-                  <div
-                    onClick={() => setTasksTplId(null)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${tasksTplId === null ? 'var(--accent)' : 'var(--border)'}`, background: tasksTplId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
-                  >
-                    <SFIcon name="list-checks" size={16} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{t('projects.tasksTemplateNoneNew')}</span>
-                    {tasksTplId === null && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                  </div>
-                  {tasksTemplates.map(tpl => (
-                    <div key={tpl.id} onClick={() => setTasksTplId(tpl.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: `2px solid ${tasksTplId === tpl.id ? 'var(--accent)' : 'var(--border)'}`, background: tasksTplId === tpl.id ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}
-                    >
-                      <SFIcon name={tpl.icon} size={16} color="var(--text-3)" />
-                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{tpl.name}</span>
-                      {tasksTplId === tpl.id && <SFIcon name="circle-check" size={16} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Step 4: Team */}
+          {/* Step 3: Team */}
           {step === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('projects.selectMembers')}</p>
