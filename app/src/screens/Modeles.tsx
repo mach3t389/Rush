@@ -423,7 +423,6 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       status: 'info',
       statusLabel: t('projects.statusInProgress'),
       modifiedAt: t('clients.justNow'),
-      folderStructureTemplateId: template.defaultFolderStructureId ?? undefined,
     };
 
     // Materialize the template's sections + tasks into the project task store.
@@ -449,13 +448,12 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
     }));
     if (sections.length) setSections(projectId, sections);
 
-    // Materialize the default folder structure if the template defines one.
-    if (template.defaultFolderStructureId) {
-      const fileTpl = loadAllResourceTemplates().find(t => t.id === template.defaultFolderStructureId);
-      if (fileTpl?.folderStructure?.length) addFolderTree(fileTpl.folderStructure, { projectId });
-    }
+    // Materialize the template's folder structure, if any.
+    if (template.folderStructure?.length) addFolderTree(template.folderStructure, { projectId });
 
-    addProject(newProject);
+    addProject(newProject).then(() => {
+      if (template.overviewSections?.length) setProjectContent(projectId, { customSections: template.overviewSections });
+    });
     onClose();
     navigate(`/projets/${projectId}`);
   };
