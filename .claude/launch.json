@@ -110,6 +110,36 @@
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
+    },
+    {
+      "name": "notifications-watchers-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/notifications-watchers/app", "--", "--port", "5257", "--strictPort"],
+      "port": 5257,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "notif-gaps-fix-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/notif-gaps-fix/app", "--", "--port", "5259", "--strictPort"],
+      "port": 5259,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "notif-grouping-worktree",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/notif-grouping/app", "--", "--port", "5263", "--strictPort"],
+      "port": 5263,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
     }
   ]
 }
