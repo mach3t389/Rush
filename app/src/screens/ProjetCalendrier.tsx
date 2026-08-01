@@ -881,24 +881,21 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
 
       {/* Main */}
       <div ref={mainRef} style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0, background: 'var(--bg)' }}>
-        <PageHeader title={t('nav.calendar')} subtitle={title}>
-          {/* Navigation + rangée de tags — alignées sur le même bord gauche
-              (voir CalendrierGlobal.tsx, même correction appliquée ici). */}
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            <div style={{ display:'flex',alignItems:'center',gap:6 }}>
-              <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
-                Aujourd'hui
-              </button>
-              <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
-                <SFIcon name="chevron-left" size={14} />
-              </button>
-              <button onClick={next} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
-                <SFIcon name="chevron-right" size={14} />
-              </button>
-            </div>
+        <PageHeader title={t('nav.calendar')} subtitle={title}
+          actions={
+            <div style={{ display:'flex', alignItems:'flex-start', alignSelf:'flex-start', gap:12 }}>
+              <div style={{ display:'flex',alignItems:'center',gap:6 }}>
+                <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
+                  Aujourd'hui
+                </button>
+                <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
+                  <SFIcon name="chevron-left" size={14} />
+                </button>
+                <button onClick={next} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
+                  <SFIcon name="chevron-right" size={14} />
+                </button>
+              </div>
 
-            <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
               <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
                 {([['month','Mois','M'],['week','Semaine','W'],['day','Jour','J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
                   <button key={v} onClick={()=>setView(v)}
@@ -918,8 +915,8 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
                 <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
               </button>
             </div>
-          </div>
-
+          }
+        >
           {/* Types d'événements — EventTypeFilterBar est un éditeur CRUD complet
               sur la table event_types (partagée par tout le studio), jamais exposé
               à une session client en lecture seule ; son prop readOnly retire le
@@ -933,7 +930,6 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
             newTypeLabel="+ Nouveau"
             readOnly={readOnly}
           />
-          </div>
         </PageHeader>
 
         {view==='month' && (
