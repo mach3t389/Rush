@@ -5,6 +5,7 @@ import { getResources, updateResource } from '../data/resourceStore';
 import { WatchersRow } from '../components/WatchersRow';
 import { addWatcher } from '../data/watchers';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
+import { isDemoSession } from '../data/authStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 import { notifyComment } from '../data/commentNotify';
@@ -122,7 +123,9 @@ export function WebReview() {
   };
 
   const persistedAnnotations = resourceId ? getResourceContent<{ annotations: Annotation[] }>(resourceId) : undefined;
-  const [annotations, setAnnotations] = useState<Annotation[]>(persistedAnnotations?.annotations ?? (resourceId ? [] : DEMO_ANNOTATIONS));
+  // Annotations d'exemple réservées aux ressources démo pré-existantes non éditées.
+  const annotationsShowcaseFallback = resourceId && !isDemoSession();
+  const [annotations, setAnnotations] = useState<Annotation[]>(persistedAnnotations?.annotations ?? (annotationsShowcaseFallback ? [] : DEMO_ANNOTATIONS));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addingPin, setAddingPin] = useState(false);
   // pendingPos stored in page-pixel coordinates
