@@ -312,13 +312,13 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
           </div>
         )}
         {tpl.type === 'tasks' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560, margin: '0 auto', width: '100%' }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 860, margin: '0 auto', width: '100%' }}>
             {taskSections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
             {taskSections.map((section, si) => (
               <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {section.tasks.map((task, ti) => (
+                  {(section.tasks ?? []).map((task, ti) => (
                     <ProjectTaskRow
                       key={ti}
                       task={{ ...task, assignees: task.assignees ?? [] }}
@@ -579,12 +579,12 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
         projectId,
         projectName: newProject.name,
         projectColor: color,
-        assignees: owner ? [owner] : [],
+        assignees: tt.assignees?.length ? tt.assignees : (owner ? [owner] : []),
         status: 'warn',
         statusLabel: t('models.statusWaiting'),
         priority: tt.priority ?? 'normal',
         priorityLabel: tt.priority === 'high' ? t('models.priorityHigh') : tt.priority === 'low' ? t('models.priorityLow') : t('models.priorityNormal'),
-        dueDate: '',
+        dueDate: tt.dueDate ?? '',
         checked: false,
         subtasks: [],
         watchers: addWatchers([], [getCurrentUser()?.id, owner?.id]),
@@ -1813,7 +1813,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
           <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {section.tasks.map((task, ti) => (
+              {(section.tasks ?? []).map((task, ti) => (
                 <ProjectTaskRow
                   key={ti}
                   task={{ ...task, assignees: task.assignees ?? [] }}
@@ -1875,7 +1875,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
       </div>
       {/* Body */}
       <div style={{ flex: 1, overflow: 'auto', padding: '28px 0' }}>
-        <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <p style={labelStyle()}>Description</p>
             {inp(description, setDescription, "Décrivez l'utilisation de ce modèle…", true)}
