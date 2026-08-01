@@ -49,7 +49,13 @@ export function SFAvatarGroup({ avatars, size = 24, max = 4 }: SFAvatarGroupProp
       {shown.map((a, i) => (
         <span
           key={i}
-          style={{ marginLeft: i === 0 ? 0 : -(size * 0.28), zIndex: shown.length - i }}
+          // Sans display, ce wrapper reste un simple inline blockifié : sa
+          // hauteur suit alors la line-height héritée du texte ambiant
+          // (mesuré : 24.75px pour un avatar de 19px), pas celle de son
+          // unique enfant — d'où l'avatar qui semblait décalé par rapport
+          // aux puces priorité/statut, elles bien alignées à leur taille
+          // exacte. inline-flex fait suivre la taille réelle du contenu.
+          style={{ display: 'inline-flex', alignItems: 'center', marginLeft: i === 0 ? 0 : -(size * 0.28), zIndex: shown.length - i }}
         >
           <SFAvatar initials={a.initials} bg={a.bg} size={size} title={a.name} />
         </span>
@@ -60,6 +66,10 @@ export function SFAvatarGroup({ avatars, size = 24, max = 4 }: SFAvatarGroupProp
             marginLeft: -(size * 0.28),
             width: size,
             height: size,
+            // Sans border-box, la bordure s'ajoutait à `size` : la bulle
+            // « +N » rendait 2 px de plus que les avatars qu'elle prolonge,
+            // et que toute puce alignée sur la même hauteur.
+            boxSizing: 'border-box',
             borderRadius: '50%',
             background: 'var(--surface-3)',
             border: '1px solid var(--border-2)',

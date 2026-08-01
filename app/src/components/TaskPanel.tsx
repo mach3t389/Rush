@@ -43,6 +43,27 @@ const PANEL_STATUS_OPTIONS: { value: string; labelKey: string }[] = [
   { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
+// Icône propre à CHAQUE statut, pour l'affichage compact d'une sous-tâche.
+//
+// La couleur seule ne suffit pas à identifier un statut : les palettes de
+// priorité et de statut se recouvrent (ambre = priorité moyenne ET statut
+// « à faire », bleu = priorité basse ET « en cours », rouge = priorité
+// élevée ET « en retard »). C'est donc la forme qui distingue, la couleur
+// ne fait que renforcer — ce qui permet de se passer du libellé écrit et
+// de garder la rangée compacte. Le drapeau reste réservé à la priorité.
+const SUBTASK_STATUS_ICON: Record<string, string> = {
+  warn:   'circle-dashed', // à faire — rien de commencé
+  info:   'circle-dot',    // en cours — activité au centre
+  review: 'eye',           // en révision — sous observation
+  ok:     'circle-check',  // terminé
+  danger: 'circle-alert',  // en retard
+};
+
+// Hauteur commune à toutes les puces de la rangée compacte (priorité,
+// statut, échéance) et à l'avatar : sans elle, chaque élément prenait sa
+// hauteur naturelle et la rangée partait en escalier.
+const SUBTASK_CHIP_H = 19;
+
 const RESOURCE_STATUS_OPTIONS: { status: Status; labelKey: string }[] = [
   { status: 'ok',      labelKey: 'resources.completed'  },
   { status: 'info',    labelKey: 'resources.inProgress' },
@@ -226,10 +247,10 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
   // is only for the nested date picker launched from within it.
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [fieldsRect, setFieldsRect] = useState<DOMRect | null>(null);
-  const [dropOpen, setDropOpen] = useState<'date' | null>(null);
+  const [dropOpen, setDropOpen] = useState<'date' | 'status' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const editTitleRef = useRef<HTMLInputElement>(null);
-  const hasFields = sub.priority !== 'none' || sub.assignees.length > 0 || !!sub.dueDate;
+  const hasFields = sub.priority !== 'none' || sub.assignees.length > 0 || !!sub.dueDate || !!sub.status;
 
   const openDrop = (key: typeof dropOpen, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -326,14 +347,38 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
           column's width instead of being squeezed into the title track alone. */}
       {!editing && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifySelf: 'end' }}>
-          {/* Compact glance row — shows what's set without opening the fields
-              popover; each piece only renders when it has a value, so an
-              empty subtask stays uncluttered. */}
-          {sub.assignees.length > 0 && (
-            <AssigneeGroup assignees={sub.assignees} size={16} readOnly />
+          {/* Rangée compacte — chaque élément ne s'affiche que s'il a une
+              valeur, pour qu'une sous-tâche vide reste dépouillée. Toutes les
+              puces partagent SUBTASK_CHIP_H : la priorité et le statut sont
+              des carrés à icône (pas de libellé — voir SUBTASK_STATUS_ICON),
+              l'échéance une puce au contour neutre, car une date n'est ni un
+              rang ni une catégorie et n'a donc pas à porter de couleur. */}
+          {sub.priority !== 'none' && (
+            <span
+              title={`${t('tasks.priority')} : ${t(PRIORITY_LABEL_KEY[sub.priority])}`}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: SUBTASK_CHIP_H, height: SUBTASK_CHIP_H, boxSizing: 'border-box', border: `1px solid ${PRIORITY_COLOR[sub.priority]}`, borderRadius: 5, flexShrink: 0 }}
+            >
+              <SFIcon name="flag" size={10} color={PRIORITY_COLOR[sub.priority]} />
+            </span>
+          )}
+          {sub.status && SUBTASK_STATUS_ICON[sub.status] && (
+            <span
+              title={`${t('tasks.status')} : ${t(PANEL_STATUS_OPTIONS.find(o => o.value === sub.status)?.labelKey ?? 'tasks.noStatus')}`}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: SUBTASK_CHIP_H, height: SUBTASK_CHIP_H, boxSizing: 'border-box', border: `1px solid ${STATUS_COLOR[sub.status]}`, borderRadius: 5, flexShrink: 0 }}
+            >
+              <SFIcon name={SUBTASK_STATUS_ICON[sub.status]} size={11} color={STATUS_COLOR[sub.status]} />
+            </span>
           )}
           {sub.dueDate && (
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{fmtDateCompact(sub.dueDate)}</span>
+            <span
+              title={`${t('tasks.dueDate')} : ${fmtDate(sub.dueDate)}`}
+              style={{ display: 'inline-flex', alignItems: 'center', height: SUBTASK_CHIP_H, boxSizing: 'border-box', border: '1px solid var(--border)', borderRadius: 5, padding: '0 6px', fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.04em', color: 'var(--text-2)', whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              {fmtDateCompact(sub.dueDate)}
+            </span>
+          )}
+          {sub.assignees.length > 0 && (
+            <AssigneeGroup assignees={sub.assignees} size={SUBTASK_CHIP_H} readOnly />
           )}
           <div style={{ position: 'relative' }}>
           <button
@@ -343,10 +388,9 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             onMouseEnter={e => { if (!fieldsOpen) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
             onMouseLeave={e => { if (!fieldsOpen) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
           >
+            {/* Plus de pastille de priorité en coin : la priorité a sa propre
+                puce dans la rangée ci-dessus, à hauteur égale des autres. */}
             <SFIcon name="sliders-horizontal" size={12} color={hasFields ? 'var(--text-2)' : 'var(--text-3)'} />
-            {sub.priority !== 'none' && (
-              <span style={{ position: 'absolute', top: 1, right: 1, width: 6, height: 6, borderRadius: '50%', background: PRIORITY_COLOR[sub.priority], border: '1px solid var(--surface)' }} />
-            )}
           </button>
           {fieldsOpen && (
             <InlineDropdown onClose={() => setFieldsOpen(false)} anchorRect={fieldsRect} minWidth={220} zIndex={600}>
@@ -373,6 +417,31 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
                       onChange={next => onUpdate({ assignees: next })}
                     />
                   </div>
+                </div>
+                {/* Statut — même liste d'options et même rendu que la tâche
+                    parente (PANEL_STATUS_OPTIONS + SFPill). Le champ existait
+                    déjà dans les données d'une sous-tâche, seule l'interface
+                    manquait : sans elle, la colonne Statut de « Mes tâches »
+                    restait vide pour toute sous-tâche assignée qui y remonte. */}
+                <div style={{ position: 'relative' }}>
+                  {subColLabel(t('tasks.status'))}
+                  <button onClick={e => openDrop('status', e)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', width: '100%' }}>
+                    {sub.status
+                      ? <SFPill status={sub.status as Task['status']} small>{t(PANEL_STATUS_OPTIONS.find(o => o.value === sub.status)?.labelKey ?? 'tasks.noStatus')}</SFPill>
+                      : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{t('taskPanel.none')}</span>
+                    }
+                    <SFIcon name="chevron-down" size={10} color="var(--text-3)" style={{ marginLeft: 'auto' }} />
+                  </button>
+                  {dropOpen === 'status' && (
+                    <InlineDropdown onClose={() => setDropOpen(null)} anchorRect={dropRect} zIndex={700}>
+                      {PANEL_STATUS_OPTIONS.map(o => ddItem(
+                        () => { onUpdate({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); setDropOpen(null); },
+                        <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
+                        sub.status === o.value,
+                      ))}
+                    </InlineDropdown>
+                  )}
                 </div>
                 {/* Date */}
                 <div style={{ position: 'relative' }}>

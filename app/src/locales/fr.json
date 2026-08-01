@@ -1091,7 +1091,7 @@
     "removeResource": "Retirer la ressource",
     "closeToTask": "Fermer (revenir à la tâche)",
     "prio": "Prio",
-    "subtaskFields": "Priorité, assigné, échéance",
+    "subtaskFields": "Priorité, assigné, statut, échéance",
     "showCompletedSubtasks": "Afficher les sous-tâches terminées",
     "hideCompletedSubtasks": "Masquer les sous-tâches terminées",
     "completedHidden": "Terminées masquées",

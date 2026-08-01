@@ -1091,7 +1091,7 @@
     "removeResource": "Remove resource",
     "closeToTask": "Close (back to task)",
     "prio": "Prio",
-    "subtaskFields": "Priority, assignee, due date",
+    "subtaskFields": "Priority, assignee, status, due date",
     "showCompletedSubtasks": "Show completed subtasks",
     "hideCompletedSubtasks": "Hide completed subtasks",
     "completedHidden": "Completed hidden",

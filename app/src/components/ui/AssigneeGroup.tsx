@@ -81,7 +81,14 @@ export function AssigneeGroup({
     </span>
   );
 
-  if (readOnly) return <span title={label}>{content}</span>;
+  // display: inline-flex (pas juste inline) : sans mise en page propre, la
+  // hauteur de ligne héritée du texte ambiant dépasse celle du contenu réel
+  // (19px), ajoutant un espace fantôme au-dessus/en dessous qui décale
+  // visiblement la pastille par rapport à des puces voisines de même
+  // hauteur — mesuré : 24.75px de haut au lieu de 19px dans une rangée de
+  // sous-tâche. Le chemin interactif juste en dessous a déjà ce style ;
+  // seul celui-ci, en lecture seule, ne l'avait pas.
+  if (readOnly) return <span title={label} style={{ display: 'inline-flex', alignItems: 'center' }}>{content}</span>;
 
   return (
     <>
