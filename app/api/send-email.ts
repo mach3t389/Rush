@@ -57,12 +57,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (eventKey && recipientUserId) {
     const { data: prefsRow } = await supabaseAdmin
       .from('notif_prefs')
-      .select('prefs')
+      .select('prefs, digest_mode')
       .eq('user_id', recipientUserId)
       .maybeSingle();
+    // Le mode récap coupe TOUS les courriels individuels, peu importe la
+    // préférence par catégorie — c'est le point du mode "un seul résumé
+    // par jour plutôt que du courriel au fil de l'eau".
+    if (prefsRow?.digest_mode) {
+      res.status(200).json({ ok: true, skipped: true, reason: 'digest_mode' });
+      return;
+    }
     const prefs = (prefsRow?.prefs as Record<string, { email?: boolean }> | undefined) ?? {};
-    // Absence de préférence = comportement par défaut (voir DEFAULTS dans
-    // notifPrefsStore.ts) — seule une valeur explicite `false` bloque l'envoi.
     if (prefs[eventKey]?.email === false) {
       res.status(200).json({ ok: true, skipped: true });
       return;
