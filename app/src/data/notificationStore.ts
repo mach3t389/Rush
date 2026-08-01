@@ -240,7 +240,7 @@ function getNotifs(): AppNotif[] {
 
 async function addSupabaseNotif(notif: AppNotif): Promise<void> {
   const studioId = await getStudioId();
-  const { error } = await supabase.from('notifications').insert(toRow(notif, studioId));
+  const { error } = await supabase.from('notifications').upsert(toRow(notif, studioId));
   if (error) { console.error('addSupabaseNotif failed', error); return; }
   await fetchSupabaseNotifs();
 }
@@ -338,7 +338,58 @@ export function markAllRead(): void {
   void markSupabaseRead(idsToMark);
 }
 
+// Regroupement : un commentaire sur un item qui a déjà une notification
+// 'comment' non lue pour ce même item met à jour cette notification au
+// lieu d'en créer une nouvelle — évite le bruit de dix notifications
+// séparées pour dix commentaires rapprochés. Les mentions ne sont jamais
+// concernées (toujours individuelles, gérées par le chemin normal
+// ci-dessous puisque mentionedMembers.length===0 ⇒ kind !== 'comment' ne
+// s'applique pas ici, mais kind==='mention' est explicitement exclu par
+// la condition). Seuls les appelants qui fournissent `itemLabel`
+// participent à ce mécanisme (voir Tâche 3) — sans lui, comportement
+// inchangé.
+function findGroupableNotif(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif | undefined {
+  if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
+  const ctx = notif.taskId ?? notif.resourceId;
+  if (!ctx) return undefined;
+  return getNotifs().find(n =>
+    !n.read &&
+    n.kind === 'comment' &&
+    (n.taskId ?? n.resourceId) === ctx
+  );
+}
+
+function groupedText(actorNames: string[], itemLabel: string): string {
+  if (actorNames.length <= 1) return `a commenté « ${itemLabel} »`;
+  if (actorNames.length === 2) return `et ${actorNames[1]} ont commenté « ${itemLabel} »`;
+  return `et ${actorNames.length - 1} autres ont commenté « ${itemLabel} »`;
+}
+
 export function addNotif(notif: Omit<AppNotif, 'id' | 'read'>): void {
+  const existing = findGroupableNotif(notif);
+  if (existing) {
+    const actorNames = [notif.actor, ...(existing.actorNames ?? [existing.actor]).filter(a => a !== notif.actor)];
+    const merged: AppNotif = {
+      ...existing,
+      actor: notif.actor,
+      actorNames,
+      count: (existing.count ?? 1) + 1,
+      text: groupedText(actorNames, notif.itemLabel!),
+      timestamp: notif.timestamp,
+      recipientIds: notif.recipientIds,
+    };
+    if (isDemoSession()) {
+      _demoNotifs = _demoNotifs.map(n => n.id === merged.id ? merged : n);
+      persistDemo();
+      notify();
+      return;
+    }
+    _supabaseNotifs = _supabaseNotifs.map(n => n.id === merged.id ? merged : n);
+    notify();
+    void addSupabaseNotif(merged); // upsert-style: insert avec le même id échouerait — voir Step 3
+    return;
+  }
+
   if (isDemoSession()) {
     const id = `user-${Date.now()}-${_demoNotifs.length}`;
     _demoNotifs = [{ ...notif, id, read: false }, ..._demoNotifs];
