@@ -31,6 +31,24 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
 
   const handleSave = () => {
     if (!name.trim()) return;
+    // KNOWN LIMITATION (real/Supabase sessions only — demo sessions read
+    // synchronous mock data and are unaffected): taskStore/fileStore/
+    // projectContentStore each keep an in-memory cache populated by a
+    // background fetch kicked off lazily the first time something calls
+    // getSections()/getFolderTreeForProject()/getProjectContent() for this
+    // project id (ensureSupabaseFetchStarted / ensureFetchStarted). None of
+    // the three expose an awaitable "fetch is done" promise — the getters
+    // are synchronous by design and can legitimately return [] / empty
+    // content on the very first call. If the user opens this modal from a
+    // surface that never itself reads one of these stores for this project
+    // (e.g. the project's Calendrier or Finances tab, reached without ever
+    // visiting Travail/Fichiers/Overview first), the corresponding section
+    // below can silently save an empty template. In practice this is rare
+    // because ProjectHeaderBar (which hosts the "create template" action)
+    // is almost always reached after a page that already primed these
+    // caches — but it is not guaranteed. A proper fix would mean adding a
+    // real awaitable "ensure fetched" API to all three stores, which is out
+    // of scope for this refactor.
     const sections: TemplateSection[] | undefined = includeTasks
       ? getSections(project.id).map(s => ({ label: s.label, tasks: s.tasks.map(t => ({ title: t.title, priority: t.priority, description: t.description, status: t.status, statusLabel: t.statusLabel, dueDate: t.dueDate, assignees: t.assignees, subtasks: [] })) }))
       : undefined;

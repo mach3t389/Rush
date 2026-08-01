@@ -623,12 +623,32 @@ export function getVisibleBuiltInTemplates(): ProjectTemplate[] {
   return BUILT_IN_TEMPLATES.filter(t => !isTemplateHidden(t.id));
 }
 
+// Les 4 modèles de ressources "tâches" ci-dessous ont été supprimés de
+// BUILT_IN_RESOURCE_TEMPLATES lors de la refonte (leur contenu vit désormais
+// directement dans l'entrée BUILT_IN_TEMPLATES correspondante). Un ancien
+// modèle de projet personnalisé dupliqué avant la refonte peut encore
+// référencer ces ids via tasksTemplateId — on retombe alors sur les sections
+// du modèle de projet intégré équivalent plutôt que de perdre les tâches.
+const LEGACY_TASKS_RESOURCE_TO_BUILTIN_PROJECT: Record<string, string> = {
+  'res-tasks-video-sociale': 'tpl-video-sociale',
+  'res-tasks-film-institutionnel': 'tpl-film-institutionnel',
+  'res-tasks-shoot-photo': 'tpl-shoot-photo',
+  'res-tasks-motion-design': 'tpl-motion-design',
+};
+
 function migrateLegacyProjectTemplate(tpl: ProjectTemplate): ProjectTemplate {
   if (!tpl.tasksTemplateId && !tpl.defaultFolderStructureId && !tpl.defaultOverviewTemplateId) return tpl;
   const resources = loadAllResourceTemplates();
   const migrated = { ...tpl };
   if (tpl.tasksTemplateId && !tpl.sections) {
-    migrated.sections = resources.find(r => r.id === tpl.tasksTemplateId && r.type === 'tasks')?.sections ?? [];
+    const direct = resources.find(r => r.id === tpl.tasksTemplateId && r.type === 'tasks')?.sections;
+    if (direct) {
+      migrated.sections = direct;
+    } else {
+      const fallbackProjectId = LEGACY_TASKS_RESOURCE_TO_BUILTIN_PROJECT[tpl.tasksTemplateId];
+      const fallbackProject = fallbackProjectId ? BUILT_IN_TEMPLATES.find(p => p.id === fallbackProjectId) : undefined;
+      migrated.sections = fallbackProject?.sections ?? [];
+    }
   }
   if (tpl.defaultFolderStructureId && !tpl.folderStructure) {
     migrated.folderStructure = resources.find(r => r.id === tpl.defaultFolderStructureId && r.type === 'file')?.folderStructure ?? [];
