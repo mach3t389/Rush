@@ -754,6 +754,19 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
       { id: 'm5', title: 'Typographie à l\'écran', note: 'Police : [POLICE CLIENT]. Titres en blanc sur fond semi-transparent. Entrées en fondu. Jamais de texte sur fond clair.' },
     ],
   },
+  // ── Aperçu ──
+  {
+    id: 'res-overview-base',
+    type: 'overview',
+    name: 'Aperçu standard',
+    description: 'Structure de base pour l\'onglet Aperçu — les modules Vision, Livrables, Factures, Fichiers et Notes internes s\'appliquent déjà automatiquement à tout projet, ce modèle n\'a donc rien à ajouter.',
+    color: '#6b7280',
+    icon: 'layout-grid',
+    tags: ['Standard'],
+    builtIn: true,
+    createdAt: '2025-01-01',
+    overviewSections: [],
+  },
   // ── Tâches ──
   {
     id: 'res-tasks-video-sociale',
