@@ -129,6 +129,8 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
     taskId,
     projectId,
     recipientIds,
+    actorId: myId,
+    ...(mentionedMembers.length === 0 ? { itemLabel } : {}),
   });
 
   if (isDemoSession()) return;

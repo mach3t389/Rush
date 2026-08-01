@@ -34,6 +34,19 @@ export interface AppNotif {
   projectId?: string;
   clientId?: string;
   recipientIds: string[];
+  /** Id de l'auteur de CET appel à addNotif — jamais persisté (voir toRow),
+   * utilisé uniquement en mémoire le temps de l'appel pour que mergeNotif
+   * puisse exclure l'acteur courant de l'union des destinataires. */
+  actorId?: string;
+  /** Nom de l'item affiché entre guillemets dans le texte (ex. le titre
+   * d'une ressource) — séparé du texte final pour pouvoir régénérer la
+   * phrase quand plusieurs événements se fusionnent en une notification. */
+  itemLabel?: string;
+  /** Noms distincts des personnes impliquées, la plus récente activité
+   * en premier — sert à composer "Sarah et 2 autres ont commenté". */
+  actorNames?: string[];
+  /** Nombre d'événements fusionnés dans cette notification (1 = simple). */
+  count?: number;
 }
 
 // ── Seed data (demo sessions only) ──────────────────────────────────────────────
@@ -73,6 +86,7 @@ function seedNotifs(): AppNotif[] {
         taskId: task.id,
         projectId: task.projectId,
         recipientIds: [],
+        count: 1,
       });
     }
   }
@@ -96,6 +110,7 @@ function seedNotifs(): AppNotif[] {
         resourceId,
         projectId,
         recipientIds: [],
+        count: 1,
       });
     }
   }
@@ -125,6 +140,9 @@ interface NotificationRow {
   project_id: string | null;
   client_id: string | null;
   recipient_ids: string[];
+  item_label: string | null;
+  actor_names: string[];
+  count: number;
 }
 
 function toNotif(row: NotificationRow, read: boolean): AppNotif {
@@ -140,6 +158,9 @@ function toNotif(row: NotificationRow, read: boolean): AppNotif {
     projectId: row.project_id ?? undefined,
     clientId: row.client_id ?? undefined,
     recipientIds: row.recipient_ids ?? [],
+    itemLabel: row.item_label ?? undefined,
+    actorNames: row.actor_names ?? [],
+    count: row.count ?? 1,
   };
 }
 
@@ -156,6 +177,9 @@ function toRow(n: AppNotif, studioId: string): NotificationRow & { studio_id: st
     project_id: n.projectId ?? null,
     client_id: n.clientId ?? null,
     recipient_ids: n.recipientIds,
+    item_label: n.itemLabel ?? null,
+    actor_names: n.actorNames ?? [],
+    count: n.count ?? 1,
   };
 }
 
@@ -166,7 +190,7 @@ async function fetchSupabaseNotifs(): Promise<void> {
 
     const { data: notifRows, error: notifError } = await supabase
       .from('notifications')
-      .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids')
+      .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids, item_label, actor_names, count')
       .eq('studio_id', studioId)
       .order('timestamp', { ascending: false });
 
@@ -220,7 +244,7 @@ function getNotifs(): AppNotif[] {
 
 async function addSupabaseNotif(notif: AppNotif): Promise<void> {
   const studioId = await getStudioId();
-  const { error } = await supabase.from('notifications').insert(toRow(notif, studioId));
+  const { error } = await supabase.from('notifications').upsert(toRow(notif, studioId));
   if (error) { console.error('addSupabaseNotif failed', error); return; }
   await fetchSupabaseNotifs();
 }
@@ -318,19 +342,209 @@ export function markAllRead(): void {
   void markSupabaseRead(idsToMark);
 }
 
+// Regroupement : un commentaire sur un item qui a déjà une notification
+// 'comment' non lue pour ce même item met à jour cette notification au
+// lieu d'en créer une nouvelle — évite le bruit de dix notifications
+// séparées pour dix commentaires rapprochés. Les mentions ne sont jamais
+// concernées (toujours individuelles, gérées par le chemin normal
+// ci-dessous puisque mentionedMembers.length===0 ⇒ kind !== 'comment' ne
+// s'applique pas ici, mais kind==='mention' est explicitement exclu par
+// la condition). Seuls les appelants qui fournissent `itemLabel`
+// participent à ce mécanisme (voir Tâche 3) — sans lui, comportement
+// inchangé.
+//
+// ⚠️ Session démo : on cherche dans `_demoNotifs` BRUT, pas `getNotifs()`.
+// `getNotifs()` filtre par préférences "en-app" de l'utilisateur courant —
+// un mauvais filtre ici masquerait des lignes pourtant groupables.
+//
+// Fenêtre de regroupement : un commentaire reste "groupable" tant qu'il a
+// été créé il y a moins de GROUP_WINDOW_MS, indépendamment de son état lu
+// (voir `findGroupableNotifReal` plus bas pour la raison précise, côté
+// session réelle, pour laquelle l'état lu ne peut pas servir de critère —
+// le même critère temporel est appliqué aux deux chemins pour rester
+// cohérent entre démo et réel).
+const GROUP_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 heures
+
+function findGroupableNotifDemo(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif | undefined {
+  if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
+  const ctx = notif.taskId ?? notif.resourceId;
+  if (!ctx) return undefined;
+  return _demoNotifs.find(n =>
+    n.kind === 'comment' &&
+    (n.taskId ?? n.resourceId) === ctx &&
+    Date.now() - n.timestamp < GROUP_WINDOW_MS
+  );
+}
+
+// Session réelle : `getNotifs()`/`_supabaseNotifs` sont structurellement les
+// mauvaises sources ici — l'auteur d'un nouveau commentaire est
+// explicitement EXCLU de `recipientIds` (voir commentNotify.ts), donc son
+// propre cache local (peuplé en filtrant sur `recipient_ids.includes(user.id)`)
+// ne contient jamais la ligne à fusionner pour le cas standard (deux
+// personnes différentes qui commentent le même item). On interroge donc
+// Supabase directement, sans filtre destinataire ni préférence utilisateur.
+//
+// Critère de groupage : PAS basé sur `notification_reads`. RLS sur cette
+// table est `user_id = auth.uid()` — l'utilisateur qui exécute cette requête
+// est l'AUTEUR du commentaire (l'acteur), qui est par construction exclu de
+// `recipientIds`. Il ne peut donc jamais voir les lignes `notification_reads`
+// des vrais destinataires : la requête serait structurellement vide à chaque
+// fois, ce qui ferait toujours passer le critère "non lue" — un vieux
+// commentaire déjà entièrement lu serait silencieusement ressuscité. On
+// utilise donc une fenêtre temporelle (GROUP_WINDOW_MS) à la place, cohérente
+// avec le chemin démo ci-dessus.
+async function findGroupableNotifReal(notif: Omit<AppNotif, 'id' | 'read'>): Promise<AppNotif | undefined> {
+  if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
+  const taskId = notif.taskId;
+  const resourceId = notif.resourceId;
+  if (!taskId && !resourceId) return undefined;
+
+  const studioId = await getStudioId();
+  let query = supabase
+    .from('notifications')
+    .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids, item_label, actor_names, count')
+    .eq('studio_id', studioId)
+    .eq('kind', 'comment')
+    .order('timestamp', { ascending: false })
+    .limit(5);
+  query = taskId ? query.eq('task_id', taskId) : query.eq('resource_id', resourceId!);
+
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) return undefined;
+  const rows = data as NotificationRow[];
+
+  for (const row of rows) {
+    if (Date.now() - row.timestamp < GROUP_WINDOW_MS) return toNotif(row, false);
+  }
+  return undefined;
+}
+
+function groupedText(actorNames: string[], itemLabel: string): string {
+  if (actorNames.length <= 1) return `a commenté « ${itemLabel} »`;
+  if (actorNames.length === 2) return `et ${actorNames[1]} ont commenté « ${itemLabel} »`;
+  return `et ${actorNames.length - 1} autres ont commenté « ${itemLabel} »`;
+}
+
+function mergeNotif(existing: AppNotif, notif: Omit<AppNotif, 'id' | 'read'>): AppNotif {
+  const actorNames = [notif.actor, ...(existing.actorNames ?? [existing.actor]).filter(a => a !== notif.actor)];
+  return {
+    ...existing,
+    actor: notif.actor,
+    actorNames,
+    count: (existing.count ?? 1) + 1,
+    text: groupedText(actorNames, notif.itemLabel!),
+    timestamp: notif.timestamp,
+    // Union, jamais un remplacement : si le set de destinataires a changé
+    // entre deux commentaires, on garde tout le monde plutôt que de perdre
+    // silencieusement quelqu'un déjà notifié. On retire ensuite l'auteur de
+    // CE commentaire (notif.actorId) : sans ça, fusionner le commentaire de
+    // Bob dans la notification de commentaire d'Alice réintroduit Bob comme
+    // destinataire (il était présent dans `existing.recipientIds` en tant
+    // que destinataire du commentaire d'Alice), et Bob se retrouve notifié
+    // de son propre commentaire.
+    recipientIds: [...new Set([...(existing.recipientIds ?? []), ...notif.recipientIds])]
+      .filter(id => id !== notif.actorId),
+    // Fusionner un nouvel événement dans une notification déjà lue doit la
+    // refaire apparaître comme non lue — sinon le prochain commentaire
+    // atterrit silencieusement dans une ligne déjà consommée, sans jamais
+    // rallumer le badge. C'est la promesse centrale de la fonctionnalité
+    // ("dès que tu la lis, le compteur repart à zéro"). Pour les sessions
+    // démo, ce `read: false` suffit (champ unique partagé). Pour les
+    // sessions réelles, l'état lu vit dans `notification_reads` (par
+    // destinataire) — ce champ local ne fait que refléter l'optimistic
+    // update ; voir `resolveRealAddNotif` pour la réinitialisation serveur
+    // via la fonction `reset_notification_reads`.
+    read: false,
+  };
+}
+
 export function addNotif(notif: Omit<AppNotif, 'id' | 'read'>): void {
   if (isDemoSession()) {
+    const existing = findGroupableNotifDemo(notif);
+    if (existing) {
+      const merged = mergeNotif(existing, notif);
+      // Re-hoister en tête de liste plutôt que remplacer en place : `_demoNotifs`
+      // est traité comme "plus récent en premier" partout où il est affiché,
+      // et le chemin session réelle (resolveRealAddNotif) fait déjà remonter la
+      // ligne fusionnée en tête — garder les deux chemins cohérents.
+      _demoNotifs = [merged, ..._demoNotifs.filter(n => n.id !== merged.id)];
+      persistDemo();
+      notify();
+      return;
+    }
     const id = `user-${Date.now()}-${_demoNotifs.length}`;
     _demoNotifs = [{ ...notif, id, read: false }, ..._demoNotifs];
     persistDemo();
     notify();
     return;
   }
+
+  // Session réelle : la décision fusion/nouvelle ligne dépend d'une requête
+  // Supabase fraîche (findGroupableNotifReal, async) — addNotif() reste
+  // synchrone pour tous les appelants existants, donc on insère d'abord une
+  // ligne optimiste localement (comportement inchangé côté UI immédiate),
+  // puis on résout la vraie décision en arrière-plan. Si une fusion est
+  // trouvée, la ligne optimiste est retirée du cache local et remplacée par
+  // la ligne fusionnée AVANT toute écriture Supabase — donc on n'insère
+  // jamais la ligne optimiste orpheline en base. Le prochain
+  // `fetchSupabaseNotifs()` (déclenché par `addSupabaseNotif`) fait
+  // converger le cache local vers l'état serveur.
   const id = `user-${Date.now()}-${_supabaseNotifs.length}`;
-  const newNotif: AppNotif = { ...notif, id, read: false };
-  _supabaseNotifs = [newNotif, ..._supabaseNotifs];
+  const optimistic: AppNotif = { ...notif, id, read: false };
+  _supabaseNotifs = [optimistic, ..._supabaseNotifs];
   notify();
-  void addSupabaseNotif(newNotif);
+
+  // Sérialise la résolution par clé de regroupement (task/resource + kind)
+  // pour éviter que deux commentaires rapprochés sur le même item ne
+  // requêtent tous les deux "existe-t-il une ligne groupable ?" avant que
+  // l'un des deux ait fini d'écrire — même pattern que `_writeQueues` /
+  // `enqueueWrite` dans taskStore.ts.
+  const groupKey = `${notif.taskId ?? notif.resourceId ?? optimistic.id}:${notif.kind}`;
+  const previous = _resolveQueues[groupKey] ?? Promise.resolve();
+  const run = () => resolveRealAddNotif(notif, optimistic);
+  _resolveQueues[groupKey] = previous.then(run, run);
+}
+
+const _resolveQueues: Record<string, Promise<void>> = {};
+
+async function resolveRealAddNotif(notif: Omit<AppNotif, 'id' | 'read'>, optimistic: AppNotif): Promise<void> {
+  try {
+    const existing = await findGroupableNotifReal(notif);
+    if (existing) {
+      const merged = mergeNotif(existing, notif);
+      _supabaseNotifs = _supabaseNotifs
+        .filter(n => n.id !== optimistic.id)
+        .map(n => n.id === merged.id ? merged : n);
+      if (!_supabaseNotifs.some(n => n.id === merged.id)) {
+        _supabaseNotifs = [merged, ..._supabaseNotifs];
+      }
+      notify();
+      await addSupabaseNotif(merged); // upsert sur existing.id
+      // `merged` porte déjà `read: false` localement, mais l'état lu réel
+      // vit dans `notification_reads` (une ligne par destinataire). RLS sur
+      // cette table est `user_id = auth.uid()` : un appel client normal ne
+      // peut jamais effacer la ligne de lecture d'UN AUTRE utilisateur, donc
+      // impossible de "dé-lire" pour les autres destinataires depuis ici.
+      // `reset_notification_reads` est une fonction Postgres SECURITY
+      // DEFINER (voir migration) qui fait exactement ça, avec vérification
+      // que l'appelant appartient au studio propriétaire. Best-effort : un
+      // échec ici ne doit jamais faire perdre le contenu déjà sauvegardé.
+      try {
+        const { error: resetError } = await supabase.rpc('reset_notification_reads', { notif_id: existing.id });
+        if (resetError) console.error('reset_notification_reads failed', resetError);
+      } catch (resetErr) {
+        console.error('reset_notification_reads failed', resetErr);
+      }
+      return;
+    }
+    await addSupabaseNotif(optimistic);
+  } catch (err) {
+    // Toute erreur (getStudioId, requête réseau, etc.) ne doit jamais faire
+    // disparaître silencieusement la notification : on retombe sur l'insert
+    // simple de la ligne optimiste plutôt que de perdre l'événement.
+    console.error('resolveRealAddNotif failed, falling back to plain insert', err);
+    void addSupabaseNotif(optimistic);
+  }
 }
 
 export function getNotifHistory(taskId?: string, resourceId?: string): AppNotif[] {

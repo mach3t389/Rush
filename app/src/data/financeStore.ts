@@ -634,6 +634,7 @@ export function addInvoiceComment(invoiceId: string, comment: InvoiceComment, au
     timestamp: Date.now(),
     projectId: inv.projectId,
     recipientIds,
+    ...(isMention ? {} : { itemLabel: inv.title }),
   });
 
   if (isDemoSession()) return;
