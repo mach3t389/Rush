@@ -22,7 +22,7 @@ const EVENT_TYPE_ICONS = [
 // de ProjetCalendrier.tsx si besoin.
 export function EventTypeFilterBar({
   eventTypes, selectedEventTypes, onToggle, onClearFilter,
-  showAllLabel, newTypeLabel,
+  showAllLabel, newTypeLabel, readOnly,
 }: {
   eventTypes: EventType[];
   selectedEventTypes: Set<string>;
@@ -30,6 +30,8 @@ export function EventTypeFilterBar({
   onClearFilter: () => void;
   showAllLabel: string;
   newTypeLabel: string;
+  /** Portail client / session lecture seule — pas de crayon, pas de "+ Nouveau". */
+  readOnly?: boolean;
 }) {
   const hasFilter = selectedEventTypes.size > 0;
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -103,30 +105,34 @@ export function EventTypeFilterBar({
             onMouseLeave={e => { const b = e.currentTarget.querySelector<HTMLElement>('.etb-edit'); if (b) b.style.opacity = '0'; }}
           >
             <button onClick={() => onToggle(et.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', paddingRight: 24, borderRadius: 20, border: `1px solid ${active && hasFilter ? et.color : 'var(--border)'}`, background: active && hasFilter ? 'rgba(255,255,255,0.06)' : 'var(--surface-2)', cursor: 'pointer', opacity: active ? 1 : 0.35, transition: 'all 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', paddingRight: readOnly ? 10 : 24, borderRadius: 20, border: `1px solid ${active && hasFilter ? et.color : 'var(--border)'}`, background: active && hasFilter ? 'rgba(255,255,255,0.06)' : 'var(--surface-2)', cursor: 'pointer', opacity: active ? 1 : 0.35, transition: 'all 0.15s' }}
             >
               <SFIcon name={et.icon} size={11} color={et.color} style={{ flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{et.label}</span>
               {active && hasFilter && <SFIcon name="check" size={11} color="var(--text-3)" />}
             </button>
-            <button className="etb-edit" title="Renommer / recolorer" onClick={e => { e.stopPropagation(); editingId === et.id ? setEditingId(null) : startEdit(et); }}
-              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0, transition: 'opacity 0.12s', padding: 2, display: 'flex', alignItems: 'center' }}
-            >
-              <SFIcon name="pencil" size={11} />
-            </button>
-            {editingId === et.id && editorPopover(saveEdit, () => removeType(et.id))}
+            {!readOnly && (
+              <button className="etb-edit" title="Renommer / recolorer" onClick={e => { e.stopPropagation(); editingId === et.id ? setEditingId(null) : startEdit(et); }}
+                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', opacity: 0, transition: 'opacity 0.12s', padding: 2, display: 'flex', alignItems: 'center' }}
+              >
+                <SFIcon name="pencil" size={11} />
+              </button>
+            )}
+            {!readOnly && editingId === et.id && editorPopover(saveEdit, () => removeType(et.id))}
           </div>
         );
       })}
 
-      <div style={{ position: 'relative' }}>
-        <button onClick={() => { setShowNew(v => !v); setEditingId(null); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 20, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12 }}
-        >
-          {newTypeLabel}
-        </button>
-        {showNew && editorPopover(addNew)}
-      </div>
+      {!readOnly && (
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => { setShowNew(v => !v); setEditingId(null); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 20, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12 }}
+          >
+            {newTypeLabel}
+          </button>
+          {showNew && editorPopover(addNew)}
+        </div>
+      )}
 
       {hasFilter && (
         <button onClick={onClearFilter} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', padding: '0 4px', textDecoration: 'underline', marginLeft: 4 }}>

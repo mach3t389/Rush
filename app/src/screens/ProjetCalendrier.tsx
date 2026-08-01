@@ -21,7 +21,8 @@ import {
 } from '../components/calendar/calendarUtils';
 import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
-import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
+import { EventTypeFilterBar } from '../components/calendar/EventTypeFilterBar';
+import { MiniCalendar } from '../components/calendar/MiniCalendar';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
 import { subscribeWeekStart } from '../data/weekStartStore';
 import { ClientEventDetail } from '../components/calendar/ClientEventDetail';
@@ -796,6 +797,8 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
           <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
         )}
 
+        <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
+
         {/* Project filter — embedded client view only, with 2+ projects */}
         {embedded && activeProjectIds.length > 1 && (()=>{
           const clientProjects = activeProjectIds
@@ -829,47 +832,6 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
           );
         })()}
 
-        {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer.
-            EventTypeFilterList est un éditeur CRUD complet sur la table event_types (partagée
-            par tout le studio) — jamais exposé à une session client en lecture seule. En
-            readOnly, on retombe sur une liste de filtre simple (clic = inclure/exclure),
-            sans crayon/+/glisser-déposer. */}
-        {readOnly ? (
-          <div>
-            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-              <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>Types d'événements</p>
-              {selectedEventTypes.size > 0 && (
-                <button onClick={()=>setSelectedEventTypes(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                  Tout afficher
-                </button>
-              )}
-            </div>
-            <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
-              {eventTypes.map(et=>{
-                const hasFilter = selectedEventTypes.size > 0;
-                const active = !hasFilter || selectedEventTypes.has(et.id);
-                return (
-                  <button key={et.id} onClick={()=>toggleEventType(et.id)}
-                    style={{ display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,border:'none',background:active&&hasFilter?'rgba(255,255,255,0.04)':'transparent',cursor:'pointer',textAlign:'left',opacity:active?1:0.35,transition:'all 0.15s',width:'100%' }}>
-                    <div style={{ width:10,height:10,borderRadius:'50%',background:et.color,flexShrink:0 }} />
-                    <span style={{ fontSize:12,color:'var(--text-2)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{et.label}</span>
-                    {active&&hasFilter&&<SFIcon name="check" size={11} color="var(--text-3)" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <EventTypeFilterList
-            eventTypes={eventTypes}
-            selectedEventTypes={selectedEventTypes}
-            onToggle={toggleEventType}
-            onClearFilter={()=>setSelectedEventTypes(new Set())}
-            titleLabel="Types d'événements"
-            showAllLabel="Tout afficher"
-            newTypeLabel="+ Nouveau"
-          />
-        )}
 
         {/* Upcoming events for this project */}
         <div>
@@ -920,6 +882,9 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
       {/* Main */}
       <div ref={mainRef} style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0, background: 'var(--bg)' }}>
         <PageHeader title={t('nav.calendar')} subtitle={title}>
+          {/* Navigation + rangée de tags — alignées sur le même bord gauche
+              (voir CalendrierGlobal.tsx, même correction appliquée ici). */}
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <div style={{ display:'flex',alignItems:'center',gap:6 }}>
               <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
@@ -933,8 +898,6 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
               </button>
             </div>
 
-            {view!=='month' && <CalendarZoomControl />}
-
             <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
               <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
                 {([['month','Mois','M'],['week','Semaine','W'],['day','Jour','J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
@@ -947,11 +910,29 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
                 ))}
               </div>
 
+              {/* Zoom + plein écran regroupés — voir CalendrierGlobal.tsx */}
+              <CalendarZoomControl disabled={view==='month'} />
+
               <button onClick={toggleFullscreen} title={isFullscreen ? t('calendar.exitFullscreen') : t('calendar.fullscreen')}
                 style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
                 <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
               </button>
             </div>
+          </div>
+
+          {/* Types d'événements — EventTypeFilterBar est un éditeur CRUD complet
+              sur la table event_types (partagée par tout le studio), jamais exposé
+              à une session client en lecture seule ; son prop readOnly retire le
+              crayon et le "+ Nouveau" dans ce cas. */}
+          <EventTypeFilterBar
+            eventTypes={eventTypes}
+            selectedEventTypes={selectedEventTypes}
+            onToggle={toggleEventType}
+            onClearFilter={()=>setSelectedEventTypes(new Set())}
+            showAllLabel="Tout afficher"
+            newTypeLabel="+ Nouveau"
+            readOnly={readOnly}
+          />
           </div>
         </PageHeader>
 
