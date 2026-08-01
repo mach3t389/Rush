@@ -1,4 +1,4 @@
-import type { Priority } from '../types';
+import type { Priority, User } from '../types';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
@@ -50,7 +50,7 @@ export interface TemplateTask {
   status?: string;
   statusLabel?: string;
   dueDate?: string;
-  assignees?: { id: string; name: string; initials: string; avatarColor: string }[];
+  assignees?: User[];
   subtasks?: TemplateTask[];
 }
 
