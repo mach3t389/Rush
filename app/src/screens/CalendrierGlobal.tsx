@@ -13,14 +13,15 @@ import { getEventTypes, addEventType, updateEventType, deleteEventType, subscrib
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import {
   TODAY, END_HOUR, type CalView,
-  addDays, isSameDay, startOfWeek, fmt2, fmtTime, parseFrDate,
-  getMonthGrid, getWeekDays, type CalEvent,
+  addDays, startOfWeek, fmt2, fmtTime, parseFrDate,
+  getWeekDays, type CalEvent,
 } from '../components/calendar/calendarUtils';
 import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
 import { EventTypeFilterBar } from '../components/calendar/EventTypeFilterBar';
+import { MiniCalendar } from '../components/calendar/MiniCalendar';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
-import { getWeekStart, subscribeWeekStart } from '../data/weekStartStore';
+import { subscribeWeekStart } from '../data/weekStartStore';
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus } from '../data/googleCalendarStore';
 import { getHourHeight, subscribeHourHeight, zoomIn, zoomOut, MIN_HOUR_HEIGHT, MAX_HOUR_HEIGHT } from '../data/calendarZoomStore';
 
@@ -164,7 +165,10 @@ export function GoogleCalendarTargetHint({ projectId }: { projectId: string }) {
 // Zoom +/- sur la hauteur d'une heure dans la grille horaire (vues Semaine/
 // Jour) — préférence persistée (calendarZoomStore), partagée entre
 // CalendrierGlobal et ProjetCalendrier plutôt que dupliquée.
-export function CalendarZoomControl() {
+// `disabled` couvre la vue Mois, où le zoom (hauteur des lignes-heure) n'a
+// aucun effet — rendu en permanence plutôt que démonté entre les vues pour
+// éviter un saut de largeur dans la barre d'outils, juste grisé/inerte.
+export function CalendarZoomControl({ disabled: forceDisabled }: { disabled?: boolean } = {}) {
   const { t } = useTranslation();
   const [hourHeight, setHourHeightState] = useState(getHourHeight);
   useEffect(() => subscribeHourHeight(() => setHourHeightState(getHourHeight())), []);
@@ -175,13 +179,16 @@ export function CalendarZoomControl() {
     cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1,
   });
 
+  const outDisabled = forceDisabled || hourHeight <= MIN_HOUR_HEIGHT;
+  const inDisabled = forceDisabled || hourHeight >= MAX_HOUR_HEIGHT;
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', borderRadius: 9, border: '1px solid var(--border)', overflow: 'hidden' }}>
-      <button type="button" onClick={zoomOut} disabled={hourHeight <= MIN_HOUR_HEIGHT} title={t('calendar.zoomOut')} style={btnStyle(hourHeight <= MIN_HOUR_HEIGHT)}>
+      <button type="button" onClick={zoomOut} disabled={outDisabled} title={t('calendar.zoomOut')} style={btnStyle(outDisabled)}>
         <SFIcon name="minus" size={13} />
       </button>
       <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
-      <button type="button" onClick={zoomIn} disabled={hourHeight >= MAX_HOUR_HEIGHT} title={t('calendar.zoomIn')} style={btnStyle(hourHeight >= MAX_HOUR_HEIGHT)}>
+      <button type="button" onClick={zoomIn} disabled={inDisabled} title={t('calendar.zoomIn')} style={btnStyle(inDisabled)}>
         <SFIcon name="plus" size={13} />
       </button>
     </div>
@@ -464,51 +471,6 @@ function CreateEventModal({ defaultDate, defaultStartTime, defaultEndTime, defau
           <SFButton variant="ghost" onClick={onClose}>{t('calendar.cancel')}</SFButton>
           <SFButton variant="primary" onClick={save}>{t('calendar.create')}</SFButton>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Mini calendar (sidebar) ───────────────────────────────────────────────────
-
-function MiniCalendar({ cur, onSelect }: { cur: Date; onSelect: (d: Date) => void }) {
-  const { t } = useTranslation();
-  const months = t('calendar.months', { returnObjects: true }) as string[];
-  const daysShort = t('datepicker.daysShort', { returnObjects: true }) as string[];
-  const weekStart = getWeekStart();
-  const orderedDaysShort = Array.from({ length: 7 }, (_, i) => daysShort[(((weekStart + i) % 7) + 6) % 7]);
-  const [mini, setMini] = useState(new Date(TODAY));
-  const days = getMonthGrid(mini);
-  const prevM = () => setMini(d=>new Date(d.getFullYear(),d.getMonth()-1,1));
-  const nextM = () => setMini(d=>new Date(d.getFullYear(),d.getMonth()+1,1));
-
-  return (
-    <div>
-      <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-        <button onClick={prevM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-left" size={13} /></button>
-        <span style={{ fontFamily:'var(--ff-mono)',fontSize:11,color:'var(--text-2)',fontWeight:600 }}>{months[mini.getMonth()].slice(0,3)} {mini.getFullYear()}</span>
-        <button onClick={nextM} style={{ background:'none',border:'none',color:'var(--text-3)',cursor:'pointer',padding:'2px 4px',display:'flex' }}><SFIcon name="chevron-right" size={13} /></button>
-      </div>
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1,marginBottom:4 }}>
-        {orderedDaysShort.map((d,i)=>(
-          <div key={i} style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textAlign:'center',padding:'2px 0' }}>{d}</div>
-        ))}
-      </div>
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1 }}>
-        {days.map((d,i)=>{
-          const isToday=isSameDay(d,TODAY);
-          const isCur=isSameDay(d,cur);
-          const isThisMonth=d.getMonth()===mini.getMonth();
-          return (
-            <button key={i} onClick={()=>onSelect(d)}
-              style={{ width:'100%',aspectRatio:'1',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--ff-mono)',fontSize:10,borderRadius:'50%',border:'none',cursor:'pointer',
-                background:isCur?'var(--accent)':isToday?'rgba(249,255,0,0.15)':'transparent',
-                color:isCur?'var(--on-accent)':isToday?'var(--accent)':isThisMonth?'var(--text-2)':'var(--text-3)',
-                fontWeight:isToday||isCur?700:400,
-              }}
-            >{d.getDate()}</button>
-          );
-        })}
       </div>
     </div>
   );
@@ -915,8 +877,12 @@ export function CalendrierGlobal() {
 
       {/* Main */}
       <div ref={mainRef} style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0, background: 'var(--bg)' }}>
-        <PageHeader title={t('nav.calendar')} subtitle={title}
-          actions={
+        <PageHeader title={t('nav.calendar')} subtitle={title}>
+          {/* Navigation + rangée de tags — alignées sur le même bord gauche,
+              plutôt que la navigation collée à droite du titre (comme
+              c'était le cas avant) et les tags flush-left en dessous :
+              ça formait un bloc mal aligné, corrigé ici. */}
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               {/* Navigation */}
               <div style={{ display:'flex',alignItems:'center',gap:6 }}>
@@ -931,37 +897,43 @@ export function CalendrierGlobal() {
                 </button>
               </div>
 
-              {view!=='month' && <CalendarZoomControl />}
+              <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
+                {/* View switcher */}
+                <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
+                  {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
+                    <button key={v} onClick={()=>setView(v)}
+                      style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
+                    >
+                      {label}
+                      <span style={{ fontSize:9,opacity:view===v?0.6:0.4,background:'rgba(128,128,128,0.15)',borderRadius:3,padding:'1px 4px',letterSpacing:0,lineHeight:1 }}>{key}</span>
+                    </button>
+                  ))}
+                </div>
 
-              {/* View switcher */}
-              <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
-                {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
-                  <button key={v} onClick={()=>setView(v)}
-                    style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
-                  >
-                    {label}
-                    <span style={{ fontSize:9,opacity:view===v?0.6:0.4,background:'rgba(128,128,128,0.15)',borderRadius:3,padding:'1px 4px',letterSpacing:0,lineHeight:1 }}>{key}</span>
-                  </button>
-                ))}
+                {/* Zoom + plein écran regroupés — les deux affectent la
+                    taille d'affichage. Rendu en permanence (grisé en vue
+                    Mois, où il n'a pas d'effet) plutôt que démonté, pour ne
+                    pas faire sauter la largeur de la barre en changeant de vue. */}
+                <CalendarZoomControl disabled={view==='month'} />
+
+                <button onClick={toggleFullscreen} title={isFullscreen ? t('calendar.exitFullscreen') : t('calendar.fullscreen')}
+                  style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
+                  <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
+                </button>
               </div>
-
-              <button onClick={toggleFullscreen} title={isFullscreen ? t('calendar.exitFullscreen') : t('calendar.fullscreen')}
-                style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
-                <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
-              </button>
             </div>
-          }
-        >
-          {/* Types d'événements — rangée de chips, toujours visible sans
-              concurrencer la liste de projets (illimitée) de la sidebar. */}
-          <EventTypeFilterBar
-            eventTypes={eventTypes}
-            selectedEventTypes={selectedEventTypes}
-            onToggle={toggleEventType}
-            onClearFilter={()=>setSelectedEventTypes(new Set())}
-            showAllLabel={t('calendar.showAll')}
-            newTypeLabel={t('calendar.newType')}
-          />
+
+            {/* Types d'événements — rangée de chips, toujours visible sans
+                concurrencer la liste de projets (illimitée) de la sidebar. */}
+            <EventTypeFilterBar
+              eventTypes={eventTypes}
+              selectedEventTypes={selectedEventTypes}
+              onToggle={toggleEventType}
+              onClearFilter={()=>setSelectedEventTypes(new Set())}
+              showAllLabel={t('calendar.showAll')}
+              newTypeLabel={t('calendar.newType')}
+            />
+          </div>
         </PageHeader>
 
         {/* Calendar body */}
