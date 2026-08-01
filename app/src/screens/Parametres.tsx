@@ -20,7 +20,7 @@ import { isTeamOwner, subscribeTeam, findTeamMember, getMyAccessLevel } from '..
 import { AI_QUOTAS } from '../data/aiQuota';
 import { supabase } from '../data/supabaseClient';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/ProfileEditPanel';
-import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, type NotifPrefs } from '../data/notifPrefsStore';
+import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, loadDigestPrefs, saveDigestPrefs, type NotifPrefs, type DigestPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
 import { getGoogleCalendarStatus, startGoogleCalendarConnect, disconnectGoogleCalendar, type GoogleCalendarStatus } from '../data/googleCalendarStore';
 import {
@@ -1990,6 +1990,7 @@ export function Parametres() {
       saveNotifPrefs(next);
       return next;
     });
+  const [digestPrefs, setDigestPrefsState] = useState<DigestPrefs>(loadDigestPrefs);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -2179,6 +2180,25 @@ export function Parametres() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontWeight: 600 }}>{t('settings.digestModeLabel')}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('settings.digestModeDesc')}</p>
+              </div>
+              {digestPrefs.digestMode && (
+                <select
+                  value={digestPrefs.digestHour}
+                  onChange={e => setDigestPrefsState(p => { const next = { ...p, digestHour: Number(e.target.value) }; saveDigestPrefs(next); return next; })}
+                  style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-mono)', outline: 'none' }}
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                  ))}
+                </select>
+              )}
+              <Toggle on={digestPrefs.digestMode} onChange={v => setDigestPrefsState(p => { const next = { ...p, digestMode: v }; saveDigestPrefs(next); return next; })} />
             </div>
 
             <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5 }}>

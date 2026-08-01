@@ -1955,6 +1955,8 @@
     "colInApp": "In-app",
     "colEmail": "Email",
     "notificationsHint": "Email notifications are sent only for important events and cannot be disabled for urgent reminders.",
+    "digestModeLabel": "Daily digest",
+    "digestModeDesc": "Receive a single email summary each day instead of individual emails for every comment, mention, or approval request",
     "preferencesSaved": "Preferences saved",
     "save": "Save",
     "securityTitle": "Security",
