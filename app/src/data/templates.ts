@@ -68,10 +68,14 @@ export interface ProjectTemplate {
   tags: string[];
   builtIn?: boolean;
   createdAt: string;
-  tasksTemplateId?: string; // référence un ResourceTemplate type 'tasks'
+  sections?: TemplateSection[];
+  folderStructure?: FolderNode[];
+  overviewSections?: CustomOverviewSection[];
+  /** @deprecated Ancien format — lu par migrateLegacyProjectTemplate(), jamais écrit. */
+  tasksTemplateId?: string;
+  /** @deprecated */
   defaultFolderStructureId?: string;
-  // Réservé : lu par le wizard de nouveau projet (ProjectsListView.tsx) mais aucun
-  // écran ne l'écrit encore — l'UI d'édition (Modeles.tsx) est un chantier à venir.
+  /** @deprecated */
   defaultOverviewTemplateId?: string;
 }
 
@@ -138,8 +142,67 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Vidéo', 'Social media', 'Court format'],
     builtIn: true,
     createdAt: '2025-01-01',
-    defaultFolderStructureId: 'res-file-structure',
-    tasksTemplateId: 'res-tasks-video-sociale',
+    folderStructure: [
+      { id: 'f1', name: '01_RUSHES', children: [
+        { id: 'f1a', name: 'Jour_01' },
+        { id: 'f1b', name: 'Jour_02' },
+        { id: 'f1c', name: 'B-Roll' },
+      ]},
+      { id: 'f2', name: '02_AUDIO', children: [
+        { id: 'f2a', name: 'Voix_off' },
+        { id: 'f2b', name: 'Ambiances' },
+        { id: 'f2c', name: 'Musiques' },
+      ]},
+      { id: 'f3', name: '03_ASSETS', children: [
+        { id: 'f3a', name: 'Logos' },
+        { id: 'f3b', name: 'Polices' },
+        { id: 'f3c', name: 'Photos' },
+        { id: 'f3d', name: 'Animations' },
+      ]},
+      { id: 'f4', name: '04_MONTAGE', children: [
+        { id: 'f4a', name: 'Projets_Premiere' },
+        { id: 'f4b', name: 'Sauvegardes' },
+      ]},
+      { id: 'f5', name: '05_EXPORTS', children: [
+        { id: 'f5a', name: 'V1' },
+        { id: 'f5b', name: 'V2' },
+        { id: 'f5c', name: 'FINAL' },
+      ]},
+      { id: 'f6', name: '06_DOCUMENTS', children: [
+        { id: 'f6a', name: 'Contrats' },
+        { id: 'f6b', name: 'Briefs' },
+        { id: 'f6c', name: 'Factures' },
+      ]},
+    ],
+    sections: [
+      { label: 'Préproduction', tasks: [
+        { title: 'Validation du brief client', priority: 'high' },
+        { title: 'Écriture du script', priority: 'high' },
+        { title: 'Repérage des lieux', priority: 'normal' },
+        { title: 'Casting & confirmations', priority: 'normal' },
+        { title: 'Création du moodboard', priority: 'low' },
+        { title: 'Planification du tournage', priority: 'high' },
+      ]},
+      { label: 'Production', tasks: [
+        { title: 'Journée de tournage J1', priority: 'high' },
+        { title: 'Backup et vérification des rushs', priority: 'high' },
+        { title: 'Photos de plateau', priority: 'low' },
+      ]},
+      { label: 'Postproduction', tasks: [
+        { title: 'Montage rough cut', priority: 'high' },
+        { title: 'Révision interne', priority: 'normal' },
+        { title: 'Envoi V1 au client', priority: 'high' },
+        { title: 'Intégration des retours', priority: 'normal' },
+        { title: 'Étalonnage couleur', priority: 'normal' },
+        { title: 'Mixage audio', priority: 'normal' },
+        { title: 'Export formats finaux', priority: 'high' },
+      ]},
+      { label: 'Livraison', tasks: [
+        { title: 'Envoi des fichiers au client', priority: 'high' },
+        { title: 'Facturation solde', priority: 'high' },
+        { title: 'Archivage du projet', priority: 'low' },
+      ]},
+    ],
   },
   {
     id: 'tpl-film-institutionnel',
@@ -150,8 +213,70 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Corporate', 'Long format', 'Interview'],
     builtIn: true,
     createdAt: '2025-01-01',
-    defaultFolderStructureId: 'res-file-structure',
-    tasksTemplateId: 'res-tasks-film-institutionnel',
+    folderStructure: [
+      { id: 'f1', name: '01_RUSHES', children: [
+        { id: 'f1a', name: 'Jour_01' },
+        { id: 'f1b', name: 'Jour_02' },
+        { id: 'f1c', name: 'B-Roll' },
+      ]},
+      { id: 'f2', name: '02_AUDIO', children: [
+        { id: 'f2a', name: 'Voix_off' },
+        { id: 'f2b', name: 'Ambiances' },
+        { id: 'f2c', name: 'Musiques' },
+      ]},
+      { id: 'f3', name: '03_ASSETS', children: [
+        { id: 'f3a', name: 'Logos' },
+        { id: 'f3b', name: 'Polices' },
+        { id: 'f3c', name: 'Photos' },
+        { id: 'f3d', name: 'Animations' },
+      ]},
+      { id: 'f4', name: '04_MONTAGE', children: [
+        { id: 'f4a', name: 'Projets_Premiere' },
+        { id: 'f4b', name: 'Sauvegardes' },
+      ]},
+      { id: 'f5', name: '05_EXPORTS', children: [
+        { id: 'f5a', name: 'V1' },
+        { id: 'f5b', name: 'V2' },
+        { id: 'f5c', name: 'FINAL' },
+      ]},
+      { id: 'f6', name: '06_DOCUMENTS', children: [
+        { id: 'f6a', name: 'Contrats' },
+        { id: 'f6b', name: 'Briefs' },
+        { id: 'f6c', name: 'Factures' },
+      ]},
+    ],
+    sections: [
+      { label: 'Préproduction', tasks: [
+        { title: 'Réunion de lancement', priority: 'high' },
+        { title: 'Rédaction du brief créatif', priority: 'high' },
+        { title: 'Script et conducteur', priority: 'high' },
+        { title: 'Recrutement des intervenants', priority: 'normal' },
+        { title: 'Repérages', priority: 'normal' },
+        { title: 'Planification multi-journées', priority: 'high' },
+        { title: 'Validation budget', priority: 'high' },
+      ]},
+      { label: 'Production', tasks: [
+        { title: 'Tournage interviews J1', priority: 'high' },
+        { title: 'Tournage B-roll J2', priority: 'high' },
+        { title: 'Backup rushs quotidien', priority: 'high' },
+        { title: 'Sélection des prises', priority: 'normal' },
+      ]},
+      { label: 'Postproduction', tasks: [
+        { title: 'Dérushage complet', priority: 'normal' },
+        { title: 'Montage offline', priority: 'high' },
+        { title: 'V1 → Validation client', priority: 'high' },
+        { title: 'V2 avec retours', priority: 'normal' },
+        { title: 'Animation graphique', priority: 'normal' },
+        { title: 'Mixage son professionnel', priority: 'normal' },
+        { title: 'Étalonnage', priority: 'normal' },
+        { title: 'Export diffusion + web', priority: 'high' },
+      ]},
+      { label: 'Livraison', tasks: [
+        { title: 'Remise des masters', priority: 'high' },
+        { title: 'Formation utilisation fichiers', priority: 'low' },
+        { title: 'Facturation et clôture', priority: 'high' },
+      ]},
+    ],
   },
   {
     id: 'tpl-shoot-photo',
@@ -162,7 +287,26 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Photo', 'Portrait', 'Produit'],
     builtIn: true,
     createdAt: '2025-01-01',
-    tasksTemplateId: 'res-tasks-shoot-photo',
+    sections: [
+      { label: 'Préparation', tasks: [
+        { title: 'Brief et moodboard', priority: 'high' },
+        { title: 'Sélection des modèles / produits', priority: 'normal' },
+        { title: 'Repérage studio ou extérieur', priority: 'normal' },
+        { title: 'Liste du matériel', priority: 'normal' },
+        { title: 'Confirmation planning', priority: 'high' },
+      ]},
+      { label: 'Shooting', tasks: [
+        { title: 'Journée de shooting', priority: 'high' },
+        { title: 'Sélection des images (editing)', priority: 'high' },
+        { title: 'Export sélection brute pour client', priority: 'normal' },
+      ]},
+      { label: 'Retouche & livraison', tasks: [
+        { title: 'Retouche photos validées', priority: 'high' },
+        { title: 'Export finaux (web + print)', priority: 'high' },
+        { title: 'Remise au client', priority: 'high' },
+        { title: 'Facturation', priority: 'high' },
+      ]},
+    ],
   },
   {
     id: 'tpl-motion-design',
@@ -173,7 +317,31 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     tags: ['Motion', 'Animation', '2D/3D'],
     builtIn: true,
     createdAt: '2025-01-01',
-    tasksTemplateId: 'res-tasks-motion-design',
+    sections: [
+      { label: 'Conception', tasks: [
+        { title: 'Brief et objectifs', priority: 'high' },
+        { title: 'Styleframe V1', priority: 'high' },
+        { title: 'Validation direction artistique', priority: 'high' },
+        { title: 'Storyboard animatique', priority: 'normal' },
+      ]},
+      { label: 'Production', tasks: [
+        { title: 'Design des assets graphiques', priority: 'high' },
+        { title: 'Animation séquence 1', priority: 'high' },
+        { title: 'Animation séquence 2', priority: 'normal' },
+        { title: 'Intégration son / musique', priority: 'normal' },
+        { title: 'Revue interne', priority: 'normal' },
+      ]},
+      { label: 'Révisions', tasks: [
+        { title: 'Envoi V1 client', priority: 'high' },
+        { title: 'Retours et corrections', priority: 'normal' },
+        { title: 'Envoi V2', priority: 'normal' },
+      ]},
+      { label: 'Rendu & livraison', tasks: [
+        { title: 'Rendu final (MP4 + formats)', priority: 'high' },
+        { title: 'Livraison fichiers sources', priority: 'normal' },
+        { title: 'Facturation', priority: 'high' },
+      ]},
+    ],
   },
   {
     id: 'tpl-vierge',
@@ -455,43 +623,28 @@ export function getVisibleBuiltInTemplates(): ProjectTemplate[] {
   return BUILT_IN_TEMPLATES.filter(t => !isTemplateHidden(t.id));
 }
 
-// Modèles Tâches synthétiques générés à la volée pour migrer en lecture les
-// ProjectTemplate custom sauvegardés à l'ancien format (sections embarquées,
-// pas de tasksTemplateId). Purement en mémoire — rien n'est jamais persisté ici ;
-// si l'utilisateur resauvegarde le modèle, le nouveau format (tasksTemplateId)
-// prend le relais. Pattern identique à migrateLegacyVision (projectContentStore.ts).
-let _legacyTasksTemplates: ResourceTemplate[] = [];
-
-function migrateLegacyTasksTemplate(tpl: ProjectTemplate): ProjectTemplate {
-  const legacySections = (tpl as ProjectTemplate & { sections?: TemplateSection[] }).sections;
-  if (tpl.tasksTemplateId || !legacySections || legacySections.length === 0) return tpl;
-
-  const legacyId = `tasks-legacy-${tpl.id}`;
-  if (!_legacyTasksTemplates.some(rt => rt.id === legacyId)) {
-    _legacyTasksTemplates = [..._legacyTasksTemplates, {
-      id: legacyId,
-      type: 'tasks',
-      name: `Tâches — ${tpl.name}`,
-      description: '',
-      color: tpl.color,
-      icon: 'list-checks',
-      tags: [],
-      createdAt: tpl.createdAt,
-      sections: legacySections,
-    }];
+function migrateLegacyProjectTemplate(tpl: ProjectTemplate): ProjectTemplate {
+  if (!tpl.tasksTemplateId && !tpl.defaultFolderStructureId && !tpl.defaultOverviewTemplateId) return tpl;
+  const resources = loadAllResourceTemplates();
+  const migrated = { ...tpl };
+  if (tpl.tasksTemplateId && !tpl.sections) {
+    migrated.sections = resources.find(r => r.id === tpl.tasksTemplateId && r.type === 'tasks')?.sections ?? [];
   }
-
-  return { ...tpl, tasksTemplateId: legacyId };
+  if (tpl.defaultFolderStructureId && !tpl.folderStructure) {
+    migrated.folderStructure = resources.find(r => r.id === tpl.defaultFolderStructureId && r.type === 'file')?.folderStructure ?? [];
+  }
+  if (tpl.defaultOverviewTemplateId && !tpl.overviewSections) {
+    migrated.overviewSections = resources.find(r => r.id === tpl.defaultOverviewTemplateId && r.type === 'overview')?.overviewSections ?? [];
+  }
+  return migrated;
 }
 
 export function loadAllTemplates(): ProjectTemplate[] {
-  return [...getVisibleBuiltInTemplates(), ...loadCustomTemplates().map(migrateLegacyTasksTemplate)];
+  return [...getVisibleBuiltInTemplates(), ...loadCustomTemplates().map(migrateLegacyProjectTemplate)];
 }
 
 export function resolveTasksSections(tpl: ProjectTemplate): TemplateSection[] {
-  if (!tpl.tasksTemplateId) return [];
-  const rt = loadAllResourceTemplates().find(r => r.id === tpl.tasksTemplateId && r.type === 'tasks');
-  return rt?.sections ?? [];
+  return tpl.sections ?? [];
 }
 
 // ── Form template storage ──────────────────────────────────────────────────────
@@ -767,157 +920,6 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
     createdAt: '2025-01-01',
     overviewSections: [],
   },
-  // ── Tâches ──
-  {
-    id: 'res-tasks-video-sociale',
-    type: 'tasks',
-    name: 'Tâches — Campagne vidéo sociale',
-    description: 'Structure de sections et tâches pour un projet de contenu court destiné aux réseaux sociaux.',
-    color: '#5B8AF5',
-    icon: 'list-checks',
-    tags: [],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    sections: [
-      { label: 'Préproduction', tasks: [
-        { title: 'Validation du brief client', priority: 'high' },
-        { title: 'Écriture du script', priority: 'high' },
-        { title: 'Repérage des lieux', priority: 'normal' },
-        { title: 'Casting & confirmations', priority: 'normal' },
-        { title: 'Création du moodboard', priority: 'low' },
-        { title: 'Planification du tournage', priority: 'high' },
-      ]},
-      { label: 'Production', tasks: [
-        { title: 'Journée de tournage J1', priority: 'high' },
-        { title: 'Backup et vérification des rushs', priority: 'high' },
-        { title: 'Photos de plateau', priority: 'low' },
-      ]},
-      { label: 'Postproduction', tasks: [
-        { title: 'Montage rough cut', priority: 'high' },
-        { title: 'Révision interne', priority: 'normal' },
-        { title: 'Envoi V1 au client', priority: 'high' },
-        { title: 'Intégration des retours', priority: 'normal' },
-        { title: 'Étalonnage couleur', priority: 'normal' },
-        { title: 'Mixage audio', priority: 'normal' },
-        { title: 'Export formats finaux', priority: 'high' },
-      ]},
-      { label: 'Livraison', tasks: [
-        { title: 'Envoi des fichiers au client', priority: 'high' },
-        { title: 'Facturation solde', priority: 'high' },
-        { title: 'Archivage du projet', priority: 'low' },
-      ]},
-    ],
-  },
-  {
-    id: 'res-tasks-film-institutionnel',
-    type: 'tasks',
-    name: 'Tâches — Film institutionnel',
-    description: 'Structure de sections et tâches pour un film corporate long format.',
-    color: '#34C98A',
-    icon: 'list-checks',
-    tags: [],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    sections: [
-      { label: 'Préproduction', tasks: [
-        { title: 'Réunion de lancement', priority: 'high' },
-        { title: 'Rédaction du brief créatif', priority: 'high' },
-        { title: 'Script et conducteur', priority: 'high' },
-        { title: 'Recrutement des intervenants', priority: 'normal' },
-        { title: 'Repérages', priority: 'normal' },
-        { title: 'Planification multi-journées', priority: 'high' },
-        { title: 'Validation budget', priority: 'high' },
-      ]},
-      { label: 'Production', tasks: [
-        { title: 'Tournage interviews J1', priority: 'high' },
-        { title: 'Tournage B-roll J2', priority: 'high' },
-        { title: 'Backup rushs quotidien', priority: 'high' },
-        { title: 'Sélection des prises', priority: 'normal' },
-      ]},
-      { label: 'Postproduction', tasks: [
-        { title: 'Dérushage complet', priority: 'normal' },
-        { title: 'Montage offline', priority: 'high' },
-        { title: 'V1 → Validation client', priority: 'high' },
-        { title: 'V2 avec retours', priority: 'normal' },
-        { title: 'Animation graphique', priority: 'normal' },
-        { title: 'Mixage son professionnel', priority: 'normal' },
-        { title: 'Étalonnage', priority: 'normal' },
-        { title: 'Export diffusion + web', priority: 'high' },
-      ]},
-      { label: 'Livraison', tasks: [
-        { title: 'Remise des masters', priority: 'high' },
-        { title: 'Formation utilisation fichiers', priority: 'low' },
-        { title: 'Facturation et clôture', priority: 'high' },
-      ]},
-    ],
-  },
-  {
-    id: 'res-tasks-shoot-photo',
-    type: 'tasks',
-    name: 'Tâches — Séance photo',
-    description: 'Structure de sections et tâches pour un projet de photographie produit ou portrait.',
-    color: '#E85B7A',
-    icon: 'list-checks',
-    tags: [],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    sections: [
-      { label: 'Préparation', tasks: [
-        { title: 'Brief et moodboard', priority: 'high' },
-        { title: 'Sélection des modèles / produits', priority: 'normal' },
-        { title: 'Repérage studio ou extérieur', priority: 'normal' },
-        { title: 'Liste du matériel', priority: 'normal' },
-        { title: 'Confirmation planning', priority: 'high' },
-      ]},
-      { label: 'Shooting', tasks: [
-        { title: 'Journée de shooting', priority: 'high' },
-        { title: 'Sélection des images (editing)', priority: 'high' },
-        { title: 'Export sélection brute pour client', priority: 'normal' },
-      ]},
-      { label: 'Retouche & livraison', tasks: [
-        { title: 'Retouche photos validées', priority: 'high' },
-        { title: 'Export finaux (web + print)', priority: 'high' },
-        { title: 'Remise au client', priority: 'high' },
-        { title: 'Facturation', priority: 'high' },
-      ]},
-    ],
-  },
-  {
-    id: 'res-tasks-motion-design',
-    type: 'tasks',
-    name: 'Tâches — Motion design',
-    description: 'Structure de sections et tâches pour une production motion design ou animation 2D/3D.',
-    color: '#A05BE8',
-    icon: 'list-checks',
-    tags: [],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    sections: [
-      { label: 'Conception', tasks: [
-        { title: 'Brief et objectifs', priority: 'high' },
-        { title: 'Styleframe V1', priority: 'high' },
-        { title: 'Validation direction artistique', priority: 'high' },
-        { title: 'Storyboard animatique', priority: 'normal' },
-      ]},
-      { label: 'Production', tasks: [
-        { title: 'Design des assets graphiques', priority: 'high' },
-        { title: 'Animation séquence 1', priority: 'high' },
-        { title: 'Animation séquence 2', priority: 'normal' },
-        { title: 'Intégration son / musique', priority: 'normal' },
-        { title: 'Revue interne', priority: 'normal' },
-      ]},
-      { label: 'Révisions', tasks: [
-        { title: 'Envoi V1 client', priority: 'high' },
-        { title: 'Retours et corrections', priority: 'normal' },
-        { title: 'Envoi V2', priority: 'normal' },
-      ]},
-      { label: 'Rendu & livraison', tasks: [
-        { title: 'Rendu final (MP4 + formats)', priority: 'high' },
-        { title: 'Livraison fichiers sources', priority: 'normal' },
-        { title: 'Facturation', priority: 'high' },
-      ]},
-    ],
-  },
 ];
 
 // ── Resource template storage ──────────────────────────────────────────────────
@@ -1004,5 +1006,5 @@ export function getVisibleBuiltInResourceTemplates(): ResourceTemplate[] {
 }
 
 export function loadAllResourceTemplates(): ResourceTemplate[] {
-  return [...getVisibleBuiltInResourceTemplates(), ...loadCustomResourceTemplates(), ..._legacyTasksTemplates];
+  return [...getVisibleBuiltInResourceTemplates(), ...loadCustomResourceTemplates()];
 }
