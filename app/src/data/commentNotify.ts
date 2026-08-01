@@ -68,7 +68,16 @@ function resolveWatchers(taskId?: string, resourceId?: string, projectId?: strin
     };
   }
   if (resourceId) {
-    const resource = getResources().find(r => r.id === resourceId);
+    const resources = getResources();
+    const resource = resources.find(r => r.id === resourceId);
+    // Même garde que la branche tâche ci-dessus : resources.length===0 est
+    // ambigu entre "aucune ressource" et "le fetch n'a pas fini" — dans le
+    // doute, ne pas committer plutôt que d'écraser une liste d'observateurs
+    // déjà en base avec une liste tronquée basée sur un cache vide.
+    if (resources.length === 0) {
+      console.warn('[commentNotify] resolveWatchers: resources not loaded yet, skipping watcher commit to avoid dropping existing watchers', { resourceId });
+      return { current: [], commit: () => {} };
+    }
     return {
       current: resource?.watchers ?? [],
       commit: next => updateResource(resourceId, { watchers: next }),
