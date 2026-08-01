@@ -94,6 +94,12 @@ export interface Task {
   dueDateRed?: boolean;
   checked: boolean;
   subtasks?: Task[];
+  // Renseigné uniquement sur les entrées synthétiques de « Mes tâches » : une
+  // sous-tâche qui m'est assignée y remonte comme ligne autonome, et garde
+  // ici le lien vers sa tâche parente (pour l'icône distinctive et le
+  // contexte affiché). N'est jamais persisté — myTaskStore.ts le pose à la
+  // lecture, et écrit toujours dans la sous-tâche d'origine.
+  subtaskOf?: { taskId: string; title: string };
   phase?: Phase;
   activityCount?: number;
   deliverable?: boolean;

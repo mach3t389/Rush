@@ -173,6 +173,35 @@ async function writeSupabaseSections(projectId: string, sections: SectionData[])
   }
 }
 
+// Écriture ciblée d'UNE tâche, sans toucher aux sections.
+//
+// writeSupabaseSections() réécrit tout le projet en supprimant d'abord ses
+// sections (les tâches suivent en cascade) puis en réinsérant. Entre les
+// deux, la table `tasks` ne contient plus rien pour ce projet pendant
+// plusieurs centaines de millisecondes. Or setSections() prévient ses
+// abonnés AVANT de lancer cette écriture, et myTaskStore.ts réagit en
+// relisant immédiatement la table `tasks` — sa lecture tombait donc en
+// plein dans ce trou et vidait « Mes tâches » de toutes les tâches du
+// projet jusqu'au prochain rechargement (bug vécu : modifier une tâche
+// depuis Mes tâches les faisait toutes disparaître).
+//
+// Patcher la seule ligne concernée supprime le trou : aucune suppression,
+// donc aucun état intermédiaire observable.
+async function writeSupabaseTaskData(taskId: string, task: Task): Promise<void> {
+  const studioId = await getStudioId();
+  const { error } = await supabase
+    .from('tasks')
+    .update({ data: task })
+    .eq('studio_id', studioId)
+    .eq('id', taskId);
+  if (error) { console.error('writeSupabaseTaskData failed', error); return; }
+  // Re-prévenir une fois l'écriture confirmée : les abonnés qui relisent la
+  // base en réaction (myTaskStore.ts) ont été notifiés au moment optimiste,
+  // donc avant que la ligne ne soit à jour — leur première relecture peut
+  // avoir ramené l'ancienne valeur. Ce second signal la corrige.
+  notify();
+}
+
 export function resetTasksCache(): void {
   Object.keys(_supabaseSections).forEach(k => delete _supabaseSections[k]);
   _fetchedProjectIds.clear();
@@ -235,6 +264,17 @@ export function setSections(projectId: string, sections: SectionData[]): void {
   // delete-then-recreate, that stale write would clobber the intervening
   // changes once the serialized queue got to it (sections reappearing,
   // added tasks vanishing).
+  // Garde-fou anti-effacement : getSections() renvoie [] tant que le fetch
+  // d'un projet n'a pas résolu, sans distinguer « pas encore chargé » de
+  // « réellement vide ». Un appelant qui lit puis réécrit pendant cette
+  // fenêtre passerait ici avec un tableau vide, et writeSupabaseSections()
+  // supprimerait toutes les sections du projet (donc toutes ses tâches en
+  // cascade) sans rien réinsérer. Une suppression volontaire de la dernière
+  // section reste possible : le fetch est alors terminé.
+  if (sections.length === 0 && _loadingProjectIds.has(projectId)) {
+    console.warn('setSections: écriture vide ignorée, sections du projet pas encore chargées', projectId);
+    return;
+  }
   _supabaseSections[projectId] = sections;
   notify();
   enqueueWrite(projectId, () => writeSupabaseSections(projectId, sections));
@@ -295,7 +335,35 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
       return { ...t, ...resolvedPatch, watchers };
     }),
   }));
-  setSections(projectId, next);
+
+  if (isDemoSession()) { setSections(projectId, next); return; }
+
+  // Session réelle : patcher la seule ligne de la tâche plutôt que de
+  // réécrire tout le projet (voir writeSupabaseTaskData). Si la tâche est
+  // introuvable dans le cache — projet pas encore chargé, ou tâche d'un
+  // autre projet — on ne touche à rien : réécrire à partir d'un cache vide
+  // supprimerait toutes les sections du projet.
+  const updated = next.flatMap(s => s.tasks).find(t => t.id === taskId);
+  if (!updated) {
+    // Projet encore en cours de chargement : la tâche existe sûrement, on ne
+    // la voit simplement pas encore. Abandonner ici perdrait silencieusement
+    // la modification de l'utilisateur (cas courant depuis « Mes tâches »,
+    // qui ne charge les sections d'un projet qu'à l'ouverture du panneau).
+    // On rejoue donc une seule fois, dès que le chargement est terminé.
+    if (_loadingProjectIds.has(projectId)) {
+      const unsubscribe = subscribeStore(() => {
+        if (_loadingProjectIds.has(projectId)) return;
+        unsubscribe();
+        updateTask(projectId, taskId, patch);
+      });
+      return;
+    }
+    console.warn('updateTask: tâche absente du cache du projet, écriture ignorée', { projectId, taskId });
+    return;
+  }
+  _supabaseSections[projectId] = next;
+  notify();
+  enqueueWrite(projectId, () => writeSupabaseTaskData(taskId, updated));
 }
 
 export function deleteTask(projectId: string, taskId: string): void {

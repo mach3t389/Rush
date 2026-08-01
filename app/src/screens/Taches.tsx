@@ -568,6 +568,21 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
             {task.title}
           </span>
         )}
+        {/* Ligne issue d'une sous-tâche assignée : l'icône la distingue d'une
+            tâche normale au premier coup d'œil, et le titre du parent donne
+            le contexte manquant (le parent n'est pas listé s'il ne m'est pas
+            assigné). */}
+        {!editingTitle && task.subtaskOf && (
+          <span
+            title={t('tasks.subtaskOf', { title: task.subtaskOf.title })}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 6, flexShrink: 1, minWidth: 0 }}
+          >
+            <SFIcon name="corner-down-right" size={11} color="var(--text-3)" />
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {task.subtaskOf.title}
+            </span>
+          </span>
+        )}
         {!editingTitle && task.description && (
           <span title={task.description.slice(0, 120)} style={{ flexShrink: 0, marginLeft: 5, display: 'flex', alignItems: 'center' }}>
             <SFIcon name="text-align-start" size={11} color="var(--text-3)" />

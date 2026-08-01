@@ -114,6 +114,7 @@
     "inReview": "En révision",
     "unassigned": "Non assigné",
     "sharedWith": "avec",
+    "subtaskOf": "Sous-tâche de « {{title}} »",
     "noOne": "Personne",
     "noProject": "Aucun projet",
     "deleteConfirm": "Supprimer ?",
