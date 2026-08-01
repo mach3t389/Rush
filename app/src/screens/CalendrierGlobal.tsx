@@ -877,13 +877,9 @@ export function CalendrierGlobal() {
 
       {/* Main */}
       <div ref={mainRef} style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0, background: 'var(--bg)' }}>
-        <PageHeader title={t('nav.calendar')} subtitle={title}>
-          {/* Navigation + rangée de tags — alignées sur le même bord gauche,
-              plutôt que la navigation collée à droite du titre (comme
-              c'était le cas avant) et les tags flush-left en dessous :
-              ça formait un bloc mal aligné, corrigé ici. */}
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <PageHeader title={t('nav.calendar')} subtitle={title}
+          actions={
+            <div style={{ display:'flex', alignItems:'flex-start', alignSelf:'flex-start', gap:12 }}>
               {/* Navigation */}
               <div style={{ display:'flex',alignItems:'center',gap:6 }}>
                 <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
@@ -897,43 +893,42 @@ export function CalendrierGlobal() {
                 </button>
               </div>
 
-              <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
-                {/* View switcher */}
-                <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
-                  {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
-                    <button key={v} onClick={()=>setView(v)}
-                      style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
-                    >
-                      {label}
-                      <span style={{ fontSize:9,opacity:view===v?0.6:0.4,background:'rgba(128,128,128,0.15)',borderRadius:3,padding:'1px 4px',letterSpacing:0,lineHeight:1 }}>{key}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Zoom + plein écran regroupés — les deux affectent la
-                    taille d'affichage. Rendu en permanence (grisé en vue
-                    Mois, où il n'a pas d'effet) plutôt que démonté, pour ne
-                    pas faire sauter la largeur de la barre en changeant de vue. */}
-                <CalendarZoomControl disabled={view==='month'} />
-
-                <button onClick={toggleFullscreen} title={isFullscreen ? t('calendar.exitFullscreen') : t('calendar.fullscreen')}
-                  style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
-                  <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
-                </button>
+              {/* View switcher */}
+              <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
+                {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
+                  <button key={v} onClick={()=>setView(v)}
+                    style={{ display:'flex',alignItems:'center',gap:5,padding:'6px 14px',border:'none',borderLeft:i>0?'1px solid var(--border)':undefined,background:view===v?'var(--surface-3)':'var(--surface-2)',color:view===v?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em',transition:'background 0.12s' }}
+                  >
+                    {label}
+                    <span style={{ fontSize:9,opacity:view===v?0.6:0.4,background:'rgba(128,128,128,0.15)',borderRadius:3,padding:'1px 4px',letterSpacing:0,lineHeight:1 }}>{key}</span>
+                  </button>
+                ))}
               </div>
-            </div>
 
-            {/* Types d'événements — rangée de chips, toujours visible sans
-                concurrencer la liste de projets (illimitée) de la sidebar. */}
-            <EventTypeFilterBar
-              eventTypes={eventTypes}
-              selectedEventTypes={selectedEventTypes}
-              onToggle={toggleEventType}
-              onClearFilter={()=>setSelectedEventTypes(new Set())}
-              showAllLabel={t('calendar.showAll')}
-              newTypeLabel={t('calendar.newType')}
-            />
-          </div>
+              {/* Zoom + plein écran regroupés — les deux affectent la
+                  taille d'affichage. Rendu en permanence (grisé en vue
+                  Mois, où il n'a pas d'effet) plutôt que démonté, pour ne
+                  pas faire sauter la largeur de la barre en changeant de vue. */}
+              <CalendarZoomControl disabled={view==='month'} />
+
+              <button onClick={toggleFullscreen} title={isFullscreen ? t('calendar.exitFullscreen') : t('calendar.fullscreen')}
+                style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
+                <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
+              </button>
+            </div>
+          }
+        >
+          {/* Types d'événements — rangée de chips, dans sa propre boîte sous
+              le titre+barre d'outils, toujours visible sans concurrencer la
+              liste de projets (illimitée) de la sidebar. */}
+          <EventTypeFilterBar
+            eventTypes={eventTypes}
+            selectedEventTypes={selectedEventTypes}
+            onToggle={toggleEventType}
+            onClearFilter={()=>setSelectedEventTypes(new Set())}
+            showAllLabel={t('calendar.showAll')}
+            newTypeLabel={t('calendar.newType')}
+          />
         </PageHeader>
 
         {/* Calendar body */}
