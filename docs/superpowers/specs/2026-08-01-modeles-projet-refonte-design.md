@@ -68,20 +68,28 @@ Remplace l'actuel `onEdit`/`setPreviewTpl` → overlay `TemplateProjectView`. **
 
 C'est essentiellement la logique qui existait déjà dans `openTemplateDraft` (chantier précédent, code supprimé comme mort car il ne menait jamais nulle part) — elle est réintroduite, mais avec une différence essentielle : le brouillon n'est plus jetable (voir plus bas).
 
-### « Enregistrer comme modèle »
+### « Créer un modèle depuis ce projet » — action unique, sur n'importe quel projet
 
-Bouton visible depuis un projet-brouillon (`project.isTemplateDraft === true`), quelle que soit la page où on se trouve (Travail/Fichiers/Aperçu) — probablement dans `ProjectHeaderBar`, à côté du bouton existant `projects.templateDraftFinish` (« Terminer »), qu'il remplace ou complète.
+Pas un bouton par page. **Une seule action**, accessible depuis le menu d'options d'un projet (`ProjectHeaderBar`, à côté de « Modifier le projet »/« Archiver ») — utilisable sur **n'importe quel projet, brouillon ou réel**. Un projet déjà construit depuis des mois peut devenir un modèle aussi facilement qu'un brouillon fraîchement créé pour l'occasion.
 
-Ouvre une petite fenêtre : nom/description/couleur/icône/tags (repris du formulaire de modèle existant) + trois cases à cocher, cochées par défaut :
+Ouvre un écran dédié (pas une petite fenêtre) : nom/description/couleur/icône/tags du modèle, puis trois cases à cocher, cochées par défaut :
 - ☑ Tâches
 - ☑ Fichiers
 - ☑ Aperçu
 
-À la confirmation : lit l'état actuel du brouillon (`getSections(draftId)`, le dossier racine du brouillon, `getProjectContent(draftId)`), ne conserve que ce qui est coché, et écrit dans `ProjectTemplate` (nouveau modèle si créé depuis un brouillon vierge, ou même id si c'était déjà un modèle existant qu'on modifiait — `draftOriginTemplateId` indique lequel).
+**Cible du champ nom, selon le contexte :**
+- Projet sans `draftOriginTemplateId` → crée toujours un nouveau modèle.
+- Projet avec `draftOriginTemplateId` (un brouillon ouvert pour modifier un modèle existant) → l'écran propose par défaut « Mettre à jour "{nom du modèle}" », avec une option pour créer un nouveau modèle séparé à la place (cas : on veut dupliquer plutôt qu'écraser).
+
+À la confirmation : lit l'état actuel du projet (`getSections(projectId)`, sa structure de dossiers, `getProjectContent(projectId)`), ne conserve que ce qui est coché, et écrit dans `ProjectTemplate` (nouveau ou mise à jour selon le choix ci-dessus).
+
+**Explicitement différé, pas dans ce chantier** (à revoir une fois le mécanisme de base en usage réel) :
+- Granularité plus fine que les 3 cases (ex. inclure ou non les sous-tâches, inclure ou non les commentaires) — les 3 cases suffisent au besoin exprimé pour l'instant.
+- Revoir la fiche de détail d'un modèle de projet dans la page Modèles (actuellement : compte de sections/tâches seulement) — à refaire une fois qu'un modèle contient vraiment tâches/fichiers/aperçu, pas avant.
 
 ### Le brouillon n'est plus jetable par défaut
 
-Actuellement, `ProjectHeaderBar` supprime automatiquement tout projet `isTemplateDraft` dès qu'on quitte l'écran (voir le commentaire existant dans ce fichier expliquant le mécanisme de suppression différée). Ce comportement est retiré : un brouillon reste un vrai projet dans la base tant qu'il n'est pas explicitement fermé. « Enregistrer comme modèle » ne le supprime pas non plus — l'utilisateur peut continuer à l'éditer et ré-enregistrer plusieurs fois (bouton renommé, ex. « Mettre à jour le modèle » une fois qu'un premier enregistrement a eu lieu). Un bouton distinct « Fermer sans enregistrer » (ou « Supprimer ce brouillon ») couvre le cas où l'utilisateur abandonne — avec confirmation, puisque c'est maintenant une suppression volontaire de données, plus un nettoyage automatique silencieux.
+Actuellement, `ProjectHeaderBar` supprime automatiquement tout projet `isTemplateDraft` dès qu'on quitte l'écran (voir le commentaire existant dans ce fichier expliquant le mécanisme de suppression différée). Ce comportement est retiré : un brouillon reste un vrai projet dans la base tant qu'il n'est pas explicitement fermé. « Créer un modèle depuis ce projet » ne le supprime pas non plus — l'utilisateur peut continuer à l'éditer et ré-enregistrer plusieurs fois. Un bouton distinct « Fermer sans enregistrer » (ou « Supprimer ce brouillon ») couvre le cas où l'utilisateur abandonne — avec confirmation, puisque c'est maintenant une suppression volontaire de données, plus un nettoyage automatique silencieux.
 
 ## Assistant « Nouveau projet » (`ProjectsListView.tsx`)
 
@@ -93,8 +101,8 @@ Actuellement, `ProjectHeaderBar` supprime automatiquement tout projet `isTemplat
 
 Pas de tests automatisés — vérification via preview, dans un worktree dédié :
 - Page Modèles : seuls des modèles de Projet apparaissent dans la navigation principale (plus de catégories Aperçu/Tâches/Fichiers en haut).
-- Créer un nouveau modèle de projet → un brouillon s'ouvre sur la vraie page Travail, vide. Ajouter une section et une tâche (fonctionne nativement, aucun bouton à construire). Aller dans Fichiers, ajouter un dossier. Aller dans Aperçu, modifier Vision. « Enregistrer comme modèle » avec les 3 cases cochées → confirmer que le modèle créé contient bien les 3.
-- Rouvrir ce modèle pour le modifier → le même brouillon (ou un nouveau, selon l'implémentation retenue) s'ouvre avec le contenu déjà là.
-- Réenregistrer en décochant « Fichiers » → confirmer que le modèle perd sa structure de fichiers mais garde tâches et aperçu.
+- Créer un nouveau modèle de projet → un brouillon s'ouvre sur la vraie page Travail, vide. Ajouter une section et une tâche (fonctionne nativement, aucun bouton à construire). Aller dans Fichiers, ajouter un dossier. Aller dans Aperçu, modifier Vision. « Créer un modèle depuis ce projet » avec les 3 cases cochées → confirmer que le modèle créé contient bien les 3.
+- Sur un projet RÉEL existant (pas un brouillon) : « Créer un modèle depuis ce projet » fonctionne aussi, propose bien « créer un nouveau modèle » (pas de mise à jour proposée, puisque ce projet n'a pas de `draftOriginTemplateId`).
+- Rouvrir un modèle existant pour le modifier → le brouillon s'ouvre avec le contenu déjà là. Réenregistrer en décochant « Fichiers » → l'écran propose par défaut de mettre à jour ce même modèle ; confirmer qu'il perd sa structure de fichiers mais garde tâches et aperçu.
 - Assistant Nouveau projet : confirmer que l'étape Fichiers a disparu, et qu'un projet créé depuis un modèle a bien ses tâches, ses fichiers et son aperçu préremplis.
 - Un modèle personnalisé créé avant ce chantier (ancien format `tasksTemplateId`) s'ouvre et se matérialise toujours correctement (migration à la lecture).
