@@ -122,7 +122,7 @@ export function WebReview() {
   };
 
   const persistedAnnotations = resourceId ? getResourceContent<{ annotations: Annotation[] }>(resourceId) : undefined;
-  const [annotations, setAnnotations] = useState<Annotation[]>(persistedAnnotations?.annotations ?? DEMO_ANNOTATIONS);
+  const [annotations, setAnnotations] = useState<Annotation[]>(persistedAnnotations?.annotations ?? (resourceId ? [] : DEMO_ANNOTATIONS));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addingPin, setAddingPin] = useState(false);
   // pendingPos stored in page-pixel coordinates
