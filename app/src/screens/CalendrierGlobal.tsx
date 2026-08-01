@@ -18,7 +18,7 @@ import {
 } from '../components/calendar/calendarUtils';
 import { MonthView } from '../components/calendar/MonthView';
 import { TimeGridView } from '../components/calendar/TimeGridView';
-import { EventTypeFilterList } from '../components/calendar/EventTypeFilterList';
+import { EventTypeFilterBar } from '../components/calendar/EventTypeFilterBar';
 import { getShortcuts, matchesShortcut } from '../data/shortcutsStore';
 import { getWeekStart, subscribeWeekStart } from '../data/weekStartStore';
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus } from '../data/googleCalendarStore';
@@ -875,17 +875,6 @@ export function CalendrierGlobal() {
           );
         })()}
 
-        {/* Event type filters — éditable : crayon pour renommer/recolorer, "+" pour créer */}
-        <EventTypeFilterList
-          eventTypes={eventTypes}
-          selectedEventTypes={selectedEventTypes}
-          onToggle={toggleEventType}
-          onClearFilter={()=>setSelectedEventTypes(new Set())}
-          titleLabel={t('calendar.eventTypes')}
-          showAllLabel={t('calendar.showAll')}
-          newTypeLabel={t('calendar.newType')}
-        />
-
         </div>{/* fin zone scrollable filtres */}
 
         {/* Prochains événements — panneau ancré au bas */}
@@ -926,24 +915,24 @@ export function CalendrierGlobal() {
 
       {/* Main */}
       <div ref={mainRef} style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0, background: 'var(--bg)' }}>
-        <PageHeader title={t('nav.calendar')} subtitle={title}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            {/* Navigation */}
-            <div style={{ display:'flex',alignItems:'center',gap:6 }}>
-              <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
-                {t('calendar.today')}
-              </button>
-              <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
-                <SFIcon name="chevron-left" size={14} />
-              </button>
-              <button onClick={next} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
-                <SFIcon name="chevron-right" size={14} />
-              </button>
-            </div>
+        <PageHeader title={t('nav.calendar')} subtitle={title}
+          actions={
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              {/* Navigation */}
+              <div style={{ display:'flex',alignItems:'center',gap:6 }}>
+                <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
+                  {t('calendar.today')}
+                </button>
+                <button onClick={prev} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
+                  <SFIcon name="chevron-left" size={14} />
+                </button>
+                <button onClick={next} style={{ padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',display:'flex' }}>
+                  <SFIcon name="chevron-right" size={14} />
+                </button>
+              </div>
 
-            {view!=='month' && <CalendarZoomControl />}
+              {view!=='month' && <CalendarZoomControl />}
 
-            <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
               {/* View switcher */}
               <div style={{ display:'flex',borderRadius:9,border:'1px solid var(--border)',overflow:'hidden' }}>
                 {([['month',t('calendar.viewMonth'),'M'],['week',t('calendar.viewWeek'),'W'],['day',t('calendar.viewDay'),'J']] as [CalView,string,string][]).map(([v,label,key],i)=>(
@@ -961,7 +950,18 @@ export function CalendrierGlobal() {
                 <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
               </button>
             </div>
-          </div>
+          }
+        >
+          {/* Types d'événements — rangée de chips, toujours visible sans
+              concurrencer la liste de projets (illimitée) de la sidebar. */}
+          <EventTypeFilterBar
+            eventTypes={eventTypes}
+            selectedEventTypes={selectedEventTypes}
+            onToggle={toggleEventType}
+            onClearFilter={()=>setSelectedEventTypes(new Set())}
+            showAllLabel={t('calendar.showAll')}
+            newTypeLabel={t('calendar.newType')}
+          />
         </PageHeader>
 
         {/* Calendar body */}
