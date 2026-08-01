@@ -8,6 +8,7 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
+import { isDemoSession } from '../data/authStore';
 import { getProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
@@ -2799,7 +2800,9 @@ function InspiTagsEditor({ tags, onChange }: { tags: string[]; onChange: (tags: 
 export function InspirationsView({ resource, persistKey, registerExport }: { resource: Resource; persistKey?: string; registerExport?: RegisterExport }) {
   const { t } = useTranslation();
   const _inspiPersisted = persistKey ? getResourceContent<{ items: InspiItem[]; comments?: RevisionComment[] }>(persistKey) : undefined;
-  const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? (persistKey ? [] : INITIAL_INSPI));
+  // Contenu d'exemple réservé aux ressources démo pré-existantes non éditées.
+  const inspiShowcaseFallback = persistKey && !isDemoSession();
+  const [items, setItems] = useState<InspiItem[]>(_inspiPersisted?.items ?? (inspiShowcaseFallback ? [] : INITIAL_INSPI));
   const [comments, setComments] = useState<RevisionComment[]>(_inspiPersisted?.comments ?? []);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -3428,7 +3431,9 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   const _formPersisted = persistKey
     ? getResourceContent<{ questions: FormQuestion[]; formTitle?: string; formDesc?: string; collectIdentity?: boolean; comments?: RevisionComment[] }>(persistKey)
     : undefined;
-  const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? (persistKey ? [] : INIT_FORM_QUESTIONS));
+  // Contenu d'exemple réservé aux ressources démo pré-existantes non éditées.
+  const formShowcaseFallback = persistKey && !isDemoSession();
+  const [questions, setQuestions] = useState<FormQuestion[]>(_formPersisted?.questions ?? initialQuestions ?? (formShowcaseFallback ? [] : INIT_FORM_QUESTIONS));
   const [comments, setComments] = useState<RevisionComment[]>(_formPersisted?.comments ?? []);
   const [submissions, setSubmissions] = useState<FormSubmission[]>(() => persistKey ? getFormSubmissions(persistKey) : []);
   useEffect(() => {
@@ -3447,7 +3452,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
     };
   });
   const [formTitle, setFormTitle] = useState(_formPersisted?.formTitle ?? resource.title);
-  const [formDesc, setFormDesc] = useState(_formPersisted?.formDesc ?? (persistKey ? '' : 'Merci de remplir ce formulaire. Vos réponses nous aident à améliorer nos services.'));
+  const [formDesc, setFormDesc] = useState(_formPersisted?.formDesc ?? (formShowcaseFallback ? '' : 'Merci de remplir ce formulaire. Vos réponses nous aident à améliorer nos services.'));
   const [selectedQ, setSelectedQ] = useState<string | null>('fq1');
   const [showTypeMenu, setShowTypeMenu] = useState<string | null>(null);
   const [draggingQ, setDraggingQ] = useState<string | null>(null);
@@ -5115,15 +5120,20 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
   const [activeTab, setActiveTab] = useState<ScreenplayTab>('script');
   const _scPersisted = persistKey ? getResourceContent<{ versions: ScriptVersion[]; activeId: string; props?: PropItem[]; shots?: ShotRow[]; sceneOrder?: string[]; comments?: RevisionComment[] }>(persistKey) : undefined;
   const [comments, setComments] = useState<RevisionComment[]>(() => _scPersisted?.comments ?? []);
+  // Un nouveau brouillon reste vide, même en session démo si l'utilisateur
+  // vient de le créer (rien n'existe encore dans _scPersisted). Le contenu
+  // d'exemple ci-dessous ne réapparaît que pour les ressources démo
+  // pré-existantes (mock.ts) qui n'ont jamais été éditées.
+  const showcaseFallback = persistKey && !isDemoSession();
   const [versions, setVersions] = useState<ScriptVersion[]>(() => {
     if (_scPersisted?.versions) return _scPersisted.versions;
     if (seedElements) return [{ id: 'v1', label: 'Brouillon', date: new Date().toLocaleDateString('fr-FR'), elements: seedElements }];
-    if (persistKey) return [{ id: 'v1', label: 'Version 1', date: new Date().toLocaleDateString('fr-FR'), elements: [] }];
+    if (showcaseFallback) return [{ id: 'v1', label: 'Version 1', date: new Date().toLocaleDateString('fr-FR'), elements: [] }];
     return INITIAL_VERSIONS;
   });
   const [activeVersionId, setActiveVersionId] = useState(() => {
     if (_scPersisted?.activeId) return _scPersisted.activeId;
-    if (seedElements || persistKey) return 'v1';
+    if (seedElements || showcaseFallback) return 'v1';
     return 'v3';
   });
 
@@ -5131,12 +5141,12 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
   // `sceneOrder` only ever holds ids for scenes added locally (in Shotlist
   // or Storyboard, not present in the script) — script scenes are always
   // derived live from scriptScenes, never stored here.
-  const [shots, setShots] = useState<ShotRow[]>(() => _scPersisted?.shots ?? (persistKey ? [] : MOCK_SHOTLIST));
+  const [shots, setShots] = useState<ShotRow[]>(() => _scPersisted?.shots ?? (showcaseFallback ? [] : MOCK_SHOTLIST));
   const [sceneOrder, setSceneOrder] = useState<string[]>(() => _scPersisted?.sceneOrder ?? []);
 
   // Lifted from ScriptView
   const [panelTab, setPanelTab] = useState<'scenes' | 'analyse' | 'props'>('scenes');
-  const [propItems, setPropItems] = useState<PropItem[]>(() => _scPersisted?.props ?? (persistKey ? [] : INITIAL_PROPS));
+  const [propItems, setPropItems] = useState<PropItem[]>(() => _scPersisted?.props ?? (showcaseFallback ? [] : INITIAL_PROPS));
   const [versionDropOpen, setVersionDropOpen] = useState(false);
   const vDropRef = useRef<HTMLDivElement>(null);
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
