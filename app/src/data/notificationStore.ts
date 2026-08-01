@@ -348,15 +348,73 @@ export function markAllRead(): void {
 // la condition). Seuls les appelants qui fournissent `itemLabel`
 // participent à ce mécanisme (voir Tâche 3) — sans lui, comportement
 // inchangé.
-function findGroupableNotif(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif | undefined {
+//
+// ⚠️ Session démo : on cherche dans `_demoNotifs` BRUT, pas `getNotifs()`.
+// `getNotifs()` filtre par préférences "en-app" de l'utilisateur courant —
+// un mauvais filtre ici (voir bug ci-dessous pour les sessions réelles,
+// le même biais existe en local si on l'utilisait).
+function findGroupableNotifDemo(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif | undefined {
   if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
   const ctx = notif.taskId ?? notif.resourceId;
   if (!ctx) return undefined;
-  return getNotifs().find(n =>
+  return _demoNotifs.find(n =>
     !n.read &&
     n.kind === 'comment' &&
     (n.taskId ?? n.resourceId) === ctx
   );
+}
+
+// Session réelle : `getNotifs()`/`_supabaseNotifs` sont structurellement les
+// mauvaises sources ici — l'auteur d'un nouveau commentaire est
+// explicitement EXCLU de `recipientIds` (voir commentNotify.ts), donc son
+// propre cache local (peuplé en filtrant sur `recipient_ids.includes(user.id)`)
+// ne contient jamais la ligne à fusionner pour le cas standard (deux
+// personnes différentes qui commentent le même item). On interroge donc
+// Supabase directement, sans filtre destinataire ni préférence utilisateur.
+//
+// Critère "non lue" : le read-state est par destinataire
+// (`notification_reads`), et une notification peut avoir plusieurs
+// destinataires à l'état différent. Interprétation retenue : la ligne reste
+// groupable tant qu'AU MOINS UN destinataire actuel ne l'a pas encore lue
+// (le groupe n'est "consommé" que quand tout le monde concerné l'a vue) —
+// voir le rapport de tâche pour la justification.
+async function findGroupableNotifReal(notif: Omit<AppNotif, 'id' | 'read'>): Promise<AppNotif | undefined> {
+  if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
+  const taskId = notif.taskId;
+  const resourceId = notif.resourceId;
+  if (!taskId && !resourceId) return undefined;
+
+  const studioId = await getStudioId();
+  let query = supabase
+    .from('notifications')
+    .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids, item_label, actor_names, count')
+    .eq('studio_id', studioId)
+    .eq('kind', 'comment')
+    .order('timestamp', { ascending: false })
+    .limit(5);
+  query = taskId ? query.eq('task_id', taskId) : query.eq('resource_id', resourceId!);
+
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) return undefined;
+  const rows = data as NotificationRow[];
+
+  const { data: readRows, error: readError } = await supabase
+    .from('notification_reads')
+    .select('user_id, notification_id')
+    .in('notification_id', rows.map(r => r.id));
+  if (readError) { console.error('findGroupableNotifReal (reads) failed', readError); return undefined; }
+  const readByNotif = new Map<string, Set<string>>();
+  for (const r of (readRows as { user_id: string; notification_id: string }[])) {
+    if (!readByNotif.has(r.notification_id)) readByNotif.set(r.notification_id, new Set());
+    readByNotif.get(r.notification_id)!.add(r.user_id);
+  }
+
+  for (const row of rows) {
+    const readUserIds = readByNotif.get(row.id) ?? new Set<string>();
+    const stillUnread = row.recipient_ids.some(id => !readUserIds.has(id));
+    if (stillUnread) return toNotif(row, false);
+  }
+  return undefined;
 }
 
 function groupedText(actorNames: string[], itemLabel: string): string {
@@ -365,43 +423,68 @@ function groupedText(actorNames: string[], itemLabel: string): string {
   return `et ${actorNames.length - 1} autres ont commenté « ${itemLabel} »`;
 }
 
+function mergeNotif(existing: AppNotif, notif: Omit<AppNotif, 'id' | 'read'>): AppNotif {
+  const actorNames = [notif.actor, ...(existing.actorNames ?? [existing.actor]).filter(a => a !== notif.actor)];
+  return {
+    ...existing,
+    actor: notif.actor,
+    actorNames,
+    count: (existing.count ?? 1) + 1,
+    text: groupedText(actorNames, notif.itemLabel!),
+    timestamp: notif.timestamp,
+    recipientIds: notif.recipientIds,
+  };
+}
+
 export function addNotif(notif: Omit<AppNotif, 'id' | 'read'>): void {
-  const existing = findGroupableNotif(notif);
-  if (existing) {
-    const actorNames = [notif.actor, ...(existing.actorNames ?? [existing.actor]).filter(a => a !== notif.actor)];
-    const merged: AppNotif = {
-      ...existing,
-      actor: notif.actor,
-      actorNames,
-      count: (existing.count ?? 1) + 1,
-      text: groupedText(actorNames, notif.itemLabel!),
-      timestamp: notif.timestamp,
-      recipientIds: notif.recipientIds,
-    };
-    if (isDemoSession()) {
+  if (isDemoSession()) {
+    const existing = findGroupableNotifDemo(notif);
+    if (existing) {
+      const merged = mergeNotif(existing, notif);
       _demoNotifs = _demoNotifs.map(n => n.id === merged.id ? merged : n);
       persistDemo();
       notify();
       return;
     }
-    _supabaseNotifs = _supabaseNotifs.map(n => n.id === merged.id ? merged : n);
-    notify();
-    void addSupabaseNotif(merged); // upsert-style: insert avec le même id échouerait — voir Step 3
-    return;
-  }
-
-  if (isDemoSession()) {
     const id = `user-${Date.now()}-${_demoNotifs.length}`;
     _demoNotifs = [{ ...notif, id, read: false }, ..._demoNotifs];
     persistDemo();
     notify();
     return;
   }
+
+  // Session réelle : la décision fusion/nouvelle ligne dépend d'une requête
+  // Supabase fraîche (findGroupableNotifReal, async) — addNotif() reste
+  // synchrone pour tous les appelants existants, donc on insère d'abord une
+  // ligne optimiste localement (comportement inchangé côté UI immédiate),
+  // puis on résout la vraie décision en arrière-plan. Si une fusion est
+  // trouvée, la ligne optimiste est retirée du cache local et remplacée par
+  // la ligne fusionnée AVANT toute écriture Supabase — donc on n'insère
+  // jamais la ligne optimiste orpheline en base. Le prochain
+  // `fetchSupabaseNotifs()` (déclenché par `addSupabaseNotif`) fait
+  // converger le cache local vers l'état serveur.
   const id = `user-${Date.now()}-${_supabaseNotifs.length}`;
-  const newNotif: AppNotif = { ...notif, id, read: false };
-  _supabaseNotifs = [newNotif, ..._supabaseNotifs];
+  const optimistic: AppNotif = { ...notif, id, read: false };
+  _supabaseNotifs = [optimistic, ..._supabaseNotifs];
   notify();
-  void addSupabaseNotif(newNotif);
+  void resolveRealAddNotif(notif, optimistic);
+}
+
+async function resolveRealAddNotif(notif: Omit<AppNotif, 'id' | 'read'>, optimistic: AppNotif): Promise<void> {
+  const existing = await findGroupableNotifReal(notif);
+  if (existing) {
+    const merged = mergeNotif(existing, notif);
+    _supabaseNotifs = _supabaseNotifs
+      .filter(n => n.id !== optimistic.id)
+      .map(n => n.id === merged.id ? merged : n);
+    if (!_supabaseNotifs.some(n => n.id === merged.id)) {
+      _supabaseNotifs = [merged, ..._supabaseNotifs];
+    }
+    notify();
+    void addSupabaseNotif(merged); // upsert sur existing.id
+    return;
+  }
+  void addSupabaseNotif(optimistic);
 }
 
 export function getNotifHistory(taskId?: string, resourceId?: string): AppNotif[] {
