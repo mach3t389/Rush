@@ -73,6 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     const prefs = (prefsRow?.prefs as Record<string, { email?: boolean }> | undefined) ?? {};
+    // Absence de préférence = comportement par défaut (envoyer) ; seul un
+    // `false` explicite bloque l'envoi.
     if (prefs[eventKey]?.email === false) {
       res.status(200).json({ ok: true, skipped: true });
       return;
