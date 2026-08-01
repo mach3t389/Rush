@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue, AssigneeGroup } from '../components/ui';
-import { PROJECT_TASKS, RESOURCES, USERS } from '../data/mock';
+import { PROJECT_TASKS, RESOURCES } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
 import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, convertTasksToSubtasks, convertSubtasksToTasks, copySubtasksAsTasks } from '../data/taskStore';
@@ -16,9 +16,6 @@ import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { loadCustomTemplates, saveCustomTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, loadAllResourceTemplates } from '../data/templates';
-import { TemplateMenuButton } from '../components/TemplateMenuButton';
-import type { ProjectTemplate, ResourceTemplate } from '../data/templates';
 import type { Task, Priority, ResourceType, SectionData, User } from '../types';
 import { TravailBoard } from './TravailBoard';
 import { TaskPanel } from '../components/TaskPanel';
@@ -1483,299 +1480,11 @@ export function ResourcePreviewContent({ res }: { res: typeof RESOURCES[0] }) {
   );
 }
 
-// ── Task Detail Panel ──────────────────────────────────────────────────────────
-
-// ── Screen ─────────────────────────────────────────────────────────────────────
-
-
-
-// ── Save as template modal ─────────────────────────────────────────────────────
-
-const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
-
-const STATUS_DOT: Record<string, string> = {
-  ok: 'var(--ok)', warn: 'var(--warn)', info: 'var(--info)',
-  danger: 'var(--danger)', review: 'var(--accent)', neutral: 'var(--text-3)',
-};
-
-function SaveAsTemplateModal({ projectName, sections, originTasksTemplate, onClose }: {
-  projectName: string;
-  sections: SectionData[];
-  originTasksTemplate?: ResourceTemplate;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [step, setStep] = useState<1 | 2>(1);
-  const [name, setName] = useState(originTasksTemplate?.name ?? projectName);
-  const [description, setDescription] = useState(originTasksTemplate?.description ?? '');
-  const [color, setColor] = useState(originTasksTemplate?.color ?? '#3b4f8f');
-  const [tags, setTags] = useState(originTasksTemplate?.tags?.join(', ') ?? '');
-  const [keepPriorities, setKeepPriorities] = useState(true);
-  const [keepStatuses, setKeepStatuses] = useState(true);
-  const [keepDueDates, setKeepDueDates] = useState(false);
-  const [keepDescriptions, setKeepDescriptions] = useState(true);
-  const [keepSubtasks, setKeepSubtasks] = useState(true);
-  const [saved, setSaved] = useState(false);
-
-  const totalTasks = sections.reduce((s, sec) => s + sec.tasks.length, 0);
-
-  const convertTask = (t: Task): import('../data/templates').TemplateTask => ({
-    title: t.title,
-    priority: keepPriorities ? (t.priority ?? 'normal') : 'normal',
-    ...(keepStatuses && t.status ? { status: t.status, statusLabel: t.statusLabel } : {}),
-    ...(keepDueDates && t.dueDate ? { dueDate: t.dueDate } : {}),
-    ...(keepSubtasks && t.subtasks?.length ? { subtasks: t.subtasks.map(convertTask) } : {}),
-  });
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    const createdAt = new Date().toISOString().split('T')[0];
-
-    if (originTasksTemplate) {
-      const updatedTasksTpl: ResourceTemplate = {
-        ...originTasksTemplate,
-        name: name.trim(),
-        description: description.trim(),
-        color,
-        tags: tags.split(',').map(t2 => t2.trim()).filter(Boolean),
-        sections: sections.map(s => ({
-          label: s.label,
-          tasks: s.tasks.map(convertTask),
-        })),
-      };
-      const existing = loadCustomResourceTemplates();
-      saveCustomResourceTemplates(existing.map(t2 => t2.id === updatedTasksTpl.id ? updatedTasksTpl : t2));
-      setSaved(true);
-      setTimeout(onClose, 1400);
-      return;
-    }
-
-    const tasksTpl: ResourceTemplate = {
-      id: `tasks-${Date.now()}`,
-      type: 'tasks',
-      name: `Tâches — ${name.trim()}`,
-      description: '',
-      color,
-      icon: 'list-checks',
-      tags: [],
-      builtIn: false,
-      createdAt,
-      sections: sections.map(s => ({
-        label: s.label,
-        tasks: s.tasks.map(convertTask),
-      })),
-    };
-    const existingResTpls = loadCustomResourceTemplates();
-    saveCustomResourceTemplates([...existingResTpls, tasksTpl]);
-    const tpl: ProjectTemplate = {
-      id: `tpl-${Date.now()}`,
-      name: name.trim(),
-      description: description.trim(),
-      color,
-      icon: 'folder',
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      tasksTemplateId: tasksTpl.id,
-      builtIn: false,
-      createdAt,
-    };
-    const existing = loadCustomTemplates();
-    saveCustomTemplates([...existing, tpl]);
-    setSaved(true);
-    setTimeout(onClose, 1400);
-  };
-
-  const fStyle: React.CSSProperties = {
-    width: '100%', padding: '8px 10px', borderRadius: 9,
-    border: '1px solid var(--border)', background: 'var(--surface-2)',
-    color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
-    outline: 'none', boxSizing: 'border-box', colorScheme: 'dark',
-  };
-  const lStyle: React.CSSProperties = {
-    fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
-    textTransform: 'uppercase', letterSpacing: '0.07em',
-  };
-
-  const ToggleRow = ({ label, sublabel, value, onChange }: { label: string; sublabel: string; value: boolean; onChange: (v: boolean) => void }) => (
-    <button onClick={() => onChange(!value)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${value ? 'var(--border-2)' : 'var(--border)'}`, background: value ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-      <div style={{ flex: 1 }}>
-        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{label}</p>
-        <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{sublabel}</p>
-      </div>
-      <div style={{ width: 36, height: 20, borderRadius: 999, flexShrink: 0, background: value ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', transition: 'background 0.15s' }}>
-        <div style={{ position: 'absolute', top: 3, left: value ? 18 : 3, width: 14, height: 14, borderRadius: '50%', background: value ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
-      </div>
-    </button>
-  );
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
-      <div style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 520, zIndex: 201, background: 'var(--surface)',
-        border: '1px solid var(--border-2)', borderRadius: 16,
-        boxShadow: '0 24px 80px rgba(0,0,0,0.75)', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', maxHeight: '90vh',
-      }}>
-        {/* Header */}
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          {step === 2 && (
-            <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--ff-text)' }}>
-              <SFIcon name="arrow-left" size={11} />{t('templateModal.back')}
-            </button>
-          )}
-          <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700 }}>
-              {step === 1 ? t('templateModal.titleStep1') : t('templateModal.titleStep2')}
-            </h2>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
-              {step === 1
-                ? `${t('templateModal.sectionsCount', { count: sections.length })} · ${t('templateModal.tasksCount', { count: totalTasks })}`
-                : t('templateModal.subtitleStep2')}
-            </p>
-          </div>
-          {/* Step indicator */}
-          <div style={{ display: 'flex', gap: 4 }}>
-            {[1, 2].map(s => (
-              <div key={s} style={{ width: s === step ? 16 : 6, height: 6, borderRadius: 3, background: s === step ? 'var(--accent)' : 'var(--surface-3)', transition: 'all 0.2s' }} />
-            ))}
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-            <SFIcon name="x" size={16} />
-          </button>
-        </div>
-
-        {/* Step 1 — Info */}
-        {step === 1 && (
-          <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={lStyle}>{t('templateModal.nameLabel')}</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder={t('templateModal.namePlaceholder')} style={fStyle} autoFocus />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={lStyle}>{t('templateModal.descriptionLabel')}</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('templateModal.descriptionPlaceholder')} style={{ ...fStyle, resize: 'none' }} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={lStyle}>{t('templateModal.colorLabel')}</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {TEMPLATE_COLORS.map(c => (
-                    <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none' }} />
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={lStyle}>{t('templateModal.tagsLabel')}</label>
-                <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('templateModal.tagsPlaceholder')} style={fStyle} />
-              </div>
-            </div>
-            {/* Sections preview */}
-            <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <p style={{ ...lStyle, marginBottom: 4 }}>{t('templateModal.contentIncluded')}</p>
-              {sections.map((s, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{s.label}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('templateModal.tasksCount', { count: s.tasks.length })}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 2 — Options */}
-        {step === 2 && (
-          <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 10, overflow: 'auto' }}>
-            <ToggleRow
-              label={t('board.keepPriorities')}
-              sublabel={t('templateModal.keepPrioritiesSublabel')}
-              value={keepPriorities}
-              onChange={setKeepPriorities}
-            />
-            <ToggleRow
-              label={t('board.keepStatuses')}
-              sublabel={t('templateModal.keepStatusesSublabel')}
-              value={keepStatuses}
-              onChange={setKeepStatuses}
-            />
-            <ToggleRow
-              label={t('templateModal.keepDueDates')}
-              sublabel={t('templateModal.keepDueDatesSublabel')}
-              value={keepDueDates}
-              onChange={setKeepDueDates}
-            />
-            <ToggleRow
-              label={t('templateModal.keepDescriptions')}
-              sublabel={t('templateModal.keepDescriptionsSublabel')}
-              value={keepDescriptions}
-              onChange={setKeepDescriptions}
-            />
-            <ToggleRow
-              label={t('board.keepSubtasksLabel')}
-              sublabel={t('board.keepSubtasksHint')}
-              value={keepSubtasks}
-              onChange={setKeepSubtasks}
-            />
-            {/* Live preview of first section's tasks */}
-            {sections[0]?.tasks.length > 0 && (
-              <div style={{ marginTop: 4, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <p style={{ ...lStyle, marginBottom: 8 }}>{t('templateModal.previewLabel', { section: sections[0].label })}</p>
-                {sections[0].tasks.slice(0, 4).map((pt, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0', borderBottom: i < Math.min(sections[0].tasks.length, 4) - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-2)' }}>{pt.title}</span>
-                    {keepPriorities && (
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: { high: 'var(--danger)', normal: 'var(--warn)', low: 'var(--info)', none: 'var(--border-2)' }[pt.priority ?? 'normal'], flexShrink: 0, display: 'block' }} />
-                    )}
-                    {keepStatuses && pt.statusLabel && (
-                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '1px 5px', borderRadius: 4, background: `${STATUS_DOT[pt.status ?? 'neutral']}22`, color: STATUS_DOT[pt.status ?? 'neutral'], border: `1px solid ${STATUS_DOT[pt.status ?? 'neutral']}44`, whiteSpace: 'nowrap' }}>{t(STATUS_OPTIONS.find(o => o.value === pt.status)?.labelKey ?? 'tasks.noStatus')}</span>
-                    )}
-                    {keepDueDates && pt.dueDate && (
-                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: isOverdue(pt.dueDate ?? '') ? 'var(--danger)' : 'var(--text-3)' }}>{pt.dueDate}</span>
-                    )}
-                    {keepSubtasks && pt.subtasks?.length ? (
-                      <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <SFIcon name="git-branch" size={9} />{pt.subtasks.length}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-                {sections[0].tasks.length > 4 && (
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', marginTop: 4 }}>{t('templateModal.moreTasksCount', { count: sections[0].tasks.length - 4 })}</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <SFButton variant="ghost" size="sm" onClick={onClose}>{t('tasks.cancel')}</SFButton>
-          {step === 1 ? (
-            <SFButton variant="primary" size="sm" icon="arrow-right" onClick={() => setStep(2)} style={{ opacity: name.trim() ? 1 : 0.5 }}>
-              {t('templateModal.next')}
-            </SFButton>
-          ) : saved ? (
-            <SFButton variant="primary" size="sm" icon="check" style={{ background: 'var(--ok)' }}>{t('templateModal.templateSaved')}</SFButton>
-          ) : (
-            <SFButton variant="primary" size="sm" icon="layout-template" onClick={handleSave}>
-              {t('templateModal.createTemplate')}
-            </SFButton>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
-
 export function Travail() {
   const { t } = useTranslation();
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const project = findProject(projectId ?? '') ?? getProjects()[0]!;
-  const originTasksTemplate = project.draftOriginTemplateId
-    ? loadAllResourceTemplates().find(t2 => t2.id === project.draftOriginTemplateId && t2.type === 'tasks')
-    : undefined;
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);
 
@@ -1914,7 +1623,6 @@ export function Travail() {
   const [viewOpen, setViewOpen] = useState(false);
   const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
   const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
-  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
   useEffect(() => {
     if (draggedIdx === null && draggedTask === null) return;
@@ -1942,33 +1650,6 @@ export function Travail() {
     frame = requestAnimationFrame(scroll);
     return () => cancelAnimationFrame(frame);
   }, [draggedIdx, draggedTask]);
-
-  const handleLoadTasksTemplate = (templateId: string) => {
-    const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === 'tasks');
-    if (!tpl) return;
-    if (!confirm(t('board.confirmLoadTasksTemplate'))) return;
-    const newSections: SectionData[] = (tpl.sections ?? []).map(sec => ({
-      label: sec.label,
-      progress: 0,
-      tasks: sec.tasks.map((tt, i): Task => ({
-        id: `${project.id}-${sec.label}-${i}-${Date.now()}`,
-        title: tt.title,
-        projectId: project.id,
-        projectName: project.name,
-        projectColor: project.clientColor,
-        assignees: [USERS.lea],
-        status: 'warn',
-        statusLabel: 'En attente',
-        priority: tt.priority ?? 'normal',
-        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
-        dueDate: '',
-        checked: false,
-        subtasks: [],
-        watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
-      })),
-    }));
-    setSections_store(project.id, newSections);
-  };
 
   // Escape — ferme le panneau de détail de tâche. Capture phase, donc si on
   // ne filtre pas les champs en édition (titre de tâche/sous-tâche, libellé
@@ -2213,15 +1894,6 @@ export function Travail() {
             switcher, view settings) had no room and visibly crammed/
             reflowed instead of just staying out of the way. */}
         {!selectedTask && <>
-        {/* Save as template */}
-        <TemplateMenuButton
-          icon="layout-template"
-          loadOptions={loadAllResourceTemplates().filter(tpl => tpl.type === 'tasks').map(tpl => ({ id: tpl.id, name: tpl.name, icon: tpl.icon }))}
-          onLoad={handleLoadTasksTemplate}
-          onSave={() => setSaveTemplateOpen(true)}
-          loadLabel={t('templateMenuLoad')}
-          saveLabel={t('templateMenuSave')}
-        />
         {/* View switcher */}
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
           {([
@@ -2469,16 +2141,6 @@ export function Travail() {
           />
         )}
       </div>
-
-      {/* Save as template modal */}
-      {saveTemplateOpen && (
-        <SaveAsTemplateModal
-          projectName={project.name}
-          sections={sections}
-          originTasksTemplate={originTasksTemplate}
-          onClose={() => setSaveTemplateOpen(false)}
-        />
-      )}
 
       {/* Multi-select floating action bar */}
       {multiSelIds.size > 0 && createPortal(
