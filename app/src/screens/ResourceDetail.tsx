@@ -17,6 +17,8 @@ import { markResourceRead } from '../data/notificationStore';
 import { notifyComment } from '../data/commentNotify';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
+import { WatchersRow } from '../components/WatchersRow';
+import { addWatcher } from '../data/watchers';
 import type { Resource, ResourceType, Status, User } from '../types';
 import { VideoReviewBody } from './VideoReview';
 
@@ -288,12 +290,13 @@ interface ScriptViewProps extends EditableProps {
 // the caller (setComments) so they persist via that view's own
 // setResourceContent payload, exactly like every other field on the
 // resource — and every add/reply fires a real notification.
-function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, projectId }: {
+function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, projectId, resource }: {
   comments: RevisionComment[];
   setComments: React.Dispatch<React.SetStateAction<RevisionComment[]>>;
   itemLabel: string;
   resourceId: string;
   projectId?: string;
+  resource?: Resource;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -315,6 +318,13 @@ function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, 
 
   return (
     <div id="rd-comments-panel" style={{ width:280, flexShrink:0, display:'flex', flexDirection:'column', borderLeft:'1px solid var(--border)', overflow:'hidden' }}>
+      <div style={{ padding: '10px 12px 0' }}>
+        <WatchersRow
+          watchers={resource?.watchers ?? []}
+          onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+          onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+        />
+      </div>
       <RevisionCommentSidebar
         comments={comments}
         activeId={activeId}
@@ -953,7 +963,7 @@ function ScriptView({ resource, onEdit, saveState = 'saved', online = true, regi
       </div>
 
       {/* Right — Comments sidebar */}
-      <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
+      <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} resource={resource} />
 
       </div>{/* end content row */}
     </div>
@@ -1839,7 +1849,7 @@ export function MoodboardView({ resource, persistKey, registerExport }: { resour
         );
       })()}
     </div>
-    <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
+    <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} resource={resource} />
     </div>
   );
 }
@@ -2601,6 +2611,14 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
           {/* Comments tab */}
           {rightTab==='comments' && (
+            <>
+            <div style={{ padding: '10px 12px 0' }}>
+              <WatchersRow
+                watchers={resource.watchers ?? []}
+                onAdd={id => updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                onRemove={id => updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+              />
+            </div>
             <RevisionCommentSidebar
               comments={comments}
               activeId={pendingAnchorId}
@@ -2613,6 +2631,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
               onAdd={pendingAnchorId ? text => submitComment(text) : undefined}
               embedded
             />
+            </>
           )}
 
           {/* AI tab */}
@@ -2959,7 +2978,7 @@ export function InspirationsView({ resource, persistKey, registerExport }: { res
       </div>
 
       {/* Right: comments */}
-      <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
+      <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} resource={resource} />
     </div>
   );
 }
@@ -4179,7 +4198,7 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
         </div>
       )}
     </div>
-    <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} />
+    <ResourceCommentSidebar comments={comments} setComments={setComments} itemLabel={resource.title} resourceId={resource.id} resource={resource} />
     </div>
   );
 }

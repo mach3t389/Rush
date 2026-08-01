@@ -1,4 +1,9 @@
 {
+  "watchers": {
+    "label": "Watchers",
+    "add": "Add",
+    "none": "Everyone is already watching"
+  },
   "templateMenuButton": "Templates",
   "templateMenuLoad": "Load a template",
   "templateMenuSave": "Save as template",

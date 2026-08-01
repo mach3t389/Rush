@@ -36,6 +36,7 @@ interface ResourceRow {
   colors: string[] | null;
   media_subtype: Resource['mediaSubtype'] | null;
   web_url: string | null;
+  watchers: string[] | null;
 }
 
 function toResource(row: ResourceRow): Resource {
@@ -54,6 +55,7 @@ function toResource(row: ResourceRow): Resource {
     colors: row.colors ?? undefined,
     mediaSubtype: row.media_subtype ?? undefined,
     webUrl: row.web_url ?? undefined,
+    watchers: row.watchers ?? undefined,
   };
 }
 
@@ -74,6 +76,7 @@ function toRow(r: Resource, studioId: string): ResourceRow {
     colors: r.colors ?? null,
     media_subtype: r.mediaSubtype ?? null,
     web_url: r.webUrl ?? null,
+    watchers: r.watchers ?? null,
   };
 }
 

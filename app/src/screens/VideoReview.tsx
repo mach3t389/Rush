@@ -16,6 +16,8 @@ import { addDeliverable } from '../data/taskStore';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { STATUS_COLOR } from '../data/status';
 import { getTeam } from '../data/teamStore';
+import { getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import type { Resource, Status } from '../types';
 import type { RegisterExport } from './ResourceDetail';
 
@@ -632,6 +634,7 @@ export function VideoReviewBody({ resource, projectId, persistKey, registerExpor
         priorityLabel: 'Normal',
         dueDate: '',
         checked: false,
+        watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
       });
     }
     setTaskCreatedFlash(true);

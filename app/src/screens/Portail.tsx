@@ -8,7 +8,46 @@ import { getDeliverables, updateTask, subscribeStore, getProjectStats } from '..
 import { getDeliverableDisplay } from '../data/deliverableStatus';
 import { SFPill, SFBar, SFButton, SFIcon, formatDisplay } from '../components/ui';
 import { getInvoicesByProject, getEnabledPaymentMethods, formatMoney, type Invoice } from '../data/financeStore';
+import { getTeamMembers } from '../data/teamStore';
+import { isDemoSession } from '../data/authStore';
+import { sendEmail } from '../data/emailStore';
+import { escapeHtml } from '../data/htmlEscape';
 import type { Task, DeliverableType } from '../types';
+
+// ⚠️ KNOWN LIMITATION (final-review finding, 2026-07-31): getTeamMembers()
+// is scoped to the CURRENT VIEWER's studio (via getStudioId() /
+// studioStore.ts's resolveStudioId), not the project's studio. This route
+// is viewed by an external client identity, not a studio member, so in a
+// real session this resolves the wrong roster (or none), and can trigger
+// resolveStudioId's auto-provision-a-new-studio path for that client
+// identity. `User` (Project.members' element type) carries no `email`
+// field, so there is no clean project-scoped way to resolve recipient
+// emails without adding a new SECURITY DEFINER RPC (see get_studio_invitation
+// in teamStore.ts for the pattern) — out of scope for this fix.
+//
+// This is currently moot in practice: `Portail.tsx` (this file, route
+// `/portail/:projectId`) is not registered in any router (checked
+// app/src/main.tsx and the whole app/src tree for imports of this file) —
+// it has been superseded by `/mon-espace/projets/:id`
+// (ClientProjectApercu.tsx) and `/apercu-client/:clientId/projets/:id`,
+// neither of which sends these emails at all today. If this file is ever
+// wired back into a route, this email-resolution path needs a real fix
+// (project/studio-scoped RPC) before it can be trusted.
+/** Notifie + emaile les observateurs concernés par une action du portail client. */
+function notifyWatchers(
+  recipientIds: string[],
+  eventKey: 'comment' | 'approval',
+  subject: string,
+  html: string,
+): void {
+  if (isDemoSession()) return;
+  const members = getTeamMembers();
+  for (const id of recipientIds) {
+    const member = members.find(m => m.id === id);
+    if (!member?.email) continue;
+    void sendEmail(member.email, subject, html, { eventKey, recipientUserId: member.id });
+  }
+}
 
 const DELIVERABLE_TYPE_ICON: Record<DeliverableType, string> = {
   video: 'video', photo: 'image', audio: 'music', document: 'file-text', web: 'globe',
@@ -32,13 +71,23 @@ function MessageModal({ projectId, clientName, onClose }: { projectId: string; c
 
   const send = () => {
     if (!text.trim()) return;
+    const excerpt = `${text.slice(0, 80)}${text.length > 80 ? '…' : ''}`;
+    const project = findProject(projectId);
+    const recipientIds = (project?.members ?? []).map(m => m.id);
     addNotif({
       kind: 'comment',
       actor: clientName,
-      text: `a envoyé un message : "${text.slice(0, 80)}${text.length > 80 ? '…' : ''}"`,
+      text: `a envoyé un message : "${excerpt}"`,
       timestamp: Date.now(),
       projectId,
+      recipientIds,
     });
+    notifyWatchers(
+      recipientIds,
+      'comment',
+      `${clientName} a envoyé un message`,
+      `<p>${escapeHtml(clientName)} a envoyé un message : "${escapeHtml(excerpt)}"</p>`,
+    );
     setSent(true);
   };
 
@@ -120,6 +169,7 @@ export function Portail() {
 
   const handleApprove = (dl: Task) => {
     updateTask(project.id, dl.id, { status: 'ok', correctionsRequested: false });
+    const recipientIds = dl.watchers?.length ? dl.watchers : project.members.map(m => m.id);
     addNotif({
       kind: 'deliverableApproved',
       actor: project.clientName,
@@ -127,11 +177,19 @@ export function Portail() {
       taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
+      recipientIds,
     });
+    notifyWatchers(
+      recipientIds,
+      'approval',
+      `${project.clientName} a approuvé le livrable "${dl.title}"`,
+      `<p>${escapeHtml(project.clientName)} a approuvé le livrable "${escapeHtml(dl.title)}".</p>`,
+    );
   };
 
   const handleCorrections = (dl: Task) => {
     updateTask(project.id, dl.id, { correctionsRequested: true });
+    const recipientIds = dl.watchers?.length ? dl.watchers : project.members.map(m => m.id);
     addNotif({
       kind: 'comment',
       actor: project.clientName,
@@ -139,7 +197,14 @@ export function Portail() {
       taskId: dl.id,
       timestamp: Date.now(),
       projectId: project.id,
+      recipientIds,
     });
+    notifyWatchers(
+      recipientIds,
+      'comment',
+      `${project.clientName} a demandé des corrections sur "${dl.title}"`,
+      `<p>${escapeHtml(project.clientName)} a demandé des corrections sur "${escapeHtml(dl.title)}".</p>`,
+    );
   };
 
   return (

@@ -22,7 +22,8 @@ import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
-import { isDemoSession } from '../data/authStore';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { sendEmail } from '../data/emailStore';
 import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
@@ -1189,6 +1190,7 @@ export function TravailOverview() {
                               dueDateRed: false,
                               checked: false,
                               subtasks: [],
+                              watchers: addWatchers([], [getCurrentUser()?.id]),
                               deliverable: true,
                               deliverableType: newDlType,
                               format: (newDlType === 'video' || newDlType === 'photo') ? newDlFormat : undefined,
@@ -1720,6 +1722,12 @@ export function TravailOverview() {
                           text: `a demandé l'approbation finale du projet « ${project.name} »`,
                           timestamp: Date.now(),
                           projectId: project.id,
+                          // The approver here is an external client contact
+                          // (emailed separately below), not an in-app
+                          // notification recipient — target the rest of the
+                          // project's team so they know a final approval
+                          // request just went out.
+                          recipientIds: project.members.map(m => m.id).filter(id => id !== getCurrentUser()?.id),
                         });
                         if (!isDemoSession() && approver.email) {
                           const studioName = getStudioInfo().name || 'Rush';
@@ -1731,7 +1739,8 @@ export function TravailOverview() {
                               <p>Bonjour ${approver.name || ''},</p>
                               <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>
                               <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Voir le projet</a></p>
-                            </div>`
+                            </div>`,
+                            approver.authUserId ? { eventKey: 'approval', recipientUserId: approver.authUserId } : undefined
                           );
                         }
                         setApprovalSent(true);

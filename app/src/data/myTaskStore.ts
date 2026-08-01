@@ -16,6 +16,7 @@ import { MY_TASKS } from './mock';
 import type { Task } from '../types';
 import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout, getCurrentUser } from './authStore';
+import { addWatchers } from './watchers';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { updateTask as updateProjectTask, subscribeStore as subscribeTaskStore } from './taskStore';
@@ -342,6 +343,7 @@ export function convertMySubtasksToTasks(parentTaskId: string, subtaskIds: strin
     dueDateRed: false,
     subtasks: [],
     mySection: parent.mySection,
+    watchers: addWatchers([], [getCurrentUser()?.id, ...(s.assignees ?? []).map(a => a.id)]),
   }));
   promoted.forEach(t => addMyTask(t));
 }

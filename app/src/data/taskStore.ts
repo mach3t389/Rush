@@ -18,6 +18,7 @@ import { PROJECT_TASKS } from './mock';
 import type { Task, SectionData } from '../types';
 import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout, getCurrentUser } from './authStore';
+import { addWatchers } from './watchers';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { normalizeSectionTasks, normalizeTask } from './normalizeTask';
@@ -267,6 +268,9 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
   const before = sections.flatMap(s => s.tasks).find(t => t.id === taskId);
   if (before && patch.checked === true && before.checked !== true && before.assignees.length > 1) {
     const me = getCurrentUser();
+    // Target the task's other assignees (the people who'd actually notice
+    // a shared task disappearing from their list) — never the actor.
+    const recipientIds = before.assignees.map(a => a.id).filter(id => id !== me?.id);
     addNotif({
       kind: 'taskCompleted',
       actor: me?.name ?? 'Rush',
@@ -274,6 +278,7 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
       timestamp: Date.now(),
       taskId,
       projectId,
+      recipientIds,
     });
   }
 
@@ -284,7 +289,10 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
       const resolvedPatch = (patch.status !== undefined && patch.correctionsRequested === undefined)
         ? { ...patch, correctionsRequested: false }
         : patch;
-      return { ...t, ...resolvedPatch };
+      const watchers = resolvedPatch.assignees
+        ? addWatchers(t.watchers, resolvedPatch.assignees.map(a => a.id))
+        : t.watchers;
+      return { ...t, ...resolvedPatch, watchers };
     }),
   }));
   setSections(projectId, next);
@@ -451,6 +459,7 @@ function promoteSubtask(sub: Task, parent: Task, newId?: string): Task {
     dueDate: sub.dueDate || '—',
     dueDateRed: false,
     subtasks: [],
+    watchers: addWatchers([], [getCurrentUser()?.id, ...(sub.assignees ?? []).map(a => a.id)]),
   };
 }
 

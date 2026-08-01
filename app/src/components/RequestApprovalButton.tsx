@@ -8,6 +8,10 @@ import { addDeliverable, findLinkedDeliverable, subscribeStore, isSectionsLoadin
 import { getProjects } from '../data/projectStore';
 import { USERS } from '../data/mock';
 import { showToast } from '../data/toastStore';
+import { getCurrentUser, isDemoSession } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
+import { sendEmail } from '../data/emailStore';
+import { getClientExternalTeam } from '../data/clientTeamStore';
 import type { Resource, Status, DeliverableType, Task } from '../types';
 
 function inferDeliverableType(resource: Resource): DeliverableType {
@@ -73,21 +77,41 @@ export function RequestApprovalButton({
       dueDateRed: false,
       checked: false,
       subtasks: [],
+      // Only the real actor is auto-seeded as a watcher — USERS.lea used to
+      // be hardcoded here too, which meant a mock/demo user id ended up
+      // persisted as a watcher on real-session deliverables.
+      watchers: addWatchers([], [getCurrentUser()?.id]),
       deliverable: true,
       deliverableType: inferDeliverableType(resource),
       linkedResources: [resource.id],
       sharedWithClient: true,
     };
     addDeliverable(projectId, task);
+    const actorId = getCurrentUser()?.id;
+    const actorName = getCurrentUser()?.name ?? USERS.lea.name;
     addNotif({
       kind: 'approval',
-      actor: USERS.lea.name,
+      actor: actorName,
       text: `a demandé l'approbation de « ${resource.title} »`,
       timestamp: Date.now(),
       resourceId: resource.id,
       taskId: task.id,
       projectId,
+      // Never notify the actor of their own action.
+      recipientIds: (task.watchers ?? []).filter(id => id !== actorId),
     });
+    if (!isDemoSession()) {
+      const contacts = getClientExternalTeam(project?.clientId ?? '');
+      for (const contact of contacts) {
+        if (!contact.email) continue;
+        void sendEmail(
+          contact.email,
+          `Approbation demandée : « ${resource.title} »`,
+          `<p>${actorName} a demandé votre approbation pour « ${resource.title} ».</p>`,
+          contact.authUserId ? { eventKey: 'approval', recipientUserId: contact.authUserId } : undefined
+        );
+      }
+    }
     if (onStatusChange) onStatusChange('review', 'En révision');
     else updateResource(resource.id, { status: 'review', statusLabel: 'En révision' });
     showToast({ type: 'task', message: t('approval.livrableCreatedToast') });
@@ -98,15 +122,32 @@ export function RequestApprovalButton({
   const handleRelaunch = () => {
     if (!projectId || !linked) return;
     updateTask(projectId, linked.id, { status: 'review', correctionsRequested: false });
+    const actorId = getCurrentUser()?.id;
+    const actorName = getCurrentUser()?.name ?? USERS.lea.name;
     addNotif({
       kind: 'approval',
-      actor: USERS.lea.name,
+      actor: actorName,
       text: `a demandé l'approbation de « ${resource.title} »`,
       timestamp: Date.now(),
       resourceId: resource.id,
       taskId: linked.id,
       projectId,
+      // Never notify the actor of their own action.
+      recipientIds: (linked.watchers ?? []).filter(id => id !== actorId),
     });
+    if (!isDemoSession()) {
+      const project = getProjects().find(p => p.id === projectId);
+      const contacts = getClientExternalTeam(project?.clientId ?? '');
+      for (const contact of contacts) {
+        if (!contact.email) continue;
+        void sendEmail(
+          contact.email,
+          `Approbation demandée : « ${resource.title} »`,
+          `<p>${actorName} a demandé votre approbation pour « ${resource.title} ».</p>`,
+          contact.authUserId ? { eventKey: 'approval', recipientUserId: contact.authUserId } : undefined
+        );
+      }
+    }
     showToast({ type: 'task', message: t('approval.relaunchedToast') });
   };
 

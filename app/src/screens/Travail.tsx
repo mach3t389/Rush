@@ -8,6 +8,8 @@ import { findProject, getProjects, subscribeProjects } from '../data/projectStor
 import { STATUS_COLOR } from '../data/status';
 import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, convertTasksToSubtasks, convertSubtasksToTasks, copySubtasksAsTasks } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
+import { getCurrentUser } from '../data/authStore';
+import { addWatchers } from '../data/watchers';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
@@ -779,6 +781,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
     dueDateRed: false,
     checked: false,
     subtasks: [],
+    watchers: addWatchers([], [getCurrentUser()?.id, ...assignees.map(a => a.id)]),
   });
 
   // Enter: create the task, then stay open with a blank row so the next
@@ -1961,6 +1964,7 @@ export function Travail() {
         dueDate: '',
         checked: false,
         subtasks: [],
+        watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
       })),
     }));
     setSections_store(project.id, newSections);

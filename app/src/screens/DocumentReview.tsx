@@ -4,6 +4,8 @@ import { SFButton, SFIcon, SFModal } from '../components/ui';
 import { USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getResources, updateResource } from '../data/resourceStore';
+import { WatchersRow } from '../components/WatchersRow';
+import { addWatcher } from '../data/watchers';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
@@ -774,6 +776,13 @@ export function DocumentReview() {
           {/* Comments tab */}
           {rightTab === 'comments' && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '10px 12px 0' }}>
+                <WatchersRow
+                  watchers={resource?.watchers ?? []}
+                  onAdd={id => resource && updateResource(resource.id, { watchers: addWatcher(resource.watchers, id) })}
+                  onRemove={id => resource && updateResource(resource.id, { watchers: (resource.watchers ?? []).filter(w => w !== id) })}
+                />
+              </div>
               <RevisionCommentSidebar
                 embedded
                 comments={visibleComments}

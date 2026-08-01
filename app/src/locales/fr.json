@@ -1,4 +1,9 @@
 {
+  "watchers": {
+    "label": "Observateurs",
+    "add": "Ajouter",
+    "none": "Tout le monde suit déjà"
+  },
   "templateMenuButton": "Modèles",
   "templateMenuLoad": "Charger un modèle",
   "templateMenuSave": "Enregistrer comme modèle",

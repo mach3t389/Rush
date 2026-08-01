@@ -17,6 +17,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { usePlan } from '../data/planStore';
 import { canCreateNewProject } from '../data/upgradePromptStore';
+import { addWatchers } from '../data/watchers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           dueDate: '',
           checked: false,
           subtasks: [],
+          watchers: addWatchers([], [getCurrentUser()?.id, (members[0] ?? USERS.lea).id]),
         })),
       }));
       setSections(projectId, sections);

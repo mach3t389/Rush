@@ -18,9 +18,6 @@ export const NOTIF_EVENTS: { key: string; label: string; desc: string; icon: str
   { key: 'comment',  label: 'Commentaires',            desc: "Quand quelqu'un commente une ressource ou une tâche", icon: 'message-square' },
   { key: 'mention',  label: 'Mentions',                desc: 'Quand on vous mentionne directement',                 icon: 'at-sign' },
   { key: 'approval', label: "Demandes d'approbation",  desc: "Quand une approbation vous est demandée",              icon: 'shield-check' },
-  { key: 'version',  label: 'Nouvelles versions',      desc: "Quand une nouvelle version d'une ressource est ajoutée", icon: 'git-branch' },
-  { key: 'status',   label: 'Changements de statut',   desc: "Quand le statut d'une tâche ou ressource change",      icon: 'refresh-cw' },
-  { key: 'deadline', label: 'Échéances',               desc: 'Rappels avant les dates de livraison',                 icon: 'calendar-clock' },
 ];
 
 // Défauts : tout en in-app ; email seulement pour mentions + approbations.
