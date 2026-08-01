@@ -34,6 +34,10 @@ export interface AppNotif {
   projectId?: string;
   clientId?: string;
   recipientIds: string[];
+  /** Id de l'auteur de CET appel à addNotif — jamais persisté (voir toRow),
+   * utilisé uniquement en mémoire le temps de l'appel pour que mergeNotif
+   * puisse exclure l'acteur courant de l'union des destinataires. */
+  actorId?: string;
   /** Nom de l'item affiché entre guillemets dans le texte (ex. le titre
    * d'une ressource) — séparé du texte final pour pouvoir régénérer la
    * phrase quand plusieurs événements se fusionnent en une notification. */
@@ -351,14 +355,14 @@ export function markAllRead(): void {
 //
 // ⚠️ Session démo : on cherche dans `_demoNotifs` BRUT, pas `getNotifs()`.
 // `getNotifs()` filtre par préférences "en-app" de l'utilisateur courant —
-// un mauvais filtre ici (voir bug ci-dessous pour les sessions réelles,
-// le même biais existe en local si on l'utilisait).
+// un mauvais filtre ici masquerait des lignes pourtant groupables.
+//
 // Fenêtre de regroupement : un commentaire reste "groupable" tant qu'il a
-// été créé il y a moins de GROUP_WINDOW_MS, indépendamment de son état lu.
-// Remplace l'ancien critère basé sur `notification_reads` (voir plus bas
-// pour la justification côté session réelle — la même incohérence de
-// principe existait en session démo si on l'avait utilisé là aussi, donc
-// on applique le même critère aux deux chemins pour rester cohérent).
+// été créé il y a moins de GROUP_WINDOW_MS, indépendamment de son état lu
+// (voir `findGroupableNotifReal` plus bas pour la raison précise, côté
+// session réelle, pour laquelle l'état lu ne peut pas servir de critère —
+// le même critère temporel est appliqué aux deux chemins pour rester
+// cohérent entre démo et réel).
 const GROUP_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 heures
 
 function findGroupableNotifDemo(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif | undefined {
@@ -432,8 +436,14 @@ function mergeNotif(existing: AppNotif, notif: Omit<AppNotif, 'id' | 'read'>): A
     timestamp: notif.timestamp,
     // Union, jamais un remplacement : si le set de destinataires a changé
     // entre deux commentaires, on garde tout le monde plutôt que de perdre
-    // silencieusement quelqu'un déjà notifié.
-    recipientIds: [...new Set([...(existing.recipientIds ?? []), ...notif.recipientIds])],
+    // silencieusement quelqu'un déjà notifié. On retire ensuite l'auteur de
+    // CE commentaire (notif.actorId) : sans ça, fusionner le commentaire de
+    // Bob dans la notification de commentaire d'Alice réintroduit Bob comme
+    // destinataire (il était présent dans `existing.recipientIds` en tant
+    // que destinataire du commentaire d'Alice), et Bob se retrouve notifié
+    // de son propre commentaire.
+    recipientIds: [...new Set([...(existing.recipientIds ?? []), ...notif.recipientIds])]
+      .filter(id => id !== notif.actorId),
     // Fusionner un nouvel événement dans une notification déjà lue doit la
     // refaire apparaître comme non lue — sinon le prochain commentaire
     // atterrit silencieusement dans une ligne déjà consommée, sans jamais
@@ -453,7 +463,11 @@ export function addNotif(notif: Omit<AppNotif, 'id' | 'read'>): void {
     const existing = findGroupableNotifDemo(notif);
     if (existing) {
       const merged = mergeNotif(existing, notif);
-      _demoNotifs = _demoNotifs.map(n => n.id === merged.id ? merged : n);
+      // Re-hoister en tête de liste plutôt que remplacer en place : `_demoNotifs`
+      // est traité comme "plus récent en premier" partout où il est affiché,
+      // et le chemin session réelle (resolveRealAddNotif) fait déjà remonter la
+      // ligne fusionnée en tête — garder les deux chemins cohérents.
+      _demoNotifs = [merged, ..._demoNotifs.filter(n => n.id !== merged.id)];
       persistDemo();
       notify();
       return;
