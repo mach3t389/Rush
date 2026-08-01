@@ -3,14 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
-import { addProject, registerDraftResource } from '../data/projectStore';
+import { addProject } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
-import { addFolderTree, addFile } from '../data/fileStore';
-import { addResource } from '../data/resourceStore';
+import { addFolderTree } from '../data/fileStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import { setResourceContent } from '../data/resourceContentStore';
 import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
@@ -24,8 +22,6 @@ import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './Resource
 import { VideoReviewBody } from './VideoReview';
 import { OverviewSectionForm, KIND_LABEL_KEY } from '../components/OverviewSectionForm';
 import type { CustomOverviewSection } from '../data/projectContentStore';
-import { setProjectContent, VISION_SECTION_ID, getDefaultVisionSection } from '../data/projectContentStore';
-import { createTemplateDraft } from '../data/projectStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── OverviewSectionsEditor ─────────────────────────────────────────────────────
@@ -1878,7 +1874,6 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
 export function Modeles() {
   const { t } = useTranslation();
   const plan = usePlan();
-  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = usePersistedState<UnifiedTypeFilter>('sf_modeles_type_filter', 'projets');
   const [searchQuery, setSearchQuery] = useState('');
   const [resNavExpanded, setResNavExpanded] = useState(true);
@@ -2114,132 +2109,6 @@ export function Modeles() {
     return matchType && matchSearch;
   });
 
-  function createDraftResource(
-    draftId: string, type: ResourceType, title: string,
-    templateOrigin?: { color: string; icon: string; description: string; tags: string[] },
-  ): string {
-    const resourceId = `res-draft-${Date.now()}`;
-    addResource({
-      id: resourceId,
-      type,
-      eyebrow: type.toUpperCase(),
-      title,
-      status: 'info',
-      statusLabel: 'En cours',
-      meta: '',
-      templateOrigin,
-    });
-    addFile({ name: title, type: 'resource', ext: 'res', parentFolderId: null, projectId: draftId, resourceId, resourceType: type });
-    registerDraftResource(draftId, resourceId);
-    return resourceId;
-  }
-
-  const openTemplateDraft = async (tpl: { id: string; name: string; type: ResourceTemplateType } & Partial<ResourceTemplate>): Promise<boolean> => {
-    let draftId: string;
-    try {
-      draftId = await createTemplateDraft(tpl.name, tpl.builtIn ? undefined : tpl.id);
-    } catch {
-      // addSupabaseProject already showed an error toast — just bail out
-      // without navigating to a draft that doesn't exist server-side.
-      return false;
-    }
-    if (tpl.type === 'file') {
-      addFolderTree(tpl.folderStructure ?? [], { projectId: draftId });
-      navigate(`/projets/${draftId}/fichiers`);
-    } else if (tpl.type === 'tasks') {
-      const newSections: SectionData[] = (tpl.sections ?? []).map(sec => ({
-        label: sec.label,
-        progress: 0,
-        tasks: sec.tasks.map((tt, i): Task => ({
-          id: `${draftId}-${sec.label}-${i}-${Date.now()}`,
-          title: tt.title,
-          projectId: draftId,
-          projectName: tpl.name,
-          projectColor: '#6b7280',
-          assignees: [USERS.lea],
-          status: 'warn',
-          statusLabel: 'En attente',
-          priority: tt.priority ?? 'normal',
-          priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
-          dueDate: '',
-          checked: false,
-          subtasks: [],
-          watchers: addWatchers([], [getCurrentUser()?.id, USERS.lea.id]),
-        })),
-      }));
-      setSections(draftId, newSections);
-      navigate(`/projets/${draftId}`);
-    } else if (tpl.type === 'overview') {
-      const vision = getDefaultVisionSection();
-      const reusable = (tpl.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID);
-      setProjectContent(draftId, { customSections: [vision, ...reusable], customSectionData: {} });
-      navigate(`/projets/${draftId}/overview`);
-    } else if (tpl.type === 'document' || tpl.type === 'screenplay') {
-      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name, {
-        color: tpl.color ?? '#6b7280', icon: tpl.icon ?? 'file', description: tpl.description ?? '', tags: tpl.tags ?? [],
-      });
-      if (tpl.type === 'document') {
-        const html = tpl.rawHTML ?? (tpl.documentSections ? documentSectionsToHTML(tpl.documentSections) : '');
-        setResourceContent(resourceId, { html });
-      } else {
-        const elements = tpl.rawElements ? (JSON.parse(tpl.rawElements) as ScriptEl[]) : (tpl.sceneBlocks ? sceneBlocksToElements(tpl.sceneBlocks) : []);
-        setResourceContent(resourceId, { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements }], activeId: 'v1' });
-      }
-      navigate(`/projets/${draftId}/ressources/${resourceId}`);
-    } else if (tpl.type === 'moodboard' || tpl.type === 'video_review') {
-      const resourceId = createDraftResource(draftId, tpl.type as ResourceType, tpl.name, {
-        color: tpl.color ?? '#6b7280', icon: tpl.icon ?? 'file', description: tpl.description ?? '', tags: tpl.tags ?? [],
-      });
-      if (tpl.type === 'moodboard') {
-        const items = (tpl.moodboardRefs ?? []).map((r, i) => ({
-          id: r.id, type: 'postit' as const,
-          x: 40 + (i % 4) * 220, y: 40 + Math.floor(i / 4) * 180, w: 200, h: 160,
-          text: r.note ? `${r.title}\n${r.note}` : r.title,
-          postitColor: '#f9ff00',
-        }));
-        setResourceContent(resourceId, { items, arrows: [], comments: [] });
-      } else {
-        const versions = (tpl.reviewRounds ?? []).map(r => ({
-          v: r.id, status: 'review' as const, label: r.label,
-          date: new Date().toISOString().split('T')[0], author: USERS.lea,
-        }));
-        setResourceContent(resourceId, {
-          versions, activeVersion: versions[0]?.v, comments: [], tasks: [],
-          reviewStatus: 'review' as const,
-        });
-      }
-      navigate(`/projets/${draftId}/ressources/${resourceId}`);
-    }
-    return true;
-  };
-
-  const openNewTemplateDraft = async (type: 'file' | 'tasks' | 'overview' | 'document' | 'screenplay' | 'moodboard' | 'video_review') => {
-    let draftId: string;
-    try {
-      draftId = await createTemplateDraft('Nouveau modèle');
-    } catch {
-      // addSupabaseProject already showed an error toast — just bail out
-      // without navigating to a draft that doesn't exist server-side.
-      return;
-    }
-    if (type === 'file') navigate(`/projets/${draftId}/fichiers`);
-    else if (type === 'tasks') navigate(`/projets/${draftId}`);
-    else if (type === 'overview') navigate(`/projets/${draftId}/overview`);
-    else {
-      const resourceId = createDraftResource(draftId, type as ResourceType, 'Nouveau modèle');
-      if (type === 'document') {
-        setResourceContent(resourceId, { html: '' });
-      } else if (type === 'screenplay') {
-        setResourceContent(resourceId, { versions: [{ id: 'v1', label: 'V1', date: new Date().toISOString().split('T')[0], elements: [] }], activeId: 'v1' });
-      } else if (type === 'moodboard') {
-        setResourceContent(resourceId, { items: [], arrows: [], comments: [] });
-      } else if (type === 'video_review') {
-        setResourceContent(resourceId, { versions: [], activeVersion: undefined, comments: [], tasks: [], reviewStatus: 'review' as const });
-      }
-      navigate(`/projets/${draftId}/ressources/${resourceId}`);
-    }
-  };
-
   const handleNew = () => {
     if (!canUseFeature(plan, 'customTemplates')) {
       requestUpgrade({ feature: 'customTemplates' });
@@ -2247,7 +2116,6 @@ export function Modeles() {
     }
     if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
-    else if (typeFilter === 'file' || typeFilter === 'tasks' || typeFilter === 'overview' || typeFilter === 'document' || typeFilter === 'screenplay' || typeFilter === 'moodboard' || typeFilter === 'video_review') { void openNewTemplateDraft(typeFilter); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };
 
@@ -2551,13 +2419,7 @@ export function Modeles() {
           {isResType(typeFilter) && (
             selectedRes
               ? <ResourceTemplateDetail tpl={selectedRes}
-                  onOpen={() => {
-                    if (selectedRes.type === 'file' || selectedRes.type === 'tasks' || selectedRes.type === 'overview' || selectedRes.type === 'document' || selectedRes.type === 'screenplay' || selectedRes.type === 'moodboard' || selectedRes.type === 'video_review') {
-                      void openTemplateDraft(selectedRes);
-                    } else {
-                      setTemplateResViewTpl(selectedRes);
-                    }
-                  }}
+                  onOpen={() => setTemplateResViewTpl(selectedRes)}
                   onDuplicate={() => duplicateRes(selectedRes)}
                   onDelete={() => deleteRes(selectedRes)}
                   onRename={(name, desc) => renameRes(selectedRes.id, name, desc)}
@@ -2644,7 +2506,7 @@ export function Modeles() {
             saveTpl(updated);
             setPreviewTpl(updated);
           }}
-          onOpenResourceTemplate={async tpl => { const ok = await openTemplateDraft(tpl); if (ok) setPreviewTpl(null); }}
+          onOpenResourceTemplate={tpl => { setPreviewTpl(null); setTemplateResViewTpl(tpl); }}
         />
       )}
     </div>
