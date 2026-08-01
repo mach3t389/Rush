@@ -24,8 +24,9 @@ import { createLoadingFlag } from './loadingFlag';
 import { addNotif } from './notificationStore';
 import { sendEmail } from './emailStore';
 import { getTeamMembers } from './teamStore';
-import { addWatcher } from './watchers';
+import { addWatchers } from './watchers';
 import { escapeHtml } from './htmlEscape';
+import { resolveMentionedMembers } from './commentNotify';
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
 export type PaymentMethodType = 'bank_transfer' | 'interac' | 'stripe' | 'paypal' | 'cheque' | 'cash' | 'custom';
@@ -618,14 +619,18 @@ export function setInvoiceStatus(id: string, newStatus: InvoiceStatus): void {
 export function addInvoiceComment(invoiceId: string, comment: InvoiceComment, authorId?: string): void {
   const inv = getInvoices().find(i => i.id === invoiceId);
   if (!inv) return;
-  const watchers = addWatcher(inv.watchers, authorId);
+  const mentionedMembers = resolveMentionedMembers(comment.text);
+  const watchers = addWatchers(inv.watchers, [authorId, ...mentionedMembers.map(m => m.id)]);
   updateInvoice(invoiceId, { comments: [...(inv.comments ?? []), comment], watchers });
 
   const recipientIds = watchers.filter(id => id !== authorId);
+  const isMention = mentionedMembers.length > 0;
   addNotif({
-    kind: 'comment',
+    kind: isMention ? 'mention' : 'comment',
     actor: comment.author,
-    text: `a commenté la facture « ${inv.title} »`,
+    text: isMention
+      ? `vous a mentionné dans la facture « ${inv.title} »`
+      : `a commenté la facture « ${inv.title} »`,
     timestamp: Date.now(),
     projectId: inv.projectId,
     recipientIds,
@@ -633,14 +638,18 @@ export function addInvoiceComment(invoiceId: string, comment: InvoiceComment, au
 
   if (isDemoSession()) return;
   const members = getTeamMembers();
+  const eventKey = isMention ? 'mention' : 'comment';
+  const subject = isMention
+    ? `${comment.author} vous a mentionné dans la facture « ${inv.title} »`
+    : `${comment.author} a commenté la facture « ${inv.title} »`;
   for (const id of recipientIds) {
     const member = members.find(m => m.id === id);
     if (!member?.email) continue;
     void sendEmail(
       member.email,
-      `${comment.author} a commenté la facture « ${inv.title} »`,
-      `<p>${escapeHtml(comment.author)} a commenté la facture « ${escapeHtml(inv.title)} » :</p><p>${escapeHtml(comment.text)}</p>`,
-      { eventKey: 'comment', recipientUserId: member.id }
+      subject,
+      `<p>${escapeHtml(comment.author)} ${isMention ? 'vous a mentionné dans' : 'a commenté'} la facture « ${escapeHtml(inv.title)} » :</p><p>${escapeHtml(comment.text)}</p>`,
+      { eventKey, recipientUserId: member.id }
     );
   }
 }

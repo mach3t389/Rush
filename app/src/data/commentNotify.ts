@@ -27,9 +27,17 @@ function actorId(): string | undefined {
   return getCurrentUser()?.id;
 }
 
-function mentionedNames(text: string): string[] {
+// Extrait les @mentions d'un texte de commentaire et les résout contre
+// l'équipe du studio — partagé par tous les stores qui notifient des
+// commentaires (tâches/ressources ici, factures dans financeStore.ts) pour
+// éviter de dupliquer la regex.
+export function resolveMentionedMembers(text: string): ReturnType<typeof getTeamMembers> {
   const matches = text.match(/@([A-Za-zÀ-ÿ]+(?:\s[A-Za-zÀ-ÿ]+)?)/g) ?? [];
-  return matches.map(m => m.slice(1).trim());
+  const names = matches.map(m => m.slice(1).trim());
+  const members = getTeamMembers();
+  return names
+    .map(name => members.find(m => m.name.toLowerCase() === name.toLowerCase()))
+    .filter((m): m is NonNullable<typeof m> => !!m);
 }
 
 interface NotifyCommentOpts {
@@ -68,7 +76,16 @@ function resolveWatchers(taskId?: string, resourceId?: string, projectId?: strin
     };
   }
   if (resourceId) {
-    const resource = getResources().find(r => r.id === resourceId);
+    const resources = getResources();
+    const resource = resources.find(r => r.id === resourceId);
+    // Même garde que la branche tâche ci-dessus : resources.length===0 est
+    // ambigu entre "aucune ressource" et "le fetch n'a pas fini" — dans le
+    // doute, ne pas committer plutôt que d'écraser une liste d'observateurs
+    // déjà en base avec une liste tronquée basée sur un cache vide.
+    if (resources.length === 0) {
+      console.warn('[commentNotify] resolveWatchers: resources not loaded yet, skipping watcher commit to avoid dropping existing watchers', { resourceId });
+      return { current: [], commit: () => {} };
+    }
     return {
       current: resource?.watchers ?? [],
       commit: next => updateResource(resourceId, { watchers: next }),
@@ -90,11 +107,8 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
   const actor = actorName();
   const myId = actorId();
   const verb = kind === 'reply' ? 'a répondu sur' : 'a commenté';
-  const mentionNames = mentionedNames(text);
+  const mentionedMembers = resolveMentionedMembers(text);
   const members = getTeamMembers();
-  const mentionedMembers = mentionNames
-    .map(name => members.find(m => m.name.toLowerCase() === name.toLowerCase()))
-    .filter((m): m is NonNullable<typeof m> => !!m);
 
   // Auto-ajout : l'auteur du commentaire et les personnes mentionnées
   // deviennent observateurs, s'ils ne l'étaient pas déjà.
@@ -105,9 +119,9 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
   const recipientIds = nextWatchers.filter(id => id !== myId);
 
   addNotif({
-    kind: mentionNames.length > 0 ? 'mention' : 'comment',
+    kind: mentionedMembers.length > 0 ? 'mention' : 'comment',
     actor,
-    text: mentionNames.length > 0
+    text: mentionedMembers.length > 0
       ? `vous a mentionné dans « ${itemLabel} »`
       : `${verb} « ${itemLabel} »`,
     timestamp: Date.now(),
@@ -119,11 +133,11 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
 
   if (isDemoSession()) return;
 
-  const eventKey = mentionNames.length > 0 ? 'mention' : 'comment';
-  const subject = mentionNames.length > 0
+  const eventKey = mentionedMembers.length > 0 ? 'mention' : 'comment';
+  const subject = mentionedMembers.length > 0
     ? `${actor} vous a mentionné dans « ${itemLabel} »`
     : `${actor} a commenté « ${itemLabel} »`;
-  const html = `<p>${escapeHtml(actor)} ${mentionNames.length > 0 ? 'vous a mentionné dans' : verb} « ${escapeHtml(itemLabel)} » :</p><p>${escapeHtml(text)}</p>`;
+  const html = `<p>${escapeHtml(actor)} ${mentionedMembers.length > 0 ? 'vous a mentionné dans' : verb} « ${escapeHtml(itemLabel)} » :</p><p>${escapeHtml(text)}</p>`;
 
   for (const id of recipientIds) {
     const member = members.find(m => m.id === id);
