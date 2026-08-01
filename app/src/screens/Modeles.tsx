@@ -1705,6 +1705,8 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
   const [refs, setRefs] = useState<MoodboardRef[]>(template.moodboardRefs ?? []);
   // overview
   const [ovSections, setOvSections] = useState<CustomOverviewSection[]>(template.overviewSections ?? []);
+  // tasks
+  const [taskSections, setTaskSections] = useState<TemplateSection[]>(template.sections ?? []);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -1716,7 +1718,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (type === 'file') { try { content = { folderStructure: JSON.parse(folderJson) }; } catch { content = { folderStructure: [] }; } }
     if (type === 'moodboard') content = { moodboardRefs: refs };
     if (type === 'overview') content = { overviewSections: ovSections };
-    if (type === 'tasks') content = { sections: template.sections ?? [] };
+    if (type === 'tasks') content = { sections: taskSections };
     onSave({ ...base, ...content });
   };
 
@@ -1806,18 +1808,36 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (type === 'tasks') return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p style={labelStyle()}>{t('models.resTypeTasks')}</p>
-        {(template.sections ?? []).map((section, si) => (
+        {taskSections.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
+        {taskSections.map((section, si) => (
           <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
-            {(section.tasks ?? []).map((task, ti) => (
-              <div key={ti} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-                <SFIcon name="circle" size={10} color="var(--text-3)" />
-                <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{task.title}</span>
-              </div>
-            ))}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {section.tasks.map((task, ti) => (
+                <ProjectTaskRow
+                  key={ti}
+                  task={{ ...task, assignees: task.assignees ?? [] }}
+                  selected={false}
+                  onSelect={() => {}}
+                  onUpdate={patch => {
+                    // checked/priorityLabel/activityCount n'existent pas sur
+                    // TemplateTask (checked n'a pas de sens pour un modèle
+                    // statique, priorityLabel/activityCount ne sont jamais
+                    // lus) — écartés explicitement plutôt que persistés.
+                    // subtasks est typé `unknown[]` côté RowTask (jamais écrit
+                    // par ProjectTaskRow en interne) mais `TemplateTask[]` côté
+                    // TemplateTask — écarté aussi pour ne jamais le propager.
+                    const { checked: _checked, priorityLabel: _priorityLabel, activityCount: _activityCount, subtasks: _subtasks, ...persisted } = patch;
+                    setTaskSections(prev => prev.map((s, i) => i !== si ? s : {
+                      ...s,
+                      tasks: s.tasks.map((tsk, j) => j !== ti ? tsk : { ...tsk, ...persisted }),
+                    }));
+                  }}
+                />
+              ))}
+            </div>
           </div>
         ))}
-        {(template.sections ?? []).length === 0 && <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
       </div>
     );
     return null;
