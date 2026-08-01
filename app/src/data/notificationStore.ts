@@ -353,14 +353,22 @@ export function markAllRead(): void {
 // `getNotifs()` filtre par préférences "en-app" de l'utilisateur courant —
 // un mauvais filtre ici (voir bug ci-dessous pour les sessions réelles,
 // le même biais existe en local si on l'utilisait).
+// Fenêtre de regroupement : un commentaire reste "groupable" tant qu'il a
+// été créé il y a moins de GROUP_WINDOW_MS, indépendamment de son état lu.
+// Remplace l'ancien critère basé sur `notification_reads` (voir plus bas
+// pour la justification côté session réelle — la même incohérence de
+// principe existait en session démo si on l'avait utilisé là aussi, donc
+// on applique le même critère aux deux chemins pour rester cohérent).
+const GROUP_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 heures
+
 function findGroupableNotifDemo(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif | undefined {
   if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
   const ctx = notif.taskId ?? notif.resourceId;
   if (!ctx) return undefined;
   return _demoNotifs.find(n =>
-    !n.read &&
     n.kind === 'comment' &&
-    (n.taskId ?? n.resourceId) === ctx
+    (n.taskId ?? n.resourceId) === ctx &&
+    Date.now() - n.timestamp < GROUP_WINDOW_MS
   );
 }
 
@@ -372,12 +380,15 @@ function findGroupableNotifDemo(notif: Omit<AppNotif, 'id' | 'read'>): AppNotif 
 // personnes différentes qui commentent le même item). On interroge donc
 // Supabase directement, sans filtre destinataire ni préférence utilisateur.
 //
-// Critère "non lue" : le read-state est par destinataire
-// (`notification_reads`), et une notification peut avoir plusieurs
-// destinataires à l'état différent. Interprétation retenue : la ligne reste
-// groupable tant qu'AU MOINS UN destinataire actuel ne l'a pas encore lue
-// (le groupe n'est "consommé" que quand tout le monde concerné l'a vue) —
-// voir le rapport de tâche pour la justification.
+// Critère de groupage : PAS basé sur `notification_reads`. RLS sur cette
+// table est `user_id = auth.uid()` — l'utilisateur qui exécute cette requête
+// est l'AUTEUR du commentaire (l'acteur), qui est par construction exclu de
+// `recipientIds`. Il ne peut donc jamais voir les lignes `notification_reads`
+// des vrais destinataires : la requête serait structurellement vide à chaque
+// fois, ce qui ferait toujours passer le critère "non lue" — un vieux
+// commentaire déjà entièrement lu serait silencieusement ressuscité. On
+// utilise donc une fenêtre temporelle (GROUP_WINDOW_MS) à la place, cohérente
+// avec le chemin démo ci-dessus.
 async function findGroupableNotifReal(notif: Omit<AppNotif, 'id' | 'read'>): Promise<AppNotif | undefined> {
   if (notif.kind !== 'comment' || !notif.itemLabel) return undefined;
   const taskId = notif.taskId;
@@ -398,21 +409,8 @@ async function findGroupableNotifReal(notif: Omit<AppNotif, 'id' | 'read'>): Pro
   if (error || !data || data.length === 0) return undefined;
   const rows = data as NotificationRow[];
 
-  const { data: readRows, error: readError } = await supabase
-    .from('notification_reads')
-    .select('user_id, notification_id')
-    .in('notification_id', rows.map(r => r.id));
-  if (readError) { console.error('findGroupableNotifReal (reads) failed', readError); return undefined; }
-  const readByNotif = new Map<string, Set<string>>();
-  for (const r of (readRows as { user_id: string; notification_id: string }[])) {
-    if (!readByNotif.has(r.notification_id)) readByNotif.set(r.notification_id, new Set());
-    readByNotif.get(r.notification_id)!.add(r.user_id);
-  }
-
   for (const row of rows) {
-    const readUserIds = readByNotif.get(row.id) ?? new Set<string>();
-    const stillUnread = row.recipient_ids.some(id => !readUserIds.has(id));
-    if (stillUnread) return toNotif(row, false);
+    if (Date.now() - row.timestamp < GROUP_WINDOW_MS) return toNotif(row, false);
   }
   return undefined;
 }
@@ -432,7 +430,10 @@ function mergeNotif(existing: AppNotif, notif: Omit<AppNotif, 'id' | 'read'>): A
     count: (existing.count ?? 1) + 1,
     text: groupedText(actorNames, notif.itemLabel!),
     timestamp: notif.timestamp,
-    recipientIds: notif.recipientIds,
+    // Union, jamais un remplacement : si le set de destinataires a changé
+    // entre deux commentaires, on garde tout le monde plutôt que de perdre
+    // silencieusement quelqu'un déjà notifié.
+    recipientIds: [...new Set([...(existing.recipientIds ?? []), ...notif.recipientIds])],
   };
 }
 
@@ -467,24 +468,43 @@ export function addNotif(notif: Omit<AppNotif, 'id' | 'read'>): void {
   const optimistic: AppNotif = { ...notif, id, read: false };
   _supabaseNotifs = [optimistic, ..._supabaseNotifs];
   notify();
-  void resolveRealAddNotif(notif, optimistic);
+
+  // Sérialise la résolution par clé de regroupement (task/resource + kind)
+  // pour éviter que deux commentaires rapprochés sur le même item ne
+  // requêtent tous les deux "existe-t-il une ligne groupable ?" avant que
+  // l'un des deux ait fini d'écrire — même pattern que `_writeQueues` /
+  // `enqueueWrite` dans taskStore.ts.
+  const groupKey = `${notif.taskId ?? notif.resourceId ?? optimistic.id}:${notif.kind}`;
+  const previous = _resolveQueues[groupKey] ?? Promise.resolve();
+  const run = () => resolveRealAddNotif(notif, optimistic);
+  _resolveQueues[groupKey] = previous.then(run, run);
 }
 
+const _resolveQueues: Record<string, Promise<void>> = {};
+
 async function resolveRealAddNotif(notif: Omit<AppNotif, 'id' | 'read'>, optimistic: AppNotif): Promise<void> {
-  const existing = await findGroupableNotifReal(notif);
-  if (existing) {
-    const merged = mergeNotif(existing, notif);
-    _supabaseNotifs = _supabaseNotifs
-      .filter(n => n.id !== optimistic.id)
-      .map(n => n.id === merged.id ? merged : n);
-    if (!_supabaseNotifs.some(n => n.id === merged.id)) {
-      _supabaseNotifs = [merged, ..._supabaseNotifs];
+  try {
+    const existing = await findGroupableNotifReal(notif);
+    if (existing) {
+      const merged = mergeNotif(existing, notif);
+      _supabaseNotifs = _supabaseNotifs
+        .filter(n => n.id !== optimistic.id)
+        .map(n => n.id === merged.id ? merged : n);
+      if (!_supabaseNotifs.some(n => n.id === merged.id)) {
+        _supabaseNotifs = [merged, ..._supabaseNotifs];
+      }
+      notify();
+      await addSupabaseNotif(merged); // upsert sur existing.id
+      return;
     }
-    notify();
-    void addSupabaseNotif(merged); // upsert sur existing.id
-    return;
+    await addSupabaseNotif(optimistic);
+  } catch (err) {
+    // Toute erreur (getStudioId, requête réseau, etc.) ne doit jamais faire
+    // disparaître silencieusement la notification : on retombe sur l'insert
+    // simple de la ligne optimiste plutôt que de perdre l'événement.
+    console.error('resolveRealAddNotif failed, falling back to plain insert', err);
+    void addSupabaseNotif(optimistic);
   }
-  void addSupabaseNotif(optimistic);
 }
 
 export function getNotifHistory(taskId?: string, resourceId?: string): AppNotif[] {
