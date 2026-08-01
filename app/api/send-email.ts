@@ -112,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // exécution/jour du cron natif Vercel Hobby). Trouve chaque utilisateur
 // dont l'heure de récap choisie correspond à l'heure actuelle, agrège son
 // activité depuis son dernier récap, envoie un résumé condensé.
-async function handleDigestRun(req: VercelRequest, res: VercelResponse) {
+async function handleDigestRun(_req: VercelRequest, res: VercelResponse) {
   if (!process.env.RESEND_API_KEY) {
     res.status(200).json({ ok: true, skipped: true, reason: 'email not configured' });
     return;
