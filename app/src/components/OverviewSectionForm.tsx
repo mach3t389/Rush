@@ -46,7 +46,13 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
   const { t } = useTranslation();
   const [title, setTitle] = useState(initial?.title ?? '');
   const [icon, setIcon] = useState(initial?.icon ?? SECTION_ICONS[0]);
-  const [kind, setKind] = useState<OverviewSectionKind>(initial?.kind ?? 'fields');
+  // Pas de type pré-sélectionné à la création — l'utilisateur choisit d'abord
+  // "quel genre de module" avant que quoi que ce soit d'autre (champs, etc.)
+  // n'apparaisse. Avant ce correctif, "fields" était pré-sélectionné par
+  // défaut, donc l'éditeur de champs s'affichait immédiatement au clic sur
+  // "+ Ajouter un module" — donnant l'impression trompeuse que ce bouton
+  // sert uniquement à créer des champs personnalisés.
+  const [kind, setKind] = useState<OverviewSectionKind | null>(initial?.kind ?? null);
   const [fields, setFields] = useState<OverviewFieldDef[]>(initial?.fields ?? []);
 
   const addField = () => setFields(prev => [...prev, { id: makeFieldId(), label: '', multiline: false }]);
@@ -54,20 +60,23 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
     setFields(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
   const removeField = (id: string) => setFields(prev => prev.filter(f => f.id !== id));
 
-  // Le titre seul suffit pour créer un module, quel que soit son kind — même
-  // règle pour tous (Champs personnalisés n'exigeait auparavant au moins un
-  // champ que pour lui, incohérent avec Note/Checklist/etc. qui se créent
-  // vides et se remplissent après). Les champs déjà définis restent
-  // optionnellement modifiables dans ce même formulaire à la création.
-  const canSave = title.trim().length > 0;
+  // Le titre suffit pour créer un module, quel que soit son kind — même règle
+  // pour tous (Champs personnalisés n'exigeait auparavant au moins un champ
+  // que pour lui, incohérent avec Note/Checklist/etc. qui se créent vides et
+  // se remplissent après). Les champs déjà définis restent optionnellement
+  // modifiables dans ce même formulaire à la création. Un kind doit en plus
+  // être choisi explicitement (jamais présélectionné) avant de pouvoir créer.
+  const canSave = title.trim().length > 0 && kind !== null;
 
   const handleSave = () => {
-    if (!canSave) return;
+    if (!canSave || kind === null) return;
     if (!initial && kind === 'vision') {
       // Vision garde toujours sa structure de champs fixe (concept, tonalité,
-      // public cible, objectifs, références) — elle n'est pas redéfinissable
-      // via l'éditeur de champs générique. Seuls le titre et l'icône sont
-      // personnalisables à la (re)création.
+      // public cible, objectifs, références) au moment de la CRÉATION —
+      // prérempli pour un premier usage sans page blanche. Une fois créée,
+      // ses champs redeviennent librement modifiables comme un module
+      // "Champs" ordinaire (voir le bloc éditeur de champs plus bas, qui
+      // s'affiche aussi pour kind 'vision' quand `initial` est défini).
       onSave({ ...getDefaultVisionSection(), title: title.trim(), icon });
       return;
     }
@@ -117,7 +126,7 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
         </div>
       )}
 
-      {kind === 'fields' && (
+      {(kind === 'fields' || kind === 'vision') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {fields.map(f => (
             <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

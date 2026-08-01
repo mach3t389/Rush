@@ -493,7 +493,7 @@ function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
   );
 }
 
-function ModuleInsertZone({ active, onDrop }: { active: boolean; onDrop: () => void }) {
+function ModuleInsertZone({ active, onDrop, inactiveHeight = 20 }: { active: boolean; onDrop: () => void; /** Hauteur au repos — 0 pour la toute première zone (juste après le padding du conteneur, pas besoin d'espace additionnel), 20 par défaut entre deux modules. */ inactiveHeight?: number }) {
   const [over, setOver] = React.useState(false);
   return (
     <div
@@ -501,7 +501,7 @@ function ModuleInsertZone({ active, onDrop }: { active: boolean; onDrop: () => v
       onDragLeave={() => setOver(false)}
       onDrop={e => { if (active) { e.stopPropagation(); setOver(false); onDrop(); } }}
       style={{
-        height: active ? (over ? 36 : 14) : 20,
+        height: active ? (over ? 36 : 14) : inactiveHeight,
         display: 'flex', alignItems: 'center', padding: '0 4px',
         transition: 'height 0.12s',
         flexShrink: 0,
@@ -848,7 +848,7 @@ export function TravailOverview() {
           )}
 
           {/* ── Sections personnalisées ── */}
-          <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(1)} />
+          <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(1)} inactiveHeight={0} />
           {customSections.map((section, sectionIdx) => {
             if (section.kind === 'deliverables') {
               return (
