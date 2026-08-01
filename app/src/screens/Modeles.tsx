@@ -21,6 +21,7 @@ import { DocumentView, ScreenplayView, MoodboardView, FormView } from './Resourc
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
 import { OverviewSectionForm, KIND_LABEL_KEY } from '../components/OverviewSectionForm';
+import { ProjectTaskRow } from '../components/ProjectTaskRow';
 import type { CustomOverviewSection } from '../data/projectContentStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 
@@ -203,6 +204,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
   const docContentRef = useRef<(() => string) | null>(null);
   const screenplayContentRef = useRef<(() => ScriptEl[]) | null>(null);
   const [overviewSections, setOverviewSections] = useState<CustomOverviewSection[]>(tpl.overviewSections ?? []);
+  const [taskSections, setTaskSections] = useState<TemplateSection[]>(tpl.sections ?? []);
 
   const fakeResource: Resource = {
     id: tpl.id, type: tpl.type as ResourceType,
@@ -220,6 +222,9 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
     }
     if (tpl.type === 'overview') {
       updated.overviewSections = overviewSections;
+    }
+    if (tpl.type === 'tasks') {
+      updated.sections = taskSections;
     }
     onSave(updated);
     setDirty(false);
@@ -308,18 +313,37 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         )}
         {tpl.type === 'tasks' && (
           <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560, margin: '0 auto', width: '100%' }}>
-            {(tpl.sections ?? []).map((section, si) => (
+            {taskSections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
+            {taskSections.map((section, si) => (
               <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
-                {(section.tasks ?? []).map((task, ti) => (
-                  <div key={ti} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-                    <SFIcon name="circle" size={10} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{task.title}</span>
-                  </div>
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {section.tasks.map((task, ti) => (
+                    <ProjectTaskRow
+                      key={ti}
+                      task={{ ...task, assignees: task.assignees ?? [] }}
+                      selected={false}
+                      onSelect={() => {}}
+                      onUpdate={patch => {
+                        // checked/priorityLabel/activityCount n'existent pas sur
+                        // TemplateTask (checked n'a pas de sens pour un modèle
+                        // statique, priorityLabel/activityCount ne sont jamais
+                        // lus) — écartés explicitement plutôt que persistés.
+                        // subtasks est typé `unknown[]` côté RowTask (jamais écrit
+                        // par ProjectTaskRow en interne) mais `TemplateTask[]` côté
+                        // TemplateTask — écarté aussi pour ne jamais le propager.
+                        const { checked: _checked, priorityLabel: _priorityLabel, activityCount: _activityCount, subtasks: _subtasks, ...persisted } = patch;
+                        setTaskSections(prev => prev.map((s, i) => i !== si ? s : {
+                          ...s,
+                          tasks: s.tasks.map((tsk, j) => j !== ti ? tsk : { ...tsk, ...persisted }),
+                        }));
+                        setDirty(true);
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
-            {(tpl.sections ?? []).length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
           </div>
         )}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
