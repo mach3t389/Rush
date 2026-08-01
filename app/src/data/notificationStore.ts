@@ -34,6 +34,15 @@ export interface AppNotif {
   projectId?: string;
   clientId?: string;
   recipientIds: string[];
+  /** Nom de l'item affiché entre guillemets dans le texte (ex. le titre
+   * d'une ressource) — séparé du texte final pour pouvoir régénérer la
+   * phrase quand plusieurs événements se fusionnent en une notification. */
+  itemLabel?: string;
+  /** Noms distincts des personnes impliquées, la plus récente activité
+   * en premier — sert à composer "Sarah et 2 autres ont commenté". */
+  actorNames?: string[];
+  /** Nombre d'événements fusionnés dans cette notification (1 = simple). */
+  count?: number;
 }
 
 // ── Seed data (demo sessions only) ──────────────────────────────────────────────
@@ -73,6 +82,7 @@ function seedNotifs(): AppNotif[] {
         taskId: task.id,
         projectId: task.projectId,
         recipientIds: [],
+        count: 1,
       });
     }
   }
@@ -96,6 +106,7 @@ function seedNotifs(): AppNotif[] {
         resourceId,
         projectId,
         recipientIds: [],
+        count: 1,
       });
     }
   }
@@ -125,6 +136,9 @@ interface NotificationRow {
   project_id: string | null;
   client_id: string | null;
   recipient_ids: string[];
+  item_label: string | null;
+  actor_names: string[];
+  count: number;
 }
 
 function toNotif(row: NotificationRow, read: boolean): AppNotif {
@@ -140,6 +154,9 @@ function toNotif(row: NotificationRow, read: boolean): AppNotif {
     projectId: row.project_id ?? undefined,
     clientId: row.client_id ?? undefined,
     recipientIds: row.recipient_ids ?? [],
+    itemLabel: row.item_label ?? undefined,
+    actorNames: row.actor_names ?? [],
+    count: row.count ?? 1,
   };
 }
 
@@ -156,6 +173,9 @@ function toRow(n: AppNotif, studioId: string): NotificationRow & { studio_id: st
     project_id: n.projectId ?? null,
     client_id: n.clientId ?? null,
     recipient_ids: n.recipientIds,
+    item_label: n.itemLabel ?? null,
+    actor_names: n.actorNames ?? [],
+    count: n.count ?? 1,
   };
 }
 
@@ -166,7 +186,7 @@ async function fetchSupabaseNotifs(): Promise<void> {
 
     const { data: notifRows, error: notifError } = await supabase
       .from('notifications')
-      .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids')
+      .select('id, kind, actor, text, timestamp, task_id, resource_id, project_id, client_id, recipient_ids, item_label, actor_names, count')
       .eq('studio_id', studioId)
       .order('timestamp', { ascending: false });
 
