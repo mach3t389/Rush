@@ -503,8 +503,22 @@
   "common": {
     "required": "*",
     "cancel": "Annuler",
+    "close": "Fermer",
+    "save": "Enregistrer",
     "loading": "Chargement…",
     "activityFilterLabel": "Activité"
+  },
+  "projectTemplates": {
+    "createFromProjectTitle": "Créer un modèle depuis ce projet",
+    "updateExisting": "Mettre à jour « {{name}} »",
+    "createNew": "Créer un nouveau modèle",
+    "namePlaceholder": "Nom du modèle",
+    "descriptionPlaceholder": "Description (optionnel)",
+    "tagsPlaceholder": "Tags séparés par des virgules",
+    "includeTasks": "Tâches",
+    "includeFiles": "Fichiers",
+    "includeOverview": "Aperçu",
+    "saveSuccess": "Modèle enregistré."
   },
   "overview": {
     "checklistItemPlaceholder": "Nouvel élément…",

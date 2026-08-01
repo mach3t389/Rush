@@ -503,8 +503,22 @@
   "common": {
     "required": "*",
     "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
     "loading": "Loading…",
     "activityFilterLabel": "Visibility"
+  },
+  "projectTemplates": {
+    "createFromProjectTitle": "Create a template from this project",
+    "updateExisting": "Update \"{{name}}\"",
+    "createNew": "Create new template",
+    "namePlaceholder": "Template name",
+    "descriptionPlaceholder": "Description (optional)",
+    "tagsPlaceholder": "Comma-separated tags",
+    "includeTasks": "Tasks",
+    "includeFiles": "Files",
+    "includeOverview": "Overview",
+    "saveSuccess": "Template saved."
   },
   "overview": {
     "checklistItemPlaceholder": "New item…",
