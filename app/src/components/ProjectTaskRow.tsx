@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFIcon, SFModal, DatePickerDropdown, AssigneeGroup, parseYMD, formatDisplay, isOverdue } from './ui';
 import { STATUS_COLOR } from '../data/status';
 import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
-import type { Task, Priority, SectionData } from '../types';
+import type { Task, Priority, SectionData, User } from '../types';
 
 // ── Shared task-row constants ──────────────────────────────────────────────────
 
@@ -30,6 +30,32 @@ export const STATUS_OPTIONS: { value: string; labelKey: string }[] = [
   { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
+
+// Type minimal partagé entre une vraie tâche de projet et une tâche de
+// modèle (TemplateTask, plus légère — pas d'id/projectId, champs optionnels).
+// ProjectTaskRow ne lit jamais id/projectId/projectName/projectColor/
+// priorityLabel en interne (vérifié) — ils sont donc absents d'ici plutôt
+// que gardés optionnels sans usage. `subtasks` n'est lu que via `.length`
+// (badge de comptage, jamais rendu récursivement) — typé en tableau
+// générique plutôt que `RowTask[]` pour éviter d'exiger que les sous-tâches
+// imbriquées d'une TemplateTask (elles-mêmes des TemplateTask, sans
+// `assignees` obligatoire) satisfassent structurellement RowTask.
+export interface RowTask {
+  title: string;
+  priority: Priority;
+  assignees: User[];
+  checked?: boolean;
+  status?: string;
+  statusLabel?: string;
+  // Non lu par le rendu (la priorité affichée vient de PRIORITY_LABEL_KEY[priority]
+  // via t(), pas de ce champ) mais ÉCRIT par le composant lui-même dans le patch
+  // du sélecteur de priorité (`onUpdate({ priority, priorityLabel })`) — doit donc
+  // faire partie du type sous peine d'erreur TS sur ce onUpdate interne.
+  priorityLabel?: string;
+  dueDate?: string;
+  subtasks?: unknown[];
+  activityCount?: number;
+}
 
 export const GRID = '28px 1fr 80px 65px 160px 110px 130px 90px 28px';
 
@@ -110,7 +136,7 @@ export function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, 
 // ── Move task modal ────────────────────────────────────────────────────────────
 
 export function MoveTaskModal({ task, sections, onMove, onClose }: {
-  task: Task;
+  task: RowTask;
   sections: SectionData[];
   onMove: (toSectionLabel: string) => void;
   onClose: () => void;
@@ -154,10 +180,10 @@ export function ProjectTaskRow({
   onMoveToSection,
   onDelete,
 }: {
-  task: Task;
+  task: RowTask;
   selected: boolean;
-  onSelect: (t: Task) => void;
-  onUpdate: (patch: Partial<Task>) => void;
+  onSelect: (t: RowTask) => void;
+  onUpdate: (patch: Partial<RowTask>) => void;
   onTaskDragStart?: () => void;
   onTaskDragEnd?: () => void;
   allSections?: SectionData[];
@@ -396,7 +422,7 @@ export function ProjectTaskRow({
         </button>
         {open === 'dueDate' && (
           <DatePickerDropdown
-            value={parseYMD(dueDate) ? dueDate : ''}
+            value={parseYMD(dueDate ?? '') ? (dueDate ?? '') : ''}
             onChange={v => { onUpdate({ dueDate: formatDisplay(v) }); setOpen(null); }}
             onClose={() => setOpen(null)}
             anchorRect={dropRect}
