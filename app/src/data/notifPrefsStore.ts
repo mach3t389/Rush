@@ -77,3 +77,66 @@ export function saveNotifPrefs(prefs: NotifPrefs): void {
   _prefs = { ...DEFAULTS, ...prefs };
   void saveSupabasePrefs(prefs);
 }
+
+// ── Digest prefs (global toggle + hour, separate shape from per-category NotifPrefs) ──
+
+export interface DigestPrefs { digestMode: boolean; digestHour: number }
+const DIGEST_DEFAULTS: DigestPrefs = { digestMode: false, digestHour: 8 };
+const DIGEST_STORAGE_KEY = 'sf_notif_digest_prefs';
+
+let _digestPrefs: DigestPrefs | null = null;
+let _digestFetchStarted = false;
+
+async function fetchSupabaseDigestPrefs(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from('notif_prefs')
+    .select('digest_mode, digest_hour')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) { console.error('fetchSupabaseDigestPrefs failed', error); return; }
+
+  _digestPrefs = {
+    digestMode: data?.digest_mode ?? DIGEST_DEFAULTS.digestMode,
+    digestHour: data?.digest_hour ?? DIGEST_DEFAULTS.digestHour,
+  };
+}
+
+function ensureDigestFetchStarted(): void {
+  if (_digestFetchStarted) return;
+  _digestFetchStarted = true;
+  void fetchSupabaseDigestPrefs();
+}
+
+async function saveSupabaseDigestPrefs(prefs: DigestPrefs): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase.from('notif_prefs').upsert({
+    user_id: user.id,
+    digest_mode: prefs.digestMode,
+    digest_hour: prefs.digestHour,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) console.error('saveSupabaseDigestPrefs failed', error);
+}
+
+export function loadDigestPrefs(): DigestPrefs {
+  if (isDemoSession()) {
+    return loadPersisted<DigestPrefs>(DIGEST_STORAGE_KEY, DIGEST_DEFAULTS);
+  }
+  ensureDigestFetchStarted();
+  return _digestPrefs ?? DIGEST_DEFAULTS;
+}
+
+export function saveDigestPrefs(prefs: DigestPrefs): void {
+  if (isDemoSession()) {
+    savePersisted(DIGEST_STORAGE_KEY, prefs);
+    return;
+  }
+  _digestPrefs = prefs;
+  void saveSupabaseDigestPrefs(prefs);
+}

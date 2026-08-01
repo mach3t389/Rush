@@ -1968,6 +1968,8 @@
     "colInApp": "Dans l'app",
     "colEmail": "E-mail",
     "notificationsHint": "Les notifications par e-mail sont envoyées uniquement pour les événements importants et ne peuvent pas être désactivées pour les rappels urgents.",
+    "digestModeLabel": "Récap quotidien",
+    "digestModeDesc": "Recevoir un seul résumé par courriel chaque jour plutôt que des courriels individuels pour chaque commentaire, mention ou demande d'approbation",
     "preferencesSaved": "Préférences enregistrées",
     "save": "Enregistrer",
     "securityTitle": "Sécurité",
