@@ -15,7 +15,7 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, getDefaultVisionSection, DELIVERABLES_SECTION_ID, SYSTEM_SECTION_IDS, SYSTEM_MODULES, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, DELIVERABLES_SECTION_ID, SYSTEM_SECTION_IDS, SYSTEM_MODULES, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
 import { TemplateMenuButton } from '../components/TemplateMenuButton';
@@ -659,24 +659,22 @@ export function TravailOverview() {
   };
 
   // Charger un modèle d'Aperçu (ou "aucun modèle" via id '__none__') — remplace les
-  // sections personnalisées mais préserve toujours la section Vision (verrouillée)
-  // et sa valeur actuelle, comportement déjà correct, juste ré-entré via le menu partagé.
-  // TODO connu : appliquer un modèle ne modifie pas removedSystemModules pour
-  // invoices/files/notes — un module supprimé avant le changement de modèle
-  // peut donc réapparaître si le nouveau modèle ne le mentionne pas non plus.
-  // Décision de conception à trancher séparément.
+  // sections personnalisées mais préserve toujours tous les modules système (Vision,
+  // Livrables, Factures, Fichiers, Notes) dont l'utilisateur n'a pas demandé la
+  // suppression, et leur valeur actuelle, comportement déjà correct pour Vision,
+  // généralisé ici aux 4 autres modules.
   const applyTemplateById = (id: string | null) => {
     const tpl = id && id !== '__none__'
       ? loadAllResourceTemplates().find(tp => tp.id === id && tp.type === 'overview')
       : null;
     if (id && id !== '__none__' && !tpl) return;
     if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
-    const vision = removedSystemModules.includes(VISION_SECTION_ID)
-      ? null
-      : (customSections.find(s => s.id === VISION_SECTION_ID) ?? getDefaultVisionSection());
+    const systemSections = SYSTEM_MODULES
+      .filter(m => !removedSystemModules.includes(m.id))
+      .map(m => customSections.find(s => s.id === m.id) ?? m.factory());
     const newSections = [
-      ...(vision ? [vision] : []),
-      ...(tpl?.overviewSections ?? []).filter(s => s.id !== VISION_SECTION_ID),
+      ...systemSections,
+      ...(tpl?.overviewSections ?? []).filter(s => !SYSTEM_SECTION_IDS.includes(s.id)),
     ];
     setCustomSections(newSections);
     setCustomSectionData(prev => {
