@@ -5,8 +5,9 @@ import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader, Catego
 import { getClients } from '../data/clientStore';
 import { getProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
-import { addWatchers } from '../data/watchers';
+import { addWatcher, addWatchers } from '../data/watchers';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
+import { WatchersRow } from '../components/WatchersRow';
 import {
   getInvoices, addInvoice, updateInvoice, removeInvoice, removeInvoices, reorderInvoices, subscribeInvoices, findInvoice,
   setInvoiceStatus, addInvoiceComment,
@@ -528,6 +529,11 @@ export function InvoiceDetailPanel({
 
           {tab === 'comments' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <WatchersRow
+                watchers={invoice.watchers ?? []}
+                onAdd={id => updateInvoice(invoice.id, { watchers: addWatcher(invoice.watchers, id) })}
+                onRemove={id => updateInvoice(invoice.id, { watchers: (invoice.watchers ?? []).filter(w => w !== id) })}
+              />
               {(!invoice.comments || invoice.comments.length === 0) && (
                 <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-3)' }}>
                   <SFIcon name="message-circle" size={28} color="var(--text-3)" />
