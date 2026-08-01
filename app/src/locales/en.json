@@ -114,6 +114,7 @@
     "inReview": "In Review",
     "unassigned": "Unassigned",
     "sharedWith": "with",
+    "subtaskOf": "Subtask of “{{title}}”",
     "noOne": "No one",
     "noProject": "No Project",
     "deleteConfirm": "Delete?",

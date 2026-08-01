@@ -34,6 +34,15 @@ const notify = () => _listeners.forEach(fn => fn());
 // ── Real (Supabase-backed) session state ──────────────────────────────────
 let _freestandingTasks: Task[] = [];
 let _assignedTasks: Task[] = [];
+// Sous-tâches qui me sont assignées, remontées en lignes autonomes (voir
+// buildAssignedSubtasks). Elles ne sont pas stockées telles quelles : ce
+// sont des copies enrichies du contexte de leur parent, réécrites dans le
+// tableau `subtasks` de celui-ci à chaque modification.
+let _assignedSubtasks: Task[] = [];
+// Toutes les tâches de projet du studio, tous assignés confondus — sert à
+// retrouver la tâche parente d'une sous-tâche assignée, y compris quand ce
+// parent ne m'est pas assigné (et n'est donc pas dans _assignedTasks).
+let _allProjectTasks: Task[] = [];
 let _supabaseSectionRows: { id: string; label: string }[] = [];
 let _fetchStarted = false;
 const _loading = createLoadingFlag();
@@ -88,11 +97,41 @@ async function fetchSupabaseMyTasks(): Promise<void> {
 
   _supabaseSectionRows = ((sectionRows ?? []) as MySectionRow[]).map(r => ({ id: r.id, label: r.label }));
   _freestandingTasks = ((freestandingRows ?? []) as MyTaskRow[]).map(r => normalizeTask(r.data));
-  _assignedTasks = ((projectTaskRows ?? []) as ProjectTaskRow[])
-    .map(r => normalizeTask(r.data))
-    .filter(t => !!myUserId && t.assignees.some(u => u.id === myUserId));
+  _allProjectTasks = ((projectTaskRows ?? []) as ProjectTaskRow[]).map(r => normalizeTask(r.data));
+  _assignedTasks = _allProjectTasks.filter(t => isMine(t, myUserId));
+  _assignedSubtasks = buildAssignedSubtasks(_allProjectTasks, myUserId);
   _loading.markLoaded();
   notify();
+}
+
+function isMine(t: Task, myUserId: string | undefined): boolean {
+  return !!myUserId && (t.assignees ?? []).some(u => u.id === myUserId);
+}
+
+// Une sous-tâche assignée doit se comporter comme une tâche dans « Mes
+// tâches » : sa propre ligne, cochable, datable. Elle n'a pas de contexte
+// projet en propre (le tableau `subtasks` ne stocke qu'un sous-ensemble des
+// champs), donc on l'hérite du parent, et `subtaskOf` garde le lien pour
+// l'icône distinctive et la réécriture.
+//
+// Le parent n'est délibérément PAS remonté du seul fait qu'une de ses
+// sous-tâches m'est assignée : on ne veut voir que ce dont on est
+// responsable. S'il m'est aussi assigné, il apparaît de son côté via
+// _assignedTasks — les deux lignes coexistent alors, comme deux tâches.
+function buildAssignedSubtasks(allTasks: Task[], myUserId: string | undefined): Task[] {
+  if (!myUserId) return [];
+  return allTasks.flatMap(parent =>
+    (parent.subtasks ?? [])
+      .filter(s => isMine(s, myUserId))
+      .map(s => ({
+        ...s,
+        projectId: parent.projectId,
+        projectName: parent.projectName,
+        projectColor: parent.projectColor,
+        subtasks: [],
+        subtaskOf: { taskId: parent.id, title: parent.title },
+      })),
+  );
 }
 
 export function isMyTasksLoading(): boolean {
@@ -115,6 +154,8 @@ function ensureSupabaseFetchStarted(): void {
 export function resetMyTasksCache(): void {
   _freestandingTasks = [];
   _assignedTasks = [];
+  _assignedSubtasks = [];
+  _allProjectTasks = [];
   _supabaseSectionRows = [];
   _fetchStarted = false;
   _loading.reset();
@@ -160,6 +201,26 @@ async function updateSupabaseMyTask(taskId: string, patch: Partial<Task>): Promi
   if (assigned) {
     updateProjectTask(assigned.projectId, taskId, patch);
     _assignedTasks = _assignedTasks.map(t => t.id === taskId ? { ...t, ...patch } : t);
+    notify();
+    return;
+  }
+
+  // Sous-tâche assignée remontée en ligne autonome : la modification vise en
+  // réalité une entrée du tableau `subtasks` de sa tâche parente. On réécrit
+  // donc le parent, jamais la ligne synthétique — et sans y recopier
+  // `subtaskOf`, qui n'existe qu'en mémoire pour l'affichage.
+  const promoted = _assignedSubtasks.find(t => t.id === taskId);
+  if (promoted?.subtaskOf) {
+    const parent = _allProjectTasks.find(t => t.id === promoted.subtaskOf!.taskId);
+    if (!parent) {
+      console.error('updateSupabaseMyTask: parent task of assigned subtask not found', taskId);
+      return;
+    }
+    const { subtaskOf: _ignored, ...storablePatch } = patch as Partial<Task> & { subtaskOf?: unknown };
+    const nextSubtasks = (parent.subtasks ?? []).map(s => s.id === taskId ? { ...s, ...storablePatch } : s);
+    updateProjectTask(parent.projectId, parent.id, { subtasks: nextSubtasks });
+    _allProjectTasks = _allProjectTasks.map(t => t.id === parent.id ? { ...t, subtasks: nextSubtasks } : t);
+    _assignedSubtasks = _assignedSubtasks.map(t => t.id === taskId ? { ...t, ...storablePatch } : t);
     notify();
     return;
   }
@@ -221,7 +282,7 @@ async function removeSupabaseMyTaskSection(label: string): Promise<void> {
 export const getMyTasks = (): Task[] => {
   if (isDemoSession()) return [..._tasks];
   ensureSupabaseFetchStarted();
-  return [..._assignedTasks, ..._freestandingTasks];
+  return [..._assignedTasks, ..._assignedSubtasks, ..._freestandingTasks];
 };
 
 export const getMyTaskSections = (): string[] => {
@@ -296,9 +357,13 @@ export function removeMyTask(taskId: string): void {
   void removeSupabaseMyTask(taskId);
 }
 
+// Vrai pour tout ce qui vit dans un projet — tâche assignée comme sous-tâche
+// assignée remontée. Les appelants s'en servent pour interdire les actions
+// réservées aux tâches personnelles autonomes (conversion, suppression),
+// qui désynchroniseraient la vue du projet.
 export function isAssignedTask(taskId: string): boolean {
   if (isDemoSession()) return false;
-  return _assignedTasks.some(t => t.id === taskId);
+  return _assignedTasks.some(t => t.id === taskId) || _assignedSubtasks.some(t => t.id === taskId);
 }
 
 // Nests `sourceId` as a subtask of `targetId` and removes it from the
