@@ -1986,6 +1986,7 @@
     "twoFactorAuthDesc": "Renforcez la sécurité de votre compte avec un code à usage unique.",
     "soon": "BIENTÔT",
     "activeSessions": "Sessions actives",
+    "sessionThisBrowser": "Ce navigateur",
     "thisDevice": "CET APPAREIL",
     "sessionNow": "À l'instant",
     "sessionHoursAgo": "Il y a 2 heures",

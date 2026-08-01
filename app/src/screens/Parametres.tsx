@@ -978,11 +978,11 @@ function Toggle({ on, onChange, disabled }: { on: boolean; onChange?: (v: boolea
   );
 }
 
-// Sessions actives — mock (l'auth réelle nécessite un backend)
-const MOCK_SESSIONS = [
-  { device: 'Windows · Chrome', location: 'Montréal, QC', current: true,  lastKey: 'settings.sessionNow' },
-  { device: 'iPhone · Safari',  location: 'Montréal, QC', current: false, lastKey: 'settings.sessionHoursAgo' },
-  { device: 'macOS · Chrome',   location: 'Paris, FR',    current: false, lastKey: 'settings.sessionYesterday' },
+// Sessions actives — le suivi multi-appareils réel nécessite un backend
+// dédié (pas encore construit) ; on n'affiche que la session actuelle,
+// dont l'existence est vraie, plutôt que de fabriquer d'autres appareils.
+const CURRENT_SESSION_ONLY = [
+  { device: 'settings.sessionThisBrowser', location: null, current: true, lastKey: 'settings.sessionNow' },
 ];
 
 // ── Plan & Abonnement (deux axes) ────────────────────────────────────────────
@@ -2249,15 +2249,15 @@ export function Parametres() {
               <div style={{ padding: '14px 20px 10px' }}>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.activeSessions')}</label>
               </div>
-              {MOCK_SESSIONS.map((s, i) => (
+              {CURRENT_SESSION_ONLY.map((s, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-                  <SFIcon name={s.device.startsWith('iPhone') ? 'smartphone' : 'monitor'} size={16} color="var(--text-3)" />
+                  <SFIcon name="monitor" size={16} color="var(--text-3)" />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 500 }}>{s.device} {s.current && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--ok)', background: 'rgba(78,201,148,0.12)', borderRadius: 4, padding: '1px 6px', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('settings.thisDevice')}</span>}</p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{s.location} · {t(s.lastKey)}</p>
+                    <p style={{ fontSize: 13, fontWeight: 500 }}>{t(s.device)} {s.current && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--ok)', background: 'rgba(78,201,148,0.12)', borderRadius: 4, padding: '1px 6px', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('settings.thisDevice')}</span>}</p>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{t(s.lastKey)}</p>
                   </div>
                   <button disabled style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'not-allowed', opacity: 0.5, fontFamily: 'var(--ff-text)' }}>
-                    {s.current ? t('settings.sessionCurrent') : t('settings.sessionLogout')}
+                    {t('settings.sessionCurrent')}
                   </button>
                 </div>
               ))}

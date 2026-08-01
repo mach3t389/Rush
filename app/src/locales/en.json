@@ -1973,6 +1973,7 @@
     "twoFactorAuthDesc": "Strengthen your account security with a one-time code.",
     "soon": "SOON",
     "activeSessions": "Active sessions",
+    "sessionThisBrowser": "This browser",
     "thisDevice": "THIS DEVICE",
     "sessionNow": "Just now",
     "sessionHoursAgo": "2 hours ago",
