@@ -14,6 +14,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
+import { loadNotifPrefs } from './notifPrefsStore';
 
 const STORAGE_KEY = 'sf_notifs';
 
@@ -204,9 +205,17 @@ export function resetNotificationsCache(): void {
 onLogout(resetNotificationsCache);
 
 function getNotifs(): AppNotif[] {
-  if (isDemoSession()) return _demoNotifs;
-  ensureFetchStarted();
-  return _supabaseNotifs;
+  const raw = (() => {
+    if (isDemoSession()) return _demoNotifs;
+    ensureFetchStarted();
+    return _supabaseNotifs;
+  })();
+  // Le bouton "en-app" des préférences (Paramètres → Notifications) était
+  // stocké mais jamais consulté — activer/désactiver ce canal ne changeait
+  // rien. Filtrer ici, au point de lecture unique, couvre tous les
+  // getters publics d'un coup sans dupliquer le filtre partout.
+  const prefs = loadNotifPrefs();
+  return raw.filter(n => prefs[n.kind as string]?.inapp !== false);
 }
 
 async function addSupabaseNotif(notif: AppNotif): Promise<void> {
