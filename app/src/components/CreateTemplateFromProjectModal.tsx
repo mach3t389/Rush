@@ -11,9 +11,13 @@ const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', 
 
 export function CreateTemplateFromProjectModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const { t } = useTranslation();
-  const originTemplate = project.draftOriginTemplateId
+  const resolvedOriginTemplate = project.draftOriginTemplateId
     ? loadAllTemplates().find(tpl => tpl.id === project.draftOriginTemplateId)
     : undefined;
+  // Only treat it as an "origin template" for update purposes if it's an actual
+  // custom template (present in loadCustomTemplates()). A built-in origin can't be
+  // updated — there is nothing to match against on save.
+  const originTemplate = resolvedOriginTemplate && !resolvedOriginTemplate.builtIn ? resolvedOriginTemplate : undefined;
 
   const [mode, setMode] = useState<'update' | 'new'>(originTemplate ? 'update' : 'new');
   const [name, setName] = useState(originTemplate?.name ?? project.name);
