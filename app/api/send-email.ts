@@ -25,6 +25,11 @@ interface SendEmailBody {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const authHeaderCron = req.headers.authorization || '';
+  if (authHeaderCron === `Bearer ${process.env.CRON_SECRET}`) {
+    return handleDigestRun(req, res);
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -98,4 +103,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Failed to send email:', error);
     res.status(500).json({ error: 'Failed to send email' });
   }
+}
+
+// Appelée toutes les heures par un service cron externe (voir CLAUDE.md —
+// même mécanisme que google-calendar-sync.ts, contournant la limite d'une
+// exécution/jour du cron natif Vercel Hobby). Trouve chaque utilisateur
+// dont l'heure de récap choisie correspond à l'heure actuelle, agrège son
+// activité depuis son dernier récap, envoie un résumé condensé.
+async function handleDigestRun(req: VercelRequest, res: VercelResponse) {
+  if (!process.env.RESEND_API_KEY) {
+    res.status(200).json({ ok: true, skipped: true, reason: 'email not configured' });
+    return;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const currentHour = new Date().getHours();
+  const { data: dueUsers, error: dueError } = await supabaseAdmin
+    .from('notif_prefs')
+    .select('user_id, last_digest_sent_at')
+    .eq('digest_mode', true)
+    .eq('digest_hour', currentHour);
+
+  if (dueError) { console.error('handleDigestRun: fetching due users failed', dueError); res.status(500).json({ error: 'failed' }); return; }
+  if (!dueUsers || dueUsers.length === 0) { res.status(200).json({ ok: true, sent: 0 }); return; }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  let sent = 0;
+
+  for (const row of dueUsers) {
+    const since = row.last_digest_sent_at ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: notifRows, error: notifError } = await supabaseAdmin
+      .from('notifications')
+      .select('kind, count')
+      .contains('recipient_ids', [row.user_id])
+      .in('kind', ['comment', 'mention', 'approval'])
+      .gt('timestamp', new Date(since).getTime());
+
+    if (notifError) { console.error('handleDigestRun: fetching notifications failed', notifError, row.user_id); continue; }
+    if (!notifRows || notifRows.length === 0) continue; // pas d'activité, pas de courriel
+
+    const totals: Record<string, number> = { comment: 0, mention: 0, approval: 0 };
+    for (const n of notifRows) totals[n.kind] = (totals[n.kind] ?? 0) + (n.count ?? 1);
+
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(row.user_id);
+    const email = authUser?.user?.email;
+    if (!email) continue;
+
+    const parts: string[] = [];
+    if (totals.comment > 0)  parts.push(`<strong>${totals.comment} commentaire${totals.comment > 1 ? 's' : ''}</strong>`);
+    if (totals.mention > 0)  parts.push(`<strong>${totals.mention} mention${totals.mention > 1 ? 's' : ''}</strong>`);
+    if (totals.approval > 0) parts.push(`<strong>${totals.approval} demande${totals.approval > 1 ? 's' : ''} d'approbation</strong>`);
+
+    const html = `<p>Votre récap Rush</p><p>Depuis votre dernier récap : ${parts.join(', ')}.</p><p><a href="${process.env.VITE_APP_URL ?? 'https://rush.app'}">Voir le détail dans Rush →</a></p>`;
+
+    const { error: sendError } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: email,
+      subject: 'Votre récap Rush',
+      html,
+    });
+    if (sendError) { console.error('handleDigestRun: send failed', sendError, row.user_id); continue; }
+
+    await supabaseAdmin.from('notif_prefs').update({ last_digest_sent_at: new Date().toISOString() }).eq('user_id', row.user_id);
+    sent++;
+  }
+
+  res.status(200).json({ ok: true, sent });
 }
