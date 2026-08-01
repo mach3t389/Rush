@@ -434,6 +434,17 @@ function mergeNotif(existing: AppNotif, notif: Omit<AppNotif, 'id' | 'read'>): A
     // entre deux commentaires, on garde tout le monde plutôt que de perdre
     // silencieusement quelqu'un déjà notifié.
     recipientIds: [...new Set([...(existing.recipientIds ?? []), ...notif.recipientIds])],
+    // Fusionner un nouvel événement dans une notification déjà lue doit la
+    // refaire apparaître comme non lue — sinon le prochain commentaire
+    // atterrit silencieusement dans une ligne déjà consommée, sans jamais
+    // rallumer le badge. C'est la promesse centrale de la fonctionnalité
+    // ("dès que tu la lis, le compteur repart à zéro"). Pour les sessions
+    // démo, ce `read: false` suffit (champ unique partagé). Pour les
+    // sessions réelles, l'état lu vit dans `notification_reads` (par
+    // destinataire) — ce champ local ne fait que refléter l'optimistic
+    // update ; voir `resolveRealAddNotif` pour la réinitialisation serveur
+    // via la fonction `reset_notification_reads`.
+    read: false,
   };
 }
 
@@ -495,6 +506,21 @@ async function resolveRealAddNotif(notif: Omit<AppNotif, 'id' | 'read'>, optimis
       }
       notify();
       await addSupabaseNotif(merged); // upsert sur existing.id
+      // `merged` porte déjà `read: false` localement, mais l'état lu réel
+      // vit dans `notification_reads` (une ligne par destinataire). RLS sur
+      // cette table est `user_id = auth.uid()` : un appel client normal ne
+      // peut jamais effacer la ligne de lecture d'UN AUTRE utilisateur, donc
+      // impossible de "dé-lire" pour les autres destinataires depuis ici.
+      // `reset_notification_reads` est une fonction Postgres SECURITY
+      // DEFINER (voir migration) qui fait exactement ça, avec vérification
+      // que l'appelant appartient au studio propriétaire. Best-effort : un
+      // échec ici ne doit jamais faire perdre le contenu déjà sauvegardé.
+      try {
+        const { error: resetError } = await supabase.rpc('reset_notification_reads', { notif_id: existing.id });
+        if (resetError) console.error('reset_notification_reads failed', resetError);
+      } catch (resetErr) {
+        console.error('reset_notification_reads failed', resetErr);
+      }
       return;
     }
     await addSupabaseNotif(optimistic);
