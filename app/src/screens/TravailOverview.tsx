@@ -185,8 +185,13 @@ function SaveOverviewTemplateModal({ projectName, customSections, originTemplate
   const [tags, setTags] = useState(originTemplate?.tags?.join(', ') ?? '');
   const [saved, setSaved] = useState(false);
 
-  // La section Vision est unique à chaque projet — jamais incluse dans un modèle réutilisable.
-  const reusableSections = customSections.filter(s => s.id !== VISION_SECTION_ID);
+  // Les 5 modules système (Vision, Livrables, Factures, Fichiers, Notes
+  // internes) sont propres à chaque projet — applyTemplateById les
+  // reconstruit toujours depuis l'état courant et ignore explicitement toute
+  // entrée système venant d'un modèle (voir plus bas). Les exclure ici aussi
+  // du comptage/de la sauvegarde évite d'écrire des données mortes (un
+  // ancien renommage de "Fichiers", par ex.) qui ne seront jamais appliquées.
+  const reusableSections = customSections.filter(s => !SYSTEM_SECTION_IDS.includes(s.id));
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -848,12 +853,13 @@ export function TravailOverview() {
           )}
 
           {/* ── Sections personnalisées ── */}
-          <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(1)} inactiveHeight={0} />
+          <ModuleInsertZone active={draggedModuleIdx !== null} onDrop={() => handleModuleDrop(0)} inactiveHeight={0} />
           {customSections.map((section, sectionIdx) => {
             if (section.kind === 'deliverables') {
               return (
                 <React.Fragment key={section.id}>
                   <Card title={`${t('overview.clientDeliverables')}${deliverables.length ? ` (${deliverables.length})` : ''}`} icon="package"
+                    collapsible defaultOpen={true} persistKey={`${project.id}_${section.id}`}
                     draggable
                     onDragStart={() => setDraggedModuleIdx(sectionIdx)}
                     action={
