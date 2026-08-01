@@ -518,7 +518,11 @@
     "includeTasks": "Tâches",
     "includeFiles": "Fichiers",
     "includeOverview": "Aperçu",
-    "saveSuccess": "Modèle enregistré."
+    "saveSuccess": "Modèle enregistré.",
+    "createFromProjectMenuItem": "Créer un modèle depuis ce projet",
+    "saveDraftAsTemplate": "Enregistrer comme modèle",
+    "confirmDiscardDraft": "Supprimer ce brouillon ? Cette action est irréversible.",
+    "discardDraft": "Fermer sans enregistrer"
   },
   "overview": {
     "checklistItemPlaceholder": "Nouvel élément…",
