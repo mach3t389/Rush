@@ -10,7 +10,7 @@ import { addFolderTree } from '../data/fileStore';
 import { setProjectContent } from '../data/projectContentStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
+import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
@@ -21,80 +21,8 @@ import type { Priority, ResourceType, Resource, Task, Project, SectionData } fro
 import { DocumentView, ScreenplayView, MoodboardView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
-import { OverviewSectionForm, KIND_LABEL_KEY } from '../components/OverviewSectionForm';
-import { ProjectTaskRow } from '../components/ProjectTaskRow';
-import type { CustomOverviewSection } from '../data/projectContentStore';
+import { KIND_LABEL_KEY } from '../components/OverviewSectionForm';
 import { usePersistedState } from '../hooks/usePersistedState';
-
-// ── OverviewSectionsEditor ─────────────────────────────────────────────────────
-// Éditeur partagé de la STRUCTURE des sections d'Aperçu d'un modèle.
-// Un modèle ne stocke jamais de valeurs remplies (customSectionData) — uniquement
-// la définition des sections (titre, icône, champs).
-
-function OverviewSectionsEditor({ sections, onChange, color }: {
-  sections: CustomOverviewSection[];
-  onChange: (next: CustomOverviewSection[]) => void;
-  color?: string;
-}) {
-  const { t } = useTranslation();
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleEditSection = (updated: CustomOverviewSection) => {
-    onChange(sections.map(s => s.id === updated.id ? updated : s));
-    setEditingId(null);
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {sections.map(section => (
-        editingId === section.id ? (
-          <div key={section.id} style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
-            <OverviewSectionForm initial={section} onSave={handleEditSection} onCancel={() => setEditingId(null)} />
-          </div>
-        ) : (
-        <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <SFIcon name={section.icon} size={14} color={color ?? 'var(--text-3)'} />
-          <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditingId(section.id)} title={t('overview.editSection')}>
-            <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-              {(section.kind === 'fields' || section.kind === 'vision')
-                ? `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`
-                : t(KIND_LABEL_KEY[section.kind])}
-            </p>
-          </div>
-          <button onClick={() => setEditingId(section.id)} title={t('overview.renameSection')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-            <SFIcon name="square-pen" size={13} />
-          </button>
-          <button onClick={() => onChange(sections.filter(s => s.id !== section.id))} title={t('overview.deleteSection')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-            <SFIcon name="trash-2" size={13} />
-          </button>
-        </div>
-        )
-      ))}
-      {adding ? (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
-          <OverviewSectionForm
-            onSave={section => { onChange([...sections, section]); setAdding(false); }}
-            onCancel={() => setAdding(false)}
-            existingSystemIds={sections.map(s => s.id)}
-          />
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-          <SFIcon name="plus" size={12} /> {t('overview.addSection')}
-        </button>
-      )}
-    </div>
-  );
-}
 
 // ── Form field ↔ FormQuestion converters ──────────────────────────────────────
 
@@ -204,8 +132,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 
   const docContentRef = useRef<(() => string) | null>(null);
   const screenplayContentRef = useRef<(() => ScriptEl[]) | null>(null);
-  const [overviewSections, setOverviewSections] = useState<CustomOverviewSection[]>(tpl.overviewSections ?? []);
-  const [taskSections, setTaskSections] = useState<TemplateSection[]>(tpl.sections ?? []);
 
   const fakeResource: Resource = {
     id: tpl.id, type: tpl.type as ResourceType,
@@ -220,12 +146,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
     }
     if (tpl.type === 'screenplay' && screenplayContentRef.current) {
       updated.sceneBlocks = elementsToSceneBlocks(screenplayContentRef.current());
-    }
-    if (tpl.type === 'overview') {
-      updated.overviewSections = overviewSections;
-    }
-    if (tpl.type === 'tasks') {
-      updated.sections = taskSections;
     }
     onSave(updated);
     setDirty(false);
@@ -267,7 +187,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
           {tpl.builtIn ? (
             <SFButton variant="secondary" icon="copy" onClick={() => {
-              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML, ...(tpl.type === 'overview' ? { overviewSections } : {}), ...(tpl.type === 'tasks' ? { sections: tpl.sections } : {}) };
+              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML };
               onSave(copy);
             }}>{t('models.saveCopy')}</SFButton>
           ) : (
@@ -285,68 +205,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         {tpl.type === 'document' && <DocumentView resource={fakeResource} seedHTML={seedHTML} contentRef={docContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'screenplay' && <ScreenplayView resource={fakeResource} seedElements={seedElements} contentRef={screenplayContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
-        {tpl.type === 'file' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 480, margin: '0 auto', width: '100%' }}>
-            {(tpl.folderStructure ?? []).map((folder, i) => (
-              <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SFIcon name="folder" size={15} color={tpl.color} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{folder.name}</span>
-                </div>
-                {folder.children?.map((child, ci) => (
-                  <div key={ci} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 22, marginTop: 4 }}>
-                    <SFIcon name="folder" size={12} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{child.name}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-        {tpl.type === 'overview' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, maxWidth: 560, margin: '0 auto', width: '100%' }}>
-            <OverviewSectionsEditor
-              sections={overviewSections}
-              color={tpl.color}
-              onChange={next => { setOverviewSections(next); setDirty(true); }}
-            />
-          </div>
-        )}
-        {tpl.type === 'tasks' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 860, margin: '0 auto', width: '100%' }}>
-            {taskSections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
-            {taskSections.map((section, si) => (
-              <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {(section.tasks ?? []).map((task, ti) => (
-                    <ProjectTaskRow
-                      key={ti}
-                      task={{ ...task, assignees: task.assignees ?? [] }}
-                      selected={false}
-                      onSelect={() => {}}
-                      onUpdate={patch => {
-                        // checked/priorityLabel/activityCount n'existent pas sur
-                        // TemplateTask (checked n'a pas de sens pour un modèle
-                        // statique, priorityLabel/activityCount ne sont jamais
-                        // lus) — écartés explicitement plutôt que persistés.
-                        // subtasks est typé `unknown[]` côté RowTask (jamais écrit
-                        // par ProjectTaskRow en interne) mais `TemplateTask[]` côté
-                        // TemplateTask — écarté aussi pour ne jamais le propager.
-                        const { checked: _checked, priorityLabel: _priorityLabel, activityCount: _activityCount, subtasks: _subtasks, ...persisted } = patch;
-                        setTaskSections(prev => prev.map((s, i) => i !== si ? s : {
-                          ...s,
-                          tasks: s.tasks.map((tsk, j) => j !== ti ? tsk : { ...tsk, ...persisted }),
-                        }));
-                        setDirty(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
       </div>
     </div>
@@ -1309,14 +1167,8 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
   const [scenes, setScenes] = useState<SceneBlock[]>(template.sceneBlocks ?? []);
   // video_review
   const [rounds, setRounds] = useState<ReviewRound[]>(template.reviewRounds ?? []);
-  // file
-  const [folderJson, setFolderJson] = useState(() => JSON.stringify(template.folderStructure ?? [], null, 2));
   // moodboard
   const [refs, setRefs] = useState<MoodboardRef[]>(template.moodboardRefs ?? []);
-  // overview
-  const [ovSections, setOvSections] = useState<CustomOverviewSection[]>(template.overviewSections ?? []);
-  // tasks
-  const [taskSections, setTaskSections] = useState<TemplateSection[]>(template.sections ?? []);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -1325,10 +1177,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (type === 'document') content = { documentSections: docSections };
     if (type === 'screenplay') content = { sceneBlocks: scenes };
     if (type === 'video_review') content = { reviewRounds: rounds };
-    if (type === 'file') { try { content = { folderStructure: JSON.parse(folderJson) }; } catch { content = { folderStructure: [] }; } }
     if (type === 'moodboard') content = { moodboardRefs: refs };
-    if (type === 'overview') content = { overviewSections: ovSections };
-    if (type === 'tasks') content = { sections: taskSections };
     onSave({ ...base, ...content });
   };
 
@@ -1387,13 +1236,6 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
         <SFButton variant="secondary" size="sm" icon="plus" onClick={() => setRounds(p => [...p, { id: `r${Date.now()}`, label: `V${p.length + 1}`, description: '' }])}>Ajouter un round</SFButton>
       </div>
     );
-    if (type === 'file') return (
-      <div>
-        <p style={labelStyle()}>Structure de dossiers (JSON)</p>
-        <textarea value={folderJson} onChange={e => setFolderJson(e.target.value)} style={{ ...fieldStyle(), minHeight: 160, fontFamily: 'var(--ff-mono)', fontSize: 11, resize: 'vertical' }} />
-        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>Format : {'[{"id":"f1","name":"Dossier","children":[...]}]'}</p>
-      </div>
-    );
     if (type === 'moodboard') return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p style={labelStyle()}>Références visuelles</p>
@@ -1407,47 +1249,6 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
           </div>
         ))}
         <SFButton variant="secondary" size="sm" icon="plus" onClick={() => setRefs(p => [...p, { id: `m${Date.now()}`, title: '', note: '' }])}>Ajouter une référence</SFButton>
-      </div>
-    );
-    if (type === 'overview') return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <p style={labelStyle()}>{t('models.resTypeOverview')}</p>
-        <OverviewSectionsEditor sections={ovSections} onChange={setOvSections} color={color} />
-      </div>
-    );
-    if (type === 'tasks') return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <p style={labelStyle()}>{t('models.resTypeTasks')}</p>
-        {taskSections.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
-        {taskSections.map((section, si) => (
-          <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {(section.tasks ?? []).map((task, ti) => (
-                <ProjectTaskRow
-                  key={ti}
-                  task={{ ...task, assignees: task.assignees ?? [] }}
-                  selected={false}
-                  onSelect={() => {}}
-                  onUpdate={patch => {
-                    // checked/priorityLabel/activityCount n'existent pas sur
-                    // TemplateTask (checked n'a pas de sens pour un modèle
-                    // statique, priorityLabel/activityCount ne sont jamais
-                    // lus) — écartés explicitement plutôt que persistés.
-                    // subtasks est typé `unknown[]` côté RowTask (jamais écrit
-                    // par ProjectTaskRow en interne) mais `TemplateTask[]` côté
-                    // TemplateTask — écarté aussi pour ne jamais le propager.
-                    const { checked: _checked, priorityLabel: _priorityLabel, activityCount: _activityCount, subtasks: _subtasks, ...persisted } = patch;
-                    setTaskSections(prev => prev.map((s, i) => i !== si ? s : {
-                      ...s,
-                      tasks: s.tasks.map((tsk, j) => j !== ti ? tsk : { ...tsk, ...persisted }),
-                    }));
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
     );
     return null;
@@ -1906,21 +1707,11 @@ export function Modeles() {
               { key: 'video_review', icon: 'video',          label: 'Révision vidéo', count: resourceTemplates.filter(t => t.type === 'video_review').length },
               { key: 'moodboard',    icon: 'grid-2x2',       label: 'Moodboard',      count: resourceTemplates.filter(t => t.type === 'moodboard').length },
             ];
-            const fileCount = resourceTemplates.filter(t => t.type === 'file').length;
-            const overviewCount = resourceTemplates.filter(t => t.type === 'overview').length;
-            const tasksCount = resourceTemplates.filter(t => t.type === 'tasks').length;
-            // "Fichiers"/"Tâches" are structural templates for a project's file
-            // tree / task sections, not an actual resource content type
-            // (screenplay, document, moodboard…) — they live at the top level,
-            // next to Projets, instead of nested under the "Ressources" group.
-            const resActive = (isResType(typeFilter) && typeFilter !== 'file' && typeFilter !== 'overview' && typeFilter !== 'tasks') || typeFilter === 'formulaires';
-            const totalRes = formTemplates.length + resourceTemplates.length - fileCount - overviewCount - tasksCount;
+            const resActive = isResType(typeFilter) || typeFilter === 'formulaires';
+            const totalRes = formTemplates.length + resourceTemplates.length;
             return (
               <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
                 {navItem('projets', 'layout-template', 'Projets', templates.length)}
-                {navItem('overview', 'layout-grid', t('models.resTypeOverview'), overviewCount)}
-                {navItem('tasks', 'list-checks', t('models.resTypeTasks'), tasksCount)}
-                {navItem('file', 'folder', 'Fichiers', fileCount)}
                 {/* Resources group header */}
                 <button onClick={() => setResNavExpanded(v => !v)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
