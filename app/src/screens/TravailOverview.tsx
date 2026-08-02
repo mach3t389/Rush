@@ -26,6 +26,7 @@ import { sendEmail } from '../data/emailStore';
 import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
+import { linkify } from '../utils/linkify';
 
 // Icônes par type de ressource (pour les ressources liées aux livrables)
 const RES_ICON: Record<ResourceType, string> = {
@@ -461,6 +462,7 @@ export function TravailOverview() {
   useEffect(() => subscribeNotifs(() => forceActivityTick(n => n + 1)), []);
 
   const [notes, setNotes] = useState('');
+  const [editingNotes, setEditingNotes] = useState(false);
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
   const [customSectionData, setCustomSectionData] = useState<Record<string, CustomSectionValue>>({});
   const [addingSectionOpen, setAddingSectionOpen] = useState(false);
@@ -1265,13 +1267,28 @@ export function TravailOverview() {
                     onOpenFile={() => navigate(`/projets/${project.id}/fichiers`)}
                   />
                 ) : section.kind === 'notes' ? (
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder={t('overview.internalNotesPlaceholder')}
-                    rows={5}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
-                  />
+                  editingNotes ? (
+                    <textarea
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      onBlur={() => setEditingNotes(false)}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingNotes(false); }}
+                      placeholder={t('overview.internalNotesPlaceholder')}
+                      rows={5}
+                      autoFocus
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', colorScheme: 'dark' }}
+                    />
+                  ) : (
+                    <div
+                      onClick={() => setEditingNotes(true)}
+                      title={t('taskPanel.clickToEdit')}
+                      style={{ width: '100%', minHeight: 90, padding: '10px 12px', borderRadius: 10, border: '1px solid transparent', color: notes ? 'var(--text)' : 'var(--text-3)', fontSize: 13, fontFamily: 'var(--ff-text)', lineHeight: 1.6, boxSizing: 'border-box', cursor: 'text', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      {notes ? linkify(notes) : t('overview.internalNotesPlaceholder')}
+                    </div>
+                  )
                 ) : null}
               </div>
             </Card>

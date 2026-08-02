@@ -3,14 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon } from './ui';
 import { USERS } from '../data/mock';
 import { getTeam } from '../data/teamStore';
-
-function renderMentions(text: string) {
-  return text.split(/(@\S+)/g).map((part, i) =>
-    part.startsWith('@')
-      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
-      : part
-  );
-}
+import { linkify } from '../utils/linkify';
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
@@ -232,7 +225,7 @@ function CommentCard({
           "{comment.excerpt}{comment.excerpt.length >= 80 ? '…' : ''}"
         </p>
       )}
-      <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45, margin: '0 0 10px' }}>{renderMentions(comment.text)}</p>
+      <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45, margin: '0 0 10px' }}>{linkify(comment.text)}</p>
 
       {/* Replies */}
       {comment.replies.length > 0 && (
@@ -242,7 +235,7 @@ function CommentCard({
               <SFAvatar name={r.author.name} initials={r.author.initials} color={r.author.avatarColor} size={16} />
               <div>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{r.author.name} </span>
-                <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{renderMentions(r.text)}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{linkify(r.text)}</span>
               </div>
             </div>
           ))}
