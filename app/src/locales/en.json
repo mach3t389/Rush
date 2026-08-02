@@ -1425,7 +1425,7 @@
     "allFiles": "Files",
     "unpin": "Unpin",
     "pin": "Pin",
-    "projectsSection": "Projects",
+    "projectsSection": "Pinned projects",
     "itemsCount": "{{count}} item(s)",
     "filesCount": "{{count}} file(s)",
     "versionsCount": "{{count}} version(s)",
