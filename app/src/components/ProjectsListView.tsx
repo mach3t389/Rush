@@ -81,6 +81,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [clientId, setClientId]         = useState(defaultClientId ?? clients[0]?.id ?? '');
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
+  const [budget, setBudget]             = useState('');
+  const [description, setDescription]   = useState('');
   const [dateRect, setDateRect]         = useState<DOMRect | null>(null);
   const [dateOpen, setDateOpen]         = useState(false);
   const team = getTeam();
@@ -128,6 +130,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     const members = team.filter(u => memberIds.includes(u.id));
     const projectId = `pj${Date.now()}`;
     const templateSections = selectedTemplate ? resolveTasksSections(selectedTemplate) : [];
+    const budgetNum = Number(String(budget).replace(/[^\d.]/g, ''));
     const newProject: Project = {
       id: projectId,
       name: name.trim(),
@@ -144,6 +147,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       status: 'info',
       statusLabel: 'En cours',
       modifiedAt: new Date().toISOString(),
+      budget: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined,
+      description: description.trim() || undefined,
     };
     if (templateSections.length) {
       const sections: SectionData[] = templateSections.map(sec => ({
@@ -356,6 +361,28 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     zIndex={410}
                   />
                 )}
+              </div>
+
+              <div>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                <input
+                  value={budget}
+                  onChange={e => setBudget(e.target.value)}
+                  placeholder={t('projects.budget')}
+                  inputMode="numeric"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder={t('projects.projectName')}
+                  rows={3}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
+                />
               </div>
 
               {selectedTemplate && (
