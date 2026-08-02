@@ -442,6 +442,7 @@
     "projectNameLabel": "Project name",
     "projectNamePlaceholder": "e.g. Fall 2026 Campaign…",
     "client": "Client",
+    "searchClientPlaceholder": "Search a client…",
     "projectColor": "Project color",
     "archiveProject": "Archive project",
     "unarchiveProject": "Unarchive project",

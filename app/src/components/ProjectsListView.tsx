@@ -11,7 +11,7 @@ import { getClients } from '../data/clientStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { setProjectContent } from '../data/projectContentStore';
 import { addFolderTree } from '../data/fileStore';
-import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
+import { isPinned, togglePin, subscribePinned, isPinnedClient } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
@@ -91,6 +91,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
 
   const [templateSearch, setTemplateSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const allTemplates = loadAllTemplates();
   // "Projet vierge" (builtIn, id 'tpl-vierge') en premier, puis les modèles
   // personnalisés (les plus récents d'abord), puis le reste des modèles officiels —
@@ -307,24 +308,43 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {clients.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setClientId(c.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
-                        border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
-                        background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
-                      }}
-                    >
-                      <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                    </button>
-                  ))}
+                {clients.length > 8 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 8 }}>
+                    <SFIcon name="search" size={13} color="var(--text-3)" />
+                    <input
+                      value={clientSearch}
+                      onChange={e => setClientSearch(e.target.value)}
+                      placeholder={t('projects.searchClientPlaceholder')}
+                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                    />
+                  </div>
+                )}
+                <div style={{ maxHeight: clients.length > 8 ? 220 : undefined, overflowY: clients.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {(() => {
+                      const sortedClients = [...clients].sort((a, b) => Number(isPinnedClient(b.id)) - Number(isPinnedClient(a.id)));
+                      const filteredClients = clientSearch.trim()
+                        ? sortedClients.filter(c => c.name.toLowerCase().includes(clientSearch.trim().toLowerCase()))
+                        : sortedClients;
+                      return filteredClients.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => setClientId(c.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
+                            border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
+                            background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                          }}
+                        >
+                          <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                        </button>
+                      ));
+                    })()}
+                  </div>
                 </div>
               </div>
 
