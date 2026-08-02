@@ -845,7 +845,11 @@ function FileTree({
             complète : avec beaucoup de projets actifs, tout afficher rendait
             cette section ingérable comme raccourci de navigation rapide. */}
         {!lockedScope && (() => {
-          const pinnedProjects = projects.filter(p => pinnedIds.includes(p.id));
+          // Ordonné par pinnedIds (l'ordre glisser-déposer de l'utilisateur),
+          // pas par l'ordre naturel de projects — même logique que la sidebar
+          // globale de l'app (Sidebar.tsx), pour un ordre identique aux deux
+          // endroits plutôt qu'un ordre alphabétique/de création ici.
+          const pinnedProjects = pinnedIds.map(id => projects.find(p => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p);
           return pinnedProjects.length > 0 && (
             <>
               <SectionLabel>{t('files.projectsSection')}</SectionLabel>
@@ -3105,17 +3109,6 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, columnSelections]);
 
-  const handleSetViewMode = (m: ViewMode) => {
-    if (m === 'columns' && viewMode !== 'columns') {
-      if (location.scope !== 'root' && !isLockedRoot(location)) {
-        setColumnSelections([location]);
-      } else {
-        setColumnSelections([]);
-      }
-    }
-    setViewMode(m);
-  };
-
   // Reconstruit la chaîne d'ancêtres (Clients → Client → Projet) pour une
   // location cible — nécessaire en vue colonnes, où chaque colonne affiche
   // le contenu de l'entrée précédente : sans ces ancêtres, sauter directement
@@ -3132,6 +3125,21 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       }
     }
     return [loc];
+  };
+
+  const handleSetViewMode = (m: ViewMode) => {
+    if (m === 'columns' && viewMode !== 'columns') {
+      if (location.scope !== 'root' && !isLockedRoot(location)) {
+        // Même correctif que handleTreeNavigate : reconstruit la chaîne
+        // d'ancêtres plutôt que [location] seul, sinon revenir en vue
+        // colonnes après être passé par liste/grille perd la cascade (il
+        // fallait recliquer le raccourci pour la retrouver).
+        setColumnSelections(buildAncestorChain(location));
+      } else {
+        setColumnSelections([]);
+      }
+    }
+    setViewMode(m);
   };
 
   // Navigation depuis l'arbre gauche : met aussi à jour les colonnes en vue colonnes
