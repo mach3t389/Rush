@@ -16,6 +16,7 @@ import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments
 import { notifyComment } from '../data/commentNotify';
 import { WatchersRow } from './WatchersRow';
 import { addWatcher } from '../data/watchers';
+import { linkify } from '../utils/linkify';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -537,6 +538,8 @@ export function TaskPanel({
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
   const [description, setDescription] = useState(task.description ?? '');
+  const [editingDescription, setEditingDescription] = useState(false);
+  const descViewRef = useRef<HTMLDivElement>(null);
   const [dateDebut, setDateDebut] = useState(task.dueDate ?? '');
   const [heureDebut, setHeureDebut] = useState(task.startTime ?? '');
   const [dateFin, setDateFin] = useState(task.endDate ?? '');
@@ -1285,20 +1288,42 @@ export function TaskPanel({
           {/* Description — persistée via onUpdate (voir onChange plus bas) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {secLabel(t('taskPanel.description'))}
-            <textarea
-              ref={descRef}
-              value={description}
-              onChange={e => { setDescription(e.target.value); onUpdate?.({ description: e.target.value }); }}
-              placeholder={t('tasks.addDescription')}
-              rows={2}
-              style={{
-                width: '100%', padding: '8px 12px', borderRadius: 10,
-                border: '1px solid var(--border)', background: 'var(--surface-2)',
-                color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
-                resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
-                overflow: 'hidden', minHeight: 56,
-              }}
-            />
+            {editingDescription ? (
+              <textarea
+                ref={descRef}
+                value={description}
+                onChange={e => { setDescription(e.target.value); onUpdate?.({ description: e.target.value }); }}
+                onBlur={() => setEditingDescription(false)}
+                onKeyDown={e => { if (e.key === 'Escape') { setEditingDescription(false); } }}
+                placeholder={t('tasks.addDescription')}
+                rows={2}
+                autoFocus
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 10,
+                  border: '1px solid var(--accent)', background: 'var(--surface-3)',
+                  color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
+                  resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
+                  overflow: 'hidden', minHeight: 56,
+                }}
+              />
+            ) : (
+              <div
+                ref={descViewRef}
+                onClick={() => setEditingDescription(true)}
+                title={t('taskPanel.clickToEdit')}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 10,
+                  border: '1px solid transparent', background: 'transparent',
+                  color: description ? 'var(--text)' : 'var(--text-3)', fontSize: 13, fontFamily: 'var(--ff-text)',
+                  lineHeight: 1.6, boxSizing: 'border-box', cursor: 'text', minHeight: 56,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                {description ? linkify(description) : t('tasks.addDescription')}
+              </div>
+            )}
           </div>
 
           {divider}
