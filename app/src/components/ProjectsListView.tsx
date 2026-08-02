@@ -106,7 +106,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const templates = templateSearch.trim()
     ? sortedTemplates.filter(t => t.name.toLowerCase().includes(templateSearch.trim().toLowerCase()) || t.tags.some(tag => tag.toLowerCase().includes(templateSearch.trim().toLowerCase())))
     : sortedTemplates;
-  const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
+  const selectedTemplate = sortedTemplates.find(t => t.id === templateId) ?? null;
 
   // The creator is always a member of their own project — can't deselect yourself.
   const toggleMember = (id: string) => {
