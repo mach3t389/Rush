@@ -840,13 +840,19 @@ function FileTree({
           );
         })}
 
-        {/* All Projects — hidden when locked (the scoped subtree is rendered at the top instead) */}
-        {!lockedScope && projects.length > 0 && (
-          <>
-            <SectionLabel>{t('files.projectsSection')}</SectionLabel>
-            {projects.map(p => renderProjectRow(p))}
-          </>
-        )}
+        {/* Projets épinglés — hidden when locked (the scoped subtree is rendered
+            at the top instead). Uniquement les projets épinglés, pas la liste
+            complète : avec beaucoup de projets actifs, tout afficher rendait
+            cette section ingérable comme raccourci de navigation rapide. */}
+        {!lockedScope && (() => {
+          const pinnedProjects = projects.filter(p => pinnedIds.includes(p.id));
+          return pinnedProjects.length > 0 && (
+            <>
+              <SectionLabel>{t('files.projectsSection')}</SectionLabel>
+              {pinnedProjects.map(p => renderProjectRow(p))}
+            </>
+          );
+        })()}
 
         {/* Separator */}
         <div style={{ height: '1px', background: 'var(--border)', margin: '12px 0' }} />
@@ -3110,11 +3116,29 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
     setViewMode(m);
   };
 
+  // Reconstruit la chaîne d'ancêtres (Clients → Client → Projet) pour une
+  // location cible — nécessaire en vue colonnes, où chaque colonne affiche
+  // le contenu de l'entrée précédente : sans ces ancêtres, sauter directement
+  // sur un projet/client saute aussi les colonnes intermédiaires au lieu de
+  // les faire apparaître en cascade comme un clic manuel colonne par colonne.
+  const buildAncestorChain = (loc: NavLocation): NavLocation[] => {
+    if (loc.scope === 'client') {
+      return [{ scope: 'clients', folderId: null }, loc];
+    }
+    if (loc.scope === 'project') {
+      const clientId = projects.find(p => p.id === loc.scopeId)?.clientId;
+      if (clientId) {
+        return [{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: clientId, folderId: null }, loc];
+      }
+    }
+    return [loc];
+  };
+
   // Navigation depuis l'arbre gauche : met aussi à jour les colonnes en vue colonnes
   const handleTreeNavigate = (loc: NavLocation) => {
     setLocation(loc);
     if (viewMode === 'columns') {
-      setColumnSelections(loc.scope === 'root' || isLockedRoot(loc) ? [] : [loc]);
+      setColumnSelections(loc.scope === 'root' || isLockedRoot(loc) ? [] : buildAncestorChain(loc));
     }
   };
 

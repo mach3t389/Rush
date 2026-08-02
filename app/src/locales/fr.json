@@ -1443,7 +1443,7 @@
     "allFiles": "Fichiers",
     "unpin": "Désépingler",
     "pin": "Épingler",
-    "projectsSection": "Projets",
+    "projectsSection": "Projets épinglés",
     "itemsCount": "{{count}} élément(s)",
     "filesCount": "{{count}} fichier(s)",
     "versionsCount": "{{count}} version(s)",
