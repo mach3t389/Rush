@@ -568,7 +568,7 @@ export function TaskPanel({
       descRef.current.style.height = 'auto';
       descRef.current.style.height = descRef.current.scrollHeight + 'px';
     }
-  }, [description]);
+  }, [description, editingDescription]);
 
   const [localSubtasks, setLocalSubtasks] = useState<LocalSubtask[]>(
     task.subtasks?.map(s => ({
