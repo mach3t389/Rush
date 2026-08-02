@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
-import { loadAllTemplates, resolveTasksSections, type ProjectTemplate } from '../data/templates';
+import { loadAllTemplates, resolveTasksSections } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
@@ -11,7 +11,7 @@ import { getClients } from '../data/clientStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { setProjectContent } from '../data/projectContentStore';
 import { addFolderTree } from '../data/fileStore';
-import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
+import { isPinned, togglePin, subscribePinned, isPinnedClient } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
@@ -81,6 +81,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [clientId, setClientId]         = useState(defaultClientId ?? clients[0]?.id ?? '');
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
+  const [budget, setBudget]             = useState('');
+  const [description, setDescription]   = useState('');
   const [dateRect, setDateRect]         = useState<DOMRect | null>(null);
   const [dateOpen, setDateOpen]         = useState(false);
   const team = getTeam();
@@ -88,15 +90,23 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const defaultMemberId = (!isDemoSession() && authUser && team.some(u => u.id === authUser.id)) ? authUser.id : team[0]?.id;
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
 
-  // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
-  // reste disponible dans la bibliothèque complète (Modèles). Ordre volontaire :
-  // "Projet vierge" en premier, puis 3 modèles pré-remplis représentatifs.
-  const QUICK_START_TEMPLATE_ORDER = ['tpl-vierge', 'tpl-shoot-photo', 'tpl-motion-design', 'tpl-film-institutionnel'];
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [teamSearch, setTeamSearch] = useState('');
   const allTemplates = loadAllTemplates();
-  const templates = QUICK_START_TEMPLATE_ORDER
-    .map(id => allTemplates.find(t => t.id === id))
-    .filter((t): t is ProjectTemplate => !!t);
-  const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
+  // "Projet vierge" (builtIn, id 'tpl-vierge') en premier, puis les modèles
+  // personnalisés (les plus récents d'abord), puis le reste des modèles officiels —
+  // tout est maintenant visible ici, plus de sous-ensemble restreint séparé de la
+  // bibliothèque complète (Modèles).
+  const sortedTemplates = [
+    ...allTemplates.filter(t => t.id === 'tpl-vierge'),
+    ...allTemplates.filter(t => !t.builtIn).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    ...allTemplates.filter(t => t.builtIn && t.id !== 'tpl-vierge'),
+  ];
+  const templates = templateSearch.trim()
+    ? sortedTemplates.filter(t => t.name.toLowerCase().includes(templateSearch.trim().toLowerCase()) || t.tags.some(tag => tag.toLowerCase().includes(templateSearch.trim().toLowerCase())))
+    : sortedTemplates;
+  const selectedTemplate = sortedTemplates.find(t => t.id === templateId) ?? null;
 
   // The creator is always a member of their own project — can't deselect yourself.
   const toggleMember = (id: string) => {
@@ -128,6 +138,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     const members = team.filter(u => memberIds.includes(u.id));
     const projectId = `pj${Date.now()}`;
     const templateSections = selectedTemplate ? resolveTasksSections(selectedTemplate) : [];
+    const budgetNum = Number(String(budget).replace(/[^\d.]/g, ''));
     const newProject: Project = {
       id: projectId,
       name: name.trim(),
@@ -144,6 +155,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       status: 'info',
       statusLabel: 'En cours',
       modifiedAt: new Date().toISOString(),
+      budget: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined,
+      description: description.trim() || undefined,
     };
     if (templateSections.length) {
       const sections: SectionData[] = templateSections.map(sec => ({
@@ -216,30 +229,17 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'start' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.blankCanvas')}</p>
-                <div
-                  onClick={() => setTemplateId(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '14px 18px', borderRadius: 12,
-                    border: `2px solid ${templateId === null ? 'var(--accent)' : 'var(--border)'}`,
-                    background: templateId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
-                    cursor: 'pointer', transition: 'border-color 0.15s',
-                  }}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <SFIcon name="plus" size={20} color="var(--text-3)" />
-                  </div>
-                  <div>
-                    <p style={{ fontWeight: 600, fontSize: 13 }}>{t('projects.emptyProject')}</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('projects.emptyProjectDesc')}</p>
-                  </div>
-                  {templateId === null && <SFIcon name="circle-check" size={18} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                </div>
-              </div>
-
-              <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 10 }}>
+                  <SFIcon name="search" size={13} color="var(--text-3)" />
+                  <input
+                    value={templateSearch}
+                    onChange={e => setTemplateSearch(e.target.value)}
+                    placeholder={t('projects.searchTemplatesPlaceholder')}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                  />
+                </div>
+                <div style={{ maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                   {templates.map(tpl => {
                     const isSelected = templateId === tpl.id;
@@ -285,13 +285,17 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     );
                   })}
                 </div>
+                {templates.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('projects.noTemplatesFound')}</p>
+                )}
+                </div>
               </div>
             </div>
           )}
 
           {/* Step 2: Project info */}
           {step === 'info' && (
-            <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.projectNameLabel')} {t('common.required')}</label>
                 <input
@@ -305,24 +309,43 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {clients.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setClientId(c.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
-                        border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
-                        background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
-                      }}
-                    >
-                      <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                    </button>
-                  ))}
+                {clients.length > 8 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 8 }}>
+                    <SFIcon name="search" size={13} color="var(--text-3)" />
+                    <input
+                      value={clientSearch}
+                      onChange={e => setClientSearch(e.target.value)}
+                      placeholder={t('projects.searchClientPlaceholder')}
+                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                    />
+                  </div>
+                )}
+                <div style={{ maxHeight: clients.length > 8 ? 220 : undefined, overflowY: clients.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {(() => {
+                      const sortedClients = [...clients].sort((a, b) => Number(isPinnedClient(b.id)) - Number(isPinnedClient(a.id)));
+                      const filteredClients = clientSearch.trim()
+                        ? sortedClients.filter(c => c.name.toLowerCase().includes(clientSearch.trim().toLowerCase()))
+                        : sortedClients;
+                      return filteredClients.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => setClientId(c.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
+                            border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
+                            background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                          }}
+                        >
+                          <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                        </button>
+                      ));
+                    })()}
+                  </div>
                 </div>
               </div>
 
@@ -381,6 +404,28 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 )}
               </div>
 
+              <div>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                <input
+                  value={budget}
+                  onChange={e => setBudget(e.target.value)}
+                  placeholder={t('projects.budget')}
+                  inputMode="numeric"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder={t('projects.projectName')}
+                  rows={3}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
+                />
+              </div>
+
               {selectedTemplate && (
                 <div style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: selectedTemplate.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -404,41 +449,60 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('projects.selectMembers')}</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                {team.map(u => {
-                  const on = memberIds.includes(u.id);
-                  const isYou = u.id === defaultMemberId;
-                  return (
-                    <button
-                      key={u.id}
-                      onClick={() => toggleMember(u.id)}
-                      title={isYou ? t('projects.youAlwaysIncluded') : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '12px 14px', borderRadius: 11, cursor: isYou ? 'default' : 'pointer',
-                        border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                        background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
-                        transition: 'border-color 0.12s',
-                      }}
-                    >
-                      <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
-                      <div style={{ textAlign: 'left', minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}{isYou ? ` (${t('projects.you')})` : ''}</p>
-                        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{u.role}</p>
-                      </div>
-                      <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: '50%',
-                          background: on ? 'var(--accent)' : 'var(--surface-3)',
-                          border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {on && <SFIcon name="check" size={10} color="var(--on-accent)" />}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+              {team.length > 8 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)' }}>
+                  <SFIcon name="search" size={13} color="var(--text-3)" />
+                  <input
+                    value={teamSearch}
+                    onChange={e => setTeamSearch(e.target.value)}
+                    placeholder={t('projects.searchTeamPlaceholder')}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                  />
+                </div>
+              )}
+              <div style={{ maxHeight: team.length > 8 ? 260 : undefined, overflowY: team.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {(() => {
+                    const sortedTeam = [...team].sort((a, b) => Number(b.id === defaultMemberId) - Number(a.id === defaultMemberId));
+                    const filteredTeam = teamSearch.trim()
+                      ? sortedTeam.filter(u => u.name.toLowerCase().includes(teamSearch.trim().toLowerCase()) || u.role.toLowerCase().includes(teamSearch.trim().toLowerCase()))
+                      : sortedTeam;
+                    return filteredTeam.map(u => {
+                      const on = memberIds.includes(u.id);
+                      const isYou = u.id === defaultMemberId;
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => toggleMember(u.id)}
+                          title={isYou ? t('projects.youAlwaysIncluded') : undefined}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '12px 14px', borderRadius: 11, cursor: isYou ? 'default' : 'pointer',
+                            border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                            background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                            transition: 'border-color 0.12s',
+                          }}
+                        >
+                          <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
+                          <div style={{ textAlign: 'left', minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}{isYou ? ` (${t('projects.you')})` : ''}</p>
+                            <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{u.role}</p>
+                          </div>
+                          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                            <div style={{
+                              width: 18, height: 18, borderRadius: '50%',
+                              background: on ? 'var(--accent)' : 'var(--surface-3)',
+                              border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {on && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
                 {t('projects.membersSelected', { count: memberIds.length })}
