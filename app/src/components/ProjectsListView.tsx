@@ -216,29 +216,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'start' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.blankCanvas')}</p>
-                <div
-                  onClick={() => setTemplateId(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '14px 18px', borderRadius: 12,
-                    border: `2px solid ${templateId === null ? 'var(--accent)' : 'var(--border)'}`,
-                    background: templateId === null ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
-                    cursor: 'pointer', transition: 'border-color 0.15s',
-                  }}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <SFIcon name="plus" size={20} color="var(--text-3)" />
-                  </div>
-                  <div>
-                    <p style={{ fontWeight: 600, fontSize: 13 }}>{t('projects.emptyProject')}</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('projects.emptyProjectDesc')}</p>
-                  </div>
-                  {templateId === null && <SFIcon name="circle-check" size={18} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                </div>
-              </div>
-
-              <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                   {templates.map(tpl => {
@@ -291,7 +268,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
           {/* Step 2: Project info */}
           {step === 'info' && (
-            <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.projectNameLabel')} {t('common.required')}</label>
                 <input
