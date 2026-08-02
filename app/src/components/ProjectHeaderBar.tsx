@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFModal, SFButton } from './ui';
 import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject } from '../data/projectStore';
 import { ProjectEditPanel } from './ProjectCard';
+import { CreateTemplateFromProjectModal } from './CreateTemplateFromProjectModal';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { getClients } from '../data/clientStore';
 import { useProjectTaskNotifCount } from '../hooks/useNotifs';
@@ -30,42 +31,6 @@ export function ProjectHeaderBar({
   const location = useLocation();
   const project = findProject(projectId);
 
-  // Un projet brouillon (édition de modèle) est jetable : il disparaît dès qu'on
-  // quitte cet écran, quel que soit le chemin de sortie (bouton "Terminer",
-  // navigation ailleurs, retour arrière). removeProject() cascade déjà
-  // correctement (sections/fichiers/événements) — rien d'autre à nettoyer ici.
-  //
-  // La suppression est différée d'un tick (setTimeout 0) et annulable : en
-  // StrictMode (dev), React invoque setup → cleanup → setup pour chaque effet
-  // au montage, ce qui supprimerait le brouillon immédiatement après sa
-  // création si le cleanup agissait de façon synchrone. Le second `setup`
-  // annule la suppression programmée par le `cleanup` précédent ; seul un
-  // vrai démontage (rien pour l'annuler ensuite) laisse le timeout s'exécuter.
-  const pendingRemovalRef = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
-  useEffect(() => {
-    // Only cancel a pending removal if it belongs to THIS same draft (a true
-    // StrictMode double-invoke of setup→cleanup→setup for the same project).
-    // If the pending removal is for a DIFFERENT draft — this component
-    // instance persists across route changes when navigating between
-    // projects — let it fire instead of clobbering it, otherwise that other
-    // draft survives forever, undeletable.
-    if (pendingRemovalRef.current && pendingRemovalRef.current.id === project?.id) {
-      clearTimeout(pendingRemovalRef.current.timer);
-      pendingRemovalRef.current = null;
-    }
-    if (!project?.isTemplateDraft) return;
-    const draftId = project.id;
-    return () => {
-      pendingRemovalRef.current = {
-        id: draftId,
-        timer: setTimeout(() => {
-          removeProject(draftId);
-          pendingRemovalRef.current = null;
-        }, 0),
-      };
-    };
-  }, [project?.id, project?.isTemplateDraft]);
-
   const [, forceUpdate] = useState(0);
   const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
   const [colorOpen, setColorOpen] = useState(false);
@@ -74,6 +39,7 @@ export function ProjectHeaderBar({
   const [editOpen, setEditOpen] = useState(false);
   const [moveClientOpen, setMoveClientOpen] = useState(false);
   const [moveClientSearch, setMoveClientSearch] = useState('');
+  const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
 
   const taskNotifs    = useProjectTaskNotifCount(projectId);
 
@@ -236,6 +202,13 @@ export function ProjectHeaderBar({
                   <SFIcon name="square-pen" size={13} color="var(--text-3)" />
                   {t('projects.editProject')}
                 </button>
+                <button
+                  onClick={() => { setMenuOpen(false); setCreateTemplateOpen(true); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name="layout-template" size={14} color="var(--text-3)" />
+                  {t('projectTemplates.createFromProjectMenuItem')}
+                </button>
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <button
                   onClick={() => { setMoveClientOpen(true); setMenuOpen(false); }}
@@ -286,11 +259,27 @@ export function ProjectHeaderBar({
         </div>
         )}
         {project.isTemplateDraft && (
-          <SFButton variant="secondary" size="sm" icon="check" onClick={() => navigate('/modeles')}>
-            {t('projects.templateDraftFinish')}
-          </SFButton>
+          <>
+            <SFButton variant="primary" size="sm" icon="layout-template" onClick={() => setCreateTemplateOpen(true)}>
+              {t('projectTemplates.saveDraftAsTemplate')}
+            </SFButton>
+            <SFButton
+              variant="secondary"
+              size="sm"
+              icon="trash-2"
+              onClick={() => {
+                if (!confirm(t('projectTemplates.confirmDiscardDraft'))) return;
+                removeProject(project.id);
+                navigate('/modeles');
+              }}
+            >
+              {t('projectTemplates.discardDraft')}
+            </SFButton>
+          </>
         )}
       </div>
+
+      {createTemplateOpen && project && <CreateTemplateFromProjectModal project={project} onClose={() => setCreateTemplateOpen(false)} />}
 
       {editOpen && (
         <ProjectEditPanel

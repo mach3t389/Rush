@@ -1,15 +1,16 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+﻿import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
-import { addProject } from '../data/projectStore';
+import { addProject, createTemplateDraft } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
+import { setProjectContent } from '../data/projectContentStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import type { ProjectTemplate, TemplateSection, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
+import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
@@ -20,80 +21,8 @@ import type { Priority, ResourceType, Resource, Task, Project, SectionData } fro
 import { DocumentView, ScreenplayView, MoodboardView, FormView } from './ResourceDetail';
 import type { ScriptEl, ScriptElType, FormQuestion, FormQType } from './ResourceDetail';
 import { VideoReviewBody } from './VideoReview';
-import { OverviewSectionForm, KIND_LABEL_KEY } from '../components/OverviewSectionForm';
-import { ProjectTaskRow } from '../components/ProjectTaskRow';
-import type { CustomOverviewSection } from '../data/projectContentStore';
+import { KIND_LABEL_KEY } from '../components/OverviewSectionForm';
 import { usePersistedState } from '../hooks/usePersistedState';
-
-// ── OverviewSectionsEditor ─────────────────────────────────────────────────────
-// Éditeur partagé de la STRUCTURE des sections d'Aperçu d'un modèle.
-// Un modèle ne stocke jamais de valeurs remplies (customSectionData) — uniquement
-// la définition des sections (titre, icône, champs).
-
-function OverviewSectionsEditor({ sections, onChange, color }: {
-  sections: CustomOverviewSection[];
-  onChange: (next: CustomOverviewSection[]) => void;
-  color?: string;
-}) {
-  const { t } = useTranslation();
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleEditSection = (updated: CustomOverviewSection) => {
-    onChange(sections.map(s => s.id === updated.id ? updated : s));
-    setEditingId(null);
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {sections.map(section => (
-        editingId === section.id ? (
-          <div key={section.id} style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
-            <OverviewSectionForm initial={section} onSave={handleEditSection} onCancel={() => setEditingId(null)} />
-          </div>
-        ) : (
-        <div key={section.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <SFIcon name={section.icon} size={14} color={color ?? 'var(--text-3)'} />
-          <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditingId(section.id)} title={t('overview.editSection')}>
-            <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-              {(section.kind === 'fields' || section.kind === 'vision')
-                ? `${section.fields?.length ?? 0} ${t('overview.sectionKindFields').toLowerCase()}`
-                : t(KIND_LABEL_KEY[section.kind])}
-            </p>
-          </div>
-          <button onClick={() => setEditingId(section.id)} title={t('overview.renameSection')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-            <SFIcon name="square-pen" size={13} />
-          </button>
-          <button onClick={() => onChange(sections.filter(s => s.id !== section.id))} title={t('overview.deleteSection')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, display: 'flex' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
-            <SFIcon name="trash-2" size={13} />
-          </button>
-        </div>
-        )
-      ))}
-      {adding ? (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
-          <OverviewSectionForm
-            onSave={section => { onChange([...sections, section]); setAdding(false); }}
-            onCancel={() => setAdding(false)}
-            existingSystemIds={sections.map(s => s.id)}
-          />
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-          <SFIcon name="plus" size={12} /> {t('overview.addSection')}
-        </button>
-      )}
-    </div>
-  );
-}
 
 // ── Form field ↔ FormQuestion converters ──────────────────────────────────────
 
@@ -203,8 +132,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
 
   const docContentRef = useRef<(() => string) | null>(null);
   const screenplayContentRef = useRef<(() => ScriptEl[]) | null>(null);
-  const [overviewSections, setOverviewSections] = useState<CustomOverviewSection[]>(tpl.overviewSections ?? []);
-  const [taskSections, setTaskSections] = useState<TemplateSection[]>(tpl.sections ?? []);
 
   const fakeResource: Resource = {
     id: tpl.id, type: tpl.type as ResourceType,
@@ -219,12 +146,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
     }
     if (tpl.type === 'screenplay' && screenplayContentRef.current) {
       updated.sceneBlocks = elementsToSceneBlocks(screenplayContentRef.current());
-    }
-    if (tpl.type === 'overview') {
-      updated.overviewSections = overviewSections;
-    }
-    if (tpl.type === 'tasks') {
-      updated.sections = taskSections;
     }
     onSave(updated);
     setDirty(false);
@@ -266,7 +187,7 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
           {tpl.builtIn ? (
             <SFButton variant="secondary" icon="copy" onClick={() => {
-              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML, ...(tpl.type === 'overview' ? { overviewSections } : {}), ...(tpl.type === 'tasks' ? { sections: tpl.sections } : {}) };
+              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML };
               onSave(copy);
             }}>{t('models.saveCopy')}</SFButton>
           ) : (
@@ -284,68 +205,6 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
         {tpl.type === 'document' && <DocumentView resource={fakeResource} seedHTML={seedHTML} contentRef={docContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'screenplay' && <ScreenplayView resource={fakeResource} seedElements={seedElements} contentRef={screenplayContentRef} onEdit={() => setDirty(true)} />}
         {tpl.type === 'moodboard' && <MoodboardView resource={fakeResource} />}
-        {tpl.type === 'file' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 480, margin: '0 auto', width: '100%' }}>
-            {(tpl.folderStructure ?? []).map((folder, i) => (
-              <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SFIcon name="folder" size={15} color={tpl.color} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{folder.name}</span>
-                </div>
-                {folder.children?.map((child, ci) => (
-                  <div key={ci} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 22, marginTop: 4 }}>
-                    <SFIcon name="folder" size={12} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{child.name}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-        {tpl.type === 'overview' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, maxWidth: 560, margin: '0 auto', width: '100%' }}>
-            <OverviewSectionsEditor
-              sections={overviewSections}
-              color={tpl.color}
-              onChange={next => { setOverviewSections(next); setDirty(true); }}
-            />
-          </div>
-        )}
-        {tpl.type === 'tasks' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 860, margin: '0 auto', width: '100%' }}>
-            {taskSections.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
-            {taskSections.map((section, si) => (
-              <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {(section.tasks ?? []).map((task, ti) => (
-                    <ProjectTaskRow
-                      key={ti}
-                      task={{ ...task, assignees: task.assignees ?? [] }}
-                      selected={false}
-                      onSelect={() => {}}
-                      onUpdate={patch => {
-                        // checked/priorityLabel/activityCount n'existent pas sur
-                        // TemplateTask (checked n'a pas de sens pour un modèle
-                        // statique, priorityLabel/activityCount ne sont jamais
-                        // lus) — écartés explicitement plutôt que persistés.
-                        // subtasks est typé `unknown[]` côté RowTask (jamais écrit
-                        // par ProjectTaskRow en interne) mais `TemplateTask[]` côté
-                        // TemplateTask — écarté aussi pour ne jamais le propager.
-                        const { checked: _checked, priorityLabel: _priorityLabel, activityCount: _activityCount, subtasks: _subtasks, ...persisted } = patch;
-                        setTaskSections(prev => prev.map((s, i) => i !== si ? s : {
-                          ...s,
-                          tasks: s.tasks.map((tsk, j) => j !== ti ? tsk : { ...tsk, ...persisted }),
-                        }));
-                        setDirty(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
         {tpl.type === 'video_review' && <VideoReviewBody resource={fakeResource} />}
       </div>
     </div>
@@ -438,13 +297,12 @@ function InlineEditable({ value, onChange, onBlur, multiline, fontSize, fontWeig
 
 // ── Template Detail sidebar ────────────────────────────────────────────────────
 
-function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, onPreview, onRename }: {
+function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, onRename }: {
   tpl: ProjectTemplate;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onCreateProject: () => void;
-  onPreview: () => void;
   onRename?: (name: string, description: string) => void;
 }) {
   const { t } = useTranslation();
@@ -511,7 +369,6 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
       </div>
       <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
         <SFButton variant="primary" icon="plus" onClick={onCreateProject} style={{ width: '100%', justifyContent: 'center' }}>{t('models.createProjectFromTemplate')}</SFButton>
-        <SFButton variant="secondary" icon="eye" onClick={onPreview} style={{ width: '100%', justifyContent: 'center' }}>{t('models.viewAsProject')}</SFButton>
         <div style={{ display: 'flex', gap: 6 }}>
           <SFButton variant="secondary" size="sm" icon="square-pen" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
             {tpl.builtIn ? t('models.editCopy') : t('models.edit')}
@@ -566,7 +423,6 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       status: 'info',
       statusLabel: t('projects.statusInProgress'),
       modifiedAt: t('clients.justNow'),
-      folderStructureTemplateId: template.defaultFolderStructureId ?? undefined,
     };
 
     // Materialize the template's sections + tasks into the project task store.
@@ -592,13 +448,12 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
     }));
     if (sections.length) setSections(projectId, sections);
 
-    // Materialize the default folder structure if the template defines one.
-    if (template.defaultFolderStructureId) {
-      const fileTpl = loadAllResourceTemplates().find(t => t.id === template.defaultFolderStructureId);
-      if (fileTpl?.folderStructure?.length) addFolderTree(fileTpl.folderStructure, { projectId });
-    }
+    // Materialize the template's folder structure, if any.
+    if (template.folderStructure?.length) addFolderTree(template.folderStructure, { projectId });
 
-    addProject(newProject);
+    addProject(newProject).then(() => {
+      if (template.overviewSections?.length) setProjectContent(projectId, { customSections: template.overviewSections });
+    });
     onClose();
     navigate(`/projets/${projectId}`);
   };
@@ -1104,395 +959,6 @@ function FormTemplateListItem({ tpl, selected, onClick, canDrag, isDragging, isD
   );
 }
 
-// ── Template Project View (full-screen overlay, identical to Travail) ──────────
-
-
-// Priority badge for board cards
-function TPVPriBadge({ priority }: { priority: Priority }) {
-  const MAP: Record<Priority, { label: string; color: string }> = {
-    high: { label: 'Élevée', color: '#f97316' },
-    normal: { label: 'Normale', color: '#6b7280' },
-    low: { label: 'Faible', color: '#3b82f6' },
-    none: { label: 'Aucune', color: '#6b7280' },
-  };
-  const { label, color } = MAP[priority] ?? MAP.normal;
-  return (
-    <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${color}22`, color, border: `1px solid ${color}44` }}>{label}</span>
-  );
-}
-
-function TemplateProjectView({ tpl: initialTpl, onClose, onSave, onOpenResourceTemplate }: {
-  tpl: ProjectTemplate;
-  onClose: () => void;
-  onSave: (updated: ProjectTemplate) => void;
-  onOpenResourceTemplate: (tpl: ResourceTemplate) => void;
-}) {
-  const [tplName, setTplName] = useState(initialTpl.name);
-  const [tplDescription, setTplDescription] = useState(initialTpl.description ?? '');
-  const [tasksTemplateId, setTasksTemplateId] = useState<string | undefined>(initialTpl.tasksTemplateId);
-  const [showTasksPicker, setShowTasksPicker] = useState(false);
-  const [overviewTemplateId, setOverviewTemplateId] = useState<string | undefined>(initialTpl.defaultOverviewTemplateId);
-  const [showOverviewPicker, setShowOverviewPicker] = useState(false);
-  const [folderStructureId, setFolderStructureId] = useState<string | undefined>(initialTpl.defaultFolderStructureId);
-  const [showFolderPicker, setShowFolderPicker] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'apercu' | 'tasks' | 'file'>('tasks');
-  const [dirty, setDirty] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
-
-  const allTasksTpls = loadAllResourceTemplates().filter(r => r.type === 'tasks');
-  const linkedTasksTpl = tasksTemplateId ? allTasksTpls.find(r => r.id === tasksTemplateId) : undefined;
-  const resolvedSections: TemplateSection[] = linkedTasksTpl?.sections ?? [];
-
-  const allOverviewTpls = loadAllResourceTemplates().filter(r => r.type === 'overview');
-  const linkedOverviewTpl = overviewTemplateId ? allOverviewTpls.find(r => r.id === overviewTemplateId) : undefined;
-  const resolvedOverviewSections = linkedOverviewTpl?.overviewSections ?? [];
-
-  const allFileTpls = loadAllResourceTemplates().filter(r => r.type === 'file');
-  const linkedFileTpl = folderStructureId ? allFileTpls.find(r => r.id === folderStructureId) : undefined;
-  const resolvedFolders = linkedFileTpl?.folderStructure ?? [];
-
-  const handleSave = () => {
-    onSave({
-      ...initialTpl,
-      name: tplName,
-      description: tplDescription,
-      tasksTemplateId,
-      defaultOverviewTemplateId: overviewTemplateId,
-      defaultFolderStructureId: folderStructureId,
-    });
-    setDirty(false);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
-  };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Topbar */}
-      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap' }}>
-          <SFIcon name="arrow-left" size={13} />Modèles
-        </button>
-        <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
-        <div style={{ width: 26, height: 26, borderRadius: 8, background: initialTpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <SFIcon name={initialTpl.icon} size={13} color="rgba(255,255,255,0.9)" />
-        </div>
-        <input
-          value={tplName}
-          onChange={e => { setTplName(e.target.value); setDirty(true); }}
-          placeholder="Nom du modèle…"
-          style={{ flex: 1, fontSize: 15, fontWeight: 600, background: 'transparent', border: 'none', outline: 'none', color: tplName ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', minWidth: 0 }}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-          {savedFlash && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 4 }}><SFIcon name="check" size={11} />Enregistré</span>}
-          <SFButton variant={dirty ? 'primary' : 'secondary'} size="sm" icon="save" onClick={handleSave}>
-            {dirty ? 'Sauvegarder *' : 'Sauvegarder'}
-          </SFButton>
-          <button onClick={onClose} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center' }}>
-            <SFIcon name="x" size={15} />
-          </button>
-        </div>
-      </div>
-
-      {/* Tab bar */}
-      <div style={{ padding: '0 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0 }}>
-        {([
-          { key: 'overview', label: "Vue d'ensemble" },
-          { key: 'apercu',   label: 'Aperçu' },
-          { key: 'tasks',    label: 'Tâches' },
-          { key: 'file',     label: 'Fichiers' },
-        ] as const).map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            style={{ padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--ff-text)', fontWeight: activeTab === tab.key ? 600 : 400, color: activeTab === tab.key ? 'var(--text)' : 'var(--text-3)', borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1, transition: 'color 0.15s' }}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Vue d'ensemble ─────────────────────────────────────────────────────── */}
-      {activeTab === 'overview' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-              {[
-                { icon: 'layers', label: 'Sections', value: resolvedSections.length },
-                { icon: 'check-square', label: 'Tâches', value: resolvedSections.reduce((n, s) => n + s.tasks.length, 0) },
-              ].map(card => (
-                <div key={card.label} style={{ padding: '18px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <SFIcon name={card.icon} size={14} color="var(--text-3)" />
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{card.label}</span>
-                  </div>
-                  <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>{card.value}</span>
-                </div>
-              ))}
-            </div>
-            {/* Description */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description du modèle</label>
-              <textarea
-                value={tplDescription}
-                onChange={e => { setTplDescription(e.target.value); setDirty(true); }}
-                placeholder="Décrivez ce modèle de projet…"
-                rows={5}
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', resize: 'vertical', colorScheme: 'dark', lineHeight: 1.6 }}
-              />
-            </div>
-            {/* Tags */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tags</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {(initialTpl.tags ?? []).map(tag => (
-                  <span key={tag} style={{ padding: '3px 10px', borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-mono)' }}>{tag}</span>
-                ))}
-                {(initialTpl.tags ?? []).length === 0 && <span style={{ color: 'var(--text-3)', fontSize: 12 }}>Aucun tag</span>}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Tâches ─────────────────────────────────────────────────────────────── */}
-      {activeTab === 'tasks' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
-          <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure de tâches</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                  {linkedTasksTpl
-                    ? <>Liée au modèle de tâches « {linkedTasksTpl.name} ».
-                        <button onClick={() => { handleSave(); onOpenResourceTemplate(linkedTasksTpl); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
-                          <SFIcon name="external-link" size={11} />Ouvrir
-                        </button>
-                      </>
-                    : 'Aucun modèle de tâches lié — le projet créé n\'aura aucune section par défaut.'}
-                </p>
-              </div>
-              <SFButton variant="secondary" size="sm" icon="repeat" onClick={() => setShowTasksPicker(true)}>Changer de structure de tâches</SFButton>
-            </div>
-            {resolvedSections.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                <SFIcon name="list-checks" size={28} color="var(--border-2)" />
-                <p style={{ marginTop: 12 }}>Aucune section — reliez un modèle de tâches pour en afficher ici.</p>
-              </div>
-            ) : (
-              resolvedSections.map((sec, i) => (
-                <div key={i} style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{sec.label}</span>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{sec.tasks.length} tâches</span>
-                  </div>
-                  {sec.tasks.length === 0 ? (
-                    <p style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune tâche</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      {sec.tasks.map((task, ti) => (
-                        <div key={ti} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderTop: ti > 0 ? '1px solid var(--border)' : 'none' }}>
-                          <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>{task.title}</span>
-                          <TPVPriBadge priority={task.priority} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* ── Change tasks template picker ────────────────────────────────────── */}
-          {showTasksPicker && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onMouseDown={e => { if (e.target === e.currentTarget) setShowTasksPicker(false); }}>
-              <div style={{ width: 420, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <p style={{ fontWeight: 700, fontSize: 15 }}>Structure de tâches</p>
-                  <button onClick={() => setShowTasksPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                    <SFIcon name="x" size={15} />
-                  </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <button onClick={() => { setTasksTemplateId(undefined); setDirty(true); setShowTasksPicker(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${!tasksTemplateId ? 'var(--border-2)' : 'var(--border)'}`, background: !tasksTemplateId ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name="circle-slash" size={14} color="var(--text-3)" />
-                    </div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Aucune</p>
-                  </button>
-                  {allTasksTpls.map(rt => (
-                    <button key={rt.id} onClick={() => { setTasksTemplateId(rt.id); setDirty(true); setShowTasksPicker(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${tasksTemplateId === rt.id ? 'var(--border-2)' : 'var(--border)'}`, background: tasksTemplateId === rt.id ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 9, background: rt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <SFIcon name={rt.icon} size={14} color="rgba(255,255,255,0.9)" />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.sections ?? []).length} sections</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Aperçu ─────────────────────────────────────────────────────────────── */}
-      {activeTab === 'apercu' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
-          <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure d'Aperçu</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                  {linkedOverviewTpl
-                    ? <>Lié au modèle d'Aperçu « {linkedOverviewTpl.name} ».
-                        <button onClick={() => { handleSave(); onOpenResourceTemplate(linkedOverviewTpl); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
-                          <SFIcon name="external-link" size={11} />Ouvrir
-                        </button>
-                      </>
-                    : "Aucun modèle d'Aperçu lié — le projet créé n'aura aucune section personnalisée par défaut."}
-                </p>
-              </div>
-              <SFButton variant="secondary" size="sm" icon="repeat" onClick={() => setShowOverviewPicker(true)}>Changer de structure d'Aperçu</SFButton>
-            </div>
-            {resolvedOverviewSections.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                <SFIcon name="layout-grid" size={28} color="var(--border-2)" />
-                <p style={{ marginTop: 12 }}>Aucune section — reliez un modèle d'Aperçu pour en afficher ici.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {resolvedOverviewSections.map(sec => (
-                  <div key={sec.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                    <SFIcon name={sec.icon ?? 'layout-grid'} size={14} color="var(--text-3)" />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{sec.title}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {showOverviewPicker && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onMouseDown={e => { if (e.target === e.currentTarget) setShowOverviewPicker(false); }}>
-              <div style={{ width: 420, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <p style={{ fontWeight: 700, fontSize: 15 }}>Structure d'Aperçu</p>
-                  <button onClick={() => setShowOverviewPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                    <SFIcon name="x" size={15} />
-                  </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <button onClick={() => { setOverviewTemplateId(undefined); setDirty(true); setShowOverviewPicker(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${!overviewTemplateId ? 'var(--border-2)' : 'var(--border)'}`, background: !overviewTemplateId ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name="circle-slash" size={14} color="var(--text-3)" />
-                    </div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Aucune</p>
-                  </button>
-                  {allOverviewTpls.map(rt => (
-                    <button key={rt.id} onClick={() => { setOverviewTemplateId(rt.id); setDirty(true); setShowOverviewPicker(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${overviewTemplateId === rt.id ? 'var(--border-2)' : 'var(--border)'}`, background: overviewTemplateId === rt.id ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 9, background: rt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <SFIcon name={rt.icon} size={14} color="rgba(255,255,255,0.9)" />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.overviewSections ?? []).length} sections</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Fichiers ───────────────────────────────────────────────────────────── */}
-      {activeTab === 'file' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
-          <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Structure de fichiers</p>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                  {linkedFileTpl
-                    ? <>Liée au modèle de fichiers « {linkedFileTpl.name} ».
-                        <button onClick={() => { handleSave(); onOpenResourceTemplate(linkedFileTpl); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'var(--ff-text)' }}>
-                          <SFIcon name="external-link" size={11} />Ouvrir
-                        </button>
-                      </>
-                    : 'Aucun modèle de fichiers lié — le projet créé n\'aura aucun dossier par défaut.'}
-                </p>
-              </div>
-              <SFButton variant="secondary" size="sm" icon="repeat" onClick={() => setShowFolderPicker(true)}>Changer de structure de fichiers</SFButton>
-            </div>
-            {resolvedFolders.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-                <SFIcon name="folder" size={28} color="var(--border-2)" />
-                <p style={{ marginTop: 12 }}>Aucun dossier — reliez un modèle de fichiers pour en afficher ici.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {(function renderFolders(nodes: typeof resolvedFolders, depth: number): React.ReactNode {
-                  return nodes.map((node, i) => (
-                    <React.Fragment key={node.id ?? `${depth}-${i}`}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', paddingLeft: 10 + depth * 20, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                        <SFIcon name="folder" size={13} color="var(--text-3)" />
-                        <span style={{ fontSize: 13 }}>{node.name}</span>
-                      </div>
-                      {node.children && node.children.length > 0 && renderFolders(node.children, depth + 1)}
-                    </React.Fragment>
-                  ));
-                })(resolvedFolders, 0)}
-              </div>
-            )}
-          </div>
-
-          {showFolderPicker && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onMouseDown={e => { if (e.target === e.currentTarget) setShowFolderPicker(false); }}>
-              <div style={{ width: 420, maxHeight: '70vh', background: 'var(--bg)', borderRadius: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <p style={{ fontWeight: 700, fontSize: 15 }}>Structure de fichiers</p>
-                  <button onClick={() => setShowFolderPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                    <SFIcon name="x" size={15} />
-                  </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <button onClick={() => { setFolderStructureId(undefined); setDirty(true); setShowFolderPicker(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${!folderStructureId ? 'var(--border-2)' : 'var(--border)'}`, background: !folderStructureId ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SFIcon name="circle-slash" size={14} color="var(--text-3)" />
-                    </div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Aucune</p>
-                  </button>
-                  {allFileTpls.map(rt => (
-                    <button key={rt.id} onClick={() => { setFolderStructureId(rt.id); setDirty(true); setShowFolderPicker(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${folderStructureId === rt.id ? 'var(--border-2)' : 'var(--border)'}`, background: folderStructureId === rt.id ? 'var(--surface-2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 9, background: rt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <SFIcon name={rt.icon} size={14} color="rgba(255,255,255,0.9)" />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{rt.name}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{(rt.folderStructure ?? []).length} dossier(s) racine</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-    </div>
-  );
-}
-
 // ── Resource template constants ───────────────────────────────────────────────
 
 const RES_TYPE_LABEL_KEYS: Record<ResourceTemplateType, string> = {
@@ -1699,14 +1165,8 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
   const [scenes, setScenes] = useState<SceneBlock[]>(template.sceneBlocks ?? []);
   // video_review
   const [rounds, setRounds] = useState<ReviewRound[]>(template.reviewRounds ?? []);
-  // file
-  const [folderJson, setFolderJson] = useState(() => JSON.stringify(template.folderStructure ?? [], null, 2));
   // moodboard
   const [refs, setRefs] = useState<MoodboardRef[]>(template.moodboardRefs ?? []);
-  // overview
-  const [ovSections, setOvSections] = useState<CustomOverviewSection[]>(template.overviewSections ?? []);
-  // tasks
-  const [taskSections, setTaskSections] = useState<TemplateSection[]>(template.sections ?? []);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -1715,10 +1175,7 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
     if (type === 'document') content = { documentSections: docSections };
     if (type === 'screenplay') content = { sceneBlocks: scenes };
     if (type === 'video_review') content = { reviewRounds: rounds };
-    if (type === 'file') { try { content = { folderStructure: JSON.parse(folderJson) }; } catch { content = { folderStructure: [] }; } }
     if (type === 'moodboard') content = { moodboardRefs: refs };
-    if (type === 'overview') content = { overviewSections: ovSections };
-    if (type === 'tasks') content = { sections: taskSections };
     onSave({ ...base, ...content });
   };
 
@@ -1777,13 +1234,6 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
         <SFButton variant="secondary" size="sm" icon="plus" onClick={() => setRounds(p => [...p, { id: `r${Date.now()}`, label: `V${p.length + 1}`, description: '' }])}>Ajouter un round</SFButton>
       </div>
     );
-    if (type === 'file') return (
-      <div>
-        <p style={labelStyle()}>Structure de dossiers (JSON)</p>
-        <textarea value={folderJson} onChange={e => setFolderJson(e.target.value)} style={{ ...fieldStyle(), minHeight: 160, fontFamily: 'var(--ff-mono)', fontSize: 11, resize: 'vertical' }} />
-        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>Format : {'[{"id":"f1","name":"Dossier","children":[...]}]'}</p>
-      </div>
-    );
     if (type === 'moodboard') return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p style={labelStyle()}>Références visuelles</p>
@@ -1797,47 +1247,6 @@ function ResourceTemplateEditor({ template, onSave, onClose }: {
           </div>
         ))}
         <SFButton variant="secondary" size="sm" icon="plus" onClick={() => setRefs(p => [...p, { id: `m${Date.now()}`, title: '', note: '' }])}>Ajouter une référence</SFButton>
-      </div>
-    );
-    if (type === 'overview') return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <p style={labelStyle()}>{t('models.resTypeOverview')}</p>
-        <OverviewSectionsEditor sections={ovSections} onChange={setOvSections} color={color} />
-      </div>
-    );
-    if (type === 'tasks') return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <p style={labelStyle()}>{t('models.resTypeTasks')}</p>
-        {taskSections.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>Aucune section dans ce modèle.</p>}
-        {taskSections.map((section, si) => (
-          <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ fontSize: 12, fontWeight: 600 }}>{section.label}</p>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {(section.tasks ?? []).map((task, ti) => (
-                <ProjectTaskRow
-                  key={ti}
-                  task={{ ...task, assignees: task.assignees ?? [] }}
-                  selected={false}
-                  onSelect={() => {}}
-                  onUpdate={patch => {
-                    // checked/priorityLabel/activityCount n'existent pas sur
-                    // TemplateTask (checked n'a pas de sens pour un modèle
-                    // statique, priorityLabel/activityCount ne sont jamais
-                    // lus) — écartés explicitement plutôt que persistés.
-                    // subtasks est typé `unknown[]` côté RowTask (jamais écrit
-                    // par ProjectTaskRow en interne) mais `TemplateTask[]` côté
-                    // TemplateTask — écarté aussi pour ne jamais le propager.
-                    const { checked: _checked, priorityLabel: _priorityLabel, activityCount: _activityCount, subtasks: _subtasks, ...persisted } = patch;
-                    setTaskSections(prev => prev.map((s, i) => i !== si ? s : {
-                      ...s,
-                      tasks: s.tasks.map((tsk, j) => j !== ti ? tsk : { ...tsk, ...persisted }),
-                    }));
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
     );
     return null;
@@ -1917,6 +1326,7 @@ const TYPE_PILLS: { key: UnifiedTypeFilter; labelKey: string; icon: string }[] =
 
 export function Modeles() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const plan = usePlan();
   const [typeFilter, setTypeFilter] = usePersistedState<UnifiedTypeFilter>('sf_modeles_type_filter', 'projets');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1940,7 +1350,6 @@ export function Modeles() {
   });
   useEffect(() => { setLastSelectedTplId(selectedTpl?.id ?? null); }, [selectedTpl?.id]);
   const [createProjectFrom, setCreateProjectFrom] = useState<ProjectTemplate | null>(null);
-  const [previewTpl, setPreviewTpl] = useState<ProjectTemplate | null>(null);
   const [builtInsCollapsed, setBuiltInsCollapsed] = useState(false);
   const [dragTplId, setDragTplId] = useState<string | null>(null);
   const [dragOverTplId, setDragOverTplId] = useState<string | null>(null);
@@ -1985,6 +1394,32 @@ export function Modeles() {
   };
 
   // ── Project template handlers
+  async function openProjectTemplateDraft(tpl: ProjectTemplate) {
+    const draftId = await createTemplateDraft(tpl.name, tpl.id);
+    if (tpl.sections?.length) setSections(draftId, tpl.sections.map(sec => ({
+      label: sec.label,
+      progress: 0,
+      tasks: sec.tasks.map((tt, i): Task => ({
+        id: `${draftId}-${sec.label}-${i}`,
+        title: tt.title,
+        projectId: draftId,
+        projectName: tpl.name,
+        projectColor: tpl.color,
+        assignees: tt.assignees ?? [],
+        status: 'warn',
+        statusLabel: 'En attente',
+        priority: tt.priority ?? 'normal',
+        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+        dueDate: tt.dueDate ?? '',
+        checked: false,
+        subtasks: [],
+      })),
+    })));
+    if (tpl.folderStructure?.length) addFolderTree(tpl.folderStructure, { projectId: draftId });
+    if (tpl.overviewSections?.length) setProjectContent(draftId, { customSections: tpl.overviewSections });
+    navigate(`/projets/${draftId}`);
+  }
+
   const saveTpl = (tpl: ProjectTemplate) => {
     const custom = templates.filter(t => !t.builtIn);
     const existing = custom.findIndex(t => t.id === tpl.id);
@@ -2158,7 +1593,11 @@ export function Modeles() {
       requestUpgrade({ feature: 'customTemplates' });
       return;
     }
-    if (typeFilter === 'projets') { setPreviewTpl({ id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] }); }
+    if (typeFilter === 'projets') {
+      const tpl: ProjectTemplate = { id: `tpl-${Date.now()}`, name: 'Nouveau modèle', description: '', color: '#6366f1', icon: 'layout-template', tags: [], builtIn: false, createdAt: new Date().toISOString().split('T')[0] };
+      saveTpl(tpl);
+      void openProjectTemplateDraft(tpl);
+    }
     else if (typeFilter === 'formulaires') { setFormViewData({}); setFormViewOpen(true); }
     else { setResEditorData({ type: typeFilter }); setResEditorOpen(true); }
   };
@@ -2266,21 +1705,11 @@ export function Modeles() {
               { key: 'video_review', icon: 'video',          label: 'Révision vidéo', count: resourceTemplates.filter(t => t.type === 'video_review').length },
               { key: 'moodboard',    icon: 'grid-2x2',       label: 'Moodboard',      count: resourceTemplates.filter(t => t.type === 'moodboard').length },
             ];
-            const fileCount = resourceTemplates.filter(t => t.type === 'file').length;
-            const overviewCount = resourceTemplates.filter(t => t.type === 'overview').length;
-            const tasksCount = resourceTemplates.filter(t => t.type === 'tasks').length;
-            // "Fichiers"/"Tâches" are structural templates for a project's file
-            // tree / task sections, not an actual resource content type
-            // (screenplay, document, moodboard…) — they live at the top level,
-            // next to Projets, instead of nested under the "Ressources" group.
-            const resActive = (isResType(typeFilter) && typeFilter !== 'file' && typeFilter !== 'overview' && typeFilter !== 'tasks') || typeFilter === 'formulaires';
-            const totalRes = formTemplates.length + resourceTemplates.length - fileCount - overviewCount - tasksCount;
+            const resActive = isResType(typeFilter) || typeFilter === 'formulaires';
+            const totalRes = formTemplates.length + resourceTemplates.length;
             return (
               <div style={{ borderBottom: '1px solid var(--border)', flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
                 {navItem('projets', 'layout-template', 'Projets', templates.length)}
-                {navItem('overview', 'layout-grid', t('models.resTypeOverview'), overviewCount)}
-                {navItem('tasks', 'list-checks', t('models.resTypeTasks'), tasksCount)}
-                {navItem('file', 'folder', 'Fichiers', fileCount)}
                 {/* Resources group header */}
                 <button onClick={() => setResNavExpanded(v => !v)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
@@ -2410,11 +1839,16 @@ export function Modeles() {
           {typeFilter === 'projets' && (
             selectedTpl
               ? <TemplateDetail tpl={selectedTpl}
-                  onEdit={() => setPreviewTpl(selectedTpl.builtIn ? { ...selectedTpl, id: `tpl-${Date.now()}`, name: `${selectedTpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] } : selectedTpl)}
+                  onEdit={() => {
+                    const target = selectedTpl.builtIn
+                      ? { ...selectedTpl, id: `tpl-${Date.now()}`, name: `${selectedTpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] }
+                      : selectedTpl;
+                    if (selectedTpl.builtIn) saveTpl(target);
+                    void openProjectTemplateDraft(target);
+                  }}
                   onDuplicate={() => duplicateTpl(selectedTpl)}
                   onDelete={() => deleteTpl(selectedTpl)}
                   onCreateProject={() => setCreateProjectFrom(selectedTpl)}
-                  onPreview={() => setPreviewTpl(selectedTpl)}
                   onRename={(name, desc) => renameTpl(selectedTpl.id, name, desc)}
                 />
               : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13 }}>Sélectionnez un modèle</div>
@@ -2540,19 +1974,6 @@ export function Modeles() {
       )}
       {createProjectFrom && <CreateProjectModal template={createProjectFrom} onClose={() => setCreateProjectFrom(null)} />}
       {formFillerOpen && selectedForm && <FormFiller template={selectedForm} instance={formFillerInstance} onClose={() => { setFormFillerOpen(false); setFormFillerInstance(undefined); }} />}
-
-      {/* Template project view (full-screen overlay) */}
-      {previewTpl && (
-        <TemplateProjectView
-          tpl={previewTpl}
-          onClose={() => setPreviewTpl(null)}
-          onSave={updated => {
-            saveTpl(updated);
-            setPreviewTpl(updated);
-          }}
-          onOpenResourceTemplate={tpl => { setPreviewTpl(null); setTemplateResViewTpl(tpl); }}
-        />
-      )}
     </div>
   );
 }

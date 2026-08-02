@@ -503,8 +503,26 @@
   "common": {
     "required": "*",
     "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
     "loading": "Loading…",
     "activityFilterLabel": "Visibility"
+  },
+  "projectTemplates": {
+    "createFromProjectTitle": "Create a template from this project",
+    "updateExisting": "Update \"{{name}}\"",
+    "createNew": "Create new template",
+    "namePlaceholder": "Template name",
+    "descriptionPlaceholder": "Description (optional)",
+    "tagsPlaceholder": "Comma-separated tags",
+    "includeTasks": "Tasks",
+    "includeFiles": "Files",
+    "includeOverview": "Overview",
+    "saveSuccess": "Template saved.",
+    "createFromProjectMenuItem": "Create a template from this project",
+    "saveDraftAsTemplate": "Save as template",
+    "confirmDiscardDraft": "Discard this draft? This action cannot be undone.",
+    "discardDraft": "Close without saving"
   },
   "overview": {
     "checklistItemPlaceholder": "New item…",

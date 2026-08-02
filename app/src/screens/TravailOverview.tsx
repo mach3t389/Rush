@@ -15,10 +15,8 @@ import { getInvoicesByProject, subscribeInvoices, setInvoiceStatus, type Invoice
 import { StatusPill } from './Finances';
 import { getFiles, subscribeFileStore, type FileItem } from '../data/fileStore';
 import { showToast } from '../data/toastStore';
-import { getProjectContent, setProjectContent, subscribeProjectContent, VISION_SECTION_ID, DELIVERABLES_SECTION_ID, SYSTEM_SECTION_IDS, SYSTEM_MODULES, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
+import { getProjectContent, setProjectContent, subscribeProjectContent, DELIVERABLES_SECTION_ID, SYSTEM_SECTION_IDS, SYSTEM_MODULES, type CustomOverviewSection, type CustomSectionValue, type GalleryImage, type ChecklistItem } from '../data/projectContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
-import { loadAllResourceTemplates, loadCustomResourceTemplates, saveCustomResourceTemplates, type ResourceTemplate } from '../data/templates';
-import { TemplateMenuButton } from '../components/TemplateMenuButton';
 import { addNotif, subscribeNotifs } from '../data/notificationStore';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
@@ -167,122 +165,6 @@ function Card({ children, title, icon, action, collapsible, defaultOpen = true, 
       </div>
       {open && children}
     </div>
-  );
-}
-
-const OVERVIEW_TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
-
-function SaveOverviewTemplateModal({ projectName, customSections, originTemplate, onClose }: {
-  projectName: string;
-  customSections: CustomOverviewSection[];
-  originTemplate?: ResourceTemplate;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [name, setName] = useState(originTemplate?.name ?? projectName);
-  const [description, setDescription] = useState(originTemplate?.description ?? '');
-  const [color, setColor] = useState(originTemplate?.color ?? OVERVIEW_TEMPLATE_COLORS[0]);
-  const [tags, setTags] = useState(originTemplate?.tags?.join(', ') ?? '');
-  const [saved, setSaved] = useState(false);
-
-  // Les 5 modules système (Vision, Livrables, Factures, Fichiers, Notes
-  // internes) sont propres à chaque projet — applyTemplateById les
-  // reconstruit toujours depuis l'état courant et ignore explicitement toute
-  // entrée système venant d'un modèle (voir plus bas). Les exclure ici aussi
-  // du comptage/de la sauvegarde évite d'écrire des données mortes (un
-  // ancien renommage de "Fichiers", par ex.) qui ne seront jamais appliquées.
-  const reusableSections = customSections.filter(s => !SYSTEM_SECTION_IDS.includes(s.id));
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    const tpl: ResourceTemplate = {
-      id: originTemplate?.id ?? `res-${Date.now()}`,
-      type: 'overview',
-      name: name.trim(),
-      description: description.trim(),
-      color,
-      icon: 'layout-grid',
-      tags: tags.split(',').map(x => x.trim()).filter(Boolean),
-      builtIn: false,
-      createdAt: originTemplate?.createdAt ?? new Date().toISOString().split('T')[0],
-      overviewSections: reusableSections,
-    };
-    const existing = loadCustomResourceTemplates();
-    const updated = originTemplate
-      ? existing.map(t2 => t2.id === tpl.id ? tpl : t2)
-      : [...existing, tpl];
-    saveCustomResourceTemplates(updated);
-    setSaved(true);
-    setTimeout(onClose, 1400);
-  };
-
-  const fStyle: React.CSSProperties = {
-    width: '100%', padding: '8px 10px', borderRadius: 9,
-    border: '1px solid var(--border)', background: 'var(--surface-2)',
-    color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
-    outline: 'none', boxSizing: 'border-box', colorScheme: 'dark',
-  };
-  const lStyle: React.CSSProperties = {
-    fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)',
-    textTransform: 'uppercase', letterSpacing: '0.07em',
-  };
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
-      <div style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 460, zIndex: 201, background: 'var(--surface)',
-        border: '1px solid var(--border-2)', borderRadius: 16,
-        boxShadow: '0 24px 80px rgba(0,0,0,0.75)', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', maxHeight: '90vh',
-      }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700 }}>{t('templateModal.titleStep1')}</h2>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t('templateModal.sectionsCount', { count: reusableSections.length })}</p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-            <SFIcon name="x" size={16} />
-          </button>
-        </div>
-
-        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={lStyle}>{t('templateModal.nameLabel')}</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder={t('templateModal.namePlaceholder')} style={fStyle} autoFocus />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={lStyle}>{t('templateModal.descriptionLabel')}</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('templateModal.descriptionPlaceholder')} style={{ ...fStyle, resize: 'none' }} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={lStyle}>{t('templateModal.colorLabel')}</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {OVERVIEW_TEMPLATE_COLORS.map(c => (
-                  <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: color === c ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', outline: 'none' }} />
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={lStyle}>{t('templateModal.tagsLabel')}</label>
-              <input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('templateModal.tagsPlaceholder')} style={fStyle} />
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-          {saved ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ok)', fontSize: 13, fontWeight: 600 }}>
-              <SFIcon name="check" size={14} />{t('templateModal.templateSaved')}
-            </span>
-          ) : (
-            <SFButton variant="primary" disabled={!name.trim()} onClick={handleSave}>{t('templateModal.createTemplate')}</SFButton>
-          )}
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -527,9 +409,6 @@ export function TravailOverview() {
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
   const project = findProject(projectId ?? '') ?? getProjects()[0];
   const stats = getProjectStats(project);
-  const originTemplate = project.draftOriginTemplateId
-    ? loadAllResourceTemplates().find(t2 => t2.id === project.draftOriginTemplateId && t2.type === 'overview')
-    : undefined;
 
   const completed = !!project.completed;
   const [editOpen, setEditOpen] = useState(false);
@@ -585,7 +464,6 @@ export function TravailOverview() {
   const [customSections, setCustomSections] = useState<CustomOverviewSection[]>([]);
   const [customSectionData, setCustomSectionData] = useState<Record<string, CustomSectionValue>>({});
   const [addingSectionOpen, setAddingSectionOpen] = useState(false);
-  const [saveOverviewTemplateModalOpen, setSaveOverviewTemplateModalOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionMenuOpenId, setSectionMenuOpenId] = useState<string | null>(null);
   const [removedSystemModules, setRemovedSystemModules] = useState<string[]>([]);
@@ -661,33 +539,6 @@ export function TravailOverview() {
       return next;
     });
     setDraggedModuleIdx(null);
-  };
-
-  // Charger un modèle d'Aperçu (ou "aucun modèle" via id '__none__') — remplace les
-  // sections personnalisées mais préserve toujours tous les modules système (Vision,
-  // Livrables, Factures, Fichiers, Notes) dont l'utilisateur n'a pas demandé la
-  // suppression, et leur valeur actuelle, comportement déjà correct pour Vision,
-  // généralisé ici aux 4 autres modules.
-  const applyTemplateById = (id: string | null) => {
-    const tpl = id && id !== '__none__'
-      ? loadAllResourceTemplates().find(tp => tp.id === id && tp.type === 'overview')
-      : null;
-    if (id && id !== '__none__' && !tpl) return;
-    if (!confirm(t('overview.confirmChangeOverviewTemplate'))) return;
-    const systemSections = SYSTEM_MODULES
-      .filter(m => !removedSystemModules.includes(m.id))
-      .map(m => customSections.find(s => s.id === m.id) ?? m.factory());
-    const newSections = [
-      ...systemSections,
-      ...(tpl?.overviewSections ?? []).filter(s => !SYSTEM_SECTION_IDS.includes(s.id)),
-    ];
-    setCustomSections(newSections);
-    setCustomSectionData(prev => {
-      const next: Record<string, CustomSectionValue> = {};
-      if (prev[VISION_SECTION_ID] !== undefined) next[VISION_SECTION_ID] = prev[VISION_SECTION_ID];
-      return next;
-    });
-    updateProject(project.id, { overviewTemplateId: tpl?.id ?? null });
   };
 
   // Load persisted content whenever the viewed project changes — TravailOverview
@@ -796,17 +647,6 @@ export function TravailOverview() {
       {/* Topbar */}
       <div style={{ flexShrink: 0 }}>
         <ProjectHeaderBar projectId={project.id}>
-          <TemplateMenuButton
-            icon="layout-panel-top"
-            loadOptions={[
-              { id: '__none__', name: t('overview.overviewTemplateNoneNew'), icon: 'x' },
-              ...loadAllResourceTemplates().filter((tpl): tpl is ResourceTemplate => tpl.type === 'overview').map(tpl => ({ id: tpl.id, name: tpl.name, icon: tpl.icon })),
-            ]}
-            onLoad={applyTemplateById}
-            onSave={() => setSaveOverviewTemplateModalOpen(true)}
-            loadLabel={t('templateMenuLoad')}
-            saveLabel={t('templateMenuSave')}
-          />
           {(() => {
             const approver = getClientApprover(project.clientId);
             if (approver) return (
@@ -1446,15 +1286,6 @@ export function TravailOverview() {
               <SFIcon name="plus" size={13} /> {t('overview.addSection')}
             </button>
           </div>
-
-          {saveOverviewTemplateModalOpen && (
-            <SaveOverviewTemplateModal
-              projectName={project.name}
-              customSections={customSections}
-              originTemplate={originTemplate}
-              onClose={() => setSaveOverviewTemplateModalOpen(false)}
-            />
-          )}
 
           {addingSectionOpen && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
