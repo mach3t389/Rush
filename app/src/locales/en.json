@@ -2652,6 +2652,7 @@
     "apercuProgressLabel": "Progress",
     "apercuDeliverables": "Shared deliverables",
     "apercuNoDeliverables": "No shared deliverables yet.",
+    "apercuModuleEmpty": "Nothing to show yet.",
     "financesEmpty": "No invoices for this project yet.",
     "financesAmount": "Amount",
     "financesStatus": "Status",
