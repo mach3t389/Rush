@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
-import { loadAllTemplates, resolveTasksSections, type ProjectTemplate } from '../data/templates';
+import { loadAllTemplates, resolveTasksSections } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
@@ -90,14 +90,20 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const defaultMemberId = (!isDemoSession() && authUser && team.some(u => u.id === authUser.id)) ? authUser.id : team[0]?.id;
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
 
-  // Sélection restreinte de modèles pour ce wizard de démarrage rapide — le reste
-  // reste disponible dans la bibliothèque complète (Modèles). Ordre volontaire :
-  // "Projet vierge" en premier, puis 3 modèles pré-remplis représentatifs.
-  const QUICK_START_TEMPLATE_ORDER = ['tpl-vierge', 'tpl-shoot-photo', 'tpl-motion-design', 'tpl-film-institutionnel'];
+  const [templateSearch, setTemplateSearch] = useState('');
   const allTemplates = loadAllTemplates();
-  const templates = QUICK_START_TEMPLATE_ORDER
-    .map(id => allTemplates.find(t => t.id === id))
-    .filter((t): t is ProjectTemplate => !!t);
+  // "Projet vierge" (builtIn, id 'tpl-vierge') en premier, puis les modèles
+  // personnalisés (les plus récents d'abord), puis le reste des modèles officiels —
+  // tout est maintenant visible ici, plus de sous-ensemble restreint séparé de la
+  // bibliothèque complète (Modèles).
+  const sortedTemplates = [
+    ...allTemplates.filter(t => t.id === 'tpl-vierge'),
+    ...allTemplates.filter(t => !t.builtIn).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    ...allTemplates.filter(t => t.builtIn && t.id !== 'tpl-vierge'),
+  ];
+  const templates = templateSearch.trim()
+    ? sortedTemplates.filter(t => t.name.toLowerCase().includes(templateSearch.trim().toLowerCase()) || t.tags.some(tag => tag.toLowerCase().includes(templateSearch.trim().toLowerCase())))
+    : sortedTemplates;
   const selectedTemplate = templates.find(t => t.id === templateId) ?? null;
 
   // The creator is always a member of their own project — can't deselect yourself.
@@ -222,6 +228,16 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 10 }}>
+                  <SFIcon name="search" size={13} color="var(--text-3)" />
+                  <input
+                    value={templateSearch}
+                    onChange={e => setTemplateSearch(e.target.value)}
+                    placeholder={t('projects.searchTemplatesPlaceholder')}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                  />
+                </div>
+                <div style={{ maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                   {templates.map(tpl => {
                     const isSelected = templateId === tpl.id;
@@ -266,6 +282,10 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                       </div>
                     );
                   })}
+                </div>
+                {templates.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('projects.noTemplatesFound')}</p>
+                )}
                 </div>
               </div>
             </div>

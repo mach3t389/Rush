@@ -435,6 +435,8 @@
     "emptyProject": "Empty project",
     "emptyProjectDesc": "Start with a blank slate and add your own sections and tasks.",
     "startFromTemplate": "Start from a template",
+    "searchTemplatesPlaceholder": "Search a template…",
+    "noTemplatesFound": "No template matches this search.",
     "official": "OFFICIAL",
     "sectionsTasksCount": "{{sections}} sections · {{tasks}} tasks",
     "projectNameLabel": "Project name",

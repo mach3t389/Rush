@@ -435,6 +435,8 @@
     "emptyProject": "Projet vide",
     "emptyProjectDesc": "Commencez avec une ardoise blanche et ajoutez vos propres sections et tâches.",
     "startFromTemplate": "Partir d'un modèle",
+    "searchTemplatesPlaceholder": "Rechercher un modèle…",
+    "noTemplatesFound": "Aucun modèle ne correspond à cette recherche.",
     "official": "OFFICIEL",
     "sectionsTasksCount": "{{sections}} sections · {{tasks}} tâches",
     "projectNameLabel": "Nom du projet",
