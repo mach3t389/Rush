@@ -92,6 +92,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
   const [templateSearch, setTemplateSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
+  const [teamSearch, setTeamSearch] = useState('');
   const allTemplates = loadAllTemplates();
   // "Projet vierge" (builtIn, id 'tpl-vierge') en premier, puis les modèles
   // personnalisés (les plus récents d'abord), puis le reste des modèles officiels —
@@ -448,41 +449,60 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {step === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('projects.selectMembers')}</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                {team.map(u => {
-                  const on = memberIds.includes(u.id);
-                  const isYou = u.id === defaultMemberId;
-                  return (
-                    <button
-                      key={u.id}
-                      onClick={() => toggleMember(u.id)}
-                      title={isYou ? t('projects.youAlwaysIncluded') : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '12px 14px', borderRadius: 11, cursor: isYou ? 'default' : 'pointer',
-                        border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                        background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
-                        transition: 'border-color 0.12s',
-                      }}
-                    >
-                      <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
-                      <div style={{ textAlign: 'left', minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}{isYou ? ` (${t('projects.you')})` : ''}</p>
-                        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{u.role}</p>
-                      </div>
-                      <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: '50%',
-                          background: on ? 'var(--accent)' : 'var(--surface-3)',
-                          border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {on && <SFIcon name="check" size={10} color="var(--on-accent)" />}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+              {team.length > 8 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)' }}>
+                  <SFIcon name="search" size={13} color="var(--text-3)" />
+                  <input
+                    value={teamSearch}
+                    onChange={e => setTeamSearch(e.target.value)}
+                    placeholder={t('projects.searchTeamPlaceholder')}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                  />
+                </div>
+              )}
+              <div style={{ maxHeight: team.length > 8 ? 260 : undefined, overflowY: team.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {(() => {
+                    const sortedTeam = [...team].sort((a, b) => Number(b.id === defaultMemberId) - Number(a.id === defaultMemberId));
+                    const filteredTeam = teamSearch.trim()
+                      ? sortedTeam.filter(u => u.name.toLowerCase().includes(teamSearch.trim().toLowerCase()) || u.role.toLowerCase().includes(teamSearch.trim().toLowerCase()))
+                      : sortedTeam;
+                    return filteredTeam.map(u => {
+                      const on = memberIds.includes(u.id);
+                      const isYou = u.id === defaultMemberId;
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => toggleMember(u.id)}
+                          title={isYou ? t('projects.youAlwaysIncluded') : undefined}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '12px 14px', borderRadius: 11, cursor: isYou ? 'default' : 'pointer',
+                            border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                            background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                            transition: 'border-color 0.12s',
+                          }}
+                        >
+                          <SFAvatar initials={u.initials} bg={u.avatarColor} size={34} />
+                          <div style={{ textAlign: 'left', minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}{isYou ? ` (${t('projects.you')})` : ''}</p>
+                            <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{u.role}</p>
+                          </div>
+                          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                            <div style={{
+                              width: 18, height: 18, borderRadius: '50%',
+                              background: on ? 'var(--accent)' : 'var(--surface-3)',
+                              border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {on && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
                 {t('projects.membersSelected', { count: memberIds.length })}
