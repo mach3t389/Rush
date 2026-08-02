@@ -2665,6 +2665,7 @@
     "apercuProgressLabel": "Progression",
     "apercuDeliverables": "Livrables partagés",
     "apercuNoDeliverables": "Aucun livrable partagé pour le moment.",
+    "apercuModuleEmpty": "Rien à afficher pour le moment.",
     "financesEmpty": "Aucune facture pour ce projet pour le moment.",
     "financesAmount": "Montant",
     "financesStatus": "Statut",
