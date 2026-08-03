@@ -1489,6 +1489,7 @@
     "editCopy": "Modifier la copie",
     "edit": "Modifier",
     "hideBuiltInConfirm": "Masquer ce modèle intégré ? Il n'apparaîtra plus dans la liste (vous pourrez le réafficher plus tard).",
+    "deleteConfirm": "Supprimer ce modèle ? Cette action est irréversible.",
     "duplicate": "Dupliquer",
     "sections": "Sections",
     "tasks": "Tâches",

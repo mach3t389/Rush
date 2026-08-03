@@ -10,6 +10,7 @@ import { ToastBar } from '../ToastBar';
 import { UpgradePromptModal } from '../UpgradePromptModal';
 import { ViewAsBanner } from '../ViewAsBanner';
 import { getShortcuts, subscribeShortcuts, matchesShortcut } from '../../data/shortcutsStore';
+import { ensureDefaultTemplatesSeeded } from '../../data/templates';
 import { initAnalytics } from '../../analytics';
 
 export function AppShell() {
@@ -23,6 +24,7 @@ export function AppShell() {
   // authenticated app, so injecting here means login/register attempts on
   // /login are never counted as visits.
   useEffect(() => { initAnalytics(); }, []);
+  useEffect(() => { void ensureDefaultTemplatesSeeded(); }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
