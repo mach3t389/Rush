@@ -11,6 +11,7 @@ import { loadAllResourceTemplates, saveCustomResourceTemplates, loadCustomResour
 import type { ResourceTemplate, ResourceTemplateType } from '../data/templates';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { showToast } from '../data/toastStore';
+import { confirmDialog } from '../data/confirmStore';
 import { documentSectionsToHTML, htmlToDocumentSections, sceneBlocksToElements, elementsToSceneBlocks } from './Modeles';
 import type { ScriptEl } from './ResourceDetail';
 import { USERS } from '../data/mock';
@@ -33,11 +34,11 @@ export function ResourceRouter() {
   const templateType = resource?.type as ResourceTemplateType | undefined;
   const isDraftableType = templateType === 'document' || templateType === 'screenplay' || templateType === 'moodboard' || templateType === 'video_review';
 
-  const handleLoad = (templateId: string) => {
+  const handleLoad = async (templateId: string) => {
     if (!resourceId || !templateType) return;
     const tpl = loadAllResourceTemplates().find(t2 => t2.id === templateId && t2.type === templateType);
     if (!tpl) return;
-    if (!confirm(t('templateMenuConfirmReplace', { defaultValue: 'Remplacer le contenu actuel par ce modèle ?' }))) return;
+    if (!(await confirmDialog(t('templateMenuConfirmReplace', { defaultValue: 'Remplacer le contenu actuel par ce modèle ?' })))) return;
     let content: unknown;
     if (templateType === 'document') {
       const html = tpl.rawHTML ?? (tpl.documentSections ? documentSectionsToHTML(tpl.documentSections) : '');

@@ -508,6 +508,7 @@
   "common": {
     "required": "*",
     "cancel": "Cancel",
+    "confirm": "Confirm",
     "close": "Close",
     "save": "Save",
     "loading": "Loading…",

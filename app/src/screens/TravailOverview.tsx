@@ -7,6 +7,7 @@ import { findProject, getProjects, subscribeProjects, updateProject } from '../d
 import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections, getProjectStats } from '../data/taskStore';
 import { getDeliverableDisplay, DELIVERABLE_STATUS_OPTIONS } from '../data/deliverableStatus';
 import { getProjectColor } from '../data/pinnedStore';
+import { confirmDialog } from '../data/confirmStore';
 import { ProjectEditPanel, type EditUpdates } from '../components/ProjectCard';
 import { getClientApprover } from './FicheClient';
 import { getProjectActivities } from './ProjectActivite';
@@ -484,8 +485,8 @@ export function TravailOverview() {
     setCustomSections(prev => prev.map(s => s.id === updated.id ? updated : s));
     setEditingSectionId(null);
   };
-  const handleDeleteSection = (id: string) => {
-    if (!confirm(t('overview.confirmDeleteSection'))) return;
+  const handleDeleteSection = async (id: string) => {
+    if (!(await confirmDialog(t('overview.confirmDeleteSection'), { danger: true }))) return;
     const isSystem = SYSTEM_SECTION_IDS.includes(id);
     setCustomSections(prev => prev.filter(s => s.id !== id));
     // Un module système (Vision, Livrables client, Factures, Fichiers, Notes
