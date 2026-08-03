@@ -4,10 +4,29 @@ import { SFButton, SFIcon } from './ui';
 import { getSections } from '../data/taskStore';
 import { getFolderTreeForProject } from '../data/fileStore';
 import { getProjectContent } from '../data/projectContentStore';
-import { loadCustomTemplates, saveCustomTemplates, loadAllTemplates, type ProjectTemplate, type TemplateSection } from '../data/templates';
-import type { Project } from '../types';
+import { loadCustomTemplates, saveCustomTemplates, loadAllTemplates, type ProjectTemplate, type TemplateSection, type TemplateTask } from '../data/templates';
+import type { Project, Task } from '../types';
 
 const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
+
+interface TaskCaptureOptions {
+  subtasks: boolean;
+  description: boolean;
+  priority: boolean;
+  assignees: boolean;
+  dueDate: boolean;
+}
+
+function mapTask(t: Task, opts: TaskCaptureOptions): TemplateTask {
+  return {
+    title: t.title,
+    priority: opts.priority ? t.priority : 'normal',
+    description: opts.description ? t.description : undefined,
+    dueDate: opts.dueDate ? t.dueDate : undefined,
+    assignees: opts.assignees ? t.assignees : undefined,
+    subtasks: opts.subtasks ? (t.subtasks ?? []).map(st => mapTask(st, opts)) : [],
+  };
+}
 
 export function CreateTemplateFromProjectModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const { t } = useTranslation();
@@ -27,7 +46,23 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
   const [includeTasks, setIncludeTasks] = useState(true);
   const [includeFiles, setIncludeFiles] = useState(true);
   const [includeOverview, setIncludeOverview] = useState(true);
+  const [includeSubtasks, setIncludeSubtasks] = useState(true);
+  const [includeDescription, setIncludeDescription] = useState(true);
+  const [includePriority, setIncludePriority] = useState(true);
+  const [includeAssignees, setIncludeAssignees] = useState(true);
+  const [includeDueDate, setIncludeDueDate] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  const checkAll = () => {
+    setIncludeFiles(true); setIncludeTasks(true); setIncludeOverview(true);
+    setIncludeSubtasks(true); setIncludeDescription(true); setIncludePriority(true);
+    setIncludeAssignees(true); setIncludeDueDate(true);
+  };
+  const uncheckAll = () => {
+    setIncludeFiles(false); setIncludeTasks(false); setIncludeOverview(false);
+    setIncludeSubtasks(false); setIncludeDescription(false); setIncludePriority(false);
+    setIncludeAssignees(false); setIncludeDueDate(false);
+  };
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -49,8 +84,15 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
     // caches — but it is not guaranteed. A proper fix would mean adding a
     // real awaitable "ensure fetched" API to all three stores, which is out
     // of scope for this refactor.
+    const captureOpts: TaskCaptureOptions = {
+      subtasks: includeSubtasks,
+      description: includeDescription,
+      priority: includePriority,
+      assignees: includeAssignees,
+      dueDate: includeDueDate,
+    };
     const sections: TemplateSection[] | undefined = includeTasks
-      ? getSections(project.id).map(s => ({ label: s.label, tasks: s.tasks.map(t => ({ title: t.title, priority: t.priority, description: t.description, status: t.status, statusLabel: t.statusLabel, dueDate: t.dueDate, assignees: t.assignees, subtasks: [] })) }))
+      ? getSections(project.id).map(s => ({ label: s.label, tasks: s.tasks.map(t => mapTask(t, captureOpts)) }))
       : undefined;
     const folderStructure = includeFiles ? getFolderTreeForProject(project.id) : undefined;
     const overviewSections = includeOverview ? getProjectContent(project.id).customSections : undefined;
@@ -114,19 +156,49 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={includeTasks} onChange={e => setIncludeTasks(e.target.checked)} />
-            {t('projectTemplates.includeTasks')}
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0' }}>
             <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} />
             {t('projectTemplates.includeFiles')}
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0', marginTop: 4 }}>
+            <input type="checkbox" checked={includeTasks} onChange={e => setIncludeTasks(e.target.checked)} />
+            {t('projectTemplates.includeTasks')}
+          </label>
+          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeSubtasks} disabled={!includeTasks} onChange={e => setIncludeSubtasks(e.target.checked)} />
+              {t('projectTemplates.includeSubtasks')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeDescription} disabled={!includeTasks} onChange={e => setIncludeDescription(e.target.checked)} />
+              {t('projectTemplates.includeTaskDescription')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includePriority} disabled={!includeTasks} onChange={e => setIncludePriority(e.target.checked)} />
+              {t('projectTemplates.includePriority')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeAssignees} disabled={!includeTasks} onChange={e => setIncludeAssignees(e.target.checked)} />
+              {t('projectTemplates.includeAssignees')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeDueDate} disabled={!includeTasks} onChange={e => setIncludeDueDate(e.target.checked)} />
+              {t('projectTemplates.includeDueDate')}
+            </label>
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0', marginTop: 4 }}>
             <input type="checkbox" checked={includeOverview} onChange={e => setIncludeOverview(e.target.checked)} />
             {t('projectTemplates.includeOverview')}
           </label>
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button onClick={checkAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.checkAll')}</button>
+            <span style={{ color: 'var(--text-3)', fontSize: 11 }}>·</span>
+            <button onClick={uncheckAll} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.uncheckAll')}</button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
