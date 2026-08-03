@@ -100,15 +100,10 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [clientSearch, setClientSearch] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
   const allTemplates = loadAllTemplates();
-  // "Projet vierge" (builtIn, id 'tpl-vierge') en premier, puis les modèles
-  // personnalisés (les plus récents d'abord), puis le reste des modèles officiels —
-  // tout est maintenant visible ici, plus de sous-ensemble restreint séparé de la
-  // bibliothèque complète (Modèles).
-  const sortedTemplates = [
-    ...allTemplates.filter(t => t.id === 'tpl-vierge'),
-    ...allTemplates.filter(t => !t.builtIn).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    ...allTemplates.filter(t => t.builtIn && t.id !== 'tpl-vierge'),
-  ];
+  // Tri chronologique : les modèles de départ (semés à la création du studio,
+  // donc les plus anciens) apparaissent naturellement en premier, dans leur
+  // ordre de semis ; les modèles créés ensuite par l'utilisateur suivent.
+  const sortedTemplates = [...allTemplates].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const templates = templateSearch.trim()
     ? sortedTemplates.filter(t => t.name.toLowerCase().includes(templateSearch.trim().toLowerCase()) || t.tags.some(tag => tag.toLowerCase().includes(templateSearch.trim().toLowerCase())))
     : sortedTemplates;
@@ -302,9 +297,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                           <div style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                               <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
-                              {tpl.builtIn && (
-                                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, background: 'var(--surface-3)', color: 'var(--text-3)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em' }}>{t('projects.official')}</span>
-                              )}
                             </div>
                             <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{tpl.description}</p>
                             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
