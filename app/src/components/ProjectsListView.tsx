@@ -367,52 +367,55 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 </div>
               </div>
 
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)',
-                      background: 'var(--surface-2)', cursor: 'pointer',
-                      fontFamily: 'var(--ff-mono)', fontSize: 12,
-                      color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
-                    }}
-                  >
-                    <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                    {deliveryDate ? formatDisplay(deliveryDate) : t('projects.chooseDate')}
-                  </button>
-                  {deliveryDate && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button
-                      onClick={() => setDeliveryDate('')}
-                      title={t('projects.removeDate')}
-                      style={{ width: 26, height: 26, borderRadius: 7, border: 'none', background: 'var(--surface-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', flexShrink: 0 }}
+                      onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)',
+                        background: 'var(--surface-2)', cursor: 'pointer',
+                        fontFamily: 'var(--ff-mono)', fontSize: 12,
+                        color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
+                        width: '100%', boxSizing: 'border-box', justifyContent: 'flex-start',
+                      }}
                     >
-                      <SFIcon name="x" size={12} />
+                      <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                      {deliveryDate ? formatDisplay(deliveryDate) : t('projects.chooseDate')}
                     </button>
+                    {deliveryDate && (
+                      <button
+                        onClick={() => setDeliveryDate('')}
+                        title={t('projects.removeDate')}
+                        style={{ width: 26, height: 26, borderRadius: 7, border: 'none', background: 'var(--surface-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', flexShrink: 0 }}
+                      >
+                        <SFIcon name="x" size={12} />
+                      </button>
+                    )}
+                  </div>
+                  {dateOpen && (
+                    <DatePickerDropdown
+                      value={deliveryDate}
+                      onChange={v => { setDeliveryDate(v); setDateOpen(false); }}
+                      onClose={() => setDateOpen(false)}
+                      anchorRect={dateRect}
+                      zIndex={410}
+                    />
                   )}
                 </div>
-                {dateOpen && (
-                  <DatePickerDropdown
-                    value={deliveryDate}
-                    onChange={v => { setDeliveryDate(v); setDateOpen(false); }}
-                    onClose={() => setDateOpen(false)}
-                    anchorRect={dateRect}
-                    zIndex={410}
-                  />
-                )}
-              </div>
 
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
-                <input
-                  value={budget}
-                  onChange={e => setBudget(e.target.value)}
-                  placeholder={t('projects.budget')}
-                  inputMode="numeric"
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
-                />
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                  <input
+                    value={budget}
+                    onChange={e => setBudget(e.target.value)}
+                    placeholder={t('projects.budget')}
+                    inputMode="numeric"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                  />
+                </div>
               </div>
 
               <div>
