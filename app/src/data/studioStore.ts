@@ -62,6 +62,8 @@ async function provisionNewStudio(name: string, user: SupabaseUserLike): Promise
   await insertOwnerMembership(created.id, user);
   const { seedBuiltInEventTypes } = await import('./eventTypeStore');
   await seedBuiltInEventTypes(created.id);
+  const { ensureDefaultTemplatesSeeded } = await import('./templates');
+  await ensureDefaultTemplatesSeeded();
   return created.id;
 }
 
