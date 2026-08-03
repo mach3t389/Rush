@@ -216,6 +216,24 @@ export async function createGoogleCalendar(accessToken: string, name: string): P
   return created.id as string;
 }
 
+// Checks whether a stored calendar ID is still reachable under the
+// currently connected Google account. Returns false (not an error) when
+// Google reports the calendar as gone or inaccessible — this is the normal
+// outcome after a studio disconnects one Google account and connects a
+// different one, since the stored ID still points at a calendar owned by
+// the old account. Any other failure (network, auth) is rethrown so it
+// isn't mistaken for a legitimate "recreate the calendar" case.
+export async function googleCalendarExists(accessToken: string, calendarId: string): Promise<boolean> {
+  try {
+    await googleCalendarAdminRequest(accessToken, 'GET', `/calendars/${encodeURIComponent(calendarId)}`);
+    return true;
+  } catch (err) {
+    const status = (err as Error & { status?: number }).status;
+    if (status === 404 || status === 410 || status === 403) return false;
+    throw err;
+  }
+}
+
 // role: 'reader' only — shared project calendars are always read-only for
 // clients (see the design's non-goals). Idempotent: Google returns 409 if
 // this exact user already has a rule on the calendar, which is treated as

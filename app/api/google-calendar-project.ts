@@ -13,7 +13,7 @@
 //   POST { action:'sync-access', studioId, projectId } -> { ok }   (was google-calendar-project-sync-access)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, shareGoogleCalendar, unshareGoogleCalendar, moveGoogleEvent } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, googleCalendarExists, shareGoogleCalendar, unshareGoogleCalendar, moveGoogleEvent } from './_lib/googleCalendarApi.js';
 
 interface ActivateBody {
   studioId: string;
@@ -183,8 +183,26 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
       .eq('project_id', projectId)
       .maybeSingle();
 
+    // Prefixed with the client's name so multiple projects for the same
+    // client (or similarly-named projects across different clients) are
+    // distinguishable in the Google Calendar list — a bare project name
+    // gives no hint of which client it belongs to.
+    const calendarName = project.client_name
+      ? `${project.client_name} — ${project.name}`
+      : (project.name as string);
+
     let calendarId: string;
-    if (existingRow) {
+    // A stored calendar ID can be unreachable under the current access token
+    // even when a row already exists: the studio disconnected the Google
+    // account that owned it and connected a different one. Reusing it
+    // blindly would 404 on every later sync call, so check reachability
+    // before trusting it and transparently recreate under the current
+    // account when it's gone.
+    const existingReachable = existingRow
+      ? await googleCalendarExists(accessToken, existingRow.google_calendar_id as string)
+      : false;
+
+    if (existingRow && existingReachable) {
       calendarId = existingRow.google_calendar_id as string;
       if (!existingRow.active) {
         const { error: reactivateError } = await supabaseAdmin
@@ -197,14 +215,21 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
           return;
         }
       }
+    } else if (existingRow) {
+      // Stale row: recreate the calendar under the currently connected
+      // account and update the row in place (not insert — the row already
+      // exists for this project).
+      calendarId = await createGoogleCalendar(accessToken, calendarName);
+      const { error: updateError } = await supabaseAdmin
+        .from('project_google_calendars')
+        .update({ google_calendar_id: calendarId, active: true, shared_contact_ids: [] })
+        .eq('project_id', projectId);
+      if (updateError) {
+        console.error(`Failed to persist recreated calendar for project ${projectId}:`, updateError);
+        res.status(500).json({ error: 'Failed to activate' });
+        return;
+      }
     } else {
-      // Prefixed with the client's name so multiple projects for the same
-      // client (or similarly-named projects across different clients) are
-      // distinguishable in the Google Calendar list — a bare project name
-      // gives no hint of which client it belongs to.
-      const calendarName = project.client_name
-        ? `${project.client_name} — ${project.name}`
-        : (project.name as string);
       calendarId = await createGoogleCalendar(accessToken, calendarName);
       const { error: insertError } = await supabaseAdmin.from('project_google_calendars').insert({
         project_id: projectId,
