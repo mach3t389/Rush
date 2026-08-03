@@ -130,77 +130,47 @@ export interface FormInstance {
   updatedAt: string;
 }
 
-// ── Built-in project templates ─────────────────────────────────────────────────
+// ── Seed project templates ───────────────────────────────────────────────────
+// Modèles de départ insérés une seule fois par studio (via ensureDefaultTemplatesSeeded)
+// directement dans le stockage personnalisé. Ce ne sont plus des objets « officiels » —
+// ordre d'insertion = ordre d'affichage naturel une fois semés.
 
-export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
+export const SEED_TEMPLATES: ProjectTemplate[] = [
   {
-    id: 'tpl-video-sociale',
-    name: 'Campagne vidéo sociale',
-    description: 'Pour des projets de contenu court destinés aux réseaux sociaux. Inclut brief, tournage, montage et révisions client.',
-    color: '#5B8AF5',
-    icon: 'video',
-    tags: ['Vidéo', 'Social media', 'Court format'],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    folderStructure: [
-      { id: 'f1', name: '01_RUSHES', children: [
-        { id: 'f1a', name: 'Jour_01' },
-        { id: 'f1b', name: 'Jour_02' },
-        { id: 'f1c', name: 'B-Roll' },
-      ]},
-      { id: 'f2', name: '02_AUDIO', children: [
-        { id: 'f2a', name: 'Voix_off' },
-        { id: 'f2b', name: 'Ambiances' },
-        { id: 'f2c', name: 'Musiques' },
-      ]},
-      { id: 'f3', name: '03_ASSETS', children: [
-        { id: 'f3a', name: 'Logos' },
-        { id: 'f3b', name: 'Polices' },
-        { id: 'f3c', name: 'Photos' },
-        { id: 'f3d', name: 'Animations' },
-      ]},
-      { id: 'f4', name: '04_MONTAGE', children: [
-        { id: 'f4a', name: 'Projets_Premiere' },
-        { id: 'f4b', name: 'Sauvegardes' },
-      ]},
-      { id: 'f5', name: '05_EXPORTS', children: [
-        { id: 'f5a', name: 'V1' },
-        { id: 'f5b', name: 'V2' },
-        { id: 'f5c', name: 'FINAL' },
-      ]},
-      { id: 'f6', name: '06_DOCUMENTS', children: [
-        { id: 'f6a', name: 'Contrats' },
-        { id: 'f6b', name: 'Briefs' },
-        { id: 'f6c', name: 'Factures' },
-      ]},
-    ],
+    id: 'tpl-vierge',
+    name: 'Projet vierge',
+    description: 'Commencer avec une page blanche. Aucune section ou tâche préconfigurée.',
+    color: '#5BC4E8',
+    icon: 'file',
+    tags: ['Libre'],
+    createdAt: '2025-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'tpl-shoot-photo',
+    name: 'Séance photo',
+    description: 'Projet de photographie produit ou portrait. Inclut repérage, shooting et retouche.',
+    color: '#E85B7A',
+    icon: 'camera',
+    tags: ['Photo', 'Portrait', 'Produit'],
+    createdAt: '2025-01-01T00:00:00.001Z',
     sections: [
-      { label: 'Préproduction', tasks: [
-        { title: 'Validation du brief client', priority: 'high' },
-        { title: 'Écriture du script', priority: 'high' },
-        { title: 'Repérage des lieux', priority: 'normal' },
-        { title: 'Casting & confirmations', priority: 'normal' },
-        { title: 'Création du moodboard', priority: 'low' },
-        { title: 'Planification du tournage', priority: 'high' },
+      { label: 'Préparation', tasks: [
+        { title: 'Brief et moodboard', priority: 'high' },
+        { title: 'Sélection des modèles / produits', priority: 'normal' },
+        { title: 'Repérage studio ou extérieur', priority: 'normal' },
+        { title: 'Liste du matériel', priority: 'normal' },
+        { title: 'Confirmation planning', priority: 'high' },
       ]},
-      { label: 'Production', tasks: [
-        { title: 'Journée de tournage J1', priority: 'high' },
-        { title: 'Backup et vérification des rushs', priority: 'high' },
-        { title: 'Photos de plateau', priority: 'low' },
+      { label: 'Shooting', tasks: [
+        { title: 'Journée de shooting', priority: 'high' },
+        { title: 'Sélection des images (editing)', priority: 'high' },
+        { title: 'Export sélection brute pour client', priority: 'normal' },
       ]},
-      { label: 'Postproduction', tasks: [
-        { title: 'Montage rough cut', priority: 'high' },
-        { title: 'Révision interne', priority: 'normal' },
-        { title: 'Envoi V1 au client', priority: 'high' },
-        { title: 'Intégration des retours', priority: 'normal' },
-        { title: 'Étalonnage couleur', priority: 'normal' },
-        { title: 'Mixage audio', priority: 'normal' },
-        { title: 'Export formats finaux', priority: 'high' },
-      ]},
-      { label: 'Livraison', tasks: [
-        { title: 'Envoi des fichiers au client', priority: 'high' },
-        { title: 'Facturation solde', priority: 'high' },
-        { title: 'Archivage du projet', priority: 'low' },
+      { label: 'Retouche & livraison', tasks: [
+        { title: 'Retouche photos validées', priority: 'high' },
+        { title: 'Export finaux (web + print)', priority: 'high' },
+        { title: 'Remise au client', priority: 'high' },
+        { title: 'Facturation', priority: 'high' },
       ]},
     ],
   },
@@ -211,8 +181,7 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     color: '#34C98A',
     icon: 'film',
     tags: ['Corporate', 'Long format', 'Interview'],
-    builtIn: true,
-    createdAt: '2025-01-01',
+    createdAt: '2025-01-01T00:00:00.002Z',
     folderStructure: [
       { id: 'f1', name: '01_RUSHES', children: [
         { id: 'f1a', name: 'Jour_01' },
@@ -279,44 +248,13 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
     ],
   },
   {
-    id: 'tpl-shoot-photo',
-    name: 'Séance photo',
-    description: 'Projet de photographie produit ou portrait. Inclut repérage, shooting et retouche.',
-    color: '#E85B7A',
-    icon: 'camera',
-    tags: ['Photo', 'Portrait', 'Produit'],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    sections: [
-      { label: 'Préparation', tasks: [
-        { title: 'Brief et moodboard', priority: 'high' },
-        { title: 'Sélection des modèles / produits', priority: 'normal' },
-        { title: 'Repérage studio ou extérieur', priority: 'normal' },
-        { title: 'Liste du matériel', priority: 'normal' },
-        { title: 'Confirmation planning', priority: 'high' },
-      ]},
-      { label: 'Shooting', tasks: [
-        { title: 'Journée de shooting', priority: 'high' },
-        { title: 'Sélection des images (editing)', priority: 'high' },
-        { title: 'Export sélection brute pour client', priority: 'normal' },
-      ]},
-      { label: 'Retouche & livraison', tasks: [
-        { title: 'Retouche photos validées', priority: 'high' },
-        { title: 'Export finaux (web + print)', priority: 'high' },
-        { title: 'Remise au client', priority: 'high' },
-        { title: 'Facturation', priority: 'high' },
-      ]},
-    ],
-  },
-  {
     id: 'tpl-motion-design',
     name: 'Motion design',
     description: 'Production motion design ou animation 2D/3D. De la conception visuelle au rendu final.',
     color: '#A05BE8',
     icon: 'sparkles',
     tags: ['Motion', 'Animation', '2D/3D'],
-    builtIn: true,
-    createdAt: '2025-01-01',
+    createdAt: '2025-01-01T00:00:00.003Z',
     sections: [
       { label: 'Conception', tasks: [
         { title: 'Brief et objectifs', priority: 'high' },
@@ -342,16 +280,6 @@ export const BUILT_IN_TEMPLATES: ProjectTemplate[] = [
         { title: 'Facturation', priority: 'high' },
       ]},
     ],
-  },
-  {
-    id: 'tpl-vierge',
-    name: 'Projet vierge',
-    description: 'Commencer avec une page blanche. Aucune section ou tâche préconfigurée.',
-    color: '#5BC4E8',
-    icon: 'file',
-    tags: ['Libre'],
-    builtIn: true,
-    createdAt: '2025-01-01',
   },
 ];
 
@@ -619,22 +547,94 @@ export function saveCustomTemplates(templates: ProjectTemplate[]): void {
   void replaceSupabaseProjectTemplates(previousIds, templates);
 }
 
-export function getVisibleBuiltInTemplates(): ProjectTemplate[] {
-  return BUILT_IN_TEMPLATES.filter(t => !isTemplateHidden(t.id));
+// Variante awaitable de saveCustomTemplates, réservée aux appelants qui doivent
+// savoir que l'écriture réelle a été tentée avant de continuer (le seed —
+// ensureDefaultTemplatesSeeded — ne doit jamais marquer templates_seeded=true
+// avant que cette promesse soit résolue). Ne remplace pas saveCustomTemplates
+// pour les usages UI existants (fire-and-forget volontaire là-bas).
+export async function saveCustomTemplatesAsync(templates: ProjectTemplate[]): Promise<void> {
+  if (isDemoSession()) {
+    _demoProjectTemplates = templates;
+    persistDemoProjectTemplates();
+    return;
+  }
+  const previousIds = _supabaseProjectTemplates.map(t => t.id);
+  _supabaseProjectTemplates = templates;
+  await replaceSupabaseProjectTemplates(previousIds, templates);
 }
 
-// Les 4 modèles de ressources "tâches" ci-dessous ont été supprimés de
-// BUILT_IN_RESOURCE_TEMPLATES lors de la refonte (leur contenu vit désormais
-// directement dans l'entrée BUILT_IN_TEMPLATES correspondante). Un ancien
-// modèle de projet personnalisé dupliqué avant la refonte peut encore
-// référencer ces ids via tasksTemplateId — on retombe alors sur les sections
-// du modèle de projet intégré équivalent plutôt que de perdre les tâches.
+// tpl-video-sociale a été retiré du seed (Task 2, refonte templates). Un ancien
+// modèle de projet personnalisé dupliqué avant la refonte peut encore référencer
+// res-tasks-video-sociale via tasksTemplateId — dans ce cas précis il n'y a plus
+// de modèle de repli et migrateLegacyProjectTemplate retombe sur [] (comportement
+// pré-existant en cas d'id manquant), c'est accepté.
 const LEGACY_TASKS_RESOURCE_TO_BUILTIN_PROJECT: Record<string, string> = {
-  'res-tasks-video-sociale': 'tpl-video-sociale',
   'res-tasks-film-institutionnel': 'tpl-film-institutionnel',
   'res-tasks-shoot-photo': 'tpl-shoot-photo',
   'res-tasks-motion-design': 'tpl-motion-design',
 };
+
+// res-file-structure / res-overview-base ont été retirés de SEED_RESOURCE_TEMPLATES
+// (plus jamais semés ni affichés) mais d'anciens modèles de projet personnalisés
+// peuvent encore les référencer via defaultFolderStructureId/defaultOverviewTemplateId
+// (@deprecated, jamais réécrits). migrateLegacyProjectTemplate doit donc pouvoir les
+// résoudre même si loadAllResourceTemplates() ne les renvoie plus — d'où cette petite
+// table de repli séparée, non semée, jamais affichée nulle part.
+const LEGACY_MIGRATION_LOOKUP: ResourceTemplate[] = [
+  {
+    id: 'res-file-structure',
+    type: 'file',
+    name: 'Arborescence projet vidéo',
+    description: 'Structure de dossiers standard pour organiser un projet de production audiovisuelle.',
+    color: '#F5D05B',
+    icon: 'folder',
+    tags: ['Production', 'Logistique'],
+    createdAt: '2025-01-01',
+    folderStructure: [
+      { id: 'f1', name: '01_RUSHES', children: [
+        { id: 'f1a', name: 'Jour_01' },
+        { id: 'f1b', name: 'Jour_02' },
+        { id: 'f1c', name: 'B-Roll' },
+      ]},
+      { id: 'f2', name: '02_AUDIO', children: [
+        { id: 'f2a', name: 'Voix_off' },
+        { id: 'f2b', name: 'Ambiances' },
+        { id: 'f2c', name: 'Musiques' },
+      ]},
+      { id: 'f3', name: '03_ASSETS', children: [
+        { id: 'f3a', name: 'Logos' },
+        { id: 'f3b', name: 'Polices' },
+        { id: 'f3c', name: 'Photos' },
+        { id: 'f3d', name: 'Animations' },
+      ]},
+      { id: 'f4', name: '04_MONTAGE', children: [
+        { id: 'f4a', name: 'Projets_Premiere' },
+        { id: 'f4b', name: 'Sauvegardes' },
+      ]},
+      { id: 'f5', name: '05_EXPORTS', children: [
+        { id: 'f5a', name: 'V1' },
+        { id: 'f5b', name: 'V2' },
+        { id: 'f5c', name: 'FINAL' },
+      ]},
+      { id: 'f6', name: '06_DOCUMENTS', children: [
+        { id: 'f6a', name: 'Contrats' },
+        { id: 'f6b', name: 'Briefs' },
+        { id: 'f6c', name: 'Factures' },
+      ]},
+    ],
+  },
+  {
+    id: 'res-overview-base',
+    type: 'overview',
+    name: 'Aperçu standard',
+    description: 'Structure de base pour l\'onglet Aperçu — les modules Vision, Livrables, Factures, Fichiers et Notes internes s\'appliquent déjà automatiquement à tout projet, ce modèle n\'a donc rien à ajouter.',
+    color: '#6b7280',
+    icon: 'layout-grid',
+    tags: ['Standard'],
+    createdAt: '2025-01-01',
+    overviewSections: [],
+  },
+];
 
 function migrateLegacyProjectTemplate(tpl: ProjectTemplate): ProjectTemplate {
   if (!tpl.tasksTemplateId && !tpl.defaultFolderStructureId && !tpl.defaultOverviewTemplateId) return tpl;
@@ -646,21 +646,25 @@ function migrateLegacyProjectTemplate(tpl: ProjectTemplate): ProjectTemplate {
       migrated.sections = direct;
     } else {
       const fallbackProjectId = LEGACY_TASKS_RESOURCE_TO_BUILTIN_PROJECT[tpl.tasksTemplateId];
-      const fallbackProject = fallbackProjectId ? BUILT_IN_TEMPLATES.find(p => p.id === fallbackProjectId) : undefined;
+      const fallbackProject = fallbackProjectId ? SEED_TEMPLATES.find(p => p.id === fallbackProjectId) : undefined;
       migrated.sections = fallbackProject?.sections ?? [];
     }
   }
   if (tpl.defaultFolderStructureId && !tpl.folderStructure) {
-    migrated.folderStructure = resources.find(r => r.id === tpl.defaultFolderStructureId && r.type === 'file')?.folderStructure ?? [];
+    migrated.folderStructure = resources.find(r => r.id === tpl.defaultFolderStructureId && r.type === 'file')?.folderStructure
+      ?? LEGACY_MIGRATION_LOOKUP.find(r => r.id === tpl.defaultFolderStructureId && r.type === 'file')?.folderStructure
+      ?? [];
   }
   if (tpl.defaultOverviewTemplateId && !tpl.overviewSections) {
-    migrated.overviewSections = resources.find(r => r.id === tpl.defaultOverviewTemplateId && r.type === 'overview')?.overviewSections ?? [];
+    migrated.overviewSections = resources.find(r => r.id === tpl.defaultOverviewTemplateId && r.type === 'overview')?.overviewSections
+      ?? LEGACY_MIGRATION_LOOKUP.find(r => r.id === tpl.defaultOverviewTemplateId && r.type === 'overview')?.overviewSections
+      ?? [];
   }
   return migrated;
 }
 
 export function loadAllTemplates(): ProjectTemplate[] {
-  return [...getVisibleBuiltInTemplates(), ...loadCustomTemplates().map(migrateLegacyProjectTemplate)];
+  return loadCustomTemplates().map(migrateLegacyProjectTemplate);
 }
 
 export function resolveTasksSections(tpl: ProjectTemplate): TemplateSection[] {
@@ -787,7 +791,7 @@ export interface ResourceTemplate {
 
 // ── Built-in resource templates ────────────────────────────────────────────────
 
-export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
+export const SEED_RESOURCE_TEMPLATES: ResourceTemplate[] = [
   // ── Documents ──
   {
     id: 'res-doc-contrat',
@@ -797,7 +801,6 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
     color: '#F5975B',
     icon: 'file-text',
     tags: ['Corporate', 'Vente'],
-    builtIn: true,
     createdAt: '2025-01-01',
     documentSections: [
       { title: 'Parties prenantes', body: 'Prestataire : [NOM STUDIO]\nClient : [NOM CLIENT]\nAdresse : [ADRESSE]\nSIRET : [NUMÉRO SIRET]' },
@@ -817,7 +820,6 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
     color: '#C45BE8',
     icon: 'file-text',
     tags: ['Créatif', 'Démarrage', 'Client'],
-    builtIn: true,
     createdAt: '2025-01-01',
     documentSections: [
       { title: 'Contexte du projet', body: 'Client : [NOM CLIENT]\nProjet : [NOM PROJET]\nDate : [DATE]\n\nDescription du projet :\n[CONTEXTE ET BACKGROUND DU CLIENT]' },
@@ -836,7 +838,6 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
     color: '#E85B7A',
     icon: 'clapperboard',
     tags: ['Créatif', 'Vidéo'],
-    builtIn: true,
     createdAt: '2025-01-01',
     sceneBlocks: [
       { id: 's1', location: 'ACTE 1 — INTÉRIEUR / BUREAU — JOUR', time: '0:00 – 0:20', action: 'Présentation du contexte et du personnage principal. On établit le problème ou le besoin.' },
@@ -856,56 +857,11 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
     color: '#5BC4E8',
     icon: 'video',
     tags: ['Révision', 'Client', 'Livrable'],
-    builtIn: true,
     createdAt: '2025-01-01',
     reviewRounds: [
       { id: 'r1', label: 'V1 — Rough cut', description: 'Première version non finalisée. Valider la structure narrative, le rythme général et l\'ordre des séquences. Pas de corrections de couleur ni de mixage audio définitif.' },
       { id: 'r2', label: 'V2 — Version fine cut', description: 'Intégration des retours V1. Valider les détails : textes à l\'écran, musique, couleurs, son. Dernière chance pour des modifications importantes.' },
       { id: 'r3', label: 'V3 — Version finale', description: 'Intégration des dernières corrections. Approbation finale du client. Toute modification après cette étape fera l\'objet d\'un devis supplémentaire.' },
-    ],
-  },
-  // ── Fichiers / Arborescence ──
-  {
-    id: 'res-file-structure',
-    type: 'file',
-    name: 'Arborescence projet vidéo',
-    description: 'Structure de dossiers standard pour organiser un projet de production audiovisuelle.',
-    color: '#F5D05B',
-    icon: 'folder',
-    tags: ['Production', 'Logistique'],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    folderStructure: [
-      { id: 'f1', name: '01_RUSHES', children: [
-        { id: 'f1a', name: 'Jour_01' },
-        { id: 'f1b', name: 'Jour_02' },
-        { id: 'f1c', name: 'B-Roll' },
-      ]},
-      { id: 'f2', name: '02_AUDIO', children: [
-        { id: 'f2a', name: 'Voix_off' },
-        { id: 'f2b', name: 'Ambiances' },
-        { id: 'f2c', name: 'Musiques' },
-      ]},
-      { id: 'f3', name: '03_ASSETS', children: [
-        { id: 'f3a', name: 'Logos' },
-        { id: 'f3b', name: 'Polices' },
-        { id: 'f3c', name: 'Photos' },
-        { id: 'f3d', name: 'Animations' },
-      ]},
-      { id: 'f4', name: '04_MONTAGE', children: [
-        { id: 'f4a', name: 'Projets_Premiere' },
-        { id: 'f4b', name: 'Sauvegardes' },
-      ]},
-      { id: 'f5', name: '05_EXPORTS', children: [
-        { id: 'f5a', name: 'V1' },
-        { id: 'f5b', name: 'V2' },
-        { id: 'f5c', name: 'FINAL' },
-      ]},
-      { id: 'f6', name: '06_DOCUMENTS', children: [
-        { id: 'f6a', name: 'Contrats' },
-        { id: 'f6b', name: 'Briefs' },
-        { id: 'f6c', name: 'Factures' },
-      ]},
     ],
   },
   // ── Moodboard ──
@@ -917,7 +873,6 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
     color: '#A05BE8',
     icon: 'grid-2x2',
     tags: ['Créatif', 'Corporate', 'Stratégie'],
-    builtIn: true,
     createdAt: '2025-01-01',
     moodboardRefs: [
       { id: 'm1', title: 'Ambiance lumineuse', note: 'Lumière naturelle diffuse, tons chauds, éviter les ombres dures. Fenêtres en arrière-plan.' },
@@ -926,19 +881,6 @@ export const BUILT_IN_RESOURCE_TEMPLATES: ResourceTemplate[] = [
       { id: 'm4', title: 'B-roll : lieux de travail', note: 'Plans larges pour établir le contexte, gros plans sur les mains et détails. Mouvement fluide de caméra (slider ou gimbal).' },
       { id: 'm5', title: 'Typographie à l\'écran', note: 'Police : [POLICE CLIENT]. Titres en blanc sur fond semi-transparent. Entrées en fondu. Jamais de texte sur fond clair.' },
     ],
-  },
-  // ── Aperçu ──
-  {
-    id: 'res-overview-base',
-    type: 'overview',
-    name: 'Aperçu standard',
-    description: 'Structure de base pour l\'onglet Aperçu — les modules Vision, Livrables, Factures, Fichiers et Notes internes s\'appliquent déjà automatiquement à tout projet, ce modèle n\'a donc rien à ajouter.',
-    color: '#6b7280',
-    icon: 'layout-grid',
-    tags: ['Standard'],
-    builtIn: true,
-    createdAt: '2025-01-01',
-    overviewSections: [],
   },
 ];
 
@@ -1021,10 +963,87 @@ export function saveCustomResourceTemplates(templates: ResourceTemplate[]): void
   void replaceSupabaseResourceTemplates(previousIds, templates);
 }
 
-export function getVisibleBuiltInResourceTemplates(): ResourceTemplate[] {
-  return BUILT_IN_RESOURCE_TEMPLATES.filter(t => !isTemplateHidden(t.id));
+// Variante awaitable de saveCustomResourceTemplates — même raison d'être que
+// saveCustomTemplatesAsync : seul ensureDefaultTemplatesSeeded doit en dépendre.
+export async function saveCustomResourceTemplatesAsync(templates: ResourceTemplate[]): Promise<void> {
+  if (isDemoSession()) {
+    _demoResourceTemplates = templates;
+    persistDemoResourceTemplates();
+    return;
+  }
+  const previousIds = _supabaseResourceTemplates.map(t => t.id);
+  _supabaseResourceTemplates = templates;
+  await replaceSupabaseResourceTemplates(previousIds, templates);
 }
 
 export function loadAllResourceTemplates(): ResourceTemplate[] {
-  return [...getVisibleBuiltInResourceTemplates(), ...loadCustomResourceTemplates()];
+  return loadCustomResourceTemplates();
+}
+
+// ── Seed du studio (Step 4) ────────────────────────────────────────────────────
+// Insère SEED_TEMPLATES/SEED_RESOURCE_TEMPLATES une seule fois par studio, à
+// l'ouverture de Modeles.tsx (et depuis provisionNewStudio pour les nouveaux
+// studios — Task 3). Idempotent : ne fait rien si déjà semé.
+//
+// Correction critique par rapport au brief initial : saveCustomTemplates/
+// saveCustomResourceTemplates sont fire-and-forget en session réelle
+// (`void replaceSupabaseProjectTemplates(...)`), donc on ne peut pas s'en servir
+// ici pour savoir si l'écriture a réellement abouti avant de marquer
+// templates_seeded=true. On utilise donc saveCustomTemplatesAsync/
+// saveCustomResourceTemplatesAsync (ci-dessus), qui awaitent réellement
+// replaceSupabaseProjectTemplates/replaceSupabaseResourceTemplates.
+//
+// Mais même awaitées, ces deux fonctions internes avalent leurs propres erreurs
+// Supabase (elles font `console.error(...); return;` sur échec au lieu de
+// throw) — donc la promesse résolue avec succès NE garantit PAS que l'écriture
+// a réussi. La seule façon fiable de savoir si le seed a effectivement pris est
+// de relire le cache après coup : replaceSupabaseProjectTemplates/
+// replaceSupabaseResourceTemplates se terminent (sur le chemin de succès) par
+// un `await fetchSupabase...Templates()`, donc loadCustomTemplates()/
+// loadCustomResourceTemplates() reflètent forcément le fetch le plus récent une
+// fois la promesse résolue — que ce fetch ait vu l'upsert réussir ou non.
+// On ne marque templates_seeded=true que si cette relecture montre bien des
+// templates non vides. Si elle est encore vide après la tentative de seed, on
+// n'écrit PAS le flag : le prochain chargement de page retentera le seed au
+// lieu de marquer silencieusement un échec comme "fait".
+const DEMO_TEMPLATES_SEEDED_KEY = 'sf_demo_templates_seeded';
+
+export async function ensureDefaultTemplatesSeeded(): Promise<void> {
+  if (isDemoSession()) {
+    if (loadPersisted(DEMO_TEMPLATES_SEEDED_KEY, false)) return;
+    if (loadCustomTemplates().length === 0) saveCustomTemplates([...SEED_TEMPLATES]);
+    if (loadCustomResourceTemplates().length === 0) saveCustomResourceTemplates([...SEED_RESOURCE_TEMPLATES]);
+    savePersisted(DEMO_TEMPLATES_SEEDED_KEY, true);
+    return;
+  }
+
+  const studioId = await getStudioId();
+  if (!studioId) return;
+
+  const { data, error } = await supabase.from('studios').select('templates_seeded').eq('id', studioId).single();
+  if (error || !data || data.templates_seeded) return;
+
+  // Ne semer que ce qui est vide — un studio qui a déjà des modèles personnalisés
+  // (cas improbable puisqu'on ne devrait passer ici que pour templates_seeded=false,
+  // mais gardé par défense) ne doit pas se les faire écraser.
+  const needsProjectSeed = loadCustomTemplates().length === 0;
+  const needsResourceSeed = loadCustomResourceTemplates().length === 0;
+
+  await Promise.all([
+    needsProjectSeed ? saveCustomTemplatesAsync([...SEED_TEMPLATES]) : Promise.resolve(),
+    needsResourceSeed ? saveCustomResourceTemplatesAsync([...SEED_RESOURCE_TEMPLATES]) : Promise.resolve(),
+  ]);
+
+  const projectsOk = !needsProjectSeed || loadCustomTemplates().length > 0;
+  const resourcesOk = !needsResourceSeed || loadCustomResourceTemplates().length > 0;
+
+  if (!projectsOk || !resourcesOk) {
+    // Écriture(s) probablement échouée(s) côté Supabase (erreur avalée en
+    // interne par replaceSupabase*Templates). On ne marque pas templates_seeded
+    // pour permettre un nouveau essai au prochain chargement.
+    console.error('ensureDefaultTemplatesSeeded: seed incomplet, templates_seeded non marqué', { projectsOk, resourcesOk });
+    return;
+  }
+
+  await supabase.from('studios').update({ templates_seeded: true }).eq('id', studioId);
 }
