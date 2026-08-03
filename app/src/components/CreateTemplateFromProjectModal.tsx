@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFCheckbox } from './ui';
-import { getSections } from '../data/taskStore';
-import { getFolderTreeForProject, getFilesInFolder, type FolderTreeNodeWithId } from '../data/fileStore';
+import { getSections, isSectionsLoading, subscribeStore } from '../data/taskStore';
+import { getFolderTreeForProject, getFilesInFolder, isFilesLoading, subscribeFileStore, type FolderTreeNodeWithId } from '../data/fileStore';
 import { getResourceContent } from '../data/resourceContentStore';
-import { getProjectContent } from '../data/projectContentStore';
+import { getProjectContent, isProjectContentLoading, subscribeProjectContent } from '../data/projectContentStore';
+import { isDemoSession } from '../data/authStore';
 import { loadCustomTemplates, saveCustomTemplates, loadAllTemplates, type ProjectTemplate, type TemplateSection, type TemplateTask, type FolderNode, type TemplateResourceFile } from '../data/templates';
 import type { Project, Task } from '../types';
 
-const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
+export const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
+// Icônes courantes pour des modèles de projets audiovisuels/créatifs — pas une
+// liste exhaustive de l'icon set Lucide, juste un choix curaté raisonnable.
+export const TEMPLATE_ICONS = ['layout-template', 'film', 'clapperboard', 'video', 'camera', 'image', 'mic', 'megaphone', 'palette', 'briefcase'];
 
 interface TaskCaptureOptions {
   subtasks: boolean;
@@ -63,6 +67,7 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
   const [name, setName] = useState(originTemplate?.name ?? project.name);
   const [description, setDescription] = useState(originTemplate?.description ?? '');
   const [color, setColor] = useState(originTemplate?.color ?? TEMPLATE_COLORS[0]);
+  const [icon, setIcon] = useState(originTemplate?.icon ?? TEMPLATE_ICONS[0]);
   const [tags, setTags] = useState(originTemplate?.tags?.join(', ') ?? '');
   const [includeTasks, setIncludeTasks] = useState(true);
   const [includeSections, setIncludeSections] = useState(true);
@@ -81,6 +86,25 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
   const [includeModules, setIncludeModules] = useState(true);
   const [includeContent, setIncludeContent] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  // En session réelle, taskStore/fileStore/projectContentStore peuplent leur
+  // cache via un fetch Supabase déclenché en arrière-plan au premier appel de
+  // getSections()/getFolderTreeForProject()/getProjectContent() — cliquer
+  // "Enregistrer" avant que ce fetch résolve capturerait silencieusement un
+  // modèle incomplet. On se réabonne aux trois stores pour re-render dès que
+  // le fetch résout, et on désactive Enregistrer tant que l'un des trois est
+  // encore en cours de chargement pour ce projet.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const unsubs = [
+      subscribeStore(() => forceTick(t => t + 1)),
+      subscribeFileStore(() => forceTick(t => t + 1)),
+      subscribeProjectContent(() => forceTick(t => t + 1)),
+    ];
+    return () => unsubs.forEach(fn => fn());
+  }, []);
+  const dataStillLoading = !isDemoSession()
+    && (isSectionsLoading(project.id) || isFilesLoading() || isProjectContentLoading(project.id));
 
   // Cocher un champ de tâche coche aussi ses ancêtres (Tâches internes → Sections → Tâches racine).
   const checkTaskField = (setter: (v: boolean) => void) => {
@@ -126,25 +150,7 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
   };
 
   const handleSave = () => {
-    if (!name.trim()) return;
-    // KNOWN LIMITATION (real/Supabase sessions only — demo sessions read
-    // synchronous mock data and are unaffected): taskStore/fileStore/
-    // projectContentStore each keep an in-memory cache populated by a
-    // background fetch kicked off lazily the first time something calls
-    // getSections()/getFolderTreeForProject()/getProjectContent() for this
-    // project id (ensureSupabaseFetchStarted / ensureFetchStarted). None of
-    // the three expose an awaitable "fetch is done" promise — the getters
-    // are synchronous by design and can legitimately return [] / empty
-    // content on the very first call. If the user opens this modal from a
-    // surface that never itself reads one of these stores for this project
-    // (e.g. the project's Calendrier or Finances tab, reached without ever
-    // visiting Travail/Fichiers/Overview first), the corresponding section
-    // below can silently save an empty template. In practice this is rare
-    // because ProjectHeaderBar (which hosts the "create template" action)
-    // is almost always reached after a page that already primed these
-    // caches — but it is not guaranteed. A proper fix would mean adding a
-    // real awaitable "ensure fetched" API to all three stores, which is out
-    // of scope for this refactor.
+    if (!name.trim() || dataStillLoading) return;
     const captureOpts: TaskCaptureOptions = {
       subtasks: includeSubtasks,
       description: includeDescription,
@@ -168,7 +174,7 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
       name: name.trim(),
       description,
       color,
-      icon: originTemplate?.icon ?? 'layout-template',
+      icon,
       tags: tags.split(',').map(x => x.trim()).filter(Boolean),
       builtIn: false,
       createdAt: originTemplate?.createdAt ?? new Date().toISOString().split('T')[0],
@@ -219,6 +225,13 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
         <div style={{ display: 'flex', gap: 6 }}>
           {TEMPLATE_COLORS.map(c => (
             <button key={c} onClick={() => setColor(c)} style={{ width: 24, height: 24, borderRadius: 7, background: c, border: color === c ? '2px solid var(--text)' : '2px solid transparent', cursor: 'pointer' }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {TEMPLATE_ICONS.map(ic => (
+            <button key={ic} onClick={() => setIcon(ic)} style={{ width: 28, height: 28, borderRadius: 7, background: icon === ic ? color : 'var(--surface-2)', border: icon === ic ? '2px solid var(--text)' : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <SFIcon name={ic} size={14} color={icon === ic ? 'rgba(255,255,255,0.9)' : 'var(--text-3)'} />
+            </button>
           ))}
         </div>
 
@@ -279,9 +292,10 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
           <button onClick={uncheckAll} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.uncheckAll')}</button>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+          {dataStillLoading && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('projectTemplates.dataStillLoading')}</span>}
           <SFButton variant="secondary" onClick={onClose}>{t('common.cancel')}</SFButton>
-          <SFButton variant="primary" onClick={handleSave}>{t('common.save')}</SFButton>
+          <SFButton variant="primary" onClick={handleSave} disabled={dataStillLoading}>{t('common.save')}</SFButton>
         </div>
       </div>
     </div>

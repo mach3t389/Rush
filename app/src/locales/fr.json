@@ -530,6 +530,7 @@
     "includeOverview": "Aperçu",
     "includeModules": "Modules",
     "includeContent": "Contenu",
+    "dataStillLoading": "Chargement des données du projet…",
     "includeSubtasks": "Sous-tâches",
     "includeTaskDescription": "Description",
     "includePriority": "Priorité",
@@ -1482,6 +1483,8 @@
     "resources": "Ressources"
   },
   "models": {
+    "changeIcon": "Changer l'icône",
+    "changeColor": "Changer la couleur",
     "cancel": "Annuler",
     "saveAction": "Enregistrer",
     "createTemplate": "Créer le modèle",

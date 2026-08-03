@@ -530,6 +530,7 @@
     "includeOverview": "Overview",
     "includeModules": "Modules",
     "includeContent": "Content",
+    "dataStillLoading": "Loading project data…",
     "includeSubtasks": "Subtasks",
     "includeTaskDescription": "Description",
     "includePriority": "Priority",
@@ -1469,6 +1470,8 @@
     "moveItemsCount": "Move {{count}} item(s)"
   },
   "models": {
+    "changeIcon": "Change icon",
+    "changeColor": "Change color",
     "resTypeLabel": "Template type",
     "cancel": "Cancel",
     "saveAction": "Save",

@@ -11,6 +11,7 @@ import { setProjectContent } from '../data/projectContentStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
 import { confirmDialog } from '../data/confirmStore';
+import { TEMPLATE_COLORS, TEMPLATE_ICONS } from '../components/CreateTemplateFromProjectModal';
 import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef, TemplateTask } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, saveCustomResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, subscribeProjectTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
@@ -291,39 +292,49 @@ function InlineEditable({ value, onChange, onBlur, multiline, fontSize, fontWeig
 
 // ── Template Detail sidebar ────────────────────────────────────────────────────
 
-function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, onRename }: {
+function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, onUpdate }: {
   tpl: ProjectTemplate;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onCreateProject: () => void;
-  onRename?: (name: string, description: string) => void;
+  onUpdate?: (patch: Partial<Pick<ProjectTemplate, 'name' | 'description' | 'tags' | 'color' | 'icon'>>) => void;
 }) {
   const { t } = useTranslation();
   const tplSections = resolveTasksSections(tpl);
   const totalTasks = tplSections.reduce((s, sec) => s + sec.tasks.length, 0);
   const [editName, setEditName] = useState(tpl.name);
   const [editDesc, setEditDesc] = useState(tpl.description);
-  useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); }, [tpl.id]);
+  const [editTags, setEditTags] = useState(tpl.tags.join(', '));
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  useEffect(() => { setEditName(tpl.name); setEditDesc(tpl.description); setEditTags(tpl.tags.join(', ')); setIconPickerOpen(false); }, [tpl.id]);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-        {/* Header: Icon + Title + Description + Stats */}
+        {/* Header: Icon + Title + Description + Tags */}
         <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <button onClick={() => setIconPickerOpen(v => !v)} title={t('models.changeIcon')} style={{ width: 56, height: 56, borderRadius: 14, background: tpl.color, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
-          </div>
+          </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>
-            <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 3 }}>
-                {tpl.tags.map(tag => (
-                  <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44`, whiteSpace: 'nowrap' }}>{tag}</span>
-                ))}
-              </div>
-            </div>
+            <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onUpdate?.({ name: editName, description: editDesc })} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>
+            <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onUpdate?.({ name: editName, description: editDesc })} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>
+            <InlineEditable value={editTags} onChange={setEditTags} onBlur={() => onUpdate?.({ tags: editTags.split(',').map(x => x.trim()).filter(Boolean) })} fontSize={11} color="var(--text-3)" placeholder={t('projectTemplates.tagsPlaceholder')} />
           </div>
+        </div>
+        {iconPickerOpen && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {TEMPLATE_ICONS.map(ic => (
+              <button key={ic} onClick={() => { onUpdate?.({ icon: ic }); setIconPickerOpen(false); }} style={{ width: 26, height: 26, borderRadius: 7, background: tpl.icon === ic ? tpl.color : 'var(--surface-2)', border: tpl.icon === ic ? '2px solid var(--text)' : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <SFIcon name={ic} size={13} color={tpl.icon === ic ? 'rgba(255,255,255,0.9)' : 'var(--text-3)'} />
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
+          {TEMPLATE_COLORS.map(c => (
+            <button key={c} onClick={() => onUpdate?.({ color: c })} title={t('models.changeColor')} style={{ width: 18, height: 18, borderRadius: 6, background: c, border: tpl.color === c ? '2px solid var(--text)' : '2px solid transparent', cursor: 'pointer' }} />
+          ))}
         </div>
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 12 }}>
@@ -1439,11 +1450,11 @@ export function Modeles() {
     setSelectedTpl(custom[0] ?? null);
   };
 
-  const renameTpl = (id: string, name: string, description: string) => {
-    const updated = templates.map(t => t.id === id ? { ...t, name, description } : t);
+  const updateTplFields = (id: string, patch: Partial<Pick<ProjectTemplate, 'name' | 'description' | 'tags' | 'color' | 'icon'>>) => {
+    const updated = templates.map(t => t.id === id ? { ...t, ...patch } : t);
     saveCustomTemplates(updated);
     setTemplates(updated);
-    setSelectedTpl(prev => prev?.id === id ? { ...prev, name, description } : prev);
+    setSelectedTpl(prev => prev?.id === id ? { ...prev, ...patch } : prev);
   };
 
   const reorderTpl = (srcId: string, dstId: string) => {
@@ -1801,7 +1812,7 @@ export function Modeles() {
                   onDuplicate={() => duplicateTpl(selectedTpl)}
                   onDelete={() => deleteTpl(selectedTpl)}
                   onCreateProject={() => setCreateProjectFrom(selectedTpl)}
-                  onRename={(name, desc) => renameTpl(selectedTpl.id, name, desc)}
+                  onUpdate={patch => updateTplFields(selectedTpl.id, patch)}
                 />
               : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 13 }}>Sélectionnez un modèle</div>
           )}

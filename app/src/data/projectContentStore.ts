@@ -162,6 +162,7 @@ function persistDemo() { savePersisted(STORAGE_KEY, _demoContent); }
 // ── Real-session working set ─────────────────────────────────────────────────
 let _supabaseContent: Record<string, ProjectContent> = {};
 const _fetchedProjectIds = new Set<string>();
+const _loadingProjectIds = new Set<string>();
 
 const _listeners: Set<() => void> = new Set();
 function notify() { _listeners.forEach(fn => fn()); }
@@ -178,15 +179,28 @@ async function fetchSupabaseContent(projectId: string): Promise<void> {
     .eq('project_id', projectId)
     .maybeSingle();
 
-  if (error) { console.error('fetchProjectContent failed', error); return; }
+  if (error) { console.error('fetchProjectContent failed', error); _loadingProjectIds.delete(projectId); notify(); return; }
   if (data) _supabaseContent = { ..._supabaseContent, [projectId]: (data as ProjectContentRow).content };
+  _loadingProjectIds.delete(projectId);
   notify();
 }
 
 function ensureFetchStarted(projectId: string): void {
   if (_fetchedProjectIds.has(projectId)) return;
   _fetchedProjectIds.add(projectId);
+  _loadingProjectIds.add(projectId);
   void fetchSupabaseContent(projectId);
+}
+
+// Utilisé par les surfaces qui doivent savoir si le cache pour ce projet est
+// encore en cours de peuplement avant de s'en servir (ex. capture de modèle
+// dans CreateTemplateFromProjectModal — sauvegarder avant résolution du fetch
+// peut silencieusement capturer un Aperçu vide). Même pattern que
+// isSectionsLoading (taskStore) / isFilesLoading (fileStore).
+export function isProjectContentLoading(projectId: string): boolean {
+  if (isDemoSession()) return false;
+  ensureFetchStarted(projectId);
+  return _loadingProjectIds.has(projectId);
 }
 
 export function resetProjectContentCache(): void {
