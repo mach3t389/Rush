@@ -11,7 +11,7 @@ import { ConfirmDialogHost } from '../ConfirmDialogHost';
 import { UpgradePromptModal } from '../UpgradePromptModal';
 import { ViewAsBanner } from '../ViewAsBanner';
 import { getShortcuts, subscribeShortcuts, matchesShortcut } from '../../data/shortcutsStore';
-import { ensureDefaultTemplatesSeeded } from '../../data/templates';
+import { ensureDefaultTemplatesSeeded, loadCustomTemplates } from '../../data/templates';
 import { initAnalytics } from '../../analytics';
 
 export function AppShell() {
@@ -26,6 +26,13 @@ export function AppShell() {
   // /login are never counted as visits.
   useEffect(() => { initAnalytics(); }, []);
   useEffect(() => { void ensureDefaultTemplatesSeeded(); }, []);
+  // Amorce le fetch Supabase des modèles de projet dès l'ouverture de l'app,
+  // pas seulement à l'ouverture de l'assistant "Nouveau projet" — sinon
+  // ensureDefaultTemplatesSeeded() ci-dessus retourne tôt pour un studio déjà
+  // semé (cas normal) sans jamais appeler loadCustomTemplates(), et le fetch
+  // ne démarre qu'au moment où l'utilisateur ouvre l'assistant, causant un
+  // flash "aucun modèle" le temps que la requête réseau résolve.
+  useEffect(() => { loadCustomTemplates(); }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
