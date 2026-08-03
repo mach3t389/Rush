@@ -443,7 +443,12 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
     if (template.folderStructure?.length) addFolderTree(template.folderStructure, { projectId });
 
     addProject(newProject).then(() => {
-      if (template.overviewSections?.length) setProjectContent(projectId, { customSections: template.overviewSections });
+      if (template.overviewSections?.length || template.overviewSectionData) {
+        setProjectContent(projectId, {
+          customSections: template.overviewSections,
+          customSectionData: template.overviewSectionData,
+        });
+      }
     });
     onClose();
     navigate(`/projets/${projectId}`);
@@ -1407,7 +1412,12 @@ export function Modeles() {
       tasks: sec.tasks.map((tt, i) => buildDraftTask(tt, `${draftId}-${sec.label}-${i}`)),
     })));
     if (tpl.folderStructure?.length) addFolderTree(tpl.folderStructure, { projectId: draftId });
-    if (tpl.overviewSections?.length) setProjectContent(draftId, { customSections: tpl.overviewSections });
+    if (tpl.overviewSections?.length || tpl.overviewSectionData) {
+      setProjectContent(draftId, {
+        customSections: tpl.overviewSections,
+        customSectionData: tpl.overviewSectionData,
+      });
+    }
     navigate(`/projets/${draftId}`);
   }
 

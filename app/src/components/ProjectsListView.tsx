@@ -230,8 +230,11 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     // exister AVANT d'écrire le contenu d'Aperçu (sinon violation de clé étrangère
     // en session réelle). On attend donc la création avant setProjectContent.
     await onCreate(newProject);
-    if (selectedTemplate?.overviewSections?.length) {
-      setProjectContent(projectId, { customSections: selectedTemplate.overviewSections });
+    if (selectedTemplate?.overviewSections?.length || selectedTemplate?.overviewSectionData) {
+      setProjectContent(projectId, {
+        customSections: selectedTemplate.overviewSections,
+        customSectionData: selectedTemplate.overviewSectionData,
+      });
     }
     onClose();
   };
