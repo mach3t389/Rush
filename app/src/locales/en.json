@@ -1477,6 +1477,7 @@
     "editCopy": "Edit copy",
     "edit": "Edit",
     "hideBuiltInConfirm": "Hide this built-in template? It will no longer appear in the list (you can bring it back later).",
+    "deleteConfirm": "Delete this template? This action is irreversible.",
     "duplicate": "Duplicate",
     "sections": "Sections",
     "tasks": "Tasks",

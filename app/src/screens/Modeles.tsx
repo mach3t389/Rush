@@ -11,7 +11,7 @@ import { setProjectContent } from '../data/projectContentStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
 import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
-import { loadAllTemplates, saveCustomTemplates, getVisibleBuiltInTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, loadAllResourceTemplates, saveCustomResourceTemplates, getVisibleBuiltInResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
+import { loadAllTemplates, saveCustomTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, saveCustomResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
 import { usePlan } from '../data/planStore';
@@ -177,24 +177,17 @@ function TemplateResourceView({ tpl, onClose, onSave }: {
             style={{ flex: 1, fontSize: 15, fontWeight: 600, background: 'var(--surface-2)', border: '1px solid var(--accent)', borderRadius: 7, padding: '4px 10px', color: 'var(--text)', fontFamily: 'var(--ff-text)', outline: 'none' }}
           />
         ) : (
-          <span onClick={() => { if (!tpl.builtIn) setEditingName(true); }}
-            style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: tpl.builtIn ? 'default' : 'text', padding: '4px 6px', borderRadius: 7, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            title={tpl.builtIn ? undefined : t('models.clickToRename')}
+          <span onClick={() => setEditingName(true)}
+            style={{ flex: 1, fontSize: 15, fontWeight: 600, cursor: 'text', padding: '4px 6px', borderRadius: 7, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            title={t('models.clickToRename')}
           >
             {name}
           </span>
         )}
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-          {tpl.builtIn ? (
-            <SFButton variant="secondary" icon="copy" onClick={() => {
-              const copy: ResourceTemplate = { ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, rawHTML: docContentRef.current?.() ?? tpl.rawHTML };
-              onSave(copy);
-            }}>{t('models.saveCopy')}</SFButton>
-          ) : (
-            <SFButton variant={dirty ? 'primary' : 'secondary'} icon="save" onClick={handleSave}>
-              {dirty ? t('models.saveDirty') : t('models.save')}
-            </SFButton>
-          )}
+          <SFButton variant={dirty ? 'primary' : 'secondary'} icon="save" onClick={handleSave}>
+            {dirty ? t('models.saveDirty') : t('models.save')}
+          </SFButton>
           <button onClick={onClose} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center' }}>
             <SFIcon name="x" size={15} />
           </button>
@@ -320,19 +313,14 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
             <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {tpl.builtIn
-              ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{tpl.name}</h2>
-              : <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>}
-            {tpl.builtIn
-              ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 6 }}>{tpl.description}</p>
-              : <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>}
+            <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder={t('models.templateNamePlaceholder')} /></div>
+            <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder={t('models.templateDescPlaceholder')} /></div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 3 }}>
                 {tpl.tags.map(tag => (
                   <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44`, whiteSpace: 'nowrap' }}>{tag}</span>
                 ))}
               </div>
-              {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('models.builtIn')}</span>}
             </div>
           </div>
         </div>
@@ -371,17 +359,17 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
         <SFButton variant="primary" icon="plus" onClick={onCreateProject} style={{ width: '100%', justifyContent: 'center' }}>{t('models.createProjectFromTemplate')}</SFButton>
         <div style={{ display: 'flex', gap: 6 }}>
           <SFButton variant="secondary" size="sm" icon="square-pen" onClick={onEdit} style={{ flex: 1, justifyContent: 'center' }}>
-            {tpl.builtIn ? t('models.editCopy') : t('models.edit')}
+            {t('models.edit')}
           </SFButton>
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>{t('models.duplicate')}</SFButton>
           <SFButton
             variant="ghost" size="sm"
-            icon={tpl.builtIn ? 'eye-off' : 'trash-2'}
+            icon="trash-2"
             onClick={() => {
-              if (tpl.builtIn && !confirm(t('models.hideBuiltInConfirm'))) return;
+              if (!confirm(t('models.deleteConfirm'))) return;
               onDelete();
             }}
-            style={{ color: tpl.builtIn ? 'var(--text-3)' : 'var(--danger)' }}
+            style={{ color: 'var(--danger)' }}
           />
         </div>
       </div>
@@ -1033,12 +1021,8 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
             <SFIcon name={tpl.icon} size={24} color="rgba(255,255,255,0.9)" />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {tpl.builtIn
-              ? <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</h2>
-              : <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder="Nom du modèle…" /></div>}
-            {tpl.builtIn
-              ? <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 6 }}>{tpl.description}</p>
-              : <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder="Description du modèle…" /></div>}
+            <div style={{ marginBottom: 4 }}><InlineEditable value={editName} onChange={setEditName} onBlur={() => onRename?.(editName, editDesc)} fontSize={16} fontWeight={700} placeholder="Nom du modèle…" /></div>
+            <div style={{ marginBottom: 6 }}><InlineEditable value={editDesc} onChange={setEditDesc} onBlur={() => onRename?.(editName, editDesc)} multiline rows={2} fontSize={12} color="var(--text-3)" placeholder="Description du modèle…" /></div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${tpl.color}22`, color: tpl.color, border: `1px solid ${tpl.color}44`, whiteSpace: 'nowrap', fontWeight: 500 }}>{t(RES_TYPE_LABEL_KEYS[tpl.type])}</span>
               <div style={{ display: 'flex', gap: 3 }}>
@@ -1046,7 +1030,6 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
                   <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: `${TAG_COLORS[tag] ?? '#3b4f8f'}22`, color: TAG_COLORS[tag] ?? 'var(--text-3)', border: `1px solid ${TAG_COLORS[tag] ?? '#3b4f8f'}44`, whiteSpace: 'nowrap' }}>{tag}</span>
                 ))}
               </div>
-              {tpl.builtIn && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', padding: '2px 6px', borderRadius: 5, background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('models.builtIn')}</span>}
             </div>
           </div>
         </div>
@@ -1123,20 +1106,20 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
           onMouseLeave={e => (e.currentTarget.style.background = `${tpl.color}10`)}
         >
           <SFIcon name={tpl.icon} size={15} />
-          {tpl.builtIn ? 'Visualiser le contenu' : 'Ouvrir / modifier le contenu'}
+          Ouvrir / modifier le contenu
         </button>
         <div style={{ display: 'flex', gap: 6 }}>
           <SFButton variant="secondary" size="sm" icon="copy" onClick={onDuplicate} style={{ flex: 1, justifyContent: 'center' }}>
-            {tpl.builtIn ? 'Modifier une copie' : 'Dupliquer'}
+            Dupliquer
           </SFButton>
           <SFButton
             variant="ghost" size="sm"
-            icon={tpl.builtIn ? 'eye-off' : 'trash-2'}
+            icon="trash-2"
             onClick={() => {
-              if (tpl.builtIn && !confirm(t('models.hideBuiltInConfirm'))) return;
+              if (!confirm(t('models.deleteConfirm'))) return;
               onDelete();
             }}
-            style={{ color: tpl.builtIn ? 'var(--text-3)' : 'var(--danger)' }}
+            style={{ color: 'var(--danger)' }}
           />
         </div>
       </div>
@@ -1340,20 +1323,23 @@ export function Modeles() {
   useEffect(() => subscribeTemplateFavorites(() => setFavorites(getFavoriteTemplateIds())), []);
   const toggleFav = (id: string) => { toggleTemplateFavorite(id); setFavorites(getFavoriteTemplateIds()); };
 
-  // ── Modèles intégrés masqués (préférence locale) ──
-  const [hiddenCount, setHiddenCount] = useState(() => getHiddenTemplateIds().length);
-  useEffect(() => subscribeHiddenTemplates(() => setHiddenCount(getHiddenTemplateIds().length)), []);
+  // ── Formulaires intégrés masqués (préférence locale) — seul type qui garde le masquage ──
+  const countHiddenForms = () => {
+    const formIds = new Set(BUILT_IN_FORM_TEMPLATES.map(t => t.id));
+    return getHiddenTemplateIds().filter(id => formIds.has(id)).length;
+  };
+  const [hiddenCount, setHiddenCount] = useState(countHiddenForms);
+  useEffect(() => subscribeHiddenTemplates(() => setHiddenCount(countHiddenForms())), []);
 
   // ── Project templates state
   const [templates, setTemplates] = useState(loadAllTemplates);
   const [lastSelectedTplId, setLastSelectedTplId] = usePersistedState<string | null>('sf_modeles_selected_tpl_id', null);
   const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => {
     const all = loadAllTemplates();
-    return all.find(t => t.id === lastSelectedTplId) ?? all.find(t => !t.builtIn) ?? all[0] ?? null;
+    return all.find(t => t.id === lastSelectedTplId) ?? all[0] ?? null;
   });
   useEffect(() => { setLastSelectedTplId(selectedTpl?.id ?? null); }, [selectedTpl?.id]);
   const [createProjectFrom, setCreateProjectFrom] = useState<ProjectTemplate | null>(null);
-  const [builtInsCollapsed, setBuiltInsCollapsed] = useState(false);
   const [dragTplId, setDragTplId] = useState<string | null>(null);
   const [dragOverTplId, setDragOverTplId] = useState<string | null>(null);
 
@@ -1362,12 +1348,11 @@ export function Modeles() {
   const [lastSelectedResId, setLastSelectedResId] = usePersistedState<string | null>('sf_modeles_selected_res_id', null);
   const [selectedRes, setSelectedRes] = useState<ResourceTemplate | null>(() => {
     const all = loadAllResourceTemplates();
-    return all.find(t => t.id === lastSelectedResId) ?? all.find(t => !t.builtIn) ?? all[0] ?? null;
+    return all.find(t => t.id === lastSelectedResId) ?? all[0] ?? null;
   });
   useEffect(() => { setLastSelectedResId(selectedRes?.id ?? null); }, [selectedRes?.id]);
   const [resEditorOpen, setResEditorOpen] = useState(false);
   const [resEditorData, setResEditorData] = useState<Partial<ResourceTemplate>>({});
-  const [resBuiltInsCollapsed, setResBuiltInsCollapsed] = useState(false);
   const [templateResViewTpl, setTemplateResViewTpl] = useState<ResourceTemplate | null>(null);
   const [dragResId, setDragResId] = useState<string | null>(null);
   const [dragOverResId, setDragOverResId] = useState<string | null>(null);
@@ -1391,9 +1376,7 @@ export function Modeles() {
 
   const resetHiddenTemplates = () => {
     getHiddenTemplateIds().forEach(id => unhideTemplate(id));
-    setTemplates(loadAllTemplates());
     setFormTemplates(loadAllFormTemplates());
-    setResourceTemplates(loadAllResourceTemplates());
   };
 
   // ── Project template handlers
@@ -1424,53 +1407,39 @@ export function Modeles() {
   }
 
   const saveTpl = (tpl: ProjectTemplate) => {
-    const custom = templates.filter(t => !t.builtIn);
-    const existing = custom.findIndex(t => t.id === tpl.id);
-    const updated = existing >= 0 ? custom.map(t => t.id === tpl.id ? tpl : t) : [...custom, tpl];
+    const existing = templates.findIndex(t => t.id === tpl.id);
+    const updated = existing >= 0 ? templates.map(t => t.id === tpl.id ? tpl : t) : [...templates, tpl];
     saveCustomTemplates(updated);
-    setTemplates([...getVisibleBuiltInTemplates(), ...updated]);
+    setTemplates(updated);
     setSelectedTpl(tpl);
   };
 
-  const duplicateTpl = (tpl: ProjectTemplate) => saveTpl({ ...tpl, id: `tpl-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] });
+  const duplicateTpl = (tpl: ProjectTemplate) => saveTpl({ ...tpl, id: `tpl-${Date.now()}`, name: `${tpl.name} (copie)`, createdAt: new Date().toISOString().split('T')[0] });
 
-  // Modèle intégré : pas supprimable pour de vrai (contenu codé en dur), on le masque simplement.
-  // Modèle custom : suppression réelle du stockage.
   const deleteTpl = (tpl: ProjectTemplate) => {
-    if (tpl.builtIn) {
-      hideTemplate(tpl.id);
-      const next = templates.filter(t => t.id !== tpl.id);
-      setTemplates(next);
-      setSelectedTpl(next[0] ?? null);
-      return;
-    }
-    const custom = templates.filter(t => !t.builtIn && t.id !== tpl.id);
+    const custom = templates.filter(t => t.id !== tpl.id);
     saveCustomTemplates(custom);
-    const builtIn = getVisibleBuiltInTemplates();
-    setTemplates([...builtIn, ...custom]);
-    setSelectedTpl(builtIn[0] ?? custom[0] ?? null);
+    setTemplates(custom);
+    setSelectedTpl(custom[0] ?? null);
   };
 
   const renameTpl = (id: string, name: string, description: string) => {
     const updated = templates.map(t => t.id === id ? { ...t, name, description } : t);
-    const custom = updated.filter(t => !t.builtIn);
-    saveCustomTemplates(custom);
+    saveCustomTemplates(updated);
     setTemplates(updated);
     setSelectedTpl(prev => prev?.id === id ? { ...prev, name, description } : prev);
   };
 
   const reorderTpl = (srcId: string, dstId: string) => {
     if (srcId === dstId) return;
-    const custom = templates.filter(t => !t.builtIn);
-    const builtIn = templates.filter(t => t.builtIn);
-    const srcIdx = custom.findIndex(t => t.id === srcId);
-    const dstIdx = custom.findIndex(t => t.id === dstId);
+    const srcIdx = templates.findIndex(t => t.id === srcId);
+    const dstIdx = templates.findIndex(t => t.id === dstId);
     if (srcIdx < 0 || dstIdx < 0) return;
-    const newCustom = [...custom];
-    const [removed] = newCustom.splice(srcIdx, 1);
-    newCustom.splice(dstIdx, 0, removed);
-    saveCustomTemplates(newCustom);
-    setTemplates([...newCustom, ...builtIn]);
+    const newTemplates = [...templates];
+    const [removed] = newTemplates.splice(srcIdx, 1);
+    newTemplates.splice(dstIdx, 0, removed);
+    saveCustomTemplates(newTemplates);
+    setTemplates(newTemplates);
   };
 
   // ── Form template handlers
@@ -1530,49 +1499,39 @@ export function Modeles() {
 
   // ── Resource template handlers
   const saveRes = (tpl: ResourceTemplate) => {
-    const custom = resourceTemplates.filter(t => !t.builtIn);
-    const existing = custom.findIndex(t => t.id === tpl.id);
-    const updated = existing >= 0 ? custom.map(t => t.id === tpl.id ? tpl : t) : [...custom, tpl];
+    const existing = resourceTemplates.findIndex(t => t.id === tpl.id);
+    const updated = existing >= 0 ? resourceTemplates.map(t => t.id === tpl.id ? tpl : t) : [...resourceTemplates, tpl];
     saveCustomResourceTemplates(updated);
-    setResourceTemplates([...getVisibleBuiltInResourceTemplates(), ...updated]);
+    setResourceTemplates(updated);
     setSelectedRes(tpl);
     setResEditorOpen(false);
   };
 
-  const duplicateRes = (tpl: ResourceTemplate) => saveRes({ ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] });
+  const duplicateRes = (tpl: ResourceTemplate) => saveRes({ ...tpl, id: `res-${Date.now()}`, name: `${tpl.name} (copie)`, createdAt: new Date().toISOString().split('T')[0] });
 
   const renameRes = (id: string, name: string, description: string) => {
     const updated = resourceTemplates.map(t => t.id === id ? { ...t, name, description } : t);
-    const custom = updated.filter(t => !t.builtIn);
-    saveCustomResourceTemplates(custom);
+    saveCustomResourceTemplates(updated);
     setResourceTemplates(updated);
     setSelectedRes(prev => prev?.id === id ? { ...prev, name, description } : prev);
   };
 
   const reorderRes = (srcId: string, dstId: string) => {
     if (srcId === dstId) return;
-    const custom = resourceTemplates.filter(t => !t.builtIn);
-    const builtIn = resourceTemplates.filter(t => t.builtIn);
-    const srcIdx = custom.findIndex(t => t.id === srcId);
-    const dstIdx = custom.findIndex(t => t.id === dstId);
+    const srcIdx = resourceTemplates.findIndex(t => t.id === srcId);
+    const dstIdx = resourceTemplates.findIndex(t => t.id === dstId);
     if (srcIdx < 0 || dstIdx < 0) return;
-    const newCustom = [...custom];
-    const [removed] = newCustom.splice(srcIdx, 1);
-    newCustom.splice(dstIdx, 0, removed);
-    saveCustomResourceTemplates(newCustom);
-    setResourceTemplates([...newCustom, ...builtIn]);
+    const newResourceTemplates = [...resourceTemplates];
+    const [removed] = newResourceTemplates.splice(srcIdx, 1);
+    newResourceTemplates.splice(dstIdx, 0, removed);
+    saveCustomResourceTemplates(newResourceTemplates);
+    setResourceTemplates(newResourceTemplates);
   };
 
   const deleteRes = (tpl: ResourceTemplate) => {
-    if (tpl.builtIn) {
-      hideTemplate(tpl.id);
-      setResourceTemplates(resourceTemplates.filter(t => t.id !== tpl.id));
-      setSelectedRes(null);
-      return;
-    }
-    const custom = resourceTemplates.filter(t => !t.builtIn && t.id !== tpl.id);
+    const custom = resourceTemplates.filter(t => t.id !== tpl.id);
     saveCustomResourceTemplates(custom);
-    setResourceTemplates([...getVisibleBuiltInResourceTemplates(), ...custom]);
+    setResourceTemplates(custom);
     setSelectedRes(null);
   };
 
@@ -1679,9 +1638,9 @@ export function Modeles() {
                 <button key={key} onClick={() => {
                   setTypeFilter(key);
                   setSearchQuery('');
-                  if (key === 'projets') setSelectedTpl(templates.find(t => !t.builtIn) ?? templates[0] ?? null);
+                  if (key === 'projets') setSelectedTpl(templates[0] ?? null);
                   else if (key === 'formulaires') setSelectedForm(formTemplates.find(t => !t.builtIn) ?? formTemplates[0] ?? null);
-                  else { const customs = resourceTemplates.filter(t => t.type === key && !t.builtIn); setSelectedRes(customs[0] ?? resourceTemplates.find(t => t.type === key) ?? null); }
+                  else setSelectedRes(resourceTemplates.find(t => t.type === key) ?? null);
                 }} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                   padding: indent ? '6px 12px 6px 28px' : '7px 12px',
@@ -1742,10 +1701,10 @@ export function Modeles() {
             {/* PROJETS */}
             {typeFilter === 'projets' && (
               <>
-                {filteredTpl.filter(t => !t.builtIn).length > 0 ? (
+                {filteredTpl.length > 0 && (
                   <>
                     <p style={sectionLabelStyle}>Mes modèles</p>
-                    {[...filteredTpl.filter(t => !t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
+                    {[...filteredTpl].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
                       <TemplateListItem key={tpl.id} tpl={tpl} selected={selectedTpl?.id === tpl.id} onClick={() => setSelectedTpl(tpl)}
                         canDrag isDragging={dragTplId === tpl.id} isDragOver={dragOverTplId === tpl.id}
                         onDragStart={() => setDragTplId(tpl.id)}
@@ -1756,17 +1715,7 @@ export function Modeles() {
                       />
                     ))}
                   </>
-                ) : null}
-                <button onClick={() => setBuiltInsCollapsed(v => !v)} style={collapsibleBtnStyle}>
-                  <SFIcon name={builtInsCollapsed ? 'chevron-right' : 'chevron-down'} size={11} />
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Intégrés ({filteredTpl.filter(t => t.builtIn).length})
-                  </span>
-                </button>
-                {!builtInsCollapsed && [...filteredTpl.filter(t => t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
-                  <TemplateListItem key={tpl.id} tpl={tpl} selected={selectedTpl?.id === tpl.id} onClick={() => setSelectedTpl(tpl)}
-                    favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)} />
-                ))}
+                )}
               </>
             )}
 
@@ -1804,10 +1753,10 @@ export function Modeles() {
             {/* RESSOURCES (any resource type) */}
             {isResType(typeFilter) && (
               <>
-                {filteredRes.filter(t => !t.builtIn).length > 0 ? (
+                {filteredRes.length > 0 && (
                   <>
                     <p style={sectionLabelStyle}>Mes modèles</p>
-                    {[...filteredRes.filter(t => !t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
+                    {[...filteredRes].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
                       <ResourceTemplateListItem key={tpl.id} tpl={tpl} selected={selectedRes?.id === tpl.id} onClick={() => setSelectedRes(tpl)}
                         canDrag isDragging={dragResId === tpl.id} isDragOver={dragOverResId === tpl.id}
                         onDragStart={() => setDragResId(tpl.id)}
@@ -1818,17 +1767,7 @@ export function Modeles() {
                       />
                     ))}
                   </>
-                ) : null}
-                <button onClick={() => setResBuiltInsCollapsed(v => !v)} style={collapsibleBtnStyle}>
-                  <SFIcon name={resBuiltInsCollapsed ? 'chevron-right' : 'chevron-down'} size={11} />
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Intégrés ({filteredRes.filter(t => t.builtIn).length})
-                  </span>
-                </button>
-                {!resBuiltInsCollapsed && [...filteredRes.filter(t => t.builtIn)].sort((a,b)=>(favorites.has(b.id)?1:0)-(favorites.has(a.id)?1:0)).map(tpl => (
-                  <ResourceTemplateListItem key={tpl.id} tpl={tpl} selected={selectedRes?.id === tpl.id} onClick={() => setSelectedRes(tpl)}
-                    favorite={favorites.has(tpl.id)} onToggleFavorite={() => toggleFav(tpl.id)} />
-                ))}
+                )}
               </>
             )}
 
@@ -1842,13 +1781,7 @@ export function Modeles() {
           {typeFilter === 'projets' && (
             selectedTpl
               ? <TemplateDetail tpl={selectedTpl}
-                  onEdit={() => {
-                    const target = selectedTpl.builtIn
-                      ? { ...selectedTpl, id: `tpl-${Date.now()}`, name: `${selectedTpl.name} (copie)`, builtIn: false, createdAt: new Date().toISOString().split('T')[0] }
-                      : selectedTpl;
-                    if (selectedTpl.builtIn) saveTpl(target);
-                    void openProjectTemplateDraft(target);
-                  }}
+                  onEdit={() => void openProjectTemplateDraft(selectedTpl)}
                   onDuplicate={() => duplicateTpl(selectedTpl)}
                   onDelete={() => deleteTpl(selectedTpl)}
                   onCreateProject={() => setCreateProjectFrom(selectedTpl)}
@@ -1966,12 +1899,8 @@ export function Modeles() {
           tpl={templateResViewTpl}
           onClose={() => setTemplateResViewTpl(null)}
           onSave={updated => {
-            if (updated.builtIn) {
-              saveRes({ ...updated, builtIn: false });
-            } else {
-              saveRes(updated);
-            }
-            setTemplateResViewTpl(updated.builtIn ? null : updated);
+            saveRes(updated);
+            setTemplateResViewTpl(updated);
           }}
         />
       )}
