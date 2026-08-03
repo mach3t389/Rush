@@ -35,7 +35,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { to, subject, html } = req.body as SendEmailBody;
+  // req.body is undefined for a request with no body (e.g. a misauthenticated
+  // cron hit falling through from the digest-run branch above) — destructuring
+  // it directly throws, which Vercel surfaces as an opaque 500 instead of a
+  // clear 400. Guard explicitly so a bad request fails the same way a bad
+  // request should, not like a server bug.
+  const { to, subject, html } = (req.body ?? {}) as Partial<SendEmailBody>;
   if (!to || !subject || !html) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
