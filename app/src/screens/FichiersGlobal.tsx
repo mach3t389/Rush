@@ -849,7 +849,7 @@ function FileTree({
           // pas par l'ordre naturel de projects — même logique que la sidebar
           // globale de l'app (Sidebar.tsx), pour un ordre identique aux deux
           // endroits plutôt qu'un ordre alphabétique/de création ici.
-          const pinnedProjects = pinnedIds.map(id => projects.find(p => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p);
+          const pinnedProjects = pinnedIds.map(id => projects.find(p => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p && !p.archived);
           return pinnedProjects.length > 0 && (
             <>
               <SectionLabel>{t('files.projectsSection')}</SectionLabel>
