@@ -11,7 +11,7 @@ import { setProjectContent } from '../data/projectContentStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
 import { confirmDialog } from '../data/confirmStore';
-import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
+import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef, TemplateTask } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, saveCustomResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
@@ -415,25 +415,27 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
     };
 
     // Materialize the template's sections + tasks into the project task store.
+    const buildTask = (tt: TemplateTask, id: string): Task => ({
+      id,
+      title: tt.title,
+      projectId,
+      projectName: newProject.name,
+      projectColor: color,
+      assignees: tt.assignees?.length ? tt.assignees : (owner ? [owner] : []),
+      status: 'warn',
+      statusLabel: t('models.statusWaiting'),
+      priority: tt.priority ?? 'normal',
+      priorityLabel: tt.priority === 'high' ? t('models.priorityHigh') : tt.priority === 'low' ? t('models.priorityLow') : t('models.priorityNormal'),
+      dueDate: tt.dueDate ?? '',
+      checked: false,
+      description: tt.description,
+      subtasks: tt.subtasks?.length ? tt.subtasks.map((sub, j) => buildTask(sub, `${id}-sub${j}`)) : [],
+      watchers: addWatchers([], [getCurrentUser()?.id, owner?.id]),
+    });
     const sections: SectionData[] = templateSections.map(sec => ({
       label: sec.label,
       progress: 0,
-      tasks: sec.tasks.map((tt, i): Task => ({
-        id: `${projectId}-${sec.label}-${i}`,
-        title: tt.title,
-        projectId,
-        projectName: newProject.name,
-        projectColor: color,
-        assignees: tt.assignees?.length ? tt.assignees : (owner ? [owner] : []),
-        status: 'warn',
-        statusLabel: t('models.statusWaiting'),
-        priority: tt.priority ?? 'normal',
-        priorityLabel: tt.priority === 'high' ? t('models.priorityHigh') : tt.priority === 'low' ? t('models.priorityLow') : t('models.priorityNormal'),
-        dueDate: tt.dueDate ?? '',
-        checked: false,
-        subtasks: [],
-        watchers: addWatchers([], [getCurrentUser()?.id, owner?.id]),
-      })),
+      tasks: sec.tasks.map((tt, i) => buildTask(tt, `${projectId}-${sec.label}-${i}`)),
     }));
     if (sections.length) setSections(projectId, sections);
 
@@ -1383,24 +1385,26 @@ export function Modeles() {
   // ── Project template handlers
   async function openProjectTemplateDraft(tpl: ProjectTemplate) {
     const draftId = await createTemplateDraft(tpl.name, tpl.id);
+    const buildDraftTask = (tt: TemplateTask, id: string): Task => ({
+      id,
+      title: tt.title,
+      projectId: draftId,
+      projectName: tpl.name,
+      projectColor: tpl.color,
+      assignees: tt.assignees ?? [],
+      status: 'warn',
+      statusLabel: 'En attente',
+      priority: tt.priority ?? 'normal',
+      priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+      dueDate: tt.dueDate ?? '',
+      checked: false,
+      description: tt.description,
+      subtasks: tt.subtasks?.length ? tt.subtasks.map((sub, j) => buildDraftTask(sub, `${id}-sub${j}`)) : [],
+    });
     if (tpl.sections?.length) setSections(draftId, tpl.sections.map(sec => ({
       label: sec.label,
       progress: 0,
-      tasks: sec.tasks.map((tt, i): Task => ({
-        id: `${draftId}-${sec.label}-${i}`,
-        title: tt.title,
-        projectId: draftId,
-        projectName: tpl.name,
-        projectColor: tpl.color,
-        assignees: tt.assignees ?? [],
-        status: 'warn',
-        statusLabel: 'En attente',
-        priority: tt.priority ?? 'normal',
-        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
-        dueDate: tt.dueDate ?? '',
-        checked: false,
-        subtasks: [],
-      })),
+      tasks: sec.tasks.map((tt, i) => buildDraftTask(tt, `${draftId}-${sec.label}-${i}`)),
     })));
     if (tpl.folderStructure?.length) addFolderTree(tpl.folderStructure, { projectId: draftId });
     if (tpl.overviewSections?.length) setProjectContent(draftId, { customSections: tpl.overviewSections });

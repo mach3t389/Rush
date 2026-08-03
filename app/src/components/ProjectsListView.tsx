@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, resolveTasksSections } from '../data/templates';
+import type { TemplateTask } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User, Client } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
@@ -198,25 +199,27 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       description: description.trim() || undefined,
     };
     if (templateSections.length) {
+      const buildTask = (tt: TemplateTask, id: string): Task => ({
+        id,
+        title: tt.title,
+        projectId,
+        projectName: newProject.name,
+        projectColor: color,
+        assignees: tt.assignees?.length ? tt.assignees : [members[0] ?? USERS.lea],
+        status: 'warn',
+        statusLabel: 'En attente',
+        priority: tt.priority ?? 'normal',
+        priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
+        dueDate: tt.dueDate ?? '',
+        checked: false,
+        description: tt.description,
+        subtasks: tt.subtasks?.length ? tt.subtasks.map((sub, j) => buildTask(sub, `${id}-sub${j}`)) : [],
+        watchers: addWatchers([], [getCurrentUser()?.id, (members[0] ?? USERS.lea).id]),
+      });
       const sections: SectionData[] = templateSections.map(sec => ({
         label: sec.label,
         progress: 0,
-        tasks: sec.tasks.map((tt, i): Task => ({
-          id: `${projectId}-${sec.label}-${i}`,
-          title: tt.title,
-          projectId,
-          projectName: newProject.name,
-          projectColor: color,
-          assignees: tt.assignees?.length ? tt.assignees : [members[0] ?? USERS.lea],
-          status: 'warn',
-          statusLabel: 'En attente',
-          priority: tt.priority ?? 'normal',
-          priorityLabel: tt.priority === 'high' ? 'Élevée' : tt.priority === 'low' ? 'Basse' : 'Normale',
-          dueDate: tt.dueDate ?? '',
-          checked: false,
-          subtasks: [],
-          watchers: addWatchers([], [getCurrentUser()?.id, (members[0] ?? USERS.lea).id]),
-        })),
+        tasks: sec.tasks.map((tt, i) => buildTask(tt, `${projectId}-${sec.label}-${i}`)),
       }));
       setSections(projectId, sections);
     }
