@@ -199,7 +199,7 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 28, width: 480, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 28, width: 720, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <h2 style={{ fontSize: 17, fontFamily: 'var(--ff-display)', color: 'var(--text)', margin: 0 }}>{t('projectTemplates.createFromProjectTitle')}</h2>
 
         {originTemplate && (
@@ -222,58 +222,61 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: 24, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
 
-          {/* Tâches (racine) */}
-          <Row label={t('projectTemplates.includeTasks')} checked={includeTasks} onToggle={v => v ? setIncludeTasks(true) : uncheckTasksRoot()} />
-          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Row label={t('projectTemplates.includeSections')} checked={includeSections} disabled={!includeTasks}
-              onToggle={v => v ? (setIncludeSections(true), setIncludeTasks(true)) : uncheckSections()} />
+          {/* Colonne gauche : Tâches */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+            <Row label={t('projectTemplates.includeTasks')} checked={includeTasks} onToggle={v => v ? setIncludeTasks(true) : uncheckTasksRoot()} />
             <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Row label={t('projectTemplates.includeTasksInner')} checked={includeTasksInner} disabled={!includeSections}
-                onToggle={v => v ? (setIncludeTasksInner(true), setIncludeSections(true), setIncludeTasks(true)) : uncheckTasksInner()} />
+              <Row label={t('projectTemplates.includeSections')} checked={includeSections} disabled={!includeTasks}
+                onToggle={v => v ? (setIncludeSections(true), setIncludeTasks(true)) : uncheckSections()} />
               <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Row label={t('projectTemplates.includeSubtasks')} checked={includeSubtasks} disabled={!includeTasksInner}
-                  onToggle={v => v ? checkTaskField(setIncludeSubtasks) : setIncludeSubtasks(false)} />
-                <Row label={t('projectTemplates.includeTaskDescription')} checked={includeDescription} disabled={!includeTasksInner}
-                  onToggle={v => v ? checkTaskField(setIncludeDescription) : setIncludeDescription(false)} />
-                <Row label={t('projectTemplates.includePriority')} checked={includePriority} disabled={!includeTasksInner}
-                  onToggle={v => v ? checkTaskField(setIncludePriority) : setIncludePriority(false)} />
-                <Row label={t('projectTemplates.includeAssignees')} checked={includeAssignees} disabled={!includeTasksInner}
-                  onToggle={v => v ? checkTaskField(setIncludeAssignees) : setIncludeAssignees(false)} />
-                <Row label={t('projectTemplates.includeDueDate')} checked={includeDueDate} disabled={!includeTasksInner}
-                  onToggle={v => v ? checkTaskField(setIncludeDueDate) : setIncludeDueDate(false)} />
+                <Row label={t('projectTemplates.includeTasksInner')} checked={includeTasksInner} disabled={!includeSections}
+                  onToggle={v => v ? (setIncludeTasksInner(true), setIncludeSections(true), setIncludeTasks(true)) : uncheckTasksInner()} />
+                <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Row label={t('projectTemplates.includeSubtasks')} checked={includeSubtasks} disabled={!includeTasksInner}
+                    onToggle={v => v ? checkTaskField(setIncludeSubtasks) : setIncludeSubtasks(false)} />
+                  <Row label={t('projectTemplates.includeTaskDescription')} checked={includeDescription} disabled={!includeTasksInner}
+                    onToggle={v => v ? checkTaskField(setIncludeDescription) : setIncludeDescription(false)} />
+                  <Row label={t('projectTemplates.includePriority')} checked={includePriority} disabled={!includeTasksInner}
+                    onToggle={v => v ? checkTaskField(setIncludePriority) : setIncludePriority(false)} />
+                  <Row label={t('projectTemplates.includeAssignees')} checked={includeAssignees} disabled={!includeTasksInner}
+                    onToggle={v => v ? checkTaskField(setIncludeAssignees) : setIncludeAssignees(false)} />
+                  <Row label={t('projectTemplates.includeDueDate')} checked={includeDueDate} disabled={!includeTasksInner}
+                    onToggle={v => v ? checkTaskField(setIncludeDueDate) : setIncludeDueDate(false)} />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Fichiers (racine) */}
-          <Row label={t('projectTemplates.includeFiles')} checked={includeFiles} onToggle={v => v ? setIncludeFiles(true) : uncheckFiles()} style={{ marginTop: 6 }} />
-          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Row label={t('projectTemplates.includeFolderStructure')} checked={includeFolderStructure} disabled={!includeFiles}
-              onToggle={v => v ? (setIncludeFolderStructure(true), setIncludeFiles(true)) : uncheckFolderStructure()} />
+          {/* Colonne droite : Fichiers au-dessus d'Aperçu */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+            <Row label={t('projectTemplates.includeFiles')} checked={includeFiles} onToggle={v => v ? setIncludeFiles(true) : uncheckFiles()} />
             <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Row label={t('projectTemplates.includeDocuments')} checked={includeDocuments} disabled={!includeFolderStructure}
-                onToggle={v => v ? checkDocuments() : setIncludeDocuments(false)} />
+              <Row label={t('projectTemplates.includeFolderStructure')} checked={includeFolderStructure} disabled={!includeFiles}
+                onToggle={v => v ? (setIncludeFolderStructure(true), setIncludeFiles(true)) : uncheckFolderStructure()} />
+              <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Row label={t('projectTemplates.includeDocuments')} checked={includeDocuments} disabled={!includeFolderStructure}
+                  onToggle={v => v ? checkDocuments() : setIncludeDocuments(false)} />
+              </div>
+            </div>
+
+            <Row label={t('projectTemplates.includeOverview')} checked={includeOverview} onToggle={v => v ? setIncludeOverview(true) : uncheckOverview()} style={{ marginTop: 14 }} />
+            <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Row label={t('projectTemplates.includeModules')} checked={includeModules} disabled={!includeOverview}
+                onToggle={v => v ? (setIncludeModules(true), setIncludeOverview(true)) : uncheckModules()} />
+              <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Row label={t('projectTemplates.includeContent')} checked={includeContent} disabled={!includeModules}
+                  onToggle={v => v ? checkContent() : setIncludeContent(false)} />
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Aperçu (racine) */}
-          <Row label={t('projectTemplates.includeOverview')} checked={includeOverview} onToggle={v => v ? setIncludeOverview(true) : uncheckOverview()} style={{ marginTop: 6 }} />
-          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Row label={t('projectTemplates.includeModules')} checked={includeModules} disabled={!includeOverview}
-              onToggle={v => v ? (setIncludeModules(true), setIncludeOverview(true)) : uncheckModules()} />
-            <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Row label={t('projectTemplates.includeContent')} checked={includeContent} disabled={!includeModules}
-                onToggle={v => v ? checkContent() : setIncludeContent(false)} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            <button onClick={checkAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.checkAll')}</button>
-            <span style={{ color: 'var(--text-3)', fontSize: 11 }}>·</span>
-            <button onClick={uncheckAll} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.uncheckAll')}</button>
-          </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: -8 }}>
+          <button onClick={checkAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.checkAll')}</button>
+          <span style={{ color: 'var(--text-3)', fontSize: 11 }}>·</span>
+          <button onClick={uncheckAll} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.uncheckAll')}</button>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
