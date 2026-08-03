@@ -45,9 +45,12 @@ const ALL_SORT_OPTIONS: { value: SortKey; labelKey: string; icon: string }[] = [
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 
-function StepDot({ label, num, active, done }: { label: string; num: number; active: boolean; done: boolean }) {
+function StepDot({ label, num, active, done, reachable, onClick }: { label: string; num: number; active: boolean; done: boolean; reachable: boolean; onClick: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div
+      onClick={reachable ? onClick : undefined}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: reachable ? 'pointer' : 'default' }}
+    >
       <div style={{
         width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -233,6 +236,26 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const STEP_ORDER: Step[] = ['start', 'info', 'team'];
   const stepDone = (s: Step) => STEP_ORDER.indexOf(step) > STEP_ORDER.indexOf(s);
 
+  // Une étape n'est valide que si son propre "canNext" serait vrai — reproduit
+  // la même règle que canNext, mais évaluable pour n'importe quelle étape, pas
+  // seulement l'étape courante (nécessaire pour savoir jusqu'où on peut sauter).
+  const isStepValid = (s: Step): boolean => {
+    if (s === 'info') return name.trim().length > 0 && (clients.length > 0 || newClientName.trim().length > 0);
+    return true; // 'start'/'team' : jamais bloquantes
+  };
+  // Une étape est atteignable par clic si toutes les étapes qui la précèdent
+  // sont déjà valides — on peut donc toujours reculer, mais avancer seulement
+  // jusqu'où les champs obligatoires sont déjà remplis.
+  const maxReachableIndex = (() => {
+    let max = 0;
+    for (let i = 0; i < STEP_ORDER.length; i++) {
+      if (i > 0 && !isStepValid(STEP_ORDER[i - 1])) break;
+      max = i;
+    }
+    return max;
+  })();
+  const isStepReachable = (s: Step) => STEP_ORDER.indexOf(s) <= maxReachableIndex;
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -247,11 +270,11 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <StepDot label={t('projects.stepStart')} num={1} active={step === 'start'} done={stepDone('start')} />
+            <StepDot label={t('projects.stepStart')} num={1} active={step === 'start'} done={stepDone('start')} reachable={isStepReachable('start')} onClick={() => setStep('start')} />
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepInfo')} num={2} active={step === 'info'} done={stepDone('info')} />
+            <StepDot label={t('projects.stepInfo')} num={2} active={step === 'info'} done={stepDone('info')} reachable={isStepReachable('info')} onClick={() => setStep('info')} />
             <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepTeam')} num={3} active={step === 'team'} done={stepDone('team')} />
+            <StepDot label={t('projects.stepTeam')} num={3} active={step === 'team'} done={stepDone('team')} reachable={isStepReachable('team')} onClick={() => setStep('team')} />
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={17} />
