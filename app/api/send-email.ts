@@ -166,7 +166,19 @@ async function handleDigestRun(_req: VercelRequest, res: VercelResponse) {
     if (totals.mention > 0)  parts.push(`<strong>${totals.mention} mention${totals.mention > 1 ? 's' : ''}</strong>`);
     if (totals.approval > 0) parts.push(`<strong>${totals.approval} demande${totals.approval > 1 ? 's' : ''} d'approbation</strong>`);
 
-    const html = `<p>Votre récap Rush</p><p>Depuis votre dernier récap : ${parts.join(', ')}.</p><p><a href="${process.env.VITE_APP_URL ?? 'https://rush.app'}">Voir le détail dans Rush →</a></p>`;
+    const appLink = process.env.VITE_APP_URL ?? 'https://rush.app';
+    const html = `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a; line-height: 1.5;">
+      <p style="font-weight: 700; font-size: 15px; letter-spacing: -0.2px; margin-bottom: 20px;">Rush</p>
+      <p>Voici votre récap quotidien.</p>
+      <p>Depuis votre dernier récap, vous avez reçu : ${parts.join(', ')}.</p>
+      <p style="margin: 24px 0 8px;">
+        <a href="${appLink}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Voir le détail dans Rush</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 28px 0 14px;" />
+      <p style="color: #999; font-size: 12px; margin: 0;">
+        Vous recevez ce récap parce que vous l'avez activé dans Paramètres → Notifications. Vous pouvez le désactiver ou changer l'heure d'envoi depuis là.
+      </p>
+    </div>`;
 
     const { error: sendError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',

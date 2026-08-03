@@ -23,7 +23,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import { sendEmail } from '../data/emailStore';
+import { sendEmail, wrapEmailHtml } from '../data/emailStore';
 import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
@@ -1584,15 +1584,18 @@ export function TravailOverview() {
                         });
                         if (!isDemoSession() && approver.email) {
                           const studioName = getStudioInfo().name || 'Rush';
-                          const link = `${window.location.origin}/projets/${project.id}/overview`;
+                          // Client-facing link, not the studio-side /projets
+                          // route — an external approver has no studio
+                          // login, only their client portal access.
+                          const link = `${window.location.origin}/apercu-client/${project.clientId}/projets/${project.id}`;
                           void sendEmail(
                             approver.email,
                             `${studioName} vous demande d'approuver le projet « ${project.name} »`,
-                            `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-                              <p>Bonjour ${approver.name || ''},</p>
-                              <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>
-                              <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Voir le projet</a></p>
-                            </div>`,
+                            wrapEmailHtml(
+                              `<p>Bonjour ${approver.name || ''},</p>
+                              <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>`,
+                              { ctaLabel: 'Voir et approuver', ctaLink: link }
+                            ),
                             approver.authUserId ? { eventKey: 'approval', recipientUserId: approver.authUserId } : undefined
                           );
                         }
