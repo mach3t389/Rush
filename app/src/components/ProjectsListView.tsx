@@ -476,22 +476,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 />
               </div>
 
-              {selectedTemplate && (
-                <div style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: selectedTemplate.color + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <SFIcon name={selectedTemplate.icon} size={14} color={selectedTemplate.color} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 11, fontWeight: 600 }}>{t('projects.templateLabel', { name: selectedTemplate.name })}</p>
-                    <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-                      {t('projects.sectionsTasksPreconfigured', { sections: resolveTasksSections(selectedTemplate).length, tasks: resolveTasksSections(selectedTemplate).reduce((n, s) => n + s.tasks.length, 0) })}
-                    </p>
-                  </div>
-                  <button onClick={() => { setTemplateId(null); setStep('start'); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
-                    <SFIcon name="x" size={13} />
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
