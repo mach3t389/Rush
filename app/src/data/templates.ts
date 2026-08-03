@@ -1027,8 +1027,13 @@ export async function ensureDefaultTemplatesSeeded(studioId?: string): Promise<v
   // Ne semer que ce qui est vide — un studio qui a déjà des modèles personnalisés
   // (cas improbable puisqu'on ne devrait passer ici que pour templates_seeded=false,
   // mais gardé par défense) ne doit pas se les faire écraser.
-  const needsProjectSeed = loadCustomTemplates().length === 0;
-  const needsResourceSeed = loadCustomResourceTemplates().length === 0;
+  // ⚠️ Si `studioId` est passé explicitement (toujours un studio fraîchement créé,
+  // seul appelant : provisionNewStudio), on ne peut PAS se fier au cache ambiant
+  // loadCustomTemplates()/loadCustomResourceTemplates() : il reflète le studio
+  // précédemment actif dans cette session navigateur, pas resolvedStudioId. Un
+  // studio tout juste créé a nécessairement besoin du seed, sans condition.
+  const needsProjectSeed = studioId ? true : loadCustomTemplates().length === 0;
+  const needsResourceSeed = studioId ? true : loadCustomResourceTemplates().length === 0;
 
   const [projectSeedOk, resourceSeedOk] = await Promise.all([
     needsProjectSeed ? saveCustomTemplatesAsync([...SEED_TEMPLATES], resolvedStudioId) : Promise.resolve(true),
