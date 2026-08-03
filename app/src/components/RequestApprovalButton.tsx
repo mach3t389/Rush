@@ -10,7 +10,7 @@ import { USERS } from '../data/mock';
 import { showToast } from '../data/toastStore';
 import { getCurrentUser, isDemoSession } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import { sendEmail } from '../data/emailStore';
+import { sendEmail, wrapEmailHtml } from '../data/emailStore';
 import { getClientExternalTeam } from '../data/clientTeamStore';
 import type { Resource, Status, DeliverableType, Task } from '../types';
 
@@ -107,7 +107,10 @@ export function RequestApprovalButton({
         void sendEmail(
           contact.email,
           `Approbation demandée : « ${resource.title} »`,
-          `<p>${actorName} a demandé votre approbation pour « ${resource.title} ».</p>`,
+          wrapEmailHtml(
+            `<p>${actorName} a demandé votre approbation pour « ${resource.title} » sur le projet <strong>${project?.name ?? ''}</strong>.</p>`,
+            project?.clientId ? { ctaLabel: 'Voir et approuver', ctaLink: `${window.location.origin}/apercu-client/${project.clientId}/projets/${projectId}` } : undefined
+          ),
           contact.authUserId ? { eventKey: 'approval', recipientUserId: contact.authUserId } : undefined
         );
       }
@@ -143,7 +146,10 @@ export function RequestApprovalButton({
         void sendEmail(
           contact.email,
           `Approbation demandée : « ${resource.title} »`,
-          `<p>${actorName} a demandé votre approbation pour « ${resource.title} ».</p>`,
+          wrapEmailHtml(
+            `<p>${actorName} a demandé votre approbation pour « ${resource.title} » sur le projet <strong>${project?.name ?? ''}</strong>.</p>`,
+            project?.clientId ? { ctaLabel: 'Voir et approuver', ctaLink: `${window.location.origin}/apercu-client/${project.clientId}/projets/${projectId}` } : undefined
+          ),
           contact.authUserId ? { eventKey: 'approval', recipientUserId: contact.authUserId } : undefined
         );
       }
