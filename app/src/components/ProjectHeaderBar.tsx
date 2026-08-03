@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, NavLink, useLocation } from 'react-router-dom';
+import { useNavigate, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFModal, SFButton } from './ui';
 import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject } from '../data/projectStore';
@@ -29,7 +29,6 @@ export function ProjectHeaderBar({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const project = findProject(projectId);
 
   const [, forceUpdate] = useState(0);
@@ -49,16 +48,20 @@ export function ProjectHeaderBar({
   if (!project) return null;
 
   const allTabs = [
-    { label: t('projects.tabOverview'),   path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
-    { label: t('projects.tabTasks'),      path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
-    { label: t('projects.tabCalendar'),   path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
-    { label: t('projects.tabFiles'),      path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
-    { label: t('projects.tabFinance'),    path: `/projets/${projectId}/finances`,   end: false, badge: 0 },
-    { label: t('projects.tabTeam'),       path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
-    { label: t('projects.tabActivity'),   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
+    { key: 'overview', label: t('projects.tabOverview'),   path: `/projets/${projectId}/overview`,   end: true,  badge: 0 },
+    { key: 'tasks',    label: t('projects.tabTasks'),      path: `/projets/${projectId}`,            end: true,  badge: taskNotifs },
+    { key: 'calendar', label: t('projects.tabCalendar'),   path: `/projets/${projectId}/calendrier`, end: false, badge: 0 },
+    { key: 'files',    label: t('projects.tabFiles'),      path: `/projets/${projectId}/fichiers`,   end: false, badge: 0 },
+    { key: 'finance',  label: t('projects.tabFinance'),    path: `/projets/${projectId}/finances`,   end: false, badge: 0 },
+    { key: 'team',     label: t('projects.tabTeam'),       path: `/projets/${projectId}/membres`,    end: false, badge: 0 },
+    { key: 'activity', label: t('projects.tabActivity'),   path: `/projets/${projectId}/activite`,   end: false, badge: 0 },
   ];
+  // Un brouillon de modèle ne capture que Aperçu/Tâches/Fichiers (les 3 cases
+  // à cocher de "Créer un modèle depuis ce projet") — Calendrier/Finances/
+  // Membres/Activité n'ont pas de sens pour un modèle et restent masqués.
+  const TEMPLATE_DRAFT_TAB_KEYS = ['overview', 'tasks', 'files'];
   const tabs = project.isTemplateDraft
-    ? allTabs.filter(tb => tb.end ? location.pathname === tb.path : location.pathname.startsWith(tb.path))
+    ? allTabs.filter(tb => TEMPLATE_DRAFT_TAB_KEYS.includes(tb.key))
     : allTabs;
 
   return (
