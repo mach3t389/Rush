@@ -156,19 +156,49 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={includeTasks} onChange={e => setIncludeTasks(e.target.checked)} />
-            {t('projectTemplates.includeTasks')}
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0' }}>
             <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} />
             {t('projectTemplates.includeFiles')}
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0', marginTop: 4 }}>
+            <input type="checkbox" checked={includeTasks} onChange={e => setIncludeTasks(e.target.checked)} />
+            {t('projectTemplates.includeTasks')}
+          </label>
+          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeSubtasks} disabled={!includeTasks} onChange={e => setIncludeSubtasks(e.target.checked)} />
+              {t('projectTemplates.includeSubtasks')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeDescription} disabled={!includeTasks} onChange={e => setIncludeDescription(e.target.checked)} />
+              {t('projectTemplates.includeTaskDescription')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includePriority} disabled={!includeTasks} onChange={e => setIncludePriority(e.target.checked)} />
+              {t('projectTemplates.includePriority')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeAssignees} disabled={!includeTasks} onChange={e => setIncludeAssignees(e.target.checked)} />
+              {t('projectTemplates.includeAssignees')}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
+              <input type="checkbox" checked={includeDueDate} disabled={!includeTasks} onChange={e => setIncludeDueDate(e.target.checked)} />
+              {t('projectTemplates.includeDueDate')}
+            </label>
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0', marginTop: 4 }}>
             <input type="checkbox" checked={includeOverview} onChange={e => setIncludeOverview(e.target.checked)} />
             {t('projectTemplates.includeOverview')}
           </label>
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button onClick={checkAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.checkAll')}</button>
+            <span style={{ color: 'var(--text-3)', fontSize: 11 }}>·</span>
+            <button onClick={uncheckAll} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.uncheckAll')}</button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
