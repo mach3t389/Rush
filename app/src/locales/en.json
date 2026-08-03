@@ -2040,6 +2040,7 @@
     "connectGoogleCalendar": "Connect Google Calendar",
     "availableNextUpdate": "Available in the next update",
     "gcalConnected": "Connected",
+    "gcalConnectedAs": "Connected account: {{account}}",
     "gcalLastSynced": "Last synced: {{time}}",
     "gcalDisconnect": "Disconnect",
     "integrationSlackDesc": "Receive Rush notifications directly in your channels.",

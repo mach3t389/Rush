@@ -2053,6 +2053,7 @@
     "connectGoogleCalendar": "Connecter Google Agenda",
     "availableNextUpdate": "Disponible lors de la prochaine mise à jour",
     "gcalConnected": "Connecté",
+    "gcalConnectedAs": "Compte connecté : {{account}}",
     "gcalLastSynced": "Dernière synchronisation : {{time}}",
     "gcalDisconnect": "Déconnecter",
     "integrationSlackDesc": "Recevez des notifications Rush directement dans vos canaux.",

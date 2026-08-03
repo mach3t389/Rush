@@ -1859,7 +1859,7 @@ function GoogleCalendarCard() {
     setDisconnecting(true);
     try {
       await disconnectGoogleCalendar();
-      setStatus({ connected: false, lastSyncedAt: null });
+      setStatus({ connected: false, lastSyncedAt: null, connectedEmail: null, connectedName: null });
     } catch (err) {
       console.error('Failed to disconnect Google Calendar', err);
     } finally {
@@ -1894,6 +1894,11 @@ function GoogleCalendarCard() {
               ? t('settings.gcalLastSynced', { time: new Date(status.lastSyncedAt).toLocaleString() })
               : t('settings.googleCalendarDesc')}
           </p>
+          {status?.connected && (status.connectedEmail || status.connectedName) && (
+            <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
+              {t('settings.gcalConnectedAs', { account: status.connectedName ? `${status.connectedName} (${status.connectedEmail})` : status.connectedEmail })}
+            </p>
+          )}
         </div>
       </div>
 

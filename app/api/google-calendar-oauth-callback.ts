@@ -53,6 +53,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    // Best-effort — the connection still works without it, it just won't
+    // show whose Google account is linked in Paramètres > Intégrations.
+    let connectedGoogleEmail: string | null = null;
+    let connectedGoogleName: string | null = null;
+    try {
+      const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (userinfoRes.ok) {
+        const userinfo = await userinfoRes.json() as { email?: string; name?: string };
+        connectedGoogleEmail = userinfo.email ?? null;
+        connectedGoogleName = userinfo.name ?? null;
+      } else {
+        console.error('Failed to fetch Google userinfo:', await userinfoRes.text());
+      }
+    } catch (err) {
+      console.error('Failed to fetch Google userinfo:', err);
+    }
+
     const supabaseAdmin = createClient(
       process.env.VITE_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -87,6 +106,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         google_calendar_id: 'primary',
         connected_by_user_id: anyMember.user_id,
         connected_at: new Date().toISOString(),
+        connected_google_email: connectedGoogleEmail,
+        connected_google_name: connectedGoogleName,
         sync_token: null, // force a fresh full sync on the next pull
       }, { onConflict: 'studio_id' });
 

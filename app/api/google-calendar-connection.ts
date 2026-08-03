@@ -14,7 +14,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { signOAuthState } from './_lib/googleCalendarAuth.js';
 
-const SCOPE = 'https://www.googleapis.com/auth/calendar';
+// email/profile added so the callback can show which Google account is
+// connected (Paramètres > Intégrations) — otherwise indistinguishable when
+// a studio's connection gets replaced by a teammate's different account.
+const SCOPE = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 
 interface DisconnectBody {
   studioId: string;
@@ -120,13 +123,15 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: connection } = await supabaseAdmin
     .from('google_calendar_connections')
-    .select('last_synced_at')
+    .select('last_synced_at, connected_google_email, connected_google_name')
     .eq('studio_id', studioId)
     .maybeSingle();
 
   res.status(200).json({
     connected: !!connection,
     lastSyncedAt: connection?.last_synced_at ?? null,
+    connectedEmail: connection?.connected_google_email ?? null,
+    connectedName: connection?.connected_google_name ?? null,
   });
 }
 
