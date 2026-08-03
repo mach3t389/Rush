@@ -148,6 +148,23 @@ export function addResource(r: Resource): void {
   void addSupabaseResource(r);
 }
 
+/**
+ * Awaitable variant of addResource. In real sessions, waits for the Supabase
+ * insert to complete before resolving — callers that must chain a dependent
+ * write (e.g. resource_content, which has a FK on resources.id) should use
+ * this instead of addResource to avoid a race where the dependent insert
+ * hits Postgres before the resource row exists.
+ */
+export async function addResourceAsync(r: Resource): Promise<void> {
+  if (isDemoSession()) {
+    _demoResources = [..._demoResources, r];
+    persistDemo();
+    notify();
+    return;
+  }
+  await addSupabaseResource(r);
+}
+
 export function updateResource(id: string, patch: Partial<Resource>): void {
   if (patch.title !== undefined) renameFileByResourceId(id, patch.title);
   if (isDemoSession()) {

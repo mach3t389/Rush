@@ -1,6 +1,7 @@
 export { SFIcon } from './SFIcon';
 export { SFPill } from './SFPill';
 export { SFButton } from './SFButton';
+export { SFCheckbox } from './SFCheckbox';
 export { SFCard } from './SFCard';
 export { SFAvatar, SFAvatarGroup } from './SFAvatar';
 export { SFBar } from './SFBar';

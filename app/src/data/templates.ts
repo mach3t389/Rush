@@ -1,9 +1,9 @@
-import type { Priority, User } from '../types';
+import type { Priority, User, ResourceType } from '../types';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { loadPersisted, savePersisted } from './persist';
-import type { CustomOverviewSection } from './projectContentStore';
+import type { CustomOverviewSection, CustomSectionValue } from './projectContentStore';
 
 // ── Hidden built-in templates ────────────────────────────────────────────────────
 // Les modèles "Intégrés" ne sont pas des lignes de données réelles (juste du contenu
@@ -71,6 +71,7 @@ export interface ProjectTemplate {
   sections?: TemplateSection[];
   folderStructure?: FolderNode[];
   overviewSections?: CustomOverviewSection[];
+  overviewSectionData?: Record<string, CustomSectionValue>;
   /** @deprecated Ancien format — lu par migrateLegacyProjectTemplate(), jamais écrit. */
   tasksTemplateId?: string;
   /** @deprecated */
@@ -766,7 +767,13 @@ export type ResourceTemplateType = 'document' | 'screenplay' | 'video_review' | 
 export interface DocumentSection { title: string; body: string; }
 export interface SceneBlock { id: string; location: string; time: string; action: string; }
 export interface ReviewRound { id: string; label: string; description: string; }
-export interface FolderNode { id: string; name: string; children?: FolderNode[]; }
+export interface TemplateResourceFile {
+  name: string;
+  resourceType: ResourceType;
+  content: unknown;
+}
+
+export interface FolderNode { id: string; name: string; children?: FolderNode[]; resources?: TemplateResourceFile[]; }
 export interface MoodboardRef { id: string; title: string; note: string; }
 
 export interface ResourceTemplate {

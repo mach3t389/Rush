@@ -4,6 +4,8 @@ import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
+import { setResourceContent } from './resourceContentStore';
+import type { TemplateResourceFile } from './templates';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -296,7 +298,51 @@ export function addFolder(f: Omit<FileFolder, 'id' | 'createdAt'>): FileFolder {
   return folder;
 }
 
-export interface FolderTreeNode { id?: string; name: string; children?: FolderTreeNode[] }
+export interface FolderTreeNode { id?: string; name: string; children?: FolderTreeNode[]; resources?: TemplateResourceFile[] }
+
+// Materializes the real Resource + its content + the 'resource' file_item for
+// every TemplateResourceFile captured on a template's folder nodes. Shared by
+// both the demo and Supabase branches of addFolderTree below. `addResource`
+// lives in resourceStore.ts, which itself imports renameFileByResourceId from
+// this file — a static import here would be circular, so it's loaded
+// dynamically (same pattern as studioStore.ts's provisionNewStudio).
+async function materializeTemplateResources(
+  resourceAdditions: { folderId: string; resources: TemplateResourceFile[] }[],
+  scope: { projectId?: string; clientId?: string },
+): Promise<void> {
+  if (!resourceAdditions.length) return;
+  const { addResourceAsync } = await import('./resourceStore');
+  for (const { folderId, resources } of resourceAdditions) {
+    for (const r of resources) {
+      const resourceId = `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      // Await the resource insert before writing its content — resource_content
+      // has an FK on resources.id, and in real sessions both writes are
+      // independent fire-and-forget HTTP requests. Without awaiting, the
+      // content upsert can reach Postgres before the resource row exists and
+      // gets silently rejected (see review finding: FK race, data loss).
+      await addResourceAsync({
+        id: resourceId,
+        type: r.resourceType,
+        eyebrow: '',
+        title: r.name,
+        status: 'info',
+        statusLabel: '',
+        meta: '',
+      });
+      setResourceContent(resourceId, r.content);
+      addFile({
+        name: r.name,
+        type: 'resource',
+        ext: '',
+        resourceId,
+        resourceType: r.resourceType,
+        parentFolderId: folderId,
+        projectId: scope.projectId,
+        clientId: scope.clientId,
+      });
+    }
+  }
+}
 
 export function addFolderTree(
   nodes: FolderTreeNode[],
@@ -306,10 +352,12 @@ export function addFolderTree(
   const createdAt = new Date().toISOString().slice(0, 10);
   let seq = 0;
   const additions: FileFolder[] = [];
+  const resourceAdditions: { folderId: string; resources: TemplateResourceFile[] }[] = [];
   const walk = (list: FolderTreeNode[], parent: string | null) => {
     list.forEach(node => {
       const id = `folder-${Date.now()}-${seq++}`;
       additions.push({ id, name: node.name, parentId: parent, projectId: scope.projectId, clientId: scope.clientId, createdAt });
+      if (node.resources?.length) resourceAdditions.push({ folderId: id, resources: node.resources });
       if (node.children && node.children.length) walk(node.children, id);
     });
   };
@@ -320,6 +368,10 @@ export function addFolderTree(
     _demoFolders = [..._demoFolders, ...additions];
     persistDemo();
     notify();
+    // Synchronous localStorage writes above already put the parent folders in
+    // place, so materializing resources now is safe — no network round trip
+    // for either step in the demo path.
+    void materializeTemplateResources(resourceAdditions, scope);
     return;
   }
 
@@ -327,6 +379,13 @@ export function addFolderTree(
     const studioId = await getStudioId();
     const { error } = await supabase.from('file_folders').insert(additions.map(f => folderToRow(f, studioId)));
     if (error) { console.error('addFolderTree failed', error); return; }
+    // Critical ordering: the folders' insert() above has resolved successfully
+    // (rows exist server-side) before we touch resourceAdditions — addFile's
+    // own Supabase write is itself fire-and-forget, but as long as the parent
+    // folder row already exists by the time that insert fires, there is no
+    // FK race. Materializing resources before this point (or in parallel with
+    // the folder insert) is what the brief flags as the corruption risk.
+    await materializeTemplateResources(resourceAdditions, scope);
     await fetchSupabaseFileData();
   })();
 }
@@ -434,7 +493,7 @@ export function getFilesInFolder(folderId: string | null, projectId?: string, cl
 
 export function addFile(f: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt'>): FileItem {
   const now = new Date().toISOString().slice(0, 10);
-  const file: FileItem = { ...f, id: `file-${Date.now()}`, createdAt: now, updatedAt: now };
+  const file: FileItem = { ...f, id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, createdAt: now, updatedAt: now };
 
   if (isDemoSession()) {
     _demoFiles = [..._demoFiles, file];
