@@ -151,7 +151,7 @@ function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir
   };
   if (compact) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
         <span />
         {sortable(t('tasks.task'), 'title')}
         <span />
@@ -159,7 +159,7 @@ function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir
     );
   }
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
       {sortable(t('tasks.task'), 'title')}
       {plain(t('tasks.activity'))}

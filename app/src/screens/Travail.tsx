@@ -87,7 +87,7 @@ function ColHeader({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
   if (compact) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
         <span />
         <span style={COL_STYLE}>{t('tasks.title')}</span>
         <span />
@@ -95,7 +95,7 @@ function ColHeader({ compact }: { compact?: boolean }) {
     );
   }
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
       <span style={COL_STYLE}>{t('tasks.title')}</span>
       <span style={COL_STYLE}>{t('tasks.activity')}</span>
