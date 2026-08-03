@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, resolveTasksSections } from '../data/templates';
-import type { Project, Status, Phase, SectionData, Task, User } from '../types/index';
+import type { Project, Status, Phase, SectionData, Task, User, Client } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
-import { getClients } from '../data/clientStore';
+import { getClients, addClient, findClient, subscribeClients } from '../data/clientStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { setProjectContent } from '../data/projectContentStore';
 import { addFolderTree } from '../data/fileStore';
@@ -79,6 +79,12 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const clients = getClients().filter(c => !c.archived);
   const [name, setName]                 = useState('');
   const [clientId, setClientId]         = useState(defaultClientId ?? clients[0]?.id ?? '');
+  // Studio flambant neuf, aucun client encore créé — le sélecteur de clients
+  // (grille) n'a rien à montrer. Plutôt que de laisser l'utilisateur créer un
+  // projet sans client (et planter au clic sur "Créer le projet", cf. bug
+  // signalé), on propose de créer un premier client à la volée avec juste un
+  // nom, réutilisé ci-dessous dans create().
+  const [newClientName, setNewClientName] = useState('');
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [budget, setBudget]             = useState('');
@@ -115,7 +121,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   };
 
   const canNext = step === 'start' ? true
-    : step === 'info' ? name.trim().length > 0
+    : step === 'info' ? name.trim().length > 0 && (clients.length > 0 || newClientName.trim().length > 0)
     : true; // 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
 
   const next = () => {
@@ -133,8 +139,43 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   };
 
   const create = async () => {
-    const allClients = getClients();
-    const client = allClients.find(c => c.id === clientId) ?? allClients[0];
+    // Non-archivés uniquement — un client archivé ne doit jamais être choisi
+    // par défaut ni faire croire à tort que le studio a déjà un client actif
+    // (c'était le bug : allClients[0] pouvait retomber sur un client archivé
+    // au lieu de déclencher la création du tout premier client).
+    const allClients = getClients().filter(c => !c.archived);
+    let client: Client | undefined = allClients.find(c => c.id === clientId) ?? allClients[0];
+    if (!client) {
+      // Studio sans aucun client (compte flambant neuf) — crée un client
+      // minimal à partir du nom saisi. addClient() écrit en fire-and-forget
+      // en session réelle (Supabase) : on attend sa disponibilité réelle
+      // avant de s'en servir, même garde-fou que NewClientModal (Clients.tsx).
+      const trimmedName = newClientName.trim();
+      const newClientId = `c${Date.now()}`;
+      const initials = trimmedName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '—';
+      const newClient: Client = {
+        id: newClientId,
+        name: trimmedName,
+        initials,
+        avatarColor: PROJECT_COLORS[0],
+        sector: '',
+        city: '—',
+        activeProjects: 0,
+        pendingDeliverables: 0,
+        since: String(new Date().getFullYear()),
+        progress: 0,
+        status: 'ok',
+        statusLabel: t('clients.statusActive'),
+        lastActivity: new Date().toISOString(),
+      };
+      addClient(newClient);
+      client = findClient(newClientId) ?? await new Promise<Client>(resolve => {
+        const unsubscribe = subscribeClients(() => {
+          const found = findClient(newClientId);
+          if (found) { unsubscribe(); resolve(found); }
+        });
+      });
+    }
     const members = team.filter(u => memberIds.includes(u.id));
     const projectId = `pj${Date.now()}`;
     const templateSections = selectedTemplate ? resolveTasksSections(selectedTemplate) : [];
@@ -309,44 +350,58 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
-                {clients.length > 8 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 8 }}>
-                    <SFIcon name="search" size={13} color="var(--text-3)" />
+                {clients.length === 0 ? (
+                  <div>
                     <input
-                      value={clientSearch}
-                      onChange={e => setClientSearch(e.target.value)}
-                      placeholder={t('projects.searchClientPlaceholder')}
-                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                      value={newClientName}
+                      onChange={e => setNewClientName(e.target.value)}
+                      placeholder={t('clients.placeholder')}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
                     />
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.firstClientHint')}</p>
                   </div>
+                ) : (
+                  <>
+                    {clients.length > 8 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 8 }}>
+                        <SFIcon name="search" size={13} color="var(--text-3)" />
+                        <input
+                          value={clientSearch}
+                          onChange={e => setClientSearch(e.target.value)}
+                          placeholder={t('projects.searchClientPlaceholder')}
+                          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                        />
+                      </div>
+                    )}
+                    <div style={{ maxHeight: clients.length > 8 ? 220 : undefined, overflowY: clients.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        {(() => {
+                          const sortedClients = [...clients].sort((a, b) => Number(isPinnedClient(b.id)) - Number(isPinnedClient(a.id)));
+                          const filteredClients = clientSearch.trim()
+                            ? sortedClients.filter(c => c.name.toLowerCase().includes(clientSearch.trim().toLowerCase()))
+                            : sortedClients;
+                          return filteredClients.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => setClientId(c.id)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
+                                border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
+                                background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                              }}
+                            >
+                              <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
+                              </div>
+                              <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </>
                 )}
-                <div style={{ maxHeight: clients.length > 8 ? 220 : undefined, overflowY: clients.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                    {(() => {
-                      const sortedClients = [...clients].sort((a, b) => Number(isPinnedClient(b.id)) - Number(isPinnedClient(a.id)));
-                      const filteredClients = clientSearch.trim()
-                        ? sortedClients.filter(c => c.name.toLowerCase().includes(clientSearch.trim().toLowerCase()))
-                        : sortedClients;
-                      return filteredClients.map(c => (
-                        <button
-                          key={c.id}
-                          onClick={() => setClientId(c.id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
-                            border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
-                            background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
-                          }}
-                        >
-                          <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                </div>
               </div>
 
               <div>

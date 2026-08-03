@@ -443,6 +443,7 @@
     "projectNamePlaceholder": "e.g. Fall 2026 Campaign…",
     "client": "Client",
     "searchClientPlaceholder": "Search a client…",
+    "firstClientHint": "This will be your first client — you can fill in the rest of their profile later.",
     "searchTeamPlaceholder": "Search a member…",
     "projectColor": "Project color",
     "archiveProject": "Archive project",
