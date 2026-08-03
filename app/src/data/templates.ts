@@ -486,9 +486,9 @@ let _projectTemplatesFetchStarted = false;
 
 interface CustomTemplateRow { id: string; data: ProjectTemplate; }
 
-async function fetchSupabaseProjectTemplates(): Promise<void> {
+async function fetchSupabaseProjectTemplates(knownStudioId?: string): Promise<void> {
   try {
-    const studioId = await getStudioId();
+    const studioId = knownStudioId ?? await getStudioId();
     const { data, error } = await supabase.from('custom_project_templates').select('id, data').eq('studio_id', studioId);
     if (error) { console.error('fetchSupabaseProjectTemplates failed', error); return; }
     _supabaseProjectTemplates = (data as CustomTemplateRow[]).map(row => row.data);
@@ -510,8 +510,8 @@ export function resetCustomProjectTemplatesCache(): void {
 
 onLogout(resetCustomProjectTemplatesCache);
 
-async function replaceSupabaseProjectTemplates(previousIds: string[], templates: ProjectTemplate[]): Promise<boolean> {
-  const studioId = await getStudioId();
+async function replaceSupabaseProjectTemplates(previousIds: string[], templates: ProjectTemplate[], knownStudioId?: string): Promise<boolean> {
+  const studioId = knownStudioId ?? await getStudioId();
   const nextIds = templates.map(t => t.id);
   const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
@@ -527,7 +527,7 @@ async function replaceSupabaseProjectTemplates(previousIds: string[], templates:
     if (upsertError) { console.error('replaceSupabaseProjectTemplates upsert failed', upsertError); return false; }
   }
 
-  await fetchSupabaseProjectTemplates();
+  await fetchSupabaseProjectTemplates(knownStudioId);
   return true;
 }
 
@@ -553,7 +553,7 @@ export function saveCustomTemplates(templates: ProjectTemplate[]): void {
 // ensureDefaultTemplatesSeeded — ne doit jamais marquer templates_seeded=true
 // avant que cette promesse soit résolue). Ne remplace pas saveCustomTemplates
 // pour les usages UI existants (fire-and-forget volontaire là-bas).
-export async function saveCustomTemplatesAsync(templates: ProjectTemplate[]): Promise<boolean> {
+export async function saveCustomTemplatesAsync(templates: ProjectTemplate[], knownStudioId?: string): Promise<boolean> {
   if (isDemoSession()) {
     _demoProjectTemplates = templates;
     persistDemoProjectTemplates();
@@ -561,7 +561,7 @@ export async function saveCustomTemplatesAsync(templates: ProjectTemplate[]): Pr
   }
   const previousIds = _supabaseProjectTemplates.map(t => t.id);
   _supabaseProjectTemplates = templates;
-  return await replaceSupabaseProjectTemplates(previousIds, templates);
+  return await replaceSupabaseProjectTemplates(previousIds, templates, knownStudioId);
 }
 
 // tpl-video-sociale a été retiré du seed (Task 2, refonte templates). Un ancien
@@ -903,9 +903,9 @@ let _resourceTemplatesFetchStarted = false;
 
 interface CustomResourceTemplateRow { id: string; data: ResourceTemplate; }
 
-async function fetchSupabaseResourceTemplates(): Promise<void> {
+async function fetchSupabaseResourceTemplates(knownStudioId?: string): Promise<void> {
   try {
-    const studioId = await getStudioId();
+    const studioId = knownStudioId ?? await getStudioId();
     const { data, error } = await supabase.from('custom_resource_templates').select('id, data').eq('studio_id', studioId);
     if (error) { console.error('fetchSupabaseResourceTemplates failed', error); return; }
     _supabaseResourceTemplates = (data as CustomResourceTemplateRow[]).map(row => row.data);
@@ -927,8 +927,8 @@ export function resetCustomResourceTemplatesCache(): void {
 
 onLogout(resetCustomResourceTemplatesCache);
 
-async function replaceSupabaseResourceTemplates(previousIds: string[], templates: ResourceTemplate[]): Promise<boolean> {
-  const studioId = await getStudioId();
+async function replaceSupabaseResourceTemplates(previousIds: string[], templates: ResourceTemplate[], knownStudioId?: string): Promise<boolean> {
+  const studioId = knownStudioId ?? await getStudioId();
   const nextIds = templates.map(t => t.id);
   const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
@@ -944,7 +944,7 @@ async function replaceSupabaseResourceTemplates(previousIds: string[], templates
     if (upsertError) { console.error('replaceSupabaseResourceTemplates upsert failed', upsertError); return false; }
   }
 
-  await fetchSupabaseResourceTemplates();
+  await fetchSupabaseResourceTemplates(knownStudioId);
   return true;
 }
 
@@ -967,7 +967,7 @@ export function saveCustomResourceTemplates(templates: ResourceTemplate[]): void
 
 // Variante awaitable de saveCustomResourceTemplates — même raison d'être que
 // saveCustomTemplatesAsync : seul ensureDefaultTemplatesSeeded doit en dépendre.
-export async function saveCustomResourceTemplatesAsync(templates: ResourceTemplate[]): Promise<boolean> {
+export async function saveCustomResourceTemplatesAsync(templates: ResourceTemplate[], knownStudioId?: string): Promise<boolean> {
   if (isDemoSession()) {
     _demoResourceTemplates = templates;
     persistDemoResourceTemplates();
@@ -975,7 +975,7 @@ export async function saveCustomResourceTemplatesAsync(templates: ResourceTempla
   }
   const previousIds = _supabaseResourceTemplates.map(t => t.id);
   _supabaseResourceTemplates = templates;
-  return await replaceSupabaseResourceTemplates(previousIds, templates);
+  return await replaceSupabaseResourceTemplates(previousIds, templates, knownStudioId);
 }
 
 export function loadAllResourceTemplates(): ResourceTemplate[] {
@@ -1009,7 +1009,7 @@ export function loadAllResourceTemplates(): ResourceTemplate[] {
 // silencieusement un échec comme "fait".
 const DEMO_TEMPLATES_SEEDED_KEY = 'sf_demo_templates_seeded';
 
-export async function ensureDefaultTemplatesSeeded(): Promise<void> {
+export async function ensureDefaultTemplatesSeeded(studioId?: string): Promise<void> {
   if (isDemoSession()) {
     if (loadPersisted(DEMO_TEMPLATES_SEEDED_KEY, false)) return;
     if (loadCustomTemplates().length === 0) saveCustomTemplates([...SEED_TEMPLATES]);
@@ -1018,10 +1018,10 @@ export async function ensureDefaultTemplatesSeeded(): Promise<void> {
     return;
   }
 
-  const studioId = await getStudioId();
-  if (!studioId) return;
+  const resolvedStudioId = studioId ?? await getStudioId();
+  if (!resolvedStudioId) return;
 
-  const { data, error } = await supabase.from('studios').select('templates_seeded').eq('id', studioId).single();
+  const { data, error } = await supabase.from('studios').select('templates_seeded').eq('id', resolvedStudioId).single();
   if (error || !data || data.templates_seeded) return;
 
   // Ne semer que ce qui est vide — un studio qui a déjà des modèles personnalisés
@@ -1031,8 +1031,8 @@ export async function ensureDefaultTemplatesSeeded(): Promise<void> {
   const needsResourceSeed = loadCustomResourceTemplates().length === 0;
 
   const [projectSeedOk, resourceSeedOk] = await Promise.all([
-    needsProjectSeed ? saveCustomTemplatesAsync([...SEED_TEMPLATES]) : Promise.resolve(true),
-    needsResourceSeed ? saveCustomResourceTemplatesAsync([...SEED_RESOURCE_TEMPLATES]) : Promise.resolve(true),
+    needsProjectSeed ? saveCustomTemplatesAsync([...SEED_TEMPLATES], resolvedStudioId) : Promise.resolve(true),
+    needsResourceSeed ? saveCustomResourceTemplatesAsync([...SEED_RESOURCE_TEMPLATES], resolvedStudioId) : Promise.resolve(true),
   ]);
 
   // saveCustomTemplatesAsync/saveCustomResourceTemplatesAsync retournent
@@ -1050,7 +1050,7 @@ export async function ensureDefaultTemplatesSeeded(): Promise<void> {
     return;
   }
 
-  const { error: markSeededError } = await supabase.from('studios').update({ templates_seeded: true }).eq('id', studioId);
+  const { error: markSeededError } = await supabase.from('studios').update({ templates_seeded: true }).eq('id', resolvedStudioId);
   if (markSeededError) {
     console.error('ensureDefaultTemplatesSeeded: échec de la mise à jour templates_seeded', markSeededError);
   }

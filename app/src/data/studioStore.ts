@@ -63,7 +63,7 @@ async function provisionNewStudio(name: string, user: SupabaseUserLike): Promise
   const { seedBuiltInEventTypes } = await import('./eventTypeStore');
   await seedBuiltInEventTypes(created.id);
   const { ensureDefaultTemplatesSeeded } = await import('./templates');
-  await ensureDefaultTemplatesSeeded();
+  await ensureDefaultTemplatesSeeded(created.id);
   return created.id;
 }
 
