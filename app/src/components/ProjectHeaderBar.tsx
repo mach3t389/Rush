@@ -6,6 +6,7 @@ import { findProject, subscribeProjects, archiveProject, unarchiveProject, remov
 import { ProjectEditPanel } from './ProjectCard';
 import { CreateTemplateFromProjectModal } from './CreateTemplateFromProjectModal';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
+import { confirmDialog } from '../data/confirmStore';
 import { getClients } from '../data/clientStore';
 import { useProjectTaskNotifCount } from '../hooks/useNotifs';
 
@@ -267,8 +268,8 @@ export function ProjectHeaderBar({
               variant="secondary"
               size="sm"
               icon="trash-2"
-              onClick={() => {
-                if (!confirm(t('projectTemplates.confirmDiscardDraft'))) return;
+              onClick={async () => {
+                if (!(await confirmDialog(t('projectTemplates.confirmDiscardDraft')))) return;
                 removeProject(project.id);
                 navigate('/modeles');
               }}

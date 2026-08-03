@@ -27,6 +27,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
 import { canUploadFile } from '../data/upgradePromptStore';
+import { confirmDialog } from '../data/confirmStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -2109,7 +2110,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       items = [
         { label: restoreLabel, icon: 'rotate-ccw', action: restoreAll },
         { label: '', icon: '', action: () => {}, separator: true },
-        { label: 'Supprimer définitivement', icon: 'trash-2', action: () => { if (confirm(`Supprimer définitivement « ${folder.name} » et tout son contenu ? Cette action est irréversible.`)) deleteFolder(folder.id); }, danger: true },
+        { label: 'Supprimer définitivement', icon: 'trash-2', action: async () => { if (await confirmDialog(`Supprimer définitivement « ${folder.name} » et tout son contenu ? Cette action est irréversible.`, { danger: true })) deleteFolder(folder.id); }, danger: true },
       ];
     } else if (folder.state === 'archived') {
       items = [
@@ -2149,7 +2150,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       items = [
         { label: restoreLabel, icon: 'rotate-ccw', action: restoreAll },
         { label: '', icon: '', action: () => {}, separator: true },
-        { label: 'Supprimer définitivement', icon: 'trash-2', action: () => { if (confirm(`Supprimer définitivement « ${file.name} » ? Cette action est irréversible.`)) deleteFile(file.id); }, danger: true },
+        { label: 'Supprimer définitivement', icon: 'trash-2', action: async () => { if (await confirmDialog(`Supprimer définitivement « ${file.name} » ? Cette action est irréversible.`, { danger: true })) deleteFile(file.id); }, danger: true },
       ];
     } else if (file.state === 'archived') {
       items = [
@@ -3349,7 +3350,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
         {/* Empty trash button — only in Corbeille view with content */}
         {!readOnly && isTrashView && (filteredFolders.length > 0 || filteredFiles.length > 0) && (
           <button
-            onClick={() => { if (confirm('Vider la corbeille ? Tous les éléments seront définitivement supprimés. Cette action est irréversible.')) emptyTrash(); }}
+            onClick={async () => { if (await confirmDialog('Vider la corbeille ? Tous les éléments seront définitivement supprimés. Cette action est irréversible.', { danger: true })) emptyTrash(); }}
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '7px 14px', borderRadius: 9,

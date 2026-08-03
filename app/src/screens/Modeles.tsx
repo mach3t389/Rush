@@ -10,6 +10,7 @@ import { addFolderTree } from '../data/fileStore';
 import { setProjectContent } from '../data/projectContentStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
+import { confirmDialog } from '../data/confirmStore';
 import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef } from '../data/templates';
 import { loadAllTemplates, saveCustomTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, saveCustomResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
@@ -365,8 +366,8 @@ function TemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onCreateProject, o
           <SFButton
             variant="ghost" size="sm"
             icon="trash-2"
-            onClick={() => {
-              if (!confirm(t('models.deleteConfirm'))) return;
+            onClick={async () => {
+              if (!(await confirmDialog(t('models.deleteConfirm'), { danger: true }))) return;
               onDelete();
             }}
             style={{ color: 'var(--danger)' }}
@@ -576,8 +577,8 @@ function FormTemplateDetail({ tpl, onEdit, onDuplicate, onDelete, onFill, onRena
           <SFButton
             variant="ghost" size="sm"
             icon={tpl.builtIn ? 'eye-off' : 'trash-2'}
-            onClick={() => {
-              if (tpl.builtIn && !confirm(t('models.hideBuiltInConfirm'))) return;
+            onClick={async () => {
+              if (tpl.builtIn && !(await confirmDialog(t('models.hideBuiltInConfirm')))) return;
               onDelete();
             }}
             style={{ color: tpl.builtIn ? 'var(--text-3)' : 'var(--danger)' }}
@@ -801,8 +802,8 @@ function FormInstancesPanel({ templateId, onFillNew, onEditInstance }: {
     });
   }, [templateId]);
 
-  const handleDelete = (id: string) => {
-    if (!confirm('Supprimer cette réponse ?')) return;
+  const handleDelete = async (id: string) => {
+    if (!(await confirmDialog('Supprimer cette réponse ?', { danger: true }))) return;
     deleteFormInstance(id);
   };
 
@@ -1115,8 +1116,8 @@ function ResourceTemplateDetail({ tpl, onOpen, onDuplicate, onDelete, onRename }
           <SFButton
             variant="ghost" size="sm"
             icon="trash-2"
-            onClick={() => {
-              if (!confirm(t('models.deleteConfirm'))) return;
+            onClick={async () => {
+              if (!(await confirmDialog(t('models.deleteConfirm'), { danger: true }))) return;
               onDelete();
             }}
             style={{ color: 'var(--danger)' }}
