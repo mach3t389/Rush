@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon } from './ui';
+import { SFButton, SFIcon, SFCheckbox } from './ui';
 import { getSections } from '../data/taskStore';
 import { getFolderTreeForProject } from '../data/fileStore';
 import { getProjectContent } from '../data/projectContentStore';
@@ -44,24 +45,64 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
   const [color, setColor] = useState(originTemplate?.color ?? TEMPLATE_COLORS[0]);
   const [tags, setTags] = useState(originTemplate?.tags?.join(', ') ?? '');
   const [includeTasks, setIncludeTasks] = useState(true);
-  const [includeFiles, setIncludeFiles] = useState(true);
-  const [includeOverview, setIncludeOverview] = useState(true);
+  const [includeSections, setIncludeSections] = useState(true);
+  const [includeTasksInner, setIncludeTasksInner] = useState(true);
   const [includeSubtasks, setIncludeSubtasks] = useState(true);
   const [includeDescription, setIncludeDescription] = useState(true);
   const [includePriority, setIncludePriority] = useState(true);
   const [includeAssignees, setIncludeAssignees] = useState(true);
   const [includeDueDate, setIncludeDueDate] = useState(true);
+
+  const [includeFiles, setIncludeFiles] = useState(true);
+  const [includeFolderStructure, setIncludeFolderStructure] = useState(true);
+  const [includeDocuments, setIncludeDocuments] = useState(true);
+
+  const [includeOverview, setIncludeOverview] = useState(true);
+  const [includeModules, setIncludeModules] = useState(true);
+  const [includeContent, setIncludeContent] = useState(true);
   const [saved, setSaved] = useState(false);
 
-  const checkAll = () => {
-    setIncludeFiles(true); setIncludeTasks(true); setIncludeOverview(true);
-    setIncludeSubtasks(true); setIncludeDescription(true); setIncludePriority(true);
-    setIncludeAssignees(true); setIncludeDueDate(true);
+  // Cocher un champ de tâche coche aussi ses ancêtres (Tâches internes → Sections → Tâches racine).
+  const checkTaskField = (setter: (v: boolean) => void) => {
+    setter(true); setIncludeTasksInner(true); setIncludeSections(true); setIncludeTasks(true);
   };
-  const uncheckAll = () => {
-    setIncludeFiles(false); setIncludeTasks(false); setIncludeOverview(false);
+  const uncheckTasksRoot = () => {
+    setIncludeTasks(false); setIncludeSections(false); setIncludeTasksInner(false);
     setIncludeSubtasks(false); setIncludeDescription(false); setIncludePriority(false);
     setIncludeAssignees(false); setIncludeDueDate(false);
+  };
+  const uncheckSections = () => {
+    setIncludeSections(false); setIncludeTasksInner(false);
+    setIncludeSubtasks(false); setIncludeDescription(false); setIncludePriority(false);
+    setIncludeAssignees(false); setIncludeDueDate(false);
+  };
+  const uncheckTasksInner = () => {
+    setIncludeTasksInner(false);
+    setIncludeSubtasks(false); setIncludeDescription(false); setIncludePriority(false);
+    setIncludeAssignees(false); setIncludeDueDate(false);
+  };
+
+  const checkDocuments = () => { setIncludeDocuments(true); setIncludeFolderStructure(true); setIncludeFiles(true); };
+  const uncheckFiles = () => { setIncludeFiles(false); setIncludeFolderStructure(false); setIncludeDocuments(false); };
+  const uncheckFolderStructure = () => { setIncludeFolderStructure(false); setIncludeDocuments(false); };
+
+  const checkContent = () => { setIncludeContent(true); setIncludeModules(true); setIncludeOverview(true); };
+  const uncheckOverview = () => { setIncludeOverview(false); setIncludeModules(false); setIncludeContent(false); };
+  const uncheckModules = () => { setIncludeModules(false); setIncludeContent(false); };
+
+  const checkAll = () => {
+    setIncludeTasks(true); setIncludeSections(true); setIncludeTasksInner(true);
+    setIncludeSubtasks(true); setIncludeDescription(true); setIncludePriority(true);
+    setIncludeAssignees(true); setIncludeDueDate(true);
+    setIncludeFiles(true); setIncludeFolderStructure(true); setIncludeDocuments(true);
+    setIncludeOverview(true); setIncludeModules(true); setIncludeContent(true);
+  };
+  const uncheckAll = () => {
+    setIncludeTasks(false); setIncludeSections(false); setIncludeTasksInner(false);
+    setIncludeSubtasks(false); setIncludeDescription(false); setIncludePriority(false);
+    setIncludeAssignees(false); setIncludeDueDate(false);
+    setIncludeFiles(false); setIncludeFolderStructure(false); setIncludeDocuments(false);
+    setIncludeOverview(false); setIncludeModules(false); setIncludeContent(false);
   };
 
   const handleSave = () => {
@@ -156,43 +197,52 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0' }}>
-            <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} />
-            {t('projectTemplates.includeFiles')}
-          </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0', marginTop: 4 }}>
-            <input type="checkbox" checked={includeTasks} onChange={e => setIncludeTasks(e.target.checked)} />
-            {t('projectTemplates.includeTasks')}
-          </label>
+          {/* Tâches (racine) */}
+          <Row label={t('projectTemplates.includeTasks')} checked={includeTasks} onToggle={v => v ? setIncludeTasks(true) : uncheckTasksRoot()} />
           <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
-              <input type="checkbox" checked={includeSubtasks} disabled={!includeTasks} onChange={e => setIncludeSubtasks(e.target.checked)} />
-              {t('projectTemplates.includeSubtasks')}
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
-              <input type="checkbox" checked={includeDescription} disabled={!includeTasks} onChange={e => setIncludeDescription(e.target.checked)} />
-              {t('projectTemplates.includeTaskDescription')}
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
-              <input type="checkbox" checked={includePriority} disabled={!includeTasks} onChange={e => setIncludePriority(e.target.checked)} />
-              {t('projectTemplates.includePriority')}
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
-              <input type="checkbox" checked={includeAssignees} disabled={!includeTasks} onChange={e => setIncludeAssignees(e.target.checked)} />
-              {t('projectTemplates.includeAssignees')}
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: includeTasks ? 'var(--text-2)' : 'var(--text-3)', cursor: includeTasks ? 'pointer' : 'default', padding: '2px 0', opacity: includeTasks ? 1 : 0.5 }}>
-              <input type="checkbox" checked={includeDueDate} disabled={!includeTasks} onChange={e => setIncludeDueDate(e.target.checked)} />
-              {t('projectTemplates.includeDueDate')}
-            </label>
+            <Row label={t('projectTemplates.includeSections')} checked={includeSections} disabled={!includeTasks}
+              onToggle={v => v ? (setIncludeSections(true), setIncludeTasks(true)) : uncheckSections()} />
+            <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Row label={t('projectTemplates.includeTasksInner')} checked={includeTasksInner} disabled={!includeSections}
+                onToggle={v => v ? (setIncludeTasksInner(true), setIncludeSections(true), setIncludeTasks(true)) : uncheckTasksInner()} />
+              <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Row label={t('projectTemplates.includeSubtasks')} checked={includeSubtasks} disabled={!includeTasksInner}
+                  onToggle={v => v ? checkTaskField(setIncludeSubtasks) : setIncludeSubtasks(false)} />
+                <Row label={t('projectTemplates.includeTaskDescription')} checked={includeDescription} disabled={!includeTasksInner}
+                  onToggle={v => v ? checkTaskField(setIncludeDescription) : setIncludeDescription(false)} />
+                <Row label={t('projectTemplates.includePriority')} checked={includePriority} disabled={!includeTasksInner}
+                  onToggle={v => v ? checkTaskField(setIncludePriority) : setIncludePriority(false)} />
+                <Row label={t('projectTemplates.includeAssignees')} checked={includeAssignees} disabled={!includeTasksInner}
+                  onToggle={v => v ? checkTaskField(setIncludeAssignees) : setIncludeAssignees(false)} />
+                <Row label={t('projectTemplates.includeDueDate')} checked={includeDueDate} disabled={!includeTasksInner}
+                  onToggle={v => v ? checkTaskField(setIncludeDueDate) : setIncludeDueDate(false)} />
+              </div>
+            </div>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', padding: '3px 0', marginTop: 4 }}>
-            <input type="checkbox" checked={includeOverview} onChange={e => setIncludeOverview(e.target.checked)} />
-            {t('projectTemplates.includeOverview')}
-          </label>
+          {/* Fichiers (racine) */}
+          <Row label={t('projectTemplates.includeFiles')} checked={includeFiles} onToggle={v => v ? setIncludeFiles(true) : uncheckFiles()} style={{ marginTop: 6 }} />
+          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Row label={t('projectTemplates.includeFolderStructure')} checked={includeFolderStructure} disabled={!includeFiles}
+              onToggle={v => v ? (setIncludeFolderStructure(true), setIncludeFiles(true)) : uncheckFolderStructure()} />
+            <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Row label={t('projectTemplates.includeDocuments')} checked={includeDocuments} disabled={!includeFolderStructure}
+                onToggle={v => v ? checkDocuments() : setIncludeDocuments(false)} />
+            </div>
+          </div>
+
+          {/* Aperçu (racine) */}
+          <Row label={t('projectTemplates.includeOverview')} checked={includeOverview} onToggle={v => v ? setIncludeOverview(true) : uncheckOverview()} style={{ marginTop: 6 }} />
+          <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Row label={t('projectTemplates.includeModules')} checked={includeModules} disabled={!includeOverview}
+              onToggle={v => v ? (setIncludeModules(true), setIncludeOverview(true)) : uncheckModules()} />
+            <div style={{ marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Row label={t('projectTemplates.includeContent')} checked={includeContent} disabled={!includeModules}
+                onToggle={v => v ? checkContent() : setIncludeContent(false)} />
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
             <button onClick={checkAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontSize: 11, textDecoration: 'underline' }}>{t('projectTemplates.checkAll')}</button>
@@ -206,6 +256,20 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
           <SFButton variant="primary" onClick={handleSave}>{t('common.save')}</SFButton>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Row({ label, checked, onToggle, disabled, style }: {
+  label: string; checked: boolean; onToggle: (v: boolean) => void; disabled?: boolean; style?: CSSProperties;
+}) {
+  return (
+    <div
+      onClick={disabled ? undefined : () => onToggle(!checked)}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, ...style }}
+    >
+      <SFCheckbox checked={checked} disabled={disabled} onChange={onToggle} size={15} />
+      <span style={{ fontSize: 13, color: 'var(--text)' }}>{label}</span>
     </div>
   );
 }
