@@ -510,24 +510,25 @@ export function resetCustomProjectTemplatesCache(): void {
 
 onLogout(resetCustomProjectTemplatesCache);
 
-async function replaceSupabaseProjectTemplates(previousIds: string[], templates: ProjectTemplate[]): Promise<void> {
+async function replaceSupabaseProjectTemplates(previousIds: string[], templates: ProjectTemplate[]): Promise<boolean> {
   const studioId = await getStudioId();
   const nextIds = templates.map(t => t.id);
   const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
   if (removedIds.length > 0) {
     const { error: delError } = await supabase.from('custom_project_templates').delete().in('id', removedIds);
-    if (delError) { console.error('replaceSupabaseProjectTemplates delete failed', delError); return; }
+    if (delError) { console.error('replaceSupabaseProjectTemplates delete failed', delError); return false; }
   }
 
   if (templates.length > 0) {
     const { error: upsertError } = await supabase.from('custom_project_templates').upsert(
       templates.map(t => ({ id: t.id, studio_id: studioId, data: t }))
     );
-    if (upsertError) { console.error('replaceSupabaseProjectTemplates upsert failed', upsertError); return; }
+    if (upsertError) { console.error('replaceSupabaseProjectTemplates upsert failed', upsertError); return false; }
   }
 
   await fetchSupabaseProjectTemplates();
+  return true;
 }
 
 export function loadCustomTemplates(): ProjectTemplate[] {
@@ -552,15 +553,15 @@ export function saveCustomTemplates(templates: ProjectTemplate[]): void {
 // ensureDefaultTemplatesSeeded — ne doit jamais marquer templates_seeded=true
 // avant que cette promesse soit résolue). Ne remplace pas saveCustomTemplates
 // pour les usages UI existants (fire-and-forget volontaire là-bas).
-export async function saveCustomTemplatesAsync(templates: ProjectTemplate[]): Promise<void> {
+export async function saveCustomTemplatesAsync(templates: ProjectTemplate[]): Promise<boolean> {
   if (isDemoSession()) {
     _demoProjectTemplates = templates;
     persistDemoProjectTemplates();
-    return;
+    return true;
   }
   const previousIds = _supabaseProjectTemplates.map(t => t.id);
   _supabaseProjectTemplates = templates;
-  await replaceSupabaseProjectTemplates(previousIds, templates);
+  return await replaceSupabaseProjectTemplates(previousIds, templates);
 }
 
 // tpl-video-sociale a été retiré du seed (Task 2, refonte templates). Un ancien
@@ -926,24 +927,25 @@ export function resetCustomResourceTemplatesCache(): void {
 
 onLogout(resetCustomResourceTemplatesCache);
 
-async function replaceSupabaseResourceTemplates(previousIds: string[], templates: ResourceTemplate[]): Promise<void> {
+async function replaceSupabaseResourceTemplates(previousIds: string[], templates: ResourceTemplate[]): Promise<boolean> {
   const studioId = await getStudioId();
   const nextIds = templates.map(t => t.id);
   const removedIds = previousIds.filter(id => !nextIds.includes(id));
 
   if (removedIds.length > 0) {
     const { error: delError } = await supabase.from('custom_resource_templates').delete().in('id', removedIds);
-    if (delError) { console.error('replaceSupabaseResourceTemplates delete failed', delError); return; }
+    if (delError) { console.error('replaceSupabaseResourceTemplates delete failed', delError); return false; }
   }
 
   if (templates.length > 0) {
     const { error: upsertError } = await supabase.from('custom_resource_templates').upsert(
       templates.map(t => ({ id: t.id, studio_id: studioId, data: t }))
     );
-    if (upsertError) { console.error('replaceSupabaseResourceTemplates upsert failed', upsertError); return; }
+    if (upsertError) { console.error('replaceSupabaseResourceTemplates upsert failed', upsertError); return false; }
   }
 
   await fetchSupabaseResourceTemplates();
+  return true;
 }
 
 export function loadCustomResourceTemplates(): ResourceTemplate[] {
@@ -965,15 +967,15 @@ export function saveCustomResourceTemplates(templates: ResourceTemplate[]): void
 
 // Variante awaitable de saveCustomResourceTemplates — même raison d'être que
 // saveCustomTemplatesAsync : seul ensureDefaultTemplatesSeeded doit en dépendre.
-export async function saveCustomResourceTemplatesAsync(templates: ResourceTemplate[]): Promise<void> {
+export async function saveCustomResourceTemplatesAsync(templates: ResourceTemplate[]): Promise<boolean> {
   if (isDemoSession()) {
     _demoResourceTemplates = templates;
     persistDemoResourceTemplates();
-    return;
+    return true;
   }
   const previousIds = _supabaseResourceTemplates.map(t => t.id);
   _supabaseResourceTemplates = templates;
-  await replaceSupabaseResourceTemplates(previousIds, templates);
+  return await replaceSupabaseResourceTemplates(previousIds, templates);
 }
 
 export function loadAllResourceTemplates(): ResourceTemplate[] {
@@ -993,19 +995,18 @@ export function loadAllResourceTemplates(): ResourceTemplate[] {
 // saveCustomResourceTemplatesAsync (ci-dessus), qui awaitent réellement
 // replaceSupabaseProjectTemplates/replaceSupabaseResourceTemplates.
 //
-// Mais même awaitées, ces deux fonctions internes avalent leurs propres erreurs
-// Supabase (elles font `console.error(...); return;` sur échec au lieu de
-// throw) — donc la promesse résolue avec succès NE garantit PAS que l'écriture
-// a réussi. La seule façon fiable de savoir si le seed a effectivement pris est
-// de relire le cache après coup : replaceSupabaseProjectTemplates/
-// replaceSupabaseResourceTemplates se terminent (sur le chemin de succès) par
-// un `await fetchSupabase...Templates()`, donc loadCustomTemplates()/
-// loadCustomResourceTemplates() reflètent forcément le fetch le plus récent une
-// fois la promesse résolue — que ce fetch ait vu l'upsert réussir ou non.
-// On ne marque templates_seeded=true que si cette relecture montre bien des
-// templates non vides. Si elle est encore vide après la tentative de seed, on
-// n'écrit PAS le flag : le prochain chargement de page retentera le seed au
-// lieu de marquer silencieusement un échec comme "fait".
+// replaceSupabaseProjectTemplates/replaceSupabaseResourceTemplates retournent
+// maintenant un booléen (true seulement si le delete ET l'upsert ont réussi,
+// avec un refetch du cache en fin de chemin de succès) au lieu d'avaler
+// silencieusement l'erreur. saveCustomTemplatesAsync/saveCustomResourceTemplatesAsync
+// propagent ce booléen. Vérifier le cache mémoire après coup (`loadCustomTemplates().length > 0`)
+// ne suffisait PAS : le cache est mis à jour de façon optimiste par
+// saveCustomTemplatesAsync AVANT l'écriture réelle, et sur le chemin d'échec
+// replaceSupabase*Templates retourne tôt sans refetch — donc le cache restait
+// non vide même quand l'écriture avait échoué. On ne marque templates_seeded=true
+// que si le booléen retourné est bien true. Sinon, on n'écrit PAS le flag : le
+// prochain chargement de page retentera le seed au lieu de marquer
+// silencieusement un échec comme "fait".
 const DEMO_TEMPLATES_SEEDED_KEY = 'sf_demo_templates_seeded';
 
 export async function ensureDefaultTemplatesSeeded(): Promise<void> {
@@ -1029,21 +1030,28 @@ export async function ensureDefaultTemplatesSeeded(): Promise<void> {
   const needsProjectSeed = loadCustomTemplates().length === 0;
   const needsResourceSeed = loadCustomResourceTemplates().length === 0;
 
-  await Promise.all([
-    needsProjectSeed ? saveCustomTemplatesAsync([...SEED_TEMPLATES]) : Promise.resolve(),
-    needsResourceSeed ? saveCustomResourceTemplatesAsync([...SEED_RESOURCE_TEMPLATES]) : Promise.resolve(),
+  const [projectSeedOk, resourceSeedOk] = await Promise.all([
+    needsProjectSeed ? saveCustomTemplatesAsync([...SEED_TEMPLATES]) : Promise.resolve(true),
+    needsResourceSeed ? saveCustomResourceTemplatesAsync([...SEED_RESOURCE_TEMPLATES]) : Promise.resolve(true),
   ]);
 
-  const projectsOk = !needsProjectSeed || loadCustomTemplates().length > 0;
-  const resourcesOk = !needsResourceSeed || loadCustomResourceTemplates().length > 0;
+  // saveCustomTemplatesAsync/saveCustomResourceTemplatesAsync retournent
+  // maintenant directement le statut réel de l'écriture Supabase (propagé
+  // depuis replaceSupabase*Templates), donc ceci n'est plus une vérification
+  // optimiste du cache mémoire mais le résultat effectif du delete/upsert.
+  const projectsOk = !needsProjectSeed || projectSeedOk;
+  const resourcesOk = !needsResourceSeed || resourceSeedOk;
 
   if (!projectsOk || !resourcesOk) {
-    // Écriture(s) probablement échouée(s) côté Supabase (erreur avalée en
-    // interne par replaceSupabase*Templates). On ne marque pas templates_seeded
-    // pour permettre un nouveau essai au prochain chargement.
+    // Écriture(s) probablement échouée(s) côté Supabase (delete/upsert en
+    // erreur). On ne marque pas templates_seeded pour permettre un nouveau
+    // essai au prochain chargement.
     console.error('ensureDefaultTemplatesSeeded: seed incomplet, templates_seeded non marqué', { projectsOk, resourcesOk });
     return;
   }
 
-  await supabase.from('studios').update({ templates_seeded: true }).eq('id', studioId);
+  const { error: markSeededError } = await supabase.from('studios').update({ templates_seeded: true }).eq('id', studioId);
+  if (markSeededError) {
+    console.error('ensureDefaultTemplatesSeeded: échec de la mise à jour templates_seeded', markSeededError);
+  }
 }
