@@ -81,10 +81,30 @@ export async function getOrgDefaultCalendarId(
     .maybeSingle();
 
   if (!connection) return null;
-  if (connection.google_calendar_id !== 'primary') {
-    return connection.google_calendar_id as string;
+  const storedId = connection.google_calendar_id as string;
+
+  if (storedId !== 'primary') {
+    if (await googleCalendarExists(accessToken, storedId)) {
+      return storedId;
+    }
+    // Stale: the studio disconnected the Google account that owned this
+    // calendar and connected a different one. The old calendar isn't
+    // reachable under the new account's token, so events can't be moved out
+    // of it — recreate a dedicated calendar and clear the stale links
+    // instead, so the next push recreates each event fresh.
+    return recreateOrgCalendar(supabaseAdmin, studioId, accessToken, storedId, { moveEvents: false });
   }
 
+  return recreateOrgCalendar(supabaseAdmin, studioId, accessToken, 'primary', { moveEvents: true });
+}
+
+async function recreateOrgCalendar(
+  supabaseAdmin: SupabaseClient,
+  studioId: string,
+  accessToken: string,
+  previousCalendarId: string,
+  opts: { moveEvents: boolean }
+): Promise<string> {
   const { data: studio } = await supabaseAdmin
     .from('studios')
     .select('name')
@@ -94,32 +114,39 @@ export async function getOrgDefaultCalendarId(
   const dedicatedName = `Rush — ${studio?.name ?? 'Organisation'}`;
   const newCalendarId = await createGoogleCalendar(accessToken, dedicatedName);
 
-  const { data: eventsToMove } = await supabaseAdmin
+  const { data: eventsToMigrate } = await supabaseAdmin
     .from('events')
     .select('id, google_event_id')
     .eq('studio_id', studioId)
     .not('google_event_id', 'is', null);
 
-  for (const ev of eventsToMove ?? []) {
-    try {
-      await moveGoogleEvent(accessToken, 'primary', ev.google_event_id as string, newCalendarId);
-    } catch (err) {
-      console.error(`Failed to move event ${ev.id} to the dedicated organisation calendar during migration:`, err);
+  if (opts.moveEvents) {
+    for (const ev of eventsToMigrate ?? []) {
+      try {
+        await moveGoogleEvent(accessToken, previousCalendarId, ev.google_event_id as string, newCalendarId);
+      } catch (err) {
+        console.error(`Failed to move event ${ev.id} to the dedicated organisation calendar during migration:`, err);
+      }
+    }
+  } else {
+    for (const ev of eventsToMigrate ?? []) {
+      await supabaseAdmin.from('events').update({ google_event_id: null }).eq('id', ev.id as string);
     }
   }
 
-  // Compare-and-swap: only persist if the row is still "primary". Two
-  // concurrent callers (e.g. a push racing the 15-minute cron pull) can both
-  // read "primary" above and both create their own dedicated calendar — the
-  // `.eq('google_calendar_id', 'primary')` filter here ensures only the
-  // first update to actually run wins the migration; the loser detects that
-  // it affected zero rows and defers to whatever the winner persisted,
-  // instead of silently overwriting it and orphaning the winner's calendar.
+  // Compare-and-swap: only persist if the row still points at the calendar
+  // ID we started from. Two concurrent callers (e.g. a push racing the
+  // 15-minute cron pull) can both read the same stale/primary ID above and
+  // both create their own replacement calendar — the `.eq(...)` filter here
+  // ensures only the first update to actually run wins the migration; the
+  // loser detects that it affected zero rows and defers to whatever the
+  // winner persisted, instead of silently overwriting it and orphaning the
+  // winner's calendar.
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('google_calendar_connections')
     .update({ google_calendar_id: newCalendarId })
     .eq('studio_id', studioId)
-    .eq('google_calendar_id', 'primary')
+    .eq('google_calendar_id', previousCalendarId)
     .select('google_calendar_id');
 
   if (updateError) {
@@ -128,11 +155,11 @@ export async function getOrgDefaultCalendarId(
   }
 
   if (!updated || updated.length === 0) {
-    // Lost the race — another concurrent call already migrated this studio off
-    // "primary" between our initial read and this update. Abandon the calendar
-    // we just created (log it clearly so it's discoverable/cleanable later —
-    // do not attempt automated deletion here) and use whichever calendar the
-    // winning call actually persisted.
+    // Lost the race — another concurrent call already migrated this studio's
+    // default calendar between our initial read and this update. Abandon the
+    // calendar we just created (log it clearly so it's discoverable/cleanable
+    // later — do not attempt automated deletion here) and use whichever
+    // calendar the winning call actually persisted.
     console.error(`Abandoned duplicate calendar ${newCalendarId} for studio ${studioId} — another concurrent request already migrated this studio's default calendar.`);
     const { data: winner } = await supabaseAdmin
       .from('google_calendar_connections')
@@ -161,9 +188,72 @@ export async function resolveEventCalendarId(
       .eq('project_id', projectId)
       .eq('active', true)
       .maybeSingle();
-    if (projectCal) return projectCal.google_calendar_id as string;
+    if (projectCal) {
+      const storedId = projectCal.google_calendar_id as string;
+      if (await googleCalendarExists(accessToken, storedId)) {
+        return storedId;
+      }
+      return recreateProjectCalendar(supabaseAdmin, projectId, accessToken, storedId);
+    }
   }
   return getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
+}
+
+// Same stale-calendar situation as recreateOrgCalendar, scoped to one
+// project's calendar: the stored ID belongs to a Google account the studio
+// has since disconnected, so it can't be reached (or moved out of) with the
+// currently connected account's token. Recreate it fresh and clear this
+// project's stale event links so the next push recreates each event.
+async function recreateProjectCalendar(
+  supabaseAdmin: SupabaseClient,
+  projectId: string,
+  accessToken: string,
+  previousCalendarId: string
+): Promise<string> {
+  const { data: project } = await supabaseAdmin
+    .from('projects')
+    .select('name, client_name')
+    .eq('id', projectId)
+    .maybeSingle();
+
+  const calendarName = project?.client_name
+    ? `${project.client_name} — ${project.name}`
+    : ((project?.name as string | undefined) ?? 'Projet');
+  const newCalendarId = await createGoogleCalendar(accessToken, calendarName);
+
+  // Compare-and-swap, same reasoning as recreateOrgCalendar: only persist if
+  // the row still points at the calendar ID we started from, so a
+  // concurrent caller recreating the same project's calendar can't clobber
+  // this one (or vice versa).
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('project_google_calendars')
+    .update({ google_calendar_id: newCalendarId, shared_contact_ids: [] })
+    .eq('project_id', projectId)
+    .eq('google_calendar_id', previousCalendarId)
+    .select('google_calendar_id');
+
+  if (updateError) {
+    console.error(`Failed to persist recreated calendar for project ${projectId}:`, updateError);
+    return newCalendarId;
+  }
+
+  if (!updated || updated.length === 0) {
+    console.error(`Abandoned duplicate calendar ${newCalendarId} for project ${projectId} — another concurrent request already recreated this project's calendar.`);
+    const { data: winner } = await supabaseAdmin
+      .from('project_google_calendars')
+      .select('google_calendar_id')
+      .eq('project_id', projectId)
+      .maybeSingle();
+    return (winner?.google_calendar_id as string) ?? newCalendarId;
+  }
+
+  await supabaseAdmin
+    .from('events')
+    .update({ google_event_id: null })
+    .eq('project_id', projectId)
+    .not('google_event_id', 'is', null);
+
+  return newCalendarId;
 }
 
 export async function googleCalendarRequest(
