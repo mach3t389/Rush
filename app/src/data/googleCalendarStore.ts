@@ -5,6 +5,8 @@ import { onLogout } from './authStore';
 export interface GoogleCalendarStatus {
   connected: boolean;
   lastSyncedAt: string | null;
+  connectedEmail: string | null;
+  connectedName: string | null;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -24,7 +26,7 @@ async function fetchGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
   const resp = await fetch(`/api/google-calendar-connection?action=status&studioId=${studioId}`, { headers });
-  if (!resp.ok) return { connected: false, lastSyncedAt: null };
+  if (!resp.ok) return { connected: false, lastSyncedAt: null, connectedEmail: null, connectedName: null };
   return resp.json();
 }
 
