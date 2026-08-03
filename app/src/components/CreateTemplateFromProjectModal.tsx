@@ -3,9 +3,10 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFCheckbox } from './ui';
 import { getSections } from '../data/taskStore';
-import { getFolderTreeForProject } from '../data/fileStore';
+import { getFolderTreeForProject, getFilesInFolder, type FolderTreeNodeWithId } from '../data/fileStore';
+import { getResourceContent } from '../data/resourceContentStore';
 import { getProjectContent } from '../data/projectContentStore';
-import { loadCustomTemplates, saveCustomTemplates, loadAllTemplates, type ProjectTemplate, type TemplateSection, type TemplateTask } from '../data/templates';
+import { loadCustomTemplates, saveCustomTemplates, loadAllTemplates, type ProjectTemplate, type TemplateSection, type TemplateTask, type FolderNode, type TemplateResourceFile } from '../data/templates';
 import type { Project, Task } from '../types';
 
 const TEMPLATE_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B'];
@@ -16,6 +17,25 @@ interface TaskCaptureOptions {
   priority: boolean;
   assignees: boolean;
   dueDate: boolean;
+}
+
+function attachResources(nodes: FolderTreeNodeWithId[], projectId: string): FolderNode[] {
+  return nodes.map(node => {
+    const filesInFolder = getFilesInFolder(node.id, projectId);
+    const resources: TemplateResourceFile[] = filesInFolder
+      .filter(f => f.type === 'resource' && f.resourceId)
+      .map(f => ({
+        name: f.name,
+        resourceType: f.resourceType!,
+        content: getResourceContent(f.resourceId!),
+      }));
+    return {
+      id: node.id,
+      name: node.name,
+      children: node.children ? attachResources(node.children, projectId) : undefined,
+      resources: resources.length ? resources : undefined,
+    };
+  });
 }
 
 function mapTask(t: Task, opts: TaskCaptureOptions): TemplateTask {
@@ -135,8 +155,12 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
     const sections: TemplateSection[] | undefined = includeTasks
       ? getSections(project.id).map(s => ({ label: s.label, tasks: s.tasks.map(t => mapTask(t, captureOpts)) }))
       : undefined;
-    const folderStructure = includeFiles ? getFolderTreeForProject(project.id) : undefined;
-    const overviewSections = includeOverview ? getProjectContent(project.id).customSections : undefined;
+    const rawFolderTree = includeFolderStructure ? getFolderTreeForProject(project.id) : undefined;
+    const folderStructure = rawFolderTree
+      ? (includeDocuments ? attachResources(rawFolderTree, project.id) : rawFolderTree.map(n => ({ id: n.id, name: n.name, children: n.children })))
+      : undefined;
+    const overviewSections = includeModules ? getProjectContent(project.id).customSections : undefined;
+    const overviewSectionData = includeContent ? getProjectContent(project.id).customSectionData : undefined;
 
     const targetId = mode === 'update' && originTemplate ? originTemplate.id : `tpl-${Date.now()}`;
     const tpl: ProjectTemplate = {
@@ -151,6 +175,7 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
       sections,
       folderStructure,
       overviewSections,
+      overviewSectionData,
     };
     const existing = loadCustomTemplates();
     const updated = mode === 'update' && originTemplate
