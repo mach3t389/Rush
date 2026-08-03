@@ -12,7 +12,7 @@ import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
 import { confirmDialog } from '../data/confirmStore';
 import type { ProjectTemplate, FormTemplate, FormField, FormFieldType, FormFieldValue, FormResponse, FormInstance, ResourceTemplate, ResourceTemplateType, DocumentSection, SceneBlock, ReviewRound, MoodboardRef, TemplateTask } from '../data/templates';
-import { loadAllTemplates, saveCustomTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, saveCustomResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
+import { loadAllTemplates, saveCustomTemplates, loadAllFormTemplates, saveCustomFormTemplates, getVisibleBuiltInFormTemplates, BUILT_IN_FORM_TEMPLATES, loadAllResourceTemplates, saveCustomResourceTemplates, hideTemplate, getHiddenTemplateIds, unhideTemplate, subscribeHiddenTemplates, subscribeProjectTemplates, resolveTasksSections, ensureDefaultTemplatesSeeded } from '../data/templates';
 import { getFormInstances, createFormInstance, updateFormInstance, deleteFormInstance, subscribeFormStore } from '../data/formStore';
 import { getFavoriteTemplateIds, toggleTemplateFavorite, subscribeTemplateFavorites } from '../data/templateFavoritesStore';
 import { usePlan } from '../data/planStore';
@@ -1341,6 +1341,7 @@ export function Modeles() {
 
   // ── Project templates state
   const [templates, setTemplates] = useState(loadAllTemplates);
+  useEffect(() => subscribeProjectTemplates(() => setTemplates(loadAllTemplates())), []);
   const [lastSelectedTplId, setLastSelectedTplId] = usePersistedState<string | null>('sf_modeles_selected_tpl_id', null);
   const [selectedTpl, setSelectedTpl] = useState<ProjectTemplate | null>(() => {
     const all = loadAllTemplates();

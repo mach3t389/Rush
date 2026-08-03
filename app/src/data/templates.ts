@@ -484,6 +484,22 @@ function persistDemoProjectTemplates(): void { localStorage.setItem(STORAGE_KEY,
 
 let _supabaseProjectTemplates: ProjectTemplate[] = [];
 let _projectTemplatesFetchStarted = false;
+const _projectTemplatesListeners = new Set<() => void>();
+
+// Le premier appel à loadCustomTemplates()/loadAllTemplates() dans une session
+// réelle déclenche le fetch Supabase mais renvoie [] immédiatement (cache pas
+// encore peuplé) — un composant qui lit ce tableau juste au montage sans
+// s'abonner affiche donc une liste vide jusqu'au prochain re-render externe
+// (bug constaté : assistant "Nouveau projet" vide au premier chargement,
+// peuplé seulement après un aller-retour d'étape). subscribeProjectTemplates
+// permet à un composant de re-render dès que le fetch résout.
+export function subscribeProjectTemplates(fn: () => void): () => void {
+  _projectTemplatesListeners.add(fn);
+  return () => _projectTemplatesListeners.delete(fn);
+}
+function notifyProjectTemplatesChanged(): void {
+  _projectTemplatesListeners.forEach(fn => fn());
+}
 
 interface CustomTemplateRow { id: string; data: ProjectTemplate; }
 
@@ -493,6 +509,7 @@ async function fetchSupabaseProjectTemplates(knownStudioId?: string): Promise<vo
     const { data, error } = await supabase.from('custom_project_templates').select('id, data').eq('studio_id', studioId);
     if (error) { console.error('fetchSupabaseProjectTemplates failed', error); return; }
     _supabaseProjectTemplates = (data as CustomTemplateRow[]).map(row => row.data);
+    notifyProjectTemplatesChanged();
   } catch (err) {
     console.error('fetchSupabaseProjectTemplates failed', err);
   }
@@ -542,10 +559,12 @@ export function saveCustomTemplates(templates: ProjectTemplate[]): void {
   if (isDemoSession()) {
     _demoProjectTemplates = templates;
     persistDemoProjectTemplates();
+    notifyProjectTemplatesChanged();
     return;
   }
   const previousIds = _supabaseProjectTemplates.map(t => t.id);
   _supabaseProjectTemplates = templates;
+  notifyProjectTemplatesChanged();
   void replaceSupabaseProjectTemplates(previousIds, templates);
 }
 
@@ -558,6 +577,7 @@ export async function saveCustomTemplatesAsync(templates: ProjectTemplate[], kno
   if (isDemoSession()) {
     _demoProjectTemplates = templates;
     persistDemoProjectTemplates();
+    notifyProjectTemplatesChanged();
     return true;
   }
   const previousIds = _supabaseProjectTemplates.map(t => t.id);

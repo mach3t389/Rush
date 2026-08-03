@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
-import { loadAllTemplates, resolveTasksSections } from '../data/templates';
+import { loadAllTemplates, resolveTasksSections, subscribeProjectTemplates } from '../data/templates';
 import type { TemplateTask } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User, Client } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
@@ -103,7 +103,12 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [templateSearch, setTemplateSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
-  const allTemplates = loadAllTemplates();
+  const [allTemplates, setAllTemplates] = useState(loadAllTemplates);
+  // Session réelle : loadAllTemplates() déclenche le fetch Supabase mais renvoie
+  // [] tant qu'il n'a pas résolu — sans cet abonnement, l'assistant affiche
+  // "aucun modèle" au premier montage et ne se met à jour qu'au prochain
+  // re-render externe (ex. changement d'étape), jamais spontanément.
+  useEffect(() => subscribeProjectTemplates(() => setAllTemplates(loadAllTemplates())), []);
   // Tri chronologique : les modèles de départ (semés à la création du studio,
   // donc les plus anciens) apparaissent naturellement en premier, dans leur
   // ordre de semis ; les modèles créés ensuite par l'utilisateur suivent.
