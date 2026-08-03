@@ -20,7 +20,7 @@ Liste condensée de tout ce qui attend une action de ta part en ce moment (déta
 - [ ] Logo du studio sur les écrans d'invitation (nécessite un vrai logo uploadé).
 - [ ] Chapitres vidéo — jamais testé avec un vrai fichier ayant des chapitres.
 - [ ] Partage calendrier Google — refaire le test avec une adresse différente de la tienne.
-- [ ] Formulaire public — redéployer `file-storage` (`supabase functions deploy file-storage`), puis tester le parcours complet avec un vrai compte.
+- [ ] Formulaire public — parcours complet avec un vrai compte (fonction `file-storage` redéployée le 2026-08-03).
 
 Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en attente.
 
@@ -73,8 +73,7 @@ Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en 
 ## Formulaire — lien public réel
 
 - [x] **Migration Supabase exécutée** (confirmé par toi le 2026-07-25) : table `form_submissions` + fonctions `get_public_form`/`submit_public_form`.
-- [ ] **Redéployer la fonction Supabase `file-storage`** : `supabase functions deploy file-storage` (deux nouvelles actions `form-sign-put`/`form-sign-get` pour l'upload de fichier depuis le formulaire public — sans ça, une question « Upload de fichier » échouera en session réelle, même si le reste du formulaire fonctionne).
-  - Pourquoi : comme les migrations SQL, rien ne déploie les fonctions Edge automatiquement.
+- [x] **Redéployer la fonction Supabase `file-storage`** : fait le 2026-08-03 (`supabase functions deploy file-storage`) — actions `form-sign-put`/`form-sign-get` maintenant en place pour l'upload de fichier depuis le formulaire public.
 - [ ] **Parcours complet avec un vrai compte (pas démo)** : ouvre une ressource Formulaire → onglet Partager, copie le lien → ouvre ce lien dans une fenêtre de navigation privée (simulate un vrai visiteur externe, sans session) → remplis et soumets le formulaire, y compris une question « Upload de fichier » avec un vrai fichier → reviens dans l'app, confirme que la réponse apparaît bien dans l'onglet Réponses avec le bon nom/courriel/réponses, et que le fichier uploadé s'ouvre/télécharge correctement en cliquant dessus.
   - Pourquoi : vérifié en mode démo seulement (le lien public utilise alors le stockage local du même navigateur, ce qui simule mais ne prouve pas le vrai chemin Supabase RPC/Edge Function anonyme). Nécessite un vrai compte + la fonction redéployée ci-dessus.
   - Ce qui a déjà été testé par Claude (mode démo, en direct) : le lien public affiche le vrai titre/questions, la soumission s'enregistre (y compris un vrai fichier uploadé), et apparaît immédiatement dans l'onglet Réponses avec les bonnes réponses, le résumé statistique, et un lien de téléchargement fonctionnel pour le fichier joint.
