@@ -152,8 +152,8 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
       assignees: includeAssignees,
       dueDate: includeDueDate,
     };
-    const sections: TemplateSection[] | undefined = includeTasks
-      ? getSections(project.id).map(s => ({ label: s.label, tasks: s.tasks.map(t => mapTask(t, captureOpts)) }))
+    const sections: TemplateSection[] | undefined = includeSections
+      ? getSections(project.id).map(s => ({ label: s.label, tasks: includeTasksInner ? s.tasks.map(t => mapTask(t, captureOpts)) : [] }))
       : undefined;
     const rawFolderTree = includeFolderStructure ? getFolderTreeForProject(project.id) : undefined;
     const folderStructure = rawFolderTree
