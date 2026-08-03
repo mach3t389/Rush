@@ -311,11 +311,16 @@ async function materializeTemplateResources(
   scope: { projectId?: string; clientId?: string },
 ): Promise<void> {
   if (!resourceAdditions.length) return;
-  const { addResource } = await import('./resourceStore');
-  resourceAdditions.forEach(({ folderId, resources }) => {
-    resources.forEach(r => {
+  const { addResourceAsync } = await import('./resourceStore');
+  for (const { folderId, resources } of resourceAdditions) {
+    for (const r of resources) {
       const resourceId = `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      addResource({
+      // Await the resource insert before writing its content — resource_content
+      // has an FK on resources.id, and in real sessions both writes are
+      // independent fire-and-forget HTTP requests. Without awaiting, the
+      // content upsert can reach Postgres before the resource row exists and
+      // gets silently rejected (see review finding: FK race, data loss).
+      await addResourceAsync({
         id: resourceId,
         type: r.resourceType,
         eyebrow: '',
@@ -335,8 +340,8 @@ async function materializeTemplateResources(
         projectId: scope.projectId,
         clientId: scope.clientId,
       });
-    });
-  });
+    }
+  }
 }
 
 export function addFolderTree(
@@ -488,7 +493,7 @@ export function getFilesInFolder(folderId: string | null, projectId?: string, cl
 
 export function addFile(f: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt'>): FileItem {
   const now = new Date().toISOString().slice(0, 10);
-  const file: FileItem = { ...f, id: `file-${Date.now()}`, createdAt: now, updatedAt: now };
+  const file: FileItem = { ...f, id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, createdAt: now, updatedAt: now };
 
   if (isDemoSession()) {
     _demoFiles = [..._demoFiles, file];
