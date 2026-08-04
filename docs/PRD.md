@@ -1,15 +1,15 @@
-# PRD — Plateforme de gestion de production vidéo
+# PRD — Plateforme de gestion de projet pour agences
 ## Version 1.6 — Document de référence pour Claude Code
 
 ---
 
 ## 1. Vision du produit
 
-Une plateforme SaaS qui remplace Asana + Google Docs + Frame.io + Pinterest + dossiers partagés pour les agences vidéo et studios de production. Tout est centralisé en un seul endroit : gestion des tâches, documents créatifs, révisions vidéo, et communication client.
+Une plateforme SaaS qui remplace Asana + Google Docs + Frame.io + Pinterest + dossiers partagés pour les agences et équipes de projet. Tout est centralisé en un seul endroit : gestion des tâches, documents créatifs, révisions de livrables, et communication client.
 
-**Problème central résolu** : Les équipes vidéo utilisent 4-6 outils différents, paient plusieurs abonnements, et perdent du temps à dupliquer les informations entre les plateformes.
+**Problème central résolu** : Les agences utilisent 4-6 outils différents, paient plusieurs abonnements, et perdent du temps à dupliquer les informations entre les plateformes.
 
-**Utilisateurs cibles** : Agences vidéo, studios de production, agences marketing, équipes contenu interne.
+**Utilisateurs cibles** : Agences marketing, agences créatives, studios de production, équipes contenu interne — tout type d'agence gérant des projets et livrables pour des clients.
 
 **Inspirations** : Asana (tâches), Notion (documents), Frame.io (révisions vidéo).
 

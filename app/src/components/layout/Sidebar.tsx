@@ -17,7 +17,7 @@ import { getViewAsUser, subscribeViewAs } from '../../data/viewAsStore';
 import { getRequiredPermissionForPath } from '../../data/viewAsRoutePermissions';
 import { getTotalStorageUsedBytes, subscribeStorageUsage, checkStorageThreshold } from '../../data/storageStore';
 import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
-import { getStorageLimitGB } from '../../data/planFeatures';
+import { getStorageLimitGB, canUseFeature } from '../../data/planFeatures';
 import { loadPersisted, savePersisted } from '../../data/persist';
 
 function SidebarStorageBar({ collapsed }: { collapsed: boolean }) {
@@ -265,9 +265,10 @@ export function Sidebar() {
   const toggleProjectsSection = () => setProjectsSectionOpen(v => { const next = !v; savePersisted('sf_pinned_projects_open', next); return next; });
   const toggleClientsSection = () => setClientsSectionOpen(v => { const next = !v; savePersisted('sf_pinned_clients_open', next); return next; });
 
-  const [logoFull, setLogoFullState] = useState(getLogoFull);
-  const [logoSquare, setLogoSquareState] = useState(getLogoSquare);
+  const [logoFullStored, setLogoFullState] = useState(getLogoFull);
+  const [logoSquareStored, setLogoSquareState] = useState(getLogoSquare);
   const [viewAs, setViewAs] = useState(getViewAsUser);
+  const [plan, setPlan] = useState(getCurrentPlan);
 
   useEffect(() => subscribeStudioLogos(() => {
     setLogoFullState(getLogoFull());
@@ -275,6 +276,14 @@ export function Sidebar() {
   }), []);
 
   useEffect(() => subscribeViewAs(() => setViewAs(getViewAsUser())), []);
+  useEffect(() => subscribePlan(() => setPlan(getCurrentPlan())), []);
+
+  // Custom logos stay saved even on a plan that doesn't include them, so
+  // upgrading later reactivates them automatically — but the sidebar itself
+  // must not display them until the plan actually allows it.
+  const hasCustomLogo = canUseFeature(plan, 'customLogo');
+  const logoFull = hasCustomLogo ? logoFullStored : null;
+  const logoSquare = hasCustomLogo ? logoSquareStored : null;
 
   // Derive permission restrictions when viewing as an internal member —
   // uses the same route→permission mapping the route guard enforces

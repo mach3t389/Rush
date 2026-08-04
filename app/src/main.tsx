@@ -7,8 +7,12 @@ import i18n from './i18n/i18n';
 import { isAuthenticated } from './data/authStore';
 import { preloadResourceContent } from './data/resourceContentStore';
 import { applyPersistedUiFonts } from './data/uiFontsStore';
+import { applyPersistedStudioPreferences } from './data/studioPreferencesStore';
+import { migrateLegacyStorageKeys } from './data/persist';
 
 applyPersistedUiFonts();
+void applyPersistedStudioPreferences();
+migrateLegacyStorageKeys(); // Clean up old global keys
 
 import { AppShell } from './components/layout/AppShell';
 import { ViewAsPermissionGate } from './components/ViewAsPermissionGate';

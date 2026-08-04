@@ -30,3 +30,6 @@ build-output.txt
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+.env*

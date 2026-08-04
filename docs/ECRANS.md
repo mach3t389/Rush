@@ -1,5 +1,5 @@
 # Spécifications des écrans — Rush
-## Plateforme de gestion de production vidéo
+## Plateforme de gestion de projet pour agences
 
 Référence de conception pour chaque écran de l'application. Se base sur [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) pour les tokens et composants.
 

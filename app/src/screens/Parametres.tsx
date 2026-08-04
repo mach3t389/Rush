@@ -8,12 +8,13 @@ import {
   formatCombo, DEFAULT_SHORTCUTS,
   type ShortcutAction, type ShortcutCombo,
 } from '../data/shortcutsStore';
-import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare } from '../data/studioLogoStore';
+import { getLogoFull, getLogoSquare, setLogoFull, setLogoSquare, subscribeStudioLogos } from '../data/studioLogoStore';
 import { usePlan } from '../data/planStore';
 import { canUseFeature, PLAN_FEATURES, getStorageLimitGB, type PlanKey } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
 import { loadUiFonts, saveUiFonts } from '../data/uiFontsStore';
+import { getStudioPreferences, setPortalAccent, subscribeStudioPreferences } from '../data/studioPreferencesStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, leaveCurrentStudio, type StudioInfo } from '../data/studioStore';
 import { getCurrentUser } from '../data/authStore';
 import { isTeamOwner, subscribeTeam, findTeamMember, getMyAccessLevel } from '../data/teamStore';
@@ -37,6 +38,8 @@ function LogoUploader({ label, hint, aspectLabel, previewW, previewH, getter, se
   const { t } = useTranslation();
   const [src, setSrc] = useState<string | null>(getter);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => subscribeStudioLogos(() => setSrc(getter())), [getter]);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -746,27 +749,21 @@ function WeekStartSettings() {
   );
 }
 
-const PORTAL_ACCENT_KEY = 'sf_portal_accent';
-
-function applyPortalAccent(color: string) {
-  try { localStorage.setItem(PORTAL_ACCENT_KEY, color); } catch { /* noop */ }
-  document.documentElement.style.setProperty('--accent', color);
-  // Compute a readable on-accent color (black for light, white for dark)
-  const r = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16);
-  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  document.documentElement.style.setProperty('--on-accent', lum > 0.55 ? '#0a0a0a' : '#ffffff');
-}
-
-function loadPortalAccent(): string {
-  try { return localStorage.getItem(PORTAL_ACCENT_KEY) ?? '#f9ff00'; } catch { return '#f9ff00'; }
-}
-
 // Panneau « Portail client » — perso de la couleur accent (appliquée + persistée en live).
 function PortalAccentSettings() {
   const { t } = useTranslation();
-  const [accentColor, setAccentColor] = useState(loadPortalAccent);
-  const [hexInput, setHexInput] = useState(loadPortalAccent);
-  const onAccent = (c: string) => { setAccentColor(c); setHexInput(c); applyPortalAccent(c); };
+  const [accentColor, setAccentColor] = useState(getStudioPreferences().portalAccent ?? '#f9ff00');
+  const [hexInput, setHexInput] = useState(getStudioPreferences().portalAccent ?? '#f9ff00');
+
+  useEffect(() => subscribeStudioPreferences(() => {
+    const prefs = getStudioPreferences();
+    if (prefs.portalAccent) {
+      setAccentColor(prefs.portalAccent);
+      setHexInput(prefs.portalAccent);
+    }
+  }), []);
+
+  const onAccent = (c: string) => { setAccentColor(c); setHexInput(c); setPortalAccent(c); };
   const readable = (c: string) => {
     const r = parseInt(c.slice(1, 3) || 'f9', 16), g = parseInt(c.slice(3, 5) || 'ff', 16), b = parseInt(c.slice(5, 7) || '00', 16);
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? '#0a0a0a' : '#ffffff';
@@ -808,7 +805,7 @@ function PortalAccentSettings() {
             <input
               type="color"
               value={/^#[0-9a-fA-F]{6}$/.test(accentColor) ? accentColor : '#f9ff00'}
-              onChange={e => onAccent(e.target.value)}
+              onChange={e => setPortalAccent(e.target.value)}
               style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }}
             />
             <SFIcon name="pipette" size={14} color={readable(accentColor)} />
@@ -823,7 +820,7 @@ function PortalAccentSettings() {
                 const cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
                 const raw = '#' + cleaned;
                 setHexInput(raw);
-                if (/^#[0-9a-fA-F]{6}$/.test(raw)) { setAccentColor(raw); applyPortalAccent(raw); }
+                if (/^#[0-9a-fA-F]{6}$/.test(raw)) { setAccentColor(raw); setPortalAccent(raw); }
               }}
               onBlur={e => {
                 let cleaned = e.target.value.replace(/[^0-9a-fA-F]/g, '');

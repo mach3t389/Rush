@@ -1,9 +1,16 @@
 // app/scripts/create-stripe-catalog.mjs
 // One-shot script: creates the 5 Products and 18 Prices for Rush's billing
-// catalog in Stripe. Run once per Stripe mode (test, then live).
-// Usage: STRIPE_SECRET_KEY=sk_test_... node scripts/create-stripe-catalog.mjs
+// catalog in Stripe, and writes the resulting Price IDs directly into
+// src/data/stripePriceIds.ts. Run once per Stripe mode (test, then live).
+// Usage: STRIPE_SECRET_KEY=sk_live_... node scripts/create-stripe-catalog.mjs
 
 import Stripe from 'stripe';
+import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const OUTPUT_PATH = join(__dirname, '../src/data/stripePriceIds.ts');
 
 const key = process.env.STRIPE_SECRET_KEY;
 if (!key) {
@@ -62,6 +69,15 @@ async function main() {
     ],
   };
 
+  const fileContents = `// Généré via scripts/create-stripe-catalog.mjs — Price IDs Stripe,
+// non sensibles (safe à committer), alignés sur PLANS/STORAGE_BLOCKS dans
+// screens/Pricing.tsx. Régénérer et remplacer ce fichier si le catalogue
+// Stripe est recréé (ex. passage au mode production).
+export const STRIPE_PRICE_IDS = ${JSON.stringify(result, null, 2)} as const;
+`;
+
+  writeFileSync(OUTPUT_PATH, fileContents);
+  console.log(`Wrote ${OUTPUT_PATH}`);
   console.log(JSON.stringify(result, null, 2));
 }
 

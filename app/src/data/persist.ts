@@ -15,3 +15,12 @@ export function savePersisted<T>(key: string, value: T): void {
     localStorage.setItem(key, JSON.stringify(value));
   } catch { /* quota or unavailable — ignore */ }
 }
+
+// One-time migration: Remove legacy global preference keys
+// (sf_ui_fonts, sf_portal_accent) since they are now per-studio in Supabase
+export function migrateLegacyStorageKeys(): void {
+  const keysToRemove = ['sf_ui_fonts', 'sf_portal_accent'];
+  keysToRemove.forEach(key => {
+    try { localStorage.removeItem(key); } catch { /* noop */ }
+  });
+}
