@@ -1485,6 +1485,7 @@ export function Travail() {
       const allTasks = sections.flatMap(s => s.tasks);
       const task = allTasks.find(t => t.id === taskId);
       if (task) {
+        markTaskRead(taskId);
         setSelectedTask(task);
         setAutoFocusComments(focusComments);
       } else {
