@@ -2014,7 +2014,7 @@ export function Travail() {
           onCopySection={label => setSectionCopyLabel(label)}
           projectId={project.id}
           projectName={project.name}
-          projectColor={project.clientColor}
+          projectColor={project.clientColor ?? 'var(--text-3)'}
         />
       )}
 
@@ -2046,7 +2046,7 @@ export function Travail() {
                 onDeleteTask={taskId => setSections(prev => prev.map((s, i) => i === globalIdx ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s))}
                 projectId={project.id}
                 projectName={project.name}
-                projectColor={project.clientColor}
+                projectColor={project.clientColor ?? 'var(--text-3)'}
                 draggedTask={draggedTask}
                 onTaskDragStart={task => handleTaskDragStart(task, section.label)}
                 onTaskDragEnd={() => setDraggedTask(null)}

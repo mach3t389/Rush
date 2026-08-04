@@ -22,7 +22,7 @@ import { supabase } from './supabaseClient';
 import { setFileContent, getFileContent, removeFileContent } from './fileContentStore';
 import { createLoadingFlag } from './loadingFlag';
 import { addNotif } from './notificationStore';
-import { sendEmail } from './emailStore';
+import { sendEmail, wrapEmailHtml } from './emailStore';
 import { getTeamMembers } from './teamStore';
 import { addWatchers } from './watchers';
 import { escapeHtml } from './htmlEscape';
@@ -649,7 +649,10 @@ export function addInvoiceComment(invoiceId: string, comment: InvoiceComment, au
     void sendEmail(
       member.email,
       subject,
-      `<p>${escapeHtml(comment.author)} ${isMention ? 'vous a mentionné dans' : 'a commenté'} la facture « ${escapeHtml(inv.title)} » :</p><p>${escapeHtml(comment.text)}</p>`,
+      wrapEmailHtml(
+        `<p>${escapeHtml(comment.author)} ${isMention ? 'vous a mentionné dans' : 'a commenté'} la facture « ${escapeHtml(inv.title)} » :</p><p style="background: #f5f5f5; padding: 12px 14px; border-radius: 8px;">${escapeHtml(comment.text)}</p>`,
+        { ctaLabel: 'Voir mes factures', ctaLink: `${window.location.origin}/finances` }
+      ),
       { eventKey, recipientUserId: member.id }
     );
   }

@@ -16,7 +16,7 @@ import { isDemoSession, onLogout, getCurrentUser } from './authStore';
 import { getStudioId, getStudioInfo } from './studioStore';
 import { supabase } from './supabaseClient';
 import { createLoadingFlag } from './loadingFlag';
-import { sendEmail } from './emailStore';
+import { sendEmail, wrapEmailHtml } from './emailStore';
 
 export type AccessLevel = 'owner' | 'admin' | 'member';
 
@@ -251,12 +251,11 @@ export function sendTeamInvitationEmail(email: string, role: string, link: strin
   void sendEmail(
     email,
     `${studioName} vous invite à rejoindre son équipe sur Rushflow`,
-    `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-      <p>Bonjour,</p>
-      <p><strong>${studioName}</strong> vous invite à rejoindre son équipe sur Rushflow en tant que <strong>${role || 'membre'}</strong>.</p>
-      <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Rejoindre l'équipe</a></p>
-      <p style="color: #888; font-size: 13px;">Si le bouton ne fonctionne pas, copiez ce lien : ${link}</p>
-    </div>`
+    wrapEmailHtml(
+      `<p>Bonjour,</p>
+      <p><strong>${studioName}</strong> vous invite à rejoindre son équipe sur Rushflow en tant que <strong>${role || 'membre'}</strong>. Rushflow est une plateforme de gestion de projets utilisée par ${studioName} pour organiser son travail, ses fichiers et ses échanges avec ses clients.</p>`,
+      { ctaLabel: "Rejoindre l'équipe", ctaLink: link }
+    )
   );
 }
 

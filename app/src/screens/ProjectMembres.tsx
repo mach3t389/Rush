@@ -44,7 +44,7 @@ function RoleBadge({ role }: { role: string }) {
 
 function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   currentIds: Set<string>;
-  clientId: string;
+  clientId?: string | null;
   onAdd: (users: User[]) => void;
   onClose: () => void;
 }) {
@@ -62,8 +62,9 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
     !currentIds.has(u.id) && u.name.toLowerCase().includes(q)
   );
 
-  // External pool: only people already added to this client's team in FicheClient
-  const clientExternals = getClientExternalTeam(clientId);
+  // External pool: only people already added to this client's team in FicheClient.
+  // No client on the project (client-optional projects) means no external pool at all.
+  const clientExternals = clientId ? getClientExternalTeam(clientId) : [];
   const externalPool = clientExternals
     .filter(c => !currentIds.has(c.id) && c.name.toLowerCase().includes(q))
     .map(c => ({ id: c.id, name: c.name, initials: c.initials, avatarColor: c.color, role: c.role } as User));
@@ -370,7 +371,9 @@ export function ProjectMembres() {
   // `role` is their own job title (e.g. "Vidéaste"), never actually the
   // string "Cliente" outside of demo/mock data, so the old role-string
   // check misclassified every real external contact as internal.
-  const externalIds = new Set(getClientExternalTeam(project.clientId).map(c => c.id));
+  const externalIds = new Set(
+    project.clientId ? getClientExternalTeam(project.clientId).map(c => c.id) : []
+  );
   const isOwnerId = (id: string) => isDemoSession() ? id === USERS.lea.id : isTeamOwner(id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -392,18 +395,23 @@ export function ProjectMembres() {
   const persistMembers = (updated: User[]) => {
     setMembers(updated);
     updateProject(projectId, { members: updated });
-    syncProjectClientAccess(projectId, project.clientId, updated);
+    // No client on this project means no client portal access to sync.
+    if (project.clientId) syncProjectClientAccess(projectId, project.clientId, updated);
   };
 
   const handleAdd = (users: User[]) => {
     persistMembers([...members, ...users]);
     // Un membre de l'équipe interne ajouté à un projet client rejoint aussi l'équipe
     // du client (sens unique — l'inverse ne modifie pas les projets du client).
-    users.forEach(u => addClientTeamMember(project.clientId, {
-      id: u.id, name: u.name, role: u.role, email: '', status: 'active',
-      initials: u.initials, color: u.avatarColor, internal: true, userId: u.id,
-      portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS },
-    }));
+    // Skipped entirely when the project has no client to join.
+    if (project.clientId) {
+      const clientId = project.clientId;
+      users.forEach(u => addClientTeamMember(clientId, {
+        id: u.id, name: u.name, role: u.role, email: '', status: 'active',
+        initials: u.initials, color: u.avatarColor, internal: true, userId: u.id,
+        portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS },
+      }));
+    }
   };
 
   const handleRemove = (userId: string) => {

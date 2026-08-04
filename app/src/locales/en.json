@@ -444,6 +444,13 @@
     "client": "Client",
     "searchClientPlaceholder": "Search a client…",
     "firstClientHint": "This will be your first client — you can fill in the rest of their profile later.",
+    "personalProjectOption": "Create a personal project, no client",
+    "personalProjectHint": "You can attach a client later from the project's settings.",
+    "featuresLabel": "This project's features",
+    "moduleCalendar": "Calendar",
+    "moduleFiles": "Files",
+    "moduleFinance": "Finance",
+    "moduleFinanceRequiresClient": "Requires a client",
     "searchTeamPlaceholder": "Search a member…",
     "projectColor": "Project color",
     "archiveProject": "Archive project",
@@ -503,7 +510,8 @@
     "tabTeam": "Team",
     "tabActivity": "Activity",
     "tabFiles": "Files",
-    "tabFinance": "Finance"
+    "tabFinance": "Finance",
+    "personalProjectBadge": "Personal project"
   },
   "common": {
     "required": "*",

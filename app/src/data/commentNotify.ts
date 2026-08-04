@@ -11,7 +11,7 @@
 import { addNotif } from './notificationStore';
 import { getCurrentUser } from './authStore';
 import { getTeamMembers } from './teamStore';
-import { sendEmail } from './emailStore';
+import { sendEmail, wrapEmailHtml } from './emailStore';
 import { isDemoSession } from './authStore';
 import { addWatchers } from './watchers';
 import { getSections, updateTask as updateTaskStore } from './taskStore';
@@ -139,7 +139,10 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
   const subject = mentionedMembers.length > 0
     ? `${actor} vous a mentionné dans « ${itemLabel} »`
     : `${actor} a commenté « ${itemLabel} »`;
-  const html = `<p>${escapeHtml(actor)} ${mentionedMembers.length > 0 ? 'vous a mentionné dans' : verb} « ${escapeHtml(itemLabel)} » :</p><p>${escapeHtml(text)}</p>`;
+  const html = wrapEmailHtml(
+    `<p>${escapeHtml(actor)} ${mentionedMembers.length > 0 ? 'vous a mentionné dans' : verb} « ${escapeHtml(itemLabel)} » :</p><p style="background: #f5f5f5; padding: 12px 14px; border-radius: 8px;">${escapeHtml(text)}</p>`,
+    projectId ? { ctaLabel: 'Voir dans Rushflow', ctaLink: `${window.location.origin}/projets/${projectId}` } : undefined
+  );
 
   for (const id of recipientIds) {
     const member = members.find(m => m.id === id);

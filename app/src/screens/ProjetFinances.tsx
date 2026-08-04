@@ -163,7 +163,7 @@ export function ProjetFinances() {
       <InvoiceFormPanel
         open={panelOpen}
         invoice={editInvoice}
-        lockedClientId={project?.clientId}
+        lockedClientId={project?.clientId ?? undefined}
         lockedProjectId={projectId}
         onClose={closeForm}
       />

@@ -23,7 +23,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { getStudioInfo } from '../data/studioStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import { sendEmail } from '../data/emailStore';
+import { sendEmail, wrapEmailHtml } from '../data/emailStore';
 import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
 import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
@@ -651,7 +651,8 @@ export function TravailOverview() {
       <div style={{ flexShrink: 0 }}>
         <ProjectHeaderBar projectId={project.id}>
           {(() => {
-            const approver = getClientApprover(project.clientId);
+            // No client on the project means there's no external approver to request.
+            const approver = project.clientId ? getClientApprover(project.clientId) : null;
             if (approver) return (
               <button
                 onClick={() => { setApprovalSent(false); setApprovalModal(true); }}
@@ -1027,7 +1028,7 @@ export function TravailOverview() {
                               title: newDlTitle.trim(),
                               projectId: project.id,
                               projectName: project.name,
-                              projectColor: project.clientColor,
+                              projectColor: project.clientColor ?? 'var(--text-3)',
                               assignees: [],
                               status: '' as Task['status'],
                               statusLabel: t(DELIVERABLE_STATUS_OPTIONS.find(o => o.value === '')!.labelKey),
@@ -1349,7 +1350,7 @@ export function TravailOverview() {
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Identité — nom du projet (client en sous-titre) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: getProjectColor(project.id, project.clientColor), flexShrink: 0 }} />
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: getProjectColor(project.id, project.clientColor ?? 'var(--text-3)'), flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</p>
                   <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{project.clientName}</p>
@@ -1499,7 +1500,7 @@ export function TravailOverview() {
       {editOpen && (
         <ProjectEditPanel
           p={project}
-          color={project.clientColor}
+          color={project.clientColor ?? 'var(--text-3)'}
           name={project.name}
           status={project.status}
           statusLabel={project.statusLabel}
@@ -1516,6 +1517,9 @@ export function TravailOverview() {
             updateProject(project.id, {
               name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
               deliveryDate: u.deliveryDate, budget: u.budget, description: u.description,
+              calendarEnabled: u.calendarEnabled,
+              filesEnabled: u.filesEnabled,
+              financeEnabled: u.financeEnabled,
             });
             forceUpdate(n => n + 1);
           }}
@@ -1523,7 +1527,7 @@ export function TravailOverview() {
       )}
 
       {approvalModal && (() => {
-        const approver = getClientApprover(project.clientId);
+        const approver = project.clientId ? getClientApprover(project.clientId) : null;
         if (!approver) return null;
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
@@ -1584,15 +1588,18 @@ export function TravailOverview() {
                         });
                         if (!isDemoSession() && approver.email) {
                           const studioName = getStudioInfo().name || 'Rushflow';
-                          const link = `${window.location.origin}/projets/${project.id}/overview`;
+                          // Client-facing link, not the studio-side /projets
+                          // route — an external approver has no studio
+                          // login, only their client portal access.
+                          const link = `${window.location.origin}/apercu-client/${project.clientId}/projets/${project.id}`;
                           void sendEmail(
                             approver.email,
                             `${studioName} vous demande d'approuver le projet « ${project.name} »`,
-                            `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-                              <p>Bonjour ${approver.name || ''},</p>
-                              <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>
-                              <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Voir le projet</a></p>
-                            </div>`,
+                            wrapEmailHtml(
+                              `<p>Bonjour ${approver.name || ''},</p>
+                              <p><strong>${studioName}</strong> vous demande d'approuver la livraison finale du projet <strong>${project.name}</strong>.</p>`,
+                              { ctaLabel: 'Voir et approuver', ctaLink: link }
+                            ),
                             approver.authUserId ? { eventKey: 'approval', recipientUserId: approver.authUserId } : undefined
                           );
                         }

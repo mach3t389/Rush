@@ -798,7 +798,7 @@ function FileTree({
           return p ? renderProjectRow(p) : null;
         })()}
         {lockedScope && lockedScope.scope === 'client' && (
-          <>{projects.filter(p => p.clientId === lockedScope.scopeId).map(p => renderProjectRow(p))}</>
+          <>{projects.filter(p => p.clientId === lockedScope.scopeId && p.filesEnabled).map(p => renderProjectRow(p))}</>
         )}
 
         {/* Root — hidden when locked */}
@@ -850,7 +850,7 @@ function FileTree({
           // pas par l'ordre naturel de projects — même logique que la sidebar
           // globale de l'app (Sidebar.tsx), pour un ordre identique aux deux
           // endroits plutôt qu'un ordre alphabétique/de création ici.
-          const pinnedProjects = pinnedIds.map(id => projects.find(p => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p && !p.archived);
+          const pinnedProjects = pinnedIds.map(id => projects.find(p => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p && !p.archived && p.filesEnabled);
           return pinnedProjects.length > 0 && (
             <>
               <SectionLabel>{t('files.projectsSection')}</SectionLabel>
@@ -2576,7 +2576,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           id={`project-${project.id}`}
           label={project.name}
           icon="folder"
-          color={project.clientColor}
+          color={project.clientColor ?? 'var(--text-3)'}
           onClick={() => setLocation({ scope: 'project', scopeId: project.id, folderId: null })}
           count={allFolders.filter(f => f.projectId === project.id && f.parentId === null).length}
         />
@@ -2650,7 +2650,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       // Client root — projets du client, mais aussi les dossiers/fichiers créés
       // directement à la racine du client (sinon un dossier créé ici via le
       // clic droit n'apparaît jamais dans cette colonne, même s'il existe bien).
-      const clientProjects = projects.filter(p => p.clientId === scopeId);
+      const clientProjects = projects.filter(p => p.clientId === scopeId && p.filesEnabled);
       return {
         folders: allFolders.filter(f => f.clientId === scopeId && f.parentId === null),
         files: allFiles.filter(f => f.clientId === scopeId && f.parentFolderId === null),
@@ -3543,7 +3543,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                       icon="user"
                       color={c.avatarColor}
                       onClick={() => setLocation({ scope: 'client', scopeId: c.id, folderId: null })}
-                      count={projects.filter(p => p.clientId === c.id).length}
+                      count={projects.filter(p => p.clientId === c.id && p.filesEnabled).length}
                     />
                   ))}
                 </div>
@@ -3556,7 +3556,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                   {clients.map(c => (
                     <VirtualRow key={c.id} id={`client-${c.id}`} label={c.name} icon="user" color={c.avatarColor}
                       onClick={() => setLocation({ scope: 'client', scopeId: c.id, folderId: null })}
-                      count={projects.filter(p => p.clientId === c.id).length} sublabel="Client" />
+                      count={projects.filter(p => p.clientId === c.id && p.filesEnabled).length} sublabel="Client" />
                   ))}
                 </div>
               )}
@@ -3569,7 +3569,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Projets du client</p>
               {viewMode === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                  {projects.filter(p => p.clientId === location.scopeId).map(p => (
+                  {projects.filter(p => p.clientId === location.scopeId && p.filesEnabled).map(p => (
                     <ProjectCard key={p.id} project={p} />
                   ))}
                 </div>
@@ -3579,7 +3579,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                     <div />
                     <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
-                  {projects.filter(p => p.clientId === location.scopeId).map(p => {
+                  {projects.filter(p => p.clientId === location.scopeId && p.filesEnabled).map(p => {
                     const isPinned = pinnedIds.includes(p.id);
                     return (
                       <div key={p.id}

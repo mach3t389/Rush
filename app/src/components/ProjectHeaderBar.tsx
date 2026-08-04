@@ -32,7 +32,7 @@ export function ProjectHeaderBar({
   const project = findProject(projectId);
 
   const [, forceUpdate] = useState(0);
-  const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
+  const dotColor = project ? getProjectColor(project.id, project.clientColor ?? 'var(--text-3)') : '#888';
   const [colorOpen, setColorOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -62,7 +62,12 @@ export function ProjectHeaderBar({
   const TEMPLATE_DRAFT_TAB_KEYS = ['overview', 'tasks', 'files'];
   const tabs = project.isTemplateDraft
     ? allTabs.filter(tb => TEMPLATE_DRAFT_TAB_KEYS.includes(tb.key))
-    : allTabs;
+    : allTabs.filter(tb => {
+        if (tb.key === 'calendar') return project.calendarEnabled;
+        if (tb.key === 'files')    return project.filesEnabled;
+        if (tb.key === 'finance')  return project.financeEnabled && !!project.clientId;
+        return true;
+      });
 
   return (
     <div style={{
@@ -89,11 +94,15 @@ export function ProjectHeaderBar({
           fontFamily: 'var(--ff-mono)', fontSize: 11,
           color: 'var(--text-3)', marginBottom: 8,
         }}>
-          <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            {project.clientName}
-          </button>
+          {project.clientId ? (
+            <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              {project.clientName}
+            </button>
+          ) : (
+            <span>{t('projects.personalProjectBadge')}</span>
+          )}
           <span>/</span>
-          <button onClick={() => navigate(`/clients/${project.clientId}?tab=projets`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <button onClick={() => navigate(project.clientId ? `/clients/${project.clientId}?tab=projets` : '/projets')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {t('projects.title')}
           </button>
           <span>/</span>
@@ -295,6 +304,9 @@ export function ProjectHeaderBar({
             name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
             phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
             budget: u.budget, description: u.description,
+            calendarEnabled: u.calendarEnabled,
+            filesEnabled: u.filesEnabled,
+            financeEnabled: u.financeEnabled,
           })}
         />
       )}
