@@ -126,10 +126,12 @@ export function setPortalAccent(color: string | null): void {
   if (isDemoSession()) {
     const current = getDemoPreferences('demo_studio_1');
     setDemoPreferences('demo_studio_1', { ...current, portalAccent: color });
+    applyAccentToCss(color);
     notify();
     return;
   }
   _realPreferences = { ..._realPreferences, portalAccent: color };
+  applyAccentToCss(color);
   notify();
   void (async () => {
     const studioId = await getStudioId();
