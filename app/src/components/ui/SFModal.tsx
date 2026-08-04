@@ -47,7 +47,7 @@ export function SFModal({
     <div style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {/* onMouseDown, not onClick — a text-selection drag started inside the
           dialog and released over the backdrop must not close it. */}
-      <div onMouseDown={closeOnBackdrop ? onClose : undefined} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div onMouseDown={closeOnBackdrop ? onClose : undefined} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
       {/* SFModal isn't portaled — it renders inline in whatever mounted it,
           so a click anywhere in its content bubbles through the DOM to any
           ancestor click handler (e.g. a clickable card behind it) unless
@@ -55,14 +55,14 @@ export function SFModal({
           whatever's behind it. */}
       <div onClick={e => e.stopPropagation()} style={{
         position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)',
-        borderRadius: 14, padding, width, maxHeight,
+        borderRadius: 16, padding, width, maxHeight,
         display: 'flex', flexDirection: 'column',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
         overflow: maxHeight ? 'hidden' : 'visible',
       }}>
         {title && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700 }}>{title}</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700 }}>{title}</h3>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
               <SFIcon name="x" size={15} />
             </button>
