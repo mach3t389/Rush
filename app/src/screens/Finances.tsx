@@ -1275,7 +1275,7 @@ export function Finances() {
   const moveInvoicesToProject = (ids: string[], projectId: string) => {
     const project = allProjects.find(p => p.id === projectId);
     if (!project) return;
-    ids.forEach(id => updateInvoice(id, { projectId: project.id, clientId: project.clientId }));
+    ids.forEach(id => updateInvoice(id, { projectId: project.id, clientId: project.clientId ?? undefined }));
   };
 
   const bulkDelete = () => {

@@ -27,7 +27,7 @@ export async function getPreviewClientProjects(clientId: string): Promise<Client
   return getProjectsByClient(clientId).map(p => ({
     id: p.id,
     name: p.name,
-    clientColor: p.clientColor,
+    clientColor: p.clientColor ?? 'var(--text-3)',
     progress: p.progress,
     status: p.status,
     statusLabel: p.statusLabel,

@@ -783,7 +783,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
         const project = getProjects().find(p => p.id === projectId);
         return (
           <ProjectHeaderBar projectId={projectId ?? ''}>
-            {project?.clientId && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName} />}
+            {project?.clientId && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName ?? ''} />}
             {!readOnly && (
               <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
             )}

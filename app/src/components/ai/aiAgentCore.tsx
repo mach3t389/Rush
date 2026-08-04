@@ -234,6 +234,9 @@ function executeTool(
           status: 'info',
           statusLabel: 'En cours',
           modifiedAt: new Date().toISOString(),
+          calendarEnabled: true,
+          filesEnabled: true,
+          financeEnabled: true,
         };
         addProject(project);
         setTimeout(() => navigate(`/projets/${project.id}`), 600);

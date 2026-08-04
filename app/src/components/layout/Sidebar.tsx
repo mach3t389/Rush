@@ -485,7 +485,7 @@ export function Sidebar() {
             {projectsSectionOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {pinnedProjects.map((p, idx) => {
-                const dotColor = getProjectColor(p.id, p.clientColor);
+                const dotColor = getProjectColor(p.id, p.clientColor ?? 'var(--text-3)');
                 return (
                   <div
                     key={p.id}
@@ -691,7 +691,7 @@ export function Sidebar() {
                   background: isActive ? 'var(--surface-3)' : 'transparent',
                 })}
               >
-                <i style={{ width: 9, height: 9, borderRadius: 999, background: getProjectColor(p.id, p.clientColor), display: 'block' }} />
+                <i style={{ width: 9, height: 9, borderRadius: 999, background: getProjectColor(p.id, p.clientColor ?? 'var(--text-3)'), display: 'block' }} />
               </NavLink>
             ))}
             {pinnedClients.length > 0 && pinnedProjects.length > 0 && (

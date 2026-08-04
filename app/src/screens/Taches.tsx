@@ -702,7 +702,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {(() => {
                   const q = projSearch.toLowerCase();
-                  const all = getProjects().filter(p => !q || p.name.toLowerCase().includes(q) || p.clientName.toLowerCase().includes(q));
+                  const all = getProjects().filter(p => !q || p.name.toLowerCase().includes(q) || (p.clientName ?? '').toLowerCase().includes(q));
                   const current = all.find(p => p.id === task.projectId);
                   const others = all.filter(p => p.id !== task.projectId && !p.archived);
                   const recentOthers = others.slice(0, 3);
@@ -710,7 +710,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
                   const projBtn = (p: ReturnType<typeof getProjects>[0]) => (
                     <button key={p.id}
                       onClick={() => {
-                        updateMyTask(task.id, { projectId: p.id, projectName: p.name, projectColor: p.clientColor, sectionLabel: '' });
+                        updateMyTask(task.id, { projectId: p.id, projectName: p.name, projectColor: p.clientColor ?? 'var(--text-3)', sectionLabel: '' });
                         setSectionLabel('');
                         setPendingProjId(p.id);
                       }}
@@ -1841,7 +1841,7 @@ export function Taches() {
             onMove={(newProjectId, _newSectionLabel) => {
               const proj = getProjects().find(p => p.id === newProjectId);
               if (proj) {
-                const patch = { projectId: newProjectId, projectName: proj.name, projectColor: proj.clientColor };
+                const patch = { projectId: newProjectId, projectName: proj.name, projectColor: proj.clientColor ?? 'var(--text-3)' };
                 updateMyTask(selectedTask.id, patch);
                 setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
               }

@@ -2576,7 +2576,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           id={`project-${project.id}`}
           label={project.name}
           icon="folder"
-          color={project.clientColor}
+          color={project.clientColor ?? 'var(--text-3)'}
           onClick={() => setLocation({ scope: 'project', scopeId: project.id, folderId: null })}
           count={allFolders.filter(f => f.projectId === project.id && f.parentId === null).length}
         />

@@ -684,7 +684,7 @@ function ProjectListRow({ p }: { p: Project }) {
   const [pinned, setPinnedState] = useState(() => isPinned(p.id));
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState(p.name);
-  const [color, setColor] = useState(p.clientColor);
+  const [color, setColor] = useState(p.clientColor ?? 'var(--text-3)');
   const [status, setStatus] = useState<Status>(p.status);
   const [statusLabel, setStatusLabel] = useState(p.statusLabel);
   const [phase, setPhase] = useState<Phase>(p.phase);
@@ -958,7 +958,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
     .filter(p => {
       if (search) {
         const q = search.toLowerCase();
-        const match = p.name.toLowerCase().includes(q) || (!clientId && p.clientName.toLowerCase().includes(q));
+        const match = p.name.toLowerCase().includes(q) || (!clientId && (p.clientName ?? '').toLowerCase().includes(q));
         if (!match) return false;
       }
       if (lifecycleFilter === 'archived' && !p.archived) return false;
@@ -970,7 +970,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
     .sort((a, b) => {
       if (sortBy === 'alpha')      return a.name.localeCompare(b.name);
       if (sortBy === 'alpha-desc') return b.name.localeCompare(a.name);
-      if (sortBy === 'client')     return a.clientName.localeCompare(b.clientName);
+      if (sortBy === 'client')     return (a.clientName ?? '').localeCompare(b.clientName ?? '');
       if (sortBy === 'delivery')   return (a.deliveryDate ?? '').localeCompare(b.deliveryDate ?? '');
       if (sortBy === 'progress')   return getProjectStats(b).progress - getProjectStats(a).progress;
       return (b.modifiedAt ?? '').localeCompare(a.modifiedAt ?? '');

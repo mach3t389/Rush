@@ -23,7 +23,7 @@ function search(q: string): Result[] {
   const results: Result[] = [];
 
   for (const p of getProjects()) {
-    if (p.name.toLowerCase().includes(lq) || p.clientName.toLowerCase().includes(lq)) {
+    if (p.name.toLowerCase().includes(lq) || (p.clientName ?? '').toLowerCase().includes(lq)) {
       results.push({ kind: 'project', id: p.id, label: p.name, sublabel: p.clientName, color: p.clientColor, href: `/projets/${p.id}` });
     }
   }

@@ -300,7 +300,7 @@ export function ProjectCard({ p }: { p: Project }) {
   const [pinned, setPinned]         = useState(() => isPinned(p.id));
   const [status, setStatus]         = useState<Status>(p.status);
   const [statusLabel, setStatusLabel] = useState(p.statusLabel);
-  const [color, setColor]           = useState(p.clientColor);
+  const [color, setColor]           = useState(p.clientColor ?? 'var(--text-3)');
   const [name, setName]             = useState(p.name);
   const [phase, setPhase]           = useState<Phase>(p.phase);
   const [phaseLabel, setPhaseLabel] = useState(p.phaseLabel);

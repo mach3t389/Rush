@@ -32,7 +32,7 @@ export function ProjectHeaderBar({
   const project = findProject(projectId);
 
   const [, forceUpdate] = useState(0);
-  const dotColor = project ? getProjectColor(project.id, project.clientColor) : '#888';
+  const dotColor = project ? getProjectColor(project.id, project.clientColor ?? 'var(--text-3)') : '#888';
   const [colorOpen, setColorOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
