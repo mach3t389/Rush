@@ -1768,9 +1768,9 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
     // StorageView (trash/restore/delete-version actions) before the toggle row even renders.
     if (readOnly && viewMode === 'stockage') setViewMode('list');
   }, [readOnly, viewMode, setViewMode]);
-  const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [sortBy, setSortBy] = usePersistedState<SortBy>('sf_fichiers_sort_by', 'name');
   const [sortOpen, setSortOpen] = useState(false);
-  const [filterType, setFilterType] = useState<FileItemType | 'all'>('all');
+  const [filterType, setFilterType] = usePersistedState<FileItemType | 'all'>('sf_fichiers_filter_type', 'all');
   const [search, setSearch] = useState('');
   const [treeWidth] = useState(220);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

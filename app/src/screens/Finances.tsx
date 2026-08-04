@@ -18,6 +18,7 @@ import {
 import { subscribeUploadStatus } from '../data/fileContentStore';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { canUseFeature } from '../data/planFeatures';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 
@@ -1148,10 +1149,10 @@ function InvoiceContextMenu({ pos, count, onOpen, onMove, onDelete, onClose }: {
 export function Finances() {
   const { t } = useTranslation();
   const [invoices,      setInvoices]      = useState<Invoice[]>(getInvoices);
-  const [filter,        setFilter]        = useState<InvoiceStatus | 'all'>('all');
+  const [filter,        setFilter]        = usePersistedState<InvoiceStatus | 'all'>('sf_finances_status_filter', 'all');
   const [search,        setSearch]        = useState('');
-  const [clientFilter,  setClientFilter]  = useState('');
-  const [projectFilter, setProjectFilter] = useState('');
+  const [clientFilter,  setClientFilter]  = usePersistedState('sf_finances_client_filter', '');
+  const [projectFilter, setProjectFilter] = usePersistedState('sf_finances_project_filter', '');
   const [dateFrom,      setDateFrom]      = useState('');
   const [dateTo,        setDateTo]        = useState('');
   const [dateFromAnchor, setDateFromAnchor] = useState<DOMRect | null>(null);

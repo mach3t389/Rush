@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton, PageHeader, SFModal, LifecycleFilterDropdown } from '../components/ui';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { getTeamMembers, subscribeTeam, removeMember, type TeamMemberInfo } from '../data/teamStore';
 import { getAllClientContacts, subscribeAllClientContacts, removeClientTeamMember, addClientTeamMember } from '../data/clientTeamStore';
 import { getClients, subscribeClients } from '../data/clientStore';
@@ -59,7 +60,7 @@ export function Membres() {
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const liveEditingClient = editingClient ? (clients.find(c => c.id === editingClient.id) ?? editingClient) : null;
-  const [groupFilter, setGroupFilter] = useState<'active' | 'archived' | 'all'>('active');
+  const [groupFilter, setGroupFilter] = usePersistedState<'active' | 'archived' | 'all'>('sf_membres_group_filter', 'active');
 
   // An archived group used to simply vanish from this tab with no way back
   // in — no filter to see it, so no way to unarchive or permanently delete
