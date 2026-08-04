@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFCard, SFBar, SFButton, SFModal, SFLoadingState, PageHeader, LifecycleFilterDropdown } from '../components/ui';
@@ -253,34 +252,15 @@ export function ClientEditPanel({ client, onClose }: { client: Client; onClose: 
     });
   };
 
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      // Blurring the active element first forces its onBlur (which commits the
-      // field) to run before onClose unmounts the panel — otherwise typed text
-      // that was never explicitly blurred (e.g. via Enter) was silently lost.
-      onMouseDown={e => { if (e.target === e.currentTarget) { (document.activeElement as HTMLElement)?.blur(); onClose(); } }}
-    >
-      <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+  // Blurring the active element first forces its onBlur (which commits the
+  // field) to run before onClose unmounts the panel — otherwise typed text
+  // that was never explicitly blurred (e.g. via Enter) was silently lost.
+  const handleClose = () => { (document.activeElement as HTMLElement)?.blur(); onClose(); };
 
-        {/* Header */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, transition: 'background 0.15s' }}>
-              {name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || client.initials}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || client.name}</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{sector}</p>
-            </div>
-          </div>
-          <button onClick={() => { (document.activeElement as HTMLElement)?.blur(); onClose(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
-            <SFIcon name="x" size={16} />
-          </button>
-        </div>
-
+  return (
+    <SFModal open onClose={handleClose} title={name || client.name} width={400} maxHeight="90vh">
         {/* Body */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── Identité ── */}
           <Section label={t('clients.identity')}>
@@ -383,9 +363,7 @@ export function ClientEditPanel({ client, onClose }: { client: Client; onClose: 
           </Section>
 
         </div>
-      </div>
-    </div>,
-    document.body
+    </SFModal>
   );
 }
 
