@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/integrations/v1/:path*", "destination": "/api/integrations?path=:path*" },
+    { "source": "/api/integrations/v1/(.*)", "destination": "/api/integrations?path=$1" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
