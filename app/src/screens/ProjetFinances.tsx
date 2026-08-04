@@ -7,7 +7,7 @@ import {
   getInvoicesByProject, subscribeInvoices, removeInvoice, findInvoice,
   setInvoiceStatus, formatMoney, isInvoicesLoading, type Invoice,
 } from '../data/financeStore';
-import { getClients } from '../data/clientStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { findProject } from '../data/projectStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate, FinancesLocked } from './Finances';
 import { usePlan } from '../data/planStore';
@@ -28,6 +28,8 @@ export function ProjetFinances() {
   const [deleteId,      setDeleteId]      = useState<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByProject(projectId))), [projectId]);
+  const [, forceClientsRerender] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
 
   const revenue     = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
   const outstanding = invoices.filter(i => i.status === 'sent' || i.status === 'viewed').reduce((s, i) => s + i.total, 0);

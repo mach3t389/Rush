@@ -6,7 +6,7 @@ import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, Time
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
-import { getClients } from '../data/clientStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { timeAgo } from '../utils/timeAgo';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
@@ -318,6 +318,8 @@ export function ProjectCard({ p }: { p: Project }) {
   const [, forceStatsTick] = useState(0);
   useEffect(() => subscribeStore(() => forceStatsTick(n => n + 1)), []);
   const stats = getProjectStats(p);
+  const [, forceClientsRerender] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
 
   useEffect(() => {
     if (!dropOpen) return;

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader, CategoryFilterDropdown } from '../components/ui';
-import { getClients } from '../data/clientStore';
-import { getProjects } from '../data/projectStore';
+import { getClients, subscribeClients } from '../data/clientStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatcher, addWatchers } from '../data/watchers';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
@@ -339,6 +339,14 @@ export function InvoiceDetailPanel({
   const [uploadTick, setUploadTick] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // getClients()/getProjects() are synchronous caches that start empty in a
+  // real session until their background Supabase fetch resolves — without
+  // these subscriptions this panel could render with blank project/client
+  // names forever if opened before that fetch finished.
+  const [, forceClientsProjectsTick] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsProjectsTick(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceClientsProjectsTick(n => n + 1)), []);
+
   const allClients  = getClients();
   const allProjects = getProjects();
 
@@ -606,6 +614,9 @@ export function InvoiceFormPanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const [, forceClientsProjectsTick] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsProjectsTick(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceClientsProjectsTick(n => n + 1)), []);
   const allClients  = getClients();
   const allProjects = getProjects();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1160,6 +1171,14 @@ export function Finances() {
   const anchorIdRef = useRef<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoices())), []);
+
+  // Must be declared before the plan-lock early return below — a hook
+  // declared after a conditional return is skipped on renders that take
+  // that branch, which changes the hook count between renders and crashes
+  // with React error #310.
+  const [, forceClientsProjectsTick] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsProjectsTick(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceClientsProjectsTick(n => n + 1)), []);
 
   const plan = usePlan();
   if (!canUseFeature(plan, 'finances')) {

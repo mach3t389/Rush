@@ -1484,6 +1484,8 @@ export function Travail() {
   const { t } = useTranslation();
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
   const project = findProject(projectId ?? '') ?? getProjects()[0]!;
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
 import { addProject, createTemplateDraft } from '../data/projectStore';
-import { getClients } from '../data/clientStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import { setProjectContent } from '../data/projectContentStore';
@@ -398,6 +398,8 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState(clients[0]?.id ?? '');
   const templateSections = resolveTasksSections(template);
+  const [, forceClientsRerender] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
 
   const handleCreate = () => {
     if (!name.trim()) return;

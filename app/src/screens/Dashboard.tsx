@@ -6,7 +6,7 @@ import { ACTIVITY, USERS } from '../data/mock';
 import { getEvents, subscribeEvents, isEventsLoading, pullFromGoogleCalendar, type CalendarEvent } from '../data/eventStore';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
-import { getProjects, isProjectsLoading } from '../data/projectStore';
+import { getProjects, isProjectsLoading, subscribeProjects } from '../data/projectStore';
 import { getMyTasks, subscribeMyTasks, updateMyTask, isMyTasksLoading } from '../data/myTaskStore';
 import { getProjectStats, subscribeStore } from '../data/taskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
@@ -390,6 +390,8 @@ function DashboardAIHero({
 export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
   const projects   = getProjects().filter(p => !p.archived);
   // Completed tasks are excluded here (not just cosmetically struck through)
   // — a checked-off task isn't an upcoming deadline, doesn't belong in

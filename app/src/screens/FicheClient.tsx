@@ -20,7 +20,7 @@ import { getTeamMembers } from '../data/teamStore';
 import { createInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { isInvoicesLoading } from '../data/financeStore';
-import { getProjects, isProjectsLoading } from '../data/projectStore';
+import { getProjects, isProjectsLoading, subscribeProjects } from '../data/projectStore';
 import { getCurrentSectionLabel } from '../data/taskStore';
 import { isDemoSession } from '../data/authStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
@@ -783,6 +783,8 @@ function FinancesTab({ clientId }: { clientId: string }) {
   const [deleteId,      setDeleteId]      = useState<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByClient(clientId))), [clientId]);
+  const [, forceProjectsRerenderFinances] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerenderFinances(n => n + 1)), []);
 
   const allProjects = getProjects();
   const projectMap  = Object.fromEntries(allProjects.map(p => [p.id, p]));
@@ -1377,6 +1379,9 @@ export function FicheClient() {
       setClientData(findClient(clientId ?? ''));
     });
   }, [clientId]);
+
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';

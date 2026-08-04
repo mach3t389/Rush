@@ -1353,7 +1353,6 @@ export function TravailOverview() {
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: getProjectColor(project.id, project.clientColor ?? 'var(--text-3)'), flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{project.clientName}</p>
                 </div>
               </div>
               <div>
