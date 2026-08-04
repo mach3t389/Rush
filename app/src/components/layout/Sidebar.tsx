@@ -282,7 +282,7 @@ export function Sidebar() {
   // can never disagree about what a given route requires.
   const viewAsPerms = viewAs?.type === 'internal' ? (viewAs.permissions ?? []) : null;
   const requiredForClients = getRequiredPermissionForPath('/clients')!;
-  const canSeeClients = !viewAsPerms || requiredForClients.some(p => viewAsPerms.includes(p));
+  const canSeeMembres = !viewAsPerms || requiredForClients.some(p => viewAsPerms.includes(p));
   const requiredForFinances = getRequiredPermissionForPath('/finances')!;
   const canSeeFinances = !viewAsPerms || requiredForFinances.some(p => viewAsPerms.includes(p));
 
@@ -442,8 +442,8 @@ export function Sidebar() {
 
           {/* Entités */}
           <NavItem to="/projets" icon="folder" label={t('nav.projects')} exact={true} collapsed={collapsed} />
-          {canSeeClients && (
-            <NavItem to="/clients" icon="users" label={t('nav.clients')} exact={true} collapsed={collapsed} />
+          {canSeeMembres && (
+            <NavItem to="/membres" icon="users" label={t('nav.membres')} exact={false} collapsed={collapsed} />
           )}
 
           {/* Séparateur */}

@@ -9,6 +9,9 @@ export function getRequiredPermissionForPath(pathname: string): PermissionKey[] 
   if (pathname === '/clients' || pathname.startsWith('/clients/')) {
     return ['manage_clients'];
   }
+  if (pathname === '/membres' || pathname.startsWith('/membres/individus/')) {
+    return ['manage_clients'];
+  }
   if (pathname === '/finances' || /^\/projets\/[^/]+\/finances$/.test(pathname)) {
     return ['view_invoices', 'manage_invoices'];
   }

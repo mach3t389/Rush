@@ -25,6 +25,8 @@ import { ClientProjectFinances } from './screens/client/ClientProjectFinances';
 import { isClientSession } from './data/clientSessionStore';
 import { TeamInvitationAccept } from './screens/TeamInvitationAccept';
 import { Clients } from './screens/Clients';
+import { Membres } from './screens/Membres';
+import { FicheIndividu } from './screens/FicheIndividu';
 import { FicheClient } from './screens/FicheClient';
 import { CalendrierGlobal } from './screens/CalendrierGlobal';
 import { Parametres } from './screens/Parametres';
@@ -139,6 +141,8 @@ const router = createBrowserRouter([
       { path: 'finances', element: <ViewAsPermissionGate><Finances /></ViewAsPermissionGate> },
       { path: 'clients', element: <ViewAsPermissionGate><Clients /></ViewAsPermissionGate> },
       { path: 'clients/:clientId', element: <ViewAsPermissionGate><FicheClient /></ViewAsPermissionGate> },
+      { path: 'membres', element: <ViewAsPermissionGate><Membres /></ViewAsPermissionGate> },
+      { path: 'membres/individus/:id', element: <ViewAsPermissionGate><FicheIndividu /></ViewAsPermissionGate> },
       { path: 'parametres', element: <Parametres /> },
       { path: 'activite', element: <Activite /> },
       { path: 'calendrier', element: <CalendrierGlobal /> },

@@ -18,7 +18,6 @@ import { type ClientContact as ClientMember, PORTAL_PRESETS, matchPortalPreset, 
 import { getClientTeam, setClientTeam, addClientTeamMember, removeClientTeamMember, subscribeClientTeam } from '../data/clientTeamStore';
 import { getTeamMembers } from '../data/teamStore';
 import { createInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
-import { syncClientContactAcrossProjects } from '../data/projectClientAccessStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { isInvoicesLoading } from '../data/financeStore';
 import { getProjects, isProjectsLoading } from '../data/projectStore';
@@ -44,7 +43,7 @@ function getInternalTeam() {
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
-function InviteModal({ existingEmails, onClose, onInvite }: {
+export function InviteModal({ existingEmails, onClose, onInvite }: {
   existingEmails: string[];
   onClose: () => void;
   onInvite: (m: ClientMember) => Promise<string>;
@@ -702,7 +701,6 @@ function EquipeTab({ clientId }: { clientId: string }) {
           onClose={() => setShowInvite(false)}
           onInvite={async m => {
             addClientTeamMember(clientId, m);
-            syncClientContactAcrossProjects(clientId, m.id);
             setMembers(getClientTeam(clientId));
             const invitation = await createInvitation(clientId, m.id);
             const link = getInvitationLink(invitation.token);

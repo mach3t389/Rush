@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal, SFLoadingState } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getClientExternalTeam, addClientTeamMember, subscribeClientTeam } from '../data/clientTeamStore';
+import { getClients } from '../data/clientStore';
 import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
 import { findProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
@@ -51,8 +52,17 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [pickedGroupIds, setPickedGroupIds] = useState<Set<string>>(new Set());
   const [perms, setPerms] = useState<PermissionKey[]>(PERMISSION_PRESETS[2].perms);
   const q = search.toLowerCase();
+
+  // getClientExternalTeam() reads a synchronous per-client cache that starts
+  // empty until its background Supabase fetch resolves (see clientTeamStore.ts).
+  // Without this subscription the "N contacts" counts below (and the pool
+  // itself) would freeze at the stale empty state until something else
+  // happened to force a re-render.
+  const [, forceContactsRerender] = useState(0);
+  useEffect(() => subscribeClientTeam(() => forceContactsRerender(n => n + 1)), []);
 
   const allUsers: Record<string, User> = {};
   Object.values(USERS).forEach(u => { allUsers[u.id] = u; });
@@ -71,7 +81,19 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
 
   externalPool.forEach(u => { allUsers[u.id] = u; });
 
+  // Group pool: other clients whose whole external team can be bulk-added at once.
+  // Excludes the project's own client — its contacts are already offered
+  // individually above via externalPool, so picking it as a "group" would be redundant.
+  const groupPool = getClients().filter(c => !c.archived && (!clientId || c.id !== clientId))
+    .filter(c => c.name.toLowerCase().includes(q));
+
   const toggle = (id: string) => setPicked(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const toggleGroup = (id: string) => setPickedGroupIds(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
@@ -87,19 +109,45 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   const internalIds = new Set(internalTeam.map(u => u.id));
   const hasInternalPick = [...picked].some(id => internalIds.has(id));
 
+  const [emptyGroupWarning, setEmptyGroupWarning] = useState(false);
+
   const handleConfirm = () => {
+    // A picked group whose team is still empty (fetch not resolved yet, or
+    // genuinely no contacts) would otherwise silently add zero people with
+    // no feedback — block and warn instead of proceeding.
+    const emptyPickedGroup = [...pickedGroupIds].some(groupId => getClientExternalTeam(groupId).length === 0);
+    if (emptyPickedGroup) { setEmptyGroupWarning(true); return; }
+    setEmptyGroupWarning(false);
+
     const users = [...picked].map(id => allUsers[id]).filter(Boolean);
-    if (users.length > 0) {
+
+    // Expand every picked group into its member contacts, then de-dup against
+    // individually-picked users and against people already on the project —
+    // a contact shouldn't appear twice just because they're in a picked group too.
+    const groupUsers: User[] = Array.from(pickedGroupIds).flatMap(groupId =>
+      getClientExternalTeam(groupId).map(c => ({
+        id: c.id, name: c.name, initials: c.initials, avatarColor: c.color, role: c.role,
+      } as User))
+    );
+    const seenIds = new Set([...users.map(u => u.id), ...currentIds]);
+    const dedupedGroupUsers = groupUsers.filter(u => {
+      if (seenIds.has(u.id)) return false;
+      seenIds.add(u.id);
+      return true;
+    });
+
+    const allPicked = [...users, ...dedupedGroupUsers];
+    if (allPicked.length > 0) {
       users.filter(u => internalIds.has(u.id)).forEach(u => savePermissions(u.id, perms));
-      onAdd(users);
+      onAdd(allPicked);
     }
   };
 
-  const rowStyle = (id: string): React.CSSProperties => ({
+  const rowStyle = (id: string, set: Set<string> = picked): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
     padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left',
-    background: picked.has(id) ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
-    outline: picked.has(id) ? '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' : 'none',
+    background: set.has(id) ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+    outline: set.has(id) ? '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' : 'none',
     transition: 'background 0.1s',
   });
 
@@ -186,7 +234,38 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
             </>
           )}
 
-          {internalPool.length === 0 && externalPool.length === 0 && (
+          {groupPool.length > 0 && (
+            <>
+              <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+              <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 6px 6px' }}>
+                {t('members.groups')}
+              </p>
+              {groupPool.map(c => (
+                <button key={c.id} onClick={() => toggleGroup(c.id)} style={rowStyle(c.id, pickedGroupIds)}>
+                  <div style={{ width: 28, height: 28, position: 'relative', flexShrink: 0 }}>
+                    <div style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      background: pickedGroupIds.has(c.id) ? 'var(--accent)' : 'var(--surface-3)',
+                      border: `2px solid ${pickedGroupIds.has(c.id) ? 'var(--accent)' : 'var(--border-2)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: pickedGroupIds.has(c.id) ? 1 : 0, transition: 'opacity 0.1s', zIndex: 1,
+                    }}>
+                      <SFIcon name="check" size={12} color="var(--on-accent)" />
+                    </div>
+                    <div style={{ opacity: pickedGroupIds.has(c.id) ? 0 : 1, transition: 'opacity 0.1s' }}>
+                      <SFAvatar name={c.name} initials={c.name.slice(0, 2).toUpperCase()} color="#555" size={28} />
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{c.name}</p>
+                    <p style={{ fontSize: 10, color: 'var(--text-3)', margin: 0 }}>{t('members.groupContactCount', { count: getClientExternalTeam(c.id).length })}</p>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {internalPool.length === 0 && externalPool.length === 0 && groupPool.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <p style={{ fontSize: 12, color: 'var(--text-3)' }}>
                 {search
@@ -229,6 +308,10 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
           </div>
         )}
 
+        {emptyGroupWarning && (
+          <p style={{ marginTop: 10, fontSize: 11, color: 'var(--danger)' }}>{t('members.emptyGroupWarning')}</p>
+        )}
+
         {/* Footer confirm */}
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}>
@@ -236,15 +319,15 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={picked.size === 0}
+            disabled={picked.size === 0 && pickedGroupIds.size === 0}
             style={{
-              padding: '7px 16px', borderRadius: 8, border: 'none', cursor: picked.size === 0 ? 'not-allowed' : 'pointer',
-              background: picked.size === 0 ? 'var(--surface-3)' : 'var(--accent)',
-              color: picked.size === 0 ? 'var(--text-3)' : 'var(--on-accent)',
+              padding: '7px 16px', borderRadius: 8, border: 'none', cursor: (picked.size === 0 && pickedGroupIds.size === 0) ? 'not-allowed' : 'pointer',
+              background: (picked.size === 0 && pickedGroupIds.size === 0) ? 'var(--surface-3)' : 'var(--accent)',
+              color: (picked.size === 0 && pickedGroupIds.size === 0) ? 'var(--text-3)' : 'var(--on-accent)',
               fontSize: 12, fontWeight: 600, fontFamily: 'var(--ff-text)', transition: 'background 0.1s',
             }}
           >
-            {picked.size > 1 ? t('members.addCount', { count: picked.size }) : t('members.add')}
+            {(picked.size + pickedGroupIds.size) > 1 ? t('members.addCount', { count: picked.size + pickedGroupIds.size }) : t('members.add')}
           </button>
         </div>
     </SFModal>

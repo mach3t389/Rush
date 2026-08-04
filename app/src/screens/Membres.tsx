@@ -1,0 +1,261 @@
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { SFIcon, SFAvatar, SFButton } from '../components/ui';
+import { getTeamMembers, subscribeTeam, removeMember, type TeamMemberInfo } from '../data/teamStore';
+import { getAllClientContacts, subscribeAllClientContacts, removeClientTeamMember, addClientTeamMember } from '../data/clientTeamStore';
+import { getClients, subscribeClients } from '../data/clientStore';
+import { confirmDialog } from '../data/confirmStore';
+import { InviteTeamModal } from './MonEquipe';
+import { InviteModal } from './FicheClient';
+import { NewClientModal } from './Clients';
+import { createInvitation as createClientInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
+import type { ClientContact } from '../data/clientContactsStore';
+
+type MembresTab = 'individus' | 'groupes';
+type TypeFilter = 'all' | 'internal' | 'external';
+
+interface UnifiedPerson {
+  id: string;
+  name: string;
+  email: string;
+  initials: string;
+  color: string;
+  isInternal: boolean;
+  groupId?: string;
+  groupName?: string;
+}
+
+export function Membres() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get('tab') as MembresTab) ?? 'individus';
+  const setTab = (next: MembresTab) => setSearchParams({ tab: next }, { replace: true });
+
+  const [team, setTeam] = useState<TeamMemberInfo[]>(() => getTeamMembers());
+  useEffect(() => subscribeTeam(() => setTeam(getTeamMembers())), []);
+
+  const [contacts, setContacts] = useState<(ClientContact & { clientId: string; clientName: string })[]>(() => getAllClientContacts());
+  useEffect(() => subscribeAllClientContacts(() => setContacts(getAllClientContacts())), []);
+
+  const [clients, setClients] = useState(() => getClients());
+  useEffect(() => subscribeClients(() => setClients(getClients())), []);
+
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [showInviteChoice, setShowInviteChoice] = useState(false);
+  const [showInviteTeam, setShowInviteTeam] = useState(false);
+  const [showChooseClient, setShowChooseClient] = useState(false);
+  const [inviteClientId, setInviteClientId] = useState<string | null>(null);
+  const [showNewGroup, setShowNewGroup] = useState(false);
+
+  const internalPeople: UnifiedPerson[] = team.map(m => ({
+    id: m.id, name: m.name, email: m.email, initials: m.initials, color: m.avatarColor, isInternal: true,
+  }));
+  const externalPeople: UnifiedPerson[] = contacts.filter(c => !c.internal).map(c => ({
+    id: c.id, name: c.name, email: c.email, initials: c.initials, color: c.color, isInternal: false,
+    groupId: c.clientId, groupName: c.clientName,
+  }));
+  const allPeople = [...internalPeople, ...externalPeople];
+  const visiblePeople = typeFilter === 'all' ? allPeople : typeFilter === 'internal' ? internalPeople : externalPeople;
+
+  const inviteClientContact = inviteClientId ? clients.find(c => c.id === inviteClientId) : undefined;
+  const existingEmailsForClient = inviteClientId
+    ? contacts.filter(c => c.clientId === inviteClientId).map(c => c.email.toLowerCase())
+    : [];
+
+  const handleRemove = async (p: UnifiedPerson) => {
+    const ok = await confirmDialog(
+      p.isInternal
+        ? (t('membres.removeMemberConfirm', { name: p.name }) as string)
+        : (t('membres.removeContactConfirm', { name: p.name }) as string),
+      { danger: true }
+    );
+    if (!ok) return;
+    if (p.isInternal) {
+      await removeMember(p.id);
+      setTeam(getTeamMembers());
+    } else if (p.groupId) {
+      removeClientTeamMember(p.groupId, p.id);
+      setContacts(getAllClientContacts());
+    }
+  };
+
+  return (
+    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 800 }}>{t('membres.title')}</h1>
+        {tab === 'individus' && (
+          <SFButton variant="primary" icon="user-plus" onClick={() => setShowInviteChoice(true)}>
+            {t('membres.inviteMember')}
+          </SFButton>
+        )}
+        {tab === 'groupes' && (
+          <SFButton variant="primary" icon="plus" onClick={() => setShowNewGroup(true)}>
+            {t('membres.newGroup')}
+          </SFButton>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
+        {(['individus', 'groupes'] as const).map(key => (
+          <button key={key} onClick={() => setTab(key)} style={{
+            padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
+            fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
+            color: tab === key ? 'var(--text)' : 'var(--text-3)',
+            borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
+          }}>
+            {t(key === 'individus' ? 'membres.tabIndividus' : 'membres.tabGroupes')}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'individus' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['all', 'internal', 'external'] as const).map(f => (
+              <button key={f} onClick={() => setTypeFilter(f)} style={{
+                padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontSize: 12,
+                border: `1px solid ${typeFilter === f ? 'var(--accent)' : 'var(--border)'}`,
+                background: typeFilter === f ? 'rgba(249,255,0,0.08)' : 'transparent',
+                color: typeFilter === f ? 'var(--text)' : 'var(--text-2)',
+              }}>
+                {t(f === 'all' ? 'membres.filterAll' : f === 'internal' ? 'membres.filterInternal' : 'membres.filterExternal')}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {visiblePeople.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noPeopleFound')}</p>
+            )}
+            {visiblePeople.map(p => (
+              <div key={`${p.isInternal ? 'int' : 'ext'}-${p.id}`} onClick={() => navigate(`/membres/individus/${p.id}`)} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10,
+                border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer',
+              }}>
+                <SFAvatar initials={p.initials} bg={p.color} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{p.email}</p>
+                </div>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase' }}>
+                  {p.isInternal ? t('membres.typeInternal') : t('membres.typeExternal')}
+                </span>
+                {!p.isInternal && (
+                  <span
+                    onClick={e => { e.stopPropagation(); if (p.groupId) navigate(`/clients/${p.groupId}`); }}
+                    style={{ fontSize: 11, color: p.groupId ? 'var(--text-2)' : 'var(--text-3)', cursor: p.groupId ? 'pointer' : 'default' }}
+                  >
+                    {p.groupName || t('membres.noGroupLabel')}
+                  </span>
+                )}
+                <button
+                  onClick={e => { e.stopPropagation(); handleRemove(p); }}
+                  title={t(p.isInternal ? 'membres.removeMemberConfirm' : 'membres.removeContactConfirm', { name: p.name }) as string}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}
+                >
+                  <SFIcon name="trash-2" size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'groupes' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+          {clients.filter(c => !c.archived).map(c => (
+            <div key={c.id} onClick={() => navigate(`/clients/${c.id}`)} style={{
+              padding: 16, borderRadius: 12, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--surface)',
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+                {c.initials}
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showInviteChoice && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
+          onMouseDown={e => { if (e.target === e.currentTarget) setShowInviteChoice(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('membres.inviteChooseType')}</h3>
+              <button onClick={() => setShowInviteChoice(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={() => { setShowInviteChoice(false); setShowInviteTeam(true); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+              >
+                <SFIcon name="user-plus" size={16} />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>{t('membres.inviteInternal')}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.inviteInternalDesc')}</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setShowInviteChoice(false); setShowChooseClient(true); }}
+                disabled={clients.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: clients.length === 0 ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)', opacity: clients.length === 0 ? 0.5 : 1 }}
+              >
+                <SFIcon name="users" size={16} />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>{t('membres.inviteExternal')}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.inviteExternalDesc')}</p>
+                </div>
+              </button>
+              {clients.length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.noClientsForInvite')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showChooseClient && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
+          onMouseDown={e => { if (e.target === e.currentTarget) setShowChooseClient(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('membres.inviteChooseClient')}</h3>
+              <button onClick={() => setShowChooseClient(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+            </div>
+            <select
+              defaultValue=""
+              onChange={e => { if (e.target.value) { setInviteClientId(e.target.value); setShowChooseClient(false); } }}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+            >
+              <option value="" disabled>{t('membres.inviteChooseClientPlaceholder')}</option>
+              {clients.filter(c => !c.archived).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <SFButton variant="ghost" onClick={() => setShowChooseClient(false)}>{t('membres.cancel')}</SFButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInviteTeam && <InviteTeamModal onClose={() => setShowInviteTeam(false)} />}
+
+      {showNewGroup && <NewClientModal onClose={() => setShowNewGroup(false)} />}
+
+      {inviteClientId && inviteClientContact && (
+        <InviteModal
+          existingEmails={existingEmailsForClient}
+          onClose={() => setInviteClientId(null)}
+          onInvite={async m => {
+            addClientTeamMember(inviteClientId, m);
+            setContacts(getAllClientContacts());
+            const invitation = await createClientInvitation(inviteClientId, m.id);
+            const link = getInvitationLink(invitation.token);
+            sendClientInvitationEmail(m.email, m.name, link);
+            return link;
+          }}
+        />
+      )}
+    </div>
+  );
+}

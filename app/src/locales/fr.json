@@ -15,6 +15,7 @@
     "dashboard": "Accueil",
     "myTasks": "Mes tâches",
     "clients": "Clients",
+    "membres": "Membres",
     "projects": "Projets",
     "globalView": "Vue globale",
     "allTasks": "Tâches",
@@ -264,6 +265,33 @@
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} et {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"
+  },
+  "membres": {
+    "title": "Membres",
+    "tabIndividus": "Individus",
+    "tabGroupes": "Groupes",
+    "filterAll": "Tous",
+    "filterInternal": "Interne",
+    "filterExternal": "Externe",
+    "typeInternal": "Interne",
+    "typeExternal": "Contact externe",
+    "inviteMember": "Inviter",
+    "newGroup": "Nouveau groupe",
+    "noGroupLabel": "—",
+    "inviteChooseType": "Qui voulez-vous inviter ?",
+    "inviteInternal": "Membre interne (équipe)",
+    "inviteInternalDesc": "Accès complet à l'espace de travail",
+    "inviteExternal": "Contact externe (client)",
+    "inviteExternalDesc": "Accès limité au portail client",
+    "inviteChooseClient": "Choisir un client",
+    "inviteChooseClientPlaceholder": "Sélectionner un client…",
+    "noClientsForInvite": "Créez d'abord un client pour inviter un contact externe.",
+    "cancel": "Annuler",
+    "next": "Suivant",
+    "removeMemberConfirm": "Retirer {{name}} de l'équipe ?",
+    "removeContactConfirm": "Retirer {{name}} de ce groupe ?",
+    "noPeopleFound": "Aucun membre trouvé",
+    "noProjectsFound": "Aucun projet assigné"
   },
   "clients": {
     "newClient": "Nouveau client",
@@ -520,7 +548,8 @@
     "close": "Fermer",
     "save": "Enregistrer",
     "loading": "Chargement…",
-    "activityFilterLabel": "Activité"
+    "activityFilterLabel": "Activité",
+    "comingSoon": "Bientôt disponible"
   },
   "projectTemplates": {
     "createFromProjectTitle": "Créer un modèle depuis ce projet",
@@ -988,7 +1017,10 @@
     "noMembers": "Aucun membre dans ce projet",
     "selectedCount": "{{count}} sélectionnés",
     "clearSelection": "Annuler la sélection",
-    "permissions": "Autorisations"
+    "permissions": "Autorisations",
+    "groups": "Groupes",
+    "groupContactCount": "{{count}} contacts",
+    "emptyGroupWarning": "Un des groupes sélectionnés n'a encore aucun contact chargé. Patientez un instant puis réessayez."
   },
   "team": {
     "inviteMember": "Inviter un membre",
