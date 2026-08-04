@@ -103,9 +103,58 @@ function ensureFetchStarted(clientId: string): void {
   void fetchSupabaseContacts(clientId);
 }
 
+// ── Studio-wide contact list (all clients combined) — for the Membres hub's
+// Individus tab, which needs every contact in the studio at once rather than
+// one client at a time like the rest of this file's API. ─────────────────────
+let _allContacts: (ClientContact & { clientId: string; clientName: string })[] = [];
+let _allContactsFetchStarted = false;
+
+interface ClientContactWithNameRow extends ClientContactRow {
+  clients: { name: string } | null;
+}
+
+async function fetchAllClientContacts(): Promise<void> {
+  const studioId = await getStudioId();
+  const { data, error } = await supabase
+    .from('client_contacts')
+    .select('*, clients(name)')
+    .eq('studio_id', studioId);
+  if (error) { console.error('fetchAllClientContacts failed', error); return; }
+  _allContacts = ((data ?? []) as ClientContactWithNameRow[]).map(row => ({
+    ...toContact(row),
+    clientId: row.client_id,
+    clientName: row.clients?.name ?? '',
+  }));
+  notify();
+}
+
+function ensureAllContactsFetchStarted(): void {
+  if (isDemoSession() || _allContactsFetchStarted) return;
+  _allContactsFetchStarted = true;
+  void fetchAllClientContacts();
+}
+
+export function getAllClientContacts(): (ClientContact & { clientId: string; clientName: string })[] {
+  if (isDemoSession()) {
+    return Object.entries(demoStore).flatMap(([clientId, contacts]) =>
+      contacts.map(c => ({ ...c, clientId, clientName: '' }))
+    );
+  }
+  ensureAllContactsFetchStarted();
+  return _allContacts;
+}
+
+export function subscribeAllClientContacts(fn: () => void): () => void {
+  _listeners.add(fn);
+  ensureAllContactsFetchStarted();
+  return () => _listeners.delete(fn);
+}
+
 export function resetClientTeamCache(): void {
   _supabaseContacts = {};
   _supabaseFetchStarted = {};
+  _allContacts = [];
+  _allContactsFetchStarted = false;
 }
 
 onLogout(resetClientTeamCache);
