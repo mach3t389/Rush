@@ -104,7 +104,7 @@ as $$
     and id <> p_exclude_id;
 $$;
 
-grant execute on function count_other_active_projects(uuid, uuid) to authenticated;
+grant execute on function count_other_active_projects(uuid, text) to authenticated;
 
 drop policy if exists "block_gratuit_project_overlimit" on projects;
 create policy "block_gratuit_project_overlimit" on projects
