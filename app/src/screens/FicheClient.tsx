@@ -44,7 +44,7 @@ function getInternalTeam() {
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
-function InviteModal({ existingEmails, onClose, onInvite }: {
+export function InviteModal({ existingEmails, onClose, onInvite }: {
   existingEmails: string[];
   onClose: () => void;
   onInvite: (m: ClientMember) => Promise<string>;
