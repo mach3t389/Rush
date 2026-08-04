@@ -313,7 +313,7 @@ export function updateTask(projectId: string, taskId: string, patch: Partial<Tas
     const recipientIds = before.assignees.map(a => a.id).filter(id => id !== me?.id);
     addNotif({
       kind: 'taskCompleted',
-      actor: me?.name ?? 'Rush',
+      actor: me?.name ?? 'Rushflow',
       text: `a terminé « ${before.title} »`,
       timestamp: Date.now(),
       taskId,

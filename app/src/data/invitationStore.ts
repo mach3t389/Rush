@@ -124,7 +124,7 @@ export async function getInvitationDetails(token: string): Promise<InvitationDet
       contactName: contact?.name ?? '',
       contactEmail: contact?.email ?? '',
       portalPermissions: contact?.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS,
-      studioName: localStorage.getItem(STUDIO_NAME_KEY) ?? 'Rush',
+      studioName: localStorage.getItem(STUDIO_NAME_KEY) ?? 'Rushflow',
       studioLogoFull: getLogoFull(),
       studioLogoSquare: getLogoSquare(),
     };
@@ -143,7 +143,7 @@ export async function getInvitationDetails(token: string): Promise<InvitationDet
     contactName: row.contact_name,
     contactEmail: row.contact_email ?? '',
     portalPermissions: row.portal_permissions ?? DEFAULT_PORTAL_PERMISSIONS,
-    studioName: row.studio_name ?? 'Rush',
+    studioName: row.studio_name ?? 'Rushflow',
     studioLogoFull: row.studio_logo_full ?? null,
     studioLogoSquare: row.studio_logo_square ?? null,
   };
@@ -196,13 +196,13 @@ export function getInvitationLink(token: string): string {
 // either way.
 export function sendClientInvitationEmail(contactEmail: string, contactName: string, link: string): void {
   if (isDemoSession() || !contactEmail) return;
-  const studioName = getStudioInfo().name || 'Rush';
+  const studioName = getStudioInfo().name || 'Rushflow';
   void sendEmail(
     contactEmail,
     `${studioName} vous invite à accéder à votre espace client`,
     `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
       <p>Bonjour ${contactName || ''},</p>
-      <p><strong>${studioName}</strong> vous invite à accéder à votre espace client sur Rush, où vous pourrez suivre l'avancement de vos projets, consulter les fichiers partagés et donner vos approbations.</p>
+      <p><strong>${studioName}</strong> vous invite à accéder à votre espace client sur Rushflow, où vous pourrez suivre l'avancement de vos projets, consulter les fichiers partagés et donner vos approbations.</p>
       <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Accéder à mon espace</a></p>
       <p style="color: #888; font-size: 13px;">Si le bouton ne fonctionne pas, copiez ce lien : ${link}</p>
     </div>`

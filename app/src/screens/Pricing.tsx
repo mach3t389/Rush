@@ -225,8 +225,8 @@ export function Pricing() {
         padding: '0 40px', height: 56,
       }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
-          <img src="/favicon.svg" alt="Rush" style={{ width: 24, height: 24, objectFit: 'contain' }} />
-          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+          <img src="/favicon.svg" alt="Rushflow" style={{ width: 24, height: 24, objectFit: 'contain' }} />
+          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rushflow</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{t('pricing.alreadyAccount')}</span>

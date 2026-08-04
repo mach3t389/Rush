@@ -146,7 +146,7 @@ const MOCK_INVOICES: Invoice[] = [
 ];
 
 const DEFAULT_METHODS: PaymentMethod[] = [
-  { id:'pm1', type:'bank_transfer', name:'Virement bancaire',  icon:'landmark',    details:'Institution: Banque XYZ\nNom du compte: Studio Rush\nNº transit: 00000  •  Nº institution: 000\nNº compte: 0000000000', feePercent:0,   isRecommended:true,  isEnabled:true,  sortOrder:0 },
+  { id:'pm1', type:'bank_transfer', name:'Virement bancaire',  icon:'landmark',    details:'Institution: Banque XYZ\nNom du compte: Studio Rushflow\nNº transit: 00000  •  Nº institution: 000\nNº compte: 0000000000', feePercent:0,   isRecommended:true,  isEnabled:true,  sortOrder:0 },
   { id:'pm2', type:'interac',       name:'Interac e-Transfer', icon:'mail',        details:'Envoyer à: paiement@studio-rush.ca\nQuestion: studio  •  Réponse: rush', feePercent:0, isRecommended:false, isEnabled:true, sortOrder:1 },
   { id:'pm3', type:'stripe',        name:'Carte de crédit',    icon:'credit-card', details:'Paiement sécurisé par carte Visa, Mastercard ou Amex.', feePercent:2.9, feeLabel:'+2.9% de frais', isRecommended:false, isEnabled:true, sortOrder:2, stripeLink:'' },
   { id:'pm4', type:'paypal',        name:'PayPal',             icon:'wallet',      details:'Envoyer à: payments@studio-rush.ca', feePercent:3.5, feeLabel:'+3.5% de frais', isRecommended:false, isEnabled:false, sortOrder:3 },

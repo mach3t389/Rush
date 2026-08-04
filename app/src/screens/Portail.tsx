@@ -217,12 +217,12 @@ export function Portail() {
         padding: '0 32px', height: 52,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        {/* Logo Rush */}
+        {/* Logo Rushflow */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--on-accent)', fontFamily: 'var(--ff-display)', lineHeight: 1 }}>R</span>
           </div>
-          <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em' }}>Rush</span>
+          <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em' }}>Rushflow</span>
         </div>
 
         {/* Projet au centre */}

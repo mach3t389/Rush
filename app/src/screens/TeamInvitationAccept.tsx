@@ -23,7 +23,7 @@ function Shell({ children, logoUrl }: { children: React.ReactNode; logoUrl?: str
               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <SFIcon name="play" size={14} color="#0b0b0b" />
               </div>
-              <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+              <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rushflow</span>
             </>
           )}
         </div>

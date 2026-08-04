@@ -26,8 +26,8 @@ export function NoOrganization() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
       <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 32 }}>
-          <img src="/favicon.svg" alt="Rush" style={{ width: 32, height: 32 }} />
-          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)' }}>Rush</span>
+          <img src="/favicon.svg" alt="Rushflow" style={{ width: 32, height: 32 }} />
+          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--ff-display)' }}>Rushflow</span>
         </div>
 
         <SFIcon name="building-2" size={36} color="var(--text-3)" />

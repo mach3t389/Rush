@@ -82,8 +82,8 @@ export function Register() {
       }}>
         {/* Logo */}
         <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', width: 'fit-content' }}>
-          <img src="/favicon.svg" alt="Rush" style={{ width: 36, height: 36 }} />
-          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+          <img src="/favicon.svg" alt="Rushflow" style={{ width: 36, height: 36 }} />
+          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rushflow</span>
         </Link>
 
         <div>

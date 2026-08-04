@@ -1571,7 +1571,7 @@ export function TravailOverview() {
                       onClick={() => {
                         addNotif({
                           kind: 'approval',
-                          actor: getStudioInfo().name || 'Rush',
+                          actor: getStudioInfo().name || 'Rushflow',
                           text: `a demandé l'approbation finale du projet « ${project.name} »`,
                           timestamp: Date.now(),
                           projectId: project.id,
@@ -1583,7 +1583,7 @@ export function TravailOverview() {
                           recipientIds: project.members.map(m => m.id).filter(id => id !== getCurrentUser()?.id),
                         });
                         if (!isDemoSession() && approver.email) {
-                          const studioName = getStudioInfo().name || 'Rush';
+                          const studioName = getStudioInfo().name || 'Rushflow';
                           const link = `${window.location.origin}/projets/${project.id}/overview`;
                           void sendEmail(
                             approver.email,

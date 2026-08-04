@@ -154,8 +154,8 @@ export function Onboarding() {
 
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 48 }}>
-        <img src="/favicon.svg" alt="Rush" style={{ width: 32, height: 32 }} />
-        <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+        <img src="/favicon.svg" alt="Rushflow" style={{ width: 32, height: 32 }} />
+        <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rushflow</span>
       </div>
 
       {/* Card */}

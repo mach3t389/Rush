@@ -51,7 +51,7 @@ export function checkStorageThreshold(usedGB: number, limitGB: number): void {
   // getTeam() uses when no narrower scope applies).
   addNotif({
     kind: 'storageLimit',
-    actor: 'Rush',
+    actor: 'Rushflow',
     text: `Stockage à ${Math.round(pct)}% de la limite du plan`,
     timestamp: Date.now(),
     recipientIds: getTeamMembers().map(m => m.id),

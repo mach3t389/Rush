@@ -53,9 +53,9 @@ export function Login() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/favicon.svg" alt="Rush" style={{ width: 36, height: 36 }} />
+          <img src="/favicon.svg" alt="Rushflow" style={{ width: 36, height: 36 }} />
           <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>
-            Rush
+            Rushflow
           </span>
         </div>
 

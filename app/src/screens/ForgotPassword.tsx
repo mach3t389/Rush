@@ -35,8 +35,8 @@ export function ForgotPassword() {
 
         {/* Logo */}
         <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 48, width: 'fit-content' }}>
-          <img src="/favicon.svg" alt="Rush" style={{ width: 32, height: 32 }} />
-          <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rush</span>
+          <img src="/favicon.svg" alt="Rushflow" style={{ width: 32, height: 32 }} />
+          <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)', fontFamily: 'var(--ff-display)' }}>Rushflow</span>
         </Link>
 
         {sent ? (

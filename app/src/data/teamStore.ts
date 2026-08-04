@@ -247,13 +247,13 @@ export async function createInvitation(email: string, role: string, accessLevel:
 // invitationStore.ts).
 export function sendTeamInvitationEmail(email: string, role: string, link: string): void {
   if (isDemoSession() || !email) return;
-  const studioName = getStudioInfo().name || 'Rush';
+  const studioName = getStudioInfo().name || 'Rushflow';
   void sendEmail(
     email,
-    `${studioName} vous invite à rejoindre son équipe sur Rush`,
+    `${studioName} vous invite à rejoindre son équipe sur Rushflow`,
     `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
       <p>Bonjour,</p>
-      <p><strong>${studioName}</strong> vous invite à rejoindre son équipe sur Rush en tant que <strong>${role || 'membre'}</strong>.</p>
+      <p><strong>${studioName}</strong> vous invite à rejoindre son équipe sur Rushflow en tant que <strong>${role || 'membre'}</strong>.</p>
       <p><a href="${link}" style="display: inline-block; padding: 10px 20px; background: #f9ff00; color: #14140a; text-decoration: none; border-radius: 8px; font-weight: 600;">Rejoindre l'équipe</a></p>
       <p style="color: #888; font-size: 13px;">Si le bouton ne fonctionne pas, copiez ce lien : ${link}</p>
     </div>`

@@ -148,7 +148,7 @@ function buildSystemPrompt(): string {
   const clientList = CLIENTS.map(c => `  ${c.id}: "${c.name}" (${c.sector}, ${c.city})`).join('\n');
   const projectList = projects.map(p => `  ${p.id}: "${p.name}" — client: ${p.clientName}, statut: ${p.statusLabel}, phase: ${p.phaseLabel}`).join('\n');
 
-  return `Tu es Rush Assistant, un assistant IA intégré à Rush, une plateforme de gestion de production vidéo et créative. Tu parles directement avec un membre de l'équipe.
+  return `Tu es Rushflow Assistant, un assistant IA intégré à Rushflow, une plateforme de gestion de projet pour agences. Tu parles directement avec un membre de l'équipe.
 
 RÈGLES ABSOLUES — respecte-les sans exception :
 1. Réponds TOUJOURS en français naturel et conversationnel. Parle comme un collègue compétent et chaleureux, pas comme un robot.

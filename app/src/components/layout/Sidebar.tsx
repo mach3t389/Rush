@@ -381,13 +381,13 @@ export function Sidebar() {
           {collapsed ? (
             logoSquare
               ? <img src={logoSquare} alt="Logo" style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
-              : <img src="/favicon.svg" alt="Rush" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
+              : <img src="/favicon.svg" alt="Rushflow" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
           ) : (
             logoFull
               ? <img src={logoFull} alt="Logo" style={{ maxHeight: 32, maxWidth: 160, objectFit: 'contain', flexShrink: 0 }} />
               : <>
-                  <img src="/favicon.svg" alt="Rush" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
-                  <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Rush</span>
+                  <img src="/favicon.svg" alt="Rushflow" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: 14, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Rushflow</span>
                 </>
           )}
         </div>
