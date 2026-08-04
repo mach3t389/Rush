@@ -9,10 +9,10 @@ import {
   issueTokenPair,
   randomSecret,
   verifyPkce,
-} from '../../_lib/northbook/auth.js';
-import { deliverInvoice } from '../../_lib/northbook/delivery.js';
-import { decodeCursor, encodeCursor, serializeBillingRequest, serializeChange, serializeClient, serializeProject } from '../../_lib/northbook/serializers.js';
-import { assertPdfExists, createPdfDownload, createPdfUpload } from '../../_lib/northbook/storage.js';
+} from './_lib/northbook/auth.js';
+import { deliverInvoice } from './_lib/northbook/delivery.js';
+import { decodeCursor, encodeCursor, serializeBillingRequest, serializeChange, serializeClient, serializeProject } from './_lib/northbook/serializers.js';
+import { assertPdfExists, createPdfDownload, createPdfUpload } from './_lib/northbook/storage.js';
 import {
   HttpError,
   asRecord,
@@ -25,7 +25,7 @@ import {
   requiredString,
   type AccountingDocumentInput,
   type ProjectSummaryInput,
-} from '../../_lib/northbook/types.js';
+} from './_lib/northbook/types.js';
 
 const CALLBACK_URI = 'northbook://rush/callback';
 
