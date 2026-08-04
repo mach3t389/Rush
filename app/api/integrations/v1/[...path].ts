@@ -278,7 +278,7 @@ async function changes(req: VercelRequest, res: VercelResponse) {
   const page = rows.slice(0, limit);
   res.status(200).json({
     changes: page.map(row => serializeChange(row)),
-    nextCursor: encodeCursor(page.at(-1)?.sequence ?? after),
+    nextCursor: encodeCursor(page.length > 0 ? page[page.length - 1]?.sequence : after),
     hasMore: rows.length > limit,
   });
 }
