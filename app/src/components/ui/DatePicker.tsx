@@ -136,7 +136,7 @@ export function DatePickerDropdown({ value, onChange, onClose, anchorRect, zInde
   return createPortal(
     <>
       <div onClick={e => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: zIndex - 1 }} />
-      <div ref={dropRef} data-panel-child="true" style={{
+      <div ref={dropRef} style={{
         position: 'fixed', ...pos, zIndex,
         background: 'var(--surface-3)', border: '1px solid var(--border-2)',
         borderRadius: 14, padding: 14, width: 272,
@@ -298,7 +298,7 @@ export function TimePickerDropdown({ value, onChange, onClose, anchorRect, zInde
   return createPortal(
     <>
       <div onClick={e => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: zIndex - 1 }} />
-      <div ref={ref} data-panel-child="true" style={{ position: 'fixed', ...smartPos, zIndex, display: 'flex', gap: 0, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+      <div ref={ref} style={{ position: 'fixed', ...smartPos, zIndex, display: 'flex', gap: 0, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
         {/* Hours */}
         <div ref={hourRef} style={{ width: 60, maxHeight: 220, overflowY: 'auto', borderRight: '1px solid var(--border)', padding: '4px 4px' }}>
           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'center', padding: '4px 0 6px' }}>{t('datepicker.hourAbbr')}</p>

@@ -856,7 +856,7 @@ export function TaskPanel({
         <div onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.6)' }} />
       )}
       {/* Panel */}
-      <div ref={panelRef} onMouseDown={e => e.stopPropagation()} style={inline ? {
+      <div ref={panelRef} onMouseDown={inline ? undefined : e => e.stopPropagation()} style={inline ? {
         width: 440,
         flex: 1,
         minHeight: 0,
@@ -1346,7 +1346,12 @@ export function TaskPanel({
                   const topPos = openUp
                     ? (resPickerRect!.top - dropH - 6)
                     : (resPickerRect ? resPickerRect.bottom + 6 : 100);
-                  return (
+                  // Portaled to document.body — the modal panel uses a CSS
+                  // `transform` for centering, which makes it the containing
+                  // block for `position: fixed` descendants. Left in-tree, this
+                  // dropdown and its full-screen dismiss overlay would be
+                  // trapped inside the panel's box instead of the viewport.
+                  return createPortal(
                     <>
                       <div onClick={() => setResourcePickerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
                       <div style={{ position: 'fixed', top: Math.max(8, topPos), right: resPickerRect ? window.innerWidth - resPickerRect.right : 20, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.6)', minWidth: 300, maxWidth: 340, display: 'flex', flexDirection: 'column', maxHeight: Math.min(dropH, window.innerHeight - 24) }}>
@@ -1387,7 +1392,8 @@ export function TaskPanel({
                           </div>
                         </div>
                       </div>
-                    </>
+                    </>,
+                    document.body,
                   );
                 })()}
               </div>
