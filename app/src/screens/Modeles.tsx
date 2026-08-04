@@ -1617,6 +1617,23 @@ export function Modeles() {
     background: 'none', border: 'none', cursor: 'pointer', padding: '10px 8px 4px', color: 'var(--text-3)',
   };
 
+  if (!canUseFeature(plan, 'customTemplates')) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SFIcon name="lock" size={24} color="var(--accent)" />
+        </div>
+        <div style={{ textAlign: 'center', maxWidth: 360 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 8 }}>{t('templates.lockedTitle')}</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('templates.lockedBody')}</p>
+        </div>
+        <SFButton variant="primary" onClick={() => requestUpgrade({ feature: 'customTemplates' })}>
+          {t('templates.lockedCta')}
+        </SFButton>
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <PageHeader

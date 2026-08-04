@@ -2137,6 +2137,11 @@
     "sectionComingSoon": "{{section}} — bientôt disponible",
     "thisSection": "Cette section"
   },
+  "templates": {
+    "lockedTitle": "Modèles verrouillés",
+    "lockedBody": "Les modèles personnalisés sont disponibles avec un plan payant. Passe à Studio ou Agence pour créer et gérer tes propres modèles.",
+    "lockedCta": "Voir les plans"
+  },
   "finance": {
     "lockedTitle": "Finances verrouillées",
     "lockedBody": "Le module Finances & facturation est disponible avec un plan payant. Passe à Studio ou Agence pour créer et suivre tes factures.",

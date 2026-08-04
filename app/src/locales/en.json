@@ -2137,6 +2137,11 @@
     "sectionComingSoon": "{{section}} — coming soon",
     "thisSection": "This section"
   },
+  "templates": {
+    "lockedTitle": "Templates locked",
+    "lockedBody": "Custom templates are available on a paid plan. Upgrade to Studio or Agence to create and manage your own templates.",
+    "lockedCta": "View plans"
+  },
   "finance": {
     "lockedTitle": "Finances locked",
     "lockedBody": "The Finances & billing module is available on a paid plan. Upgrade to Studio or Agence to create and track invoices.",
