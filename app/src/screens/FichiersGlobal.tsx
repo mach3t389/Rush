@@ -798,7 +798,7 @@ function FileTree({
           return p ? renderProjectRow(p) : null;
         })()}
         {lockedScope && lockedScope.scope === 'client' && (
-          <>{projects.filter(p => p.clientId === lockedScope.scopeId).map(p => renderProjectRow(p))}</>
+          <>{projects.filter(p => p.clientId === lockedScope.scopeId && p.filesEnabled).map(p => renderProjectRow(p))}</>
         )}
 
         {/* Root — hidden when locked */}
@@ -2650,7 +2650,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       // Client root — projets du client, mais aussi les dossiers/fichiers créés
       // directement à la racine du client (sinon un dossier créé ici via le
       // clic droit n'apparaît jamais dans cette colonne, même s'il existe bien).
-      const clientProjects = projects.filter(p => p.clientId === scopeId);
+      const clientProjects = projects.filter(p => p.clientId === scopeId && p.filesEnabled);
       return {
         folders: allFolders.filter(f => f.clientId === scopeId && f.parentId === null),
         files: allFiles.filter(f => f.clientId === scopeId && f.parentFolderId === null),

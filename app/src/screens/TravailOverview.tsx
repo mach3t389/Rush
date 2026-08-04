@@ -1517,6 +1517,9 @@ export function TravailOverview() {
             updateProject(project.id, {
               name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
               deliveryDate: u.deliveryDate, budget: u.budget, description: u.description,
+              calendarEnabled: u.calendarEnabled,
+              filesEnabled: u.filesEnabled,
+              financeEnabled: u.financeEnabled,
             });
             forceUpdate(n => n + 1);
           }}

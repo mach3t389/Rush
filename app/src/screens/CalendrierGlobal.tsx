@@ -708,7 +708,7 @@ export function CalendrierGlobal() {
   // Filter events — modèle inclusion (même que ProjetCalendrier)
   const visibleEvents = events.filter(ev => {
     const proj = ev.projectId ? getProjects().find(p => p.id === ev.projectId) : undefined;
-    if (proj && proj.calendarEnabled === false) return false;
+    if (proj && !proj.calendarEnabled) return false;
     return (selectedProjects.size === 0 || selectedProjects.has(ev.projectId ?? '')) &&
       (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId));
   });
