@@ -6,6 +6,8 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { getTeamMembers, subscribeTeam, removeMember, type TeamMemberInfo } from '../data/teamStore';
 import { getAllClientContacts, subscribeAllClientContacts, removeClientTeamMember, addClientTeamMember } from '../data/clientTeamStore';
 import { getClients, subscribeClients } from '../data/clientStore';
+import { subscribeProjects } from '../data/projectStore';
+import { subscribeStore as subscribeTasks } from '../data/taskStore';
 import { confirmDialog } from '../data/confirmStore';
 import { InviteTeamModal } from './MonEquipe';
 import { InviteModal } from './FicheClient';
@@ -55,6 +57,14 @@ export function Membres() {
 
   const [, forcePinnedRerender] = useState(0);
   useEffect(() => subscribePinnedClients(() => forcePinnedRerender(n => n + 1)), []);
+
+  // ClientCard's "X projets actifs" (rendered in the Groupes tab below) is
+  // computed live from project + task data — without these, the count froze
+  // at whatever it was on last mount, e.g. never updating after a project
+  // got detached from its group elsewhere in the app. Mirrors Clients.tsx.
+  const [, forceLiveStatsRefresh] = useState(0);
+  useEffect(() => subscribeProjects(() => forceLiveStatsRefresh(n => n + 1)), []);
+  useEffect(() => subscribeTasks(() => forceLiveStatsRefresh(n => n + 1)), []);
 
   const [showInviteChoice, setShowInviteChoice] = useState(false);
   const [showInviteTeam, setShowInviteTeam] = useState(false);
