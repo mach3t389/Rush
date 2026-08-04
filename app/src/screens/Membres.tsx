@@ -8,7 +8,9 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { confirmDialog } from '../data/confirmStore';
 import { InviteTeamModal } from './MonEquipe';
 import { InviteModal } from './FicheClient';
-import { NewClientModal } from './Clients';
+import { NewClientModal, ClientCard, ClientEditPanel } from './Clients';
+import { isPinnedClient, subscribePinnedClients } from '../data/pinnedStore';
+import type { Client } from '../types/index';
 import { createInvitation as createClientInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
 import type { ClientContact } from '../data/clientContactsStore';
 
@@ -42,12 +44,17 @@ export function Membres() {
   const [clients, setClients] = useState(() => getClients());
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
 
+  const [, forcePinnedRerender] = useState(0);
+  useEffect(() => subscribePinnedClients(() => forcePinnedRerender(n => n + 1)), []);
+
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [showInviteChoice, setShowInviteChoice] = useState(false);
   const [showInviteTeam, setShowInviteTeam] = useState(false);
   const [showChooseClient, setShowChooseClient] = useState(false);
   const [inviteClientId, setInviteClientId] = useState<string | null>(null);
   const [showNewGroup, setShowNewGroup] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const liveEditingClient = editingClient ? (clients.find(c => c.id === editingClient.id) ?? editingClient) : null;
 
   const internalPeople: UnifiedPerson[] = team.map(m => ({
     id: m.id, name: m.name, email: m.email, initials: m.initials, color: m.avatarColor, isInternal: true,
@@ -83,6 +90,7 @@ export function Membres() {
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {liveEditingClient && <ClientEditPanel client={liveEditingClient} onClose={() => setEditingClient(null)} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 800 }}>{t('membres.title')}</h1>
         {tab === 'individus' && (
@@ -163,16 +171,15 @@ export function Membres() {
       )}
 
       {tab === 'groupes' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {clients.filter(c => !c.archived).map(c => (
-            <div key={c.id} onClick={() => navigate(`/clients/${c.id}`)} style={{
-              padding: 16, borderRadius: 12, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--surface)',
-            }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
-                {c.initials}
-              </div>
-              <p style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</p>
-            </div>
+            <ClientCard
+              key={c.id}
+              client={c}
+              pinned={isPinnedClient(c.id)}
+              onEdit={() => setEditingClient(c)}
+              onClick={() => navigate(`/clients/${c.id}`)}
+            />
           ))}
         </div>
       )}
