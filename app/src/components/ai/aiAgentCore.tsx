@@ -4,10 +4,11 @@ import { isDemoSession } from '../../data/authStore';
 import { getStudioId } from '../../data/studioStore';
 import { supabase } from '../../data/supabaseClient';
 import { getProjects, addProject } from '../../data/projectStore';
+import { getClients } from '../../data/clientStore';
+import { getMyTasks } from '../../data/myTaskStore';
 import { addEvent } from '../../data/eventStore';
 import { addResource } from '../../data/resourceStore';
 import { addFile } from '../../data/fileStore';
-import { CLIENTS, MY_TASKS } from '../../data/mock';
 import type { Project, Phase, ResourceType } from '../../types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -145,7 +146,8 @@ const TOOLS = [
 
 function buildSystemPrompt(): string {
   const projects = getProjects();
-  const clientList = CLIENTS.map(c => `  ${c.id}: "${c.name}" (${c.sector}, ${c.city})`).join('\n');
+  const clients = getClients();
+  const clientList = clients.map(c => `  ${c.id}: "${c.name}" (${c.sector}, ${c.city})`).join('\n');
   const projectList = projects.map(p => `  ${p.id}: "${p.name}" — client: ${p.clientName}, statut: ${p.statusLabel}, phase: ${p.phaseLabel}`).join('\n');
 
   return `Tu es Rushflow Assistant, un assistant IA intégré à Rushflow, une plateforme de gestion de projet pour agences. Tu parles directement avec un membre de l'équipe.
@@ -194,13 +196,15 @@ function executeTool(
       }
 
       case 'list_clients': {
-        return CLIENTS.map(c =>
+        const clients = getClients();
+        if (!clients.length) return 'Aucun client trouvé.';
+        return clients.map(c =>
           `• [${c.id}] ${c.name} — ${c.sector}, ${c.city} | ${c.statusLabel} | ${c.activeProjects} projet(s) actif(s)`
         ).join('\n');
       }
 
       case 'list_tasks': {
-        let tasks = [...MY_TASKS];
+        let tasks = [...getMyTasks()];
         if (args.status) tasks = tasks.filter((t: any) => t.status === args.status);
         if (!tasks.length) return 'Aucune tâche trouvée.';
         return tasks.map((t: any) =>
@@ -209,9 +213,10 @@ function executeTool(
       }
 
       case 'create_project': {
-        const client = CLIENTS.find(c => c.id === args.clientId);
+        const clients = getClients();
+        const client = clients.find(c => c.id === args.clientId);
         if (!client) {
-          return `Client "${args.clientId}" introuvable. IDs disponibles: ${CLIENTS.map(c => `${c.id} (${c.name})`).join(', ')}`;
+          return `Client "${args.clientId}" introuvable. IDs disponibles: ${clients.map(c => `${c.id} (${c.name})`).join(', ')}`;
         }
         const phaseMap: Record<string, string> = {
           preproduction: 'Préproduction', production: 'Production',

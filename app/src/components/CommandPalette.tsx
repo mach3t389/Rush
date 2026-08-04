@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getProjects } from '../data/projectStore';
 import { getClients } from '../data/clientStore';
-import { MY_TASKS } from '../data/mock';
+import { getMyTasks } from '../data/myTaskStore';
 import { SFIcon } from './ui/SFIcon';
 
 type ResultKind = 'project' | 'client' | 'task';
@@ -34,7 +34,7 @@ function search(q: string): Result[] {
     }
   }
 
-  for (const t of MY_TASKS) {
+  for (const t of getMyTasks()) {
     if (t.title.toLowerCase().includes(lq) || t.projectName.toLowerCase().includes(lq)) {
       results.push({ kind: 'task', id: t.id, label: t.title, sublabel: t.projectName, color: t.projectColor, href: `/projets/${t.projectId}` });
     }
