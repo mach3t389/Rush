@@ -2,7 +2,7 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
-import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState, SFModal } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
@@ -78,14 +78,8 @@ export function InviteModal({ existingEmails, onClose, onInvite }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 440, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.invitePerson')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
-
+    <SFModal open onClose={onClose} title={t('client.invitePerson')} width={440} maxHeight="90vh" padding={28}>
+      <div style={{ overflowY: 'auto' }}>
         {link ? (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14, lineHeight: 1.5 }}>
@@ -148,7 +142,7 @@ export function InviteModal({ existingEmails, onClose, onInvite }: {
           </>
         )}
       </div>
-    </div>
+    </SFModal>
   );
 }
 
@@ -177,13 +171,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 400, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.assignInternalMembers')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
+    <SFModal open onClose={onClose} title={t('client.assignInternalMembers')} width={400} maxHeight="80vh" padding={24}>
         {available.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('client.allInternalAssigned')}</p>
         ) : (
@@ -221,8 +209,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
             </div>
           </>
         )}
-      </div>
-    </div>
+    </SFModal>
   );
 }
 
