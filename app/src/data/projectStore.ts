@@ -60,9 +60,12 @@ interface ProjectRow {
   id: string;
   studio_id: string;
   name: string;
-  client_id: string;
-  client_name: string;
-  client_color: string;
+  client_id: string | null;
+  client_name: string | null;
+  client_color: string | null;
+  calendar_enabled: boolean;
+  files_enabled: boolean;
+  finance_enabled: boolean;
   phase: string;
   phase_label: string;
   progress: number;
@@ -87,9 +90,12 @@ function toProject(row: ProjectRow): Project {
   return {
     id: row.id,
     name: row.name,
-    clientId: row.client_id,
-    clientName: row.client_name,
-    clientColor: row.client_color,
+    clientId: row.client_id ?? undefined,
+    clientName: row.client_name ?? undefined,
+    clientColor: row.client_color ?? undefined,
+    calendarEnabled: row.calendar_enabled,
+    filesEnabled: row.files_enabled,
+    financeEnabled: row.finance_enabled,
     phase: row.phase as Project['phase'],
     phaseLabel: row.phase_label,
     progress: row.progress,
@@ -116,9 +122,12 @@ function toRow(p: Project, studioId: string): ProjectRow {
     id: p.id,
     studio_id: studioId,
     name: p.name,
-    client_id: p.clientId,
-    client_name: p.clientName,
-    client_color: p.clientColor,
+    client_id: p.clientId ?? null,
+    client_name: p.clientName ?? null,
+    client_color: p.clientColor ?? null,
+    calendar_enabled: p.calendarEnabled,
+    files_enabled: p.filesEnabled,
+    finance_enabled: p.financeEnabled,
     phase: p.phase,
     phase_label: p.phaseLabel,
     progress: p.progress,
@@ -187,7 +196,9 @@ async function addSupabaseProject(p: Project): Promise<void> {
     throw error;
   }
   await fetchSupabaseProjects();
-  syncNewProjectAcrossClientContacts(p.id, p.clientId);
+  if (p.clientId) {
+    syncNewProjectAcrossClientContacts(p.id, p.clientId);
+  }
 }
 
 // Maps only the provided fields to their column names — unlike toRow(),
@@ -199,9 +210,12 @@ async function addSupabaseProject(p: Project): Promise<void> {
 function toRowPatch(updates: Partial<Project>): Partial<ProjectRow> {
   const patch: Partial<ProjectRow> = {};
   if (updates.name !== undefined) patch.name = updates.name;
-  if (updates.clientId !== undefined) patch.client_id = updates.clientId;
-  if (updates.clientName !== undefined) patch.client_name = updates.clientName;
-  if (updates.clientColor !== undefined) patch.client_color = updates.clientColor;
+  if (updates.clientId !== undefined) patch.client_id = updates.clientId ?? null;
+  if (updates.clientName !== undefined) patch.client_name = updates.clientName ?? null;
+  if (updates.clientColor !== undefined) patch.client_color = updates.clientColor ?? null;
+  if (updates.calendarEnabled !== undefined) patch.calendar_enabled = updates.calendarEnabled;
+  if (updates.filesEnabled !== undefined) patch.files_enabled = updates.filesEnabled;
+  if (updates.financeEnabled !== undefined) patch.finance_enabled = updates.financeEnabled;
   if (updates.phase !== undefined) patch.phase = updates.phase;
   if (updates.phaseLabel !== undefined) patch.phase_label = updates.phaseLabel;
   if (updates.progress !== undefined) patch.progress = updates.progress;
@@ -304,7 +318,14 @@ export function updateProject(id: string, updates: Partial<Project>): void {
   // ISO string and formatted live (see utils/timeAgo.ts), so this is what
   // makes the "Il y a Xh" badge actually reflect reality instead of being
   // frozen at whatever value the record was created with.
-  const stamped = { ...updates, modifiedAt: new Date().toISOString() };
+  const stamped: Partial<Project> = { ...updates, modifiedAt: new Date().toISOString() };
+  // Finance requires a client to bill — never let a write leave the two
+  // fields in an inconsistent state (see design doc's Finance ↔ Client rule).
+  // Triggers whenever this call explicitly clears clientId (null/empty
+  // string), not when clientId is simply absent from the patch.
+  if ('clientId' in updates && !updates.clientId) {
+    stamped.financeEnabled = false;
+  }
   if (isDemoSession()) {
     _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...stamped } };
     persistOverrides();
