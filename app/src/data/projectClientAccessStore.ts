@@ -10,7 +10,6 @@
 
 import { isDemoSession } from './authStore';
 import { getClientExternalTeam } from './clientTeamStore';
-import { getProjectsByClient } from './projectStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
 import type { User } from '../types';
@@ -88,43 +87,3 @@ async function doSync(projectId: string, clientId: string, members: User[]): Pro
   void syncGoogleCalendarProjectAccess(projectId);
 }
 
-export function syncClientContactAcrossProjects(clientId: string, contactId: string): void {
-  if (isDemoSession()) return;
-  void doSyncContactAcrossProjects(clientId, contactId);
-}
-
-async function doSyncContactAcrossProjects(clientId: string, contactId: string): Promise<void> {
-  const projectIds = getProjectsByClient(clientId).map(p => p.id);
-  if (projectIds.length === 0) return;
-  const studioId = await getStudioId();
-  const { data: existing, error: fetchError } = await supabase
-    .from('project_client_access')
-    .select('project_id')
-    .eq('client_contact_id', contactId)
-    .in('project_id', projectIds);
-  if (fetchError) { console.error('syncClientContactAcrossProjects fetch failed', fetchError); return; }
-  const existingProjectIds = new Set((existing ?? []).map(row => row.project_id as string));
-  const toAdd = projectIds.filter(id => !existingProjectIds.has(id));
-  if (toAdd.length === 0) return;
-  const { error } = await supabase.from('project_client_access').insert(
-    toAdd.map(projectId => ({ project_id: projectId, client_contact_id: contactId, studio_id: studioId }))
-  );
-  if (error) console.error('syncClientContactAcrossProjects insert failed', error);
-  toAdd.forEach(projectId => void syncGoogleCalendarProjectAccess(projectId));
-}
-
-export function syncNewProjectAcrossClientContacts(projectId: string, clientId: string): void {
-  if (isDemoSession()) return;
-  void doSyncNewProjectAcrossContacts(projectId, clientId);
-}
-
-async function doSyncNewProjectAcrossContacts(projectId: string, clientId: string): Promise<void> {
-  const contactIds = getClientExternalTeam(clientId).map(c => c.id);
-  if (contactIds.length === 0) return;
-  const studioId = await getStudioId();
-  const { error } = await supabase.from('project_client_access').insert(
-    contactIds.map(clientContactId => ({ project_id: projectId, client_contact_id: clientContactId, studio_id: studioId }))
-  );
-  if (error) console.error('syncNewProjectAcrossClientContacts insert failed', error);
-  void syncGoogleCalendarProjectAccess(projectId);
-}

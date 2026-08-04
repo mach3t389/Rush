@@ -11,7 +11,6 @@ import { InviteTeamModal } from './MonEquipe';
 import { InviteModal } from './FicheClient';
 import { addClientTeamMember } from '../data/clientTeamStore';
 import { createInvitation as createClientInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
-import { syncClientContactAcrossProjects } from '../data/projectClientAccessStore';
 import type { ClientContact } from '../data/clientContactsStore';
 
 type MembresTab = 'individus' | 'groupes';
@@ -242,7 +241,6 @@ export function Membres() {
           onClose={() => setInviteClientId(null)}
           onInvite={async m => {
             addClientTeamMember(inviteClientId, m);
-            syncClientContactAcrossProjects(inviteClientId, m.id);
             setContacts(getAllClientContacts());
             const invitation = await createClientInvitation(inviteClientId, m.id);
             const link = getInvitationLink(invitation.token);
