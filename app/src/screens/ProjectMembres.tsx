@@ -442,6 +442,14 @@ export function ProjectMembres() {
   const [, forceClientTeamRerender] = useState(0);
   useEffect(() => subscribeClientTeam(() => forceClientTeamRerender(n => n + 1)), [projectId]);
 
+  // Must be declared before the `!project` early return below — a hook
+  // declared after a conditional return is skipped on renders that take
+  // that branch, which changes the hook count between renders and crashes
+  // with React error #310 ("Rendered more hooks than during the previous
+  // render") the moment `project` flips from defined to undefined and back
+  // (e.g. a transient cache miss while a write is in flight).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
   if (!project) {
     return (
       <div style={{ padding: 40, color: 'var(--text-3)' }}>
@@ -464,7 +472,6 @@ export function ProjectMembres() {
     project.clientId ? getClientExternalTeam(project.clientId).map(c => c.id) : []
   );
   const isOwnerId = (id: string) => isDemoSession() ? id === USERS.lea.id : isTeamOwner(id);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
