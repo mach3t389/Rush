@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const origin = req.headers.origin || 'https://rush.app';
+  const origin = req.headers.origin || 'https://rushflow.app';
 
   try {
     const session = await stripe.billingPortal.sessions.create({

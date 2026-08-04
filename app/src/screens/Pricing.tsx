@@ -577,7 +577,7 @@ export function Pricing() {
               </div>
             </div>
 
-            <a href="mailto:hebergement@rush.app" style={{
+            <a href="mailto:hebergement@rushflow.app" style={{
               display: 'block', width: '100%', marginTop: 28, padding: '12px', borderRadius: 11,
               background: 'var(--surface-3)', color: 'var(--text)', fontSize: 14, fontWeight: 700,
               fontFamily: 'var(--ff-text)', textDecoration: 'none', textAlign: 'center',

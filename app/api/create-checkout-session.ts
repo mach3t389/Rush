@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     lineItems.push({ price: storagePrices[storageTier - 1], quantity: 1 });
   }
 
-  const origin = req.headers.origin || 'https://rush.app';
+  const origin = req.headers.origin || 'https://rushflow.app';
 
   try {
     const session = await stripe.checkout.sessions.create({
