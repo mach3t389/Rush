@@ -90,7 +90,7 @@ create policy "block_gratuit_writes_custom_resource_templates" on custom_resourc
 --    archiving an *existing* project never miscounts itself as "one too
 --    many" (an UPDATE without this would incorrectly block e.g. renaming
 --    project #3 on a studio already at exactly 3 active projects).
-create or replace function count_other_active_projects(p_studio_id uuid, p_exclude_id uuid)
+create or replace function count_other_active_projects(p_studio_id uuid, p_exclude_id text)
 returns integer
 language sql
 security definer
