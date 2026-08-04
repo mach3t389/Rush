@@ -68,6 +68,12 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   Object.values(USERS).forEach(u => { allUsers[u.id] = u; });
 
   const internalTeam = isDemoSession() ? Object.values(USERS) : getTeamMembers();
+  // In a real session internalTeam holds real studio_members, not the demo
+  // USERS this map was seeded with above — without merging them in, picking
+  // a real internal member resolves to `undefined` in handleConfirm below
+  // (allUsers[id]), gets silently dropped by .filter(Boolean), and "Ajouter"
+  // does nothing at all: no request, no error, no visible failure.
+  internalTeam.forEach(u => { allUsers[u.id] = u; });
   const internalPool = internalTeam.filter(u =>
     !currentIds.has(u.id) && u.name.toLowerCase().includes(q)
   );
