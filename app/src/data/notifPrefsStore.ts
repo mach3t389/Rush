@@ -58,6 +58,18 @@ async function saveSupabasePrefs(prefs: NotifPrefs): Promise<void> {
   if (error) console.error('saveSupabasePrefs failed', error);
 }
 
+// Called once, right after a brand-new Supabase Auth account is created
+// (register()/registerClient() in authStore.ts) — writes the user's signup
+// consent choice as an explicit notif_prefs row instead of leaving it to
+// the implicit DEFAULTS fallback in loadNotifPrefs(). Never called for demo
+// sessions (registration doesn't exist there) or for pre-existing users.
+export async function initNotifPrefsOnSignup(emailOptIn: boolean): Promise<void> {
+  const prefs: NotifPrefs = emailOptIn
+    ? DEFAULTS
+    : Object.fromEntries(NOTIF_EVENTS.map(e => [e.key, { inapp: true, email: false }]));
+  await saveSupabasePrefs(prefs);
+}
+
 // ── Public API (unchanged signatures) ───────────────────────────────────────
 
 export function loadNotifPrefs(): NotifPrefs {
