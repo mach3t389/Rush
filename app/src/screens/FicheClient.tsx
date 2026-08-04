@@ -376,7 +376,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
     }, {});
 
     return (
-      <SFModal open onClose={onClose} title={t('client.memberCard')} width={420} maxHeight="85vh">
+      <SFModal open onClose={onClose} title={t('client.memberCard')} width={420} maxHeight="85vh" padding={24}>
         <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Header */}
           <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
