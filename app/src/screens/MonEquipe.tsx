@@ -15,11 +15,11 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 // ── Mock extra info for team members ─────────────────────────────────────────
 
 const MEMBER_EMAIL: Record<string, string> = {
-  lea:    'lea.marchand@studioflow.fr',
-  sarah:  'sarah.martin@studioflow.fr',
-  thomas: 'thomas.robert@studioflow.fr',
-  julie:  'julie.bernard@studioflow.fr',
-  marc:   'marc.dufour@studioflow.fr',
+  lea:    'lea.marchand@rushflow.com',
+  sarah:  'sarah.martin@rushflow.com',
+  thomas: 'thomas.robert@rushflow.com',
+  julie:  'julie.bernard@rushflow.com',
+  marc:   'marc.dufour@rushflow.com',
 };
 
 const MEMBER_SINCE: Record<string, string> = {
@@ -52,7 +52,7 @@ const INTERNAL_TEAM: TeamMember[] = Object.values(USERS)
   .filter(u => u.role !== 'Cliente')
   .map(u => ({
     ...u,
-    email: MEMBER_EMAIL[u.id] ?? `${u.id}@studioflow.fr`,
+    email: MEMBER_EMAIL[u.id] ?? `${u.id}@rushflow.com`,
     since: MEMBER_SINCE[u.id] ?? 'Récemment',
     phone: MEMBER_PHONE[u.id] ?? '—',
     activeProjects: PROJECTS.filter(p => p.members.some(m => m.id === u.id)).length,

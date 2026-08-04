@@ -18,17 +18,17 @@ export const STUDIO_NAME_KEY = 'sf_studio_name';
 
 // Built-in demo users mapped by email — connexion instantanée, ne passe jamais par Supabase
 const DEMO_EMAIL_MAP: Record<string, string> = {
-  'lea.marchand@studioflow.fr':    'lea',
-  'sarah.martin@studioflow.fr':   'sarah',
-  'thomas.robert@studioflow.fr':  'thomas',
-  'julie.bernard@studioflow.fr':  'julie',
-  'marc.dufour@studioflow.fr':    'marc',
+  'lea.marchand@rushflow.com':    'lea',
+  'sarah.martin@rushflow.com':   'sarah',
+  'thomas.robert@rushflow.com':  'thomas',
+  'julie.bernard@rushflow.com':  'julie',
+  'marc.dufour@rushflow.com':    'marc',
 };
 
 export const DEMO_ACCOUNTS = [
-  { email: 'lea.marchand@studioflow.fr',   name: 'Léa Marchand',  role: 'Admin',           initials: 'LM', color: '#5c3d8f' },
-  { email: 'sarah.martin@studioflow.fr',   name: 'Sarah Martin',  role: 'Dir. créative',   initials: 'SM', color: '#3b4f8f' },
-  { email: 'thomas.robert@studioflow.fr',  name: 'Thomas Robert', role: 'Chef de projet',  initials: 'TR', color: '#5c3d8f' },
+  { email: 'lea.marchand@rushflow.com',   name: 'Léa Marchand',  role: 'Admin',           initials: 'LM', color: '#5c3d8f' },
+  { email: 'sarah.martin@rushflow.com',   name: 'Sarah Martin',  role: 'Dir. créative',   initials: 'SM', color: '#3b4f8f' },
+  { email: 'thomas.robert@rushflow.com',  name: 'Thomas Robert', role: 'Chef de projet',  initials: 'TR', color: '#5c3d8f' },
 ];
 
 // Cache en mémoire de l'utilisateur Supabase courant, tenu à jour par l'abonnement
@@ -100,7 +100,7 @@ export async function login(email: string, password: string): Promise<{ ok: bool
       role:        u.role,
       initials:    u.initials,
       avatarColor: u.avatarColor,
-      studioName:  localStorage.getItem(STUDIO_NAME_KEY) ?? 'StudioFlow Production',
+      studioName:  localStorage.getItem(STUDIO_NAME_KEY) ?? 'Studio Lumière Production',
     };
     localStorage.setItem(AUTH_KEY, JSON.stringify(user));
     return { ok: true };

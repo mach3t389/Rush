@@ -47,13 +47,13 @@ export const CLIENT_CONTACTS: Record<string, SeedContact[]> = {
   c1: [
     { id: 'ext1', name: 'Sophie Blanc',  role: 'Directrice marketing',  email: 'sophie@novafilms.fr',    status: 'active',  initials: 'SB', color: '#3b4f8f' },
     { id: 'ext2', name: 'Pierre Leroy',  role: 'Chef de projet client', email: 'pierre@novafilms.fr',   status: 'invited', initials: 'PL', color: '#7d4e57' },
-    { id: 'int1', name: 'Léa Marchand',  role: 'Admin',                 email: 'lea@studioflow.fr',     status: 'active',  initials: 'LM', color: '#5c3d8f', internal: true, userId: 'lea' },
-    { id: 'int2', name: 'Sarah Martin',  role: 'Dir. créative',         email: 'sarah@studioflow.fr',   status: 'active',  initials: 'SM', color: '#3b4f8f', internal: true, userId: 'sarah' },
+    { id: 'int1', name: 'Léa Marchand',  role: 'Admin',                 email: 'lea@rushflow.com',     status: 'active',  initials: 'LM', color: '#5c3d8f', internal: true, userId: 'lea' },
+    { id: 'int2', name: 'Sarah Martin',  role: 'Dir. créative',         email: 'sarah@rushflow.com',   status: 'active',  initials: 'SM', color: '#3b4f8f', internal: true, userId: 'sarah' },
   ],
   c2: [
     { id: 'ext3', name: 'Marc Dubois',    role: 'Producteur exécutif',  email: 'marc@studiobleu.fr',    status: 'active',  initials: 'MD', color: '#1a6b4a' },
     { id: 'ext4', name: 'Élise Fontaine', role: 'Responsable com.',     email: 'elise@studiobleu.fr',   status: 'invited', initials: 'EF', color: '#2d6b5a' },
-    { id: 'int3', name: 'Julie Bernard',  role: 'Monteuse',             email: 'julie@studioflow.fr',   status: 'active',  initials: 'JB', color: '#1a6b4a', internal: true, userId: 'julie' },
+    { id: 'int3', name: 'Julie Bernard',  role: 'Monteuse',             email: 'julie@rushflow.com',   status: 'active',  initials: 'JB', color: '#1a6b4a', internal: true, userId: 'julie' },
   ],
   c3: [
     { id: 'ext5', name: 'Antoine Renaud', role: 'Directeur général',    email: 'antoine@fondlumiere.fr', status: 'active', initials: 'AR', color: '#4a3428' },

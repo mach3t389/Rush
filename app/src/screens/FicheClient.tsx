@@ -171,7 +171,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
   const handleConfirm = () => {
     const members: ClientMember[] = available
       .filter(u => selected.has(u.id))
-      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@studioflow.fr`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
+      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@rushflow.com`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
     if (members.length) onAssign(members);
     onClose();
   };

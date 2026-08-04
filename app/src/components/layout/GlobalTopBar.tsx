@@ -176,7 +176,7 @@ export function GlobalTopBar({ onSearch }: Props) {
               {/* User info header */}
               <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{displayName}</p>
-                <p style={{ fontSize: 10, color: 'var(--text-3)', margin: '2px 0 0', fontFamily: 'var(--ff-mono)' }}>{authUser?.email ?? 'lea.marchand@studioflow.fr'}</p>
+                <p style={{ fontSize: 10, color: 'var(--text-3)', margin: '2px 0 0', fontFamily: 'var(--ff-mono)' }}>{authUser?.email ?? 'lea.marchand@rushflow.com'}</p>
               </div>
 
               {/* Mon profil */}
@@ -210,7 +210,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           userId={me.id}
           initialName={me.name}
           initialRole={me.role}
-          initialEmail={authUser?.email ?? 'lea.marchand@studioflow.fr'}
+          initialEmail={authUser?.email ?? 'lea.marchand@rushflow.com'}
           initialPhone=""
           initialInitials={me.initials}
           initialColor={me.avatarColor}

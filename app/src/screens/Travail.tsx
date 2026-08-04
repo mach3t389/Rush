@@ -1312,7 +1312,7 @@ FIN DU PROLOGUE`;
 
 
 const MOCK_DOCUMENT = `BRIEF CRÉATIF — CAMPAGNE ÉTÉ 2025
-Nova Films × StudioFlow
+Nova Films × Studio Lumière
 
 ─────────────────────────────────────────
 
