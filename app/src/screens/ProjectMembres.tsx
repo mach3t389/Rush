@@ -81,11 +81,17 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
 
   externalPool.forEach(u => { allUsers[u.id] = u; });
 
-  // Group pool: other clients whose whole external team can be bulk-added at once.
-  // Excludes the project's own client — its contacts are already offered
-  // individually above via externalPool, so picking it as a "group" would be redundant.
+  // Group pool: other clients (groups) whose whole external team can be
+  // bulk-added at once. Excludes the project's own group — its contacts are
+  // already offered individually above via externalPool, so picking it as a
+  // group would be redundant.
   const groupPool = getClients().filter(c => !c.archived && (!clientId || c.id !== clientId))
     .filter(c => c.name.toLowerCase().includes(q));
+
+  // The project's own group's name, used as the external pool's section
+  // label so it reads as provenance ("Nova Films") rather than a generic
+  // "client contacts" label — same vocabulary as the Membres hub.
+  const ownGroupName = clientId ? getClients().find(c => c.id === clientId)?.name : undefined;
 
   const toggle = (id: string) => setPicked(prev => {
     const next = new Set(prev);
@@ -207,7 +213,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
             <>
               <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
               <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 6px 6px' }}>
-                {t('members.clientContacts')}
+                {ownGroupName ?? t('members.clientContacts')}
               </p>
               {externalPool.map(u => (
                 <button key={u.id} onClick={() => toggle(u.id)} style={rowStyle(u.id)}>

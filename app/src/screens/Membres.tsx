@@ -15,7 +15,6 @@ import { createInvitation as createClientInvitation, getInvitationLink, sendClie
 import type { ClientContact } from '../data/clientContactsStore';
 
 type MembresTab = 'individus' | 'groupes';
-type TypeFilter = 'all' | 'internal' | 'external';
 
 interface UnifiedPerson {
   id: string;
@@ -26,6 +25,12 @@ interface UnifiedPerson {
   isInternal: boolean;
   groupId?: string;
   groupName?: string;
+}
+
+interface PersonSection {
+  key: string;
+  label: string;
+  people: UnifiedPerson[];
 }
 
 export function Membres() {
@@ -47,7 +52,6 @@ export function Membres() {
   const [, forcePinnedRerender] = useState(0);
   useEffect(() => subscribePinnedClients(() => forcePinnedRerender(n => n + 1)), []);
 
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [showInviteChoice, setShowInviteChoice] = useState(false);
   const [showInviteTeam, setShowInviteTeam] = useState(false);
   const [showChooseClient, setShowChooseClient] = useState(false);
@@ -63,8 +67,19 @@ export function Membres() {
     id: c.id, name: c.name, email: c.email, initials: c.initials, color: c.color, isInternal: false,
     groupId: c.clientId, groupName: c.clientName,
   }));
-  const allPeople = [...internalPeople, ...externalPeople];
-  const visiblePeople = typeFilter === 'all' ? allPeople : typeFilter === 'internal' ? internalPeople : externalPeople;
+
+  // People are grouped by provenance (the "Équipe" section, then one
+  // section per group/client) rather than filtered by an Interne/Externe
+  // toggle — provenance is what the user actually cares about, and this
+  // reads the same way the AddMemberModal's pools do.
+  const sections: PersonSection[] = [
+    ...(internalPeople.length > 0 ? [{ key: 'team', label: t('membres.sectionTeam'), people: internalPeople }] : []),
+    ...clients
+      .filter(c => !c.archived)
+      .map(c => ({ key: c.id, label: c.name, people: externalPeople.filter(p => p.groupId === c.id) }))
+      .filter(s => s.people.length > 0),
+  ];
+  const hasNoPeople = sections.length === 0;
 
   const inviteClientContact = inviteClientId ? clients.find(c => c.id === inviteClientId) : undefined;
   const existingEmailsForClient = inviteClientId
@@ -89,100 +104,88 @@ export function Membres() {
   };
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {liveEditingClient && <ClientEditPanel client={liveEditingClient} onClose={() => setEditingClient(null)} />}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 800 }}>{t('membres.title')}</h1>
+      <div style={{ padding: '24px 24px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 800 }}>{t('membres.title')}</h1>
+          {tab === 'individus' && (
+            <SFButton variant="primary" icon="user-plus" onClick={() => setShowInviteChoice(true)}>
+              {t('membres.inviteMember')}
+            </SFButton>
+          )}
+          {tab === 'groupes' && (
+            <SFButton variant="primary" icon="plus" onClick={() => setShowNewGroup(true)}>
+              {t('membres.newGroup')}
+            </SFButton>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginTop: 20 }}>
+          {(['individus', 'groupes'] as const).map(key => (
+            <button key={key} onClick={() => setTab(key)} style={{
+              padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
+              color: tab === key ? 'var(--text)' : 'var(--text-3)',
+              borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
+            }}>
+              {t(key === 'individus' ? 'membres.tabIndividus' : 'membres.tabGroupes')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {tab === 'individus' && (
-          <SFButton variant="primary" icon="user-plus" onClick={() => setShowInviteChoice(true)}>
-            {t('membres.inviteMember')}
-          </SFButton>
-        )}
-        {tab === 'groupes' && (
-          <SFButton variant="primary" icon="plus" onClick={() => setShowNewGroup(true)}>
-            {t('membres.newGroup')}
-          </SFButton>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
-        {(['individus', 'groupes'] as const).map(key => (
-          <button key={key} onClick={() => setTab(key)} style={{
-            padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
-            fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
-            color: tab === key ? 'var(--text)' : 'var(--text-3)',
-            borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
-          }}>
-            {t(key === 'individus' ? 'membres.tabIndividus' : 'membres.tabGroupes')}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'individus' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['all', 'internal', 'external'] as const).map(f => (
-              <button key={f} onClick={() => setTypeFilter(f)} style={{
-                padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontSize: 12,
-                border: `1px solid ${typeFilter === f ? 'var(--accent)' : 'var(--border)'}`,
-                background: typeFilter === f ? 'rgba(249,255,0,0.08)' : 'transparent',
-                color: typeFilter === f ? 'var(--text)' : 'var(--text-2)',
-              }}>
-                {t(f === 'all' ? 'membres.filterAll' : f === 'internal' ? 'membres.filterInternal' : 'membres.filterExternal')}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {visiblePeople.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {hasNoPeople && (
               <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noPeopleFound')}</p>
             )}
-            {visiblePeople.map(p => (
-              <div key={`${p.isInternal ? 'int' : 'ext'}-${p.id}`} onClick={() => navigate(`/membres/individus/${p.id}`)} style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10,
-                border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer',
-              }}>
-                <SFAvatar initials={p.initials} bg={p.color} size={32} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{p.email}</p>
+            {sections.map(section => (
+              <div key={section.key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  {section.label}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {section.people.map(p => (
+                    <div key={`${p.isInternal ? 'int' : 'ext'}-${p.id}`} onClick={() => navigate(`/membres/individus/${p.id}`)} style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10,
+                      border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer',
+                    }}>
+                      <SFAvatar initials={p.initials} bg={p.color} size={32} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{p.email}</p>
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleRemove(p); }}
+                        title={t(p.isInternal ? 'membres.removeMemberConfirm' : 'membres.removeContactConfirm', { name: p.name }) as string}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}
+                      >
+                        <SFIcon name="trash-2" size={14} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase' }}>
-                  {p.isInternal ? t('membres.typeInternal') : t('membres.typeExternal')}
-                </span>
-                {!p.isInternal && (
-                  <span
-                    onClick={e => { e.stopPropagation(); if (p.groupId) navigate(`/clients/${p.groupId}`); }}
-                    style={{ fontSize: 11, color: p.groupId ? 'var(--text-2)' : 'var(--text-3)', cursor: p.groupId ? 'pointer' : 'default' }}
-                  >
-                    {p.groupName || t('membres.noGroupLabel')}
-                  </span>
-                )}
-                <button
-                  onClick={e => { e.stopPropagation(); handleRemove(p); }}
-                  title={t(p.isInternal ? 'membres.removeMemberConfirm' : 'membres.removeContactConfirm', { name: p.name }) as string}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}
-                >
-                  <SFIcon name="trash-2" size={14} />
-                </button>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {tab === 'groupes' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {clients.filter(c => !c.archived).map(c => (
-            <ClientCard
-              key={c.id}
-              client={c}
-              pinned={isPinnedClient(c.id)}
-              onEdit={() => setEditingClient(c)}
-              onClick={() => navigate(`/clients/${c.id}`)}
-            />
-          ))}
-        </div>
-      )}
+        {tab === 'groupes' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+            {clients.filter(c => !c.archived).map(c => (
+              <ClientCard
+                key={c.id}
+                client={c}
+                pinned={isPinnedClient(c.id)}
+                onEdit={() => setEditingClient(c)}
+                onClick={() => navigate(`/clients/${c.id}`)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {showInviteChoice && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
