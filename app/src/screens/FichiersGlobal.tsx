@@ -2761,7 +2761,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
             onMouseLeave={e => { if (selectedId !== 'clients-folder' && !isColSel('clients-folder')) e.currentTarget.style.background = 'transparent'; }}
           >
             <SFIcon name="users" size={14} color={selectedId === 'clients-folder' ? 'var(--on-accent)' : 'var(--accent)'} />
-            <span style={nameStyle('clients-folder')}>Clients</span>
+            <span style={nameStyle('clients-folder')}>{t('files.clients')}</span>
             <SFIcon name="chevron-right" size={10} color={selectedId === 'clients-folder' ? 'var(--on-accent)' : 'var(--text-3)'} />
           </div>
         )}
@@ -3493,7 +3493,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                     <FolderRow key={f.id} folder={f} />
                   ))}
                   {/* Clients row */}
-                  <VirtualRow key="clients-folder" id="vrow-clients" label="Clients" icon="users" color="var(--accent)"
+                  <VirtualRow key="clients-folder" id="vrow-clients" label={t('files.clients')} icon="users" color="var(--accent)"
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
                     count={clients.length} sublabel="Dossier" />
                   {/* Fichiers/ressources créés directement à la racine (sans projet ni client) */}
@@ -3514,7 +3514,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                   <VirtualCard
                     key="clients-folder"
                     id="vcard-clients"
-                    label="Clients"
+                    label={t('files.clients')}
                     icon="users"
                     color="var(--accent)"
                     onClick={() => setLocation({ scope: 'clients', folderId: null })}
@@ -3532,7 +3532,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           {/* ── Clients list view ── */}
           {location.scope === 'clients' && location.folderId === null && (
             <div>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Liste des clients</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>{t('files.clientsList')}</p>
               {viewMode === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
                   {clients.map(c => (
@@ -3551,12 +3551,12 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ ...ROW, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
                     <div />
-                    <span>Nom</span><span>Type</span><span>Projets</span><span>Modifié</span>
+                    <span>{t('files.sortName')}</span><span>{t('files.colType')}</span><span>{t('files.colProjects')}</span><span>{t('files.colModified')}</span>
                   </div>
                   {clients.map(c => (
                     <VirtualRow key={c.id} id={`client-${c.id}`} label={c.name} icon="user" color={c.avatarColor}
                       onClick={() => setLocation({ scope: 'client', scopeId: c.id, folderId: null })}
-                      count={projects.filter(p => p.clientId === c.id && p.filesEnabled).length} sublabel="Client" />
+                      count={projects.filter(p => p.clientId === c.id && p.filesEnabled).length} sublabel={t('files.client')} />
                   ))}
                 </div>
               )}
@@ -3566,7 +3566,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           {/* ── Client projects view ── */}
           {location.scope === 'client' && location.folderId === null && (
             <div>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Projets du client</p>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>{t('files.clientProjects')}</p>
               {viewMode === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
                   {projects.filter(p => p.clientId === location.scopeId && p.filesEnabled).map(p => (
