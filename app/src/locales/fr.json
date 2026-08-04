@@ -1017,7 +1017,9 @@
     "noMembers": "Aucun membre dans ce projet",
     "selectedCount": "{{count}} sélectionnés",
     "clearSelection": "Annuler la sélection",
-    "permissions": "Autorisations"
+    "permissions": "Autorisations",
+    "groups": "Groupes",
+    "groupContactCount": "{{count}} contacts"
   },
   "team": {
     "inviteMember": "Inviter un membre",
