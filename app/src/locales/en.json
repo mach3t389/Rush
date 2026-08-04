@@ -268,6 +268,7 @@
   },
   "membres": {
     "title": "Members",
+    "countIndividus": "{{count}} individuals",
     "tabIndividus": "Individuals",
     "tabGroupes": "Groups",
     "sectionTeam": "Team",
