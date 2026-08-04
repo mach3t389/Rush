@@ -1967,7 +1967,7 @@ export function Parametres() {
     return {
       name: o.name ?? me.name,
       role: o.role ?? me.role,
-      email: o.email ?? 'alexismorel11@hotmail.ca',
+      email: o.email ?? '',
       phone: o.phone ?? '',
       photo: loadPhoto(me.id),
     };
