@@ -176,7 +176,10 @@ type ViewMode = 'grid' | 'list' | 'columns' | 'stockage';
 type SortBy   = 'name' | 'date' | 'size' | 'type';
 
 export interface NavLocation {
-  scope: 'root' | 'global' | 'project' | 'client' | 'clients';
+  // 'client' ne subsiste que pour l'onglet Fichiers d'une fiche client (FileBrowser
+  // verrouillé sur un client). La navigation globale n'a plus de niveau « Clients » :
+  // les projets sont listés directement à la racine.
+  scope: 'root' | 'global' | 'project' | 'client';
   scopeId?: string;   // projectId or clientId
   folderId: string | null;
 }
@@ -812,19 +815,6 @@ function FileTree({
           {!collapsed && <span>{t('files.allFiles')}</span>}
         </div>}
 
-        {/* Clients link - child of root (rendu avant les dossiers globaux pour cohérence avec la vue colonnes) */}
-        {!lockedScope && !collapsed && (
-          <div
-            onClick={() => onNavigate({ scope: 'clients', folderId: null })}
-            style={{ ...ITEM_STYLE(location.scope === 'clients'), paddingLeft: '28px' }}
-            onMouseEnter={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { if (location.scope !== 'clients') e.currentTarget.style.background = 'transparent'; }}
-          >
-            <SFIcon name="users" size={12} color={location.scope === 'clients' ? 'var(--accent)' : 'var(--text-3)'} />
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{t('files.clients')}</span>
-          </div>
-        )}
-
         {/* Global folders (Archives) - children of root */}
         {!lockedScope && globalRoots.filter(f => !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => {
           const active = location.scope === 'global' && location.folderId === f.id;
@@ -1184,9 +1174,6 @@ export function StorageView({
     } else if (scope === 'global') {
       currentFolders = folders.filter(f => !f.projectId && !f.clientId && f.parentId === folderId);
       currentFiles   = files.filter(f => !f.projectId && !f.clientId && f.parentFolderId === folderId);
-    } else if (scope === 'clients') {
-      currentFolders = [];
-      currentFiles   = [];
     }
 
     const folderItems: StorageItem[] = currentFolders.map(f => {
@@ -1801,6 +1788,10 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
   const allFolders = rawFolders.filter(f => !f.state);
   const allFiles   = rawFiles.filter(f => !f.state);
 
+  // Les projets ne sont plus rangés sous un client : ils sont listés directement
+  // à la racine du navigateur de fichiers (un clientId n'est qu'une étiquette).
+  const rootProjects = projects.filter(p => !p.archived && p.filesEnabled);
+
   useEffect(() => subscribeFileStore(() => { setRawFolders(getFolders()); setRawFiles(getFiles()); }), []);
   useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
@@ -2194,7 +2185,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
   // ── "Nouveau" menu items (shared between the + button dropdown and the
   //    background right-click context menu) ──────────────────────────────────
   const isSpecialLoc = (loc: NavLocation) => loc.scope === 'global' && (loc.folderId === 'folder-trash' || loc.folderId === 'folder-archives');
-  const canAddAt = (loc: NavLocation) => loc.scope !== 'clients' && !isSpecialLoc(loc);
+  const canAddAt = (loc: NavLocation) => !isSpecialLoc(loc);
   const canAddFileAt = (loc: NavLocation) => !readOnly && canAddAt(loc) && (loc.scope !== 'root' || !!lockedScope);
 
   // targetLoc : emplacement où créer le nouvel élément — la colonne cliquée en
@@ -2507,29 +2498,6 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
   // ── Root view cards / rows ────────────────────────────────────────────────────
 
-  const VirtualRow = ({ id, label, icon, color, onClick, count, sublabel }: { id: string; label: string; icon: string; color: string; onClick: () => void; count?: number; sublabel?: string }) => {
-    const isSelected = selectedVirtualId === id;
-    return (
-    <div
-      onClick={e => {
-        setSelectedVirtualId(id);
-        setSelectedIds(new Set());
-        if (e.detail >= 2) onClick();
-      }}
-      style={{ ...ROW, background: isSelected ? 'rgba(249,255,0,0.06)' : 'transparent', outline: isSelected ? '1px solid rgba(249,255,0,0.2)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s' }}
-      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-    >
-      <div style={{ width: 28, height: 28, borderRadius: 6, background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <SFIcon name={icon} size={15} color={color} />
-      </div>
-      <span style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'var(--ff-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{sublabel ?? 'Dossier'}</span>
-      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
-      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{count !== undefined ? `${count} dossier${count !== 1 ? 's' : ''}` : '—'}</span>
-      <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>—</span>
-    </div>
-  );};
 
   const VirtualCard = ({ id, label, icon, color, onClick, count }: { id: string; label: string; icon: string; color: string; onClick: () => void; count?: number }) => {
     const isSelected = selectedVirtualId === id;
@@ -2557,6 +2525,40 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
             {count !== undefined ? `${count} dossier${count > 1 ? 's' : ''}` : '—'}
           </p>
         </div>
+      </div>
+    );
+  };
+
+  // Ligne « projet » en vue liste — partagée entre la racine (projets listés
+  // directement) et l'onglet Fichiers d'une fiche client (browser verrouillé).
+  const ProjectRow = ({ project: p }: { project: Project }) => {
+    const isPinned = pinnedIds.includes(p.id);
+    return (
+      <div
+        style={{ ...ROW, position: 'relative', background: selectedVirtualId === `project-${p.id}` ? 'rgba(249,255,0,0.06)' : 'transparent', outline: selectedVirtualId === `project-${p.id}` ? '1px solid rgba(249,255,0,0.2)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s' } as React.CSSProperties}
+        onClick={e => { setSelectedVirtualId(`project-${p.id}`); setSelectedIds(new Set()); if (e.detail >= 2) setLocation({ scope: 'project', scopeId: p.id, folderId: null }); }}
+        onMouseEnter={e => { if (selectedVirtualId !== `project-${p.id}`) e.currentTarget.style.background = 'var(--surface-2)'; }}
+        onMouseLeave={e => { if (selectedVirtualId !== `project-${p.id}`) e.currentTarget.style.background = 'transparent'; }}
+      >
+        <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SFIcon name="folder" size={14} color={p.clientColor} />
+        </div>
+        <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 11 }}>Projet</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 60 }}>{allFolders.filter(f => f.projectId === p.id && f.parentId === null).length}</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 80 }}>—</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
+          style={{
+            width: 24, height: 24, borderRadius: 4, background: 'rgba(0,0,0,0.2)',
+            border: 'none', cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
+        >
+          <SFIcon name="star" size={12} color={isPinned ? 'var(--accent)' : 'var(--text-3)'} fill={isPinned ? 'currentColor' : 'none'} />
+        </button>
       </div>
     );
   };
@@ -2641,10 +2643,10 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
   const getColumnItems = (loc: NavLocation): { folders: FileFolder[]; files: FileItem[]; projects?: Project[] } => {
     const { scope, scopeId, folderId } = loc;
     if (scope === 'root') {
-      // Root column shows global folders (except Templates, Archives, Trash) and clients as virtual items
+      // Root column: projets (directement), dossiers globaux (sauf Modèles/Archives/Corbeille) et fichiers libres
       const globalFolders = allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id));
       const rootFiles = allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null);
-      return { folders: globalFolders, files: rootFiles };
+      return { folders: globalFolders, files: rootFiles, projects: rootProjects };
     }
     if (scope === 'client' && folderId === null) {
       // Client root — projets du client, mais aussi les dossiers/fichiers créés
@@ -2751,41 +2753,8 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           borderRight: '1px solid var(--border)', padding: '8px 6px',
           background: depth % 2 === 0 ? 'var(--surface)' : 'var(--bg)',
         }}>
-        {/* Root: show Clients folder */}
-        {loc.scope === 'root' && (
-          <div
-            style={rowStyle('clients-folder')}
-            onMouseDown={noSelectOnModifier}
-            onClick={e => handleColClick(e, 'clients-folder', () => onSelect({ scope: 'clients', folderId: null }))}
-            onMouseEnter={e => { if (selectedId !== 'clients-folder' && !isColSel('clients-folder')) e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { if (selectedId !== 'clients-folder' && !isColSel('clients-folder')) e.currentTarget.style.background = 'transparent'; }}
-          >
-            <SFIcon name="users" size={14} color={selectedId === 'clients-folder' ? 'var(--on-accent)' : 'var(--accent)'} />
-            <span style={nameStyle('clients-folder')}>{t('files.clients')}</span>
-            <SFIcon name="chevron-right" size={10} color={selectedId === 'clients-folder' ? 'var(--on-accent)' : 'var(--text-3)'} />
-          </div>
-        )}
-        {/* Clients list: show all clients */}
-        {loc.scope === 'clients' && loc.folderId === null && (
-          <>{clients.map(c => {
-            const id = 'client-' + c.id;
-            return (
-              <div key={id}
-                style={rowStyle(id)}
-                onMouseDown={noSelectOnModifier}
-                onClick={e => handleColClick(e, id, () => onSelect({ scope: 'client', scopeId: c.id, folderId: null }))}
-                onMouseEnter={e => { if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { if (selectedId !== id && !isColSel(id)) e.currentTarget.style.background = 'transparent'; }}
-              >
-                <SFIcon name="user" size={14} color={selectedId === id ? 'var(--on-accent)' : c.avatarColor} />
-                <span style={nameStyle(id)}>{c.name}</span>
-                <SFIcon name="chevron-right" size={10} color={selectedId === id ? 'var(--on-accent)' : 'var(--text-3)'} />
-              </div>
-            );
-          })}</>
-        )}
-        {/* Client root: show projects of this client */}
-        {loc.scope === 'client' && loc.folderId === null && columnProjects && columnProjects.length > 0 && (
+        {/* Racine (projets listés directement) et racine d'un client (ses projets) */}
+        {(loc.scope === 'root' || loc.scope === 'client') && loc.folderId === null && columnProjects && columnProjects.length > 0 && (
           <>{columnProjects.map(p => {
             const id = 'proj-' + p.id;
             const isHovered = hoveredColProjectId === p.id;
@@ -2955,41 +2924,15 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
     ];
 
     if (loc.scope === 'project') {
+      // Un projet est directement enfant de la racine « Fichiers » — plus de
+      // niveau Clients / client intermédiaire dans la navigation.
       const p = projects.find(p => p.id === loc.scopeId);
-      const c = p ? clients.find(c => c.id === p.clientId) : null;
-
-      // Add "Clients" link
-      crumbs.push({
-        label: 'Clients',
-        onClick: () => {
-          if (viewMode === 'columns') {
-            setColumnSelections([{ scope: 'clients', folderId: null }]);
-          } else {
-            setLocation({ scope: 'clients', folderId: null });
-          }
-        }
-      });
-
-      // Add client name
-      if (c) {
-        crumbs.push({
-          label: c.name,
-          onClick: () => {
-            if (viewMode === 'columns') {
-              setColumnSelections([{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: c.id, folderId: null }]);
-            } else {
-              setLocation({ scope: 'client', scopeId: c.id, folderId: null });
-            }
-          }
-        });
-      }
-      // Add project name
       if (p) {
         crumbs.push({
           label: p.name,
           onClick: () => {
             if (viewMode === 'columns') {
-              setColumnSelections([{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: c?.id, folderId: null }, { scope: 'project', scopeId: p.id, folderId: null }]);
+              setColumnSelections([{ scope: 'project', scopeId: p.id, folderId: null }]);
             } else {
               setLocation({ scope: 'project', scopeId: p.id, folderId: null });
             }
@@ -2998,44 +2941,18 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
       }
     } else if (loc.scope === 'client') {
       const c = clients.find(c => c.id === loc.scopeId);
-
-      // Add "Clients" link
-      crumbs.push({
-        label: 'Clients',
-        onClick: () => {
-          if (viewMode === 'columns') {
-            setColumnSelections([{ scope: 'clients', folderId: null }]);
-          } else {
-            setLocation({ scope: 'clients', folderId: null });
-          }
-        }
-      });
-
-      // Add client name
       if (c) {
         crumbs.push({
           label: c.name,
           onClick: () => {
             if (viewMode === 'columns') {
-              setColumnSelections([{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: c.id, folderId: null }]);
+              setColumnSelections([{ scope: 'client', scopeId: c.id, folderId: null }]);
             } else {
               setLocation({ scope: 'client', scopeId: c.id, folderId: null });
             }
           }
         });
       }
-    } else if (loc.scope === 'clients') {
-      // Add "Clients" as current location
-      crumbs.push({
-        label: 'Clients',
-        onClick: () => {
-          if (viewMode === 'columns') {
-            setColumnSelections([{ scope: 'clients', folderId: null }]);
-          } else {
-            setLocation({ scope: 'clients', folderId: null });
-          }
-        }
-      });
     }
 
     if (loc.folderId) {
@@ -3110,23 +3027,10 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, columnSelections]);
 
-  // Reconstruit la chaîne d'ancêtres (Clients → Client → Projet) pour une
-  // location cible — nécessaire en vue colonnes, où chaque colonne affiche
-  // le contenu de l'entrée précédente : sans ces ancêtres, sauter directement
-  // sur un projet/client saute aussi les colonnes intermédiaires au lieu de
-  // les faire apparaître en cascade comme un clic manuel colonne par colonne.
-  const buildAncestorChain = (loc: NavLocation): NavLocation[] => {
-    if (loc.scope === 'client') {
-      return [{ scope: 'clients', folderId: null }, loc];
-    }
-    if (loc.scope === 'project') {
-      const clientId = projects.find(p => p.id === loc.scopeId)?.clientId;
-      if (clientId) {
-        return [{ scope: 'clients', folderId: null }, { scope: 'client', scopeId: clientId, folderId: null }, loc];
-      }
-    }
-    return [loc];
-  };
+  // Chaîne d'ancêtres pour la vue colonnes. Projets et clients sont désormais
+  // tous deux enfants directs de la racine : aucune colonne intermédiaire à
+  // reconstruire.
+  const buildAncestorChain = (loc: NavLocation): NavLocation[] => [loc];
 
   const handleSetViewMode = (m: ViewMode) => {
     if (m === 'columns' && viewMode !== 'columns') {
@@ -3151,10 +3055,8 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
     }
   };
 
-  // Seul le niveau "liste des clients" est virtuel (on n'y ajoute pas un client).
   // Les roots de projet/client sont de vrais espaces de travail → ajout possible en vue globale ET verrouillée (parité).
-  const isAtVirtualRoot = location.scope === 'clients';
-  const canAdd = !isAtVirtualRoot && !isSpecialView && !readOnly;
+  const canAdd = !isSpecialView && !readOnly;
 
   // Convert folder structure to FolderNode[]
   const folderStructureToNodes = (projectId: string): FolderNode[] => {
@@ -3439,7 +3341,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
               loc={lockedScope ?? { scope: 'root', folderId: null }}
               depth={0}
               selectedId={columnSelections[0]
-                ? (columnSelections[0].scope === 'clients' ? 'clients-folder' : columnSelections[0].scope === 'project' ? 'proj-' + columnSelections[0].scopeId : columnSelections[0].scope === 'client' ? 'client-' + columnSelections[0].scopeId : columnSelections[0].folderId ?? undefined)
+                ? (columnSelections[0].scope === 'project' ? 'proj-' + columnSelections[0].scopeId : columnSelections[0].scope === 'client' ? 'client-' + columnSelections[0].scopeId : columnSelections[0].folderId ?? undefined)
                 : undefined}
               onSelect={(childLoc) => selectColumn(0, childLoc)}
             />
@@ -3488,14 +3390,14 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                     <div />
                     <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
+                  {/* Projets — listés directement à la racine (plus de dossier « Clients ») */}
+                  {rootProjects.map(p => (
+                    <ProjectRow key={p.id} project={p} />
+                  ))}
                   {/* Global folders — vrais dossiers : FolderRow donne clic droit (renommer / corbeille) + double-clic pour naviguer */}
                   {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
                     <FolderRow key={f.id} folder={f} />
                   ))}
-                  {/* Clients row */}
-                  <VirtualRow key="clients-folder" id="vrow-clients" label={t('files.clients')} icon="users" color="var(--accent)"
-                    onClick={() => setLocation({ scope: 'clients', folderId: null })}
-                    count={clients.length} sublabel="Dossier" />
                   {/* Fichiers/ressources créés directement à la racine (sans projet ni client) */}
                   {allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null).map(f => (
                     <FileRow key={f.id} file={f} />
@@ -3505,21 +3407,14 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
               {viewMode === 'grid' && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+                  {/* Projets — listés directement à la racine (plus de dossier « Clients ») */}
+                  {rootProjects.map(p => (
+                    <ProjectCard key={p.id} project={p} />
+                  ))}
                   {/* Global folders (except Templates, Archives, Trash) */}
                   {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
                     <FolderCard key={f.id} folder={f} />
                   ))}
-
-                  {/* Clients folder */}
-                  <VirtualCard
-                    key="clients-folder"
-                    id="vcard-clients"
-                    label={t('files.clients')}
-                    icon="users"
-                    color="var(--accent)"
-                    onClick={() => setLocation({ scope: 'clients', folderId: null })}
-                    count={clients.length}
-                  />
                   {/* Fichiers/ressources créés directement à la racine (sans projet ni client) */}
                   {allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null).map(f => (
                     <FileCard key={f.id} file={f} />
@@ -3529,41 +3424,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
             </div>
           )}
 
-          {/* ── Clients list view ── */}
-          {location.scope === 'clients' && location.folderId === null && (
-            <div>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>{t('files.clientsList')}</p>
-              {viewMode === 'grid' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                  {clients.map(c => (
-                    <VirtualCard
-                      key={c.id}
-                      id={`client-${c.id}`}
-                      label={c.name}
-                      icon="user"
-                      color={c.avatarColor}
-                      onClick={() => setLocation({ scope: 'client', scopeId: c.id, folderId: null })}
-                      count={projects.filter(p => p.clientId === c.id && p.filesEnabled).length}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ ...ROW, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
-                    <div />
-                    <span>{t('files.sortName')}</span><span>{t('files.colType')}</span><span>{t('files.colProjects')}</span><span>{t('files.colModified')}</span>
-                  </div>
-                  {clients.map(c => (
-                    <VirtualRow key={c.id} id={`client-${c.id}`} label={c.name} icon="user" color={c.avatarColor}
-                      onClick={() => setLocation({ scope: 'client', scopeId: c.id, folderId: null })}
-                      count={projects.filter(p => p.clientId === c.id && p.filesEnabled).length} sublabel={t('files.client')} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Client projects view ── */}
+          {/* ── Client projects view (uniquement l'onglet Fichiers d'une fiche client) ── */}
           {location.scope === 'client' && location.folderId === null && (
             <div>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>{t('files.clientProjects')}</p>
@@ -3579,37 +3440,9 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
                     <div />
                     <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
-                  {projects.filter(p => p.clientId === location.scopeId && p.filesEnabled).map(p => {
-                    const isPinned = pinnedIds.includes(p.id);
-                    return (
-                      <div key={p.id}
-                        style={{ ...ROW, position: 'relative', background: selectedVirtualId === `project-${p.id}` ? 'rgba(249,255,0,0.06)' : 'transparent', outline: selectedVirtualId === `project-${p.id}` ? '1px solid rgba(249,255,0,0.2)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s' } as any}
-                        onClick={e => { setSelectedVirtualId(`project-${p.id}`); setSelectedIds(new Set()); if (e.detail >= 2) setLocation({ scope: 'project', scopeId: p.id, folderId: null }); }}
-                        onMouseEnter={e => { if (selectedVirtualId !== `project-${p.id}`) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={e => { if (selectedVirtualId !== `project-${p.id}`) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <SFIcon name="folder" size={14} color={p.clientColor} />
-                        </div>
-                        <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
-                        <span style={{ color: 'var(--text-3)', fontSize: 11 }}>Projet</span>
-                        <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 60 }}>{allFolders.filter(f => f.projectId === p.id && f.parentId === null).length}</span>
-                        <span style={{ color: 'var(--text-3)', fontSize: 11, minWidth: 80 }}>—</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); togglePin(p.id); }}
-                          style={{
-                            width: 24, height: 24, borderRadius: 4, background: 'rgba(0,0,0,0.2)',
-                            border: 'none', cursor: 'pointer', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
-                        >
-                          <SFIcon name="star" size={12} color={isPinned ? 'var(--accent)' : 'var(--text-3)'} fill={isPinned ? 'currentColor' : 'none'} />
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {projects.filter(p => p.clientId === location.scopeId && p.filesEnabled).map(p => (
+                    <ProjectRow key={p.id} project={p} />
+                  ))}
                 </div>
               )}
             </div>
@@ -3617,7 +3450,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
           {/* Header + pastilles de filtre de type — visibles quel que soit le mode
               d'affichage (y compris colonnes), pas seulement grille/liste. */}
-          {location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && !(location.scope === 'clients' && location.folderId === null) && (
+          {location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && (
             <>
               {isSpecialView && (
                 <div style={{ marginBottom: 18 }}>
@@ -3652,7 +3485,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
           )}
 
           {/* ── Folder contents (grille/liste — pas en vue colonnes, qui affiche déjà le contenu via ses propres colonnes) ── */}
-          {viewMode !== 'columns' && location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && !(location.scope === 'clients' && location.folderId === null) && (
+          {viewMode !== 'columns' && location.scope !== 'root' && !(location.scope === 'client' && location.folderId === null) && (
             <>
               {filteredFolders.length === 0 && filteredFiles.length === 0 ? (
                 isFilesLoading() ? (

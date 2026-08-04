@@ -6,7 +6,7 @@ import { USERS } from '../data/mock';
 import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getProjects } from '../data/projectStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, pullFromGoogleCalendar, isEventsLoading } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
@@ -47,7 +47,7 @@ function resolveEvents(eventTypes: EventType[]): CalEvent[] {
       title: e.title,
       eventTypeId: e.eventTypeId,
       projectId: e.projectId || '',
-      projectName: p?.clientName ?? '',
+      projectName: p?.name ?? '',
       projectColor: p?.clientColor ?? '#555',
       eventTypeColor: et.color,
       eventTypeLabel: et.label,
@@ -201,7 +201,7 @@ function ProjectSelect({ value, onChange }: { value: string; onChange: (id: stri
   const [open, setOpen] = useState(false);
   const options = [
     { id: '', label: t('calendar.noProject'), color: null as string | null, italic: true },
-    ...getProjects().filter(p => !p.archived && p.calendarEnabled).map(p => ({ id: p.id, label: p.clientName ? `${p.name} — ${p.clientName}` : p.name, color: p.clientColor ?? 'var(--text-3)', italic: false })),
+    ...getProjects().filter(p => !p.archived && p.calendarEnabled).map(p => ({ id: p.id, label: p.name, color: p.clientColor || 'var(--text-3)', italic: false })),
   ];
   const sel = options.find(o => o.id === value) ?? options[0];
   return (
@@ -685,7 +685,11 @@ export function CalendrierGlobal() {
   useEffect(() => {
     const unsub1 = subscribeEvents(() => setEvents(resolveEvents(getEventTypes())));
     const unsub2 = subscribeEventTypes(() => { const et = getEventTypes(); setEventTypes(et); setEvents(resolveEvents(et)); });
-    return () => { unsub1(); unsub2(); };
+    // resolveEvents() looks up each event's project via getProjects() — must
+    // also recompute once the async project fetch resolves, or events keep
+    // showing blank project names/colors forever in a real session.
+    const unsub3 = subscribeProjects(() => setEvents(resolveEvents(getEventTypes())));
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
 
   // Fetch anything changed in Google since the last sweep (throttled in the
@@ -694,6 +698,13 @@ export function CalendrierGlobal() {
 
   const [, forceWeekStart] = useState(0);
   useEffect(() => subscribeWeekStart(() => forceWeekStart(n => n + 1)), []);
+
+  // getProjects() is a synchronous cache that starts empty in a real session
+  // until its background Supabase fetch resolves — without this, the left
+  // sidebar's project list and the project filter dropdown stayed empty
+  // forever even though projects existed.
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
 
   // Task-deadline chips — were reading the frozen demo seed (MY_TASKS from
   // mock.ts) even in real sessions, so a real user's actual due dates never
@@ -809,7 +820,11 @@ export function CalendrierGlobal() {
 
         {/* Project filters */}
         {(()=>{
-          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>p.status!=='neutral' && !p.archived && p.calendarEnabled).map(p=>({ id: p.id, name: p.name, color: p.clientColor ?? 'var(--text-3)' }))];
+          // No status filter here — a completed project ('neutral' status)
+          // still has real events, and visibleEvents below doesn't hide them
+          // either, so excluding it from this list only made the sidebar and
+          // the actual grid disagree about what's visible.
+          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>!p.archived && p.calendarEnabled).map(p=>({ id: p.id, name: p.name, color: p.clientColor || 'var(--text-3)' }))];
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>

@@ -27,10 +27,9 @@ function ProjectPickerRow({ p }: { p: Project }) {
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
     >
-      <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.clientColor, flexShrink: 0 }} />
+      <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.clientColor || 'var(--text-3)', flexShrink: 0 }} />
       <div style={{ minWidth: 0, flex: '1 1 220px' }}>
         <p style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-        <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{p.clientName}</p>
       </div>
       {sectionLabel && <SFPill status="neutral" small>{sectionLabel}</SFPill>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140, flexShrink: 0 }}>

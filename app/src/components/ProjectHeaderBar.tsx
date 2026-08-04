@@ -7,7 +7,7 @@ import { ProjectEditPanel } from './ProjectCard';
 import { CreateTemplateFromProjectModal } from './CreateTemplateFromProjectModal';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
 import { confirmDialog } from '../data/confirmStore';
-import { getClients } from '../data/clientStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { useProjectTaskNotifCount } from '../hooks/useNotifs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ export function ProjectHeaderBar({
   const taskNotifs    = useProjectTaskNotifCount(projectId);
 
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
+  useEffect(() => subscribeClients(() => forceUpdate(n => n + 1)), []);
 
   if (!project) return null;
 

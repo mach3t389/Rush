@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getProjects } from '../data/projectStore';
-import { getClients } from '../data/clientStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { getMyTasks } from '../data/myTaskStore';
 import { SFIcon } from './ui/SFIcon';
 
@@ -70,6 +70,13 @@ export function CommandPalette({ open, onClose }: Props) {
   }, [open]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);
+
+  const [, forceRerender] = useState(0);
+  useEffect(() => {
+    const unsubP = subscribeProjects(() => forceRerender(n => n + 1));
+    const unsubC = subscribeClients(() => forceRerender(n => n + 1));
+    return () => { unsubP(); unsubC(); };
+  }, []);
 
   if (!open) return null;
 

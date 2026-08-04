@@ -7,7 +7,7 @@ import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, saveP
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
 import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, type InvitableAccessLevel } from '../data/teamStore';
-import { getProjects } from '../data/projectStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
@@ -207,8 +207,10 @@ export function InviteTeamModal({ onClose }: { onClose: () => void }) {
 function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const memberProjects = getProjects().filter(p => p.members.some(m => m.id === member.id));
   const [showEdit, setShowEdit] = useState(false);
+  const [, forceProjectsRerenderPanel] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerenderPanel(n => n + 1)), []);
+  const memberProjects = getProjects().filter(p => p.members.some(m => m.id === member.id));
   const photoUrl = loadPhoto(member.id);
 
   const handleViewAs = () => {
@@ -274,7 +276,6 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
                 <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{p.clientName}</p>
                 </div>
                 <SFPillSmall status={p.status}>{p.statusLabel}</SFPillSmall>
               </div>
@@ -328,6 +329,7 @@ export function MonEquipe() {
   const [, forceRerender] = useState(0);
 
   useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceRerender(n => n + 1)), []);
 
   const team = isDemoSession() ? INTERNAL_TEAM : getRealTeam();
 
