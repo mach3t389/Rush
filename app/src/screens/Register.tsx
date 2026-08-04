@@ -53,13 +53,14 @@ export function Register() {
   const [showPw, setShowPw]         = useState(false);
   const [error, setError]           = useState('');
   const [loading, setLoading]       = useState(false);
+  const [emailOptIn, setEmailOptIn] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setError(t('auth.passwordMismatch')); return; }
     setLoading(true);
     setError('');
-    const result = await register({ studioName, name, email, password });
+    const result = await register({ studioName, name, email, password, emailOptIn });
     if (result.ok) {
       navigate('/onboarding', { replace: true });
     } else {
@@ -154,6 +155,16 @@ export function Register() {
 
             <Field label={t('auth.confirmPassword')} value={confirm} onChange={setConfirm}
               type={showPw ? 'text' : 'password'} placeholder={t('auth.passwordPlaceholder')} autoComplete="new-password" />
+
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer', marginBottom: 16 }}>
+              <input
+                type="checkbox"
+                checked={emailOptIn}
+                onChange={e => setEmailOptIn(e.target.checked)}
+                style={{ accentColor: 'var(--accent)', flexShrink: 0, marginTop: 2 }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('auth.emailOptIn')}</span>
+            </label>
 
             {/* Error */}
             {error && (
