@@ -304,6 +304,9 @@ export function ProjectHeaderBar({
             name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
             phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
             budget: u.budget, description: u.description,
+            calendarEnabled: u.calendarEnabled,
+            filesEnabled: u.filesEnabled,
+            financeEnabled: u.financeEnabled,
           })}
         />
       )}

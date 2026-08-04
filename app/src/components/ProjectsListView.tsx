@@ -6,7 +6,7 @@ import { USERS } from '../data/mock';
 import { loadAllTemplates, resolveTasksSections, subscribeProjectTemplates } from '../data/templates';
 import type { TemplateTask } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User, Client } from '../types/index';
-import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS } from './ProjectCard';
+import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS, type EditUpdates } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getClients, addClient, findClient, subscribeClients } from '../data/clientStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
@@ -712,7 +712,7 @@ function ProjectListRow({ p }: { p: Project }) {
   useEffect(() => subscribeStore(() => forceStatsTick(n => n + 1)), []);
   const stats = getProjectStats(p);
 
-  const handleSave = (u: { name: string; color: string; status: Status; statusLabel: string; phase: Phase; phaseLabel: string; deliveryDate: string; budget?: number; description?: string }) => {
+  const handleSave = (u: EditUpdates) => {
     setName(u.name); setColor(u.color);
     setStatus(u.status); setStatusLabel(u.statusLabel);
     setPhase(u.phase); setPhaseLabel(u.phaseLabel);
@@ -721,6 +721,9 @@ function ProjectListRow({ p }: { p: Project }) {
       name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
       phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
       budget: u.budget, description: u.description,
+      calendarEnabled: u.calendarEnabled,
+      filesEnabled: u.filesEnabled,
+      financeEnabled: u.financeEnabled,
     });
   };
 
