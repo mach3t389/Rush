@@ -1476,33 +1476,6 @@ export function Travail() {
   const [autoFocusComments, setAutoFocusComments] = useState(false);
   const [focusCommentId, setFocusCommentId] = useState<string | undefined>();
 
-  // Open task panel (+ optionally focus comments) from notification link
-  useEffect(() => {
-    const taskId = searchParams.get('openTask') ?? searchParams.get('highlight');
-    if (!taskId) return;
-    const focusComments = searchParams.get('focus') === 'comments';
-    const commentId = searchParams.get('commentId') ?? undefined;
-    setSearchParams({}, { replace: true });
-    const timer = setTimeout(() => {
-      const allTasks = sections.flatMap(s => s.tasks);
-      const task = allTasks.find(t => t.id === taskId);
-      if (task) {
-        markTaskRead(taskId);
-        setSelectedTask(task);
-        setAutoFocusComments(focusComments);
-        setFocusCommentId(commentId);
-      } else {
-        // Fallback: flash the row if panel can't open
-        const el = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`);
-        if (!el) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.style.animation = 'highlight-flash 2s ease forwards';
-        el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
-      }
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [searchParams]);
-
   const getInitialSections = () => {
     const stored = getSections(project.id);
     // Each project shows its own tasks; a project with none starts empty
@@ -1530,6 +1503,46 @@ export function Travail() {
     sync();
     return subscribeStore(sync);
   }, [project.id]);
+
+  // Open task panel (+ optionally focus comments) from notification link
+  const pendingTaskOpenRef = useRef<{ taskId: string; focusComments: boolean; commentId: string | undefined } | null>(null);
+
+  useEffect(() => {
+    const urlTaskId = searchParams.get('openTask') ?? searchParams.get('highlight');
+    if (urlTaskId) {
+      pendingTaskOpenRef.current = {
+        taskId: urlTaskId,
+        focusComments: searchParams.get('focus') === 'comments',
+        commentId: searchParams.get('commentId') ?? undefined,
+      };
+      // Clearing the URL changes `searchParams`'s identity, which re-runs this
+      // effect via the dependency array below — the pending open request is
+      // kept in a ref (not local state) so that re-run still has it, instead
+      // of the timer below getting cancelled by its own URL-clearing side effect.
+      setSearchParams({}, { replace: true });
+    }
+    const pending = pendingTaskOpenRef.current;
+    if (!pending) return;
+    const timer = setTimeout(() => {
+      pendingTaskOpenRef.current = null;
+      const allTasks = sections.flatMap(s => s.tasks);
+      const task = allTasks.find(t => t.id === pending.taskId);
+      if (task) {
+        markTaskRead(pending.taskId);
+        setSelectedTask(task);
+        setAutoFocusComments(pending.focusComments);
+        setFocusCommentId(pending.commentId);
+      } else {
+        // Fallback: flash the row if panel can't open
+        const el = document.querySelector<HTMLElement>(`[data-task-id="${pending.taskId}"]`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.animation = 'highlight-flash 2s ease forwards';
+        el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
+      }
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [searchParams, sections]);
 
   // L'écriture au store est différée hors de l'updater : la faire dedans est
   // un effet de bord en phase de rendu, que StrictMode double en dev. Le
