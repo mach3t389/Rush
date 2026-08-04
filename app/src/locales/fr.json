@@ -510,7 +510,8 @@
     "tabTeam": "Équipe",
     "tabActivity": "Activité",
     "tabFiles": "Fichiers",
-    "tabFinance": "Finance"
+    "tabFinance": "Finance",
+    "personalProjectBadge": "Projet personnel"
   },
   "common": {
     "required": "*",

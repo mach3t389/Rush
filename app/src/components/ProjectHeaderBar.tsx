@@ -62,7 +62,12 @@ export function ProjectHeaderBar({
   const TEMPLATE_DRAFT_TAB_KEYS = ['overview', 'tasks', 'files'];
   const tabs = project.isTemplateDraft
     ? allTabs.filter(tb => TEMPLATE_DRAFT_TAB_KEYS.includes(tb.key))
-    : allTabs;
+    : allTabs.filter(tb => {
+        if (tb.key === 'calendar') return project.calendarEnabled;
+        if (tb.key === 'files')    return project.filesEnabled;
+        if (tb.key === 'finance')  return project.financeEnabled && !!project.clientId;
+        return true;
+      });
 
   return (
     <div style={{
@@ -89,9 +94,13 @@ export function ProjectHeaderBar({
           fontFamily: 'var(--ff-mono)', fontSize: 11,
           color: 'var(--text-3)', marginBottom: 8,
         }}>
-          <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            {project.clientName}
-          </button>
+          {project.clientId ? (
+            <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              {project.clientName}
+            </button>
+          ) : (
+            <span>{t('projects.personalProjectBadge')}</span>
+          )}
           <span>/</span>
           <button onClick={() => navigate(`/clients/${project.clientId}?tab=projets`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {t('projects.title')}
