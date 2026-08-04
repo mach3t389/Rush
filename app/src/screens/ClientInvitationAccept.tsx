@@ -61,6 +61,7 @@ export function ClientInvitationAccept() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [emailOptIn, setEmailOptIn] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +127,7 @@ export function ClientInvitationAccept() {
       name,
       email: invitation.contactEmail,
       password,
+      emailOptIn,
     });
 
     if (!result.ok) {
@@ -318,6 +320,16 @@ export function ClientInvitationAccept() {
           <label style={labelStyle}>{t('auth.confirmPassword')}</label>
           <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder={t('auth.passwordPlaceholder')} autoComplete="new-password" style={inputStyle} />
         </div>
+
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer', marginBottom: 16 }}>
+          <input
+            type="checkbox"
+            checked={emailOptIn}
+            onChange={e => setEmailOptIn(e.target.checked)}
+            style={{ accentColor: 'var(--accent)', flexShrink: 0, marginTop: 2 }}
+          />
+          <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('auth.emailOptIn')}</span>
+        </label>
 
         {error && (
           <div style={{ padding: '10px 14px', borderRadius: 9, marginBottom: 16, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.25)', display: 'flex', alignItems: 'center', gap: 8 }}>
