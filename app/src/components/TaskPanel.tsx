@@ -847,25 +847,16 @@ export function TaskPanel({
 
   const divider = <div style={{ height: 1, background: 'var(--border)' }} />;
 
-  // Close on click outside the panel (only in overlay/fixed mode)
+  // Clicking outside closes the panel via the backdrop below (overlay mode only).
   const panelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (inline) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Element | null;
-      // Ignore clicks inside portaled children (DatePicker, TimePicker dropdowns)
-      if (t?.closest('[data-panel-child]')) return;
-      if (panelRef.current && !panelRef.current.contains(t)) onClose();
-    };
-    // Delay to avoid closing immediately on the click that opened the panel
-    const t = setTimeout(() => document.addEventListener('mousedown', handler), 0);
-    return () => { clearTimeout(t); document.removeEventListener('mousedown', handler); };
-  }, [onClose, inline]);
 
   return (
     <>
+      {!inline && (
+        <div onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.6)' }} />
+      )}
       {/* Panel */}
-      <div ref={panelRef} style={inline ? {
+      <div ref={panelRef} onMouseDown={e => e.stopPropagation()} style={inline ? {
         width: 440,
         flex: 1,
         minHeight: 0,
@@ -876,17 +867,19 @@ export function TaskPanel({
         borderLeft: '1px solid var(--border)',
       } : {
         position: 'fixed',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: 760,
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 'min(1040px, 92vw)',
+        maxHeight: '88vh',
         zIndex: 200,
         background: 'var(--surface)',
+        border: '1px solid var(--border-2)',
+        borderRadius: 16,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        boxShadow: '-16px 0 48px rgba(0,0,0,0.7)',
-        borderLeft: '1px solid var(--border)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       }}>
 
         {/* Header */}
@@ -955,16 +948,6 @@ export function TaskPanel({
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
-                onClick={() => commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                title={t('taskPanel.goToComments')}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-              >
-                <SFIcon name="message-circle" size={13} />
-                {comments.length > 0 && <span>{comments.length}</span>}
-              </button>
               <button onClick={onClose} style={{ color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -1108,7 +1091,7 @@ export function TaskPanel({
           )}
         </div>
 
-        {/* Body — single scrollable column */}
+        {/* Body — two columns : détails à gauche, commentaires à droite */}
         <div
           onClick={e => {
             // Clicking anywhere in the panel that ISN'T a subtask row (or a
@@ -1122,8 +1105,10 @@ export function TaskPanel({
             if (target.closest('[data-subtask-row], button, input, textarea, a')) return;
             setSelectedSubIds(new Set());
           }}
-          style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}
+          style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}
         >
+          {/* Colonne gauche — détails de la tâche */}
+          <div style={{ flex: '1 1 60%', minWidth: 0, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Livrable toggle + format */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1530,7 +1515,10 @@ export function TaskPanel({
             )}
           </div>
 
-          {divider}
+          </div>
+
+          {/* Colonne droite — commentaires + activité, toujours visibles */}
+          <div style={{ flex: '0 0 380px', maxWidth: 380, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)' }}>
 
           {/* Commentaires — même composant que Document/Révision web/Scénario/etc., pour un système identique partout */}
           <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
@@ -1554,6 +1542,7 @@ export function TaskPanel({
               onCancelPending={() => {}}
               embedded
             />
+          </div>
           </div>
         </div>
 
