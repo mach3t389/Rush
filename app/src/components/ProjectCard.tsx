@@ -48,6 +48,9 @@ export interface EditUpdates {
   deliveryDate: string;
   budget?: number;
   description?: string;
+  calendarEnabled: boolean;
+  filesEnabled: boolean;
+  financeEnabled: boolean;
 }
 
 export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, phaseLabel, deliveryDate, onClose, onSave }: {
@@ -72,6 +75,9 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   const [timeRect, setTimeRect] = useState<DOMRect | null>(null);
   const [lBudget, setLBudget]           = useState(p.budget ? String(p.budget) : '');
   const [lDescription, setLDescription] = useState(p.description ?? '');
+  const [lCalendarEnabled, setLCalendarEnabled] = useState(p.calendarEnabled);
+  const [lFilesEnabled, setLFilesEnabled]       = useState(p.filesEnabled);
+  const [lFinanceEnabled, setLFinanceEnabled]   = useState(p.financeEnabled);
 
   const deliveryOut = lDeliveryYMD
     ? formatDisplay(lDeliveryYMD) + (lDeliveryTime ? ` · ${lDeliveryTime}` : '')
@@ -90,6 +96,9 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
       deliveryDate: deliveryOut,
       budget: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined,
       description: lDescription.trim() || undefined,
+      calendarEnabled: lCalendarEnabled,
+      filesEnabled: lFilesEnabled,
+      financeEnabled: lFinanceEnabled && !!p.clientId,
     });
     onClose();
   };
@@ -230,6 +239,37 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             />
           </div>
 
+          {/* Modules */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.featuresLabel')}</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                { key: 'calendar', label: t('projects.moduleCalendar'), checked: lCalendarEnabled, onToggle: () => setLCalendarEnabled(v => !v), disabled: false },
+                { key: 'files',    label: t('projects.moduleFiles'),    checked: lFilesEnabled,    onToggle: () => setLFilesEnabled(v => !v),    disabled: false },
+                { key: 'finance',  label: t('projects.moduleFinance'),  checked: lFinanceEnabled,  onToggle: () => setLFinanceEnabled(v => !v),  disabled: !p.clientId },
+              ].map(m => (
+                <button
+                  key={m.key}
+                  type="button"
+                  disabled={m.disabled}
+                  onClick={m.onToggle}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9,
+                    border: '1px solid var(--border)', background: 'var(--surface-2)',
+                    color: m.disabled ? 'var(--text-3)' : 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
+                    cursor: m.disabled ? 'not-allowed' : 'pointer', opacity: m.disabled ? 0.6 : 1, textAlign: 'left',
+                  }}
+                >
+                  <SFIcon name={m.checked ? 'check-square' : 'square'} size={14} color={m.checked && !m.disabled ? 'var(--accent)' : 'var(--text-3)'} />
+                  {m.label}
+                  {m.key === 'finance' && m.disabled && (
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.moduleFinanceRequiresClient')}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Description */}
           <div>
             <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')}</label>
@@ -260,7 +300,7 @@ export function ProjectCard({ p }: { p: Project }) {
   const [pinned, setPinned]         = useState(() => isPinned(p.id));
   const [status, setStatus]         = useState<Status>(p.status);
   const [statusLabel, setStatusLabel] = useState(p.statusLabel);
-  const [color, setColor]           = useState(p.clientColor);
+  const [color, setColor]           = useState(p.clientColor ?? 'var(--text-3)');
   const [name, setName]             = useState(p.name);
   const [phase, setPhase]           = useState<Phase>(p.phase);
   const [phaseLabel, setPhaseLabel] = useState(p.phaseLabel);
@@ -318,6 +358,9 @@ export function ProjectCard({ p }: { p: Project }) {
       name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
       phase: u.phase, phaseLabel: u.phaseLabel, deliveryDate: u.deliveryDate,
       budget: u.budget, description: u.description,
+      calendarEnabled: u.calendarEnabled,
+      filesEnabled: u.filesEnabled,
+      financeEnabled: u.financeEnabled,
     });
   };
 

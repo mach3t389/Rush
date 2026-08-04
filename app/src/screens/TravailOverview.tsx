@@ -651,7 +651,8 @@ export function TravailOverview() {
       <div style={{ flexShrink: 0 }}>
         <ProjectHeaderBar projectId={project.id}>
           {(() => {
-            const approver = getClientApprover(project.clientId);
+            // No client on the project means there's no external approver to request.
+            const approver = project.clientId ? getClientApprover(project.clientId) : null;
             if (approver) return (
               <button
                 onClick={() => { setApprovalSent(false); setApprovalModal(true); }}
@@ -1027,7 +1028,7 @@ export function TravailOverview() {
                               title: newDlTitle.trim(),
                               projectId: project.id,
                               projectName: project.name,
-                              projectColor: project.clientColor,
+                              projectColor: project.clientColor ?? 'var(--text-3)',
                               assignees: [],
                               status: '' as Task['status'],
                               statusLabel: t(DELIVERABLE_STATUS_OPTIONS.find(o => o.value === '')!.labelKey),
@@ -1349,7 +1350,7 @@ export function TravailOverview() {
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Identité — nom du projet (client en sous-titre) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: getProjectColor(project.id, project.clientColor), flexShrink: 0 }} />
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: getProjectColor(project.id, project.clientColor ?? 'var(--text-3)'), flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</p>
                   <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{project.clientName}</p>
@@ -1499,7 +1500,7 @@ export function TravailOverview() {
       {editOpen && (
         <ProjectEditPanel
           p={project}
-          color={project.clientColor}
+          color={project.clientColor ?? 'var(--text-3)'}
           name={project.name}
           status={project.status}
           statusLabel={project.statusLabel}
@@ -1516,6 +1517,9 @@ export function TravailOverview() {
             updateProject(project.id, {
               name: u.name, clientColor: u.color, status: u.status, statusLabel: u.statusLabel,
               deliveryDate: u.deliveryDate, budget: u.budget, description: u.description,
+              calendarEnabled: u.calendarEnabled,
+              filesEnabled: u.filesEnabled,
+              financeEnabled: u.financeEnabled,
             });
             forceUpdate(n => n + 1);
           }}
@@ -1523,7 +1527,7 @@ export function TravailOverview() {
       )}
 
       {approvalModal && (() => {
-        const approver = getClientApprover(project.clientId);
+        const approver = project.clientId ? getClientApprover(project.clientId) : null;
         if (!approver) return null;
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}

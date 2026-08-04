@@ -423,6 +423,9 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       status: 'info',
       statusLabel: t('projects.statusInProgress'),
       modifiedAt: t('clients.justNow'),
+      calendarEnabled: true,
+      filesEnabled: true,
+      financeEnabled: !!client,
     };
 
     // Materialize the template's sections + tasks into the project task store.
