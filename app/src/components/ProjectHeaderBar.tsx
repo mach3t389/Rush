@@ -94,15 +94,13 @@ export function ProjectHeaderBar({
           fontFamily: 'var(--ff-mono)', fontSize: 11,
           color: 'var(--text-3)', marginBottom: 8,
         }}>
-          {project.clientId ? (
-            <button onClick={() => navigate(`/clients/${project.clientId}`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              {project.clientName}
-            </button>
-          ) : (
-            <span>{t('projects.personalProjectBadge')}</span>
-          )}
-          <span>/</span>
-          <button onClick={() => navigate(project.clientId ? `/clients/${project.clientId}?tab=projets` : '/projets')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          {/* A project's group is an optional tag, not a parent folder — the
+              path only ever reads "Projets / ProjectName", never
+              "GroupName / Projets / ProjectName", which used to look like
+              the project lived inside the group. The group (or "Projet
+              personnel" when there isn't one) is shown as a separate pill
+              next to the title below instead. */}
+          <button onClick={() => navigate('/projets')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {t('projects.title')}
           </button>
           <span>/</span>
@@ -158,6 +156,29 @@ export function ProjectHeaderBar({
           </div>
 
           <span style={{ color: 'var(--text-2)' }}>{project.name}</span>
+
+          {project.clientId ? (
+            <button
+              onClick={() => navigate(`/clients/${project.clientId}`)}
+              title={t('projects.groupTagHint')}
+              style={{
+                marginLeft: 4, fontSize: 10, fontFamily: 'var(--ff-mono)',
+                padding: '2px 7px', borderRadius: 6,
+                border: '1px solid var(--border)', background: 'var(--surface-2)',
+                color: 'var(--text-3)', cursor: 'pointer',
+              }}
+            >
+              {project.clientName}
+            </button>
+          ) : (
+            <span style={{
+              marginLeft: 4, fontSize: 10, fontFamily: 'var(--ff-mono)',
+              padding: '2px 7px', borderRadius: 6,
+              border: '1px solid var(--border)', color: 'var(--text-3)',
+            }}>
+              {t('projects.personalProjectBadge')}
+            </span>
+          )}
         </div>
         )}
 
