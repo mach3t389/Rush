@@ -2,10 +2,11 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFAvatar, SFIcon, SFLoadingState } from '../components/ui';
+import { SFAvatar, SFIcon, SFLoadingState, SFPill, SFBar } from '../components/ui';
 import { findTeamMember, subscribeTeam } from '../data/teamStore';
 import { getAllClientContacts, subscribeAllClientContacts } from '../data/clientTeamStore';
-import { getProjects, subscribeProjects } from '../data/projectStore';
+import { getProjects, subscribeProjects, isProjectsLoading } from '../data/projectStore';
+import { getCurrentSectionLabel } from '../data/taskStore';
 import { ActivityFeed, type FeedActivity } from '../components/ActivityFeed';
 import { getProjectActivities } from './ProjectActivite';
 import { subscribeNotifs } from '../data/notificationStore';
@@ -128,22 +129,12 @@ export function FicheIndividu() {
       }}>
 
       {tab === 'apercu' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ padding: 14, borderRadius: 10, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}
-            </p>
-            <p style={{ fontSize: 13 }}>{('role' in person && person.role) ? person.role : '—'}</p>
-            {external && (
-              <p
-                onClick={() => navigate(`/clients/${external.clientId}`)}
-                style={{ fontSize: 12, color: 'var(--text-2)', cursor: external.clientId ? 'pointer' : 'default' }}
-              >
-                {external.clientName || t('membres.noGroupLabel')}
-              </p>
-            )}
-          </div>
-        </div>
+        <ApercuTabForPerson
+          internal={!!internal}
+          external={external}
+          projects={assignedProjects}
+          onGoTab={setTab}
+        />
       )}
 
       {tab === 'projets' && (
@@ -161,6 +152,117 @@ export function FicheIndividu() {
       )}
 
       {tab === 'activite' && <ActivityFeed activities={activities} />}
+      </div>
+    </div>
+  );
+}
+
+// ── Aperçu tab — condensed dashboard, same card language as a group's own
+// Aperçu tab (KPI row + recent-projects card + finance summary), but built
+// from this person's assigned projects instead of client-scoped helpers
+// (getClientFinance/getClientTeam don't apply to a person). Deliberately
+// drops the team-roster and notes sections a group's Aperçu has — those are
+// genuinely client-only concepts, not a smaller version of the same thing.
+const apercuCardStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 };
+const apercuCardTitleStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
+
+function ApercuTabForPerson({ internal, external, projects, onGoTab }: {
+  internal: boolean;
+  external?: { clientId: string; clientName: string; role: string };
+  projects: Project[];
+  onGoTab: (t: IndividuTab) => void;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const projectIds = projects.map(p => p.id);
+  const idsKey = projectIds.join(',');
+
+  const [invoices, setInvoices] = useState<Invoice[]>(() => getInvoices().filter(i => i.projectId && projectIds.includes(i.projectId)));
+  useEffect(() => setInvoices(getInvoices().filter(i => i.projectId && idsKey.split(',').filter(Boolean).includes(i.projectId!))), [idsKey]);
+  useEffect(() => subscribeInvoices(() => setInvoices(getInvoices().filter(i => i.projectId && idsKey.split(',').filter(Boolean).includes(i.projectId!)))), [idsKey]);
+
+  const activeCount = projects.filter(p => p.status !== 'neutral').length;
+  const deliverables = projects.reduce((n, p) => n + p.deliverableCount, 0);
+  const avgProgress = projects.length ? Math.round(projects.reduce((n, p) => n + p.progress, 0) / projects.length) : 0;
+  const pending = invoices.filter(i => i.status === 'sent' || i.status === 'viewed').reduce((s, i) => s + i.total, 0);
+
+  const KPIS = [
+    { label: t('client.kpiProjects'),     value: String(projects.length), sub: t('client.kpiActiveCount', { count: activeCount }), icon: 'folder',      onClick: () => onGoTab('projets') },
+    { label: t('client.kpiDeliverables'), value: String(deliverables),    sub: t('client.kpiTotal'),                                icon: 'package',     onClick: () => onGoTab('projets') },
+    { label: t('client.kpiProgress'),     value: `${avgProgress}%`,       sub: t('client.kpiAverage'),                              icon: 'trending-up', onClick: undefined },
+    { label: t('client.kpiToCollect'),    value: formatMoney(pending),    sub: t('client.kpiPending'),                              icon: 'wallet',       onClick: () => onGoTab('finances') },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <p style={apercuCardTitleStyle}>{internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}</p>
+        {external && (
+          <>
+            <span style={{ color: 'var(--text-3)', fontSize: 9 }}>·</span>
+            <span
+              onClick={() => navigate(`/clients/${external.clientId}`)}
+              style={{ fontSize: 11, color: 'var(--text-2)', cursor: external.clientId ? 'pointer' : 'default' }}
+            >
+              {external.clientName || t('membres.noGroupLabel')}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {KPIS.map(k => (
+          <div key={k.label} onClick={k.onClick}
+            style={{ ...apercuCardStyle, cursor: k.onClick ? 'pointer' : 'default', transition: 'border-color 0.12s' }}
+            onMouseEnter={e => { if (k.onClick) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+              <SFIcon name={k.icon} size={14} color="var(--text-3)" />
+              <span style={apercuCardTitleStyle}>{k.label}</span>
+            </div>
+            <p style={{ fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{k.value}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5 }}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={apercuCardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <p style={apercuCardTitleStyle}>{t('client.projects')}</p>
+          <button onClick={() => onGoTab('projets')} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
+            {t('client.seeAll')}<SFIcon name="arrow-right" size={11} />
+          </button>
+        </div>
+        {projects.length === 0 ? (
+          isProjectsLoading() ? (
+            <SFLoadingState />
+          ) : (
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('membres.noProjectsFound')}</p>
+          )
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {projects.slice(0, 4).map(p => (
+              <div key={p.id} onClick={() => navigate(`/projets/${p.id}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.12s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
+                  </div>
+                  <SFBar value={p.progress} height={3} />
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <SFPill status={p.status as 'ok' | 'warn' | 'info' | 'danger' | 'review' | 'neutral'} small>{p.statusLabel}</SFPill>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>{p.deliveryDate}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
