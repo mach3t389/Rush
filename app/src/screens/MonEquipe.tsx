@@ -75,7 +75,7 @@ function getRealTeam(): TeamMember[] {
 
 // ── Invite modal ──────────────────────────────────────────────────────────────
 
-function InviteTeamModal({ onClose }: { onClose: () => void }) {
+export function InviteTeamModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

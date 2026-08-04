@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFBar, PageHeader } from '../components/ui';
 import { getTotalStorageUsedBytes, subscribeStorageUsage } from '../data/storageStore';
-import { MonEquipe } from './MonEquipe';
 import {
   getShortcuts, setShortcut, resetAllShortcuts, subscribeShortcuts,
   formatCombo, DEFAULT_SHORTCUTS,
@@ -1944,11 +1943,16 @@ function GoogleCalendarCard() {
 
 export function Parametres() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has('checkout')) return 'plan';
     return params.get('section') || 'infos';
   });
+  // Redirect to /membres when 'team' section is selected
+  useEffect(() => {
+    if (activeSection === 'team') navigate('/membres', { replace: true });
+  }, [activeSection, navigate]);
   const plan = usePlan();
   const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
   useEffect(() => subscribeStudioInfo(() => setStudioInfo(getStudioInfo())), []);
@@ -2104,9 +2108,6 @@ export function Parametres() {
               </div>
             </div>
           </div>
-        )}
-        {activeSection === 'team' && (
-          <MonEquipe />
         )}
 
         {/* ── Portail client ── */}

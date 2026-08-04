@@ -35,6 +35,45 @@ function getClientLiveStats(clientId: string): { activeProjects: number; pending
   return { activeProjects, pendingDeliverables, progress };
 }
 
+// The same rich card (avatar, sector/city, live stats, progress bar, status
+// pill) is reused by the Membres hub's Groupes tab so a "groupe" looks
+// exactly like the client it actually is.
+export function ClientCard({ client, pinned, onEdit, onClick }: { client: Client; pinned: boolean; onEdit: () => void; onClick: () => void }) {
+  const { t } = useTranslation();
+  const liveStats = getClientLiveStats(client.id);
+  return (
+    <SFCard padding={18} gap={12} onClick={onClick}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+          {client.initials}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 600, fontSize: 14 }}>{client.name}</p>
+          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2 }}>
+            {client.sector} · {client.city}
+          </p>
+        </div>
+        <div style={{ alignSelf: 'flex-start' }}>
+          <ClientActions clientId={client.id} pinned={pinned} archived={client.archived} onEdit={onEdit} />
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
+        <span>{t('clients.activeProjects', { count: liveStats.activeProjects })}</span>
+        <span>{t('clients.deliverables', { count: liveStats.pendingDeliverables })}</span>
+        <span>{t('clients.since', { year: client.since })}</span>
+      </div>
+
+      <SFBar value={liveStats.progress} height={3} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
+        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(client.lastActivity, t)}</span>
+      </div>
+    </SFCard>
+  );
+}
+
 // ── Shared edit panel primitives ──────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' };
@@ -61,7 +100,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const AVATAR_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8', '#5BE8A8', '#8A6FF5'];
 
-function NewClientModal({ onClose }: { onClose: () => void }) {
+export function NewClientModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [name,   setName]   = useState('');
@@ -196,7 +235,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
 
 // ── Client Edit Panel ─────────────────────────────────────────────────────────
 
-function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => void }) {
+export function ClientEditPanel({ client, onClose }: { client: Client; onClose: () => void }) {
   const { t } = useTranslation();
   const [name,        setName]        = useState(client.name);
   const [sector,      setSector]      = useState(client.sector);
@@ -672,42 +711,15 @@ export function Clients() {
         {/* Grid */}
         {view === 'grid' && filtered.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {filtered.map(client => {
-            const pinned = isPinnedClient(client.id);
-            const liveStats = getClientLiveStats(client.id);
-            return (
-              <SFCard key={client.id} padding={18} gap={12} onClick={() => navigate(`/clients/${client.id}`)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                    {client.initials}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14 }}>{client.name}</p>
-                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2 }}>
-                      {client.sector} · {client.city}
-                    </p>
-                  </div>
-                  {/* Star + edit + menu */}
-                  <div style={{ alignSelf: 'flex-start' }}>
-                    <ClientActions clientId={client.id} pinned={pinned} archived={client.archived} onEdit={() => setEditingClient(client)} />
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
-                  <span>{t('clients.activeProjects', { count: liveStats.activeProjects })}</span>
-                  <span>{t('clients.deliverables', { count: liveStats.pendingDeliverables })}</span>
-                  <span>{t('clients.since', { year: client.since })}</span>
-                </div>
-
-                <SFBar value={liveStats.progress} height={3} />
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{timeAgo(client.lastActivity, t)}</span>
-                </div>
-              </SFCard>
-            );
-          })}
+          {filtered.map(client => (
+            <ClientCard
+              key={client.id}
+              client={client}
+              pinned={isPinnedClient(client.id)}
+              onEdit={() => setEditingClient(client)}
+              onClick={() => navigate(`/clients/${client.id}`)}
+            />
+          ))}
         </div>
         )}
       </div>
