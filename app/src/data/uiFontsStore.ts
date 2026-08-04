@@ -1,44 +1,33 @@
-// Préférence UI locale : polices titre/texte choisies dans Paramètres →
-// Personnalisation. Stockée en localStorage, pas de backend — même famille
-// que weekStartStore.ts.
+// UI fonts (heading/body) — now delegated to studioPreferencesStore.
+// This file exists for backward compatibility and to keep the single-concern
+// responsibility clear: managing fonts specifically (not general preferences).
 //
-// Contrairement à un simple getter/setter, le choix doit aussi être
-// réappliqué au CSS (--ff-display / --ff-text) à CHAQUE chargement de
-// l'app, pas seulement quand l'utilisateur clique une carte dans
-// Paramètres — sinon la sélection persiste en localStorage mais ne
-// s'applique plus visuellement après un rafraîchissement, tant que
-// l'utilisateur n'a pas rouvert Paramètres et recliqué une police.
-// applyPersistedUiFonts() couvre ce cas : appelée une fois au démarrage
-// (main.tsx), avant le premier rendu.
+// Internally delegates to studioPreferencesStore, which handles the per-studio
+// storage and synchronization.
 
-const STORAGE_KEY = 'sf_ui_fonts';
+import { setUiFonts, getStudioPreferences, subscribeStudioPreferences } from './studioPreferencesStore';
 
 export interface UiFonts { heading: string; body: string }
 
-const DEFAULT_FONTS: UiFonts = { heading: "'Montserrat',sans-serif", body: "'Montserrat',sans-serif" };
-
+// Backward-compatible getters/setters that delegate to studioPreferencesStore
 export function loadUiFonts(): UiFonts {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if (s) return JSON.parse(s) as UiFonts;
-  } catch { /* noop */ }
-  return DEFAULT_FONTS;
-}
-
-function applyUiFonts(fonts: UiFonts): void {
-  document.documentElement.style.setProperty('--ff-display', fonts.heading);
-  document.documentElement.style.setProperty('--ff-text', fonts.body);
+  const prefs = getStudioPreferences();
+  return prefs.uiFonts;
 }
 
 export function saveUiFonts(heading: string, body: string): void {
-  const fonts = { heading, body };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fonts)); } catch { /* noop */ }
-  applyUiFonts(fonts);
+  setUiFonts(heading, body);
 }
 
-// Called once at app startup — re-applies whatever was last saved, since
-// the CSS custom properties above live only on document.documentElement's
-// inline style and don't survive a page reload on their own.
+// Subscribe to font changes — delegates to studio preferences subscription
+export function subscribeUiFonts(fn: () => void): () => void {
+  return subscribeStudioPreferences(fn);
+}
+
+// For backward compatibility with existing consumers that may call this directly
+// (though applyPersistedStudioPreferences in main.tsx is the primary bootstrap)
 export function applyPersistedUiFonts(): void {
-  applyUiFonts(loadUiFonts());
+  const fonts = loadUiFonts();
+  document.documentElement.style.setProperty('--ff-display', fonts.heading);
+  document.documentElement.style.setProperty('--ff-text', fonts.body);
 }
