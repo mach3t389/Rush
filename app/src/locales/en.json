@@ -549,7 +549,8 @@
     "close": "Close",
     "save": "Save",
     "loading": "Loading…",
-    "activityFilterLabel": "Visibility"
+    "activityFilterLabel": "Visibility",
+    "comingSoon": "Coming soon"
   },
   "projectTemplates": {
     "createFromProjectTitle": "Create a template from this project",

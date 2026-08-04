@@ -125,9 +125,9 @@ export function Membres() {
               <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noPeopleFound')}</p>
             )}
             {visiblePeople.map(p => (
-              <div key={`${p.isInternal ? 'int' : 'ext'}-${p.id}`} style={{
+              <div key={`${p.isInternal ? 'int' : 'ext'}-${p.id}`} onClick={() => navigate(`/membres/individus/${p.id}`)} style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10,
-                border: '1px solid var(--border)', background: 'var(--surface)',
+                border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer',
               }}>
                 <SFAvatar initials={p.initials} bg={p.color} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -139,14 +139,14 @@ export function Membres() {
                 </span>
                 {!p.isInternal && (
                   <span
-                    onClick={() => p.groupId && navigate(`/clients/${p.groupId}`)}
+                    onClick={e => { e.stopPropagation(); if (p.groupId) navigate(`/clients/${p.groupId}`); }}
                     style={{ fontSize: 11, color: p.groupId ? 'var(--text-2)' : 'var(--text-3)', cursor: p.groupId ? 'pointer' : 'default' }}
                   >
                     {p.groupName || t('membres.noGroupLabel')}
                   </span>
                 )}
                 <button
-                  onClick={() => handleRemove(p)}
+                  onClick={e => { e.stopPropagation(); handleRemove(p); }}
                   title={t('membres.removeMemberConfirm', { name: '' }) as string}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}
                 >

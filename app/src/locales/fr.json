@@ -549,7 +549,8 @@
     "close": "Fermer",
     "save": "Enregistrer",
     "loading": "Chargement…",
-    "activityFilterLabel": "Activité"
+    "activityFilterLabel": "Activité",
+    "comingSoon": "Bientôt disponible"
   },
   "projectTemplates": {
     "createFromProjectTitle": "Créer un modèle depuis ce projet",
