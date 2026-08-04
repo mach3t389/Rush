@@ -75,7 +75,7 @@ Avec deux choix : les retirer, ou les garder (ex: un collaborateur externe qui c
 - Restauration de la route `/clients` et `/clients/:id` comme entrées principales (déjà existantes, juste reconnectées à la nav).
 - Restauration d'une route pour `MonEquipe()` (ex: `/equipe`), reconnectée au menu.
 - Fiche client : remplacer le flux d'activité inventé (`getClientActivities()`, données de démo codées en dur) par le vrai flux d'activité filtré par client.
-- Aligner le comportement archiver/supprimer un client : actuellement archiver cascade-archive tous ses projets, alors que supprimer les détache sans les toucher (changé aujourd'hui). Recommandation par défaut : archiver ne devrait pas non plus toucher aux projets (même principe non destructif) — **à confirmer explicitement en revue du plan**, ce point n'a pas été retranché verbalement par l'utilisateur pendant le brainstorming.
+- Aligner le comportement archiver/supprimer un client : archiver un client ne doit plus cascade-archiver ses projets — même principe non destructif que la suppression (changée aujourd'hui pour détacher au lieu de supprimer). **Confirmé par l'utilisateur.**
 - Suppression du code mort identifié par l'audit (fonctions/composants de `MonEquipe.tsx`/`Clients.tsx` qui n'avaient plus d'appelant à cause du hub, redeviennent utilisés ; celles qui restent réellement mortes après restauration sont retirées).
 - Suppression des clés i18n orphelines correspondantes.
 
