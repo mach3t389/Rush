@@ -1,9 +1,8 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
 import { getCurrentUser } from '../data/authStore';
-import { getLogoFull, setLogoFull, getLogoSquare, setLogoSquare } from '../data/studioLogoStore';
 import { updateStudioInfo } from '../data/studioStore';
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
@@ -22,76 +21,6 @@ function StepBar({ current, total }: { current: number; total: number }) {
   );
 }
 
-// ── Logo upload widget ────────────────────────────────────────────────────────
-
-function LogoUpload({
-  label, desc, getter, setter, size,
-}: { label: string; desc: string; getter: () => string | null; setter: (v: string | null) => void; size: [number, number] }) {
-  const { t } = useTranslation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(() => getter());
-
-  const handleFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const data = ev.target?.result as string;
-      setPreview(data);
-      setter(data);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>{label}</p>
-      <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10, fontFamily: 'var(--ff-mono)' }}>{desc}</p>
-      <div
-        onClick={() => inputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; }}
-        onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-        onDrop={e => {
-          e.preventDefault();
-          (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)';
-          const file = e.dataTransfer.files[0];
-          if (file) handleFile(file);
-        }}
-        style={{
-          width: size[0], maxWidth: '100%', height: size[1],
-          border: '1.5px dashed var(--border-2)', borderRadius: 12,
-          background: 'var(--surface-2)', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', transition: 'border-color 0.15s',
-          position: 'relative',
-        }}
-      >
-        {preview ? (
-          <>
-            <img src={preview} alt={label} style={{ maxWidth: '90%', maxHeight: '80%', objectFit: 'contain' }} />
-            <button
-              onClick={e => { e.stopPropagation(); setPreview(null); setter(null); }}
-              style={{
-                position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%',
-                background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <SFIcon name="x" size={11} color="#fff" />
-            </button>
-          </>
-        ) : (
-          <div style={{ textAlign: 'center' }}>
-            <SFIcon name="image-plus" size={22} color="var(--text-3)" />
-            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, fontFamily: 'var(--ff-mono)' }}>{t('onboarding.logoClick')}</p>
-            <p style={{ fontSize: 10, color: 'var(--border-2)', marginTop: 2, fontFamily: 'var(--ff-mono)' }}>{t('onboarding.logoFormats')}</p>
-          </div>
-        )}
-      </div>
-      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
-    </div>
-  );
-}
-
 // ── Main onboarding component ─────────────────────────────────────────────────
 
 export function Onboarding() {
@@ -99,7 +28,7 @@ export function Onboarding() {
   const navigate = useNavigate();
   const user = getCurrentUser();
 
-  const TOTAL = 4;
+  const TOTAL = 3;
   const [step, setStep] = useState(0);
 
   // Step 1 state
@@ -167,7 +96,7 @@ export function Onboarding() {
             <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               {t('onboarding.stepOf', { current: step + 1, total: TOTAL })}
             </span>
-            {step < 2 && (
+            {step < 1 && (
               <button onClick={() => setStep(s => s + 1)} style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
                 {t('onboarding.skip')} →
               </button>
@@ -210,22 +139,8 @@ export function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 1 : Logos ────────────────────────────────────────────── */}
+        {/* ── Step 1 : Invite team ──────────────────────────────────────── */}
         {step === 1 && (
-          <div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 8, letterSpacing: '-0.4px' }}>
-              {t('onboarding.step2Title')}
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 28, lineHeight: 1.6 }}>
-              {t('onboarding.step2Desc')}
-            </p>
-            <LogoUpload label={t('onboarding.logoFull')} desc={t('onboarding.logoFullDesc')} getter={getLogoFull} setter={setLogoFull} size={[320, 100]} />
-            <LogoUpload label={t('onboarding.logoSquare')} desc={t('onboarding.logoSquareDesc')} getter={getLogoSquare} setter={setLogoSquare} size={[100, 100]} />
-          </div>
-        )}
-
-        {/* ── Step 2 : Invite team ──────────────────────────────────────── */}
-        {step === 2 && (
           <div>
             <h2 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--ff-display)', marginBottom: 8, letterSpacing: '-0.4px' }}>
               {t('onboarding.step3Title')}
@@ -288,8 +203,8 @@ export function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 3 : Done ─────────────────────────────────────────────── */}
-        {step === 3 && (
+        {/* ── Step 2 : Done ─────────────────────────────────────────────── */}
+        {step === 2 && (
           <div style={{ textAlign: 'center' }}>
             <div style={{
               width: 72, height: 72, borderRadius: '50%',
@@ -340,8 +255,8 @@ export function Onboarding() {
         )}
 
         {/* ── Navigation buttons ────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 10, marginTop: step === 3 ? 0 : 32 }}>
-          {step > 0 && step < 3 && (
+        <div style={{ display: 'flex', gap: 10, marginTop: step === 2 ? 0 : 32 }}>
+          {step > 0 && step < 2 && (
             <button onClick={() => setStep(s => s - 1)}
               style={{
                 padding: '12px 20px', borderRadius: 10, border: '1px solid var(--border)',
@@ -351,7 +266,7 @@ export function Onboarding() {
               {t('onboarding.back')}
             </button>
           )}
-          {step < 3 ? (
+          {step < 2 ? (
             <button onClick={next} disabled={step === 0 && !studioName.trim()}
               style={{
                 flex: 1, padding: '13px', borderRadius: 11, border: 'none',
