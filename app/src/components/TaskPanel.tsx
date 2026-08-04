@@ -644,6 +644,17 @@ export function TaskPanel({
     }
   }, [editingTitle]);
 
+  // Mirrors SFModal's own Escape-handling — TaskPanel keeps bespoke chrome
+  // (two-column layout) instead of wrapping SFModal, but should still close
+  // on Escape like every other modal in the app. Not applicable in `inline`
+  // mode, which isn't a modal overlay.
+  useEffect(() => {
+    if (inline) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [inline, onClose]);
+
   // Keep the textarea grown to fit the full title, instead of clipping to
   // the initial 2-row height — re-measure on open and on every keystroke.
   useEffect(() => {

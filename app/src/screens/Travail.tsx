@@ -1524,10 +1524,10 @@ export function Travail() {
     const pending = pendingTaskOpenRef.current;
     if (!pending) return;
     const timer = setTimeout(() => {
-      pendingTaskOpenRef.current = null;
       const allTasks = sections.flatMap(s => s.tasks);
       const task = allTasks.find(t => t.id === pending.taskId);
       if (task) {
+        pendingTaskOpenRef.current = null;
         markTaskRead(pending.taskId);
         setSelectedTask(task);
         setAutoFocusComments(pending.focusComments);
@@ -1536,6 +1536,12 @@ export function Travail() {
         // Fallback: flash the row if panel can't open
         const el = document.querySelector<HTMLElement>(`[data-task-id="${pending.taskId}"]`);
         if (!el) return;
+        // Row not found either — data (e.g. `sections`) likely hasn't loaded
+        // yet on a cold load. Leave the ref populated so the next re-run of
+        // this effect (triggered once `sections` changes) gets another shot,
+        // instead of silently discarding the pending open request.
+        pendingTaskOpenRef.current = null;
+        markTaskRead(pending.taskId);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.style.animation = 'highlight-flash 2s ease forwards';
         el.addEventListener('animationend', () => { el.style.animation = ''; }, { once: true });
