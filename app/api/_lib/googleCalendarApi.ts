@@ -111,7 +111,7 @@ async function recreateOrgCalendar(
     .eq('id', studioId)
     .maybeSingle();
 
-  const dedicatedName = `Rush — ${studio?.name ?? 'Organisation'}`;
+  const dedicatedName = `Rushflow — ${studio?.name ?? 'Organisation'}`;
   const newCalendarId = await createGoogleCalendar(accessToken, dedicatedName);
 
   const { data: eventsToMigrate } = await supabaseAdmin
