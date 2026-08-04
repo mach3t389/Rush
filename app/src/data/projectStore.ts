@@ -297,6 +297,12 @@ export function createTemplateDraft(name: string, originTemplateId?: string): Pr
     clientId: '',
     clientName: '',
     clientColor: '#6b7280',
+    // Drafts are only ever opened via Fichiers/Tâches/Aperçu (see isTemplateDraft
+    // comment in types/index.ts) — Calendrier and Finance are never shown, and
+    // Finance also requires a real client (clientId is '' above).
+    calendarEnabled: false,
+    filesEnabled: true,
+    financeEnabled: false,
     phase: 'production',
     phaseLabel: '',
     progress: 0,
