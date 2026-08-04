@@ -56,6 +56,14 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   const [perms, setPerms] = useState<PermissionKey[]>(PERMISSION_PRESETS[2].perms);
   const q = search.toLowerCase();
 
+  // getClientExternalTeam() reads a synchronous per-client cache that starts
+  // empty until its background Supabase fetch resolves (see clientTeamStore.ts).
+  // Without this subscription the "N contacts" counts below (and the pool
+  // itself) would freeze at the stale empty state until something else
+  // happened to force a re-render.
+  const [, forceContactsRerender] = useState(0);
+  useEffect(() => subscribeClientTeam(() => forceContactsRerender(n => n + 1)), []);
+
   const allUsers: Record<string, User> = {};
   Object.values(USERS).forEach(u => { allUsers[u.id] = u; });
 
@@ -101,7 +109,16 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   const internalIds = new Set(internalTeam.map(u => u.id));
   const hasInternalPick = [...picked].some(id => internalIds.has(id));
 
+  const [emptyGroupWarning, setEmptyGroupWarning] = useState(false);
+
   const handleConfirm = () => {
+    // A picked group whose team is still empty (fetch not resolved yet, or
+    // genuinely no contacts) would otherwise silently add zero people with
+    // no feedback — block and warn instead of proceeding.
+    const emptyPickedGroup = [...pickedGroupIds].some(groupId => getClientExternalTeam(groupId).length === 0);
+    if (emptyPickedGroup) { setEmptyGroupWarning(true); return; }
+    setEmptyGroupWarning(false);
+
     const users = [...picked].map(id => allUsers[id]).filter(Boolean);
 
     // Expand every picked group into its member contacts, then de-dup against
@@ -289,6 +306,10 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
               })}
             </div>
           </div>
+        )}
+
+        {emptyGroupWarning && (
+          <p style={{ marginTop: 10, fontSize: 11, color: 'var(--danger)' }}>{t('members.emptyGroupWarning')}</p>
         )}
 
         {/* Footer confirm */}

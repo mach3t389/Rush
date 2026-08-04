@@ -52,7 +52,10 @@ export function FicheIndividu() {
 
   useEffect(() => {
     if (!external || !id) { setExternalProjectIds(null); return; }
-    if (isDemoSession()) { setExternalProjectIds(projects.map(p => p.id)); return; }
+    if (isDemoSession()) {
+      setExternalProjectIds(projects.filter(p => p.clientId === external.clientId).map(p => p.id));
+      return;
+    }
     let cancelled = false;
     supabase
       .from('project_client_access')
@@ -132,7 +135,7 @@ export function FicheIndividu() {
       {tab === 'projets' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {assignedProjects.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noPeopleFound')}</p>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noProjectsFound')}</p>
           )}
           {assignedProjects.map(p => (
             <div key={p.id} onClick={() => navigate(`/projets/${p.id}`)} style={{ padding: 12, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer' }}>

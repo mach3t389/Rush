@@ -61,7 +61,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const AVATAR_COLORS = ['#5B8AF5', '#34C98A', '#A05BE8', '#F5975B', '#E85B7A', '#5BC4E8', '#F5C05B', '#E85BB8', '#5BE8A8', '#8A6FF5'];
 
-function NewClientModal({ onClose }: { onClose: () => void }) {
+export function NewClientModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [name,   setName]   = useState('');

@@ -273,8 +273,6 @@
     "filterAll": "All",
     "filterInternal": "Internal",
     "filterExternal": "External",
-    "columnType": "Type",
-    "columnGroup": "Group",
     "typeInternal": "Internal",
     "typeExternal": "External contact",
     "inviteMember": "Invite",
@@ -292,7 +290,8 @@
     "next": "Next",
     "removeMemberConfirm": "Remove {{name}} from the team?",
     "removeContactConfirm": "Remove {{name}} from this group?",
-    "noPeopleFound": "No members found"
+    "noPeopleFound": "No members found",
+    "noProjectsFound": "No assigned projects"
   },
   "clients": {
     "newClient": "New Client",
@@ -1020,7 +1019,8 @@
     "clearSelection": "Clear selection",
     "permissions": "Permissions",
     "groups": "Groups",
-    "groupContactCount": "{{count}} contacts"
+    "groupContactCount": "{{count}} contacts",
+    "emptyGroupWarning": "One of the selected groups has no contacts loaded yet. Wait a moment and try again."
   },
   "team": {
     "inviteMember": "Invite a member",

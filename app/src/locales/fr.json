@@ -273,8 +273,6 @@
     "filterAll": "Tous",
     "filterInternal": "Interne",
     "filterExternal": "Externe",
-    "columnType": "Type",
-    "columnGroup": "Groupe",
     "typeInternal": "Interne",
     "typeExternal": "Contact externe",
     "inviteMember": "Inviter",
@@ -292,7 +290,8 @@
     "next": "Suivant",
     "removeMemberConfirm": "Retirer {{name}} de l'équipe ?",
     "removeContactConfirm": "Retirer {{name}} de ce groupe ?",
-    "noPeopleFound": "Aucun membre trouvé"
+    "noPeopleFound": "Aucun membre trouvé",
+    "noProjectsFound": "Aucun projet assigné"
   },
   "clients": {
     "newClient": "Nouveau client",
@@ -1020,7 +1019,8 @@
     "clearSelection": "Annuler la sélection",
     "permissions": "Autorisations",
     "groups": "Groupes",
-    "groupContactCount": "{{count}} contacts"
+    "groupContactCount": "{{count}} contacts",
+    "emptyGroupWarning": "Un des groupes sélectionnés n'a encore aucun contact chargé. Patientez un instant puis réessayez."
   },
   "team": {
     "inviteMember": "Inviter un membre",

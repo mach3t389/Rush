@@ -3,13 +3,12 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFAvatar, SFButton } from '../components/ui';
 import { getTeamMembers, subscribeTeam, removeMember, type TeamMemberInfo } from '../data/teamStore';
-import { getAllClientContacts, subscribeAllClientContacts } from '../data/clientTeamStore';
-import { removeClientTeamMember } from '../data/clientTeamStore';
+import { getAllClientContacts, subscribeAllClientContacts, removeClientTeamMember, addClientTeamMember } from '../data/clientTeamStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { confirmDialog } from '../data/confirmStore';
 import { InviteTeamModal } from './MonEquipe';
 import { InviteModal } from './FicheClient';
-import { addClientTeamMember } from '../data/clientTeamStore';
+import { NewClientModal } from './Clients';
 import { createInvitation as createClientInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
 import type { ClientContact } from '../data/clientContactsStore';
 
@@ -48,6 +47,7 @@ export function Membres() {
   const [showInviteTeam, setShowInviteTeam] = useState(false);
   const [showChooseClient, setShowChooseClient] = useState(false);
   const [inviteClientId, setInviteClientId] = useState<string | null>(null);
+  const [showNewGroup, setShowNewGroup] = useState(false);
 
   const internalPeople: UnifiedPerson[] = team.map(m => ({
     id: m.id, name: m.name, email: m.email, initials: m.initials, color: m.avatarColor, isInternal: true,
@@ -88,6 +88,11 @@ export function Membres() {
         {tab === 'individus' && (
           <SFButton variant="primary" icon="user-plus" onClick={() => setShowInviteChoice(true)}>
             {t('membres.inviteMember')}
+          </SFButton>
+        )}
+        {tab === 'groupes' && (
+          <SFButton variant="primary" icon="plus" onClick={() => setShowNewGroup(true)}>
+            {t('membres.newGroup')}
           </SFButton>
         )}
       </div>
@@ -146,7 +151,7 @@ export function Membres() {
                 )}
                 <button
                   onClick={e => { e.stopPropagation(); handleRemove(p); }}
-                  title={t('membres.removeMemberConfirm', { name: '' }) as string}
+                  title={t(p.isInternal ? 'membres.removeMemberConfirm' : 'membres.removeContactConfirm', { name: p.name }) as string}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}
                 >
                   <SFIcon name="trash-2" size={14} />
@@ -234,6 +239,8 @@ export function Membres() {
       )}
 
       {showInviteTeam && <InviteTeamModal onClose={() => setShowInviteTeam(false)} />}
+
+      {showNewGroup && <NewClientModal onClose={() => setShowNewGroup(false)} />}
 
       {inviteClientId && inviteClientContact && (
         <InviteModal

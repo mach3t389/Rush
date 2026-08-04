@@ -134,6 +134,17 @@ function ensureAllContactsFetchStarted(): void {
   void fetchAllClientContacts();
 }
 
+// Invalidate the studio-wide cache so the next read reflects a per-client
+// mutation (add/remove/replace). Must be called by every function that
+// mutates `_supabaseContacts` in the real-session branch — otherwise
+// `getAllClientContacts()` / `subscribeAllClientContacts()` (used by the
+// Membres hub) keep serving stale data until a full page reload.
+function invalidateAllContactsCache(): void {
+  if (isDemoSession()) return;
+  _allContactsFetchStarted = false;
+  void fetchAllClientContacts();
+}
+
 export function getAllClientContacts(): (ClientContact & { clientId: string; clientName: string })[] {
   if (isDemoSession()) {
     return Object.entries(demoStore).flatMap(([clientId, contacts]) =>
@@ -212,6 +223,7 @@ export function setClientTeam(clientId: string, team: ClientContact[]): void {
   const previousIds = (_supabaseContacts[clientId] ?? []).map(c => c.id);
   _supabaseContacts[clientId] = team;
   notify();
+  invalidateAllContactsCache();
   void replaceSupabaseTeam(clientId, previousIds, team);
 }
 
@@ -227,6 +239,7 @@ export function addClientTeamMember(clientId: string, member: ClientContact): vo
   }
   _supabaseContacts[clientId] = [...team, member];
   notify();
+  invalidateAllContactsCache();
   void upsertSupabaseContact(clientId, member);
 }
 
@@ -239,6 +252,7 @@ export function removeClientTeamMember(clientId: string, memberId: string): void
   }
   _supabaseContacts[clientId] = getClientTeam(clientId).filter(m => m.id !== memberId);
   notify();
+  invalidateAllContactsCache();
   void removeSupabaseContact(clientId, memberId);
 }
 
