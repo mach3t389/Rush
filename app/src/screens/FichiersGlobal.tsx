@@ -1740,7 +1740,7 @@ function MoveToModal({ fileIds, folderIds, allFolders, projectId, clientId, onMo
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 
-export function FileBrowser({ initialNav, locked = false, readOnly = false }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean; readOnly?: boolean }) {
+export function FileBrowser({ initialNav, locked = false, readOnly = false, projectIdsFilter }: { initialNav?: NavLocation; embedded?: boolean; locked?: boolean; readOnly?: boolean; projectIdsFilter?: string[] }) {
   const { t } = useTranslation();
   const effectiveNav = initialNav ?? { scope: 'root' as const, folderId: null };
   const lockedScope: NavLocation | undefined = locked && initialNav ? initialNav : undefined;
@@ -1790,7 +1790,10 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false }: { 
 
   // Les projets ne sont plus rangés sous un client : ils sont listés directement
   // à la racine du navigateur de fichiers (un clientId n'est qu'une étiquette).
-  const rootProjects = projects.filter(p => !p.archived && p.filesEnabled);
+  // projectIdsFilter restreint cette racine à un sous-ensemble explicite de
+  // projets (ex. la fiche d'un individu — ses seuls projets assignés), sans
+  // dépendre d'un client comme le fait le mode locked existant.
+  const rootProjects = projects.filter(p => !p.archived && p.filesEnabled && (!projectIdsFilter || projectIdsFilter.includes(p.id)));
 
   useEffect(() => subscribeFileStore(() => { setRawFolders(getFolders()); setRawFiles(getFiles()); }), []);
   useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
