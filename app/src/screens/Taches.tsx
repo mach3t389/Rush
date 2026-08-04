@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFIcon, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup } from '../components/ui';
+import { SFPill, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks, isMyTasksLoading } from '../data/myTaskStore';
@@ -255,14 +255,8 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
   const targetSections = targetProjectId ? getSections(targetProjectId) : [];
   const proj = projects.find(p => p.id === targetProjectId);
 
-  return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 600, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? t('taskPanel.bulkCopyTitle', { count }) : t('taskPanel.bulkMoveTitle', { count })}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
-
+  return (
+    <SFModal open onClose={onClose} title={mode === 'copy' ? t('taskPanel.bulkCopyTitle', { count }) : t('taskPanel.bulkMoveTitle', { count })} width={600} zIndex={600}>
         {/* Deux colonnes côte à côte — évite le long défilement vertical
             projet-puis-section quand il y a beaucoup de projets/sections. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -309,9 +303,7 @@ function BulkMoveModal({ count, mode, onMove, onClose }: {
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
           >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </SFModal>
   );
 }
 
