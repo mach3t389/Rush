@@ -5,7 +5,8 @@ import { SFPill, SFIcon, DatePickerDropdown, TimePickerDropdown, formatDisplay, 
 import { USERS } from '../data/mock';
 import { getProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
-import { getSections } from '../data/taskStore';
+import { getSections, subscribeStore } from '../data/taskStore';
+import { subscribeProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getCurrentUser } from '../data/authStore';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
@@ -537,6 +538,12 @@ export function TaskPanel({
   const { t } = useTranslation();
   const [resources, setResources] = useState(getResources);
   React.useEffect(() => subscribeResources(() => setResources(getResources())), []);
+  const [, forceRerenderPT] = useState(0);
+  React.useEffect(() => {
+    const unsubP = subscribeProjects(() => forceRerenderPT(n => n + 1));
+    const unsubS = subscribeStore(() => forceRerenderPT(n => n + 1));
+    return () => { unsubP(); unsubS(); };
+  }, []);
   const [description, setDescription] = useState(task.description ?? '');
   const [editingDescription, setEditingDescription] = useState(false);
   const descViewRef = useRef<HTMLDivElement>(null);

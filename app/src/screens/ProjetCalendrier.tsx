@@ -7,7 +7,7 @@ import { USERS } from '../data/mock';
 import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getProjects } from '../data/projectStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading, pullFromGoogleCalendar } from '../data/eventStore';
 import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
@@ -53,7 +53,7 @@ function resolveProjectEvents(projectIds: string[], eventTypes: EventType[]): Ca
         title: e.title,
         eventTypeId: e.eventTypeId,
         projectId: e.projectId,
-        projectName: p?.clientName ?? '',
+        projectName: p?.name ?? '',
         projectColor: p?.clientColor ?? '#888',
         eventTypeColor: et.color,
         eventTypeLabel: et.label,
@@ -675,8 +675,16 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
     const refresh = () => setEvents(resolveProjectEvents(activeProjectIds, getEventTypes()));
     const unsub1 = subscribeEvents(refresh);
     const unsub2 = subscribeEventTypes(() => { setEventTypes(getEventTypes()); refresh(); });
-    return () => { unsub1(); unsub2(); };
+    const unsub3 = subscribeProjects(refresh);
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [activeProjectIds.join(',')]);
+
+  // Projects can still resolve after this component's first render (async
+  // fetch in real Supabase sessions) — force a rerender so the header's
+  // project lookup (project name/logo) and the embedded project filter list
+  // pick up the fetched data instead of staying empty forever.
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
 
   // Fetch anything changed in Google since the last sweep (throttled in the
   // store) — the daily cron alone would leave this view a day behind.

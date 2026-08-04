@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
-import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
+import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
-import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, type InvitableAccessLevel } from '../data/teamStore';
-import { getProjects } from '../data/projectStore';
+import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel } from '../data/teamStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
@@ -80,7 +80,6 @@ export function InviteTeamModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
-  const [accessLevel, setAccessLevel] = useState<InvitableAccessLevel>('member');
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
@@ -96,6 +95,13 @@ export function InviteTeamModal({ onClose }: { onClose: () => void }) {
     // (they used to be saved under the invite email, a key nothing ever
     // read back once the real member existed under their own user id).
     if (isDemoSession()) savePermissions(email.trim(), perms);
+    // Access level is derived from the chosen permission preset rather than
+    // picked separately — the "Administrateur" preset IS full/admin access,
+    // so a standalone access-level selector could contradict it (e.g. picking
+    // "Membre" up top with the "Administrateur" permissions bundle below,
+    // leaving someone with every granular permission but no ability to
+    // manage other members' permissions, since that's gated on access level).
+    const accessLevel = matchPreset(perms) === 'admin' ? 'admin' : 'member';
     const result = await createInvitation(email.trim(), role.trim() || 'Membre', accessLevel, perms);
     setLink(result.link);
     sendTeamInvitationEmail(email.trim(), role.trim() || 'Membre', result.link);
@@ -152,14 +158,6 @@ export function InviteTeamModal({ onClose }: { onClose: () => void }) {
                   style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
               </div>
             ))}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('team.accessLevel')}</label>
-              <select value={accessLevel} onChange={e => setAccessLevel(e.target.value as InvitableAccessLevel)}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}>
-                <option value="member">{t('team.accessLevelMember')}</option>
-                <option value="admin">{t('team.accessLevelAdmin')}</option>
-              </select>
-            </div>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>
                 {t('team.permissions')}
@@ -207,8 +205,10 @@ export function InviteTeamModal({ onClose }: { onClose: () => void }) {
 function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const memberProjects = getProjects().filter(p => p.members.some(m => m.id === member.id));
   const [showEdit, setShowEdit] = useState(false);
+  const [, forceProjectsRerenderPanel] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerenderPanel(n => n + 1)), []);
+  const memberProjects = getProjects().filter(p => p.members.some(m => m.id === member.id));
   const photoUrl = loadPhoto(member.id);
 
   const handleViewAs = () => {
@@ -274,7 +274,6 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
                 <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{p.clientName}</p>
                 </div>
                 <SFPillSmall status={p.status}>{p.statusLabel}</SFPillSmall>
               </div>
@@ -328,6 +327,7 @@ export function MonEquipe() {
   const [, forceRerender] = useState(0);
 
   useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceRerender(n => n + 1)), []);
 
   const team = isDemoSession() ? INTERNAL_TEAM : getRealTeam();
 

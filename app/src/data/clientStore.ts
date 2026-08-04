@@ -13,7 +13,7 @@ import { loadPersisted, savePersisted } from './persist';
 import { isDemoSession, onLogout } from './authStore';
 import { getStudioId } from './studioStore';
 import { supabase } from './supabaseClient';
-import { getProjects, removeProject, archiveProject, syncClientOnProjects } from './projectStore';
+import { getProjects, updateProject, archiveProject, syncClientOnProjects } from './projectStore';
 import { deleteAllFilesForClient, archiveAllFilesForClient } from './fileStore';
 import { getInvoicesByClient, removeInvoice } from './financeStore';
 import { setClientTeam } from './clientTeamStore';
@@ -250,9 +250,18 @@ async function removeSupabaseClient(id: string): Promise<void> {
 }
 
 export function removeClient(id: string): void {
-  getProjects().filter(p => p.clientId === id).forEach(p => removeProject(p.id));
+  // Detach, don't delete: a project is an independent entity (see
+  // projectStore.ts's own "independent of groups" model) that merely
+  // pointed at this group. Deleting the group used to cascade-delete every
+  // one of its projects (plus their tasks/files/invoices) — a group cleanup
+  // action silently wiping unrelated project work. Projects now survive as
+  // ungrouped ("sans groupe"), same state new personal projects already use.
+  getProjects().filter(p => p.clientId === id)
+    .forEach(p => updateProject(p.id, { clientId: null, clientName: undefined, clientColor: undefined }));
   deleteAllFilesForClient(id);
-  getInvoicesByClient(id).forEach(inv => removeInvoice(inv.id));
+  // Only remove invoices billed directly to the client (no project) — an
+  // invoice tied to a surviving detached project must survive with it.
+  getInvoicesByClient(id).filter(inv => !inv.projectId).forEach(inv => removeInvoice(inv.id));
   setClientTeam(id, []);
 
   if (isDemoSession()) {

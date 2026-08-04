@@ -38,13 +38,13 @@ export function AdminStudios() {
 
   const search = useCallback(async (q: string, p: number) => {
     const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch('/api/admin-search-studios', {
+    const res = await fetch('/api/admin', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
-      body: JSON.stringify({ query: q, page: p }),
+      body: JSON.stringify({ action: 'search', query: q, page: p }),
     });
     if (!res.ok) { setResults([]); setTotal(0); return; }
     const data = await res.json();
@@ -78,13 +78,13 @@ export function AdminStudios() {
     setMessage(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/admin-set-plan', {
+      const res = await fetch('/api/admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ studioId: selected.id, plan: newPlan, seats: newSeats, storageTier: newStorageTier, note }),
+        body: JSON.stringify({ action: 'set-plan', studioId: selected.id, plan: newPlan, seats: newSeats, storageTier: newStorageTier, note }),
       });
       if (!res.ok) throw new Error('Request failed');
       setMessage('Plan mis à jour.');

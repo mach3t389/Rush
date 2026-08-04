@@ -81,7 +81,7 @@ const clientLoader = async () => {
 };
 const viewAsClientLoader = async () => {
   const viewAs = getViewAsUser();
-  if (viewAs?.type !== 'external') return redirect('/clients');
+  if (viewAs?.type !== 'external') return redirect('/membres?tab=groupes');
   return null;
 };
 

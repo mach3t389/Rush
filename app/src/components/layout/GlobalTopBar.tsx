@@ -219,7 +219,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           userId={me.id}
           initialName={me.name}
           initialRole={me.role}
-          initialEmail={authUser?.email ?? 'lea.marchand@rushflow.com'}
+          initialEmail={authUser?.email || ''}
           initialPhone=""
           initialInitials={me.initials}
           initialColor={me.avatarColor}

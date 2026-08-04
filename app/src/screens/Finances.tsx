@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, DatePickerDropdown, formatDisplay, PageHeader, CategoryFilterDropdown } from '../components/ui';
-import { getClients } from '../data/clientStore';
-import { getProjects } from '../data/projectStore';
+import { getClients, subscribeClients } from '../data/clientStore';
+import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatcher, addWatchers } from '../data/watchers';
 import { loadProfile } from '../components/profile/ProfileEditPanel';
@@ -18,6 +18,7 @@ import {
 import { subscribeUploadStatus } from '../data/fileContentStore';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { canUseFeature } from '../data/planFeatures';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { BillingRequestPanel } from '../components/finance/BillingRequestPanel';
@@ -341,6 +342,14 @@ export function InvoiceDetailPanel({
   const [uploadTick, setUploadTick] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // getClients()/getProjects() are synchronous caches that start empty in a
+  // real session until their background Supabase fetch resolves — without
+  // these subscriptions this panel could render with blank project/client
+  // names forever if opened before that fetch finished.
+  const [, forceClientsProjectsTick] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsProjectsTick(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceClientsProjectsTick(n => n + 1)), []);
+
   const allClients  = getClients();
   const allProjects = getProjects();
 
@@ -608,6 +617,9 @@ export function InvoiceFormPanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const [, forceClientsProjectsTick] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsProjectsTick(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceClientsProjectsTick(n => n + 1)), []);
   const allClients  = getClients();
   const allProjects = getProjects();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1139,10 +1151,10 @@ function InvoiceContextMenu({ pos, count, onOpen, onMove, onDelete, onClose }: {
 export function Finances() {
   const { t } = useTranslation();
   const [invoices,      setInvoices]      = useState<Invoice[]>(getInvoices);
-  const [filter,        setFilter]        = useState<InvoiceStatus | 'all'>('all');
+  const [filter,        setFilter]        = usePersistedState<InvoiceStatus | 'all'>('sf_finances_status_filter', 'all');
   const [search,        setSearch]        = useState('');
-  const [clientFilter,  setClientFilter]  = useState('');
-  const [projectFilter, setProjectFilter] = useState('');
+  const [clientFilter,  setClientFilter]  = usePersistedState('sf_finances_client_filter', '');
+  const [projectFilter, setProjectFilter] = usePersistedState('sf_finances_project_filter', '');
   const [dateFrom,      setDateFrom]      = useState('');
   const [dateTo,        setDateTo]        = useState('');
   const [dateFromAnchor, setDateFromAnchor] = useState<DOMRect | null>(null);
@@ -1178,6 +1190,14 @@ export function Finances() {
       if (result.accountingMode === 'northbook') refreshBillingRequests();
     });
   }, [refreshBillingRequests]);
+
+  // Must be declared before the plan-lock early return below — a hook
+  // declared after a conditional return is skipped on renders that take
+  // that branch, which changes the hook count between renders and crashes
+  // with React error #310.
+  const [, forceClientsProjectsTick] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsProjectsTick(n => n + 1)), []);
+  useEffect(() => subscribeProjects(() => forceClientsProjectsTick(n => n + 1)), []);
 
   const plan = usePlan();
   if (!canUseFeature(plan, 'finances')) {

@@ -90,6 +90,13 @@ Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en 
 - [ ] **Remboursement du test** : une fois les tests ci-dessus validés, rembourser la transaction de test dans Stripe → Customers (Refund) pour ne pas rester facturé pour de vrai.
   - Rappel : l'organisation Meshwork a été remise à zéro le 2026-08-04 (plan Gratuit, aucun abonnement Stripe enregistré) suite à un ancien abonnement créé en mode Test devenu invalide après le passage en Live — voir mémoire `stripe-live-mode-migration-done`.
 
+## Server-side plan gating (RLS backstop)
+
+- [x] **Exécuter la migration** : exécutée avec succès le 2026-08-04 (deux corrections de type texte/uuid en cours de route, voir historique git).
+- [x] **Spot-check normal (plan Gratuit)** : confirmé par toi le 2026-08-04 — tout fonctionne normalement en plan Gratuit après la migration.
+- [ ] **Spot-check plan payant** : avec un studio réel en plan Studio/Agence, confirmer que créer une facture, un modèle, un projet, ou inviter un membre (dans la limite de sièges achetés) fonctionne toujours normalement.
+  - Pourquoi : cette migration ajoute une protection invisible en usage normal (elle ne bloque que les tentatives de contournement de l'interface) — le vrai risque à tester est qu'elle bloque *aussi* par erreur un usage légitime.
+
 ## Prochains chantiers (à compléter au fur et à mesure)
 
 - Étape C — Tableau de bord client : implémentée (2026-07-25), en attente de ton test réel ci-dessus.

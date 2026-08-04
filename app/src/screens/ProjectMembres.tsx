@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon, SFButton, SFModal, SFLoadingState } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getClientExternalTeam, addClientTeamMember, subscribeClientTeam } from '../data/clientTeamStore';
-import { getClients } from '../data/clientStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { DEFAULT_PORTAL_PERMISSIONS } from '../data/clientContactsStore';
 import { findProject, updateProject, subscribeProjects, isProjectsLoading } from '../data/projectStore';
@@ -63,6 +63,8 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
   // happened to force a re-render.
   const [, forceContactsRerender] = useState(0);
   useEffect(() => subscribeClientTeam(() => forceContactsRerender(n => n + 1)), []);
+  const [, forceClientsRerender] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
 
   const allUsers: Record<string, User> = {};
   Object.values(USERS).forEach(u => { allUsers[u.id] = u; });

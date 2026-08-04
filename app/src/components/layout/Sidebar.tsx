@@ -19,6 +19,9 @@ import { getTotalStorageUsedBytes, subscribeStorageUsage, checkStorageThreshold 
 import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
 import { getStorageLimitGB, canUseFeature } from '../../data/planFeatures';
 import { loadPersisted, savePersisted } from '../../data/persist';
+import { getCurrentUser } from '../../data/authStore';
+import { getMyAccessLevel } from '../../data/teamStore';
+import { loadPermissions } from '../profile/ProfileEditPanel';
 
 function SidebarStorageBar({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
@@ -103,7 +106,7 @@ const PROJECT_COLOR_PRESETS = [
 
 // These will be populated inside the Sidebar component using i18n
 
-function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; icon: string; label: string; exact?: boolean; collapsed: boolean; badge?: number }) {
+function NavItem({ to, icon, label, exact, collapsed, badge, locked }: { to: string; icon: string; label: string; exact?: boolean; collapsed: boolean; badge?: number; locked?: boolean }) {
   return (
     <NavLink
       to={to}
@@ -125,6 +128,7 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
         outlineOffset: '-2px',
         textDecoration: 'none',
         transition: 'background 0.1s, color 0.1s',
+        opacity: locked ? 0.5 : 1,
       })}
     >
       <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -139,7 +143,8 @@ function NavItem({ to, icon, label, exact, collapsed, badge }: { to: string; ico
         )}
       </span>
       {!collapsed && label}
-      {!collapsed && badge && badge > 0 ? (
+      {!collapsed && locked && <SFIcon name="lock" size={11} color="var(--text-3)" />}
+      {!collapsed && !locked && badge && badge > 0 ? (
         <span style={{
           marginLeft: 'auto',
           background: 'var(--accent)', color: 'var(--on-accent)',
@@ -211,7 +216,7 @@ function NavGroup({ icon, label, collapsed, active, children }: { icon: string; 
   );
 }
 
-function SubNavItem({ to, icon, label, exact }: { to: string; icon: string; label: string; exact?: boolean }) {
+function SubNavItem({ to, icon, label, exact, locked }: { to: string; icon: string; label: string; exact?: boolean; locked?: boolean }) {
   return (
     <NavLink
       to={to}
@@ -225,10 +230,12 @@ function SubNavItem({ to, icon, label, exact }: { to: string; icon: string; labe
         borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
         textDecoration: 'none',
         transition: 'background 0.1s, color 0.1s',
+        opacity: locked ? 0.5 : 1,
       })}
     >
       <SFIcon name={icon} size={14} />
       {label}
+      {locked && <SFIcon name="lock" size={10} color="var(--text-3)" />}
     </NavLink>
   );
 }
@@ -285,15 +292,24 @@ export function Sidebar() {
   const logoFull = hasCustomLogo ? logoFullStored : null;
   const logoSquare = hasCustomLogo ? logoSquareStored : null;
 
-  // Derive permission restrictions when viewing as an internal member —
-  // uses the same route→permission mapping the route guard enforces
-  // (viewAsRoutePermissions.ts), so a hidden link and an enforced redirect
-  // can never disagree about what a given route requires.
-  const viewAsPerms = viewAs?.type === 'internal' ? (viewAs.permissions ?? []) : null;
+  // Derive permission restrictions — either previewing an internal member
+  // via "View as", or (same rule, real session) the current user's own
+  // permissions when they're a 'member', not owner/admin (who get full
+  // access by construction, same rule as everywhere else permissions are
+  // checked). Uses the same route→permission mapping the route guard
+  // enforces (viewAsRoutePermissions.ts / ViewAsPermissionGate.tsx), so a
+  // hidden link and an enforced redirect can never disagree.
+  const effectivePerms = (() => {
+    if (viewAs?.type === 'internal') return viewAs.permissions ?? [];
+    if (viewAs) return null; // client-contact preview: portal routes only, not these
+    if (getMyAccessLevel() !== 'member') return null;
+    const me = getCurrentUser();
+    return me ? loadPermissions(me.id, me.role) : null;
+  })();
   const requiredForClients = getRequiredPermissionForPath('/clients')!;
-  const canSeeMembres = !viewAsPerms || requiredForClients.some(p => viewAsPerms.includes(p));
+  const canSeeMembres = !effectivePerms || requiredForClients.some(p => effectivePerms.includes(p));
   const requiredForFinances = getRequiredPermissionForPath('/finances')!;
-  const canSeeFinances = !viewAsPerms || requiredForFinances.some(p => viewAsPerms.includes(p));
+  const canSeeFinances = !effectivePerms || requiredForFinances.some(p => effectivePerms.includes(p));
 
   const pinnedProjects = pinnedIds
     .map(id => getProjects().find(p => p.id === id))
@@ -468,7 +484,7 @@ export function Sidebar() {
             <SubNavItem to="/toutes-les-taches" icon="square-check" label={t('nav.allTasks')} exact={false} />
             <SubNavItem to="/calendrier" icon="calendar" label={t('nav.calendar')} exact={false} />
             <SubNavItem to="/fichiers" icon="folder-open" label={t('nav.files')} exact={false} />
-            {canSeeFinances && <SubNavItem to="/finances" icon="wallet" label={t('nav.finances')} exact={false} />}
+            {canSeeFinances && <SubNavItem to="/finances" icon="wallet" label={t('nav.finances')} exact={false} locked={!canUseFeature(plan, 'finances')} />}
           </NavGroup>
         </nav>
 
@@ -740,7 +756,7 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div style={{ padding: collapsed ? '0 6px 12px' : '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <NavItem to="/modeles" icon="layout-template" label={t('nav.models')} exact={false} collapsed={collapsed} />
+        <NavItem to="/modeles" icon="layout-template" label={t('nav.models')} exact={false} collapsed={collapsed} locked={!canUseFeature(plan, 'customTemplates')} />
         <NavLink
           to="/parametres"
           title={collapsed ? t('nav.settings') : undefined}

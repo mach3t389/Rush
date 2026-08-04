@@ -20,7 +20,7 @@ import { getTeamMembers } from '../data/teamStore';
 import { createInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
 import { getInvoicesByClient, subscribeInvoices, removeInvoice, findInvoice, setInvoiceStatus, formatMoney, type Invoice } from '../data/financeStore';
 import { isInvoicesLoading } from '../data/financeStore';
-import { getProjects, isProjectsLoading } from '../data/projectStore';
+import { getProjects, isProjectsLoading, subscribeProjects } from '../data/projectStore';
 import { getCurrentSectionLabel } from '../data/taskStore';
 import { isDemoSession } from '../data/authStore';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
@@ -783,6 +783,8 @@ function FinancesTab({ clientId }: { clientId: string }) {
   const [deleteId,      setDeleteId]      = useState<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoicesByClient(clientId))), [clientId]);
+  const [, forceProjectsRerenderFinances] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerenderFinances(n => n + 1)), []);
 
   const allProjects = getProjects();
   const projectMap  = Object.fromEntries(allProjects.map(p => [p.id, p]));
@@ -1378,6 +1380,9 @@ export function FicheClient() {
     });
   }, [clientId]);
 
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as ClientTab) ?? 'apercu';
   const setTab = (t: ClientTab) => setSearchParams({ tab: t }, { replace: true });
@@ -1415,7 +1420,7 @@ export function FicheClient() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Breadcrumb */}
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-        <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('client.breadcrumbClients')}</button>
+        <button onClick={() => navigate('/membres?tab=groupes')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('client.breadcrumbClients')}</button>
         <span>/</span>
         <span style={{ color: 'var(--text-2)' }}>{client.name}</span>
       </div>
@@ -1482,7 +1487,7 @@ export function FicheClient() {
                       <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('client.deleteClientConfirm')}</p>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
-                          onClick={() => { removeClient(client.id); setClientMenuOpen(false); setConfirmDeleteClient(false); navigate('/clients'); }}
+                          onClick={() => { removeClient(client.id); setClientMenuOpen(false); setConfirmDeleteClient(false); navigate('/membres?tab=groupes'); }}
                           style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                         >
                           {t('tasks.yes')}

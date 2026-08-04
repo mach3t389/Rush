@@ -1,10 +1,12 @@
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFAvatar, SFIcon } from '../components/ui';
+import { SFAvatar, SFIcon, SFLoadingState, SFPill, SFBar } from '../components/ui';
 import { findTeamMember, subscribeTeam } from '../data/teamStore';
 import { getAllClientContacts, subscribeAllClientContacts } from '../data/clientTeamStore';
-import { getProjects, subscribeProjects } from '../data/projectStore';
+import { getProjects, subscribeProjects, isProjectsLoading } from '../data/projectStore';
+import { getCurrentSectionLabel } from '../data/taskStore';
 import { ActivityFeed, type FeedActivity } from '../components/ActivityFeed';
 import { getProjectActivities } from './ProjectActivite';
 import { subscribeNotifs } from '../data/notificationStore';
@@ -12,6 +14,9 @@ import { isDemoSession } from '../data/authStore';
 import { supabase } from '../data/supabaseClient';
 import { ProjectsListView } from '../components/ProjectsListView';
 import { ProjetCalendrier } from './ProjetCalendrier';
+import { FileBrowser } from './FichiersGlobal';
+import { getInvoices, subscribeInvoices, removeInvoice, setInvoiceStatus, formatMoney, isInvoicesLoading, type Invoice } from '../data/financeStore';
+import { InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 import type { Project } from '../types';
 
 type IndividuTab = 'apercu' | 'projets' | 'calendrier' | 'fichiers' | 'finances' | 'activite';
@@ -91,24 +96,33 @@ export function FicheIndividu() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '24px 24px 0' }}>
-        <button onClick={() => navigate('/membres')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-mono)', marginBottom: 20 }}>
-          <SFIcon name="arrow-left" size={12} /> {t('membres.title')}
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <SFAvatar initials={person.initials} bg={avatarColor} size={44} />
+      {/* Breadcrumb — same mono-font bar every detail screen (FicheClient) uses */}
+      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
+        <button onClick={() => navigate('/membres')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('membres.title')}</button>
+        <span>/</span>
+        <span style={{ color: 'var(--text-2)' }}>{person.name}</span>
+      </div>
+
+      {/* Header — same avatar+name+meta block FicheClient uses for a group */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <SFAvatar initials={person.initials} bg={avatarColor} size={60} />
           <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 20, fontWeight: 800 }}>{person.name}</h1>
-            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{person.email}</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
+              {internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}
+            </p>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{person.name}</h1>
+            <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 8 }}>{person.email}</p>
           </div>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginTop: 20 }}>
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ display: 'flex', gap: 18, borderBottom: '1px solid var(--border)' }}>
           {TABS.map(({ key, labelKey }) => (
             <button key={key} onClick={() => setTab(key)} style={{
-              padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
-              color: tab === key ? 'var(--text)' : 'var(--text-3)',
+              fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0',
               borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
             }}>
               {t(labelKey)}
@@ -119,27 +133,17 @@ export function FicheIndividu() {
 
       <div style={{
         flex: 1, overflow: tab === 'calendrier' ? 'hidden' : 'auto',
-        padding: tab === 'calendrier' ? 0 : 24,
+        padding: tab === 'calendrier' || tab === 'fichiers' ? 0 : 24,
         display: 'flex', flexDirection: 'column', gap: 14,
       }}>
 
       {tab === 'apercu' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ padding: 14, borderRadius: 10, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}
-            </p>
-            <p style={{ fontSize: 13 }}>{('role' in person && person.role) ? person.role : '—'}</p>
-            {external && (
-              <p
-                onClick={() => navigate(`/clients/${external.clientId}`)}
-                style={{ fontSize: 12, color: 'var(--text-2)', cursor: external.clientId ? 'pointer' : 'default' }}
-              >
-                {external.clientName || t('membres.noGroupLabel')}
-              </p>
-            )}
-          </div>
-        </div>
+        <ApercuTabForPerson
+          internal={!!internal}
+          external={external}
+          projects={assignedProjects}
+          onGoTab={setTab}
+        />
       )}
 
       {tab === 'projets' && (
@@ -150,14 +154,245 @@ export function FicheIndividu() {
         <ProjetCalendrier embedded projectIds={assignedProjects.map(p => p.id)} />
       )}
       {tab === 'fichiers' && (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('common.comingSoon')}</div>
+        <FileBrowser projectIdsFilter={assignedProjects.map(p => p.id)} />
       )}
       {tab === 'finances' && (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('common.comingSoon')}</div>
+        <FinancesTabForPerson projectIds={assignedProjects.map(p => p.id)} />
       )}
 
       {tab === 'activite' && <ActivityFeed activities={activities} />}
       </div>
+    </div>
+  );
+}
+
+// ── Aperçu tab — condensed dashboard, same card language as a group's own
+// Aperçu tab (KPI row + recent-projects card + finance summary), but built
+// from this person's assigned projects instead of client-scoped helpers
+// (getClientFinance/getClientTeam don't apply to a person). Deliberately
+// drops the team-roster and notes sections a group's Aperçu has — those are
+// genuinely client-only concepts, not a smaller version of the same thing.
+const apercuCardStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 };
+const apercuCardTitleStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
+
+function ApercuTabForPerson({ internal, external, projects, onGoTab }: {
+  internal: boolean;
+  external?: { clientId: string; clientName: string; role: string };
+  projects: Project[];
+  onGoTab: (t: IndividuTab) => void;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const projectIds = projects.map(p => p.id);
+  const idsKey = projectIds.join(',');
+
+  const [invoices, setInvoices] = useState<Invoice[]>(() => getInvoices().filter(i => i.projectId && projectIds.includes(i.projectId)));
+  useEffect(() => setInvoices(getInvoices().filter(i => i.projectId && idsKey.split(',').filter(Boolean).includes(i.projectId!))), [idsKey]);
+  useEffect(() => subscribeInvoices(() => setInvoices(getInvoices().filter(i => i.projectId && idsKey.split(',').filter(Boolean).includes(i.projectId!)))), [idsKey]);
+
+  const activeCount = projects.filter(p => p.status !== 'neutral').length;
+  const deliverables = projects.reduce((n, p) => n + p.deliverableCount, 0);
+  const avgProgress = projects.length ? Math.round(projects.reduce((n, p) => n + p.progress, 0) / projects.length) : 0;
+  const pending = invoices.filter(i => i.status === 'sent' || i.status === 'viewed').reduce((s, i) => s + i.total, 0);
+
+  const KPIS = [
+    { label: t('client.kpiProjects'),     value: String(projects.length), sub: t('client.kpiActiveCount', { count: activeCount }), icon: 'folder',      onClick: () => onGoTab('projets') },
+    { label: t('client.kpiDeliverables'), value: String(deliverables),    sub: t('client.kpiTotal'),                                icon: 'package',     onClick: () => onGoTab('projets') },
+    { label: t('client.kpiProgress'),     value: `${avgProgress}%`,       sub: t('client.kpiAverage'),                              icon: 'trending-up', onClick: undefined },
+    { label: t('client.kpiToCollect'),    value: formatMoney(pending),    sub: t('client.kpiPending'),                              icon: 'wallet',       onClick: () => onGoTab('finances') },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <p style={apercuCardTitleStyle}>{internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}</p>
+        {external && (
+          <>
+            <span style={{ color: 'var(--text-3)', fontSize: 9 }}>·</span>
+            <span
+              onClick={() => navigate(`/clients/${external.clientId}`)}
+              style={{ fontSize: 11, color: 'var(--text-2)', cursor: external.clientId ? 'pointer' : 'default' }}
+            >
+              {external.clientName || t('membres.noGroupLabel')}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {KPIS.map(k => (
+          <div key={k.label} onClick={k.onClick}
+            style={{ ...apercuCardStyle, cursor: k.onClick ? 'pointer' : 'default', transition: 'border-color 0.12s' }}
+            onMouseEnter={e => { if (k.onClick) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+              <SFIcon name={k.icon} size={14} color="var(--text-3)" />
+              <span style={apercuCardTitleStyle}>{k.label}</span>
+            </div>
+            <p style={{ fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{k.value}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5 }}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={apercuCardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <p style={apercuCardTitleStyle}>{t('client.projects')}</p>
+          <button onClick={() => onGoTab('projets')} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}>
+            {t('client.seeAll')}<SFIcon name="arrow-right" size={11} />
+          </button>
+        </div>
+        {projects.length === 0 ? (
+          isProjectsLoading() ? (
+            <SFLoadingState />
+          ) : (
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('membres.noProjectsFound')}</p>
+          )
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {projects.slice(0, 4).map(p => (
+              <div key={p.id} onClick={() => navigate(`/projets/${p.id}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.12s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    {getCurrentSectionLabel(p.id) && <SFPill status="neutral" small>{getCurrentSectionLabel(p.id)}</SFPill>}
+                  </div>
+                  <SFBar value={p.progress} height={3} />
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <SFPill status={p.status as 'ok' | 'warn' | 'info' | 'danger' | 'review' | 'neutral'} small>{p.statusLabel}</SFPill>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>{p.deliveryDate}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Finances tab (aggregated across an individual's assigned projects) ─────────
+// Mirrors FicheClient.tsx's own FinancesTab (same KPI cards, same row layout),
+// but there's no single clientId to scope by or to attach a new invoice to —
+// invoices belong to a project, and a person can span several. Read/manage
+// existing invoices across those projects; no "new invoice" creation here.
+function FinancesTabForPerson({ projectIds }: { projectIds: string[] }) {
+  const { t } = useTranslation();
+  const idsKey = projectIds.join(',');
+  const [invoices, setInvoices] = useState<Invoice[]>(() => getInvoices().filter(i => i.projectId && projectIds.includes(i.projectId)));
+  const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => subscribeInvoices(() => setInvoices(getInvoices().filter(i => i.projectId && idsKey.split(',').filter(Boolean).includes(i.projectId!)))), [idsKey]);
+  const [, forceProjectsRerender] = useState(0);
+  useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
+
+  const allProjects = getProjects();
+  const projectMap = Object.fromEntries(allProjects.map(p => [p.id, p]));
+
+  const revenue     = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
+  const outstanding = invoices.filter(i => i.status === 'sent' || i.status === 'viewed').reduce((s, i) => s + i.total, 0);
+  const overdue     = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
+
+  const openDetail = (inv: Invoice) => setDetailInvoice(inv);
+  const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
+  const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24 }}>
+      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('nav.finances')}</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        {[
+          { labelKey: 'finance.kpiRevenue',     value: formatMoney(revenue),     icon: 'trending-up',  iconColor: 'var(--ok)',    valueColor: 'var(--ok)' },
+          { labelKey: 'finance.kpiOutstanding', value: formatMoney(outstanding), icon: 'clock',         iconColor: 'var(--warn)',  valueColor: 'var(--text)' },
+          { labelKey: 'finance.kpiOverdue',     value: formatMoney(overdue),     icon: 'circle-alert',  iconColor: 'var(--danger)', valueColor: overdue > 0 ? 'var(--danger)' : 'var(--text)' },
+        ].map(k => (
+          <div key={k.labelKey} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+              <SFIcon name={k.icon} size={13} color={k.iconColor} />
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t(k.labelKey)}</span>
+            </div>
+            <p style={{ fontSize: 20, fontWeight: 700, color: k.valueColor, fontFamily: 'var(--ff-mono)' }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {invoices.length === 0 ? (
+        isInvoicesLoading() ? (
+          <SFLoadingState />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: 'var(--text-3)', gap: 10 }}>
+            <SFIcon name="receipt" size={28} color="var(--text-3)" />
+            <p style={{ fontSize: 13 }}>{t('finance.noInvoicesProject')}</p>
+          </div>
+        )
+      ) : (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '140px 140px 1fr 120px 100px 100px 80px', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+            <span style={thStyle}>{t('finance.colNumber')}</span>
+            <span style={thStyle}>{t('finance.colProject')}</span>
+            <span style={thStyle}>{t('finance.colTitle')}</span>
+            <span style={{ ...thStyle, textAlign: 'right' }}>{t('finance.colAmount')}</span>
+            <span style={thStyle}>{t('finance.colStatus')}</span>
+            <span style={thStyle}>{t('finance.colDue')}</span>
+            <span />
+          </div>
+          {invoices.map((inv, i) => {
+            const isLate      = inv.status === 'overdue';
+            const confirming  = deleteId === inv.id;
+            const projectName = inv.projectId ? (projectMap[inv.projectId]?.name ?? inv.projectId) : '—';
+            const commentCount = inv.comments?.length ?? 0;
+            return (
+              <div key={inv.id}
+                style={{ display: 'grid', gridTemplateColumns: '140px 140px 1fr 120px 100px 100px 90px', padding: '11px 16px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border)' : 'none', background: isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
+                onMouseEnter={e => { if (!isLate) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)'; }}
+                onClick={() => openDetail(inv)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>{inv.number}</span>
+                  {commentCount > 0 && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', borderRadius: 20, padding: '0 4px', color: 'var(--text-3)' }}>{commentCount}</span>}
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{projectName}</span>
+                <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{inv.title}</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, fontWeight: 600, textAlign: 'right', paddingRight: 12 }}>{formatMoney(inv.total, inv.currency)}</span>
+                <span><StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} /></span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
+                <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                  {confirming ? (
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button onClick={() => { removeInvoice(inv.id); setDeleteId(null); }} style={{ ...actionBtn, color: 'var(--danger)', fontSize: 10, fontWeight: 600, padding: '2px 6px', background: 'rgba(239,68,68,0.1)', borderRadius: 6 }}>
+                        {t('finance.confirmDeleteShort')}
+                      </button>
+                      <button onClick={() => setDeleteId(null)} style={{ ...actionBtn, fontSize: 10, padding: '2px 6px' }}>{t('finance.cancel')}</button>
+                    </div>
+                  ) : (
+                    <button title={t('finance.deleteInvoice')} onClick={() => setDeleteId(inv.id)} style={actionBtn}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}>
+                      <SFIcon name="trash-2" size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <InvoiceDetailPanel
+        open={detailInvoice !== null}
+        invoice={detailInvoice}
+        onClose={() => setDetailInvoice(null)}
+        onEdit={() => setDetailInvoice(null)}
+      />
     </div>
   );
 }

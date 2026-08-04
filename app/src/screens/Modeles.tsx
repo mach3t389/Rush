@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SFButton, SFIcon, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
 import { addProject, createTemplateDraft } from '../data/projectStore';
-import { getClients } from '../data/clientStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { setSections } from '../data/taskStore';
 import { addFolderTree } from '../data/fileStore';
 import { setProjectContent } from '../data/projectContentStore';
@@ -398,6 +398,8 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState(clients[0]?.id ?? '');
   const templateSections = resolveTasksSections(template);
+  const [, forceClientsRerender] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
 
   const handleCreate = () => {
     if (!name.trim()) return;
@@ -1616,6 +1618,23 @@ export function Modeles() {
     display: 'flex', alignItems: 'center', gap: 6, width: '100%',
     background: 'none', border: 'none', cursor: 'pointer', padding: '10px 8px 4px', color: 'var(--text-3)',
   };
+
+  if (!canUseFeature(plan, 'customTemplates')) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SFIcon name="lock" size={24} color="var(--accent)" />
+        </div>
+        <div style={{ textAlign: 'center', maxWidth: 360 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--ff-display)', marginBottom: 8 }}>{t('templates.lockedTitle')}</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('templates.lockedBody')}</p>
+        </div>
+        <SFButton variant="primary" onClick={() => requestUpgrade({ feature: 'customTemplates' })}>
+          {t('templates.lockedCta')}
+        </SFButton>
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

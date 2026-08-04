@@ -8,7 +8,7 @@ import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, ge
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
-import { getSections, moveTasks, copyTasks } from '../data/taskStore';
+import { getSections, moveTasks, copyTasks, subscribeStore } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import type { Task, Priority, User } from '../types';
 import { TaskPanel } from '../components/TaskPanel';
@@ -401,6 +401,12 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   const [titleDraft, setTitleDraft] = useState(task.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const { measureRef: titleMeasureRef, width: titleInputWidth } = useAutoWidthInput(titleDraft, editingTitle);
+  const [, forceProjSecRerender] = useState(0);
+  useEffect(() => {
+    const unsubP = subscribeProjects(() => forceProjSecRerender(n => n + 1));
+    const unsubS = subscribeStore(() => forceProjSecRerender(n => n + 1));
+    return () => { unsubP(); unsubS(); };
+  }, []);
 
   // The fields above are local (optimistic) copies of `task`, seeded once at
   // mount — editing them from THIS row also calls updateMyTask() so they
@@ -721,7 +727,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
                       <i style={{ width: 8, height: 8, borderRadius: '50%', background: p.clientColor, display: 'block', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontFamily: 'var(--ff-text)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                        <div style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{p.clientName}</div>
                       </div>
                     </button>
                   );
@@ -1106,6 +1111,12 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
   const [openField, setOpenField] = useState<'project' | 'priority' | 'status' | 'dueDate' | null>(null);
   const [dropRect, setDropRect] = useState<DOMRect | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [, forceAddRowRerender] = useState(0);
+  useEffect(() => {
+    const unsubP = subscribeProjects(() => forceAddRowRerender(n => n + 1));
+    const unsubS = subscribeStore(() => forceAddRowRerender(n => n + 1));
+    return () => { unsubP(); unsubS(); };
+  }, []);
 
   // Created via "Ajouter une section" + Entrée — jump straight into this
   // freshly-created section's own add-task row, same as pressing Entrée on a
