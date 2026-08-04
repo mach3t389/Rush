@@ -93,7 +93,7 @@ Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en 
 ## Server-side plan gating (RLS backstop)
 
 - [x] **Exécuter la migration** : exécutée avec succès le 2026-08-04 (deux corrections de type texte/uuid en cours de route, voir historique git).
-- [ ] **Spot-check normal (plan Gratuit)** : dans l'app, avec un studio réel en plan Gratuit, confirmer qu'un essai de création de facture/modèle/4e projet/3e membre échoue toujours exactement comme avant (l'interface bloque avant même d'atteindre la base) — prouve que la nouvelle règle n'a rien cassé pour un usage normal.
+- [x] **Spot-check normal (plan Gratuit)** : confirmé par toi le 2026-08-04 — tout fonctionne normalement en plan Gratuit après la migration.
 - [ ] **Spot-check plan payant** : avec un studio réel en plan Studio/Agence, confirmer que créer une facture, un modèle, un projet, ou inviter un membre (dans la limite de sièges achetés) fonctionne toujours normalement.
   - Pourquoi : cette migration ajoute une protection invisible en usage normal (elle ne bloque que les tentatives de contournement de l'interface) — le vrai risque à tester est qu'elle bloque *aussi* par erreur un usage légitime.
 
