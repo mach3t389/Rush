@@ -209,30 +209,23 @@ function SectionMoveModal({ sectionLabel, mode = 'move', onMove, onClose }: {
   const [targetProjectId, setTargetProjectId] = useState('');
   useEffect(() => subscribeProjects(() => setProjects(getProjects().filter(p => !p.archived))), []);
 
-  return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 380, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'copy' ? t('taskPanel.copySectionTitle') : t('taskPanel.moveSectionTitle')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>{t('taskPanel.sectionMoveConfirm', { section: sectionLabel, verb: mode === 'copy' ? t('taskPanel.copiedVerb') : t('taskPanel.movedVerb') })}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
-          {projects.map(p => (
-            <button key={p.id} onClick={() => setTargetProjectId(p.id)}
-              style={{ padding: '8px 12px', borderRadius: 9, border: `1px solid ${targetProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: targetProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: targetProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: targetProjectId === p.id ? 600 : 400 }}
-            >{p.name}</button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.cancel')}</button>
-          <button onClick={() => { if (targetProjectId) { onMove(targetProjectId); onClose(); } }} disabled={!targetProjectId}
-            style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: !targetProjectId ? 'var(--surface-3)' : 'var(--accent)', color: !targetProjectId ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: !targetProjectId ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
-          >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
-        </div>
+  return (
+    <SFModal open onClose={onClose} title={mode === 'copy' ? t('taskPanel.copySectionTitle') : t('taskPanel.moveSectionTitle')} width={380} zIndex={600}>
+      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>{t('taskPanel.sectionMoveConfirm', { section: sectionLabel, verb: mode === 'copy' ? t('taskPanel.copiedVerb') : t('taskPanel.movedVerb') })}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
+        {projects.map(p => (
+          <button key={p.id} onClick={() => setTargetProjectId(p.id)}
+            style={{ padding: '8px 12px', borderRadius: 9, border: `1px solid ${targetProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: targetProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: targetProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: targetProjectId === p.id ? 600 : 400 }}
+          >{p.name}</button>
+        ))}
       </div>
-    </div>,
-    document.body,
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.cancel')}</button>
+        <button onClick={() => { if (targetProjectId) { onMove(targetProjectId); onClose(); } }} disabled={!targetProjectId}
+          style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: !targetProjectId ? 'var(--surface-3)' : 'var(--accent)', color: !targetProjectId ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: !targetProjectId ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
+        >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
+      </div>
+    </SFModal>
   );
 }
 
@@ -260,14 +253,8 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose, defaultProjectId
 
   const targetSections = targetProjectId ? getSections(targetProjectId) : [];
 
-  return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: 600, border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{title}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
-
+  return (
+    <SFModal open onClose={onClose} title={title} width={600} zIndex={600}>
         {/* Deux colonnes côte à côte — évite le long défilement vertical
             projet-puis-section quand il y a beaucoup de projets/sections. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -312,9 +299,7 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose, defaultProjectId
             style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: (!targetProjectId || !targetSection) ? 'var(--surface-3)' : 'var(--accent)', color: (!targetProjectId || !targetSection) ? 'var(--text-3)' : 'var(--on-accent)', fontSize: 13, cursor: (!targetProjectId || !targetSection) ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'var(--ff-text)' }}
           >{mode === 'copy' ? t('taskPanel.copy') : t('taskPanel.move')}</button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </SFModal>
   );
 }
 
