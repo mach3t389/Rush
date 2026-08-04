@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFCard, SFBar, SFButton, SFLoadingState, PageHeader, LifecycleFilterDropdown } from '../components/ui';
+import { SFPill, SFCard, SFBar, SFButton, SFModal, SFLoadingState, PageHeader, LifecycleFilterDropdown } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
 import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient, isClientsLoading } from '../data/clientStore';
@@ -147,21 +147,9 @@ export function NewClientModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', boxShadow: '0 24px 72px rgba(0,0,0,0.6)', width: 480, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700 }}>{t('clients.newClient')}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
-            <SFIcon name="x" size={17} />
-          </button>
-        </div>
-
+    <SFModal open onClose={onClose} title={t('clients.newClient')} width={480}>
         {/* Body */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Name */}
           <div>
             <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('clients.name')} {t('common.required')}</label>
@@ -217,7 +205,7 @@ export function NewClientModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
           <button
             onClick={onClose}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 18px', cursor: 'pointer', fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
@@ -228,8 +216,7 @@ export function NewClientModal({ onClose }: { onClose: () => void }) {
             {t('clients.createClient')}
           </SFButton>
         </div>
-      </div>
-    </div>
+    </SFModal>
   );
 }
 
