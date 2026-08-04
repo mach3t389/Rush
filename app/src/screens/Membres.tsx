@@ -13,7 +13,8 @@ import { NewClientModal, ClientCard, ClientEditPanel } from './Clients';
 import { isPinnedClient, subscribePinnedClients } from '../data/pinnedStore';
 import type { Client } from '../types/index';
 import { createInvitation as createClientInvitation, getInvitationLink, sendClientInvitationEmail } from '../data/invitationStore';
-import type { ClientContact } from '../data/clientContactsStore';
+import { DEFAULT_PORTAL_PERMISSIONS, PORTAL_PRESETS, matchPortalPreset, type ClientContact } from '../data/clientContactsStore';
+import { PERMISSION_PRESETS, matchPreset, loadPermissions } from '../components/profile/ProfileEditPanel';
 
 type MembresTab = 'individus' | 'groupes';
 
@@ -26,6 +27,8 @@ interface UnifiedPerson {
   isInternal: boolean;
   groupId?: string;
   groupName?: string;
+  permKey: string;      // preset key — 'admin'/'gestionnaire'/... for team, 'approver'/... for group contacts
+  permLabelKey: string; // i18n key for the badge/filter label
 }
 
 interface PersonSection {
@@ -61,6 +64,7 @@ export function Membres() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const liveEditingClient = editingClient ? (clients.find(c => c.id === editingClient.id) ?? editingClient) : null;
   const [groupFilter, setGroupFilter] = usePersistedState<'active' | 'archived' | 'all'>('sf_membres_group_filter', 'active');
+  const [permFilter, setPermFilter] = usePersistedState<string>('sf_membres_perm_filter', 'all');
 
   // An archived group used to simply vanish from this tab with no way back
   // in — no filter to see it, so no way to unarchive or permanently delete
@@ -73,25 +77,47 @@ export function Membres() {
     return true;
   });
 
-  const internalPeople: UnifiedPerson[] = team.map(m => ({
-    id: m.id, name: m.name, email: m.email, initials: m.initials, color: m.avatarColor, isInternal: true,
-  }));
-  const externalPeople: UnifiedPerson[] = contacts.filter(c => !c.internal).map(c => ({
-    id: c.id, name: c.name, email: c.email, initials: c.initials, color: c.color, isInternal: false,
-    groupId: c.clientId, groupName: c.clientName,
-  }));
+  const internalPeople: UnifiedPerson[] = team.map(m => {
+    // Owner/admin have full access by construction (same rule enforced in
+    // ViewAsPermissionGate/Sidebar) regardless of their stored permissions
+    // array, so they're always filed under the Administrateur preset here.
+    const presetKey = m.accessLevel !== 'member' ? 'admin' : matchPreset(loadPermissions(m.id, m.role));
+    const preset = PERMISSION_PRESETS.find(p => p.key === presetKey);
+    return {
+      id: m.id, name: m.name, email: m.email, initials: m.initials, color: m.avatarColor, isInternal: true,
+      permKey: presetKey ?? 'custom', permLabelKey: preset?.labelKey ?? 'membres.permCustom',
+    };
+  });
+  const externalPeople: UnifiedPerson[] = contacts.filter(c => !c.internal).map(c => {
+    const presetKey = matchPortalPreset(c.portalPermissions ?? DEFAULT_PORTAL_PERMISSIONS);
+    const preset = PORTAL_PRESETS.find(p => p.key === presetKey);
+    return {
+      id: c.id, name: c.name, email: c.email, initials: c.initials, color: c.color, isInternal: false,
+      groupId: c.clientId, groupName: c.clientName,
+      permKey: presetKey ?? 'custom', permLabelKey: preset?.labelKey ?? 'membres.permCustom',
+    };
+  });
+
+  // Distinct permission presets actually in use, for the filter dropdown —
+  // team and group-contact presets use different key spaces (admin/
+  // gestionnaire/... vs approver/collaborator/...) but that's fine, each
+  // person only ever matches one of the two depending on isInternal.
+  const allPeopleForFilterOptions = [...internalPeople, ...externalPeople];
+  const permFilterOptions = Array.from(
+    new Map(allPeopleForFilterOptions.map(p => [p.permKey, p.permLabelKey])).entries()
+  );
+  const matchesPermFilter = (p: UnifiedPerson) => permFilter === 'all' || p.permKey === permFilter;
 
   // People are grouped by provenance (the "Équipe" section, then one
   // section per group/client) rather than filtered by an Interne/Externe
   // toggle — provenance is what the user actually cares about, and this
   // reads the same way the AddMemberModal's pools do.
   const sections: PersonSection[] = [
-    ...(internalPeople.length > 0 ? [{ key: 'team', label: t('membres.sectionTeam'), people: internalPeople }] : []),
+    ...(internalPeople.length > 0 ? [{ key: 'team', label: t('membres.sectionTeam'), people: internalPeople.filter(matchesPermFilter) }] : []),
     ...clients
       .filter(c => !c.archived)
-      .map(c => ({ key: c.id, label: c.name, people: externalPeople.filter(p => p.groupId === c.id) }))
-      .filter(s => s.people.length > 0),
-  ];
+      .map(c => ({ key: c.id, label: c.name, people: externalPeople.filter(p => p.groupId === c.id).filter(matchesPermFilter) })),
+  ].filter(s => s.people.length > 0);
   const hasNoPeople = sections.length === 0;
 
   const inviteClientContact = inviteClientId ? clients.find(c => c.id === inviteClientId) : undefined;
@@ -150,6 +176,28 @@ export function Membres() {
       <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {tab === 'individus' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {permFilterOptions.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button onClick={() => setPermFilter('all')} style={{
+                  padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                  border: `1px solid ${permFilter === 'all' ? 'var(--accent)' : 'var(--border)'}`,
+                  background: permFilter === 'all' ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+                  color: permFilter === 'all' ? 'var(--accent)' : 'var(--text-2)',
+                }}>
+                  {t('membres.permFilterAll')}
+                </button>
+                {permFilterOptions.map(([key, labelKey]) => (
+                  <button key={key} onClick={() => setPermFilter(key)} style={{
+                    padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                    border: `1px solid ${permFilter === key ? 'var(--accent)' : 'var(--border)'}`,
+                    background: permFilter === key ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+                    color: permFilter === key ? 'var(--accent)' : 'var(--text-2)',
+                  }}>
+                    {t(labelKey)}
+                  </button>
+                ))}
+              </div>
+            )}
             {hasNoPeople && (
               <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noPeopleFound')}</p>
             )}
@@ -169,6 +217,12 @@ export function Membres() {
                         <p style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</p>
                         <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{p.email}</p>
                       </div>
+                      <span style={{
+                        fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase',
+                        letterSpacing: '0.05em', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px', flexShrink: 0,
+                      }}>
+                        {t(p.permLabelKey)}
+                      </span>
                       <button
                         onClick={e => { e.stopPropagation(); handleRemove(p); }}
                         title={t(p.isInternal ? 'membres.removeMemberConfirm' : 'membres.removeContactConfirm', { name: p.name }) as string}

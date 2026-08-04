@@ -19,6 +19,9 @@ import { getTotalStorageUsedBytes, subscribeStorageUsage, checkStorageThreshold 
 import { getCurrentPlan, getCurrentStorageTier, subscribePlan } from '../../data/planStore';
 import { getStorageLimitGB, canUseFeature } from '../../data/planFeatures';
 import { loadPersisted, savePersisted } from '../../data/persist';
+import { getCurrentUser } from '../../data/authStore';
+import { getMyAccessLevel } from '../../data/teamStore';
+import { loadPermissions } from '../profile/ProfileEditPanel';
 
 function SidebarStorageBar({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
@@ -289,15 +292,24 @@ export function Sidebar() {
   const logoFull = hasCustomLogo ? logoFullStored : null;
   const logoSquare = hasCustomLogo ? logoSquareStored : null;
 
-  // Derive permission restrictions when viewing as an internal member —
-  // uses the same route→permission mapping the route guard enforces
-  // (viewAsRoutePermissions.ts), so a hidden link and an enforced redirect
-  // can never disagree about what a given route requires.
-  const viewAsPerms = viewAs?.type === 'internal' ? (viewAs.permissions ?? []) : null;
+  // Derive permission restrictions — either previewing an internal member
+  // via "View as", or (same rule, real session) the current user's own
+  // permissions when they're a 'member', not owner/admin (who get full
+  // access by construction, same rule as everywhere else permissions are
+  // checked). Uses the same route→permission mapping the route guard
+  // enforces (viewAsRoutePermissions.ts / ViewAsPermissionGate.tsx), so a
+  // hidden link and an enforced redirect can never disagree.
+  const effectivePerms = (() => {
+    if (viewAs?.type === 'internal') return viewAs.permissions ?? [];
+    if (viewAs) return null; // client-contact preview: portal routes only, not these
+    if (getMyAccessLevel() !== 'member') return null;
+    const me = getCurrentUser();
+    return me ? loadPermissions(me.id, me.role) : null;
+  })();
   const requiredForClients = getRequiredPermissionForPath('/clients')!;
-  const canSeeMembres = !viewAsPerms || requiredForClients.some(p => viewAsPerms.includes(p));
+  const canSeeMembres = !effectivePerms || requiredForClients.some(p => effectivePerms.includes(p));
   const requiredForFinances = getRequiredPermissionForPath('/finances')!;
-  const canSeeFinances = !viewAsPerms || requiredForFinances.some(p => viewAsPerms.includes(p));
+  const canSeeFinances = !effectivePerms || requiredForFinances.some(p => effectivePerms.includes(p));
 
   const pinnedProjects = pinnedIds
     .map(id => getProjects().find(p => p.id === id))
