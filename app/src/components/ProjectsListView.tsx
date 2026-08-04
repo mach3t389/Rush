@@ -89,6 +89,15 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   // signalé), on propose de créer un premier client à la volée avec juste un
   // nom, réutilisé ci-dessous dans create().
   const [newClientName, setNewClientName] = useState('');
+  const [isPersonalProject, setIsPersonalProject] = useState(false);
+  const [calendarEnabled, setCalendarEnabled] = useState(true);
+  const [filesEnabled, setFilesEnabled]       = useState(true);
+  const [financeEnabled, setFinanceEnabled]   = useState(false);
+  useEffect(() => {
+    if (isPersonalProject) { setFinanceEnabled(false); return; }
+    const hasClient = clientId || newClientName.trim().length > 0;
+    setFinanceEnabled(!!hasClient);
+  }, [isPersonalProject, clientId, newClientName]);
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [budget, setBudget]             = useState('');
@@ -125,7 +134,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   };
 
   const canNext = step === 'start' ? true
-    : step === 'info' ? name.trim().length > 0 && (clients.length > 0 || newClientName.trim().length > 0)
+    : step === 'info' ? name.trim().length > 0 && (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0)
     : true; // 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
 
   const next = () => {
@@ -148,8 +157,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     // (c'était le bug : allClients[0] pouvait retomber sur un client archivé
     // au lieu de déclencher la création du tout premier client).
     const allClients = getClients().filter(c => !c.archived);
-    let client: Client | undefined = allClients.find(c => c.id === clientId) ?? allClients[0];
-    if (!client) {
+    let client: Client | undefined = isPersonalProject ? undefined : (allClients.find(c => c.id === clientId) ?? allClients[0]);
+    if (!isPersonalProject && !client) {
       // Studio sans aucun client (compte flambant neuf) — crée un client
       // minimal à partir du nom saisi. addClient() écrit en fire-and-forget
       // en session réelle (Supabase) : on attend sa disponibilité réelle
@@ -187,8 +196,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     const newProject: Project = {
       id: projectId,
       name: name.trim(),
-      clientId: client.id,
-      clientName: client.name,
+      clientId: client?.id,
+      clientName: client?.name,
       clientColor: color,
       phase: 'preproduction',
       phaseLabel: 'Préproduction',
@@ -202,6 +211,9 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       modifiedAt: new Date().toISOString(),
       budget: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined,
       description: description.trim() || undefined,
+      calendarEnabled,
+      filesEnabled,
+      financeEnabled: financeEnabled && !!client,
     };
     if (templateSections.length) {
       const buildTask = (tt: TemplateTask, id: string): Task => ({
@@ -251,7 +263,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   // la même règle que canNext, mais évaluable pour n'importe quelle étape, pas
   // seulement l'étape courante (nécessaire pour savoir jusqu'où on peut sauter).
   const isStepValid = (s: Step): boolean => {
-    if (s === 'info') return name.trim().length > 0 && (clients.length > 0 || newClientName.trim().length > 0);
+    if (s === 'info') return name.trim().length > 0 && (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0);
     return true; // 'start'/'team' : jamais bloquantes
   };
   // Une étape est atteignable par clic si toutes les étapes qui la précèdent
@@ -376,7 +388,27 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
-                {clients.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isPersonalProject;
+                    setIsPersonalProject(next);
+                    if (next) { setClientId(''); setNewClientName(''); setFinanceEnabled(false); }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%', marginBottom: 10,
+                    padding: '9px 12px', borderRadius: 9, border: `1.5px solid ${isPersonalProject ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isPersonalProject ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)', color: 'var(--text)',
+                    fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <SFIcon name={isPersonalProject ? 'check-square' : 'square'} size={14} color={isPersonalProject ? 'var(--accent)' : 'var(--text-3)'} />
+                  {t('projects.personalProjectOption')}
+                </button>
+                {isPersonalProject && (
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10 }}>{t('projects.personalProjectHint')}</p>
+                )}
+                {!isPersonalProject && (clients.length === 0 ? (
                   <div>
                     <input
                       value={newClientName}
@@ -427,7 +459,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                       </div>
                     </div>
                   </>
-                )}
+                ))}
               </div>
 
               <div>
@@ -508,6 +540,36 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   rows={3}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
                 />
+              </div>
+
+              <div>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.featuresLabel')}</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { key: 'calendar', label: t('projects.moduleCalendar'), checked: calendarEnabled, onToggle: () => setCalendarEnabled(v => !v), disabled: false },
+                    { key: 'files',    label: t('projects.moduleFiles'),    checked: filesEnabled,    onToggle: () => setFilesEnabled(v => !v),    disabled: false },
+                    { key: 'finance',  label: t('projects.moduleFinance'),  checked: financeEnabled,  onToggle: () => setFinanceEnabled(v => !v),  disabled: isPersonalProject || (!clientId && !newClientName.trim()) },
+                  ].map(m => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      disabled={m.disabled}
+                      onClick={m.onToggle}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9,
+                        border: '1px solid var(--border)', background: 'var(--surface-2)',
+                        color: m.disabled ? 'var(--text-3)' : 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
+                        cursor: m.disabled ? 'not-allowed' : 'pointer', opacity: m.disabled ? 0.6 : 1, textAlign: 'left',
+                      }}
+                    >
+                      <SFIcon name={m.checked ? 'check-square' : 'square'} size={14} color={m.checked && !m.disabled ? 'var(--accent)' : 'var(--text-3)'} />
+                      {m.label}
+                      {m.key === 'finance' && m.disabled && (
+                        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.moduleFinanceRequiresClient')}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
             </div>
