@@ -125,7 +125,6 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             <div style={{ width: 14, height: 14, borderRadius: '50%', background: lColor, flexShrink: 0, transition: 'background 0.15s' }} />
             <div style={{ minWidth: 0 }}>
               <h3 style={{ fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lName || p.name}</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{p.clientName}</p>
             </div>
           </div>
           <button onClick={save} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
@@ -383,7 +382,6 @@ export function ProjectCard({ p }: { p: Project }) {
           {/* Color dot (decorative) */}
           <div style={{ width: 14, height: 14, borderRadius: '50%', background: color, flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>{p.clientName}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <p style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>{name}</p>
               {notifCount > 0 && (

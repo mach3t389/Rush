@@ -7,7 +7,6 @@ import { getEvents, subscribeEvents, isEventsLoading, pullFromGoogleCalendar, ty
 import { loadProfile } from '../components/profile/ProfileEditPanel';
 import { getEventTypeById, subscribeEventTypes } from '../data/eventTypeStore';
 import { getProjects, isProjectsLoading } from '../data/projectStore';
-import { getClients, subscribeClients } from '../data/clientStore';
 import { getMyTasks, subscribeMyTasks, updateMyTask, isMyTasksLoading } from '../data/myTaskStore';
 import { getProjectStats, subscribeStore } from '../data/taskStore';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
@@ -419,13 +418,6 @@ export function Dashboard() {
   // — the calendars, the type selector — already subscribes).
   const [, forceEventTypesRerender] = useState(0);
   useEffect(() => subscribeEventTypes(() => forceEventTypesRerender(n => n + 1)), []);
-  // Le nom du client est résolu en direct via ce store plutôt que lu sur
-  // project.clientName. Renommer un client propage désormais la nouvelle valeur
-  // sur ses projets (syncClientOnProjects), mais lire la source reste plus sûr :
-  // si cette propagation échoue côté serveur, l'accueil affiche quand même le
-  // bon nom au lieu de figer l'ancien.
-  const [clients, setClients] = useState(getClients);
-  useEffect(() => subscribeClients(() => setClients(getClients())), []);
 
   const now = new Date();
   const in14Days = addDays(now, 14);
@@ -572,9 +564,6 @@ export function Dashboard() {
               const type = getEventTypeById(ev.eventTypeId);
               const inProgress = isEventNow(ev);
               const project = projects.find(p => p.id === ev.projectId);
-              const clientName = project
-                ? (clients.find(c => c.id === project.clientId)?.name ?? project.clientName)
-                : undefined;
               return (
                 <div
                   key={ev.id}
@@ -633,7 +622,7 @@ export function Dashboard() {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
                             <i style={{ width: 6, height: 6, borderRadius: '50%', background: project.clientColor, display: 'block', flexShrink: 0 }} />
                             <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {clientName ? `${clientName} · ${project.name}` : project.name}
+                              {project.name}
                             </span>
                           </span>
                         </>
