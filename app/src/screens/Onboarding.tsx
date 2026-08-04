@@ -311,7 +311,7 @@ export function Onboarding() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 36 }}>
               {[
                 { icon: 'folder-kanban', key: 'feature1' },
-                { icon: 'globe',         key: 'feature2' },
+                { icon: 'calendar',      key: 'feature2' },
                 { icon: 'files',         key: 'feature3' },
               ].map(f => (
                 <div key={f.key} style={{

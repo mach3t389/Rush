@@ -1049,7 +1049,7 @@
     "copyLink": "Copy link",
     "linkCopied": "Copied!",
     "done": "Done",
-    "inviteHintReal": "Copy the generated link and send it yourself — automatic email delivery is coming later."
+    "inviteHintReal": "An invitation email is sent automatically. You can also copy the link and send it yourself."
   },
   "activityFeed": {
     "all": "All",
@@ -2513,14 +2513,14 @@
     "inviteRole": "Role",
     "inviteRolePlaceholder": "e.g. Editor",
     "inviteAdd": "Add",
-    "inviteHint": "These people will receive an invitation once the backend is connected.",
+    "inviteHint": "These people will receive an invitation by email.",
     "step4Title": "You're all set!",
     "step4Desc": "Your Rushflow workspace is configured. Start managing your projects.",
     "feature1": "Projects & tasks",
-    "feature2": "Client portal",
+    "feature2": "Calendar",
     "feature3": "File management",
     "feature1Desc": "Kanban, sections, deliverables and approvals.",
-    "feature2Desc": "Share resources with your clients.",
+    "feature2Desc": "Shoots, meetings and deadlines, synced with Google Calendar.",
     "feature3Desc": "Centralize all your production media."
   },
   "orgSwitcher": {
