@@ -2101,12 +2101,10 @@ export function Travail() {
       </div>
       </div>{/* end left column */}
 
-      {/* Inline task panel — animated width */}
-      <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column' }}>
-        {selectedTask && (
+      {/* Floating task panel — self-positions via position: fixed, no reserved layout column */}
+      {selectedTask && (
           <TaskPanel
             key={selectedTask.id}
-            inline
             task={selectedTask}
             sectionLabel={sections.find(s => s.tasks.some(t => t.id === selectedTask.id))?.label}
             autoFocusComments={autoFocusComments}
@@ -2126,8 +2124,7 @@ export function Travail() {
             onMoveSubtasksAsTask={subtaskIds => setSubtaskDest({ mode: 'move', parentTaskId: selectedTask.id, subtaskIds })}
             onCopySubtasksAsTask={subtaskIds => setSubtaskDest({ mode: 'copy', parentTaskId: selectedTask.id, subtaskIds })}
           />
-        )}
-      </div>
+      )}
 
       {/* Multi-select floating action bar */}
       {multiSelIds.size > 0 && createPortal(

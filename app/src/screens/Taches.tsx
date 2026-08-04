@@ -1823,13 +1823,11 @@ export function Taches() {
         />
       )}
 
-      {/* Inline task panel — même système que dans les tâches d'un projet : divise
-          la page en deux plutôt que de s'afficher en overlay par-dessus. */}
-      <div style={{ width: selectedTask ? 440 : 0, flexShrink: 0, overflow: 'hidden', transition: 'width 0.2s ease', borderLeft: selectedTask ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column' }}>
-        {selectedTask && (
+      {/* Floating task panel — même système que dans les tâches d'un projet : modal
+          centré Trello-style, se positionne lui-même (position: fixed). */}
+      {selectedTask && (
           <TaskPanel
             key={selectedTask.id}
-            inline
             task={selectedTask}
             sectionLabel={
               getSections(selectedTask.projectId)
@@ -1854,8 +1852,7 @@ export function Taches() {
               setSelectedTask(prev => prev ? { ...prev, subtasks: (prev.subtasks ?? []).filter(s => !subtaskIds.includes(s.id)) } : prev);
             }}
           />
-        )}
-      </div>
+      )}
     </div>
   );
 }
