@@ -102,7 +102,7 @@ export function ProjectHeaderBar({
             <span>{t('projects.personalProjectBadge')}</span>
           )}
           <span>/</span>
-          <button onClick={() => navigate(`/clients/${project.clientId}?tab=projets`)} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <button onClick={() => navigate(project.clientId ? `/clients/${project.clientId}?tab=projets` : '/projets')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {t('projects.title')}
           </button>
           <span>/</span>
