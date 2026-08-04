@@ -1,0 +1,352 @@
+openapi: 3.1.0
+info:
+  title: Rush Northbook Integration API
+  version: 1.0.0
+  description: Versioned contract consumed by the Northbook desktop application.
+servers:
+  - url: https://rushflow.app/api/integrations/v1
+security:
+  - bearerAuth: []
+paths:
+  /oauth/authorize:
+    post:
+      summary: Create a short-lived PKCE authorization code
+      security:
+        - supabaseUser: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthorizeRequest' }
+      responses:
+        '200':
+          description: Browser redirect back to Northbook
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [redirectUrl]
+                properties: { redirectUrl: { type: string, format: uri } }
+  /oauth/token:
+    post:
+      summary: Exchange an authorization code or rotate a refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TokenRequest' }
+      responses:
+        '200':
+          description: Integration tokens and connection metadata
+          content:
+            application/json:
+                schema: { $ref: '#/components/schemas/TokenResponse' }
+  /connections:
+    get:
+      summary: List named Northbook installations for an organization
+      security:
+        - supabaseUser: []
+      parameters:
+        - in: query
+          name: studioId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Organization accounting mode and installations }
+  /connections/{connectionId}:
+    delete:
+      summary: Revoke one Northbook installation and all of its tokens
+      security:
+        - supabaseUser: []
+      parameters:
+        - in: path
+          name: connectionId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Installation revoked }
+  /bootstrap:
+    get:
+      summary: Return the complete current operational snapshot
+      responses:
+        '200':
+          description: Snapshot and high-water cursor
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapResponse' }
+  /changes:
+    get:
+      summary: Return ordered changes after an opaque cursor
+      parameters:
+        - in: query
+          name: after
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        '200':
+          description: A page of changes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changes, nextCursor, hasMore]
+                properties:
+                  changes:
+                    type: array
+                    items: { $ref: '#/components/schemas/Change' }
+                  nextCursor: { type: string }
+                  hasMore: { type: boolean }
+        '410': { description: Cursor expired; perform a new bootstrap }
+  /portal/documents/{northbookInvoiceId}/pdf:
+    get:
+      summary: Return a short-lived PDF URL to an authorized studio member or client contact
+      security:
+        - supabaseUser: []
+      parameters:
+        - in: path
+          name: northbookInvoiceId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Signed PDF download URL }
+  /billing-requests/{id}/{action}:
+    post:
+      summary: Transition a billing request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: action
+          required: true
+          schema: { enum: [accept, reject, release] }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                northbookInvoiceId: { type: string }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200': { description: Updated request }
+  /accounting/documents/{northbookInvoiceId}:
+    put:
+      summary: Idempotently publish an authoritative invoice snapshot
+      parameters:
+        - in: path
+          name: northbookInvoiceId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountingDocument' }
+      responses:
+        '200': { description: Snapshot accepted }
+        '422': { description: Currency mismatch or invalid accounting data }
+  /accounting/project-summaries/{projectId}:
+    put:
+      summary: Publish privacy-preserving project totals
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectSummary' }
+      responses:
+        '200': { description: Summary accepted }
+  /accounting/documents/{northbookInvoiceId}/pdf-upload:
+    post:
+      summary: Create a short-lived signed R2 upload URL
+      parameters:
+        - in: path
+          name: northbookInvoiceId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentLength: { type: integer, maximum: 10485760 }
+      responses:
+        '200':
+          description: Signed upload URL
+  /accounting/documents/{northbookInvoiceId}/deliver:
+    post:
+      summary: Deliver the finalized PDF exactly once per idempotency key
+      parameters:
+        - in: path
+          name: northbookInvoiceId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Delivery accepted or already completed }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+    supabaseUser: { type: http, scheme: bearer }
+  schemas:
+    Scope:
+      enum: [entities:read, billing_requests:read, billing_requests:write, accounting:write, documents:write, delivery:write]
+    AuthorizeRequest:
+      type: object
+      required: [studioId, codeChallenge, state, installationName, redirectUri, scopes]
+      properties:
+        studioId: { type: string, format: uuid }
+        codeChallenge: { type: string, minLength: 43, maxLength: 128 }
+        state: { type: string, minLength: 16, maxLength: 256 }
+        installationName: { type: string, minLength: 1, maxLength: 100 }
+        redirectUri: { const: 'northbook://rush/callback' }
+        scopes:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Scope' }
+    TokenRequest:
+      oneOf:
+        - type: object
+          required: [grantType, code, codeVerifier, redirectUri]
+          properties:
+            grantType: { const: authorization_code }
+            code: { type: string }
+            codeVerifier: { type: string, minLength: 43, maxLength: 128 }
+            redirectUri: { const: 'northbook://rush/callback' }
+        - type: object
+          required: [grantType, refreshToken]
+          properties:
+            grantType: { const: refresh_token }
+            refreshToken: { type: string }
+    TokenResponse:
+      type: object
+      required: [accessToken, expiresIn, refreshToken, connection]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer }
+        refreshToken: { type: string }
+        connection:
+          type: object
+          required: [id, studioId, studioName, accountingCurrency, scopes]
+          properties:
+            id: { type: string, format: uuid }
+            studioId: { type: string, format: uuid }
+            studioName: { type: string }
+            accountingCurrency: { type: string, pattern: '^[A-Z]{3}$' }
+            scopes:
+              type: array
+              items: { $ref: '#/components/schemas/Scope' }
+    Client:
+      type: object
+      required: [id, name, archived]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        archived: { type: boolean }
+        version: { type: string }
+    Project:
+      type: object
+      required: [id, name, archived, completed, budgetMinor]
+      properties:
+        id: { type: string }
+        clientId: { type: [string, 'null'] }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        deliveryDate: { type: [string, 'null'] }
+        budgetMinor: { type: [integer, 'null'] }
+        archived: { type: boolean }
+        completed: { type: boolean }
+        version: { type: string }
+    BillingLine:
+      type: object
+      required: [id, description, quantity, unitAmountMinor]
+      properties:
+        id: { type: string }
+        description: { type: string, minLength: 1, maxLength: 500 }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unitAmountMinor: { type: integer, minimum: 0 }
+        taskIds: { type: array, items: { type: string } }
+        deliverableIds: { type: array, items: { type: string } }
+    BillingRequest:
+      type: object
+      required: [id, clientId, title, currency, lines, status, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        clientId: { type: string }
+        projectId: { type: [string, 'null'] }
+        title: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        lines: { type: array, items: { $ref: '#/components/schemas/BillingLine' } }
+        notes: { type: [string, 'null'] }
+        status: { enum: [draft, submitted, accepted, fulfilled, rejected, cancelled] }
+        northbookInvoiceId: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BootstrapResponse:
+      type: object
+      required: [cursor, accountingCurrency, clients, projects, billingRequests]
+      properties:
+        cursor: { type: string }
+        accountingCurrency: { type: string }
+        clients: { type: array, items: { $ref: '#/components/schemas/Client' } }
+        projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
+        billingRequests: { type: array, items: { $ref: '#/components/schemas/BillingRequest' } }
+    Change:
+      type: object
+      required: [cursor, entityType, entityId, operation, occurredAt]
+      properties:
+        cursor: { type: string }
+        entityType: { enum: [client, project, billing_request, invoice_delivery] }
+        entityId: { type: string }
+        operation: { enum: [upsert, archive, delete] }
+        occurredAt: { type: string, format: date-time }
+        payload: { type: [object, 'null'], additionalProperties: true }
+    TaxAmount:
+      type: object
+      required: [label, rate, amountMinor]
+      properties:
+        label: { type: string }
+        rate: { type: number, minimum: 0 }
+        amountMinor: { type: integer, minimum: 0 }
+    AccountingDocument:
+      type: object
+      required: [revision, snapshotHash, rushClientId, number, currency, issuedAt, status, lineItems, subtotalMinor, taxes, totalMinor, paidMinor]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        snapshotHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        billingRequestId: { type: [string, 'null'] }
+        rushClientId: { type: string }
+        rushProjectId: { type: [string, 'null'] }
+        number: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        issuedAt: { type: string, format: date-time }
+        dueAt: { type: [string, 'null'] }
+        status: { enum: [issued, paid, void] }
+        voidReason: { type: [string, 'null'] }
+        lineItems: { type: array, items: { $ref: '#/components/schemas/BillingLine' } }
+        subtotalMinor: { type: integer, minimum: 0 }
+        taxes: { type: array, items: { $ref: '#/components/schemas/TaxAmount' } }
+        totalMinor: { type: integer, minimum: 0 }
+        paidMinor: { type: integer, minimum: 0 }
+    ProjectSummary:
+      type: object
+      required: [currency, invoicedMinor, collectedMinor, outstandingMinor, expensesMinor, marginMinor, calculatedAt]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        invoicedMinor: { type: integer }
+        collectedMinor: { type: integer }
+        outstandingMinor: { type: integer }
+        expensesMinor: { type: integer }
+        marginMinor: { type: integer }
+        calculatedAt: { type: string, format: date-time }

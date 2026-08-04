@@ -20,6 +20,8 @@ import { Link } from 'react-router-dom';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
+import { BillingRequestPanel } from '../components/finance/BillingRequestPanel';
+import { getNorthbookAccountingMode, listBillingRequests, listNorthbookAccountingDocuments, openNorthbookAccountingDocumentPdf, type BillingRequest, type NorthbookAccountingDocument } from '../data/northbookIntegrationStore';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -1157,9 +1159,25 @@ export function Finances() {
   const [ctxMenu,       setCtxMenu]       = useState<{ x: number; y: number; ids: string[] } | null>(null);
   const [dragId,        setDragId]        = useState<string | null>(null);
   const [dragOverId,    setDragOverId]    = useState<string | null>(null);
+  const [accountingMode, setAccountingMode] = useState<'native' | 'northbook'>('native');
+  const [accountingCurrency, setAccountingCurrency] = useState('CAD');
+  const [billingRequests, setBillingRequests] = useState<BillingRequest[]>([]);
+  const [northbookDocuments, setNorthbookDocuments] = useState<NorthbookAccountingDocument[]>([]);
+  const [billingRequestOpen, setBillingRequestOpen] = useState(false);
   const anchorIdRef = useRef<string | null>(null);
 
   useEffect(() => subscribeInvoices(() => setInvoices(getInvoices())), []);
+  const refreshBillingRequests = React.useCallback(() => {
+    void listBillingRequests().then(setBillingRequests).catch(() => setBillingRequests([]));
+    void listNorthbookAccountingDocuments().then(setNorthbookDocuments).catch(() => setNorthbookDocuments([]));
+  }, []);
+  useEffect(() => {
+    void getNorthbookAccountingMode().then(result => {
+      setAccountingMode(result.accountingMode);
+      setAccountingCurrency(result.accountingCurrency);
+      if (result.accountingMode === 'northbook') refreshBillingRequests();
+    });
+  }, [refreshBillingRequests]);
 
   const plan = usePlan();
   if (!canUseFeature(plan, 'finances')) {
@@ -1170,16 +1188,17 @@ export function Finances() {
   const allProjects = getProjects();
   const clientMap   = Object.fromEntries(allClients.map(c  => [c.id, c]));
   const projectMap  = Object.fromEntries(allProjects.map(p => [p.id, p]));
+  const financeInvoices: Invoice[] = accountingMode === 'northbook' ? northbookDocuments : invoices;
 
   const clientFilterProjects = clientFilter ? allProjects.filter(p => p.clientId === clientFilter && p.financeEnabled) : [];
 
-  const revenue     = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
-  const outstanding = invoices.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0);
-  const overdue     = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
-  const draftCount  = invoices.filter(i => i.status === 'draft').length;
-  const totalInvoiced = invoices.reduce((s, i) => s + i.total, 0);
-  const paidCount   = invoices.filter(i => i.status === 'paid').length;
-  const payRate     = invoices.length > 0 ? Math.round((paidCount / invoices.length) * 100) : 0;
+  const revenue     = financeInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
+  const outstanding = financeInvoices.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0);
+  const overdue     = financeInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total, 0);
+  const draftCount  = financeInvoices.filter(i => i.status === 'draft').length;
+  const totalInvoiced = financeInvoices.reduce((s, i) => s + i.total, 0);
+  const paidCount   = financeInvoices.filter(i => i.status === 'paid').length;
+  const payRate     = financeInvoices.length > 0 ? Math.round((paidCount / financeInvoices.length) * 100) : 0;
 
   const applyDatePreset = (key: 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear') => {
     const now = new Date();
@@ -1208,9 +1227,9 @@ export function Finances() {
 
   // sortOrder is only set once the user has manually reordered at least
   // once (see reorderInvoices) — until then, keep the store's own order.
-  const orderedInvoices = invoices.some(i => i.sortOrder !== undefined)
-    ? [...invoices].sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity))
-    : invoices;
+  const orderedInvoices = financeInvoices.some(i => i.sortOrder !== undefined)
+    ? [...financeInvoices].sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity))
+    : financeInvoices;
 
   const filtered = orderedInvoices.filter(inv => {
     if (filter !== 'all' && inv.status !== filter) return false;
@@ -1235,7 +1254,10 @@ export function Finances() {
     setSearch(''); setDateFrom(''); setDateTo('');
   };
 
-  const openAdd     = () => { setEditInvoice(null); setPanelOpen(true); };
+  const openAdd     = () => {
+    if (accountingMode === 'northbook') { setBillingRequestOpen(true); return; }
+    setEditInvoice(null); setPanelOpen(true);
+  };
   const openEdit    = (inv: Invoice) => { setEditInvoice(inv); setPanelOpen(true); };
   const openDetail  = (inv: Invoice) => setDetailInvoice(inv);
   const closeForm   = () => { setPanelOpen(false); if (editInvoice) setDetailInvoice(findInvoice(editInvoice.id) ?? editInvoice); };
@@ -1307,7 +1329,7 @@ export function Finances() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <PageHeader
         title={t('finance.title')}
-        actions={<SFButton variant="primary" icon="plus" onClick={openAdd}>{t('finance.newInvoice')}</SFButton>}
+        actions={<SFButton variant="primary" icon={accountingMode === 'northbook' ? 'send' : 'plus'} onClick={openAdd}>{accountingMode === 'northbook' ? 'Demander une facturation' : t('finance.newInvoice')}</SFButton>}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -1324,6 +1346,19 @@ export function Finances() {
       </PageHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+
+        {accountingMode === 'northbook' && (
+          <section style={{ marginBottom: 18, background: 'linear-gradient(100deg, color-mix(in srgb, #174a35 15%, var(--surface)), var(--surface))', border: '1px solid color-mix(in srgb, var(--ok) 30%, var(--border))', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <SFIcon name="book-open" size={17} color="var(--ok)" />
+              <div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 650 }}>Comptabilité gérée par Northbook</p><p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{billingRequests.filter(request => request.status === 'submitted').length} demande(s) en attente · {accountingCurrency}</p></div>
+              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--ok)' }}>SYNCHRONISÉ</span>
+            </div>
+            {billingRequests.length > 0 && <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginTop: 11, paddingTop: 11, borderTop: '1px solid var(--border)' }}>
+              {billingRequests.slice(0, 6).map(request => <div key={request.id} style={{ minWidth: 190, padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9 }}><p style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{request.title}</p><p style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--text-3)', marginTop: 3, textTransform: 'uppercase' }}>{request.status}</p></div>)}
+            </div>}
+          </section>
+        )}
 
         {/* KPI row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
@@ -1347,8 +1382,8 @@ export function Finances() {
 
         {/* Charts row — 2/3 barres + 1/3 donut */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 20 }}>
-          <RevenueChart invoices={invoices} />
-          <StatusDonut invoices={invoices} />
+          <RevenueChart invoices={financeInvoices} />
+          <StatusDonut invoices={financeInvoices} />
         </div>
 
         {/* Filter bar — client / project */}
@@ -1409,8 +1444,8 @@ export function Finances() {
           )}
           <div style={{ flex: 1 }} />
           {/* Results count + clear all */}
-          {filtered.length !== invoices.length && (
-            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{filtered.length} / {invoices.length}</span>
+          {filtered.length !== financeInvoices.length && (
+            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{filtered.length} / {financeInvoices.length}</span>
           )}
           {hasAnyFilter && (
             <button onClick={clearAllFilters} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--surface-2)', color: 'var(--text-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--ff-text)', fontWeight: 500 }}>
@@ -1426,7 +1461,7 @@ export function Finances() {
             <SFIcon name="receipt" size={32} color="var(--text-3)" />
             <p style={{ fontSize: 14, fontWeight: 500 }}>{t('finance.noInvoices')}</p>
             <p style={{ fontSize: 12 }}>{t('finance.noInvoicesDesc')}</p>
-            <SFButton variant="secondary" icon="plus" onClick={openAdd}>{t('finance.addInvoice')}</SFButton>
+            <SFButton variant="secondary" icon={accountingMode === 'northbook' ? 'send' : 'plus'} onClick={openAdd}>{accountingMode === 'northbook' ? 'Demander une facturation' : t('finance.addInvoice')}</SFButton>
           </div>
         ) : (
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -1460,8 +1495,8 @@ export function Finances() {
                   style={{ display: 'grid', gridTemplateColumns: '28px 140px 120px 130px 1fr 110px 100px 100px 100px', padding: '11px 16px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', background: selected ? 'rgba(249,255,0,0.08)' : dragOverId === inv.id ? 'var(--surface-3)' : isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', alignItems: 'center', cursor: 'pointer', transition: 'background 0.1s' }}
                   onMouseEnter={e => { if (!isLate && !selected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = selected ? 'rgba(249,255,0,0.08)' : isLate ? 'rgba(239,68,68,0.04)' : 'var(--surface)'; }}
-                  onClick={e => handleRowClick(inv, e)}
-                  onContextMenu={e => openRowContextMenu(inv, e)}
+                  onClick={e => { if (accountingMode !== 'northbook') handleRowClick(inv, e); }}
+                  onContextMenu={e => { if (accountingMode !== 'northbook') openRowContextMenu(inv, e); }}
                 >
                   <div
                     onClick={e => {
@@ -1487,19 +1522,28 @@ export function Finances() {
                   <span style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{project?.name ?? '—'}</span>
                   <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{inv.title}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'right', paddingRight: 10 }}>{formatMoney(inv.total, inv.currency)}</span>
-                  <span><StatusPill status={inv.status} onChange={s => setInvoiceStatus(inv.id, s)} /></span>
+                  <span><StatusPill status={inv.status} onChange={accountingMode === 'northbook' ? undefined : s => setInvoiceStatus(inv.id, s)} /></span>
                   <span style={{ fontSize: 12, color: isLate ? 'var(--danger)' : 'var(--text-3)' }}>{fmtDate(inv.dueDate)}</span>
 
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                     {hasPdf && (
-                      <button title={t('finance.viewPdf')} onClick={() => { setAutoOpenPdf(true); openDetail(inv); }}
+                      <button title={t('finance.viewPdf')} onClick={() => {
+                        if (accountingMode === 'northbook') {
+                          void openNorthbookAccountingDocumentPdf(inv.id);
+                        } else {
+                          setAutoOpenPdf(true);
+                          openDetail(inv);
+                        }
+                      }}
                         style={{ ...actionBtn, width: 28, height: 28, justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface-2)' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
                         <SFIcon name="file-text" size={14} />
                       </button>
                     )}
-                    {confirming ? (
+                    {accountingMode === 'northbook' ? (
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 8, color: 'var(--ok)' }}>NORTHBOOK</span>
+                    ) : confirming ? (
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button onClick={() => { removeInvoice(inv.id); setDeleteId(null); }} style={{ ...actionBtn, color: 'var(--danger)', fontSize: 10, fontWeight: 600, padding: '4px 8px', background: 'rgba(239,68,68,0.1)', borderRadius: 6 }}>{t('finance.confirmDeleteShort')}</button>
                         <button onClick={() => setDeleteId(null)} style={{ ...actionBtn, fontSize: 10, padding: '4px 8px' }}>{t('finance.cancel')}</button>
@@ -1521,6 +1565,14 @@ export function Finances() {
       </div>
 
       <InvoiceFormPanel open={panelOpen} invoice={editInvoice} onClose={closeForm} />
+      <BillingRequestPanel
+        open={billingRequestOpen}
+        currency={accountingCurrency}
+        clients={allClients}
+        projects={allProjects}
+        onClose={() => setBillingRequestOpen(false)}
+        onCreated={refreshBillingRequests}
+      />
       <InvoiceDetailPanel
         open={detailInvoice !== null}
         invoice={detailInvoice}

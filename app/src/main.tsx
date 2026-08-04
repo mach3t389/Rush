@@ -56,6 +56,7 @@ import { Pricing } from './screens/Pricing';
 import { AdminStudios } from './screens/AdminStudios';
 import { RouteErrorPage } from './screens/RouteErrorPage';
 import { NoOrganization } from './screens/NoOrganization';
+import { NorthbookAuthorize } from './screens/NorthbookAuthorize';
 import { ClientPreviewHome } from './screens/ClientPreviewHome';
 import { getViewAsUser } from './data/viewAsStore';
 
@@ -94,6 +95,7 @@ const router = createBrowserRouter([
   // Page tarification publique — sans authentification requise
   { path: '/pricing', element: <Pricing /> },
   { path: '/admin/studios', element: <AdminStudios />, loader: authLoader },
+  { path: '/integrations/northbook/authorize', element: <NorthbookAuthorize />, loader: authLoader },
 
   // Invitation contact client — sans sidebar, accessible sans compte (route standalone)
   { path: '/invitation/:token', element: <ClientInvitationAccept /> },
