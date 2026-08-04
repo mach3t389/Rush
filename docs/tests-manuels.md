@@ -80,6 +80,16 @@ Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en 
 
 ---
 
+## Stripe — passage en mode Live (paiement réel)
+
+- [ ] **Parcours de paiement réel complet** : Paramètres → Plan et abonnement → choisir le plan Studio → aller jusqu'au bout sur la page Stripe Checkout (entrer une vraie carte et confirmer, pas juste ouvrir la page) → confirmer que l'app affiche bien "Studio" comme plan actif après redirection.
+  - Pourquoi : le compte Stripe vient d'être basculé en mode Live (2026-08-04) — le circuit complet (clé secrète live, catalogue de prix live, webhook live) a été mis en place et vérifié techniquement, mais jamais éprouvé avec un vrai paiement de bout en bout.
+  - Vérifier ensuite dans Stripe → Developers → Webhooks → destination "Rush production" → onglet "Event deliveries" : un événement `checkout.session.completed` doit apparaître avec un statut de succès (200).
+- [ ] **Portail "Gérer mon abonnement"** : Paramètres → Facturation → confirmer que le bouton ouvre bien le portail Stripe hébergé et affiche le nouvel abonnement.
+- [ ] **Annulation d'abonnement** : annuler depuis le portail Stripe → confirmer que l'app repasse bien en plan Gratuit après réception du webhook `customer.subscription.deleted`.
+- [ ] **Remboursement du test** : une fois les tests ci-dessus validés, rembourser la transaction de test dans Stripe → Customers (Refund) pour ne pas rester facturé pour de vrai.
+  - Rappel : l'organisation Meshwork a été remise à zéro le 2026-08-04 (plan Gratuit, aucun abonnement Stripe enregistré) suite à un ancien abonnement créé en mode Test devenu invalide après le passage en Live — voir mémoire `stripe-live-mode-migration-done`.
+
 ## Prochains chantiers (à compléter au fur et à mesure)
 
 - Étape C — Tableau de bord client : implémentée (2026-07-25), en attente de ton test réel ci-dessus.
