@@ -10,6 +10,8 @@ import { getProjectActivities } from './ProjectActivite';
 import { subscribeNotifs } from '../data/notificationStore';
 import { isDemoSession } from '../data/authStore';
 import { supabase } from '../data/supabaseClient';
+import { ProjectsListView } from '../components/ProjectsListView';
+import { ProjetCalendrier } from './ProjetCalendrier';
 import type { Project } from '../types';
 
 type IndividuTab = 'apercu' | 'projets' | 'calendrier' | 'fichiers' | 'finances' | 'activite';
@@ -88,36 +90,44 @@ export function FicheIndividu() {
   const avatarColor = 'avatarColor' in person ? person.avatarColor : person.color;
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <button onClick={() => navigate('/membres')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-mono)' }}>
-        <SFIcon name="arrow-left" size={12} /> {t('membres.title')}
-      </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <SFAvatar initials={person.initials} bg={avatarColor} size={44} />
-        <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 20, fontWeight: 800 }}>{person.name}</h1>
-          <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{person.email}</p>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ padding: '24px 24px 0' }}>
+        <button onClick={() => navigate('/membres')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-mono)', marginBottom: 20 }}>
+          <SFIcon name="arrow-left" size={12} /> {t('membres.title')}
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <SFAvatar initials={person.initials} bg={avatarColor} size={44} />
+          <div>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 20, fontWeight: 800 }}>{person.name}</h1>
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{person.email}</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginTop: 20 }}>
+          {TABS.map(({ key, labelKey }) => (
+            <button key={key} onClick={() => setTab(key)} style={{
+              padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
+              color: tab === key ? 'var(--text)' : 'var(--text-3)',
+              borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
+            }}>
+              {t(labelKey)}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
-        {TABS.map(({ key, labelKey }) => (
-          <button key={key} onClick={() => setTab(key)} style={{
-            padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
-            fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
-            color: tab === key ? 'var(--text)' : 'var(--text-3)',
-            borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
-          }}>
-            {t(labelKey)}
-          </button>
-        ))}
-      </div>
+      <div style={{
+        flex: 1, overflow: tab === 'calendrier' ? 'hidden' : 'auto',
+        padding: tab === 'calendrier' ? 0 : 24,
+        display: 'flex', flexDirection: 'column', gap: 14,
+      }}>
 
       {tab === 'apercu' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ padding: 14, borderRadius: 10, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {internal ? t('membres.typeInternal') : t('membres.typeExternal')}
+              {internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}
             </p>
             <p style={{ fontSize: 13 }}>{('role' in person && person.role) ? person.role : '—'}</p>
             {external && (
@@ -133,20 +143,11 @@ export function FicheIndividu() {
       )}
 
       {tab === 'projets' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {assignedProjects.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center' }}>{t('membres.noProjectsFound')}</p>
-          )}
-          {assignedProjects.map(p => (
-            <div key={p.id} onClick={() => navigate(`/projets/${p.id}`)} style={{ padding: 12, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer' }}>
-              {p.name}
-            </div>
-          ))}
-        </div>
+        <ProjectsListView projectIds={assignedProjects.map(p => p.id)} />
       )}
 
       {tab === 'calendrier' && (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('common.comingSoon')}</div>
+        <ProjetCalendrier embedded projectIds={assignedProjects.map(p => p.id)} />
       )}
       {tab === 'fichiers' && (
         <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{t('common.comingSoon')}</div>
@@ -156,6 +157,7 @@ export function FicheIndividu() {
       )}
 
       {tab === 'activite' && <ActivityFeed activities={activities} />}
+      </div>
     </div>
   );
 }

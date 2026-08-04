@@ -1504,7 +1504,20 @@
     "itemsCount": "{{count}} item(s)",
     "filesCount": "{{count}} file(s)",
     "versionsCount": "{{count}} version(s)",
-    "moveItemsCount": "Move {{count}} item(s)"
+    "moveItemsCount": "Move {{count}} item(s)",
+    "restaurer": "Restore",
+    "suppressionDefinitive": "Delete permanently",
+    "desarchiver": "Unarchive",
+    "mettreALaCorbeille": "Move to trash",
+    "ouvrir": "Open",
+    "renommer": "Rename",
+    "deplacerVers": "Move to…",
+    "archiver": "Archive",
+    "obtenirLesInfos": "Get info",
+    "nouveau": "New",
+    "nouveauDossier": "New folder",
+    "importerUnFichier": "Import a file",
+    "resources": "Resources"
   },
   "models": {
     "changeIcon": "Change icon",

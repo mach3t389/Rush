@@ -908,7 +908,7 @@ const VIEW_KEY = 'sf_projects_view';
 const FILTER_KEY = 'sf_projects_filter';
 const LIFECYCLE_FILTER_KEY = 'sf_projects_lifecycle_filter';
 
-export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientId?: string; autoOpen?: boolean; onModalClose?: () => void }) {
+export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose }: { clientId?: string; projectIds?: string[]; autoOpen?: boolean; onModalClose?: () => void }) {
   const { t } = useTranslation();
   const plan = usePlan();
   const [search, setSearch] = useState('');
@@ -918,8 +918,9 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   // Two independent dimensions, same as Clients: workflow stage (Terminé/En
   // cours/etc) and lifecycle (Tous/Actifs/Archivés) — an archived project
   // still has a real status, so mixing them into one filter doesn't work.
-  const [statusFilter, setStatusFilter] = useState<'all' | Status>(() => clientId ? 'all' : loadPersisted<'all' | Status>(FILTER_KEY, 'all'));
-  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>(() => clientId ? 'all' : loadPersisted<LifecycleFilter>(LIFECYCLE_FILTER_KEY, 'all'));
+  const scoped = !!clientId || !!projectIds;
+  const [statusFilter, setStatusFilter] = useState<'all' | Status>(() => scoped ? 'all' : loadPersisted<'all' | Status>(FILTER_KEY, 'all'));
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>(() => scoped ? 'all' : loadPersisted<LifecycleFilter>(LIFECYCLE_FILTER_KEY, 'all'));
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [sortOpen, setSortOpen] = useState(false);
@@ -934,8 +935,8 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   const clientFilterRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
-  const changeStatusFilter = (f: 'all' | Status) => { setStatusFilter(f); if (!clientId) savePersisted(FILTER_KEY, f); };
-  const changeLifecycleFilter = (f: LifecycleFilter) => { setLifecycleFilter(f); if (!clientId) savePersisted(LIFECYCLE_FILTER_KEY, f); };
+  const changeStatusFilter = (f: 'all' | Status) => { setStatusFilter(f); if (!scoped) savePersisted(FILTER_KEY, f); };
+  const changeLifecycleFilter = (f: LifecycleFilter) => { setLifecycleFilter(f); if (!scoped) savePersisted(LIFECYCLE_FILTER_KEY, f); };
 
   useEffect(() => subscribeProjects(() => setAllProjects(getProjects())), []);
 
@@ -943,13 +944,15 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
     if (autoOpen) { setShowModal(true); onModalClose?.(); }
   }, [autoOpen]);
 
-  const projects = clientId
-    ? allProjects.filter(p => p.clientId === clientId)
-    : clientFilter
-      ? allProjects.filter(p => p.clientId === clientFilter)
-      : allProjects;
+  const projects = projectIds
+    ? allProjects.filter(p => projectIds.includes(p.id))
+    : clientId
+      ? allProjects.filter(p => p.clientId === clientId)
+      : clientFilter
+        ? allProjects.filter(p => p.clientId === clientFilter)
+        : allProjects;
 
-  const SORT_OPTIONS = clientId
+  const SORT_OPTIONS = scoped
     ? ALL_SORT_OPTIONS.filter(o => o.value !== 'client')
     : ALL_SORT_OPTIONS;
 
@@ -957,7 +960,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
     .filter(p => {
       if (search) {
         const q = search.toLowerCase();
-        const match = p.name.toLowerCase().includes(q) || (!clientId && (p.clientName ?? '').toLowerCase().includes(q));
+        const match = p.name.toLowerCase().includes(q) || (!scoped && (p.clientName ?? '').toLowerCase().includes(q));
         if (!match) return false;
       }
       if (lifecycleFilter === 'archived' && !p.archived) return false;
@@ -980,7 +983,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
   // client's own Projets tab (clientId set): everything scrolls together
   // with the rest of that tab's content instead — there's no separate
   // fixed region to put a header in there.
-  const useFixedHeader = !clientId;
+  const useFixedHeader = !scoped;
 
   // "Archivé" is a lifecycle flag (orthogonal to workflow stage — an
   // archived project still has a real status), not another stage a project
@@ -1029,7 +1032,7 @@ export function ProjectsListView({ clientId, autoOpen, onModalClose }: { clientI
             list, same as they do. Sort and the view toggle (right-aligned,
             below) don't narrow anything — they just change how the
             results are displayed. */}
-        {!clientId && (() => {
+        {!scoped && (() => {
           const clientsWithProjects = getClients().filter(c => allProjects.some(p => p.clientId === c.id));
           if (clientsWithProjects.length === 0) return null;
           const selected = clientsWithProjects.find(c => c.id === clientFilter);
