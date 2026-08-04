@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFAvatar, SFButton } from '../components/ui';
+import { SFIcon, SFAvatar, SFButton, PageHeader, SFModal, LifecycleFilterDropdown } from '../components/ui';
 import { getTeamMembers, subscribeTeam, removeMember, type TeamMemberInfo } from '../data/teamStore';
 import { getAllClientContacts, subscribeAllClientContacts, removeClientTeamMember, addClientTeamMember } from '../data/clientTeamStore';
 import { getClients, subscribeClients } from '../data/clientStore';
@@ -118,34 +118,33 @@ export function Membres() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {liveEditingClient && <ClientEditPanel client={liveEditingClient} onClose={() => setEditingClient(null)} />}
-      <div style={{ padding: '24px 24px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 800 }}>{t('membres.title')}</h1>
-          {tab === 'individus' && (
-            <SFButton variant="primary" icon="user-plus" onClick={() => setShowInviteChoice(true)}>
-              {t('membres.inviteMember')}
-            </SFButton>
-          )}
-          {tab === 'groupes' && (
-            <SFButton variant="primary" icon="plus" onClick={() => setShowNewGroup(true)}>
-              {t('membres.newGroup')}
-            </SFButton>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginTop: 20 }}>
+      <PageHeader
+        title={t('membres.title')}
+        subtitle={tab === 'individus'
+          ? t('membres.countIndividus', { count: internalPeople.length + externalPeople.length })
+          : t('clients.count', { count: visibleGroups.length })}
+        actions={tab === 'individus' ? (
+          <SFButton variant="primary" icon="user-plus" onClick={() => setShowInviteChoice(true)}>
+            {t('membres.inviteMember')}
+          </SFButton>
+        ) : (
+          <SFButton variant="primary" icon="plus" onClick={() => setShowNewGroup(true)}>
+            {t('membres.newGroup')}
+          </SFButton>
+        )}
+      >
+        <div style={{ display: 'flex', gap: 18 }}>
           {(['individus', 'groupes'] as const).map(key => (
             <button key={key} onClick={() => setTab(key)} style={{
-              padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
-              color: tab === key ? 'var(--text)' : 'var(--text-3)',
+              fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)',
+              background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 6,
               borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
             }}>
               {t(key === 'individus' ? 'membres.tabIndividus' : 'membres.tabGroupes')}
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
       <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {tab === 'individus' && (
@@ -187,16 +186,12 @@ export function Membres() {
         {tab === 'groupes' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['active', 'archived', 'all'] as const).map(f => (
-              <button key={f} onClick={() => setGroupFilter(f)} style={{
-                padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontSize: 12,
-                border: `1px solid ${groupFilter === f ? 'var(--accent)' : 'var(--border)'}`,
-                background: groupFilter === f ? 'rgba(249,255,0,0.08)' : 'transparent',
-                color: groupFilter === f ? 'var(--text)' : 'var(--text-2)',
-              }}>
-                {t(f === 'active' ? 'clients.filterActive' : f === 'archived' ? 'clients.filterArchived' : 'clients.filterAll')}
-              </button>
-            ))}
+            <LifecycleFilterDropdown
+              value={groupFilter}
+              onChange={setGroupFilter}
+              categoryLabel={t('common.activityFilterLabel')}
+              labels={{ all: t('clients.filterAll'), active: t('clients.filterActive'), archived: t('clients.filterArchived') }}
+            />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             {visibleGroups.length === 0 && (
@@ -216,66 +211,48 @@ export function Membres() {
         )}
       </div>
 
-      {showInviteChoice && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-          onMouseDown={e => { if (e.target === e.currentTarget) setShowInviteChoice(false); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('membres.inviteChooseType')}</h3>
-              <button onClick={() => setShowInviteChoice(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
+      <SFModal open={showInviteChoice} onClose={() => setShowInviteChoice(false)} title={t('membres.inviteChooseType')} width={380}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button
+            onClick={() => { setShowInviteChoice(false); setShowInviteTeam(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
+          >
+            <SFIcon name="user-plus" size={16} />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600 }}>{t('membres.inviteInternal')}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.inviteInternalDesc')}</p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button
-                onClick={() => { setShowInviteChoice(false); setShowInviteTeam(true); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
-              >
-                <SFIcon name="user-plus" size={16} />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{t('membres.inviteInternal')}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.inviteInternalDesc')}</p>
-                </div>
-              </button>
-              <button
-                onClick={() => { setShowInviteChoice(false); setShowChooseClient(true); }}
-                disabled={clients.length === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: clients.length === 0 ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)', opacity: clients.length === 0 ? 0.5 : 1 }}
-              >
-                <SFIcon name="users" size={16} />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{t('membres.inviteExternal')}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.inviteExternalDesc')}</p>
-                </div>
-              </button>
-              {clients.length === 0 && (
-                <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.noClientsForInvite')}</p>
-              )}
+          </button>
+          <button
+            onClick={() => { setShowInviteChoice(false); setShowChooseClient(true); }}
+            disabled={clients.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: clients.length === 0 ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)', opacity: clients.length === 0 ? 0.5 : 1 }}
+          >
+            <SFIcon name="users" size={16} />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600 }}>{t('membres.inviteExternal')}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.inviteExternalDesc')}</p>
             </div>
-          </div>
+          </button>
+          {clients.length === 0 && (
+            <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('membres.noClientsForInvite')}</p>
+          )}
         </div>
-      )}
+      </SFModal>
 
-      {showChooseClient && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-          onMouseDown={e => { if (e.target === e.currentTarget) setShowChooseClient(false); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('membres.inviteChooseClient')}</h3>
-              <button onClick={() => setShowChooseClient(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-            </div>
-            <select
-              defaultValue=""
-              onChange={e => { if (e.target.value) { setInviteClientId(e.target.value); setShowChooseClient(false); } }}
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
-            >
-              <option value="" disabled>{t('membres.inviteChooseClientPlaceholder')}</option>
-              {clients.filter(c => !c.archived).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-              <SFButton variant="ghost" onClick={() => setShowChooseClient(false)}>{t('membres.cancel')}</SFButton>
-            </div>
-          </div>
+      <SFModal open={showChooseClient} onClose={() => setShowChooseClient(false)} title={t('membres.inviteChooseClient')} width={380}>
+        <select
+          defaultValue=""
+          onChange={e => { if (e.target.value) { setInviteClientId(e.target.value); setShowChooseClient(false); } }}
+          style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+        >
+          <option value="" disabled>{t('membres.inviteChooseClientPlaceholder')}</option>
+          {clients.filter(c => !c.archived).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <SFButton variant="ghost" onClick={() => setShowChooseClient(false)}>{t('membres.cancel')}</SFButton>
         </div>
-      )}
+      </SFModal>
 
       {showInviteTeam && <InviteTeamModal onClose={() => setShowInviteTeam(false)} />}
 

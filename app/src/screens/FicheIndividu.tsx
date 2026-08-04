@@ -96,24 +96,33 @@ export function FicheIndividu() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '24px 24px 0' }}>
-        <button onClick={() => navigate('/membres')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 12, fontFamily: 'var(--ff-mono)', marginBottom: 20 }}>
-          <SFIcon name="arrow-left" size={12} /> {t('membres.title')}
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <SFAvatar initials={person.initials} bg={avatarColor} size={44} />
+      {/* Breadcrumb — same mono-font bar every detail screen (FicheClient) uses */}
+      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
+        <button onClick={() => navigate('/membres')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('membres.title')}</button>
+        <span>/</span>
+        <span style={{ color: 'var(--text-2)' }}>{person.name}</span>
+      </div>
+
+      {/* Header — same avatar+name+meta block FicheClient uses for a group */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <SFAvatar initials={person.initials} bg={avatarColor} size={60} />
           <div>
-            <h1 style={{ fontFamily: 'var(--ff-display)', fontSize: 20, fontWeight: 800 }}>{person.name}</h1>
-            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{person.email}</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
+              {internal ? t('membres.sectionTeam') : t('membres.tabGroupes')}
+            </p>
+            <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{person.name}</h1>
+            <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 8 }}>{person.email}</p>
           </div>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginTop: 20 }}>
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ display: 'flex', gap: 18, borderBottom: '1px solid var(--border)' }}>
           {TABS.map(({ key, labelKey }) => (
             <button key={key} onClick={() => setTab(key)} style={{
-              padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--ff-text)', fontSize: 13, fontWeight: 600,
-              color: tab === key ? 'var(--text)' : 'var(--text-3)',
+              fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0',
               borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent',
             }}>
               {t(labelKey)}
