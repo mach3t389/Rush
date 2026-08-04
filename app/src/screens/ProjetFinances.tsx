@@ -9,11 +9,14 @@ import {
 } from '../data/financeStore';
 import { getClients } from '../data/clientStore';
 import { findProject } from '../data/projectStore';
-import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
+import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate, FinancesLocked } from './Finances';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
 
 export function ProjetFinances() {
   const { projectId = '' } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
+  const plan = usePlan();
   const project    = findProject(projectId);
   const allClients = getClients();
   const clientMap  = Object.fromEntries(allClients.map(c => [c.id, c]));
@@ -47,6 +50,15 @@ export function ProjetFinances() {
     background: 'var(--surface)', border: '1px solid var(--border)',
     borderRadius: 12, padding: '14px 16px',
   };
+
+  if (!canUseFeature(plan, 'finances')) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <ProjectHeaderBar projectId={projectId} />
+        <FinancesLocked />
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

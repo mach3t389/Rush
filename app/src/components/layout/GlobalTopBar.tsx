@@ -9,6 +9,8 @@ import { ProfileEditPanel, loadProfile, loadPhoto } from '../profile/ProfileEdit
 import { getShortcuts, subscribeShortcuts, formatCombo } from '../../data/shortcutsStore';
 import { getCurrentUser, logout } from '../../data/authStore';
 import { getMyAccessLevel } from '../../data/teamStore';
+import { usePlan } from '../../data/planStore';
+import { canUseFeature } from '../../data/planFeatures';
 
 interface Props {
   onSearch: () => void;
@@ -33,6 +35,8 @@ export function GlobalTopBar({ onSearch }: Props) {
   const [unreadCount, setUnreadCount] = useState(() => getNotifHistory().filter(n => !n.read).length);
   const [shortcuts, setShortcuts] = useState(getShortcuts);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const plan = usePlan();
+  const aiLocked = !canUseFeature(plan, 'ai');
 
   // Auth user — fall back to Léa if no session (dev convenience)
   const authUser = getCurrentUser();
@@ -122,12 +126,17 @@ export function GlobalTopBar({ onSearch }: Props) {
 
         {/* Assistant IA */}
         <button onClick={() => triggerAIToggle()}
-          style={{ ...labelBtn, color: 'var(--accent)', borderColor: 'rgba(249,255,0,0.25)', background: 'rgba(249,255,0,0.06)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(249,255,0,0.4)'; }}
+          style={{
+            ...labelBtn, color: 'var(--accent)', borderColor: 'rgba(249,255,0,0.25)', background: 'rgba(249,255,0,0.06)',
+            opacity: aiLocked ? 0.5 : 1, position: 'relative',
+          }}
+          onMouseEnter={e => { if (!aiLocked) { (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(249,255,0,0.4)'; } }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(249,255,0,0.25)'; }}>
           <SFIcon name="sparkles" size={14} color="var(--accent)" />
           {t('topbar.ai')}
-          <kbd style={{ fontSize: 10, color: 'var(--on-accent)', background: 'var(--accent)', border: '1px solid rgba(249,255,0,0.4)', borderRadius: 4, padding: '1px 6px', fontFamily: 'var(--ff-mono)', fontWeight: 700, lineHeight: 1.4 }}>{formatCombo(shortcuts.ai_toggle)}</kbd>
+          {aiLocked
+            ? <SFIcon name="lock" size={11} color="var(--accent)" />
+            : <kbd style={{ fontSize: 10, color: 'var(--on-accent)', background: 'var(--accent)', border: '1px solid rgba(249,255,0,0.4)', borderRadius: 4, padding: '1px 6px', fontFamily: 'var(--ff-mono)', fontWeight: 700, lineHeight: 1.4 }}>{formatCombo(shortcuts.ai_toggle)}</kbd>}
         </button>
 
         {/* Activité */}

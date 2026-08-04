@@ -1033,7 +1033,7 @@ const STATUS_FILTERS: Array<{ key: InvoiceStatus | 'all'; labelKey: string }> = 
   { key: 'overdue', labelKey: 'finance.filterOverdue' },
 ];
 
-function FinancesLocked() {
+export function FinancesLocked() {
   const { t } = useTranslation();
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
