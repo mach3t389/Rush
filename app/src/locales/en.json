@@ -535,7 +535,8 @@
     "tabActivity": "Activity",
     "tabFiles": "Files",
     "tabFinance": "Finance",
-    "personalProjectBadge": "Personal project"
+    "personalProjectBadge": "Personal project",
+    "groupTagHint": "View group page"
   },
   "common": {
     "required": "*",
