@@ -307,7 +307,7 @@ export function Sidebar() {
     return me ? loadPermissions(me.id, me.role) : null;
   })();
   const requiredForClients = getRequiredPermissionForPath('/clients')!;
-  const canSeeMembres = !effectivePerms || requiredForClients.some(p => effectivePerms.includes(p));
+  const canSeeClients = !effectivePerms || requiredForClients.some(p => effectivePerms.includes(p));
   const requiredForFinances = getRequiredPermissionForPath('/finances')!;
   const canSeeFinances = !effectivePerms || requiredForFinances.some(p => effectivePerms.includes(p));
 
@@ -467,9 +467,10 @@ export function Sidebar() {
 
           {/* Entités */}
           <NavItem to="/projets" icon="folder" label={t('nav.projects')} exact={true} collapsed={collapsed} />
-          {canSeeMembres && (
-            <NavItem to="/membres" icon="users" label={t('nav.membres')} exact={false} collapsed={collapsed} />
+          {canSeeClients && (
+            <NavItem to="/clients" icon="building-2" label={t('nav.clients')} exact={false} collapsed={collapsed} />
           )}
+          <NavItem to="/equipe" icon="users" label={t('nav.equipe')} exact={false} collapsed={collapsed} />
 
           {/* Séparateur */}
           <div style={{ height: 1, background: 'var(--border)', margin: collapsed ? '6px 4px' : '6px 12px' }} />

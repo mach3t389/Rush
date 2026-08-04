@@ -32,8 +32,7 @@ import { ClientProjectFinances } from './screens/client/ClientProjectFinances';
 import { isClientSession } from './data/clientSessionStore';
 import { TeamInvitationAccept } from './screens/TeamInvitationAccept';
 import { Clients } from './screens/Clients';
-import { Membres } from './screens/Membres';
-import { FicheIndividu } from './screens/FicheIndividu';
+import { MonEquipe } from './screens/MonEquipe';
 import { FicheClient } from './screens/FicheClient';
 import { CalendrierGlobal } from './screens/CalendrierGlobal';
 import { Parametres } from './screens/Parametres';
@@ -80,7 +79,7 @@ const clientLoader = async () => {
 };
 const viewAsClientLoader = async () => {
   const viewAs = getViewAsUser();
-  if (viewAs?.type !== 'external') return redirect('/membres?tab=groupes');
+  if (viewAs?.type !== 'external') return redirect('/clients');
   return null;
 };
 
@@ -148,8 +147,7 @@ const router = createBrowserRouter([
       { path: 'finances', element: <ViewAsPermissionGate><Finances /></ViewAsPermissionGate> },
       { path: 'clients', element: <ViewAsPermissionGate><Clients /></ViewAsPermissionGate> },
       { path: 'clients/:clientId', element: <ViewAsPermissionGate><FicheClient /></ViewAsPermissionGate> },
-      { path: 'membres', element: <ViewAsPermissionGate><Membres /></ViewAsPermissionGate> },
-      { path: 'membres/individus/:id', element: <ViewAsPermissionGate><FicheIndividu /></ViewAsPermissionGate> },
+      { path: 'equipe', element: <ViewAsPermissionGate><MonEquipe /></ViewAsPermissionGate> },
       { path: 'parametres', element: <Parametres /> },
       { path: 'activite', element: <Activite /> },
       { path: 'calendrier', element: <CalendrierGlobal /> },

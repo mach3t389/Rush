@@ -1930,9 +1930,9 @@ export function Parametres() {
     if (params.has('checkout')) return 'plan';
     return params.get('section') || 'infos';
   });
-  // Redirect to /membres when 'team' section is selected
+  // Redirect to /equipe when 'team' section is selected
   useEffect(() => {
-    if (activeSection === 'team') navigate('/membres', { replace: true });
+    if (activeSection === 'team') navigate('/equipe', { replace: true });
   }, [activeSection, navigate]);
   const plan = usePlan();
   const [studioInfo, setStudioInfo] = useState<StudioInfo>(getStudioInfo);
