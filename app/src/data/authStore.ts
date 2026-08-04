@@ -1,6 +1,7 @@
 import { USERS } from './mock';
 import { supabase } from './supabaseClient';
 import { resetStudioIdCache } from './studioStore';
+import { initNotifPrefsOnSignup } from './notifPrefsStore';
 
 export interface AuthUser {
   id: string;
@@ -116,6 +117,7 @@ export async function register(data: {
   name: string;
   email: string;
   password: string;
+  emailOptIn: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   if (!data.studioName.trim() || !data.name.trim() || !data.email.trim() || !data.password.trim())
     return { ok: false, error: 'auth.requiredFields' };
@@ -144,6 +146,7 @@ export async function register(data: {
   }
 
   localStorage.setItem(STUDIO_NAME_KEY, data.studioName.trim());
+  void initNotifPrefsOnSignup(data.emailOptIn).catch(err => console.error('initNotifPrefsOnSignup failed', err));
   return { ok: true };
 }
 
@@ -159,6 +162,7 @@ export async function registerClient(data: {
   name: string;
   email: string;
   password: string;
+  emailOptIn: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   if (!data.name.trim() || !data.email.trim() || !data.password.trim())
     return { ok: false, error: 'auth.requiredFields' };
@@ -185,6 +189,7 @@ export async function registerClient(data: {
     return { ok: false, error: 'auth.requiredFields' };
   }
 
+  void initNotifPrefsOnSignup(data.emailOptIn).catch(err => console.error('initNotifPrefsOnSignup failed', err));
   return { ok: true };
 }
 
