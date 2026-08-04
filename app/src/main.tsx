@@ -6,6 +6,9 @@ import './index.css';
 import i18n from './i18n/i18n';
 import { isAuthenticated } from './data/authStore';
 import { preloadResourceContent } from './data/resourceContentStore';
+import { applyPersistedUiFonts } from './data/uiFontsStore';
+
+applyPersistedUiFonts();
 
 import { AppShell } from './components/layout/AppShell';
 import { ViewAsPermissionGate } from './components/ViewAsPermissionGate';

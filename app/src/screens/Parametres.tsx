@@ -13,6 +13,7 @@ import { usePlan } from '../data/planStore';
 import { canUseFeature, PLAN_FEATURES, getStorageLimitGB, type PlanKey } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
 import { getWeekStart, setWeekStart, type WeekStart } from '../data/weekStartStore';
+import { loadUiFonts, saveUiFonts } from '../data/uiFontsStore';
 import { getStudioInfo, updateStudioInfo, subscribeStudioInfo, getStudioId, leaveCurrentStudio, type StudioInfo } from '../data/studioStore';
 import { getCurrentUser } from '../data/authStore';
 import { isTeamOwner, subscribeTeam, findTeamMember, getMyAccessLevel } from '../data/teamStore';
@@ -617,7 +618,6 @@ function KeyboardShortcutsSettings() {
 const SECTIONS = [
   { groupKey: 'settings.groupStudio', items: [
     { key: 'infos',       labelKey: 'settings.sectionStudioInfo'   },
-    { key: 'team',        labelKey: 'settings.sectionInternalTeam'  },
     { key: 'portail',     labelKey: 'settings.sectionClientPortal'  },
     { key: 'facturation', labelKey: 'settings.sectionBilling'       },
   ]},
@@ -876,22 +876,6 @@ const BODY_FONTS = [
   { label: 'Georgia',             value: "Georgia,'Times New Roman',serif",    google: null },
   { label: 'System UI',           value: "system-ui,sans-serif",              google: null },
 ];
-
-const FONT_STORAGE_KEY = 'sf_ui_fonts';
-
-function loadUiFonts() {
-  try {
-    const s = localStorage.getItem(FONT_STORAGE_KEY);
-    if (s) return JSON.parse(s) as { heading: string; body: string };
-  } catch { /* noop */ }
-  return { heading: "'Montserrat',sans-serif", body: "'Montserrat',sans-serif" };
-}
-
-function saveUiFonts(heading: string, body: string) {
-  try { localStorage.setItem(FONT_STORAGE_KEY, JSON.stringify({ heading, body })); } catch { /* noop */ }
-  document.documentElement.style.setProperty('--ff-display', heading);
-  document.documentElement.style.setProperty('--ff-text', body);
-}
 
 function loadGoogleFont(googleQuery: string | null) {
   if (!googleQuery) return;
