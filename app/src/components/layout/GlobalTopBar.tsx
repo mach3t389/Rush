@@ -211,7 +211,7 @@ export function GlobalTopBar({ onSearch }: Props) {
           initialName={me.name}
           initialRole={me.role}
           initialEmail={authUser?.email ?? 'lea.marchand@studioflow.fr'}
-          initialPhone="+1 514 555-0101"
+          initialPhone=""
           initialInitials={me.initials}
           initialColor={me.avatarColor}
           isSelf
