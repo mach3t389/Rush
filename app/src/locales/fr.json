@@ -960,7 +960,7 @@
     "archiveClient": "Archiver le groupe",
     "unarchiveClient": "Désarchiver le groupe",
     "deleteClientPermanently": "Supprimer définitivement",
-    "deleteClientConfirm": "Supprimer ce groupe et tout son contenu (projets, factures, fichiers) ? Cette action est irréversible.",
+    "deleteClientConfirm": "Supprimer ce groupe ? Ses projets seront conservés et détachés (\"sans groupe\") ; ses factures et fichiers propres au groupe seront supprimés. Cette action est irréversible.",
     "identity": "Identité",
     "clientName": "Nom du groupe",
     "subtitle": "Secteur d'activité",

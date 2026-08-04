@@ -960,7 +960,7 @@
     "archiveClient": "Archive group",
     "unarchiveClient": "Unarchive group",
     "deleteClientPermanently": "Delete permanently",
-    "deleteClientConfirm": "Delete this group and everything in it (projects, invoices, files)? This can't be undone.",
+    "deleteClientConfirm": "Delete this group? Its projects will be kept and detached (\"no group\"); its own invoices and files will be deleted. This can't be undone.",
     "identity": "Identity",
     "clientName": "Group name",
     "subtitle": "Industry",
