@@ -680,7 +680,7 @@ export function InvoiceFormPanel({
   const removeTaxLine = (idx: number) =>
     setTaxLines(prev => prev.filter((_, i) => i !== idx));
 
-  const clientProjects = allProjects.filter(p => p.clientId === clientId);
+  const clientProjects = allProjects.filter(p => p.clientId === clientId && p.financeEnabled);
   const lockedClientName  = lockedClientId  ? (allClients.find(c => c.id === lockedClientId)?.name  ?? lockedClientId)  : null;
   const lockedProjectName = lockedProjectId ? (allProjects.find(p => p.id === lockedProjectId)?.name ?? lockedProjectId) : null;
 
@@ -1063,7 +1063,7 @@ function MoveInvoicesModal({ count, projects, onMove, onClose }: {
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const filtered = projects.filter(p => !p.archived && p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = projects.filter(p => !p.archived && p.financeEnabled && !!p.clientId && p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <>
@@ -1171,7 +1171,7 @@ export function Finances() {
   const clientMap   = Object.fromEntries(allClients.map(c  => [c.id, c]));
   const projectMap  = Object.fromEntries(allProjects.map(p => [p.id, p]));
 
-  const clientFilterProjects = clientFilter ? allProjects.filter(p => p.clientId === clientFilter) : [];
+  const clientFilterProjects = clientFilter ? allProjects.filter(p => p.clientId === clientFilter && p.financeEnabled) : [];
 
   const revenue     = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
   const outstanding = invoices.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0);
