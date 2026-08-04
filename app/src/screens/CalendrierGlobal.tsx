@@ -201,7 +201,7 @@ function ProjectSelect({ value, onChange }: { value: string; onChange: (id: stri
   const [open, setOpen] = useState(false);
   const options = [
     { id: '', label: t('calendar.noProject'), color: null as string | null, italic: true },
-    ...getProjects().filter(p => !p.archived).map(p => ({ id: p.id, label: `${p.name} — ${p.clientName}`, color: p.clientColor as string | null, italic: false })),
+    ...getProjects().filter(p => !p.archived && p.calendarEnabled).map(p => ({ id: p.id, label: p.clientName ? `${p.name} — ${p.clientName}` : p.name, color: p.clientColor ?? 'var(--text-3)', italic: false })),
   ];
   const sel = options.find(o => o.id === value) ?? options[0];
   return (
@@ -706,10 +706,12 @@ export function CalendrierGlobal() {
   });
 
   // Filter events — modèle inclusion (même que ProjetCalendrier)
-  const visibleEvents = events.filter(ev =>
-    (selectedProjects.size === 0 || selectedProjects.has(ev.projectId ?? '')) &&
-    (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId))
-  );
+  const visibleEvents = events.filter(ev => {
+    const proj = ev.projectId ? getProjects().find(p => p.id === ev.projectId) : undefined;
+    if (proj && proj.calendarEnabled === false) return false;
+    return (selectedProjects.size === 0 || selectedProjects.has(ev.projectId ?? '')) &&
+      (selectedEventTypes.size === 0 || selectedEventTypes.has(ev.eventTypeId));
+  });
 
   const toggleEventType = (id: string) => setSelectedEventTypes(s => {
     const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
@@ -807,7 +809,7 @@ export function CalendrierGlobal() {
 
         {/* Project filters */}
         {(()=>{
-          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>p.status!=='neutral' && !p.archived).map(p=>({ id: p.id, name: p.name, color: p.clientColor }))];
+          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>p.status!=='neutral' && !p.archived && p.calendarEnabled).map(p=>({ id: p.id, name: p.name, color: p.clientColor ?? 'var(--text-3)' }))];
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>
