@@ -1420,7 +1420,7 @@ export function FicheClient() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Breadcrumb */}
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-        <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('client.breadcrumbClients')}</button>
+        <button onClick={() => navigate('/membres?tab=groupes')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('client.breadcrumbClients')}</button>
         <span>/</span>
         <span style={{ color: 'var(--text-2)' }}>{client.name}</span>
       </div>
@@ -1487,7 +1487,7 @@ export function FicheClient() {
                       <p style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>{t('client.deleteClientConfirm')}</p>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
-                          onClick={() => { removeClient(client.id); setClientMenuOpen(false); setConfirmDeleteClient(false); navigate('/clients'); }}
+                          onClick={() => { removeClient(client.id); setClientMenuOpen(false); setConfirmDeleteClient(false); navigate('/membres?tab=groupes'); }}
                           style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
                         >
                           {t('tasks.yes')}
