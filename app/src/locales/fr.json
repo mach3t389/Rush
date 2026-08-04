@@ -2474,6 +2474,7 @@
     "studioNamePlaceholder": "Ex: StudioFlow",
     "loginButton": "Se connecter",
     "registerButton": "Créer le compte",
+    "emailOptIn": "Je souhaite recevoir des notifications par courriel (mentions, approbations, etc.) — modifiable à tout moment dans Paramètres.",
     "sendResetButton": "Envoyer le lien",
     "forgotPasswordLink": "Mot de passe oublié ?",
     "noAccount": "Pas encore de compte ?",

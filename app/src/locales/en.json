@@ -2461,6 +2461,7 @@
     "studioNamePlaceholder": "e.g. StudioFlow",
     "loginButton": "Sign in",
     "registerButton": "Create account",
+    "emailOptIn": "I'd like to receive email notifications (mentions, approvals, etc.) — you can change this anytime in Settings.",
     "sendResetButton": "Send link",
     "forgotPasswordLink": "Forgot password?",
     "noAccount": "No account yet?",
