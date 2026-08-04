@@ -1474,12 +1474,14 @@ export function Travail() {
   const project = findProject(projectId ?? '') ?? getProjects()[0]!;
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);
+  const [focusCommentId, setFocusCommentId] = useState<string | undefined>();
 
   // Open task panel (+ optionally focus comments) from notification link
   useEffect(() => {
     const taskId = searchParams.get('openTask') ?? searchParams.get('highlight');
     if (!taskId) return;
     const focusComments = searchParams.get('focus') === 'comments';
+    const commentId = searchParams.get('commentId') ?? undefined;
     setSearchParams({}, { replace: true });
     const timer = setTimeout(() => {
       const allTasks = sections.flatMap(s => s.tasks);
@@ -1488,6 +1490,7 @@ export function Travail() {
         markTaskRead(taskId);
         setSelectedTask(task);
         setAutoFocusComments(focusComments);
+        setFocusCommentId(commentId);
       } else {
         // Fallback: flash the row if panel can't open
         const el = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`);
@@ -2109,7 +2112,8 @@ export function Travail() {
             task={selectedTask}
             sectionLabel={sections.find(s => s.tasks.some(t => t.id === selectedTask.id))?.label}
             autoFocusComments={autoFocusComments}
-            onClose={() => { setSelectedTask(null); setAutoFocusComments(false); }}
+            focusCommentId={focusCommentId}
+            onClose={() => { setSelectedTask(null); setAutoFocusComments(false); setFocusCommentId(undefined); }}
             onUpdate={patch => {
               updateTask(projectId!, selectedTask.id, patch);
               setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);

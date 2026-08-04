@@ -519,7 +519,7 @@ function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, o
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
 export function TaskPanel({
-  task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, inline,
+  task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, focusCommentId, inline,
   onConvertSubtasks, onMoveSubtasksAsTask, onCopySubtasksAsTask,
 }: {
   task: Task;
@@ -528,6 +528,7 @@ export function TaskPanel({
   onMove?: (newProjectId: string, newSectionLabel: string) => void;
   sectionLabel?: string;
   autoFocusComments?: boolean;
+  focusCommentId?: string;
   inline?: boolean;
   // Sous-tâches → tâches (multi-select + menu clic droit). Non fournis =
   // fonctionnalité masquée pour cet écran hôte (ex. Modèles).
@@ -561,14 +562,17 @@ export function TaskPanel({
   React.useEffect(() => {
     if (!autoFocusComments) return;
     const timer = setTimeout(() => {
-      commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      commentsAnchorRef.current?.style && (commentsAnchorRef.current.style.animation = 'highlight-flash 2s ease forwards');
-      commentsAnchorRef.current?.addEventListener('animationend', () => {
-        if (commentsAnchorRef.current) commentsAnchorRef.current.style.animation = '';
+      const target = focusCommentId
+        ? document.querySelector<HTMLElement>(`[data-comment-id="${focusCommentId}"]`)
+        : commentsAnchorRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target && (target.style.animation = 'highlight-flash 2s ease forwards');
+      target?.addEventListener('animationend', () => {
+        if (target) target.style.animation = '';
       }, { once: true });
     }, 200);
     return () => clearTimeout(timer);
-  }, [autoFocusComments]);
+  }, [autoFocusComments, focusCommentId]);
 
   useEffect(() => {
     if (descRef.current) {
@@ -799,10 +803,11 @@ export function TaskPanel({
 
   const submitComment = (text: string) => {
     if (!text.trim()) return;
-    const next = [...comments, { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const }];
+    const newComment = { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const };
+    const next = [...comments, newComment];
     setComments(next);
     onUpdate?.({ comments: next });
-    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId, commentId: newComment.id });
   };
 
   const submitReply = (commentId: string, text: string) => {
@@ -813,7 +818,10 @@ export function TaskPanel({
     );
     setComments(next);
     onUpdate?.({ comments: next });
-    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+    // Le fil est affiché sous le commentaire parent (pas de data-comment-id
+    // propre à la réponse) — on cible donc le commentaire parent, pas la
+    // réponse elle-même, pour que le scroll/flash retrouve un élément réel.
+    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId, commentId });
   };
 
   const toggleCommentResolved = (id: string) => {

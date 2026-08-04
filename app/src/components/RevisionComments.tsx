@@ -168,6 +168,7 @@ function CommentCard({
 
   return (
     <div
+      data-comment-id={comment.id}
       onClick={onActivate}
       style={{
         borderRadius: 10,
