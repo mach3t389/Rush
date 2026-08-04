@@ -52,7 +52,7 @@ function ensureFetchStarted(): void {
 
 async function saveSupabasePrefs(prefs: NotifPrefs): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) { console.warn('saveSupabasePrefs: no authenticated user, skipping upsert'); return; }
 
   const { error } = await supabase.from('notif_prefs').upsert({ user_id: user.id, prefs, updated_at: new Date().toISOString() });
   if (error) console.error('saveSupabasePrefs failed', error);
@@ -67,6 +67,8 @@ export async function initNotifPrefsOnSignup(emailOptIn: boolean): Promise<void>
   const prefs: NotifPrefs = emailOptIn
     ? DEFAULTS
     : Object.fromEntries(NOTIF_EVENTS.map(e => [e.key, { inapp: true, email: false }]));
+  _prefs = { ...DEFAULTS, ...prefs };
+  _fetchStarted = true;
   await saveSupabasePrefs(prefs);
 }
 
