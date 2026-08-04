@@ -59,6 +59,18 @@ export function Membres() {
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const liveEditingClient = editingClient ? (clients.find(c => c.id === editingClient.id) ?? editingClient) : null;
+  const [groupFilter, setGroupFilter] = useState<'active' | 'archived' | 'all'>('active');
+
+  // An archived group used to simply vanish from this tab with no way back
+  // in — no filter to see it, so no way to unarchive or permanently delete
+  // it either (that action lives on the card's own "…" menu, which never
+  // got a chance to render). Mirrors Clients.tsx's own all/active/archived
+  // filter so archived groups stay reachable from here too.
+  const visibleGroups = clients.filter(c => {
+    if (groupFilter === 'archived') return !!c.archived;
+    if (groupFilter === 'active') return !c.archived;
+    return true;
+  });
 
   const internalPeople: UnifiedPerson[] = team.map(m => ({
     id: m.id, name: m.name, email: m.email, initials: m.initials, color: m.avatarColor, isInternal: true,
@@ -173,8 +185,24 @@ export function Membres() {
         )}
 
         {tab === 'groupes' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['active', 'archived', 'all'] as const).map(f => (
+              <button key={f} onClick={() => setGroupFilter(f)} style={{
+                padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--ff-text)', fontSize: 12,
+                border: `1px solid ${groupFilter === f ? 'var(--accent)' : 'var(--border)'}`,
+                background: groupFilter === f ? 'rgba(249,255,0,0.08)' : 'transparent',
+                color: groupFilter === f ? 'var(--text)' : 'var(--text-2)',
+              }}>
+                {t(f === 'active' ? 'clients.filterActive' : f === 'archived' ? 'clients.filterArchived' : 'clients.filterAll')}
+              </button>
+            ))}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-            {clients.filter(c => !c.archived).map(c => (
+            {visibleGroups.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '20px 0', textAlign: 'center', gridColumn: '1 / -1' }}>{t('clients.noClientsFound')}</p>
+            )}
+            {visibleGroups.map(c => (
               <ClientCard
                 key={c.id}
                 client={c}
@@ -183,6 +211,7 @@ export function Membres() {
                 onClick={() => navigate(`/clients/${c.id}`)}
               />
             ))}
+          </div>
           </div>
         )}
       </div>
