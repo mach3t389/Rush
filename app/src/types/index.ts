@@ -43,9 +43,12 @@ export interface Client {
 export interface Project {
   id: string;
   name: string;
-  clientId: string;
-  clientName: string;
-  clientColor: string;
+  clientId?: string | null;
+  clientName?: string;
+  clientColor?: string;
+  calendarEnabled: boolean;
+  filesEnabled: boolean;
+  financeEnabled: boolean;
   phase: Phase;
   phaseLabel: string;
   progress: number;
