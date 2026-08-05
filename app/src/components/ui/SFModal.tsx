@@ -7,6 +7,9 @@ interface SFModalProps {
   onClose: () => void;
   title?: string;
   width?: number | string;
+  /** Fixed height — use when the dialog has tabs whose content differs in
+      length, so switching tabs doesn't resize/reposition the dialog. */
+  height?: number | string;
   maxHeight?: string;
   zIndex?: number;
   padding?: number | string;
@@ -20,6 +23,7 @@ export function SFModal({
   onClose,
   title,
   width = 400,
+  height,
   maxHeight,
   zIndex = 400,
   padding = 24,
@@ -55,10 +59,10 @@ export function SFModal({
           whatever's behind it. */}
       <div onClick={e => e.stopPropagation()} style={{
         position: 'relative', background: 'var(--surface)', border: '1px solid var(--border-2)',
-        borderRadius: 16, padding, width, maxHeight,
+        borderRadius: 16, padding, width, height, maxHeight,
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-        overflow: maxHeight ? 'hidden' : 'visible',
+        overflow: (height || maxHeight) ? 'hidden' : 'visible',
       }}>
         {title && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>

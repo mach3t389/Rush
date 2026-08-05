@@ -321,8 +321,19 @@ function EquipeTab({ clientId }: { clientId: string }) {
     // client_contacts row's own id, which is a different id space entirely.
     const permId = m.userId ?? m.id;
 
+    // Same live-lookup as MemberRow: an internal member's client_contacts
+    // row is a snapshot that can go stale (or, for rows written before the
+    // synthesised-address bug was fixed, was never correct to begin with) —
+    // read their real studio_members email instead of trusting m.email.
+    // Doing this in the initial useState (not just display) also means
+    // hitting "Enregistrer" without touching this field re-saves the
+    // CORRECT address, self-healing the row.
     const [name, setName] = useState(m.name);
-    const [email, setEmail] = useState(m.email);
+    const [email, setEmail] = useState(() => {
+      if (!m.internal) return m.email;
+      const live = getTeamMembers().find(tm => tm.membershipId === m.userId || tm.id === m.userId)?.email;
+      return live || m.email;
+    });
     const [role, setRole] = useState(m.role);
     const [photo, setPhoto] = useState<string | null>(m.photoUrl ?? null);
     const [resent, setResent] = useState(false);
@@ -390,7 +401,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
     }, {});
 
     return (
-      <SFModal open onClose={onClose} title={t('client.memberCard')} width={420} maxHeight="85vh" padding={24}>
+      <SFModal open onClose={onClose} title={t('client.memberCard')} width={420} height={640} maxHeight="85vh" padding={24}>
         <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Header */}
           <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -617,24 +628,17 @@ function EquipeTab({ clientId }: { clientId: string }) {
                 <SFButton variant="ghost" onClick={() => { removeMember(m.id); onClose(); }} style={{ color: 'var(--danger)' }}>{t('client.remove')}</SFButton>
               </div>
             ) : (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button onClick={() => setConfirmDelete(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12, fontFamily: 'var(--ff-text)', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,60,60,0.08)'; el.style.borderColor = 'var(--danger)'; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.borderColor = 'var(--border)'; }}>
-                    <SFIcon name="user-minus" size={13} color="var(--danger)" />
-                    {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
-                  </button>
-                  <div style={{ flex: 1 }} />
-                  {!m.internal && (
-                    <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                  <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
-                  <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
-                </div>
-              </>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SFButton variant="ghost" icon="user-minus" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--danger)' }}>
+                  {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
+                </SFButton>
+                <div style={{ flex: 1 }} />
+                {!m.internal && (
+                  <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
+                )}
+                <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+                <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
+              </div>
             )}
 
           </div>
