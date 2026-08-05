@@ -303,23 +303,32 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         <input ref={editTitleRef} autoFocus value={editTitle}
           onChange={e => setEditTitle(e.target.value)}
           onBlur={() => {
+            // Un titre vidé se commit comme n'importe quel autre changement :
+            // revenir à `sub.title` quand le champ est vide rendait la
+            // suppression du contenu impossible (on pouvait retirer des
+            // caractères, ils réapparaissaient au blur/Entrée). Escape reste
+            // le geste pour annuler une modification.
             const trimmed = editTitle.trim();
-            if (trimmed && trimmed !== sub.title) onUpdate({ title: trimmed });
-            else setEditTitle(sub.title);
+            if (trimmed !== sub.title) onUpdate({ title: trimmed });
+            setEditTitle(trimmed);
             setEditing(false);
           }}
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault();
               const trimmed = editTitle.trim();
+              setEditTitle(trimmed);
               setEditing(false);
               if (trimmed) {
                 // Like AddTaskRow: Enter on a titled row commits the title
                 // AND opens a fresh blank row right after it, as one atomic
                 // update — so a checklist can be typed line by line.
                 onEnterNext?.(trimmed);
-              } else {
-                setEditTitle(sub.title);
+              } else if (trimmed !== sub.title) {
+                // Titre vidé : on commit le vide, sans ouvrir de nouvelle
+                // ligne (enchaîner sur une ligne vierge après en avoir vidé
+                // une n'a aucun sens).
+                onUpdate({ title: trimmed });
               }
             }
             if (e.key === 'Escape') { setEditTitle(sub.title); setEditing(false); }
