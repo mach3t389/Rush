@@ -680,7 +680,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     { key: 'files',    label: t('projects.moduleFiles'),    checked: filesEnabled,    onToggle: () => setFilesEnabled(v => !v),    locked: false, disabled: false },
                     { key: 'finance',  label: t('projects.moduleFinance'),  checked: financeEnabled,  onToggle: () => setFinanceEnabled(v => !v),  locked: !canUseFeature(plan, 'finances'), disabled: isPersonalProject || (!clientId && !newClientName.trim()) },
                   ].map(m => {
-                    const showLock = m.key === 'finance' && m.locked;
+                    const showLock = m.key === 'finance' && m.locked && !m.disabled;
                     return (
                       <button
                         key={m.key}
