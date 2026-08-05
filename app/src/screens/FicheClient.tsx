@@ -152,7 +152,7 @@ export function InviteModal({ existingEmails, onClose, onInvite }: {
 
 function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: string[]; onClose: () => void; onAssign: (members: ClientMember[]) => void }) {
   const { t } = useTranslation();
-  const available = getInternalTeam().filter(u => !existingIds.includes(u.id));
+  const available = getInternalTeam().filter(u => !existingIds.includes(u.membershipId ?? u.id));
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => setSelected(prev => {
@@ -167,7 +167,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
   const handleConfirm = () => {
     const members: ClientMember[] = available
       .filter(u => selected.has(u.id))
-      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@rushflow.com`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
+      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@rushflow.com`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.membershipId ?? u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
     if (members.length) onAssign(members);
     onClose();
   };

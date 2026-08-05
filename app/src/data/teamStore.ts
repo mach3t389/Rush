@@ -30,6 +30,7 @@ export interface TeamMemberInfo extends User {
 }
 
 interface StudioMemberRow {
+  id: string;
   user_id: string;
   name: string;
   email: string;
@@ -47,6 +48,12 @@ interface StudioMemberRow {
 function toMember(row: StudioMemberRow): TeamMemberInfo {
   return {
     id: row.user_id,
+    // The studio_members table's own row id — NOT the same as `id` above
+    // (that's the person's auth user_id). client_contacts.studio_member_id
+    // has a foreign key to studio_members(id), not studio_members(user_id)
+    // (see the 2026-07-13 multi-org migration, which repointed it) — any
+    // code writing that column must use THIS value, never `.id`.
+    membershipId: row.id,
     name: row.name,
     initials: row.initials,
     avatarColor: row.avatar_color,
@@ -72,7 +79,7 @@ async function fetchMembers(): Promise<void> {
   const studioId = await getStudioId();
   const { data, error } = await supabase
     .from('studio_members')
-    .select('user_id, name, email, role, initials, avatar_color, is_owner, created_at, phone, photo_url, permissions, access_level')
+    .select('id, user_id, name, email, role, initials, avatar_color, is_owner, created_at, phone, photo_url, permissions, access_level')
     .eq('studio_id', studioId)
     .order('created_at', { ascending: true });
 

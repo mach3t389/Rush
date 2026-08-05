@@ -11,6 +11,12 @@ export interface User {
   avatarColor: string;
   role: string;
   photoUrl?: string;
+  // The studio_members row's own id (distinct from `id` above, which is the
+  // person's auth user_id) — only populated for real internal team members
+  // (see TeamMemberInfo in teamStore.ts). Needed wherever a client_contacts
+  // row's studio_member_id FK gets written; using `.id` there violates the
+  // foreign key (it references studio_members(id), not studio_members(user_id)).
+  membershipId?: string;
 }
 
 // ── Client ────────────────────────────────────────────────────────────────────
