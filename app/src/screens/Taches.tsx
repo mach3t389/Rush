@@ -19,6 +19,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { isSameDay, startOfWeek, addDays } from '../components/calendar/calendarUtils';
 import { markTaskRead } from '../data/notificationStore';
 import { useTaskNotifCount } from '../hooks/useNotifs';
+import { stripHtml } from '../utils/stripHtml';
 
 // ── Task activity cell ────────────────────────────────────────────────────────
 
@@ -569,7 +570,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
           </span>
         )}
         {!editingTitle && task.description && (
-          <span title={task.description.slice(0, 120)} style={{ flexShrink: 0, marginLeft: 5, display: 'flex', alignItems: 'center' }}>
+          <span title={stripHtml(task.description).slice(0, 120)} style={{ flexShrink: 0, marginLeft: 5, display: 'flex', alignItems: 'center' }}>
             <SFIcon name="text-align-start" size={11} color="var(--text-3)" />
           </span>
         )}

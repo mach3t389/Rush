@@ -7,6 +7,7 @@ import { showToast } from '../data/toastStore';
 import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
+import { stripHtml } from '../utils/stripHtml';
 import type { Task, Priority, SectionData } from '../types';
 
 const PRIORITY_COLOR: Record<Priority, string> = {
@@ -533,7 +534,7 @@ export function TravailBoard({
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                             {task.description && (
-                              <span title={task.description.slice(0, 120)} style={{ display: 'flex', alignItems: 'center' }}>
+                              <span title={stripHtml(task.description).slice(0, 120)} style={{ display: 'flex', alignItems: 'center' }}>
                                 <SFIcon name="text-align-start" size={11} color="var(--text-3)" />
                               </span>
                             )}
