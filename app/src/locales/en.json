@@ -723,7 +723,7 @@
     "passwordResetSent": "Email sent",
     "dangerZone": "Danger zone",
     "deleteAccount": "Delete my account",
-    "deleteWarning": "This action is irreversible. Your account and access to all your organizations will be permanently deleted.",
+    "deleteWarning": "This action is irreversible. Your account will be permanently deleted. If you're the sole owner of an organization, it (projects, clients, files) will be deleted too.",
     "deleteConfirmInstructions": "Retype your email ({{email}}) to confirm.",
     "confirmDelete": "Delete permanently",
     "deleteBlockedOwner": "You're the sole owner of at least one organization with other members. Transfer ownership before deleting your account.",
@@ -2586,6 +2586,7 @@
     "backToLogin": "Back to login"
   },
   "teamInvitation": {
+    "photoTooLarge": "Photo is too large (max 2MB).",
     "invalidTitle": "Invalid invitation link",
     "invalidDesc": "This link doesn't exist, has expired, or was already used. Contact the person who invited you for a new one.",
     "pendingTitle": "Join the team",

@@ -723,7 +723,7 @@
     "passwordResetSent": "Courriel envoyé",
     "dangerZone": "Zone de danger",
     "deleteAccount": "Supprimer mon compte",
-    "deleteWarning": "Cette action est irréversible. Ton compte et l'accès à toutes tes organisations seront supprimés définitivement.",
+    "deleteWarning": "Cette action est irréversible. Ton compte sera supprimé définitivement. Si tu es seul propriétaire d'une organisation, celle-ci (projets, clients, fichiers) sera aussi supprimée.",
     "deleteConfirmInstructions": "Retape ton adresse courriel ({{email}}) pour confirmer.",
     "confirmDelete": "Supprimer définitivement",
     "deleteBlockedOwner": "Tu es seul propriétaire d'au moins une organisation avec d'autres membres. Transfère la propriété avant de supprimer ton compte.",
@@ -2586,6 +2586,7 @@
     "backToLogin": "Retour à la connexion"
   },
   "teamInvitation": {
+    "photoTooLarge": "La photo est trop volumineuse (max 2 Mo).",
     "invalidTitle": "Lien d'invitation invalide",
     "invalidDesc": "Ce lien n'existe pas, a expiré, ou a déjà été utilisé. Contactez la personne qui vous a invité(e) pour en obtenir un nouveau.",
     "pendingTitle": "Rejoindre l'équipe",

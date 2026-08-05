@@ -1,5 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -61,6 +64,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (blockedStudioIds.length > 0) {
     res.status(409).json({ error: 'owner_must_transfer', studios: blockedStudioIds });
     return;
+  }
+
+  for (const { studio_id } of ownedMemberships ?? []) {
+    const { data: studio } = await supabaseAdmin
+      .from('studios')
+      .select('stripe_subscription_id')
+      .eq('id', studio_id)
+      .maybeSingle();
+    if (studio?.stripe_subscription_id) {
+      try {
+        await stripe.subscriptions.cancel(studio.stripe_subscription_id);
+      } catch (err) {
+        console.error(`Failed to cancel Stripe subscription for studio ${studio_id}:`, err);
+        // Don't block account deletion on a Stripe API hiccup — the studio row
+        // (and its stripe_subscription_id) is about to be deleted anyway via
+        // cascade, so a stuck subscription would otherwise become unreachable
+        // from the app entirely. Log and continue.
+      }
+    }
   }
 
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);

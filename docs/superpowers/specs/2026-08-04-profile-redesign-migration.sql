@@ -25,6 +25,8 @@ as $function$
   );
 $function$;
 
+drop function if exists public.accept_studio_invitation(text);
+
 create or replace function accept_studio_invitation(
   p_token text,
   p_name text default null,

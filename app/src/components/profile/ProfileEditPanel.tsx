@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, SFModal } from '../ui';
-import { isDemoSession, resetPassword } from '../../data/authStore';
+import { isDemoSession, resetPassword, getCurrentUser } from '../../data/authStore';
 import { supabase } from '../../data/supabaseClient';
 import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
 import { computeInitials } from '../../utils/initials';
@@ -189,6 +189,7 @@ export function ProfileEditPanel({
   const [photo, setPhoto] = useState<string | null>(loadPhoto(userId));
   const [permissions, setPermissions] = useState<PermissionKey[]>(() => loadPermissions(userId, overrides.role ?? initialRole));
   const [memberAccessLevel, setMemberAccessLevel] = useState<AccessLevel>(() => loadAccessLevel(userId));
+  const accountEmail = isSelf ? (getCurrentUser()?.email ?? '') : '';
   const [tab, setTab] = useState<'info' | 'permissions' | 'account'>('info');
   const [pwResetSent, setPwResetSent] = useState(false);
   const [pwResetSending, setPwResetSending] = useState(false);
@@ -242,14 +243,14 @@ export function ProfileEditPanel({
   const handlePasswordReset = async () => {
     if (isDemoSession()) return;
     setPwResetSending(true);
-    const result = await resetPassword(email);
+    const result = await resetPassword(accountEmail);
     setPwResetSending(false);
     if (result.ok) setPwResetSent(true);
   };
 
   const handleDeleteAccount = async () => {
     if (isDemoSession()) return;
-    if (deleteConfirmText.trim().toLowerCase() !== initialEmail.trim().toLowerCase() || !deleteConfirmText.trim()) return;
+    if (deleteConfirmText.trim().toLowerCase() !== accountEmail.trim().toLowerCase() || !deleteConfirmText.trim()) return;
     setDeleteError('');
     setDeleting(true);
     try {
@@ -532,7 +533,7 @@ export function ProfileEditPanel({
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <p style={{ fontSize: 13, color: 'var(--text)' }}>{email}</p>
+                    <p style={{ fontSize: 13, color: 'var(--text)' }}>{accountEmail}</p>
                     {!isDemoSession() && (
                       <button onClick={() => setChangingEmail(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
                         {t('profile.changeEmail')}
@@ -567,14 +568,14 @@ export function ProfileEditPanel({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 10, border: '1px solid var(--danger)', background: 'rgba(255,80,80,0.06)' }}>
                     <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('profile.deleteWarning')}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('profile.deleteConfirmInstructions', { email: initialEmail })}</p>
-                    <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} style={inputStyle} placeholder={initialEmail} />
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('profile.deleteConfirmInstructions', { email: accountEmail })}</p>
+                    <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} style={inputStyle} placeholder={accountEmail} />
                     {deleteError && <p style={{ fontSize: 11, color: 'var(--danger)' }}>{deleteError}</p>}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={handleDeleteAccount}
-                        disabled={!deleteConfirmText.trim() || deleteConfirmText.trim().toLowerCase() !== initialEmail.trim().toLowerCase() || deleting}
-                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === initialEmail.trim().toLowerCase() ? 'var(--danger)' : 'var(--surface-3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === initialEmail.trim().toLowerCase() ? 'pointer' : 'not-allowed', fontFamily: 'var(--ff-text)' }}
+                        disabled={!deleteConfirmText.trim() || deleteConfirmText.trim().toLowerCase() !== accountEmail.trim().toLowerCase() || deleting}
+                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === accountEmail.trim().toLowerCase() ? 'var(--danger)' : 'var(--surface-3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === accountEmail.trim().toLowerCase() ? 'pointer' : 'not-allowed', fontFamily: 'var(--ff-text)' }}
                       >
                         {deleting ? '…' : t('profile.confirmDelete')}
                       </button>
