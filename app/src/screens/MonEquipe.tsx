@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar } from '../components/ui';
+import { SFButton, SFIcon, SFAvatar, PageHeader } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import type { AccessLevel } from '../data/teamStore';
@@ -377,19 +377,12 @@ export function MonEquipe() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{t('team.title')}</h1>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {t('team.subtitle', { count: team.length })}
-          </p>
-        </div>
-        <SFButton variant="primary" icon="user-plus" onClick={() => openInviteModal()}>{t('team.inviteMember')}</SFButton>
-      </div>
-
-      {/* Search */}
-      <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+      {/* Header — shared PageHeader, same title/subtitle size and surface
+          background as Clients.tsx/Projets, instead of a hand-rolled block
+          that drifted from both (22px title vs 20px, no explicit surface
+          background). */}
+      <PageHeader title={t('team.title')} subtitle={t('team.subtitle', { count: team.length })}
+        actions={<SFButton variant="primary" icon="user-plus" onClick={() => openInviteModal()}>{t('team.inviteMember')}</SFButton>}>
         <div style={{ position: 'relative', maxWidth: 360 }}>
           <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <SFIcon name="search" size={14} color="var(--text-3)" />
@@ -419,7 +412,7 @@ export function MonEquipe() {
             ))}
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {/* Team grid */}
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
@@ -434,7 +427,12 @@ export function MonEquipe() {
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
               >
-                <SFAvatar initials={member.initials} bg={member.avatarColor} size={48} />
+                {/* Square badge, same shape/size as ClientCard's (Clients.tsx)
+                    — was a 48px circular SFAvatar, the one visible mismatch
+                    against how Clients/Projets present a person/entity. */}
+                <div style={{ width: 40, height: 40, borderRadius: 9, background: member.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                  {member.initials}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{member.name}</p>
                   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: roleColor + '22', color: roleColor, letterSpacing: '0.05em' }}>{member.role}</span>
