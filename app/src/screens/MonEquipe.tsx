@@ -632,17 +632,6 @@ export function MonEquipe() {
               </div>
             </SFCard>
           ))}
-
-          {/* Invite placeholder card */}
-          <div
-            onClick={() => openInviteModal()}
-            style={{ background: 'transparent', borderRadius: 'var(--radius)', border: '1.5px dashed var(--border-2)', padding: '18px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)', minHeight: 90, transition: 'border-color 0.12s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-          >
-            <SFIcon name="user-plus" size={18}  />
-            <span style={{ fontSize: 13, fontFamily: 'var(--ff-text)' }}>{t('team.inviteMember')}</span>
-          </div>
         </div>
       </div>
 
