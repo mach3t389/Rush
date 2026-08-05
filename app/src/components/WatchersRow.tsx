@@ -17,10 +17,11 @@ export function WatchersRow({ watchers, onAdd, onRemove }: {
   const available = members.filter(m => !watchers.includes(m.id));
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
         {t('watchers.label')}
       </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {watcherMembers.map(m => (
         <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 6px 2px 2px', borderRadius: 20, background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
           <SFAvatar initials={m.initials} bg={m.avatarColor} size={18} />
@@ -34,6 +35,7 @@ export function WatchersRow({ watchers, onAdd, onRemove }: {
         style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer' }}>
         <SFIcon name="plus" size={11} /> {t('watchers.add')}
       </button>
+      </div>
       {pickerOpen && anchor && createPortal(
         <>
           <div onClick={() => setPickerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 490 }} />

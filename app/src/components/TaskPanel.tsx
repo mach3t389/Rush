@@ -1038,15 +1038,6 @@ export function TaskPanel({
               {titleValue}
             </h3>
           )}
-          {/* Observateurs — sous le titre, pas en haut de la colonne
-              commentaires : trop proche du bouton fermer épinglé au panneau. */}
-          <div style={{ marginBottom: 10 }}>
-            <WatchersRow
-              watchers={task.watchers ?? []}
-              onAdd={id => onUpdate?.({ watchers: addWatcher(task.watchers, id) })}
-              onRemove={id => onUpdate?.({ watchers: (task.watchers ?? []).filter(w => w !== id) })}
-            />
-          </div>
           {/* Metadata row — assigné/priorité/statut/date all on one compact line */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             {/* Assigné */}
@@ -1055,6 +1046,7 @@ export function TaskPanel({
               size={22}
               max={3}
               onChange={next => { setEditAssignees(next); onUpdate?.({ assignees: next }); }}
+              zIndex={300}
             />
             <span style={{ width: 1, height: 16, background: 'var(--border)' }} />
             {/* Priorité */}
@@ -1347,11 +1339,20 @@ export function TaskPanel({
           <div style={{ position: 'relative' }}>
             {resourcePickerOpen && (() => {
                   const dropH = 440;
+                  const dropW = 320;
                   const spaceBelow = resPickerRect ? window.innerHeight - resPickerRect.bottom - 8 : 0;
                   const openUp = resPickerRect && spaceBelow < dropH;
                   const topPos = openUp
                     ? (resPickerRect!.top - dropH - 6)
                     : (resPickerRect ? resPickerRect.bottom + 6 : 100);
+                  // Ancré par le bord GAUCHE de l'ancre (comme AssigneeMenu),
+                  // pas par le bord droit : le bouton +Ajouter est maintenant
+                  // au pied de la colonne gauche, près du bord gauche de
+                  // l'écran — ancrer par la droite poussait la boîte
+                  // (300-340px) hors écran à gauche (x négatif, bug vécu).
+                  const leftPos = resPickerRect
+                    ? Math.max(8, Math.min(resPickerRect.left, window.innerWidth - dropW - 8))
+                    : 20;
                   // Portaled to document.body — the modal panel uses a CSS
                   // `transform` for centering, which makes it the containing
                   // block for `position: fixed` descendants. Left in-tree, this
@@ -1360,7 +1361,7 @@ export function TaskPanel({
                   return createPortal(
                     <>
                       <div onClick={() => setResourcePickerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
-                      <div style={{ position: 'fixed', top: Math.max(8, topPos), right: resPickerRect ? window.innerWidth - resPickerRect.right : 20, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.6)', minWidth: 300, maxWidth: 340, display: 'flex', flexDirection: 'column', maxHeight: Math.min(dropH, window.innerHeight - 24) }}>
+                      <div style={{ position: 'fixed', top: Math.max(8, Math.min(topPos, window.innerHeight - dropH - 8)), left: leftPos, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.6)', minWidth: 300, maxWidth: dropW, display: 'flex', flexDirection: 'column', maxHeight: Math.min(dropH, window.innerHeight - 24) }}>
                         {/* Scrollable resource list */}
                         <div style={{ overflowY: 'auto', flex: 1, padding: 6 }}>
                           <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '6px 10px 4px' }}>{t('taskPanel.existingResources')}</p>
@@ -1563,6 +1564,16 @@ export function TaskPanel({
               RevisionCommentSidebar (flex:1, minHeight:0 en mode embedded)
               qui gère son propre défilement interne de la liste. */}
           <div style={{ flex: '0 0 380px', maxWidth: 380, overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)' }}>
+
+          {/* Observateurs — toujours au-dessus des commentaires, jamais dans
+              l'en-tête (colonne de gauche) : les deux notions sont liées. */}
+          <div style={{ marginBottom: 14, flexShrink: 0 }}>
+            <WatchersRow
+              watchers={task.watchers ?? []}
+              onAdd={id => onUpdate?.({ watchers: addWatcher(task.watchers, id) })}
+              onRemove={id => onUpdate?.({ watchers: (task.watchers ?? []).filter(w => w !== id) })}
+            />
+          </div>
 
           {/* Commentaires — même composant que Document/Révision web/Scénario/etc., pour un système identique partout */}
           <div ref={commentsAnchorRef} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
