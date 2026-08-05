@@ -382,7 +382,16 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', boxShadow: '0 24px 72px rgba(0,0,0,0.6)', width: 820, height: 640, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ position: 'relative', padding: '20px 28px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
+            <StepDot label={t('projects.stepIdentity')} num={1} active={step === 'identity'} done={stepDone('identity')} reachable={isStepReachable('identity')} onClick={() => setStep('identity')} />
+            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label={t('projects.stepClient')} num={2} active={step === 'client'} done={stepDone('client')} reachable={isStepReachable('client')} onClick={() => setStep('client')} />
+            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label={t('projects.stepTemplate')} num={3} active={step === 'template'} done={stepDone('template')} reachable={isStepReachable('template')} onClick={() => setStep('template')} />
+            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label={t('projects.stepTeam')} num={4} active={step === 'team'} done={stepDone('team')} reachable={isStepReachable('team')} onClick={() => setStep('team')} />
+          </div>
           <div>
             <h2 style={{ fontSize: 17, fontWeight: 700 }}>{t('projects.newProject')}</h2>
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
@@ -392,16 +401,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 : t('projects.stepTeamSubtitle')}
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <StepDot label={t('projects.stepIdentity')} num={1} active={step === 'identity'} done={stepDone('identity')} reachable={isStepReachable('identity')} onClick={() => setStep('identity')} />
-            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepClient')} num={2} active={step === 'client'} done={stepDone('client')} reachable={isStepReachable('client')} onClick={() => setStep('client')} />
-            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepTemplate')} num={3} active={step === 'template'} done={stepDone('template')} reachable={isStepReachable('template')} onClick={() => setStep('template')} />
-            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepTeam')} num={4} active={step === 'team'} done={stepDone('team')} reachable={isStepReachable('team')} onClick={() => setStep('team')} />
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
+          <button onClick={onClose} style={{ position: 'absolute', top: 20, right: 28, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={17} />
           </button>
         </div>
