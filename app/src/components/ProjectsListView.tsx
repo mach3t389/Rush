@@ -9,6 +9,8 @@ import type { Project, Status, Phase, SectionData, Task, User, Client } from '..
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS, type EditUpdates } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
 import { getClients, addClient, findClient, subscribeClients } from '../data/clientStore';
+import { getClientExternalTeam, subscribeClientTeam } from '../data/clientTeamStore';
+import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { setProjectContent } from '../data/projectContentStore';
 import { addFolderTree } from '../data/fileStore';
@@ -108,6 +110,32 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const authUser = getCurrentUser();
   const defaultMemberId = (!isDemoSession() && authUser && team.some(u => u.id === authUser.id)) ? authUser.id : team[0]?.id;
   const [memberIds, setMemberIds]       = useState<string[]>(defaultMemberId ? [defaultMemberId] : []);
+  // External members picker: individually-picked contacts of the client
+  // selected in step 2, plus whole-client bulk chips for OTHER clients —
+  // same three-pool pattern as ProjectMembres.tsx's AddMemberModal, ported
+  // here so a project can be created with external collaborators already
+  // attached instead of only internal team members.
+  const [externalPickedIds, setExternalPickedIds] = useState<Set<string>>(new Set());
+  const [groupPickedIds, setGroupPickedIds]       = useState<Set<string>>(new Set());
+  // Empty-state guard for bulk-picked "other client" chips whose contact pool
+  // hasn't finished loading yet (or is genuinely empty) — same check as
+  // ProjectMembres.tsx's AddMemberModal.handleConfirm, ported here so
+  // create() doesn't silently add zero people with no feedback.
+  const [emptyGroupWarning, setEmptyGroupWarning] = useState(false);
+  // If the step-2 client selection changes after some of its contacts were
+  // picked in step 3, those picks were scoped to the OLD client's contact
+  // pool and become orphaned (unresolvable, undeselectable) once step 3
+  // re-renders against the new client. groupPickedIds is untouched — it's
+  // scoped to explicitly-chosen OTHER clients, independent of step 2.
+  useEffect(() => { setExternalPickedIds(new Set()); }, [clientId, isPersonalProject]);
+  // getClientExternalTeam()/getClients() read synchronous caches that start
+  // empty until their background Supabase fetch resolves — without these
+  // subscriptions the contacts pool and bulk-chip counts below would freeze
+  // at the stale empty state until some unrelated re-render happened.
+  const [, forceContactsRerender] = useState(0);
+  useEffect(() => subscribeClientTeam(() => forceContactsRerender(n => n + 1)), []);
+  const [, forceClientsRerender] = useState(0);
+  useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
 
   const [templateSearch, setTemplateSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -133,6 +161,36 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     setMemberIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const toggleExternal = (id: string) => setExternalPickedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const toggleGroupPick = (id: string) => setGroupPickedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  // Selected client (step 2) whose contacts get their own pool + bulk-add
+  // button — only when a real, already-existing client was picked (a
+  // freshly-typed newClientName has no id/contacts yet at this step).
+  // Mirrors create()'s own client resolution (allClients[0] fallback when no
+  // client was explicitly picked yet) so the contacts pool/bulk-add shown
+  // here always matches the client the project will actually end up with —
+  // otherwise picks here could target an empty-string clientId while
+  // create() silently assigns the project to allClients[0].
+  const selectedClientId = !isPersonalProject ? ((clientId || clients[0]?.id) ?? '') : '';
+  const selectedClientContacts = selectedClientId ? getClientExternalTeam(selectedClientId) : [];
+  const selectedClientName = selectedClientId ? getClients().find(c => c.id === selectedClientId)?.name : undefined;
+  const addAllSelectedClientContacts = () => {
+    setExternalPickedIds(prev => {
+      const next = new Set(prev);
+      selectedClientContacts.forEach(c => next.add(c.id));
+      return next;
+    });
+  };
+
   const canNext = step === 'start' ? true
     : step === 'info' ? name.trim().length > 0 && (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0)
     : true; // 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
@@ -152,6 +210,13 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   };
 
   const create = async () => {
+    // A picked "other client" chip whose contact team is still empty (fetch not
+    // resolved yet, or genuinely no contacts) would otherwise silently add zero
+    // people with no feedback — block and warn instead of proceeding, same as
+    // AddMemberModal.handleConfirm in ProjectMembres.tsx.
+    const emptyPickedGroup = [...groupPickedIds].some(groupId => getClientExternalTeam(groupId).length === 0);
+    if (emptyPickedGroup) { setEmptyGroupWarning(true); return; }
+    setEmptyGroupWarning(false);
     // Non-archivés uniquement — un client archivé ne doit jamais être choisi
     // par défaut ni faire croire à tort que le studio a déjà un client actif
     // (c'était le bug : allClients[0] pouvait retomber sur un client archivé
@@ -189,7 +254,27 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
         });
       });
     }
-    const members = team.filter(u => memberIds.includes(u.id));
+    const internalMembers = team.filter(u => memberIds.includes(u.id));
+    // Resolve external picks against the SAME client id that was used to
+    // render the pool above — `client` above may already have been created
+    // moments earlier from newClientName, but that client has no contacts
+    // yet, so this only ever resolves to something when a real existing
+    // client was selected in step 2.
+    const externalMembers: User[] = selectedClientId
+      ? getClientExternalTeam(selectedClientId)
+          .filter(c => externalPickedIds.has(c.id))
+          .map(c => ({ id: c.id, name: c.name, initials: c.initials, avatarColor: c.color, role: c.role } as User))
+      : [];
+    // Expand bulk-picked "other client" chips into their full contact list.
+    const groupMembers: User[] = Array.from(groupPickedIds).flatMap(groupId =>
+      getClientExternalTeam(groupId).map(c => ({ id: c.id, name: c.name, initials: c.initials, avatarColor: c.color, role: c.role } as User))
+    );
+    const seenMemberIds = new Set<string>();
+    const members: User[] = [...internalMembers, ...externalMembers, ...groupMembers].filter(u => {
+      if (seenMemberIds.has(u.id)) return false;
+      seenMemberIds.add(u.id);
+      return true;
+    });
     const projectId = `pj${Date.now()}`;
     const templateSections = selectedTemplate ? resolveTasksSections(selectedTemplate) : [];
     const budgetNum = Number(String(budget).replace(/[^\d.]/g, ''));
@@ -247,6 +332,17 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     // exister AVANT d'écrire le contenu d'Aperçu (sinon violation de clé étrangère
     // en session réelle). On attend donc la création avant setProjectContent.
     await onCreate(newProject);
+    // Grant real client-contact access — project.members is just the JSONB
+    // display list; project_client_access (the table RLS actually checks) is
+    // never touched by writing `members` above. Every distinct client whose
+    // contacts ended up picked (the step-2 selected client via externalMembers,
+    // AND any bulk-picked "other client" chips) needs its own sync call, not
+    // just the step-2 client — a bulk chip can add contacts from a client that
+    // isn't the one selected for billing.
+    const externalAccessClientIds = new Set<string>();
+    if (selectedClientId && externalMembers.length) externalAccessClientIds.add(selectedClientId);
+    groupPickedIds.forEach(id => externalAccessClientIds.add(id));
+    externalAccessClientIds.forEach(cid => syncProjectClientAccess(projectId, cid, members));
     if (selectedTemplate?.overviewSections?.length || selectedTemplate?.overviewSectionData) {
       setProjectContent(projectId, {
         customSections: selectedTemplate.overviewSections,
@@ -635,8 +731,119 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 </div>
               </div>
               <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>
-                {t('projects.membersSelected', { count: memberIds.length })}
+                {t('projects.membersSelected', { count: memberIds.length + externalPickedIds.size + groupPickedIds.size })}
               </p>
+
+              {/* Selected client's contacts — individually addable, plus a bulk shortcut */}
+              {selectedClientId && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                      {selectedClientName ?? t('members.clientContacts')}
+                    </p>
+                    {selectedClientContacts.length > 0 && (
+                      <SFButton variant="secondary" icon="user-plus" onClick={addAllSelectedClientContacts}>
+                        {t('projects.addAllClientContacts', { clientName: selectedClientName ?? '' })}
+                      </SFButton>
+                    )}
+                  </div>
+                  {selectedClientContacts.length === 0 ? (
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('members.noClientContacts')}</p>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      {selectedClientContacts
+                        .filter(c => c.name.toLowerCase().includes(teamSearch.trim().toLowerCase()))
+                        .map(c => {
+                          const on = externalPickedIds.has(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => toggleExternal(c.id)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+                                border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                                background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                                transition: 'border-color 0.12s',
+                              }}
+                            >
+                              <SFAvatar initials={c.initials} bg={c.color} size={34} />
+                              <div style={{ textAlign: 'left', minWidth: 0 }}>
+                                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
+                                <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{c.role}</p>
+                              </div>
+                              <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                                <div style={{
+                                  width: 18, height: 18, borderRadius: '50%',
+                                  background: on ? 'var(--accent)' : 'var(--surface-3)',
+                                  border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                  {on && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Other clients — bulk-add chips, so an external collaborator from a
+                  different client (or any client, on a personal/client-less project)
+                  can still be added without leaving the wizard. */}
+              {(() => {
+                const otherClients = getClients()
+                  .filter(c => !c.archived && c.id !== selectedClientId)
+                  .filter(c => c.name.toLowerCase().includes(teamSearch.trim().toLowerCase()));
+                if (otherClients.length === 0) return null;
+                return (
+                  <div>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+                      {t('members.groups')}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      {otherClients.map(c => {
+                        const on = groupPickedIds.has(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => toggleGroupPick(c.id)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 12,
+                              padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+                              border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                              background: on ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                              transition: 'border-color 0.12s',
+                            }}
+                          >
+                            <SFAvatar initials={c.initials} bg={c.avatarColor} size={34} />
+                            <div style={{ textAlign: 'left', minWidth: 0 }}>
+                              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
+                              <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{t('members.groupContactCount', { count: getClientExternalTeam(c.id).length })}</p>
+                            </div>
+                            <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                              <div style={{
+                                width: 18, height: 18, borderRadius: '50%',
+                                background: on ? 'var(--accent)' : 'var(--surface-3)',
+                                border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {on && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {emptyGroupWarning && (
+                <p style={{ fontSize: 11, color: 'var(--danger)' }}>{t('members.emptyGroupWarning')}</p>
+              )}
             </div>
           )}
         </div>
