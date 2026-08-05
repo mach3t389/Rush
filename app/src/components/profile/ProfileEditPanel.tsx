@@ -113,6 +113,7 @@ export interface ProfileOverrides {
   role?: string;
   email?: string;
   phone?: string;
+  initials?: string;
 }
 
 export function loadProfile(userId: string): ProfileOverrides {
@@ -127,11 +128,14 @@ export function loadProfile(userId: string): ProfileOverrides {
 }
 
 export function saveProfile(userId: string, data: ProfileOverrides) {
+  const withInitials: ProfileOverrides = data.name !== undefined
+    ? { ...data, initials: computeInitials(data.name) }
+    : data;
   if (isDemoSession()) {
-    try { localStorage.setItem(PROFILE_STORAGE_KEY(userId), JSON.stringify(data)); } catch { /* noop */ }
+    try { localStorage.setItem(PROFILE_STORAGE_KEY(userId), JSON.stringify(withInitials)); } catch { /* noop */ }
     return;
   }
-  updateMemberFields(userId, data);
+  updateMemberFields(userId, withInitials);
 }
 
 export function loadPhoto(userId: string): string | null {
