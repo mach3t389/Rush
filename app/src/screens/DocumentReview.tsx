@@ -294,8 +294,10 @@ export function DocumentReview() {
   };
 
   const handleAddComment = (text: string) => {
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
     const nc: RevisionComment = {
-      id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [],
+      id: `c${Date.now()}`, author, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [],
       ...(pendingAnno ? { annotation: pendingAnno } : { contextLabel: activeRound }),
     };
     setComments(prev => [...prev, nc]);
@@ -309,20 +311,23 @@ export function DocumentReview() {
   const handleToggleLike = (id: string) => {
     const myId = getCurrentUser()?.id ?? USERS.lea.id;
     let liking = false;
-    setComments(prev => prev.map(c => {
+    const next = comments.map(c => {
       if (c.id !== id) return c;
       const likedBy = c.likedBy ?? [];
       const already = likedBy.includes(myId);
       liking = !already;
       return { ...c, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
-    }));
+    });
+    setComments(next);
     if (liking) {
-      const comment = comments.find(c => c.id === id);
+      const comment = next.find(c => c.id === id);
       if (comment) notifyLike({ comment, itemLabel: resource?.title ?? '', resourceId });
     }
   };
   const handleReply = (id: string, text: string) => {
-    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text, createdAt: Date.now() }] } : c));
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author, text, createdAt: Date.now() }] } : c));
     notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? '', resourceId });
   };
   const handleDeleteComment = (id: string) => { setComments(prev => prev.filter(c => c.id !== id)); if (activeCommentId === id) setActiveCommentId(null); };

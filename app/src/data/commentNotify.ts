@@ -154,7 +154,7 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
 }
 
 interface NotifyLikeOpts {
-  comment: { id: string; author: { id?: string }; likedBy?: string[] };
+  comment: { id: string; author: { id?: string } };
   itemLabel: string;
   resourceId?: string;
   taskId?: string;

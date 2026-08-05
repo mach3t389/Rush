@@ -54,14 +54,14 @@ function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-export function formatCommentTime(createdAt: number | undefined): string | null {
+export function formatCommentTime(createdAt: number | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string | null {
   if (!createdAt) return null;
   const now = Date.now();
   const diffMs = now - createdAt;
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return "À l'instant";
-  if (diffMin < 60) return `Il y a ${diffMin} min`;
+  if (diffMin < 1) return t('review.justNow');
+  if (diffMin < 60) return t('review.minutesAgo', { count: diffMin });
 
   const created = new Date(createdAt);
   const today = startOfDay(new Date(now));
@@ -74,15 +74,15 @@ export function formatCommentTime(createdAt: number | undefined): string | null 
 
   if (dayDiff === 0) {
     const diffHour = Math.floor(diffMin / 60);
-    return `Il y a ${diffHour}h`;
+    return t('review.hoursAgo', { count: diffHour });
   }
-  if (dayDiff === 1) return `Hier à ${time}`;
-  if (dayDiff === 2) return `Avant-hier à ${time}`;
+  if (dayDiff === 1) return t('review.yesterdayAt', { time });
+  if (dayDiff === 2) return t('review.dayBeforeAt', { time });
 
   const day = created.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
   const sameYear = created.getFullYear() === new Date(now).getFullYear();
   const datePart = sameYear ? day : created.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
-  return `${datePart} à ${time}`;
+  return t('review.dateAt', { date: datePart, time });
 }
 
 // ── AnnotationLayer ───────────────────────────────────────────────────────────
@@ -261,8 +261,8 @@ function CommentCard({
         )}
         <SFAvatar name={comment.author.name} initials={comment.author.initials} color={comment.author.avatarColor} size={20} />
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{comment.author.name}</span>
-        {formatCommentTime(comment.createdAt) && (
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatCommentTime(comment.createdAt)}</span>
+        {formatCommentTime(comment.createdAt, t) && (
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatCommentTime(comment.createdAt, t)}</span>
         )}
         {comment.contextLabel && (
           <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 5, marginLeft: 'auto' }}>
@@ -290,8 +290,8 @@ function CommentCard({
               <div>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{r.author.name} </span>
                 <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{linkify(r.text)}</span>
-                {formatCommentTime(r.createdAt) && (
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>{formatCommentTime(r.createdAt)}</span>
+                {formatCommentTime(r.createdAt, t) && (
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>{formatCommentTime(r.createdAt, t)}</span>
                 )}
               </div>
             </div>

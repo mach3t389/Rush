@@ -284,9 +284,11 @@ export function ImageReview() {
   };
 
   const handleAddComment = (text: string) => {
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
     const newComment: RevisionComment = {
       id: `c${Date.now()}`,
-      author: USERS.lea,
+      author,
       text,
       status: 'open',
       replies: [],
@@ -308,22 +310,25 @@ export function ImageReview() {
   const handleToggleLike = (id: string) => {
     const myId = getCurrentUser()?.id ?? USERS.lea.id;
     let liking = false;
-    setComments(prev => prev.map(c => {
+    const next = comments.map(c => {
       if (c.id !== id) return c;
       const likedBy = c.likedBy ?? [];
       const already = likedBy.includes(myId);
       liking = !already;
       return { ...c, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
-    }));
+    });
+    setComments(next);
     if (liking) {
-      const comment = comments.find(c => c.id === id);
+      const comment = next.find(c => c.id === id);
       if (comment) notifyLike({ comment, itemLabel: resource?.title ?? '', resourceId, projectId });
     }
   };
 
   const handleReply = (id: string, text: string) => {
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
     setComments(prev => prev.map(c => c.id === id ? {
-      ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text, createdAt: Date.now() }],
+      ...c, replies: [...c.replies, { id: `r${Date.now()}`, author, text, createdAt: Date.now() }],
     } : c));
     notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? '', resourceId, projectId });
   };
@@ -588,7 +593,7 @@ export function ImageReview() {
                 comments={comments.filter(c => !c.annotation || round.images.some(img => img.id === c.annotation?.assetId))}
                 activeId={activeCommentId}
                 onActivate={id => { setActiveCommentId(id); if (id) { const c = comments.find(x => x.id === id); if (c?.annotation?.assetId) openSingle(c.annotation.assetId); } }}
-                onAdd={text => { const nc: RevisionComment = { id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); if (resourceId) incrementCommentCount(resourceId); notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId }); }}
+                onAdd={text => { const me = getCurrentUser(); const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea; const nc: RevisionComment = { id: `c${Date.now()}`, author, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [], contextLabel: round.v }; setComments(prev => [...prev, nc]); setActiveCommentId(nc.id); if (resourceId) incrementCommentCount(resourceId); notifyComment({ kind: 'add', text, itemLabel: resource?.title ?? '', resourceId, projectId }); }}
                 onResolve={handleResolve}
                 onReply={handleReply}
                 onToggleLike={handleToggleLike}

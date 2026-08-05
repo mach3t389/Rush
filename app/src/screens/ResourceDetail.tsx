@@ -302,7 +302,9 @@ function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, 
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const handleAdd = (text: string) => {
-    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [] }]);
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
+    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [] }]);
     notifyComment({ kind: 'add', text, itemLabel, resourceId, projectId });
   };
   const handleResolve = (id: string) => {
@@ -311,20 +313,23 @@ function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, 
   const handleToggleLike = (id: string) => {
     const myId = getCurrentUser()?.id ?? USERS.lea.id;
     let liking = false;
-    setComments(prev => prev.map(c => {
+    const next = comments.map(c => {
       if (c.id !== id) return c;
       const likedBy = c.likedBy ?? [];
       const already = likedBy.includes(myId);
       liking = !already;
       return { ...c, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
-    }));
+    });
+    setComments(next);
     if (liking) {
-      const comment = comments.find(c => c.id === id);
+      const comment = next.find(c => c.id === id);
       if (comment) notifyLike({ comment, itemLabel, resourceId, projectId });
     }
   };
   const handleReply = (id: string, text: string) => {
-    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author: USERS.lea, text, createdAt: Date.now() }] } : c));
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author, text, createdAt: Date.now() }] } : c));
     notifyComment({ kind: 'reply', text, itemLabel, resourceId, projectId });
   };
   const handleDelete = (id: string) => {

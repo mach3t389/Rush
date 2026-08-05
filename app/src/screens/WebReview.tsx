@@ -257,16 +257,17 @@ export function WebReview() {
   const toggleLikeAnnotation = (id: string) => {
     const myId = getCurrentUser()?.id ?? 'moi';
     let liking = false;
-    setAnnotations(prev => prev.map(a => {
+    const next = annotations.map(a => {
       if (a.id !== id) return a;
       const likedBy = a.likedBy ?? [];
       const already = likedBy.includes(myId);
       liking = !already;
       return { ...a, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
-    }));
+    });
+    setAnnotations(next);
     if (liking) {
-      const ann = annotations.find(a => a.id === id);
-      if (ann) notifyLike({ comment: { id: ann.id, author: { id: ann.authorId }, likedBy: ann.likedBy }, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
+      const ann = next.find(a => a.id === id);
+      if (ann) notifyLike({ comment: { id: ann.id, author: { id: ann.authorId } }, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
     }
   };
 

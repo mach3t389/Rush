@@ -869,7 +869,7 @@ export function TaskPanel({
     onUpdate?.({ comments: next });
     if (liking) {
       const comment = next.find(c => c.id === id);
-      if (comment) notifyLike({ comment: { id: comment.id, author: comment.author, likedBy: comment.likedBy }, itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+      if (comment) notifyLike({ comment: { id: comment.id, author: comment.author }, itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
     }
   };
 
