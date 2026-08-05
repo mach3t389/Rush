@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClientProjectHeader } from '../../components/client/ClientProjectHeader';
-import { getMyClientInvoices, type ClientInvoice } from '../../data/clientSessionStore';
+import { getMyClientInvoices, openMyClientInvoicePdf, type ClientInvoice } from '../../data/clientSessionStore';
 import { getPreviewClientInvoices } from '../../data/viewAsClientDataStore';
 import { getViewAsUser } from '../../data/viewAsStore';
 import { formatMoney } from '../../data/financeStore';
@@ -33,7 +33,6 @@ export function ClientProjectFinances() {
       if (!cancelled) setInvoices(list);
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, isPreview]);
 
   if (!projectId) return null;
@@ -66,6 +65,9 @@ export function ClientProjectFinances() {
                   <p style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('clientProject.financesDue')}</p>
                   <p style={{ fontSize: 13, color: 'var(--text)' }}>{fmtDate(inv.dueDate)}</p>
                 </div>
+                {!isPreview && <button type="button" onClick={() => void openMyClientInvoicePdf(inv.id)}
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', borderRadius: 8, padding: '7px 9px', cursor: 'pointer', display: 'flex' }}
+                  title="Ouvrir le PDF"><span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9 }}>PDF</span></button>}
               </div>
             ))}
           </div>

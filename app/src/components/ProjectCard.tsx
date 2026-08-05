@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
@@ -103,37 +102,10 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
     onClose();
   };
 
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      // onMouseDown (not onClick) — closing must trigger only when the press
-      // itself starts on the backdrop. A click fires wherever the mouse is
-      // released, so a text-selection drag started inside the panel and
-      // released over the backdrop would otherwise close it unintentionally.
-      onMouseDown={e => { if (e.target === e.currentTarget) save(); }}
-    >
-      {/* The panel renders via a portal, but React still bubbles synthetic
-          events through the component tree it was mounted from — without
-          stopping it here, any click inside (a field, the close button)
-          also reaches the card's own onClick and navigates into the
-          project instead of letting you edit it. */}
-      <div onClick={e => e.stopPropagation()} style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-        {/* Header */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div style={{ width: 14, height: 14, borderRadius: '50%', background: lColor, flexShrink: 0, transition: 'background 0.15s' }} />
-            <div style={{ minWidth: 0 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lName || p.name}</h3>
-            </div>
-          </div>
-          <button onClick={save} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
-            <SFIcon name="x" size={16} />
-          </button>
-        </div>
-
+  return (
+    <SFModal open onClose={save} title={lName || p.name} width={400} maxHeight="90vh">
         {/* Body */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Nom */}
           <div>
@@ -282,10 +254,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
           </div>
 
         </div>
-
-      </div>
-    </div>,
-    document.body
+    </SFModal>
   );
 }
 

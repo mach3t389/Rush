@@ -33,6 +33,7 @@ export interface AppNotif {
   resourceId?: string;
   projectId?: string;
   clientId?: string;
+  commentId?: string;
   recipientIds: string[];
   /** Id de l'auteur de CET appel à addNotif — jamais persisté (voir toRow),
    * utilisé uniquement en mémoire le temps de l'appel pour que mergeNotif
@@ -434,6 +435,7 @@ function mergeNotif(existing: AppNotif, notif: Omit<AppNotif, 'id' | 'read'>): A
     count: (existing.count ?? 1) + 1,
     text: groupedText(actorNames, notif.itemLabel!),
     timestamp: notif.timestamp,
+    commentId: notif.commentId ?? existing.commentId,
     // Union, jamais un remplacement : si le set de destinataires a changé
     // entre deux commentaires, on garde tout le monde plutôt que de perdre
     // silencieusement quelqu'un déjà notifié. On retire ensuite l'auteur de

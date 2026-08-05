@@ -75,6 +75,7 @@ interface NotifGroup {
   taskId?: string;
   resourceId?: string;
   projectId?: string;
+  commentId?: string;
 }
 
 function groupNotifs(notifs: AppNotif[]): NotifGroup[] {
@@ -101,6 +102,7 @@ function groupNotifs(notifs: AppNotif[]): NotifGroup[] {
       taskId: sorted[0].taskId,
       resourceId: sorted[0].resourceId,
       projectId: sorted[0].projectId,
+      commentId: sorted[0].commentId,
     };
   }).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 }
@@ -162,8 +164,8 @@ function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: 
   const clickable = !!(taskId || resourceId || kind === 'storageLimit');
 
   const handleClick = () => {
-    if (taskId)          navigate(`/projets/${projectId}?openTask=${taskId}&focus=comments`);
-    else if (resourceId) navigate(`/projets/${projectId}/ressources/${resourceId}?focus=comments`);
+    if (taskId)          navigate(`/projets/${projectId}?openTask=${taskId}&focus=comments${group.commentId ? `&commentId=${group.commentId}` : ''}`);
+    else if (resourceId) navigate(`/projets/${projectId}/ressources/${resourceId}?focus=comments${group.commentId ? `&commentId=${group.commentId}` : ''}`);
     else if (kind === 'storageLimit') { savePersisted('sf_view_fichiers', 'stockage'); navigate('/fichiers'); }
   };
 

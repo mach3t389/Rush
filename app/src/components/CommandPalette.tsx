@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getMyTasks } from '../data/myTaskStore';
 import { SFIcon } from './ui/SFIcon';
+import { SFModal } from './ui/SFModal';
 
 type ResultKind = 'project' | 'client' | 'task';
 
@@ -78,8 +78,6 @@ export function CommandPalette({ open, onClose }: Props) {
     return () => { unsubP(); unsubC(); };
   }, []);
 
-  if (!open) return null;
-
   const select = (r: Result) => {
     navigate(r.href);
     onClose();
@@ -92,27 +90,9 @@ export function CommandPalette({ open, onClose }: Props) {
     if (e.key === 'Escape') onClose();
   };
 
-  return createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        paddingTop: 120,
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: 560, maxWidth: '90vw',
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
-          overflow: 'hidden',
-        }}
-      >
+  return (
+    <SFModal open={open} onClose={onClose} width={560} zIndex={9999} padding={0}>
+      <div style={{ borderRadius: 16, overflow: 'hidden' }}>
         {/* Input */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
           <SFIcon name="search" size={16} color="var(--text-3)" />
@@ -187,7 +167,6 @@ export function CommandPalette({ open, onClose }: Props) {
           <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>ESC {t('command.close')}</span>
         </div>
       </div>
-    </div>,
-    document.body
+    </SFModal>
   );
 }

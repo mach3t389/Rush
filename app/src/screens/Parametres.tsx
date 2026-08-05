@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFBar, PageHeader } from '../components/ui';
@@ -24,6 +24,7 @@ import { ProfileEditPanel, loadProfile, loadPhoto } from '../components/profile/
 import { NOTIF_EVENTS, loadNotifPrefs, saveNotifPrefs, loadDigestPrefs, saveDigestPrefs, type NotifPrefs, type DigestPrefs } from '../data/notifPrefsStore';
 import { USERS } from '../data/mock';
 import { getGoogleCalendarStatus, startGoogleCalendarConnect, disconnectGoogleCalendar, type GoogleCalendarStatus } from '../data/googleCalendarStore';
+import { getNorthbookIntegrationStatus, revokeNorthbookConnection, type NorthbookIntegrationStatus } from '../data/northbookIntegrationStore';
 import {
   getPaymentMethods, updatePaymentMethod, addPaymentMethod, removePaymentMethod, subscribePaymentMethods, type PaymentMethod, type PaymentMethodType,
   getInvoiceDefaults, setInvoiceDefaults, subscribeInvoiceDefaults, type InvoiceDefaults,
@@ -1922,6 +1923,52 @@ function GoogleCalendarCard() {
   );
 }
 
+function NorthbookIntegrationCard() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<NorthbookIntegrationStatus | null>(null);
+  const [workingId, setWorkingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const accessLevel = getMyAccessLevel();
+  const canManage = accessLevel === 'owner' || accessLevel === 'admin';
+  const refresh = useCallback(() => getNorthbookIntegrationStatus().then(setStatus).catch(() => setError(t('settings.northbookLoadError'))), [t]);
+  useEffect(() => { void refresh(); }, [refresh]);
+  const active = status?.connections.filter(connection => connection.status === 'active') ?? [];
+
+  const revoke = async (connectionId: string) => {
+    setWorkingId(connectionId); setError(null);
+    try { await revokeNorthbookConnection(connectionId); await refresh(); }
+    catch { setError(t('settings.northbookRevokeError')); }
+    finally { setWorkingId(null); }
+  };
+
+  return (
+    <div style={{ background: 'linear-gradient(145deg, color-mix(in srgb, #16382b 16%, var(--surface)), var(--surface) 58%)', borderRadius: 'var(--radius)', border: '1px solid color-mix(in srgb, #5bcb93 28%, var(--border))', padding: 24, display: 'grid', gap: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 11, background: '#14261f', border: '1px solid #315b49', display: 'grid', placeItems: 'center' }}><SFIcon name="book-open" size={21} color="#baf7d5" /></div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><strong style={{ fontSize: 14 }}>Northbook</strong>{status?.accountingMode === 'northbook' && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--ok)', border: '1px solid color-mix(in srgb, var(--ok) 35%, transparent)', borderRadius: 5, padding: '2px 7px' }}>{t('settings.northbookAccountingMode')}</span>}</div>
+          <p style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 3 }}>{t('settings.northbookDesc')}</p>
+        </div>
+        {status && <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-2)' }}>{status.accountingCurrency}</span>}
+      </div>
+
+      {!status ? <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('common.loading')}</p> : active.length === 0 ? (
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+          <p style={{ fontSize: 12, color: 'var(--text-2)' }}>{status.pilotEnabled ? t('settings.northbookConnectFromDesktop') : t('settings.northbookPilotDisabled')}</p>
+        </div>
+      ) : active.map(connection => (
+        <div key={connection.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '12px 14px', borderRadius: 10 }}>
+          <SFIcon name="monitor" size={16} color="var(--ok)" />
+          <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 600 }}>{connection.installationName}</p><p style={{ color: 'var(--text-3)', fontSize: 10, marginTop: 2 }}>{connection.lastUsedAt ? t('settings.northbookLastSync', { date: new Date(connection.lastUsedAt).toLocaleString() }) : t('settings.northbookNeverSynced')}</p></div>
+          {canManage && <SFButton size="sm" variant="ghost" onClick={() => void revoke(connection.id)} disabled={workingId === connection.id}>{t('settings.northbookRevoke')}</SFButton>}
+        </div>
+      ))}
+      {error && <p role="alert" style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
+      <p style={{ color: 'var(--text-3)', fontSize: 10, lineHeight: 1.55 }}>{t('settings.northbookPrivacy')}</p>
+    </div>
+  );
+}
+
 export function Parametres() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -2341,6 +2388,8 @@ export function Parametres() {
               <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.integrationsTitle')}</h2>
               <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.integrationsDesc')}</p>
             </div>
+
+            <NorthbookIntegrationCard />
 
             {/* Google Calendar */}
             <GoogleCalendarCard />

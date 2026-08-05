@@ -519,7 +519,7 @@ function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, o
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
 export function TaskPanel({
-  task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, inline,
+  task, onClose, onUpdate, onMove, sectionLabel, autoFocusComments, focusCommentId, inline,
   onConvertSubtasks, onMoveSubtasksAsTask, onCopySubtasksAsTask,
 }: {
   task: Task;
@@ -528,6 +528,7 @@ export function TaskPanel({
   onMove?: (newProjectId: string, newSectionLabel: string) => void;
   sectionLabel?: string;
   autoFocusComments?: boolean;
+  focusCommentId?: string;
   inline?: boolean;
   // Sous-tâches → tâches (multi-select + menu clic droit). Non fournis =
   // fonctionnalité masquée pour cet écran hôte (ex. Modèles).
@@ -561,14 +562,17 @@ export function TaskPanel({
   React.useEffect(() => {
     if (!autoFocusComments) return;
     const timer = setTimeout(() => {
-      commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      commentsAnchorRef.current?.style && (commentsAnchorRef.current.style.animation = 'highlight-flash 2s ease forwards');
-      commentsAnchorRef.current?.addEventListener('animationend', () => {
-        if (commentsAnchorRef.current) commentsAnchorRef.current.style.animation = '';
+      const target = focusCommentId
+        ? document.querySelector<HTMLElement>(`[data-comment-id="${focusCommentId}"]`)
+        : commentsAnchorRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target && (target.style.animation = 'highlight-flash 2s ease forwards');
+      target?.addEventListener('animationend', () => {
+        if (target) target.style.animation = '';
       }, { once: true });
     }, 200);
     return () => clearTimeout(timer);
-  }, [autoFocusComments]);
+  }, [autoFocusComments, focusCommentId]);
 
   useEffect(() => {
     if (descRef.current) {
@@ -639,6 +643,17 @@ export function TaskPanel({
       el.setSelectionRange(el.value.length, el.value.length);
     }
   }, [editingTitle]);
+
+  // Mirrors SFModal's own Escape-handling — TaskPanel keeps bespoke chrome
+  // (two-column layout) instead of wrapping SFModal, but should still close
+  // on Escape like every other modal in the app. Not applicable in `inline`
+  // mode, which isn't a modal overlay.
+  useEffect(() => {
+    if (inline) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [inline, onClose]);
 
   // Keep the textarea grown to fit the full title, instead of clipping to
   // the initial 2-row height — re-measure on open and on every keystroke.
@@ -799,10 +814,11 @@ export function TaskPanel({
 
   const submitComment = (text: string) => {
     if (!text.trim()) return;
-    const next = [...comments, { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const }];
+    const newComment = { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const };
+    const next = [...comments, newComment];
     setComments(next);
     onUpdate?.({ comments: next });
-    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+    notifyComment({ kind: 'add', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId, commentId: newComment.id });
   };
 
   const submitReply = (commentId: string, text: string) => {
@@ -813,7 +829,10 @@ export function TaskPanel({
     );
     setComments(next);
     onUpdate?.({ comments: next });
-    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+    // Le fil est affiché sous le commentaire parent (pas de data-comment-id
+    // propre à la réponse) — on cible donc le commentaire parent, pas la
+    // réponse elle-même, pour que le scroll/flash retrouve un élément réel.
+    notifyComment({ kind: 'reply', text: text.trim(), itemLabel: task.title, taskId: task.id, projectId: breadProjectId, commentId });
   };
 
   const toggleCommentResolved = (id: string) => {
@@ -847,25 +866,16 @@ export function TaskPanel({
 
   const divider = <div style={{ height: 1, background: 'var(--border)' }} />;
 
-  // Close on click outside the panel (only in overlay/fixed mode)
+  // Clicking outside closes the panel via the backdrop below (overlay mode only).
   const panelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (inline) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Element | null;
-      // Ignore clicks inside portaled children (DatePicker, TimePicker dropdowns)
-      if (t?.closest('[data-panel-child]')) return;
-      if (panelRef.current && !panelRef.current.contains(t)) onClose();
-    };
-    // Delay to avoid closing immediately on the click that opened the panel
-    const t = setTimeout(() => document.addEventListener('mousedown', handler), 0);
-    return () => { clearTimeout(t); document.removeEventListener('mousedown', handler); };
-  }, [onClose, inline]);
 
   return (
     <>
+      {!inline && (
+        <div onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.6)' }} />
+      )}
       {/* Panel */}
-      <div ref={panelRef} style={inline ? {
+      <div ref={panelRef} onMouseDown={inline ? undefined : e => e.stopPropagation()} style={inline ? {
         width: 440,
         flex: 1,
         minHeight: 0,
@@ -876,17 +886,19 @@ export function TaskPanel({
         borderLeft: '1px solid var(--border)',
       } : {
         position: 'fixed',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: 760,
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 'min(1040px, 92vw)',
+        maxHeight: '88vh',
         zIndex: 200,
         background: 'var(--surface)',
+        border: '1px solid var(--border-2)',
+        borderRadius: 16,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        boxShadow: '-16px 0 48px rgba(0,0,0,0.7)',
-        borderLeft: '1px solid var(--border)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       }}>
 
         {/* Header */}
@@ -955,16 +967,6 @@ export function TaskPanel({
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
-                onClick={() => commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                title={t('taskPanel.goToComments')}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-              >
-                <SFIcon name="message-circle" size={13} />
-                {comments.length > 0 && <span>{comments.length}</span>}
-              </button>
               <button onClick={onClose} style={{ color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
@@ -1108,7 +1110,7 @@ export function TaskPanel({
           )}
         </div>
 
-        {/* Body — single scrollable column */}
+        {/* Body — two columns : détails à gauche, commentaires à droite */}
         <div
           onClick={e => {
             // Clicking anywhere in the panel that ISN'T a subtask row (or a
@@ -1122,8 +1124,10 @@ export function TaskPanel({
             if (target.closest('[data-subtask-row], button, input, textarea, a')) return;
             setSelectedSubIds(new Set());
           }}
-          style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}
+          style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}
         >
+          {/* Colonne gauche — détails de la tâche */}
+          <div style={{ flex: '1 1 60%', minWidth: 0, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Livrable toggle + format */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1361,7 +1365,12 @@ export function TaskPanel({
                   const topPos = openUp
                     ? (resPickerRect!.top - dropH - 6)
                     : (resPickerRect ? resPickerRect.bottom + 6 : 100);
-                  return (
+                  // Portaled to document.body — the modal panel uses a CSS
+                  // `transform` for centering, which makes it the containing
+                  // block for `position: fixed` descendants. Left in-tree, this
+                  // dropdown and its full-screen dismiss overlay would be
+                  // trapped inside the panel's box instead of the viewport.
+                  return createPortal(
                     <>
                       <div onClick={() => setResourcePickerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
                       <div style={{ position: 'fixed', top: Math.max(8, topPos), right: resPickerRect ? window.innerWidth - resPickerRect.right : 20, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.6)', minWidth: 300, maxWidth: 340, display: 'flex', flexDirection: 'column', maxHeight: Math.min(dropH, window.innerHeight - 24) }}>
@@ -1402,7 +1411,8 @@ export function TaskPanel({
                           </div>
                         </div>
                       </div>
-                    </>
+                    </>,
+                    document.body,
                   );
                 })()}
               </div>
@@ -1530,7 +1540,10 @@ export function TaskPanel({
             )}
           </div>
 
-          {divider}
+          </div>
+
+          {/* Colonne droite — commentaires + activité, toujours visibles */}
+          <div style={{ flex: '0 0 380px', maxWidth: 380, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)' }}>
 
           {/* Commentaires — même composant que Document/Révision web/Scénario/etc., pour un système identique partout */}
           <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
@@ -1554,6 +1567,7 @@ export function TaskPanel({
               onCancelPending={() => {}}
               embedded
             />
+          </div>
           </div>
         </div>
 

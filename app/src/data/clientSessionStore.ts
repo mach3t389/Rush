@@ -269,6 +269,26 @@ export interface ClientInvoice {
 }
 
 export async function getMyClientInvoices(projectId: string): Promise<ClientInvoice[]> {
+  const { data: northbookRows, error: northbookError } = await supabase
+    .from('northbook_accounting_documents')
+    .select('northbook_invoice_id, number, line_items, subtotal_minor, total_minor, currency, status, issued_at, due_at, viewed_at, paid_minor')
+    .eq('rush_project_id', projectId);
+  if (!northbookError && (northbookRows?.length ?? 0) > 0) {
+    const now = Date.now();
+    const mapped = (northbookRows ?? []).map(row => {
+      const lines = Array.isArray(row.line_items) ? row.line_items as Array<{ description?: string }> : [];
+      const totalMinor = Number(row.total_minor ?? 0);
+      const paidMinor = Number(row.paid_minor ?? 0);
+      const dueDate = row.due_at ? String(row.due_at) : '';
+      const status = row.status === 'void' ? 'cancelled' : row.status === 'paid' || paidMinor >= totalMinor ? 'paid'
+        : row.viewed_at ? 'viewed' : dueDate && Date.parse(dueDate) < now ? 'overdue' : 'sent';
+      return { id: String(row.northbook_invoice_id), number: String(row.number), title: String(lines[0]?.description ?? row.number),
+        amount: Number(row.subtotal_minor ?? 0) / 100, total: totalMinor / 100, currency: String(row.currency), status,
+        issuedDate: String(row.issued_at).slice(0, 10), dueDate: dueDate.slice(0, 10) };
+    });
+    await Promise.allSettled(mapped.map(invoice => supabase.rpc('mark_northbook_document_viewed', { p_invoice_id: invoice.id })));
+    return mapped;
+  }
   const { data, error } = await supabase
     .from('invoices')
     .select('id, number, title, amount, total, currency, status, issued_date, due_date')
@@ -285,4 +305,16 @@ export async function getMyClientInvoices(projectId: string): Promise<ClientInvo
     issuedDate: row.issued_date,
     dueDate: row.due_date,
   }));
+}
+
+export async function openMyClientInvoicePdf(invoiceId: string): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('not_authenticated');
+  const response = await fetch(`/api/integrations/v1/portal/documents/${encodeURIComponent(invoiceId)}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('pdf_unavailable');
+  const payload = await response.json();
+  window.open(String(payload.url), '_blank', 'noopener,noreferrer');
 }

@@ -1,8 +1,7 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { createPortal } from 'react-dom';
-import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState, SFModal } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
@@ -81,14 +80,8 @@ export function InviteModal({ existingEmails, onClose, onInvite }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: 440, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.invitePerson')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
-
+    <SFModal open onClose={onClose} title={t('client.invitePerson')} width={440} maxHeight="90vh" padding={28}>
+      <div style={{ overflowY: 'auto' }}>
         {link ? (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14, lineHeight: 1.5 }}>
@@ -151,7 +144,7 @@ export function InviteModal({ existingEmails, onClose, onInvite }: {
           </>
         )}
       </div>
-    </div>
+    </SFModal>
   );
 }
 
@@ -180,13 +173,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, width: 400, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.assignInternalMembers')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-        </div>
+    <SFModal open onClose={onClose} title={t('client.assignInternalMembers')} width={400} maxHeight="80vh" padding={24}>
         {available.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('client.allInternalAssigned')}</p>
         ) : (
@@ -224,8 +211,7 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
             </div>
           </>
         )}
-      </div>
-    </div>
+    </SFModal>
   );
 }
 
@@ -393,15 +379,10 @@ function EquipeTab({ clientId }: { clientId: string }) {
     }, {});
 
     return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 500, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-        onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-        <div style={{ width: 420, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <SFModal open onClose={onClose} title={t('client.memberCard')} width={420} maxHeight="85vh" padding={24}>
+        <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Header */}
-          <div style={{ padding: '20px 20px 0', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('client.memberCard')}</h3>
-              <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex' }}><SFIcon name="x" size={16} /></button>
-            </div>
+          <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
             {/* Avatar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
               <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => photoRef.current?.click()}>
@@ -647,7 +628,7 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
           </div>
         </div>
-      </div>
+      </SFModal>
     );
   };
 
@@ -1239,36 +1220,16 @@ function ClientEditPanel({ client, onClose }: {
   };
 
 
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
-      // onMouseDown, not onClick — a text-selection drag started inside the
-      // panel and released over the backdrop must not close it.
-      // Blurring the active element first forces its onBlur (which commits
-      // the field) to run before onClose unmounts the panel — otherwise the
-      // browser's focus-change (and thus the commit) happens AFTER this
-      // handler, so unsaved text was silently discarded.
-      onMouseDown={e => { if (e.target === e.currentTarget) { (document.activeElement as HTMLElement)?.blur(); onClose(); } }}
-    >
-      <div style={{ width: 400, background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: lColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0, transition: 'background 0.15s' }}>
-              {lName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || client.initials}
-            </div>
-            <div>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{lName || client.name}</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{t('client.editClient')}</p>
-            </div>
-          </div>
-          <button onClick={() => { (document.activeElement as HTMLElement)?.blur(); onClose(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, flexShrink: 0 }}>
-            <SFIcon name="x" size={16} />
-          </button>
-        </div>
+  // Blurring the active element first forces its onBlur (which commits the
+  // field) to run before onClose unmounts the panel — otherwise the
+  // browser's focus-change (and thus the commit) happens AFTER this
+  // handler, so unsaved text was silently discarded.
+  const handleClose = () => { (document.activeElement as HTMLElement)?.blur(); onClose(); };
 
+  return (
+    <SFModal open onClose={handleClose} title={lName || client.name} width={400} maxHeight="90vh">
         {/* Body */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── Identité ── */}
           <SectionFC label={t('client.identity')}>
@@ -1377,9 +1338,7 @@ function ClientEditPanel({ client, onClose }: {
           </SectionFC>
 
         </div>
-      </div>
-    </div>,
-    document.body
+    </SFModal>
   );
 }
 

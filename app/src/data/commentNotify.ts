@@ -47,6 +47,7 @@ interface NotifyCommentOpts {
   resourceId?: string;
   taskId?: string;
   projectId?: string;
+  commentId?: string;
 }
 
 // Résout la liste actuelle d'observateurs d'une tâche ou d'une ressource,
@@ -103,7 +104,7 @@ function resolveWatchers(taskId?: string, resourceId?: string, projectId?: strin
 // otherwise it's just an activity signal). The notification and any
 // follow-up emails target the item's watchers (auto-including the author
 // and any newly-mentioned members), not the whole studio.
-export function notifyComment({ kind, text, itemLabel, resourceId, taskId, projectId }: NotifyCommentOpts): void {
+export function notifyComment({ kind, text, itemLabel, resourceId, taskId, projectId, commentId }: NotifyCommentOpts): void {
   const actor = actorName();
   const myId = actorId();
   const verb = kind === 'reply' ? 'a répondu sur' : 'a commenté';
@@ -128,6 +129,7 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
     resourceId,
     taskId,
     projectId,
+    commentId,
     recipientIds,
     actorId: myId,
     ...(mentionedMembers.length === 0 ? { itemLabel } : {}),
