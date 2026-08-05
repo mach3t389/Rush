@@ -454,7 +454,7 @@
     "client": "Client",
     "searchClientPlaceholder": "Rechercher un client…",
     "firstClientHint": "Ce sera votre premier client — vous pourrez compléter sa fiche plus tard.",
-    "personalProjectOption": "Créer un projet personnel, sans client",
+    "noClientOption": "Aucun",
     "personalProjectHint": "Vous pourrez rattacher un client plus tard depuis les réglages du projet.",
     "featuresLabel": "Fonctionnalités de ce projet",
     "moduleCalendar": "Calendrier",

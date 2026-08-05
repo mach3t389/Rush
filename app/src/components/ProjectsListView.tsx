@@ -484,40 +484,41 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !isPersonalProject;
-                    setIsPersonalProject(next);
-                    if (next) { setClientId(''); setNewClientName(''); setFinanceEnabled(false); }
-                  }}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10,
-                    padding: '7px 12px 7px 8px', borderRadius: 8, border: 'none', background: 'none',
-                    color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer',
-                  }}
-                >
-                  <span style={{
-                    width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: `1.5px solid ${isPersonalProject ? 'var(--accent)' : 'var(--border-2)'}`,
-                    background: isPersonalProject ? 'var(--accent)' : 'transparent',
-                  }}>
-                    {isPersonalProject && <SFIcon name="check" size={11} color="var(--on-accent)" />}
-                  </span>
-                  {t('projects.personalProjectOption')}
-                </button>
                 {isPersonalProject && (
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10 }}>{t('projects.personalProjectHint')}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8 }}>{t('projects.personalProjectHint')}</p>
                 )}
-                {!isPersonalProject && (clients.length === 0 ? (
+                {clients.length === 0 ? (
                   <div>
-                    <input
-                      value={newClientName}
-                      onChange={e => setNewClientName(e.target.value)}
-                      placeholder={t('clients.placeholder')}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
-                    />
-                    <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.firstClientHint')}</p>
+                    {/* "Aucun" is still offered as a chip even with zero real
+                        clients yet — same single mechanic either way, no
+                        separate checkbox concept. */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => { setIsPersonalProject(true); setClientId(''); setNewClientName(''); setFinanceEnabled(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
+                          border: `1.5px solid ${isPersonalProject ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isPersonalProject ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
+                        }}
+                      >
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px dashed var(--text-3)', flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: isPersonalProject ? 'var(--text)' : 'var(--text-2)' }}>{t('projects.noClientOption')}</span>
+                        {isPersonalProject && <SFIcon name="check" size={13} color="var(--accent)" />}
+                      </button>
+                    </div>
+                    {!isPersonalProject && (
+                      <div>
+                        <input
+                          value={newClientName}
+                          onChange={e => setNewClientName(e.target.value)}
+                          placeholder={t('clients.placeholder')}
+                          style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }}
+                        />
+                        <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.firstClientHint')}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -534,6 +535,23 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     )}
                     <div style={{ maxHeight: clients.length > 8 ? 220 : undefined, overflowY: clients.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        {/* "Aucun" is the first chip, same size/shape/selection
+                            style as every real client chip — replaces the old
+                            separate checkbox-style toggle above the grid. */}
+                        <button
+                          type="button"
+                          onClick={() => { setIsPersonalProject(true); setClientId(''); setNewClientName(''); setFinanceEnabled(false); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
+                            border: `1.5px solid ${isPersonalProject ? 'var(--accent)' : 'var(--border)'}`,
+                            background: isPersonalProject ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
+                          }}
+                        >
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px dashed var(--text-3)', flexShrink: 0 }} />
+                          <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: isPersonalProject ? 'var(--text)' : 'var(--text-2)' }}>{t('projects.noClientOption')}</span>
+                          {isPersonalProject && <SFIcon name="check" size={13} color="var(--accent)" />}
+                        </button>
                         {(() => {
                           const sortedClients = [...clients].sort((a, b) => Number(isPinnedClient(b.id)) - Number(isPinnedClient(a.id)));
                           const filteredClients = clientSearch.trim()
@@ -542,26 +560,26 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                           return filteredClients.map(c => (
                             <button
                               key={c.id}
-                              onClick={() => setClientId(c.id)}
+                              onClick={() => { setIsPersonalProject(false); setClientId(c.id); }}
                               style={{
                                 display: 'flex', alignItems: 'center', gap: 8,
                                 padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
-                                border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
-                                background: clientId === c.id ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
+                                border: `1.5px solid ${!isPersonalProject && clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
+                                background: !isPersonalProject && clientId === c.id ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
                               }}
                             >
                               <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
                               </div>
-                              <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                              {clientId === c.id && <SFIcon name="check" size={13} color="var(--accent)" />}
+                              <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: !isPersonalProject && clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                              {!isPersonalProject && clientId === c.id && <SFIcon name="check" size={13} color="var(--accent)" />}
                             </button>
                           ));
                         })()}
                       </div>
                     </div>
                   </>
-                ))}
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, auto) 1fr 1fr', gap: 14, alignItems: 'start' }}>
