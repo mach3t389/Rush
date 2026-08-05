@@ -34,7 +34,7 @@ function getTeam(): User[] {
   const team = getTeamMembers();
   return team.length > 0 ? team : TEAM;
 }
-type Step = 'start' | 'info' | 'team';
+type Step = 'identity' | 'client' | 'template' | 'team';
 type SortKey = 'recent' | 'alpha' | 'alpha-desc' | 'delivery' | 'client' | 'progress';
 
 const ALL_SORT_OPTIONS: { value: SortKey; labelKey: string; icon: string }[] = [
@@ -80,7 +80,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   defaultClientId?: string;
 }) {
   const { t } = useTranslation();
-  const [step, setStep]                 = useState<Step>('start');
+  const [step, setStep]                 = useState<Step>('identity');
   const [templateId, setTemplateId]     = useState<string | null>(null);
   const clients = getClients().filter(c => !c.archived);
   const [name, setName]                 = useState('');
@@ -191,22 +191,20 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     });
   };
 
-  const canNext = step === 'start' ? true
-    : step === 'info' ? name.trim().length > 0 && (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0)
-    : true; // 'team' : aucune sélection obligatoire — un projet peut n'avoir aucun membre assigné
+  const canNext = step === 'identity' ? name.trim().length > 0
+    : step === 'client' ? (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0)
+    : true; // 'template'/'team' : aucune sélection obligatoire
 
   const next = () => {
-    if (step === 'start') {
-      setStep('info');
-    } else if (step === 'info') {
-      setStep('team');
-    } else {
-      create();
-    }
+    if (step === 'identity') setStep('client');
+    else if (step === 'client') setStep('template');
+    else if (step === 'template') setStep('team');
+    else create();
   };
   const back = () => {
-    if (step === 'info') setStep('start');
-    else if (step === 'team') setStep('info');
+    if (step === 'client') setStep('identity');
+    else if (step === 'template') setStep('client');
+    else if (step === 'team') setStep('template');
   };
 
   const create = async () => {
@@ -352,15 +350,16 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     onClose();
   };
 
-  const STEP_ORDER: Step[] = ['start', 'info', 'team'];
+  const STEP_ORDER: Step[] = ['identity', 'client', 'template', 'team'];
   const stepDone = (s: Step) => STEP_ORDER.indexOf(step) > STEP_ORDER.indexOf(s);
 
   // Une étape n'est valide que si son propre "canNext" serait vrai — reproduit
   // la même règle que canNext, mais évaluable pour n'importe quelle étape, pas
   // seulement l'étape courante (nécessaire pour savoir jusqu'où on peut sauter).
   const isStepValid = (s: Step): boolean => {
-    if (s === 'info') return name.trim().length > 0 && (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0);
-    return true; // 'start'/'team' : jamais bloquantes
+    if (s === 'identity') return name.trim().length > 0;
+    if (s === 'client') return isPersonalProject || clients.length > 0 || newClientName.trim().length > 0;
+    return true; // 'template'/'team' : jamais bloquantes
   };
   // Une étape est atteignable par clic si toutes les étapes qui la précèdent
   // sont déjà valides — on peut donc toujours reculer, mais avancer seulement
@@ -385,15 +384,20 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           <div>
             <h2 style={{ fontSize: 17, fontWeight: 700 }}>{t('projects.newProject')}</h2>
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-              {step === 'start' ? t('projects.stepStartSubtitle') : step === 'info' ? t('projects.stepInfoSubtitle') : t('projects.stepTeamSubtitle')}
+              {step === 'identity' ? t('projects.stepIdentitySubtitle')
+                : step === 'client' ? t('projects.stepClientSubtitle')
+                : step === 'template' ? t('projects.stepTemplateSubtitle')
+                : t('projects.stepTeamSubtitle')}
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <StepDot label={t('projects.stepStart')} num={1} active={step === 'start'} done={stepDone('start')} reachable={isStepReachable('start')} onClick={() => setStep('start')} />
-            <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepInfo')} num={2} active={step === 'info'} done={stepDone('info')} reachable={isStepReachable('info')} onClick={() => setStep('info')} />
-            <div style={{ width: 16, height: 1, background: 'var(--border-2)' }} />
-            <StepDot label={t('projects.stepTeam')} num={3} active={step === 'team'} done={stepDone('team')} reachable={isStepReachable('team')} onClick={() => setStep('team')} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <StepDot label={t('projects.stepIdentity')} num={1} active={step === 'identity'} done={stepDone('identity')} reachable={isStepReachable('identity')} onClick={() => setStep('identity')} />
+            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label={t('projects.stepClient')} num={2} active={step === 'client'} done={stepDone('client')} reachable={isStepReachable('client')} onClick={() => setStep('client')} />
+            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label={t('projects.stepTemplate')} num={3} active={step === 'template'} done={stepDone('template')} reachable={isStepReachable('template')} onClick={() => setStep('template')} />
+            <div style={{ width: 14, height: 1, background: 'var(--border-2)' }} />
+            <StepDot label={t('projects.stepTeam')} num={4} active={step === 'team'} done={stepDone('team')} reachable={isStepReachable('team')} onClick={() => setStep('team')} />
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <SFIcon name="x" size={17} />
@@ -881,10 +885,10 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <button
-            onClick={step === 'start' ? onClose : back}
+            onClick={step === 'identity' ? onClose : back}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 18px', cursor: 'pointer', fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--ff-text)' }}
           >
-            {step === 'start' ? t('projects.cancel') : t('projects.back')}
+            {step === 'identity' ? t('projects.cancel') : t('projects.back')}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {name && (
