@@ -10,7 +10,8 @@ import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { markResourceRead } from '../data/notificationStore';
 import { incrementCommentCount } from '../data/commentStore';
-import { notifyComment } from '../data/commentNotify';
+import { getCurrentUser } from '../data/authStore';
+import { notifyComment, notifyLike } from '../data/commentNotify';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { sendAiChat, AiChatError } from '../data/aiClient';
 import { usePlan } from '../data/planStore';
@@ -294,7 +295,7 @@ export function DocumentReview() {
 
   const handleAddComment = (text: string) => {
     const nc: RevisionComment = {
-      id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [],
+      id: `c${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [],
       ...(pendingAnno ? { annotation: pendingAnno } : { contextLabel: activeRound }),
     };
     setComments(prev => [...prev, nc]);
@@ -305,8 +306,23 @@ export function DocumentReview() {
   };
 
   const handleResolve = (id: string) => setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
+  const handleToggleLike = (id: string) => {
+    const myId = getCurrentUser()?.id ?? USERS.lea.id;
+    let liking = false;
+    setComments(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const likedBy = c.likedBy ?? [];
+      const already = likedBy.includes(myId);
+      liking = !already;
+      return { ...c, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+    }));
+    if (liking) {
+      const comment = comments.find(c => c.id === id);
+      if (comment) notifyLike({ comment, itemLabel: resource?.title ?? '', resourceId });
+    }
+  };
   const handleReply = (id: string, text: string) => {
-    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text }] } : c));
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `r${Date.now()}`, author: USERS.lea, text, createdAt: Date.now() }] } : c));
     notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? '', resourceId });
   };
   const handleDeleteComment = (id: string) => { setComments(prev => prev.filter(c => c.id !== id)); if (activeCommentId === id) setActiveCommentId(null); };
@@ -801,6 +817,7 @@ export function DocumentReview() {
                 onResolve={handleResolve}
                 onReply={handleReply}
                 onDelete={handleDeleteComment}
+                onToggleLike={handleToggleLike}
                 pendingAnnotation={!!pendingAnno}
                 onCancelPending={() => setPendingAnno(null)}
                 drawing={drawing}
