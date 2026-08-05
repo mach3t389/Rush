@@ -1,13 +1,13 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, PageHeader, SFCard } from '../components/ui';
+import { SFButton, SFIcon, SFAvatar, PageHeader, SFCard, SFModal, CategoryFilterDropdown } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
-import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
+import { loadPhoto, loadPermissions, PERMISSION_PRESETS, PERMISSION_DEFS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import type { AccessLevel, PendingInvitation } from '../data/teamStore';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
-import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, getPendingInvitations, cancelInvitation, resendInvitation } from '../data/teamStore';
+import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, getPendingInvitations, cancelInvitation, resendInvitation, updateMemberFields, removeMember, isTeamOwner } from '../data/teamStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
@@ -38,14 +38,6 @@ const MEMBER_PHONE: Record<string, string> = {
   thomas: '+1 514 555-0103',
   julie:  '+1 514 555-0104',
   marc:   '+1 514 555-0105',
-};
-
-const ROLE_COLOR: Record<string, string> = {
-  'Admin':          '#5c3d8f',
-  'Dir. créative':  '#3b4f8f',
-  'Chef de projet': '#1a6b4a',
-  'Monteuse':       '#7d4e57',
-  'Producteur':     '#a85f3e',
 };
 
 type TeamMember = typeof USERS[string] & { email: string; since: string; phone: string; activeProjects: number; accessLevel: AccessLevel };
@@ -215,17 +207,33 @@ export function InviteTeamModal({ onClose }: { onClose: () => void }) {
 
 // ── Member detail panel ───────────────────────────────────────────────────────
 
-function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
+// Floating centered modal, matching FicheClient.tsx's MemberEditPanel line
+// for line (same tabs, same preset+toggle permission UI, same footer
+// remove-with-confirm pattern) — the two screens are the same kind of object
+// (a person with permissions) and should read as one design, not two.
+function MemberPanel({ member, onClose, isOwner, canManage }: { member: TeamMember; onClose: () => void; isOwner: boolean; canManage: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [showEdit, setShowEdit] = useState(false);
   const [, forceProjectsRerenderPanel] = useState(0);
   useEffect(() => subscribeProjects(() => forceProjectsRerenderPanel(n => n + 1)), []);
   const memberProjects = getProjects().filter(p => p.members.some(m => m.id === member.id));
   const photoUrl = loadPhoto(member.id);
 
+  const [activeTab, setActiveTab] = useState<'profil' | 'permissions'>('profil');
+  const [name, setName] = useState(member.name);
+  const [email, setEmail] = useState(member.email);
+  const [role, setRole] = useState(member.role);
+  const [accessLevel, setAccessLevel] = useState<AccessLevel>(member.accessLevel);
+  const [perms, setPerms] = useState<PermissionKey[]>(() => loadPermissions(member.id, member.role));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const permGroups = PERMISSION_DEFS.reduce<Record<string, typeof PERMISSION_DEFS>>((acc, p) => {
+    (acc[p.group] ??= []).push(p);
+    return acc;
+  }, {});
+  const togglePerm = (key: PermissionKey) => setPerms(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+
   const handleViewAs = () => {
-    const permissions = loadPermissions(member.id, member.role);
     enterViewAs({
       type: 'internal',
       id: member.id,
@@ -233,92 +241,191 @@ function MemberPanel({ member, onClose }: { member: TeamMember; onClose: () => v
       initials: member.initials,
       avatarColor: member.avatarColor,
       role: member.role,
-      permissions,
+      permissions: perms,
     });
     onClose();
     navigate('/');
   };
 
+  const save = () => {
+    updateMemberFields(member.id, { name, email, role, accessLevel });
+    savePermissions(member.id, perms);
+    onClose();
+  };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', justifyContent: 'flex-end' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
-      <div style={{ position: 'relative', width: 420, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '-12px 0 40px rgba(0,0,0,0.6)', borderLeft: '1px solid var(--border)' }}>
+    <SFModal open onClose={onClose} title={t('team.memberCard')} width={420} maxHeight="85vh" padding={24}>
+      <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}><SFIcon name="x" size={16} /></button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
             <div style={{ width: 56, height: 56, borderRadius: '50%', background: member.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#fff', overflow: 'hidden', flexShrink: 0 }}>
-              {photoUrl ? <img src={photoUrl} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <SFAvatar initials={member.initials} bg={member.avatarColor} size={56} />}
+              {photoUrl ? <img src={photoUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <SFAvatar initials={member.initials} bg={member.avatarColor} size={56} />}
             </div>
-            <div>
-              <p style={{ fontSize: 18, fontWeight: 700 }}>{member.name}</p>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, padding: '2px 8px', borderRadius: 6, background: (ROLE_COLOR[member.role] ?? '#404040') + '22', color: ROLE_COLOR[member.role] ?? 'var(--text-3)', letterSpacing: '0.05em' }}>{member.role}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 14, fontWeight: 700 }}>{name}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{role}</p>
+              {isOwner && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--accent)', background: 'rgba(249,255,0,0.1)', padding: '2px 7px', borderRadius: 5, marginTop: 6 }}>
+                  <SFIcon name="crown" size={9} color="var(--accent)" />
+                  {t('team.owner')}
+                </span>
+              )}
             </div>
+          </div>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {(['profil', 'permissions'] as const).map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ fontSize: 13, fontWeight: 500, color: activeTab === tab ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 8, borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent' }}>
+                {tab === 'profil' ? t('client.tabProfile') : t('client.tabPermissions')}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Contact info */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('team.contact')}</p>
-            {[
-              { icon: 'mail', value: member.email },
-              { icon: 'phone', value: member.phone },
-              { icon: 'calendar', value: t('team.memberSince', { date: member.since }) },
-            ].map(row => (
-              <div key={row.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <SFIcon name={row.icon} size={13} color="var(--text-3)" />
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-2)' }}>{row.value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Active projects */}
-          <div>
-            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('team.activeProjectsCount', { count: memberProjects.length })}</p>
-            {memberProjects.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('team.noActiveProjects')}</p>
-            ) : memberProjects.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 6 }}>
-                <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+        <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {activeTab === 'profil' ? (
+            <>
+              {[
+                { label: t('client.fullName'), val: name, set: setName },
+                { label: t('client.emailAddress'), val: email, set: setEmail },
+                { label: t('client.roleFunction'), val: role, set: setRole },
+              ].map(f => (
+                <div key={f.label}>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
+                  <input value={f.val} onChange={e => f.set(e.target.value)} disabled={!canManage}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)' }} />
                 </div>
-                <SFPillSmall status={p.status}>{p.statusLabel}</SFPillSmall>
+              ))}
+
+              {!isOwner && canManage && (
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('team.accessLevel')}</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {(['admin', 'member'] as const).map(lvl => {
+                      const active = accessLevel === lvl;
+                      return (
+                        <button key={lvl} onClick={() => setAccessLevel(lvl)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)', flex: 1 }}>{lvl === 'admin' ? t('team.accessAdmin') : t('team.accessMember')}</p>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('team.activeProjectsCount', { count: memberProjects.length })}</p>
+                {memberProjects.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{t('team.noActiveProjects')}</p>
+                ) : memberProjects.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: 6 }}>
+                    <i style={{ width: 9, height: 9, borderRadius: '50%', background: p.clientColor, flexShrink: 0, display: 'block' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+                    </div>
+                    <SFPillSmall status={p.status}>{p.statusLabel}</SFPillSmall>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              {(() => {
+                const activePreset = matchPreset(perms);
+                return (
+                  <div>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('client.presets')}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {PERMISSION_PRESETS.map(preset => {
+                        const active = activePreset === preset.key;
+                        return (
+                          <button key={preset.key} onClick={() => canManage && setPerms(preset.perms)} disabled={!canManage}
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(249,255,0,0.06)' : 'var(--surface-2)', cursor: canManage ? 'pointer' : 'default', textAlign: 'left', fontFamily: 'var(--ff-text)' }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text)' }}>{t(preset.labelKey)}</p>
+                              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(preset.descKey)}</p>
+                            </div>
+                            <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-2)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {active && <SFIcon name="check" size={10} color="var(--on-accent)" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {!activePreset && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(249,255,0,0.04)' }}>
+                          <SFIcon name="sliders-horizontal" size={13} color="var(--accent)" />
+                          <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>{t('client.custom')}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('client.permissionDetails')}</p>
+                  </div>
+                );
+              })()}
+              {Object.entries(permGroups).map(([group, items]) => (
+                <div key={group}>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t(items[0].groupKey)}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {items.map(p => {
+                      const on = perms.includes(p.key);
+                      return (
+                        <div key={p.key} onClick={() => canManage && togglePerm(p.key)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 9, border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)', cursor: canManage ? 'pointer' : 'default' }}>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600 }}>{t(p.labelKey)}</p>
+                            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(p.descKey)}</p>
+                          </div>
+                          <div style={{ width: 36, height: 20, borderRadius: 10, background: on ? 'var(--accent)' : 'var(--surface-3)', border: `1px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`, position: 'relative', flexShrink: 0 }}>
+                            <div style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: on ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
-        {/* Footer actions */}
-        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <SFButton variant="ghost" icon="mail">{t('team.contactAction')}</SFButton>
-          <SFButton variant="ghost" icon="send">{t('team.resendInvitation')}</SFButton>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <SFButton variant="ghost" icon="eye" onClick={handleViewAs}>{t('viewAs.viewAs')}</SFButton>
-            <SFButton variant="primary" icon="pencil" onClick={() => setShowEdit(true)}>{t('team.editProfile')}</SFButton>
-          </div>
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {confirmDelete ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1 }}>{t('team.removeMemberConfirm')}</span>
+              <SFButton variant="ghost" onClick={() => setConfirmDelete(false)}>{t('client.cancel')}</SFButton>
+              <SFButton variant="ghost" onClick={() => { void removeMember(member.id); onClose(); }} style={{ color: 'var(--danger)' }}>{t('client.remove')}</SFButton>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {canManage && !isOwner && (
+                  <button onClick={() => setConfirmDelete(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12, fontFamily: 'var(--ff-text)' }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,60,60,0.08)'; el.style.borderColor = 'var(--danger)'; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.borderColor = 'var(--border)'; }}>
+                    <SFIcon name="user-minus" size={13} color="var(--danger)" />
+                    {t('team.removeFromTeam')}
+                  </button>
+                )}
+                <div style={{ flex: 1 }} />
+                <SFButton variant="ghost" icon="mail" onClick={() => window.open(`mailto:${email}`)}>{t('team.contactAction')}</SFButton>
+                <SFButton variant="ghost" icon="eye" onClick={handleViewAs}>{t('viewAs.viewAs')}</SFButton>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+                {canManage && <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>}
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {showEdit && (
-        <ProfileEditPanel
-          userId={member.id}
-          initialName={member.name}
-          initialRole={member.role}
-          initialEmail={member.email}
-          initialPhone={member.phone}
-          initialInitials={member.initials}
-          initialColor={member.avatarColor}
-          isAdmin={getMyAccessLevel() !== 'member'}
-          onClose={() => setShowEdit(false)}
-        />
-      )}
-    </div>
+    </SFModal>
   );
 }
 
@@ -450,35 +557,24 @@ export function MonEquipe() {
           background). */}
       <PageHeader title={t('team.title')} subtitle={t('team.subtitle', { count: team.length })}
         actions={<SFButton variant="primary" icon="user-plus" onClick={() => openInviteModal()}>{t('team.inviteMember')}</SFButton>}>
-        <div style={{ position: 'relative', maxWidth: 360 }}>
-          <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-            <SFIcon name="search" size={14} color="var(--text-3)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
+            <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+              <SFIcon name="search" size={14} color="var(--text-3)" />
+            </div>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('team.searchPlaceholder')}
+              style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
           </div>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('team.searchPlaceholder')}
-            style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+          {permFilterOptions.length > 1 && (
+            <CategoryFilterDropdown
+              value={permFilter}
+              onChange={setPermFilter}
+              categoryLabel={t('common.activityFilterLabel')}
+              icon="shield"
+              options={[{ value: 'all', label: t('membres.permFilterAll') }, ...permFilterOptions.map(([key, labelKey]) => ({ value: key, label: t(labelKey) }))]}
+            />
+          )}
         </div>
-        {permFilterOptions.length > 1 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
-            <button onClick={() => setPermFilter('all')} style={{
-              padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
-              border: `1px solid ${permFilter === 'all' ? 'var(--accent)' : 'var(--border)'}`,
-              background: permFilter === 'all' ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
-              color: permFilter === 'all' ? 'var(--accent)' : 'var(--text-2)',
-            }}>
-              {t('membres.permFilterAll')}
-            </button>
-            {permFilterOptions.map(([key, labelKey]) => (
-              <button key={key} onClick={() => setPermFilter(key)} style={{
-                padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
-                border: `1px solid ${permFilter === key ? 'var(--accent)' : 'var(--border)'}`,
-                background: permFilter === key ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
-                color: permFilter === key ? 'var(--accent)' : 'var(--text-2)',
-              }}>
-                {t(labelKey)}
-              </button>
-            ))}
-          </div>
-        )}
       </PageHeader>
 
       {/* Team grid */}
@@ -551,7 +647,14 @@ export function MonEquipe() {
         </div>
       </div>
 
-      {selectedMember && <MemberPanel member={selectedMember} onClose={() => setSelectedMember(null)} />}
+      {selectedMember && (
+        <MemberPanel
+          member={selectedMember}
+          onClose={() => setSelectedMember(null)}
+          isOwner={isTeamOwner(selectedMember.id)}
+          canManage={getMyAccessLevel() !== 'member'}
+        />
+      )}
       {showInvite && <InviteTeamModal onClose={() => setShowInvite(false)} />}
     </div>
   );
