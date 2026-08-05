@@ -428,7 +428,10 @@ function TaskRow({
   }, [editingTitle]);
 
   const commitTitle = () => {
-    const val = titleDraft.trim() || task.title;
+    // Commit whatever the user left, including empty (e.g. select-all then
+    // Ctrl+X) — falling back to the old title here silently undid a
+    // deletion the moment the field lost focus.
+    const val = titleDraft.trim();
     setTitleDraft(val);
     setEditingTitle(false);
     const pid = rowProjectId ?? task.projectId;
@@ -1859,11 +1862,6 @@ export function Travail() {
       {/* Headers wrapper */}
       <div style={{ flexShrink: 0 }}>
       <ProjectHeaderBar projectId={project.id}>
-        {/* Hidden while the task detail panel is open — with the left
-            column squeezed narrower, this toolbar (template menu, view
-            switcher, view settings) had no room and visibly crammed/
-            reflowed instead of just staying out of the way. */}
-        {!selectedTask && <>
         {/* View switcher */}
         <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
           {([
@@ -1913,7 +1911,6 @@ export function Travail() {
             </>
           )}
         </div>
-        </>}
       </ProjectHeaderBar>
 
       {/* Section nav bar — only in list view */}

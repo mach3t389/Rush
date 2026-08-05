@@ -70,10 +70,6 @@ function TaskActivityCell({ taskId }: { taskId: string }) {
 
 // cb | titre | activité | projet | assigné(avatar) | priorité | statut | échéance | more
 const GRID = '28px 1fr 65px 140px 36px 75px 95px 85px 24px 28px';
-// Quand le panneau de détail est ouvert, ces infos sont déjà visibles à
-// droite — les cacher dans la liste centrale libère toute la largeur pour
-// lire le titre en entier (checkbox + titre + suppression seulement).
-const GRID_COMPACT = '28px 1fr 24px';
 
 type Filter = 'today' | 'week' | 'late' | 'all';
 type SortCol = 'title' | 'priority' | 'status' | 'dueDate';
@@ -131,7 +127,7 @@ function sortTasks(tasks: Task[], col: SortCol, dir: SortDir): Task[] {
 
 // �"?�"? Col header �"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 
-function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir: SortDir }; onSort: (col: SortCol) => void; compact?: boolean }) {
+function ColHeader({ sort, onSort }: { sort: { col: SortCol | null; dir: SortDir }; onSort: (col: SortCol) => void }) {
   const { t } = useTranslation();
   const plain = (label: string) => (
     <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -149,15 +145,6 @@ function ColHeader({ sort, onSort, compact }: { sort: { col: SortCol | null; dir
       </button>
     );
   };
-  if (compact) {
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
-        <span />
-        {sortable(t('tasks.task'), 'title')}
-        <span />
-      </div>
-    );
-  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
@@ -363,7 +350,7 @@ function SectionContextMenu({ pos, onRename, onDelete, onClose }: {
   );
 }
 
-function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, onConvertRequest, compact }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void; onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void; compact?: boolean }) {
+function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, onConvertRequest }: { task: Task; selected: boolean; multiSelected?: boolean; onSelect: (t: Task, e?: React.MouseEvent) => void; flashId?: string | null; onDelete?: () => void; onConvertRequest?: (task: Task, pos: { x: number; y: number }) => void }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
   const [priority, setPriority] = useState<Priority>(task.priority);
@@ -425,10 +412,13 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
 
   const commitTitle = () => {
+    // Commit whatever the user left, including empty (e.g. select-all then
+    // Ctrl+X) — falling back to the old title here silently undid a
+    // deletion the moment the field lost focus.
     const trimmed = titleDraft.trim();
-    if (trimmed && trimmed !== task.title) updateMyTask(task.id, { title: trimmed });
-    else setTitleDraft(task.title);
+    setTitleDraft(trimmed);
     setEditingTitle(false);
+    if (trimmed !== task.title) updateMyTask(task.id, { title: trimmed });
   };
 
   // Cocher une tâche dans Mes tâches → animation de coche, puis retrait de la
@@ -474,13 +464,10 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: compact ? GRID_COMPACT : GRID,
+        gridTemplateColumns: GRID,
         alignItems: 'center',
         gap: 12,
         padding: '8px 16px',
-        // Fixed regardless of compact/full mode — without it, closing the
-        // status/priority pills in compact mode shrinks the row's natural
-        // height, making the whole list jump shorter every time the panel opens.
         minHeight: 44,
         borderBottom: '1px solid var(--border)',
         opacity: checked ? 0.4 : 1,
@@ -605,8 +592,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
         )}
       </div>
 
-      {!compact && (
-      <>
       {/* Activité */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <TaskActivityCell taskId={task.id} />
@@ -846,8 +831,6 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
           />
         )}
       </div>
-      </>
-      )}
 
       {/* Delete — supprime la tâche de Mes tâches */}
       {onDelete && (
@@ -863,14 +846,12 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
       )}
 
       {/* More — opens panel */}
-      {!compact && (
-        <button
-          onClick={e => onSelect(task, e)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-        >
-          <SFIcon name="ellipsis" size={14} color="var(--text-3)" />
-        </button>
-      )}
+      <button
+        onClick={e => onSelect(task, e)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+      >
+        <SFIcon name="ellipsis" size={14} color="var(--text-3)" />
+      </button>
 
       {/* Right-click context menu */}
       {ctxPos && (
@@ -1090,7 +1071,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
   );
 }
 
-function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAutoOpened }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void; compact?: boolean; autoOpen?: boolean; onAutoOpened?: () => void }) {
+function AddTaskRow({ defaultPriority, onAdd, onAddMany, autoOpen, onAutoOpened }: { defaultPriority: Priority; onAdd: (title: string, opts: AddOpts) => void; onAddMany: (titles: string[], opts: AddOpts) => void; autoOpen?: boolean; onAutoOpened?: () => void }) {
   const { t } = useTranslation();
   const [title, setTitle]       = useState('');
   const [open, setOpen]         = useState(() => !!autoOpen);
@@ -1197,7 +1178,7 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
 
   return (
     <div style={{ borderTop: '1px solid var(--border)', background: 'rgba(249,255,0,0.03)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: compact ? GRID_COMPACT : GRID, alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
 
@@ -1214,8 +1195,6 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
           style={{ width: '100%', padding: '4px 0', background: 'transparent', border: 'none', borderBottom: '1px solid var(--accent)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)' }}
         />
 
-        {!compact && (
-        <>
         <span />{/* Activité */}
 
         {/* Projet */}
@@ -1294,8 +1273,6 @@ function AddTaskRow({ defaultPriority, onAdd, onAddMany, compact, autoOpen, onAu
             <DatePickerDropdown value={dueDate} onChange={v => { setDueDate(formatDisplay(v)); setOpenField(null); }} onClose={() => setOpenField(null)} anchorRect={dropRect} />
           )}
         </div>
-        </>
-        )}
 
         {/* Cancel */}
         <button onMouseDown={e => e.preventDefault()} onClick={cancel}
@@ -1315,17 +1292,6 @@ export function Taches() {
   const { t } = useTranslation();
   const [filter, setFilter]           = usePersistedState<Filter>('sf_taches_filter', 'all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  // Collapsing the list columns tracks the panel opening instantly, but on
-  // close it stays collapsed until the panel's width transition (0.2s)
-  // finishes — flipping back to the full grid immediately made the title
-  // column visibly snap tiny (squeezed into the still-narrow container)
-  // before growing back once the panel had actually collapsed.
-  const [compactColumns, setCompactColumns] = useState(false);
-  useEffect(() => {
-    if (selectedTask) { setCompactColumns(true); return; }
-    const timer = setTimeout(() => setCompactColumns(false), 200);
-    return () => clearTimeout(timer);
-  }, [selectedTask]);
   const [tasks, setTasks]             = useState<Task[]>(getMyTasks);
   const [flashId]                     = useState<string | null>(null);
   const [convertRequest, setConvertRequest] = useState<{ taskIds: string[]; pos: { x: number; y: number } } | null>(null);
@@ -1542,7 +1508,7 @@ export function Taches() {
   const clearTaskSelection = () => { setMultiSelIds(new Set()); setSelectedTask(null); };
   const onBackgroundClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) clearTaskSelection(); };
 
-  const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort, compact: compactColumns };
+  const colHeaderProps = { sort: { col: sortCol as SortCol | null, dir: sortDir }, onSort: handleSort };
 
   const filterTabBtn = (f: { key: Filter; labelKey: string }) => (
     <SFFilterPill key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
@@ -1627,9 +1593,9 @@ export function Taches() {
                           <ColHeader {...colHeaderProps} />
                         </div>
                         {g.tasks.map(task => (
-                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
+                          <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
                         ))}
-                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} compact={compactColumns} />
+                        <AddTaskRow defaultPriority={g.priority} onAdd={(title, opts) => addTask(title, { ...opts, priority: g.priority })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, priority: g.priority })} />
                       </>
                     )}
                   </div>
@@ -1640,7 +1606,7 @@ export function Taches() {
                   <div style={{ padding: '8px 0 0' }}>
                     <ColHeader {...colHeaderProps} />
                   </div>
-                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={compactColumns} />
+                  <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
                 </div>
               )}
             </>
@@ -1653,9 +1619,9 @@ export function Taches() {
                 <ColHeader {...colHeaderProps} />
               </div>
               {noSectionTasks.map(task => (
-                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
+                <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
               ))}
-              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} compact={compactColumns} />
+              <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, opts)} onAddMany={(titles, opts) => addTaskMany(titles, opts)} />
             </div>
 
             {/* Named sections */}
@@ -1677,9 +1643,9 @@ export function Taches() {
                         <ColHeader {...colHeaderProps} />
                       </div>
                       {g.tasks.map(task => (
-                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} compact={compactColumns} />
+                        <TaskRow key={task.id} task={task} selected={selectedTask?.id === task.id} multiSelected={multiSelIds.has(task.id)} onSelect={handleSelectTask} flashId={flashId} onDelete={isAssignedTask(task.id) ? undefined : () => removeMyTask(task.id)} onConvertRequest={isAssignedTask(task.id) ? undefined : handleConvertRequest} />
                       ))}
-                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })} compact={compactColumns}
+                      <AddTaskRow defaultPriority="none" onAdd={(title, opts) => addTask(title, { ...opts, mySection: g.label })} onAddMany={(titles, opts) => addTaskMany(titles, { ...opts, mySection: g.label })}
                         autoOpen={justCreatedSection === g.label} onAutoOpened={() => setJustCreatedSection(null)} />
                     </>
                   )}
