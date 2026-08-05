@@ -97,6 +97,13 @@ Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en 
 - [ ] **Spot-check plan payant** : avec un studio réel en plan Studio/Agence, confirmer que créer une facture, un modèle, un projet, ou inviter un membre (dans la limite de sièges achetés) fonctionne toujours normalement.
   - Pourquoi : cette migration ajoute une protection invisible en usage normal (elle ne bloque que les tentatives de contournement de l'interface) — le vrai risque à tester est qu'elle bloque *aussi* par erreur un usage légitime.
 
+## Modèle Client/Membre/Projet (chantier 2026-08-04)
+
+- [ ] **Parcours complet réel** : avec un compte réel, créer un client, l'ouvrir, cliquer "Nouveau projet" (bouton déjà existant, vérifié fonctionnel), confirmer le client est pré-rempli. Ajouter des membres via la nouvelle recherche à l'étape "Membres" du même assistant, confirmer le bouton "Ajouter tous les contacts de [client]" fonctionne.
+- [ ] **Transfert de client** : sur un projet réel ayant des membres qui sont aussi des contacts du client actuel, changer son client — confirmer que la question de confirmation apparaît et que les deux choix (retirer/garder l'accès) fonctionnent comme attendu.
+- [ ] **Notification d'approbation réelle** : avec un compte réel, demander une approbation sur un projet où un seul des contacts du client a été ajouté comme membre — confirmer qu'un seul courriel part (pas tout le carnet du client).
+- [ ] **Activité client réelle** : confirmer que l'onglet Activité d'une fiche client réelle montre maintenant de vrais événements (ou un état vide propre), pas un flux inventé.
+
 ## Prochains chantiers (à compléter au fur et à mesure)
 
 - Étape C — Tableau de bord client : implémentée (2026-07-25), en attente de ton test réel ci-dessus.
