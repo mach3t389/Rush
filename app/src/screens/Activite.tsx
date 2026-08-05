@@ -36,6 +36,7 @@ const KIND_LABEL_KEY: Record<NotifKind, string> = {
   deliverableApproved: 'activity.deliverableApproved',
   storageLimit: 'activity.storageLimit',
   taskCompleted: 'activity.taskCompleted',
+  like: 'activity.like',
 };
 
 import type { Status } from '../types';
@@ -50,6 +51,7 @@ const KIND_STATUS: Record<NotifKind, Status> = {
   deliverableApproved: 'ok',
   storageLimit: 'warn',
   taskCompleted: 'ok',
+  like: 'review',
 };
 
 const ACTOR_COLOR: Record<string, string> = {
@@ -134,6 +136,7 @@ function actorSummary(actors: string[], count: number, kind: NotifKind, t: TFunc
     deliverableApproved: t('activity.verbDeliverableApproved'),
     storageLimit: t('activity.verbStorageLimit'),
     taskCompleted: t('activity.verbTaskCompleted'),
+    like: t('activity.verbLike'),
   };
   const verb = verbMap[kind];
   if (actors.length === 1) return t('activity.actorSummaryOne', { actor: actors[0], verb });
@@ -155,6 +158,7 @@ const NOTIF_ICON: Record<NotifKind, { icon: string; color: string; bg: string }>
   deliverableApproved: { icon: 'check-circle', color: 'var(--ok)', bg: 'rgba(0,200,100,0.12)' },
   storageLimit: { icon: 'hard-drive', color: 'var(--warn)', bg: 'rgba(245,151,91,0.15)' },
   taskCompleted: { icon: 'check-circle', color: 'var(--ok)', bg: 'rgba(0,200,100,0.12)' },
+  like: { icon: 'heart', color: '#7d4e57', bg: 'rgba(125,78,87,0.15)' },
 };
 
 function NotifGroupRow({ group, navigate }: { group: NotifGroup; navigate: (to: string) => void }) {

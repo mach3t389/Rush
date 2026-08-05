@@ -152,3 +152,37 @@ export function notifyComment({ kind, text, itemLabel, resourceId, taskId, proje
     void sendEmail(member.email, subject, html, { eventKey, recipientUserId: member.id });
   }
 }
+
+interface NotifyLikeOpts {
+  comment: { id: string; author: { id?: string } };
+  itemLabel: string;
+  resourceId?: string;
+  taskId?: string;
+  projectId?: string;
+}
+
+// Fires only on the transition to "liked" (call sites only call this when
+// the like is being turned ON, never on unlike), and only notifies the
+// comment's own author — never the full watcher list, since a like is a
+// signal between the liker and the author, not a broadcast like a new
+// comment. No-ops silently if the author has no resolvable user id (legacy
+// demo comments authored before this feature, or comments whose author
+// field was never a real team member id) — nothing to notify.
+export function notifyLike({ comment, itemLabel, resourceId, taskId, projectId }: NotifyLikeOpts): void {
+  const authorId = comment.author.id;
+  const myId = actorId();
+  if (!authorId || authorId === myId) return;
+
+  addNotif({
+    kind: 'like',
+    actor: actorName(),
+    text: `a aimé votre commentaire sur « ${itemLabel} »`,
+    timestamp: Date.now(),
+    resourceId,
+    taskId,
+    projectId,
+    commentId: comment.id,
+    recipientIds: [authorId],
+    actorId: myId,
+  });
+}

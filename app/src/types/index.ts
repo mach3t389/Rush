@@ -128,9 +128,11 @@ export interface Task {
 export interface TaskComment {
   id: string;
   text: string;
-  author: { initials: string; bg: string; name: string };
+  author: { id?: string; initials: string; bg: string; name: string };
   replies: TaskComment[];
   status?: 'open' | 'resolved';
+  createdAt?: number;
+  likedBy?: string[];
 }
 
 // ── Resource ──────────────────────────────────────────────────────────────────

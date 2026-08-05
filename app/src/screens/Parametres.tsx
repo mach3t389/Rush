@@ -2211,7 +2211,9 @@ export function Parametres() {
                     <Toggle on={!!notifPrefs[ev.key]?.inapp} onChange={v => setChannel(ev.key, 'inapp', v)} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <Toggle on={!!notifPrefs[ev.key]?.email} onChange={v => setChannel(ev.key, 'email', v)} />
+                    {ev.key !== 'like' && (
+                      <Toggle on={!!notifPrefs[ev.key]?.email} onChange={v => setChannel(ev.key, 'email', v)} />
+                    )}
                   </div>
                 </div>
               ))}

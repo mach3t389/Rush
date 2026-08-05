@@ -8,14 +8,14 @@ import { requestUpgrade } from '../data/upgradePromptStore';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFButton, SFIcon } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
-import { isDemoSession } from '../data/authStore';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { getFormSubmissions, subscribeFormSubmissions, getFormFileUrlSync, type FormSubmission } from '../data/formSubmissionsStore';
 import { markResourceRead } from '../data/notificationStore';
-import { notifyComment } from '../data/commentNotify';
+import { notifyComment, notifyLike } from '../data/commentNotify';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
 import { WatchersRow } from '../components/WatchersRow';
@@ -302,14 +302,34 @@ function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, 
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const handleAdd = (text: string) => {
-    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author: USERS.lea, text, status: 'open', replies: [] }]);
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
+    setComments(prev => [...prev, { id: `sc-${Date.now()}`, author, text, status: 'open', replies: [], createdAt: Date.now(), likedBy: [] }]);
     notifyComment({ kind: 'add', text, itemLabel, resourceId, projectId });
   };
   const handleResolve = (id: string) => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'resolved' ? 'open' : 'resolved' } : c));
   };
+  const handleToggleLike = (id: string) => {
+    const myId = getCurrentUser()?.id ?? USERS.lea.id;
+    let liking = false;
+    const next = comments.map(c => {
+      if (c.id !== id) return c;
+      const likedBy = c.likedBy ?? [];
+      const already = likedBy.includes(myId);
+      liking = !already;
+      return { ...c, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+    });
+    setComments(next);
+    if (liking) {
+      const comment = next.find(c => c.id === id);
+      if (comment) notifyLike({ comment, itemLabel, resourceId, projectId });
+    }
+  };
   const handleReply = (id: string, text: string) => {
-    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author: USERS.lea, text }] } : c));
+    const me = getCurrentUser();
+    const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
+    setComments(prev => prev.map(c => c.id === id ? { ...c, replies: [...c.replies, { id: `sr-${Date.now()}`, author, text, createdAt: Date.now() }] } : c));
     notifyComment({ kind: 'reply', text, itemLabel, resourceId, projectId });
   };
   const handleDelete = (id: string) => {
@@ -334,6 +354,7 @@ function ResourceCommentSidebar({ comments, setComments, itemLabel, resourceId, 
         onResolve={handleResolve}
         onReply={handleReply}
         onDelete={handleDelete}
+        onToggleLike={handleToggleLike}
         pendingAnnotation={false}
         onCancelPending={() => {}}
         embedded

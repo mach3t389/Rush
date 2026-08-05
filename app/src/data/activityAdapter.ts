@@ -23,6 +23,7 @@ const KIND_TO_TYPE: Record<NotifKind, string> = {
   invitation: 'member',
   storageLimit: 'client',
   taskCompleted: 'task',
+  like: 'comment',
 };
 
 const AVATAR_COLORS = ['#3b4f8f', '#5c3d8f', '#1a6b4a', '#7d4e57', '#a85f3e', '#2a7a8a'];

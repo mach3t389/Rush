@@ -5,10 +5,11 @@ import { getResources, updateResource } from '../data/resourceStore';
 import { WatchersRow } from '../components/WatchersRow';
 import { addWatcher } from '../data/watchers';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
-import { isDemoSession } from '../data/authStore';
+import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { RequestApprovalButton } from '../components/RequestApprovalButton';
 import { RevisionCommentSidebar, type RevisionComment, type RevisionReply } from '../components/RevisionComments';
-import { notifyComment } from '../data/commentNotify';
+import { notifyComment, notifyLike } from '../data/commentNotify';
+import { USERS } from '../data/mock';
 
 interface Annotation {
   id: string;
@@ -17,18 +18,20 @@ interface Annotation {
   y: number;
   text: string;
   author: string;
+  authorId?: string;
   authorInitials: string;
   authorColor: string;
   resolved: boolean;
-  createdAt: string;
+  createdAt: number;
+  likedBy?: string[];
   replies: RevisionReply[];
 }
 
 // Demo annotations stored in page-pixel coordinates
 const DEMO_ANNOTATIONS: Annotation[] = [
-  { id: 'a1', x: 300, y: 150, text: 'Le logo est trop petit sur mobile. Agrandir à 48px minimum.', author: 'Léa Marchand', authorInitials: 'LM', authorColor: '#3b4f8f', resolved: false, createdAt: 'Il y a 2h', replies: [] },
-  { id: 'a2', x: 650, y: 380, text: 'Cette section manque de contraste. Tester avec un fond plus foncé.', author: 'Marc Dupont', authorInitials: 'MD', authorColor: '#1a6b4a', resolved: false, createdAt: 'Il y a 45 min', replies: [] },
-  { id: 'a3', x: 420, y: 620, text: 'CTA bien placé, approuvé.', author: 'Léa Marchand', authorInitials: 'LM', authorColor: '#3b4f8f', resolved: true, createdAt: 'Hier', replies: [] },
+  { id: 'a1', x: 300, y: 150, text: 'Le logo est trop petit sur mobile. Agrandir à 48px minimum.', author: 'Léa Marchand', authorId: USERS.lea.id, authorInitials: 'LM', authorColor: '#3b4f8f', resolved: false, createdAt: Date.now() - 2 * 60 * 60 * 1000, likedBy: [], replies: [] },
+  { id: 'a2', x: 650, y: 380, text: 'Cette section manque de contraste. Tester avec un fond plus foncé.', author: 'Marc Dupont', authorInitials: 'MD', authorColor: '#1a6b4a', resolved: false, createdAt: Date.now() - 45 * 60 * 1000, likedBy: [], replies: [] },
+  { id: 'a3', x: 420, y: 620, text: 'CTA bien placé, approuvé.', author: 'Léa Marchand', authorId: USERS.lea.id, authorInitials: 'LM', authorColor: '#3b4f8f', resolved: true, createdAt: Date.now() - 24 * 60 * 60 * 1000, likedBy: [], replies: [] },
 ];
 
 function Pin({
@@ -213,16 +216,19 @@ export function WebReview() {
 
   const commitAnnotation = () => {
     if (!pendingPos || !draftText.trim()) return;
+    const me = getCurrentUser();
     const ann: Annotation = {
       id: `a${Date.now()}`,
       x: pendingPos.x,
       y: pendingPos.y,
       text: draftText.trim(),
-      author: 'Moi',
-      authorInitials: 'MO',
-      authorColor: '#5b3ea8',
+      author: me?.name ?? 'Moi',
+      authorId: me?.id,
+      authorInitials: me?.initials ?? 'MO',
+      authorColor: me?.avatarColor ?? '#5b3ea8',
       resolved: false,
-      createdAt: 'À l\'instant',
+      createdAt: Date.now(),
+      likedBy: [],
       replies: [],
     };
     setAnnotations(prev => [...prev, ann]);
@@ -243,16 +249,36 @@ export function WebReview() {
   };
 
   const replyToAnnotation = (id: string, text: string) => {
-    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, replies: [...a.replies, { id: `wr${Date.now()}`, author: { id: 'moi', name: 'Moi', initials: 'MO', avatarColor: '#5b3ea8', role: '' }, text }] } : a));
+    const me = getCurrentUser();
+    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, replies: [...a.replies, { id: `wr${Date.now()}`, author: { id: me?.id ?? 'moi', name: me?.name ?? 'Moi', initials: me?.initials ?? 'MO', avatarColor: me?.avatarColor ?? '#5b3ea8', role: '' }, text, createdAt: Date.now() }] } : a));
     notifyComment({ kind: 'reply', text, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
+  };
+
+  const toggleLikeAnnotation = (id: string) => {
+    const myId = getCurrentUser()?.id ?? 'moi';
+    let liking = false;
+    const next = annotations.map(a => {
+      if (a.id !== id) return a;
+      const likedBy = a.likedBy ?? [];
+      const already = likedBy.includes(myId);
+      liking = !already;
+      return { ...a, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+    });
+    setAnnotations(next);
+    if (liking) {
+      const ann = next.find(a => a.id === id);
+      if (ann) notifyLike({ comment: { id: ann.id, author: { id: ann.authorId } }, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId });
+    }
   };
 
   const toRevisionComment = (ann: Annotation, index: number): RevisionComment => ({
     id: ann.id,
-    author: { id: `wa-${index}`, name: ann.author, initials: ann.authorInitials, avatarColor: ann.authorColor, role: '' },
+    author: { id: ann.authorId ?? `wa-${index}`, name: ann.author, initials: ann.authorInitials, avatarColor: ann.authorColor, role: '' },
     text: ann.text,
     status: ann.resolved ? 'resolved' : 'open',
     annotation: { x: ann.x, y: ann.y },
+    createdAt: ann.createdAt,
+    likedBy: ann.likedBy,
     replies: ann.replies,
   });
 
@@ -508,6 +534,7 @@ export function WebReview() {
               onResolve={toggleResolved}
               onReply={replyToAnnotation}
               onDelete={deleteAnnotation}
+              onToggleLike={toggleLikeAnnotation}
               pendingAnnotation={false}
               onCancelPending={() => {}}
               embedded
