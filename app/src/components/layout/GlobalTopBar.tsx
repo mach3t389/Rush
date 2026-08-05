@@ -8,7 +8,7 @@ import { USERS } from '../../data/mock';
 import { ProfileEditPanel, loadProfile, loadPhoto } from '../profile/ProfileEditPanel';
 import { getShortcuts, subscribeShortcuts, formatCombo } from '../../data/shortcutsStore';
 import { getCurrentUser, logout } from '../../data/authStore';
-import { getMyAccessLevel } from '../../data/teamStore';
+import { getMyAccessLevel, findTeamMember, subscribeTeam } from '../../data/teamStore';
 import { usePlan } from '../../data/planStore';
 import { canUseFeature } from '../../data/planFeatures';
 
@@ -38,11 +38,18 @@ export function GlobalTopBar({ onSearch }: Props) {
   const plan = usePlan();
   const aiLocked = !canUseFeature(plan, 'ai');
 
-  // Auth user — fall back to Léa if no session (dev convenience)
+  // Auth user — fall back to Léa if no session (dev convenience). Prefer the
+  // live studio_members record over the Supabase Auth session cache: the
+  // latter is only ever set at login/signup time from user_metadata and
+  // never reflects a later name/photo change made in "Mon profil" (which
+  // writes to studio_members, per the per-organization profile design).
   const authUser = getCurrentUser();
-  const me = authUser
-    ? { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }
-    : FALLBACK_USER;
+  const liveMember = authUser ? findTeamMember(authUser.id) : undefined;
+  const me = liveMember
+    ? { id: liveMember.id, name: liveMember.name, initials: liveMember.initials, avatarColor: liveMember.avatarColor, role: liveMember.role }
+    : authUser
+      ? { id: authUser.id, name: authUser.name, initials: authUser.initials, avatarColor: authUser.avatarColor, role: authUser.role }
+      : FALLBACK_USER;
 
   // Profile overrides (name/role changes saved in ProfileEditPanel)
   const profileOverrides = loadProfile(me.id);
@@ -52,6 +59,7 @@ export function GlobalTopBar({ onSearch }: Props) {
 
   useEffect(() => subscribeNotifs(() => setUnreadCount(getNotifHistory().filter(n => !n.read).length)), []);
   useEffect(() => subscribeShortcuts(() => setShortcuts(getShortcuts())), []);
+  useEffect(() => subscribeTeam(() => forceUpdate(n => n + 1)), []);
 
   // History tracking
   useEffect(() => {
