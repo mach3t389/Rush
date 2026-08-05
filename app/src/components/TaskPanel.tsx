@@ -904,9 +904,42 @@ export function TaskPanel({
         boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       }}>
 
-        {/* Header */}
-        <div style={{ padding: '14px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          {/* Breadcrumb + close */}
+        {/* Close — épinglé en haut à droite du panneau entier (pas de la
+            colonne gauche), pour rester visible peu importe la colonne dans
+            laquelle l'utilisateur a défilé, maintenant que la colonne droite
+            (commentaires) monte jusqu'en haut. */}
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 14, zIndex: 10, color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+        >
+          <SFIcon name="x" size={16} />
+        </button>
+
+        {/* Body — two columns : détails à gauche (header inclus, pour que
+            la colonne droite commentaires puisse monter jusqu'en haut du
+            panneau plutôt que de commencer sous une bande d'en-tête pleine
+            largeur), commentaires à droite. */}
+        <div
+          onClick={e => {
+            // Clicking anywhere in the panel that ISN'T a subtask row (or a
+            // button/input/etc — those have their own click behavior) clears
+            // subtask selection. The subtask list itself has almost no truly
+            // empty pixels to click (rows sit flush against each other), so
+            // relying only on that container's own background click left
+            // "click away to deselect" without anywhere real to click.
+            if (selectedSubIds.size === 0) return;
+            const target = e.target as HTMLElement;
+            if (target.closest('[data-subtask-row], button, input, textarea, a')) return;
+            setSelectedSubIds(new Set());
+          }}
+          style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}
+        >
+          {/* Colonne gauche — détails de la tâche */}
+          <div style={{ flex: '1 1 60%', minWidth: 0, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Header */}
+          <div style={{ paddingRight: 32 }}>
+          {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'visible' }}>
               <i style={{ width: 8, height: 8, borderRadius: '50%', background: breadProjectData?.clientColor ?? task.projectColor, flexShrink: 0, display: 'block' }} />
@@ -968,14 +1001,6 @@ export function TaskPanel({
                   </div>
                 )}
               </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button onClick={onClose} style={{ color: 'var(--text-3)', display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
-              >
-                <SFIcon name="x" size={16} />
-              </button>
             </div>
           </div>
           {/* Task title — click to edit */}
@@ -1104,24 +1129,50 @@ export function TaskPanel({
           )}
         </div>
 
-        {/* Body — two columns : détails à gauche, commentaires à droite */}
-        <div
-          onClick={e => {
-            // Clicking anywhere in the panel that ISN'T a subtask row (or a
-            // button/input/etc — those have their own click behavior) clears
-            // subtask selection. The subtask list itself has almost no truly
-            // empty pixels to click (rows sit flush against each other), so
-            // relying only on that container's own background click left
-            // "click away to deselect" without anywhere real to click.
-            if (selectedSubIds.size === 0) return;
-            const target = e.target as HTMLElement;
-            if (target.closest('[data-subtask-row], button, input, textarea, a')) return;
-            setSelectedSubIds(new Set());
-          }}
-          style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}
-        >
-          {/* Colonne gauche — détails de la tâche */}
-          <div style={{ flex: '1 1 60%', minWidth: 0, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {divider}
+
+          {/* Description — persistée via onUpdate (voir onChange plus bas) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {secLabel(t('taskPanel.description'))}
+            {editingDescription ? (
+              <textarea
+                ref={descRef}
+                value={description}
+                onChange={e => { setDescription(e.target.value); onUpdate?.({ description: e.target.value }); }}
+                onBlur={() => setEditingDescription(false)}
+                onKeyDown={e => { if (e.key === 'Escape') { setEditingDescription(false); } }}
+                placeholder={t('tasks.addDescription')}
+                rows={2}
+                autoFocus
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 10,
+                  border: '1px solid var(--accent)', background: 'var(--surface-3)',
+                  color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
+                  resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
+                  overflow: 'hidden', minHeight: 56,
+                }}
+              />
+            ) : (
+              <div
+                ref={descViewRef}
+                onClick={() => setEditingDescription(true)}
+                title={t('taskPanel.clickToEdit')}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 10,
+                  border: '1px solid transparent', background: 'transparent',
+                  color: description ? 'var(--text)' : 'var(--text-3)', fontSize: 13, fontFamily: 'var(--ff-text)',
+                  lineHeight: 1.6, boxSizing: 'border-box', cursor: 'text', minHeight: 56,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                {description ? linkify(description) : t('tasks.addDescription')}
+              </div>
+            )}
+          </div>
+
+          {divider}
 
           {/* + Ajouter — menu compact pour marquer comme livrable / lier une
               ressource, plutôt que deux sections toujours visibles même sur
@@ -1304,51 +1355,6 @@ export function TaskPanel({
             )}
           </div>
           )}
-
-          {divider}
-
-          {/* Description — persistée via onUpdate (voir onChange plus bas) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {secLabel(t('taskPanel.description'))}
-            {editingDescription ? (
-              <textarea
-                ref={descRef}
-                value={description}
-                onChange={e => { setDescription(e.target.value); onUpdate?.({ description: e.target.value }); }}
-                onBlur={() => setEditingDescription(false)}
-                onKeyDown={e => { if (e.key === 'Escape') { setEditingDescription(false); } }}
-                placeholder={t('tasks.addDescription')}
-                rows={2}
-                autoFocus
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 10,
-                  border: '1px solid var(--accent)', background: 'var(--surface-3)',
-                  color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
-                  resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
-                  overflow: 'hidden', minHeight: 56,
-                }}
-              />
-            ) : (
-              <div
-                ref={descViewRef}
-                onClick={() => setEditingDescription(true)}
-                title={t('taskPanel.clickToEdit')}
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 10,
-                  border: '1px solid transparent', background: 'transparent',
-                  color: description ? 'var(--text)' : 'var(--text-3)', fontSize: 13, fontFamily: 'var(--ff-text)',
-                  lineHeight: 1.6, boxSizing: 'border-box', cursor: 'text', minHeight: 56,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                {description ? linkify(description) : t('tasks.addDescription')}
-              </div>
-            )}
-          </div>
-
-          {divider}
 
           {/* Resource picker dropdown — déclenché par le menu "+ Ajouter"
               ci-dessus ; rendu ici indépendamment de la liste de ressources
