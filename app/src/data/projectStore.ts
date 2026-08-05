@@ -22,6 +22,10 @@ import { getInvoicesByProject, removeInvoice } from './financeStore';
 import { removeResource } from './resourceStore';
 import { createLoadingFlag } from './loadingFlag';
 import { showToast } from './toastStore';
+import { getClientExternalTeam } from './clientTeamStore';
+import { confirmDialog } from './confirmStore';
+import { syncProjectClientAccess } from './projectClientAccessStore';
+import i18n from '../i18n/i18n';
 
 const STORAGE_KEY = 'sf_added_projects';
 const OVERRIDES_KEY = 'sf_project_overrides';
@@ -335,6 +339,66 @@ export function updateProject(id: string, updates: Partial<Project>): void {
     return;
   }
   void updateSupabaseProject(id, stamped);
+}
+
+/**
+ * Changes a project's client, handling the fallout for members who only had
+ * access because they belonged to the OLD client's contact list. Without
+ * this, those contacts kept sitting in `project.members` after the transfer
+ * — visually still "on" the project, and (per project_client_access sync)
+ * still holding real portal access to it.
+ *
+ * All three "Changer de client" pickers (ProjectHeaderBar, ProjectCard,
+ * ProjectsListView) route through this single function instead of each
+ * doing its own bare updateProject() call.
+ */
+export async function changeProjectClient(
+  project: Project,
+  newClientId: string | null,
+  newClientName?: string,
+  newClientColor?: string
+): Promise<void> {
+  const basePatch: Partial<Project> = {
+    clientId: newClientId,
+    clientName: newClientName,
+    clientColor: newClientColor,
+  };
+
+  if (!project.clientId) {
+    updateProject(project.id, basePatch);
+    return;
+  }
+
+  const oldClientContactIds = new Set(getClientExternalTeam(project.clientId).map(c => c.id));
+  const affectedIds = new Set((project.members ?? []).filter(m => oldClientContactIds.has(m.id)).map(m => m.id));
+
+  if (affectedIds.size === 0) {
+    updateProject(project.id, basePatch);
+    return;
+  }
+
+  const removeAccess = await confirmDialog(
+    i18n.t('projects.transferMembersPrompt', { count: affectedIds.size }),
+    {
+      confirmLabel: i18n.t('projects.transferMembersRemove'),
+      cancelLabel: i18n.t('projects.transferMembersKeep'),
+    }
+  );
+
+  if (removeAccess) {
+    const updatedMembers = (project.members ?? []).filter(m => !affectedIds.has(m.id));
+    updateProject(project.id, { ...basePatch, members: updatedMembers });
+    // updateProject() only writes projects.members — it does NOT touch
+    // project_client_access (the RLS-backing table), so the removed
+    // contacts would otherwise keep real portal access to this project.
+    // Re-sync against the OLD client (whose contacts we just filtered out)
+    // so its pool is what's diffed against — syncing against the new
+    // client would filter against an unrelated (and usually not-yet-
+    // fetched, so falsely-empty) contact pool and revoke nothing.
+    syncProjectClientAccess(project.id, project.clientId, updatedMembers);
+  } else {
+    updateProject(project.id, basePatch);
+  }
 }
 
 async function updateSupabaseProjectsForClient(clientId: string, patch: ClientIdentityPatch): Promise<void> {

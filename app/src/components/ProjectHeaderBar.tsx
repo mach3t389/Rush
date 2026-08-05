@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFModal, SFButton } from './ui';
-import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject } from '../data/projectStore';
+import { findProject, subscribeProjects, archiveProject, unarchiveProject, removeProject, updateProject, changeProjectClient } from '../data/projectStore';
 import { ProjectEditPanel } from './ProjectCard';
 import { CreateTemplateFromProjectModal } from './CreateTemplateFromProjectModal';
 import { getProjectColor, setProjectColor } from '../data/pinnedStore';
@@ -348,7 +348,7 @@ export function ProjectHeaderBar({
               <button
                 key={c.id}
                 onClick={() => {
-                  updateProject(project.id, { clientId: c.id, clientName: c.name, clientColor: c.avatarColor });
+                  void changeProjectClient(project, c.id, c.name, c.avatarColor);
                   setMoveClientOpen(false);
                   setMoveClientSearch('');
                 }}

@@ -101,7 +101,8 @@ export function RequestApprovalButton({
       recipientIds: (task.watchers ?? []).filter(id => id !== actorId),
     });
     if (!isDemoSession()) {
-      const contacts = getClientExternalTeam(project?.clientId ?? '');
+      const memberIds = new Set((project?.members ?? []).map(m => m.id));
+      const contacts = getClientExternalTeam(project?.clientId ?? '').filter(c => memberIds.has(c.id));
       for (const contact of contacts) {
         if (!contact.email) continue;
         void sendEmail(
@@ -140,7 +141,8 @@ export function RequestApprovalButton({
     });
     if (!isDemoSession()) {
       const project = getProjects().find(p => p.id === projectId);
-      const contacts = getClientExternalTeam(project?.clientId ?? '');
+      const memberIds = new Set((project?.members ?? []).map(m => m.id));
+      const contacts = getClientExternalTeam(project?.clientId ?? '').filter(c => memberIds.has(c.id));
       for (const contact of contacts) {
         if (!contact.email) continue;
         void sendEmail(

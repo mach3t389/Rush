@@ -7,7 +7,7 @@ import { loadAllTemplates, resolveTasksSections, subscribeProjectTemplates } fro
 import type { TemplateTask } from '../data/templates';
 import type { Project, Status, Phase, SectionData, Task, User, Client } from '../types/index';
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS, type EditUpdates } from './ProjectCard';
-import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
+import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject, changeProjectClient } from '../data/projectStore';
 import { getClients, addClient, findClient, subscribeClients } from '../data/clientStore';
 import { getClientExternalTeam, subscribeClientTeam } from '../data/clientTeamStore';
 import { syncProjectClientAccess } from '../data/projectClientAccessStore';
@@ -1070,7 +1070,7 @@ function ProjectListRow({ p }: { p: Project }) {
                 key={c.id}
                 onClick={e => {
                   e.stopPropagation();
-                  updateProject(p.id, { clientId: c.id, clientName: c.name, clientColor: c.avatarColor });
+                  void changeProjectClient(p, c.id, c.name, c.avatarColor);
                   setMoveClientOpen(false);
                   setMoveClientSearch('');
                 }}
@@ -1111,6 +1111,7 @@ function ProjectListView({ projects }: { projects: Project[] }) {
 
 // ── Shared project list view ──────────────────────────────────────────────────
 
+const NO_CLIENT_FILTER = '__none__';
 const VIEW_KEY = 'sf_projects_view';
 const FILTER_KEY = 'sf_projects_filter';
 const LIFECYCLE_FILTER_KEY = 'sf_projects_lifecycle_filter';
@@ -1155,9 +1156,11 @@ export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose 
     ? allProjects.filter(p => projectIds.includes(p.id))
     : clientId
       ? allProjects.filter(p => p.clientId === clientId)
-      : clientFilter
-        ? allProjects.filter(p => p.clientId === clientFilter)
-        : allProjects;
+      : clientFilter === NO_CLIENT_FILTER
+        ? allProjects.filter(p => p.clientId == null)
+        : clientFilter
+          ? allProjects.filter(p => p.clientId === clientFilter)
+          : allProjects;
 
   const SORT_OPTIONS = scoped
     ? ALL_SORT_OPTIONS.filter(o => o.value !== 'client')
@@ -1241,19 +1244,22 @@ export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose 
             results are displayed. */}
         {!scoped && (() => {
           const clientsWithProjects = getClients().filter(c => allProjects.some(p => p.clientId === c.id));
-          if (clientsWithProjects.length === 0) return null;
+          const hasNoClientProjects = allProjects.some(p => p.clientId == null);
+          if (clientsWithProjects.length === 0 && !hasNoClientProjects) return null;
           const selected = clientsWithProjects.find(c => c.id === clientFilter);
+          const noClientSelected = clientFilter === NO_CLIENT_FILTER;
           return (
             <div ref={clientFilterRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button
                 onClick={() => setClientFilterOpen(o => !o)}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 9, border: `1px solid ${clientFilter ? 'var(--accent)' : 'var(--border)'}`, background: clientFilter ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: clientFilter ? 'var(--accent)' : 'var(--text-2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--ff-text)', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
-                <SFIcon name="users" size={13} color={selected ? 'var(--accent)' : 'var(--text-3)'} />
+                <SFIcon name="users" size={13} color={(selected || noClientSelected) ? 'var(--accent)' : 'var(--text-3)'} />
                 {t('projects.clientsLabel')}
                 {selected && (
                   <>: <i style={{ width: 7, height: 7, borderRadius: '50%', background: selected.avatarColor, flexShrink: 0, display: 'block' }} />{selected.name}</>
                 )}
+                {noClientSelected && <>: {t('projects.noClientFilter')}</>}
                 <SFIcon name="chevron-down" size={12} color={clientFilter ? 'var(--accent)' : 'var(--text-3)'} />
               </button>
               {clientFilterOpen && (
@@ -1268,6 +1274,19 @@ export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose 
                       {t('projects.allClients')}
                       {clientFilter === null && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
                     </button>
+                    {hasNoClientProjects && (
+                      <button
+                        onClick={() => { setClientFilter(NO_CLIENT_FILTER); setClientFilterOpen(false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: noClientSelected ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: noClientSelected ? 'var(--text)' : 'var(--text-2)', fontWeight: noClientSelected ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                      >
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-3)', flexShrink: 0, display: 'block' }} />
+                        {t('projects.noClientFilter')}
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
+                          {allProjects.filter(p => p.clientId == null).length}
+                        </span>
+                        {noClientSelected && <SFIcon name="check" size={12} color="var(--accent)" />}
+                      </button>
+                    )}
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                     {clientsWithProjects.map(c => (
                       <button

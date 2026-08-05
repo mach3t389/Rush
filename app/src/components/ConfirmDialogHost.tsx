@@ -13,13 +13,13 @@ export function ConfirmDialogHost() {
     <SFModal open={!!request} onClose={() => resolveConfirm(false)} width={400} closeOnBackdrop={false}>
       <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5, marginBottom: 20 }}>{request?.message}</p>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-        <SFButton variant="secondary" onClick={() => resolveConfirm(false)}>{t('common.cancel')}</SFButton>
+        <SFButton variant="secondary" onClick={() => resolveConfirm(false)}>{request?.cancelLabel ?? t('common.cancel')}</SFButton>
         <SFButton
           variant="primary"
           onClick={() => resolveConfirm(true)}
           style={request?.danger ? { background: 'var(--danger)', borderColor: 'var(--danger)', color: '#fff' } : undefined}
         >
-          {t('common.confirm')}
+          {request?.confirmLabel ?? t('common.confirm')}
         </SFButton>
       </div>
     </SFModal>

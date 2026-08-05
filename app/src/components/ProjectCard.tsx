@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
-import { updateProject, archiveProject, unarchiveProject, removeProject } from '../data/projectStore';
+import { updateProject, archiveProject, unarchiveProject, removeProject, changeProjectClient } from '../data/projectStore';
 import { getClients, subscribeClients } from '../data/clientStore';
 import { getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { timeAgo } from '../utils/timeAgo';
@@ -564,7 +564,7 @@ export function ProjectCard({ p }: { p: Project }) {
                   // here, this click also reaches the card's own onClick and
                   // navigates into the project right after moving it.
                   e.stopPropagation();
-                  updateProject(p.id, { clientId: c.id, clientName: c.name, clientColor: c.avatarColor });
+                  void changeProjectClient(p, c.id, c.name, c.avatarColor);
                   setMoveClientOpen(false);
                   setMoveClientSearch('');
                 }}
