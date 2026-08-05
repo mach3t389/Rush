@@ -463,6 +463,7 @@
     "moduleFiles": "Fichiers",
     "moduleFinance": "Finance",
     "moduleFinanceRequiresClient": "Nécessite un client",
+    "moduleFinanceRequiresPlan": "Nécessite un abonnement Studio ou Agence",
     "searchTeamPlaceholder": "Rechercher un membre…",
     "projectColor": "Couleur du projet",
     "archiveProject": "Archiver le projet",

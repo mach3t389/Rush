@@ -19,7 +19,8 @@ import { loadPersisted, savePersisted } from '../data/persist';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getTeamMembers } from '../data/teamStore';
 import { usePlan } from '../data/planStore';
-import { canCreateNewProject } from '../data/upgradePromptStore';
+import { canCreateNewProject, requestUpgrade } from '../data/upgradePromptStore';
+import { canUseFeature } from '../data/planFeatures';
 import { addWatchers } from '../data/watchers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   defaultClientId?: string;
 }) {
   const { t } = useTranslation();
+  const plan = usePlan();
   const [step, setStep]                 = useState<Step>('identity');
   const [templateId, setTemplateId]     = useState<string | null>(null);
   const clients = getClients().filter(c => !c.archived);
@@ -624,88 +626,100 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   />
                 </div>
                 <div style={{ maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   {templates.map(tpl => {
                     const isSelected = templateId === tpl.id;
+                    const isLocked = !tpl.builtIn && !canUseFeature(plan, 'customTemplates');
                     return (
-                      <div
+                      <button
                         key={tpl.id}
-                        onClick={() => setTemplateId(tpl.id)}
+                        type="button"
+                        onClick={() => isLocked ? requestUpgrade({ feature: 'customTemplates' }) : setTemplateId(isSelected ? null : tpl.id)}
                         style={{
-                          padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
-                          border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                          background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
-                          transition: 'border-color 0.15s', position: 'relative',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
+                          border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isSelected ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 9, background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <SFIcon name={tpl.icon} size={17} color={tpl.color} />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
-                            </div>
-                            <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{tpl.description}</p>
-                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                              {tpl.tags.slice(0, 3).map(tag => (
-                                <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>{tag}</span>
-                              ))}
-                            </div>
-                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
-                              {t('projects.sectionsTasksCount', { sections: resolveTasksSections(tpl).length, tasks: resolveTasksSections(tpl).reduce((n, s) => n + s.tasks.length, 0) })}
-                            </p>
-                          </div>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <SFIcon name={tpl.icon} size={11} color={tpl.color} />
                         </div>
-                        {isSelected && (
-                          <div style={{ position: 'absolute', top: 10, right: 10 }}>
-                            <SFIcon name="circle-check" size={16} color="var(--accent)" />
-                          </div>
-                        )}
-                      </div>
+                        <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: isSelected ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</span>
+                        {isLocked
+                          ? <SFIcon name="lock" size={11} color="var(--text-3)" />
+                          : isSelected && <SFIcon name="check" size={13} color="var(--accent)" />}
+                      </button>
                     );
                   })}
                 </div>
                 {templates.length === 0 && (
                   <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('projects.noTemplatesFound')}</p>
                 )}
+                {selectedTemplate && (
+                  <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.4 }}>{selectedTemplate.description}</p>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                      {selectedTemplate.tags.slice(0, 3).map(tag => (
+                        <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>{tag}</span>
+                      ))}
+                    </div>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
+                      {t('projects.sectionsTasksCount', { sections: resolveTasksSections(selectedTemplate).length, tasks: resolveTasksSections(selectedTemplate).reduce((n, s) => n + s.tasks.length, 0) })}
+                    </p>
+                  </div>
+                )}
                 </div>
               </div>
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.featuresLabel')}</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {[
-                    { key: 'calendar', label: t('projects.moduleCalendar'), checked: calendarEnabled, onToggle: () => setCalendarEnabled(v => !v), disabled: false },
-                    { key: 'files',    label: t('projects.moduleFiles'),    checked: filesEnabled,    onToggle: () => setFilesEnabled(v => !v),    disabled: false },
-                    { key: 'finance',  label: t('projects.moduleFinance'),  checked: financeEnabled,  onToggle: () => setFinanceEnabled(v => !v),  disabled: isPersonalProject || (!clientId && !newClientName.trim()) },
-                  ].map(m => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      disabled={m.disabled}
-                      onClick={m.onToggle}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 8,
-                        border: 'none', background: 'none',
-                        color: m.disabled ? 'var(--text-3)' : 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)',
-                        cursor: m.disabled ? 'not-allowed' : 'pointer', opacity: m.disabled ? 0.5 : 1, textAlign: 'left',
-                      }}
-                    >
-                      <span style={{
-                        width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: `1.5px solid ${m.checked && !m.disabled ? 'var(--accent)' : 'var(--border-2)'}`,
-                        background: m.checked && !m.disabled ? 'var(--accent)' : 'transparent',
-                      }}>
-                        {m.checked && !m.disabled && <SFIcon name="check" size={11} color="var(--on-accent)" />}
-                      </span>
-                      {m.label}
-                      {m.key === 'finance' && m.disabled && (
-                        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.moduleFinanceRequiresClient')}</span>
-                      )}
-                    </button>
-                  ))}
+                    { key: 'calendar', label: t('projects.moduleCalendar'), checked: calendarEnabled, onToggle: () => setCalendarEnabled(v => !v), locked: false, disabled: false },
+                    { key: 'files',    label: t('projects.moduleFiles'),    checked: filesEnabled,    onToggle: () => setFilesEnabled(v => !v),    locked: false, disabled: false },
+                    { key: 'finance',  label: t('projects.moduleFinance'),  checked: financeEnabled,  onToggle: () => setFinanceEnabled(v => !v),  locked: !canUseFeature(plan, 'finances'), disabled: isPersonalProject || (!clientId && !newClientName.trim()) },
+                  ].map(m => {
+                    const showLock = m.key === 'finance' && m.locked;
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        disabled={m.disabled && !showLock}
+                        onClick={() => {
+                          if (showLock) { requestUpgrade({ feature: 'finances' }); return; }
+                          if (m.disabled) return;
+                          m.onToggle();
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '8px 10px', borderRadius: 9,
+                          cursor: (m.disabled && !showLock) ? 'not-allowed' : 'pointer',
+                          border: `1.5px solid ${m.checked && !m.disabled ? 'var(--accent)' : 'var(--border)'}`,
+                          background: m.checked && !m.disabled ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
+                          opacity: (m.disabled && !showLock) ? 0.5 : 1,
+                        }}
+                      >
+                        <div style={{
+                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: `1.5px solid ${m.checked && !m.disabled ? 'var(--accent)' : 'var(--border-2)'}`,
+                          background: m.checked && !m.disabled ? 'var(--accent)' : 'transparent',
+                        }}>
+                          {showLock
+                            ? <SFIcon name="lock" size={11} color="var(--text-3)" />
+                            : m.checked && !m.disabled && <SFIcon name="check" size={11} color="var(--on-accent)" />}
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: m.disabled ? 'var(--text-3)' : 'var(--text-2)' }}>{m.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+                {isPersonalProject || (!clientId && !newClientName.trim()) ? (
+                  <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.moduleFinanceRequiresClient')}</p>
+                ) : !canUseFeature(plan, 'finances') && (
+                  <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.moduleFinanceRequiresPlan')}</p>
+                )}
               </div>
             </div>
           )}
