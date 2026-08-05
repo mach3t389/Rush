@@ -873,6 +873,31 @@ export function TaskPanel({
     }
   };
 
+  const toggleReplyLike = (commentId: string, replyId: string) => {
+    const myId = currentUser?.id ?? USERS.lea.id;
+    let liking = false;
+    const next = comments.map(c => {
+      if (c.id !== commentId) return c;
+      return {
+        ...c,
+        replies: c.replies.map(r => {
+          if (r.id !== replyId) return r;
+          const likedBy = r.likedBy ?? [];
+          const already = likedBy.includes(myId);
+          liking = !already;
+          return { ...r, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+        }),
+      };
+    });
+    setComments(next);
+    onUpdate?.({ comments: next });
+    if (liking) {
+      const comment = next.find(c => c.id === commentId);
+      const reply = comment?.replies.find(r => r.id === replyId);
+      if (reply) notifyLike({ comment: { id: reply.id, author: reply.author }, itemLabel: task.title, taskId: task.id, projectId: breadProjectId, isReply: true });
+    }
+  };
+
   const deleteTaskComment = (id: string) => {
     const next = comments.filter(x => x.id !== id);
     setComments(next);
@@ -1617,6 +1642,7 @@ export function TaskPanel({
               onDelete={deleteTaskComment}
               onConvertToSubtask={id => { const c = comments.find(x => x.id === id); if (c) convertToSubtask(c); }}
               onToggleLike={toggleCommentLike}
+              onToggleLikeReply={toggleReplyLike}
               pendingAnnotation={false}
               onCancelPending={() => {}}
               embedded
