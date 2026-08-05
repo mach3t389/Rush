@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const body = req.body as { action?: string };
+  const body = (req.body ?? {}) as { action?: string };
   if (body.action !== 'delete') {
     res.status(400).json({ error: 'Invalid action' });
     return;

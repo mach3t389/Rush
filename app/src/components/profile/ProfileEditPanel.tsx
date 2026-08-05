@@ -248,10 +248,12 @@ export function ProfileEditPanel({
   };
 
   const handleDeleteAccount = async () => {
+    if (isDemoSession()) return;
+    if (deleteConfirmText.trim().toLowerCase() !== initialEmail.trim().toLowerCase() || !deleteConfirmText.trim()) return;
     setDeleteError('');
     setDeleting(true);
-    const { data: { session } } = await supabase.auth.getSession();
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/account', {
         method: 'POST',
         headers: {
@@ -265,6 +267,11 @@ export function ProfileEditPanel({
         setDeleteError(json.error === 'owner_must_transfer' ? t('profile.deleteBlockedOwner') : t('profile.deleteFailed'));
         setDeleting(false);
         return;
+      }
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // Server no longer has this user — ignore and redirect anyway.
       }
       window.location.href = '/login';
     } catch {
@@ -560,14 +567,14 @@ export function ProfileEditPanel({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 10, border: '1px solid var(--danger)', background: 'rgba(255,80,80,0.06)' }}>
                     <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('profile.deleteWarning')}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('profile.deleteConfirmInstructions', { email })}</p>
-                    <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} style={inputStyle} placeholder={email} />
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('profile.deleteConfirmInstructions', { email: initialEmail })}</p>
+                    <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} style={inputStyle} placeholder={initialEmail} />
                     {deleteError && <p style={{ fontSize: 11, color: 'var(--danger)' }}>{deleteError}</p>}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={handleDeleteAccount}
-                        disabled={deleteConfirmText.trim().toLowerCase() !== email.trim().toLowerCase() || deleting}
-                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: deleteConfirmText.trim().toLowerCase() === email.trim().toLowerCase() ? 'var(--danger)' : 'var(--surface-3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: deleteConfirmText.trim().toLowerCase() === email.trim().toLowerCase() ? 'pointer' : 'not-allowed', fontFamily: 'var(--ff-text)' }}
+                        disabled={!deleteConfirmText.trim() || deleteConfirmText.trim().toLowerCase() !== initialEmail.trim().toLowerCase() || deleting}
+                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === initialEmail.trim().toLowerCase() ? 'var(--danger)' : 'var(--surface-3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === initialEmail.trim().toLowerCase() ? 'pointer' : 'not-allowed', fontFamily: 'var(--ff-text)' }}
                       >
                         {deleting ? '…' : t('profile.confirmDelete')}
                       </button>
