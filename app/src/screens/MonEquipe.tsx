@@ -254,7 +254,7 @@ function MemberPanel({ member, onClose, isOwner, canManage }: { member: TeamMemb
   };
 
   return (
-    <SFModal open onClose={onClose} title={t('team.memberCard')} width={420} height={640} maxHeight="85vh" padding={24}>
+    <SFModal open onClose={onClose} title={t('team.memberCard')} width={700} height={640} maxHeight="85vh" padding={24}>
       <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -403,24 +403,18 @@ function MemberPanel({ member, onClose, isOwner, canManage }: { member: TeamMemb
               <SFButton variant="ghost" onClick={() => { void removeMember(member.id); onClose(); }} style={{ color: 'var(--danger)' }}>{t('client.remove')}</SFButton>
             </div>
           ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {canManage && !isOwner && (
-                  <SFButton variant="ghost" icon="user-minus" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--danger)' }}>
-                    {t('team.removeFromTeam')}
-                  </SFButton>
-                )}
-                <div style={{ flex: 1 }} />
-                <SFButton variant="ghost" icon="mail" onClick={() => window.open(`mailto:${email}`)}>{t('team.contactAction')}</SFButton>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <SFButton variant="ghost" icon="eye" onClick={handleViewAs} style={{ width: '100%', justifyContent: 'center' }}>{t('viewAs.viewAs')}</SFButton>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
-                {canManage && <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>}
-              </div>
-            </>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {canManage && !isOwner && (
+                <SFButton variant="ghost" icon="user-minus" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--danger)' }}>
+                  {t('team.removeFromTeam')}
+                </SFButton>
+              )}
+              <div style={{ flex: 1 }} />
+              <SFButton variant="ghost" icon="mail" onClick={() => window.open(`mailto:${email}`)}>{t('team.contactAction')}</SFButton>
+              <SFButton variant="ghost" icon="eye" onClick={handleViewAs}>{t('viewAs.viewAs')}</SFButton>
+              <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+              {canManage && <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>}
+            </div>
           )}
         </div>
       </div>
