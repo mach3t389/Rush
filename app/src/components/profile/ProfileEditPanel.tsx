@@ -311,8 +311,8 @@ export function ProfileEditPanel({
   const groups = [...new Set(PERMISSION_DEFS.map(p => p.group))];
 
   return (
-    <SFModal open onClose={onClose} width={480} maxHeight="85vh" padding={0} zIndex={500}>
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '85vh' }}>
+    <SFModal open onClose={onClose} width={480} maxHeight="75vh" padding={0} zIndex={500}>
+      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '75vh' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -532,10 +532,10 @@ export function ProfileEditPanel({
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
                     <p style={{ fontSize: 13, color: 'var(--text)' }}>{accountEmail}</p>
                     {!isDemoSession() && (
-                      <button onClick={() => setChangingEmail(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                      <button onClick={() => setChangingEmail(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)', padding: 0 }}>
                         {t('profile.changeEmail')}
                       </button>
                     )}
