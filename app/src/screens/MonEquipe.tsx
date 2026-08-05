@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
+import type { AccessLevel } from '../data/teamStore';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
 import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel } from '../data/teamStore';
@@ -11,6 +12,7 @@ import { getProjects, subscribeProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 // ── Mock extra info for team members ─────────────────────────────────────────
 
@@ -46,7 +48,16 @@ const ROLE_COLOR: Record<string, string> = {
   'Producteur':     '#a85f3e',
 };
 
-type TeamMember = typeof USERS[string] & { email: string; since: string; phone: string; activeProjects: number };
+type TeamMember = typeof USERS[string] & { email: string; since: string; phone: string; activeProjects: number; accessLevel: AccessLevel };
+
+// Owner/admin have full access by construction (same rule enforced in
+// ViewAsPermissionGate/Sidebar) regardless of their stored permissions
+// array, so they're always filed under the Administrateur preset.
+// getTeamMembers() already branches on isDemoSession internally, so this
+// map works for both the demo and real team-building paths below.
+const ACCESS_LEVEL_BY_ID: Record<string, AccessLevel> = Object.fromEntries(
+  getTeamMembers().map(m => [m.id, m.accessLevel])
+);
 
 const INTERNAL_TEAM: TeamMember[] = Object.values(USERS)
   .filter(u => u.role !== 'Cliente')
@@ -56,6 +67,7 @@ const INTERNAL_TEAM: TeamMember[] = Object.values(USERS)
     since: MEMBER_SINCE[u.id] ?? 'Récemment',
     phone: MEMBER_PHONE[u.id] ?? '—',
     activeProjects: PROJECTS.filter(p => p.members.some(m => m.id === u.id)).length,
+    accessLevel: ACCESS_LEVEL_BY_ID[u.id] ?? 'member',
   }));
 
 function getRealTeam(): TeamMember[] {
@@ -70,6 +82,7 @@ function getRealTeam(): TeamMember[] {
     since: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '—',
     phone: '—',
     activeProjects: projects.filter(p => p.members.some(pm => pm.id === m.id)).length,
+    accessLevel: m.accessLevel,
   }));
 }
 
@@ -322,6 +335,7 @@ export function MonEquipe() {
   const { t } = useTranslation();
   const plan = usePlan();
   const [search, setSearch] = useState('');
+  const [permFilter, setPermFilter] = usePersistedState<string>('sf_monequipe_perm_filter', 'all');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [, forceRerender] = useState(0);
@@ -330,6 +344,18 @@ export function MonEquipe() {
   useEffect(() => subscribeProjects(() => forceRerender(n => n + 1)), []);
 
   const team = isDemoSession() ? INTERNAL_TEAM : getRealTeam();
+
+  // Same preset-matching rule as the former Membres hub: owner/admin are
+  // always filed under the Administrateur preset (full access by
+  // construction), everyone else matches by their stored permissions array.
+  const teamWithPerm = team.map(m => {
+    const presetKey = m.accessLevel !== 'member' ? 'admin' : matchPreset(loadPermissions(m.id, m.role));
+    const preset = PERMISSION_PRESETS.find(p => p.key === presetKey);
+    return { member: m, permKey: presetKey ?? 'custom', permLabelKey: preset?.labelKey ?? 'membres.permCustom' };
+  });
+  const permFilterOptions = Array.from(
+    new Map(teamWithPerm.map(p => [p.permKey, p.permLabelKey])).entries()
+  );
 
   const openInviteModal = () => {
     // Gratuit has no paid seats at all — hard cap at PLAN_LIMITS.gratuit.maxSeats (2).
@@ -342,10 +368,12 @@ export function MonEquipe() {
     }
     setShowInvite(true);
   };
-  const filtered = team.filter(m =>
-    m.name.toLowerCase().includes(search.toLowerCase()) ||
-    m.role.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = teamWithPerm
+    .filter(p => permFilter === 'all' || p.permKey === permFilter)
+    .filter(({ member: m }) =>
+      m.name.toLowerCase().includes(search.toLowerCase()) ||
+      m.role.toLowerCase().includes(search.toLowerCase())
+    );
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -369,12 +397,34 @@ export function MonEquipe() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('team.searchPlaceholder')}
             style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
         </div>
+        {permFilterOptions.length > 1 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+            <button onClick={() => setPermFilter('all')} style={{
+              padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+              border: `1px solid ${permFilter === 'all' ? 'var(--accent)' : 'var(--border)'}`,
+              background: permFilter === 'all' ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+              color: permFilter === 'all' ? 'var(--accent)' : 'var(--text-2)',
+            }}>
+              {t('membres.permFilterAll')}
+            </button>
+            {permFilterOptions.map(([key, labelKey]) => (
+              <button key={key} onClick={() => setPermFilter(key)} style={{
+                padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                border: `1px solid ${permFilter === key ? 'var(--accent)' : 'var(--border)'}`,
+                background: permFilter === key ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-2))' : 'var(--surface-2)',
+                color: permFilter === key ? 'var(--accent)' : 'var(--text-2)',
+              }}>
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Team grid */}
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-          {filtered.map(member => {
+          {filtered.map(({ member, permLabelKey }) => {
             const roleColor = ROLE_COLOR[member.role] ?? '#404040';
             return (
               <div
@@ -400,8 +450,16 @@ export function MonEquipe() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ok)', flexShrink: 0 }} />
-                  <SFIcon name="chevron-right" size={14} color="var(--text-3)" />
+                  <span style={{
+                    fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase',
+                    letterSpacing: '0.05em', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px', flexShrink: 0,
+                  }}>
+                    {t(permLabelKey)}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ok)', flexShrink: 0 }} />
+                    <SFIcon name="chevron-right" size={14} color="var(--text-3)" />
+                  </div>
                 </div>
               </div>
             );
