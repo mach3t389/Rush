@@ -2519,7 +2519,8 @@
     "demoHint": "Any password works",
     "logout": "Sign out",
     "myProfile": "My profile",
-    "tagline": "All your project and client management in one place — files, invoicing, and a client portal included.",
+    "tagline": "All your project and client management in one place.",
+    "taglineSubtitle": "Files, reviews, calendar, and invoicing included.",
     "showPassword": "Show",
     "hidePassword": "Hide"
   },

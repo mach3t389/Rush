@@ -61,8 +61,11 @@ export function Login() {
 
         {/* Tagline */}
         <div>
-          <p style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', fontFamily: 'var(--ff-display)', marginBottom: 16, letterSpacing: '-0.5px' }}>
+          <p style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', fontFamily: 'var(--ff-display)', marginBottom: 10, letterSpacing: '-0.5px' }}>
             {t('auth.tagline')}
+          </p>
+          <p style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.5, color: 'var(--text-3)', fontFamily: 'var(--ff-text)', marginBottom: 20, maxWidth: 380 }}>
+            {t('auth.taglineSubtitle')}
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {['Projets', 'Clients', 'Révisions', 'Calendrier', 'Facturation'].map(tag => (

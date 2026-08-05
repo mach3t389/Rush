@@ -2522,7 +2522,8 @@
     "demoHint": "N'importe quel mot de passe fonctionne",
     "logout": "Se déconnecter",
     "myProfile": "Mon profil",
-    "tagline": "Toute la gestion de vos projets et de vos clients dans un seul outil — fichiers, facturation et portail client inclus.",
+    "tagline": "Toute la gestion de vos projets et de vos clients dans un seul outil.",
+    "taglineSubtitle": "Fichiers, révisions, calendrier et facturation inclus.",
     "showPassword": "Afficher",
     "hidePassword": "Masquer"
   },
