@@ -263,7 +263,7 @@ components:
         clientId: { type: [string, 'null'] }
         name: { type: string }
         description: { type: [string, 'null'] }
-        deliveryDate: { type: [string, 'null'] }
+        deliveryDate: { type: [string, 'null'], format: date }
         budgetMinor: { type: [integer, 'null'] }
         archived: { type: boolean }
         completed: { type: boolean }

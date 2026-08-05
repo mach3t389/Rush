@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { decodeCursor, encodeCursor, serializeBillingRequest, serializeClient, serializeProject } from '../serializers.js';
+import { decodeCursor, encodeCursor, normalizeDeliveryDate, serializeBillingRequest, serializeClient, serializeProject } from '../serializers.js';
 import { hashSecret, verifyPkce } from '../auth.js';
 
 describe('Northbook v1 integration contract', () => {
@@ -38,5 +38,13 @@ describe('Northbook v1 integration contract', () => {
     expect(serializeProject({ id: 'p1', name: 'Launch', budget: 12.34, created_at: '2026-01-01' }).budgetMinor).toBe(1234);
     expect(serializeBillingRequest({ id: 'b1', client_id: 'c1', title: 'Phase 1', currency: 'CAD', lines: [], status: 'submitted', created_at: 'x', updated_at: 'x' }))
       .toMatchObject({ id: 'b1', currency: 'CAD', status: 'submitted' });
+  });
+
+  it('normalizes localized Rush delivery dates at the API boundary', () => {
+    expect(normalizeDeliveryDate('2 août. 2026')).toBe('2026-08-02');
+    expect(normalizeDeliveryDate('February 29 2024')).toBeNull();
+    expect(normalizeDeliveryDate('2024-02-29T12:00:00Z')).toBe('2024-02-29');
+    expect(normalizeDeliveryDate('2025-02-29')).toBeNull();
+    expect(serializeProject({ id: 'p1', delivery_date: '2 août. 2026' }).deliveryDate).toBe('2026-08-02');
   });
 });
