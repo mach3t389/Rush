@@ -470,7 +470,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
           {/* Step 2: Project info */}
           {step === 'info' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.projectNameLabel')} {t('common.required')}</label>
                 <input
@@ -492,13 +492,18 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     if (next) { setClientId(''); setNewClientName(''); setFinanceEnabled(false); }
                   }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8, width: '100%', marginBottom: 10,
-                    padding: '9px 12px', borderRadius: 9, border: `1.5px solid ${isPersonalProject ? 'var(--accent)' : 'var(--border)'}`,
-                    background: isPersonalProject ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)', color: 'var(--text)',
-                    fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left',
+                    display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10,
+                    padding: '7px 12px 7px 8px', borderRadius: 8, border: 'none', background: 'none',
+                    color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer',
                   }}
                 >
-                  <SFIcon name={isPersonalProject ? 'check-square' : 'square'} size={14} color={isPersonalProject ? 'var(--accent)' : 'var(--text-3)'} />
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: `1.5px solid ${isPersonalProject ? 'var(--accent)' : 'var(--border-2)'}`,
+                    background: isPersonalProject ? 'var(--accent)' : 'transparent',
+                  }}>
+                    {isPersonalProject && <SFIcon name="check" size={11} color="var(--on-accent)" />}
+                  </span>
                   {t('projects.personalProjectOption')}
                 </button>
                 {isPersonalProject && (
@@ -540,15 +545,16 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                               onClick={() => setClientId(c.id)}
                               style={{
                                 display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
+                                padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
                                 border: `1.5px solid ${clientId === c.id ? 'var(--accent)' : 'var(--border)'}`,
-                                background: clientId === c.id ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
+                                background: clientId === c.id ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
                               }}
                             >
-                              <div style={{ width: 24, height: 24, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <span style={{ fontSize: 9, fontWeight: 700, color: '#fff' }}>{c.initials}</span>
                               </div>
-                              <span style={{ fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                              <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: clientId === c.id ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                              {clientId === c.id && <SFIcon name="check" size={13} color="var(--accent)" />}
                             </button>
                           ));
                         })()}
@@ -558,25 +564,25 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 ))}
               </div>
 
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.projectColor')}</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {PROJECT_COLORS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setColor(c)}
-                      style={{
-                        width: 32, height: 32, borderRadius: '50%', background: c,
-                        border: color === c ? '3px solid white' : '3px solid transparent',
-                        outline: color === c ? `2px solid ${c}` : 'none',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, auto) 1fr 1fr', gap: 14, alignItems: 'start' }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.projectColor')}</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {PROJECT_COLORS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setColor(c)}
+                        style={{
+                          width: 22, height: 22, borderRadius: '50%', background: c,
+                          border: color === c ? '2px solid white' : '2px solid transparent',
+                          outline: color === c ? `2px solid ${c}` : 'none',
+                          cursor: 'pointer', flexShrink: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
                 <div>
                   <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -584,7 +590,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                       onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)',
+                        padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)',
                         background: 'var(--surface-2)', cursor: 'pointer',
                         fontFamily: 'var(--ff-mono)', fontSize: 12,
                         color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
@@ -622,7 +628,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     onChange={e => setBudget(e.target.value)}
                     placeholder={t('projects.budget')}
                     inputMode="numeric"
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
                   />
                 </div>
               </div>
@@ -633,7 +639,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder={t('projects.projectName')}
-                  rows={3}
+                  rows={2}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
                 />
               </div>
@@ -652,13 +658,19 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                       disabled={m.disabled}
                       onClick={m.onToggle}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9,
-                        border: '1px solid var(--border)', background: 'var(--surface-2)',
-                        color: m.disabled ? 'var(--text-3)' : 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
-                        cursor: m.disabled ? 'not-allowed' : 'pointer', opacity: m.disabled ? 0.6 : 1, textAlign: 'left',
+                        display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 8,
+                        border: 'none', background: 'none',
+                        color: m.disabled ? 'var(--text-3)' : 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)',
+                        cursor: m.disabled ? 'not-allowed' : 'pointer', opacity: m.disabled ? 0.5 : 1, textAlign: 'left',
                       }}
                     >
-                      <SFIcon name={m.checked ? 'check-square' : 'square'} size={14} color={m.checked && !m.disabled ? 'var(--accent)' : 'var(--text-3)'} />
+                      <span style={{
+                        width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: `1.5px solid ${m.checked && !m.disabled ? 'var(--accent)' : 'var(--border-2)'}`,
+                        background: m.checked && !m.disabled ? 'var(--accent)' : 'transparent',
+                      }}>
+                        {m.checked && !m.disabled && <SFIcon name="check" size={11} color="var(--on-accent)" />}
+                      </span>
                       {m.label}
                       {m.key === 'finance' && m.disabled && (
                         <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.moduleFinanceRequiresClient')}</span>
