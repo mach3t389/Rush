@@ -324,6 +324,30 @@ export function ImageReview() {
     }
   };
 
+  const handleToggleLikeReply = (commentId: string, replyId: string) => {
+    const myId = getCurrentUser()?.id ?? USERS.lea.id;
+    let liking = false;
+    const next = comments.map(c => {
+      if (c.id !== commentId) return c;
+      return {
+        ...c,
+        replies: c.replies.map(r => {
+          if (r.id !== replyId) return r;
+          const likedBy = r.likedBy ?? [];
+          const already = likedBy.includes(myId);
+          liking = !already;
+          return { ...r, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+        }),
+      };
+    });
+    setComments(next);
+    if (liking) {
+      const comment = next.find(c => c.id === commentId);
+      const reply = comment?.replies.find(r => r.id === replyId);
+      if (reply) notifyLike({ comment: reply, itemLabel: resource?.title ?? '', resourceId, projectId, isReply: true });
+    }
+  };
+
   const handleReply = (id: string, text: string) => {
     const me = getCurrentUser();
     const author = me ? { id: me.id, name: me.name, initials: me.initials, avatarColor: me.avatarColor, role: '' } : USERS.lea;
@@ -597,6 +621,7 @@ export function ImageReview() {
                 onResolve={handleResolve}
                 onReply={handleReply}
                 onToggleLike={handleToggleLike}
+                onToggleLikeReply={handleToggleLikeReply}
                 onDelete={handleDelete}
                 pendingAnnotation={false}
                 onCancelPending={() => {}}
@@ -707,6 +732,7 @@ export function ImageReview() {
                 onResolve={handleResolve}
                 onReply={handleReply}
                 onToggleLike={handleToggleLike}
+                onToggleLikeReply={handleToggleLikeReply}
                 onDelete={handleDelete}
                 pendingAnnotation={!!pendingAnno}
                 onCancelPending={() => setPendingAnno(null)}
