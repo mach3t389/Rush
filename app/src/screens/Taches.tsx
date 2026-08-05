@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup } from '../components/ui';
+import { SFPill, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup, CommentBadge } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks, isMyTasksLoading } from '../data/myTaskStore';
@@ -581,6 +581,7 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
             </span>
           </span>
         )}
+        {!editingTitle && <span style={{ flexShrink: 0, marginLeft: 5 }}><CommentBadge taskId={task.id} comments={task.comments} /></span>}
         {/* assignees.length > 1, pas seulement others.length > 0 : une tâche
             personnelle réassignée à quelqu'un d'autre (sans moi) n'a qu'UN
             assigné au total — "avec X" serait trompeur, rien n'est partagé. */}

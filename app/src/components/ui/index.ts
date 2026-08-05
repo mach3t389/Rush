@@ -13,3 +13,4 @@ export { LifecycleFilterDropdown, type LifecycleFilter } from './LifecycleFilter
 export { CategoryFilterDropdown } from './CategoryFilterDropdown';
 export { SFFilterPill } from './SFFilterPill';
 export { AssigneeGroup } from './AssigneeGroup';
+export { CommentBadge } from './CommentBadge';

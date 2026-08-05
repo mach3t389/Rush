@@ -17,6 +17,7 @@ import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments
 import { notifyComment, notifyLike } from '../data/commentNotify';
 import { WatchersRow } from './WatchersRow';
 import { addWatcher } from '../data/watchers';
+import { markTaskViewed } from '../data/taskCommentReadsStore';
 import { linkify } from '../utils/linkify';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -599,6 +600,7 @@ export function TaskPanel({
   const [datePickerOpen, setDatePickerOpen] = useState<'debut' | 'fin' | null>(null);
   const [datePickerRect, setDatePickerRect] = useState<DOMRect | null>(null);
   const [comments, setComments] = useState<CommentObj[]>(task.comments ?? []);
+  useEffect(() => { markTaskViewed(task.id); }, [task.id]);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const commentsAnchorRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -864,6 +866,7 @@ export function TaskPanel({
       author: { id: r.author.id ?? r.author.name, name: r.author.name, initials: r.author.initials, avatarColor: r.author.bg, role: '' },
       text: r.text,
       createdAt: r.createdAt,
+      likedBy: r.likedBy,
     })),
   });
 
@@ -911,6 +914,31 @@ export function TaskPanel({
     if (liking) {
       const comment = next.find(c => c.id === id);
       if (comment) notifyLike({ comment: { id: comment.id, author: comment.author }, itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+    }
+  };
+
+  const toggleReplyLike = (commentId: string, replyId: string) => {
+    const myId = currentUser?.id ?? USERS.lea.id;
+    let liking = false;
+    const next = comments.map(c => {
+      if (c.id !== commentId) return c;
+      return {
+        ...c,
+        replies: c.replies.map(r => {
+          if (r.id !== replyId) return r;
+          const likedBy = r.likedBy ?? [];
+          const already = likedBy.includes(myId);
+          liking = !already;
+          return { ...r, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+        }),
+      };
+    });
+    setComments(next);
+    onUpdate?.({ comments: next });
+    if (liking) {
+      const comment = next.find(c => c.id === commentId);
+      const reply = comment?.replies.find(r => r.id === replyId);
+      if (reply) notifyLike({ comment: { id: reply.id, author: reply.author }, itemLabel: task.title, taskId: task.id, projectId: breadProjectId, isReply: true });
     }
   };
 
@@ -1663,6 +1691,7 @@ export function TaskPanel({
               onDelete={deleteTaskComment}
               onConvertToSubtask={id => { const c = comments.find(x => x.id === id); if (c) convertToSubtask(c); }}
               onToggleLike={toggleCommentLike}
+              onToggleLikeReply={toggleReplyLike}
               pendingAnnotation={false}
               onCancelPending={() => {}}
               embedded

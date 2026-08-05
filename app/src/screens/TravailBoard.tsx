@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFPill, isOverdue, fmtTaskDate, TaskDatePopover, AssigneeGroup } from '../components/ui';
+import { SFIcon, SFPill, isOverdue, fmtTaskDate, TaskDatePopover, AssigneeGroup, CommentBadge } from '../components/ui';
 import { STATUS_COLOR } from '../data/status';
 import { showToast } from '../data/toastStore';
 import { getCurrentUser } from '../data/authStore';
@@ -547,6 +547,7 @@ export function TravailBoard({
                               </div>
                             )}
 
+                            <CommentBadge taskId={task.id} comments={task.comments} />
                             {/* Date (clickable) */}
                             <button
                               onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'date', rect: e.currentTarget.getBoundingClientRect() }); }}
