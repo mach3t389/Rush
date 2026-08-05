@@ -20,6 +20,7 @@ export interface RevisionReply {
   author: typeof USERS.lea;
   text: string;
   createdAt?: number;
+  likedBy?: string[];
 }
 
 export interface RevisionComment {
@@ -174,6 +175,7 @@ function CommentCard({
   onDelete,
   onConvertToSubtask,
   onToggleLike,
+  onToggleLikeReply,
   currentUserId,
 }: {
   comment: RevisionComment;
@@ -185,6 +187,7 @@ function CommentCard({
   onDelete?: () => void;
   onConvertToSubtask?: () => void;
   onToggleLike?: () => void;
+  onToggleLikeReply?: (replyId: string) => void;
   currentUserId?: string;
 }) {
   const { t } = useTranslation();
@@ -287,11 +290,20 @@ function CommentCard({
           {comment.replies.map(r => (
             <div key={r.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
               <SFAvatar name={r.author.name} initials={r.author.initials} color={r.author.avatarColor} size={16} />
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{r.author.name} </span>
                 <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{linkify(r.text)}</span>
                 {formatCommentTime(r.createdAt, t) && (
                   <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>{formatCommentTime(r.createdAt, t)}</span>
+                )}
+                {onToggleLikeReply && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onToggleLikeReply(r.id); }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginLeft: 6, fontSize: 10, color: (r.likedBy ?? []).includes(currentUserId ?? '') ? 'var(--danger)' : 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--ff-text)', verticalAlign: 'middle' }}
+                  >
+                    <SFIcon name="heart" size={10} />
+                    {(r.likedBy ?? []).length > 0 && (r.likedBy ?? []).length}
+                  </button>
                 )}
               </div>
             </div>
@@ -381,6 +393,7 @@ export function RevisionCommentSidebar({
   onDelete,
   onConvertToSubtask,
   onToggleLike,
+  onToggleLikeReply,
   pendingAnnotation,
   onCancelPending,
   drawing,
@@ -397,6 +410,7 @@ export function RevisionCommentSidebar({
   onDelete?: (id: string) => void;
   onConvertToSubtask?: (id: string) => void;
   onToggleLike?: (id: string) => void;
+  onToggleLikeReply?: (commentId: string, replyId: string) => void;
   pendingAnnotation: boolean;
   onCancelPending: () => void;
   drawing?: boolean;
@@ -528,6 +542,7 @@ export function RevisionCommentSidebar({
                 onDelete={onDelete ? () => onDelete(c.id) : undefined}
                 onConvertToSubtask={onConvertToSubtask ? () => onConvertToSubtask(c.id) : undefined}
                 onToggleLike={onToggleLike ? () => onToggleLike(c.id) : undefined}
+                onToggleLikeReply={onToggleLikeReply ? (replyId) => onToggleLikeReply(c.id, replyId) : undefined}
                 currentUserId={currentUserId}
               />
             ))}

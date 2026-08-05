@@ -159,16 +159,17 @@ interface NotifyLikeOpts {
   resourceId?: string;
   taskId?: string;
   projectId?: string;
+  isReply?: boolean;
 }
 
 // Fires only on the transition to "liked" (call sites only call this when
 // the like is being turned ON, never on unlike), and only notifies the
-// comment's own author — never the full watcher list, since a like is a
-// signal between the liker and the author, not a broadcast like a new
-// comment. No-ops silently if the author has no resolvable user id (legacy
-// demo comments authored before this feature, or comments whose author
-// field was never a real team member id) — nothing to notify.
-export function notifyLike({ comment, itemLabel, resourceId, taskId, projectId }: NotifyLikeOpts): void {
+// comment's (or reply's) own author — never the full watcher list, since a
+// like is a signal between the liker and the author, not a broadcast like a
+// new comment. No-ops silently if the author has no resolvable user id
+// (legacy demo comments authored before this feature, or comments whose
+// author field was never a real team member id) — nothing to notify.
+export function notifyLike({ comment, itemLabel, resourceId, taskId, projectId, isReply }: NotifyLikeOpts): void {
   const authorId = comment.author.id;
   const myId = actorId();
   if (!authorId || authorId === myId) return;
@@ -176,7 +177,7 @@ export function notifyLike({ comment, itemLabel, resourceId, taskId, projectId }
   addNotif({
     kind: 'like',
     actor: actorName(),
-    text: `a aimé votre commentaire sur « ${itemLabel} »`,
+    text: isReply ? `a aimé votre réponse sur « ${itemLabel} »` : `a aimé votre commentaire sur « ${itemLabel} »`,
     timestamp: Date.now(),
     resourceId,
     taskId,
