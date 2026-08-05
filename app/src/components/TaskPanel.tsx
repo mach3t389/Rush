@@ -18,7 +18,7 @@ import { notifyComment, notifyLike } from '../data/commentNotify';
 import { WatchersRow } from './WatchersRow';
 import { addWatcher } from '../data/watchers';
 import { markTaskViewed } from '../data/taskCommentReadsStore';
-import { linkify } from '../utils/linkify';
+import { TaskDescriptionEditor } from './TaskDescriptionEditor';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -526,35 +526,6 @@ function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, o
   );
 }
 
-// Maps a click's viewport (x, y) to a plain-text character offset inside
-// `container`, by hit-testing the DOM for the clicked position and then
-// walking the container's text nodes to accumulate the offset — used so
-// clicking into the read-only description places the caret where the user
-// actually clicked once it swaps to an editable textarea (see the caret
-// note on `pendingCaretOffset` below). Returns null if the click didn't
-// land on a text node inside the container (e.g. click on padding).
-function caretOffsetFromPoint(x: number, y: number, container: HTMLElement): number | null {
-  let startContainer: Node | null = null;
-  let startOffset = 0;
-  if (document.caretRangeFromPoint) {
-    const range = document.caretRangeFromPoint(x, y);
-    if (range) { startContainer = range.startContainer; startOffset = range.startOffset; }
-  } else if ('caretPositionFromPoint' in document) {
-    const pos = (document as unknown as { caretPositionFromPoint: (x: number, y: number) => { offsetNode: Node; offset: number } | null }).caretPositionFromPoint(x, y);
-    if (pos) { startContainer = pos.offsetNode; startOffset = pos.offset; }
-  }
-  if (!startContainer || !container.contains(startContainer)) return null;
-
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let offset = 0;
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
-    if (node === startContainer) return offset + startOffset;
-    offset += node.textContent?.length ?? 0;
-  }
-  return offset;
-}
-
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
 export function TaskPanel({
@@ -585,14 +556,6 @@ export function TaskPanel({
     return () => { unsubP(); unsubS(); };
   }, []);
   const [description, setDescription] = useState(task.description ?? '');
-  const [editingDescription, setEditingDescription] = useState(false);
-  const descViewRef = useRef<HTMLDivElement>(null);
-  // Caret offset captured from the click that opens edit mode, applied once
-  // the textarea mounts — the read-only <div> is swapped for a <textarea>
-  // on click, and `autoFocus` alone always places the caret at position 0
-  // regardless of where in the text the user actually clicked, forcing a
-  // second click to actually position it.
-  const pendingCaretOffset = useRef<number | null>(null);
   const [dateDebut, setDateDebut] = useState(task.dueDate ?? '');
   const [heureDebut, setHeureDebut] = useState(task.startTime ?? '');
   const [dateFin, setDateFin] = useState(task.endDate ?? '');
@@ -603,7 +566,6 @@ export function TaskPanel({
   useEffect(() => { markTaskViewed(task.id); }, [task.id]);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const commentsAnchorRef = useRef<HTMLDivElement>(null);
-  const descRef = useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
     if (!autoFocusComments) return;
@@ -619,19 +581,6 @@ export function TaskPanel({
     }, 200);
     return () => clearTimeout(timer);
   }, [autoFocusComments, focusCommentId]);
-
-  useEffect(() => {
-    if (descRef.current) {
-      descRef.current.style.height = 'auto';
-      descRef.current.style.height = descRef.current.scrollHeight + 'px';
-      if (editingDescription && pendingCaretOffset.current !== null) {
-        const pos = Math.min(pendingCaretOffset.current, descRef.current.value.length);
-        descRef.current.focus();
-        descRef.current.setSelectionRange(pos, pos);
-        pendingCaretOffset.current = null;
-      }
-    }
-  }, [description, editingDescription]);
 
   const [localSubtasks, setLocalSubtasks] = useState<LocalSubtask[]>(
     task.subtasks?.map(s => ({
@@ -1234,47 +1183,11 @@ export function TaskPanel({
           {/* Description — persistée via onUpdate (voir onChange plus bas) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {secLabel(t('taskPanel.description'))}
-            {editingDescription ? (
-              <textarea
-                ref={descRef}
-                value={description}
-                onChange={e => { setDescription(e.target.value); onUpdate?.({ description: e.target.value }); }}
-                onBlur={() => setEditingDescription(false)}
-                onKeyDown={e => { if (e.key === 'Escape') { setEditingDescription(false); } }}
-                placeholder={t('tasks.addDescription')}
-                rows={2}
-                autoFocus
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 10,
-                  border: '1px solid var(--accent)', background: 'var(--surface-3)',
-                  color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)',
-                  resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
-                  overflow: 'hidden', minHeight: 56,
-                }}
-              />
-            ) : (
-              <div
-                ref={descViewRef}
-                onClick={e => {
-                  pendingCaretOffset.current = description
-                    ? caretOffsetFromPoint(e.clientX, e.clientY, e.currentTarget)
-                    : 0;
-                  setEditingDescription(true);
-                }}
-                title={t('taskPanel.clickToEdit')}
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 10,
-                  border: '1px solid transparent', background: 'transparent',
-                  color: description ? 'var(--text)' : 'var(--text-3)', fontSize: 13, fontFamily: 'var(--ff-text)',
-                  lineHeight: 1.6, boxSizing: 'border-box', cursor: 'text', minHeight: 56,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                {description ? linkify(description.trimEnd()) : t('tasks.addDescription')}
-              </div>
-            )}
+            <TaskDescriptionEditor
+              value={description}
+              onChange={html => { setDescription(html); onUpdate?.({ description: html }); }}
+              placeholder={t('tasks.addDescription')}
+            />
           </div>
 
           {divider}
