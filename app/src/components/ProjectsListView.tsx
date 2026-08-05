@@ -510,9 +510,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
-                {isPersonalProject && (
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8 }}>{t('projects.personalProjectHint')}</p>
-                )}
                 {clients.length === 0 ? (
                   <div>
                     {/* "Aucun" is still offered as a chip even with zero real
@@ -548,17 +545,15 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   </div>
                 ) : (
                   <>
-                    {clients.length > 8 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 8 }}>
-                        <SFIcon name="search" size={13} color="var(--text-3)" />
-                        <input
-                          value={clientSearch}
-                          onChange={e => setClientSearch(e.target.value)}
-                          placeholder={t('projects.searchClientPlaceholder')}
-                          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
-                        />
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 8 }}>
+                      <SFIcon name="search" size={13} color="var(--text-3)" />
+                      <input
+                        value={clientSearch}
+                        onChange={e => setClientSearch(e.target.value)}
+                        placeholder={t('projects.searchClientPlaceholder')}
+                        style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
+                      />
+                    </div>
                     <div style={{ maxHeight: clients.length > 8 ? 220 : undefined, overflowY: clients.length > 8 ? 'auto' : 'visible', paddingRight: 4 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                         {/* "Aucun" is the first chip, same size/shape/selection
@@ -908,6 +903,9 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           >
             {step === 'identity' ? t('projects.cancel') : t('projects.back')}
           </button>
+          {step === 'client' && isPersonalProject && (
+            <p style={{ fontSize: 11, color: 'var(--text-3)', flex: 1, textAlign: 'center', margin: '0 12px' }}>{t('projects.personalProjectHint')}</p>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {name && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: 'var(--surface-2)', marginRight: 8 }}>
