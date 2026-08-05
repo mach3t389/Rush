@@ -525,6 +525,35 @@ function SubtaskContextMenu({ pos, count, onConvert, onMove, onCopy, onDelete, o
   );
 }
 
+// Maps a click's viewport (x, y) to a plain-text character offset inside
+// `container`, by hit-testing the DOM for the clicked position and then
+// walking the container's text nodes to accumulate the offset — used so
+// clicking into the read-only description places the caret where the user
+// actually clicked once it swaps to an editable textarea (see the caret
+// note on `pendingCaretOffset` below). Returns null if the click didn't
+// land on a text node inside the container (e.g. click on padding).
+function caretOffsetFromPoint(x: number, y: number, container: HTMLElement): number | null {
+  let startContainer: Node | null = null;
+  let startOffset = 0;
+  if (document.caretRangeFromPoint) {
+    const range = document.caretRangeFromPoint(x, y);
+    if (range) { startContainer = range.startContainer; startOffset = range.startOffset; }
+  } else if ('caretPositionFromPoint' in document) {
+    const pos = (document as unknown as { caretPositionFromPoint: (x: number, y: number) => { offsetNode: Node; offset: number } | null }).caretPositionFromPoint(x, y);
+    if (pos) { startContainer = pos.offsetNode; startOffset = pos.offset; }
+  }
+  if (!startContainer || !container.contains(startContainer)) return null;
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node === startContainer) return offset + startOffset;
+    offset += node.textContent?.length ?? 0;
+  }
+  return offset;
+}
+
 // ── TaskPanel ─────────────────────────────────────────────────────────────────
 
 export function TaskPanel({
@@ -557,6 +586,12 @@ export function TaskPanel({
   const [description, setDescription] = useState(task.description ?? '');
   const [editingDescription, setEditingDescription] = useState(false);
   const descViewRef = useRef<HTMLDivElement>(null);
+  // Caret offset captured from the click that opens edit mode, applied once
+  // the textarea mounts — the read-only <div> is swapped for a <textarea>
+  // on click, and `autoFocus` alone always places the caret at position 0
+  // regardless of where in the text the user actually clicked, forcing a
+  // second click to actually position it.
+  const pendingCaretOffset = useRef<number | null>(null);
   const [dateDebut, setDateDebut] = useState(task.dueDate ?? '');
   const [heureDebut, setHeureDebut] = useState(task.startTime ?? '');
   const [dateFin, setDateFin] = useState(task.endDate ?? '');
@@ -587,6 +622,12 @@ export function TaskPanel({
     if (descRef.current) {
       descRef.current.style.height = 'auto';
       descRef.current.style.height = descRef.current.scrollHeight + 'px';
+      if (editingDescription && pendingCaretOffset.current !== null) {
+        const pos = Math.min(pendingCaretOffset.current, descRef.current.value.length);
+        descRef.current.focus();
+        descRef.current.setSelectionRange(pos, pos);
+        pendingCaretOffset.current = null;
+      }
     }
   }, [description, editingDescription]);
 
@@ -1186,7 +1227,12 @@ export function TaskPanel({
             ) : (
               <div
                 ref={descViewRef}
-                onClick={() => setEditingDescription(true)}
+                onClick={e => {
+                  pendingCaretOffset.current = description
+                    ? caretOffsetFromPoint(e.clientX, e.clientY, e.currentTarget)
+                    : 0;
+                  setEditingDescription(true);
+                }}
                 title={t('taskPanel.clickToEdit')}
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: 10,
