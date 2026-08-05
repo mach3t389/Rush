@@ -1272,7 +1272,7 @@ export function TaskPanel({
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               >
-                {description ? linkify(description) : t('tasks.addDescription')}
+                {description ? linkify(description.trimEnd()) : t('tasks.addDescription')}
               </div>
             )}
           </div>

@@ -580,11 +580,13 @@ function TaskRow({
             </span>
           </span>
         )}
-        {!editingTitle && <span style={{ flexShrink: 0, marginLeft: 2 }}><CommentBadge taskId={task.id} comments={task.comments} /></span>}
       </div>
 
       {/* Activité */}
-      <TaskActivityCell taskId={task.id} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <TaskActivityCell taskId={task.id} />
+        <CommentBadge taskId={task.id} comments={task.comments} />
+      </div>
 
       {/* Assignés */}
       <AssigneeGroup
