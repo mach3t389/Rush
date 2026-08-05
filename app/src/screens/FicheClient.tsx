@@ -628,17 +628,21 @@ function EquipeTab({ clientId }: { clientId: string }) {
                 <SFButton variant="ghost" onClick={() => { removeMember(m.id); onClose(); }} style={{ color: 'var(--danger)' }}>{t('client.remove')}</SFButton>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <SFButton variant="ghost" icon="user-minus" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--danger)' }}>
-                  {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
-                </SFButton>
-                <div style={{ flex: 1 }} />
-                {!m.internal && (
-                  <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
-                )}
-                <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
-                <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
-              </div>
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SFButton variant="ghost" icon="user-minus" onClick={() => setConfirmDelete(true)} style={{ color: 'var(--danger)' }}>
+                    {m.internal ? t('client.removeFromClient') : t('client.removeContact')}
+                  </SFButton>
+                  <div style={{ flex: 1 }} />
+                  {!m.internal && (
+                    <SFButton variant="ghost" icon="eye" onClick={handleViewAsPortal}>{t('viewAs.viewAs')}</SFButton>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                  <SFButton variant="ghost" onClick={onClose}>{t('client.cancel')}</SFButton>
+                  <SFButton variant="primary" onClick={save}>{t('client.save')}</SFButton>
+                </div>
+              </>
             )}
 
           </div>
