@@ -15,6 +15,12 @@ export interface AuthUser {
 
 const AUTH_KEY      = 'sf_auth';
 export const STUDIO_NAME_KEY = 'sf_studio_name';
+// Broadcast-only key — value itself is meaningless (a timestamp), it just
+// needs to change on every real logout() so the `storage` event fires in
+// every OTHER tab. Deliberately separate from AUTH_KEY: login()'s internal
+// supabase.auth.signOut() (when switching INTO a demo session) must never
+// trigger this, or entering demo mode would reload-loop every other tab.
+const LOGOUT_PING_KEY = 'sf_logout_ping';
 
 // Built-in demo users mapped by email — connexion instantanée, ne passe jamais par Supabase
 const DEMO_EMAIL_MAP: Record<string, string> = {
@@ -72,7 +78,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
 // trying to surgically unwind each one from a background tab.
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', e => {
-    if (e.key === AUTH_KEY) window.location.reload();
+    if (e.key === AUTH_KEY || e.key === LOGOUT_PING_KEY) window.location.reload();
   });
 }
 
@@ -225,6 +231,8 @@ export async function logout(): Promise<void> {
   resetStudioIdCache();
   _logoutHandlers.forEach(fn => fn());
   await supabase.auth.signOut();
+  // Broadcast to every other open tab — see LOGOUT_PING_KEY comment above.
+  localStorage.setItem(LOGOUT_PING_KEY, String(Date.now()));
 }
 
 export async function resetPassword(email: string): Promise<{ ok: boolean; error?: string }> {
