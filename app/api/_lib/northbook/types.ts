@@ -1,11 +1,23 @@
 export const NORTHBOOK_SCOPES = [
   'entities:read',
+  'tasks:write',
   'billing_requests:read',
   'billing_requests:write',
   'accounting:write',
   'documents:write',
   'delivery:write',
 ] as const;
+
+export const NORTHBOOK_TASK_STATUSES = ['', 'warn', 'info', 'review', 'danger', 'ok'] as const;
+export type NorthbookTaskStatus = (typeof NORTHBOOK_TASK_STATUSES)[number];
+
+export function parseTaskStatus(value: unknown): NorthbookTaskStatus {
+  const status = typeof value === 'string' ? value : '__invalid__';
+  if (!NORTHBOOK_TASK_STATUSES.includes(status as NorthbookTaskStatus)) {
+    throw new HttpError(422, 'invalid_task_status');
+  }
+  return status as NorthbookTaskStatus;
+}
 
 export type NorthbookScope = (typeof NORTHBOOK_SCOPES)[number];
 
