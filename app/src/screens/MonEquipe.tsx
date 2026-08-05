@@ -416,55 +416,49 @@ export function MonEquipe() {
 
       {/* Team grid */}
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-          {filtered.map(({ member, permLabelKey }) => {
-            const roleColor = ROLE_COLOR[member.role] ?? '#404040';
-            return (
-              // Same SFCard component ClientCard (Clients.tsx) uses — guarantees
-              // byte-identical border/radius/background AND hover animation
-              // (border lighten + 1px lift) instead of a hand-rolled imitation
-              // that drifted (this card used to only fade its border color,
-              // no lift, and a 48px circular avatar instead of the 40px
-              // square badge every other entity/person row uses).
-              <SFCard key={member.id} padding="18px 20px" onClick={() => setSelectedMember(member)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        {/* Same fixed 3-column grid as Clients.tsx's ClientCard grid (was
+            auto-fill/minmax, which let 4+ narrower cards fit per row on a
+            wide screen — a real, measurable layout difference, not just a
+            style nuance). Card content below also mirrors ClientCard's
+            structure line-for-line (header row, border-top stat row,
+            bottom pill row) instead of a same-badge-different-layout
+            approximation. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {filtered.map(({ member, permLabelKey }) => (
+            <SFCard key={member.id} padding={18} gap={12} onClick={() => setSelectedMember(member)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 9, background: member.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                   {member.initials}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{member.name}</p>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: roleColor + '22', color: roleColor, letterSpacing: '0.05em' }}>{member.role}</span>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <SFIcon name="folder" size={10} color="var(--text-3)" />
-                      {t('team.projectCount', { count: member.activeProjects })}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <SFIcon name="calendar" size={10} color="var(--text-3)" />
-                      {member.since}
-                    </span>
-                  </div>
+                  <p style={{ fontWeight: 600, fontSize: 14 }}>{member.name}</p>
+                  <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2 }}>
+                    {member.role}
+                  </p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <span style={{
-                    fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase',
-                    letterSpacing: '0.05em', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px', flexShrink: 0,
-                  }}>
-                    {t(permLabelKey)}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ok)', flexShrink: 0 }} />
-                    <SFIcon name="chevron-right" size={14} color="var(--text-3)" />
-                  </div>
-                </div>
-              </SFCard>
-            );
-          })}
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-2)' }}>
+                <span>{t('team.projectCount', { count: member.activeProjects })}</span>
+                <span>{member.since}</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{
+                  fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase',
+                  letterSpacing: '0.05em', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px', flexShrink: 0,
+                }}>
+                  {t(permLabelKey)}
+                </span>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ok)', flexShrink: 0 }} />
+              </div>
+            </SFCard>
+          ))}
 
           {/* Invite placeholder card */}
           <div
             onClick={() => openInviteModal()}
-            style={{ background: 'transparent', borderRadius: 14, border: '1.5px dashed var(--border-2)', padding: '18px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)', minHeight: 90, transition: 'border-color 0.12s' }}
+            style={{ background: 'transparent', borderRadius: 'var(--radius)', border: '1.5px dashed var(--border-2)', padding: '18px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-3)', minHeight: 90, transition: 'border-color 0.12s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
           >
