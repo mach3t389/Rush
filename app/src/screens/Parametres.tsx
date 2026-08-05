@@ -1188,10 +1188,11 @@ function PlanSettings() {
         return;
       }
 
-      const res = await fetch('/api/create-checkout-session', {
+      const res = await fetch('/api/stripe-sessions', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
+          action: 'checkout',
           studioId,
           plan: draftPlan,
           billingCycle: billing,
@@ -1237,13 +1238,13 @@ function PlanSettings() {
     try {
       const studioId = await getStudioId();
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/create-portal-session', {
+      const res = await fetch('/api/stripe-sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ studioId }),
+        body: JSON.stringify({ action: 'portal', studioId }),
       });
       if (!res.ok) throw new Error('Portal session request failed');
       const { url } = await res.json();
