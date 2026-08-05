@@ -73,27 +73,14 @@ export function ddItem(onClick: () => void, children: React.ReactNode, active?: 
 // ── Column header ──────────────────────────────────────────────────────────────
 
 const GRID = '28px 1fr 65px 120px 75px 95px 85px 24px';
-// Quand le panneau de détail est ouvert, ces infos sont déjà visibles à
-// droite — les cacher dans la liste centrale libère toute la largeur pour
-// lire le titre en entier (checkbox + titre + suppression seulement).
-const GRID_COMPACT = '28px 1fr 24px';
 
 const COL_STYLE: React.CSSProperties = {
   fontFamily: 'var(--ff-mono)', fontSize: 10,
   color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase',
 };
 
-function ColHeader({ compact }: { compact?: boolean }) {
+function ColHeader() {
   const { t } = useTranslation();
-  if (compact) {
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COMPACT, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
-        <span />
-        <span style={COL_STYLE}>{t('tasks.title')}</span>
-        <span />
-      </div>
-    );
-  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
@@ -382,7 +369,6 @@ function TaskRow({
   onTaskDragEnd,
   onDelete,
   onConvertRequest,
-  compact,
   onMoveRequest,
 }: {
   task: Task;
@@ -393,7 +379,6 @@ function TaskRow({
   onTaskDragEnd?: () => void;
   onDelete?: () => void;
   onConvertRequest: (task: Task, pos: { x: number; y: number }) => void;
-  compact?: boolean;
   // Ouvre le sélecteur projet+section du parent, qui décide seul si l'action
   // porte sur cette tâche ou sur toute la multi-sélection.
   onMoveRequest?: (task: Task) => void;
@@ -470,13 +455,10 @@ function TaskRow({
       onDragEnd={() => { dragHandleActive.current = false; onTaskDragEnd?.(); }}
       style={{
         display: 'grid',
-        gridTemplateColumns: compact ? GRID_COMPACT : GRID,
+        gridTemplateColumns: GRID,
         alignItems: 'center',
         gap: 12,
         padding: '8px 16px',
-        // Fixed regardless of compact/full mode — without it, closing the
-        // status/priority pills in compact mode shrinks the row's natural
-        // height, making the whole list jump shorter every time the panel opens.
         minHeight: 44,
         borderBottom: '1px solid var(--border)',
         background: multiSelected ? 'rgba(249,255,0,0.08)' : selected ? 'rgba(249,255,0,0.04)' : hovered ? 'var(--surface-2)' : 'transparent',
@@ -597,8 +579,6 @@ function TaskRow({
         )}
       </div>
 
-      {!compact && (
-      <>
       {/* Activité */}
       <TaskActivityCell taskId={task.id} />
 
@@ -678,8 +658,6 @@ function TaskRow({
           />
         )}
       </div>
-      </>
-      )}
 
       {/* Delete button — visible on hover */}
       <button
@@ -708,13 +686,12 @@ function TaskRow({
 
 // ── Add task row ───────────────────────────────────────────────────────────────
 
-function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, compact, autoOpen }: {
+function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, autoOpen }: {
   projectId: string;
   projectName: string;
   projectColor: string;
   onAdd: (task: Task) => void;
   onAddMany: (tasks: Task[]) => void;
-  compact?: boolean;
   autoOpen?: boolean;
 }) {
   const { t } = useTranslation();
@@ -818,7 +795,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
 
   return (
     <div style={{ background: 'rgba(249,255,0,0.03)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: compact ? GRID_COMPACT : GRID, alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
 
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
@@ -840,8 +817,6 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
           }}
         />
 
-        {!compact && (
-        <>
         <span />{/* Activité */}
 
         {/* Assignés */}
@@ -901,8 +876,6 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, co
             />
           )}
         </div>
-        </>
-        )}
 
         {/* Cancel only — X deletes the row */}
         <button
@@ -941,7 +914,7 @@ function SectionInsertZone({ active, onDrop }: { active: boolean; onDrop: () => 
 }
 
 function Section({
-  label, tasks, allTasks, completed, selectedTask, compactColumns, onSelectTask, onToggleComplete,
+  label, tasks, allTasks, completed, selectedTask, onSelectTask, onToggleComplete,
   onDragStart, isDragging, onAddTask, onAddTaskMany, onDelete, onDeleteTask, onMoveSection, onCopySection, onRename,
   projectId, projectName, projectColor, multiSelIds,
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, onConvertRequest,
@@ -955,7 +928,6 @@ function Section({
   allTasks?: Task[];
   completed: boolean;
   selectedTask: Task | null;
-  compactColumns: boolean;
   onSelectTask: (t: Task, e?: React.MouseEvent) => void;
   onToggleComplete: () => void;
   onDragStart: () => void;
@@ -1245,7 +1217,7 @@ function Section({
 
       {!collapsed && (
         <>
-          <ColHeader compact={compactColumns} />
+          <ColHeader />
           <DropLine idx={0} />
           {tasks.map((task, i) => (
             <React.Fragment key={task.id}>
@@ -1258,13 +1230,12 @@ function Section({
                 onTaskDragEnd={onTaskDragEnd}
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
-                compact={compactColumns}
                 onMoveRequest={onMoveTaskRequest}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} compact={compactColumns} autoOpen={autoOpenAddTask} />
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} />
         </>
       )}
     </div>
@@ -1572,17 +1543,6 @@ export function Travail() {
     });
   };
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  // Collapsing the list columns tracks the panel opening instantly, but on
-  // close it stays collapsed until the panel's width transition (0.2s)
-  // finishes — flipping back to the full grid immediately made the title
-  // column visibly snap tiny (squeezed into the still-narrow container)
-  // before growing back once the panel had actually collapsed.
-  const [compactColumns, setCompactColumns] = useState(false);
-  useEffect(() => {
-    if (selectedTask) { setCompactColumns(true); return; }
-    const timer = setTimeout(() => setCompactColumns(false), 200);
-    return () => clearTimeout(timer);
-  }, [selectedTask]);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
   const handleConvertRequest = (task: Task, pos: { x: number; y: number }) => {
     const ids = multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id];
@@ -2044,7 +2004,6 @@ export function Travail() {
                 allTasks={sections[globalIdx]?.tasks}
                 completed={!!section.completed}
                 selectedTask={selectedTask}
-                compactColumns={compactColumns}
                 onSelectTask={handleSelectTask}
                 onToggleComplete={() => handleToggleComplete(globalIdx)}
                 onDragStart={() => handleDragStart(globalIdx)}
