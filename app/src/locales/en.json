@@ -1045,6 +1045,7 @@
     "noActiveProjects": "No active projects",
     "contactAction": "Contact",
     "resendInvitation": "Resend invitation",
+    "cancelInvitation": "Cancel invitation",
     "editProfile": "Edit profile",
     "title": "Internal team",
     "subtitle": "{{count}} internal members",

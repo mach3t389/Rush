@@ -268,6 +268,7 @@ export function sendTeamInvitationEmail(email: string, role: string, link: strin
 }
 
 export interface PendingInvitation {
+  token: string;
   email: string;
   role: string;
   createdAt: string;
@@ -280,12 +281,31 @@ export async function getPendingInvitations(): Promise<PendingInvitation[]> {
   const studioId = await getStudioId();
   const { data, error } = await supabase
     .from('studio_invitations')
-    .select('email, role, created_at')
+    .select('token, email, role, created_at')
     .eq('studio_id', studioId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
   if (error) { console.error('getPendingInvitations failed', error); return []; }
-  return (data ?? []).map(row => ({ email: row.email, role: row.role, createdAt: row.created_at }));
+  return (data ?? []).map(row => ({ token: row.token, email: row.email, role: row.role, createdAt: row.created_at }));
+}
+
+// Deletes the pending invitation outright — the studio_invitations table
+// already grants delete to authenticated (2026-07-05 design) and the
+// invitations_delete_own RLS policy already scopes it to admins
+// (2026-08-03 multi-org audit), so no new migration is needed here.
+export async function cancelInvitation(token: string): Promise<void> {
+  if (isDemoSession()) return;
+  const studioId = await getStudioId();
+  const { error } = await supabase.from('studio_invitations').delete().eq('studio_id', studioId).eq('token', token);
+  if (error) throw error;
+}
+
+// Re-sends the same invitation email pointing at the SAME token/link —
+// no DB write needed, the token is still valid and unconsumed. Mirrors
+// createInvitation's link-building exactly.
+export function resendInvitation(invitation: PendingInvitation): void {
+  const link = `${window.location.origin}/invitation-equipe/${invitation.token}`;
+  sendTeamInvitationEmail(invitation.email, invitation.role, link);
 }
 
 export interface TeamInvitationInfo {

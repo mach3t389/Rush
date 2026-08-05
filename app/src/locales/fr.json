@@ -1045,6 +1045,7 @@
     "noActiveProjects": "Aucun projet actif",
     "contactAction": "Contacter",
     "resendInvitation": "Renvoyer invitation",
+    "cancelInvitation": "Annuler l'invitation",
     "editProfile": "Modifier le profil",
     "title": "Équipe interne",
     "subtitle": "{{count}} membres internes",

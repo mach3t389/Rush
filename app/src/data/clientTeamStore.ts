@@ -261,3 +261,10 @@ export function removeClientTeamMember(clientId: string, memberId: string): void
 export function getClientExternalTeam(clientId: string): ClientContact[] {
   return getClientTeam(clientId).filter(c => !c.internal);
 }
+
+// The mirror of the above: studio members assigned to this client from the
+// client's Membres tab. Their `userId` holds the studio_members ROW id
+// (membershipId), not the auth user id — see the FK note in teamStore.ts.
+export function getClientInternalTeam(clientId: string): ClientContact[] {
+  return getClientTeam(clientId).filter(c => c.internal);
+}

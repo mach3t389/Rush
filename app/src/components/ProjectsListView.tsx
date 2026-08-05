@@ -9,7 +9,7 @@ import type { Project, Status, Phase, SectionData, Task, User, Client } from '..
 import { ProjectCard, ProjectEditPanel, PROJECT_STATUS_OPTIONS, type EditUpdates } from './ProjectCard';
 import { getProjects, addProject, updateProject, subscribeProjects, isProjectsLoading, archiveProject, unarchiveProject, removeProject, changeProjectClient } from '../data/projectStore';
 import { getClients, addClient, findClient, subscribeClients } from '../data/clientStore';
-import { getClientExternalTeam, subscribeClientTeam } from '../data/clientTeamStore';
+import { getClientExternalTeam, getClientInternalTeam, subscribeClientTeam } from '../data/clientTeamStore';
 import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { setProjectContent } from '../data/projectContentStore';
@@ -134,7 +134,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   // empty until their background Supabase fetch resolves — without these
   // subscriptions the contacts pool and bulk-chip counts below would freeze
   // at the stale empty state until some unrelated re-render happened.
-  const [, forceContactsRerender] = useState(0);
+  const [contactsTick, forceContactsRerender] = useState(0);
   useEffect(() => subscribeClientTeam(() => forceContactsRerender(n => n + 1)), []);
   const [, forceClientsRerender] = useState(0);
   useEffect(() => subscribeClients(() => forceClientsRerender(n => n + 1)), []);
@@ -192,6 +192,27 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       return next;
     });
   };
+
+  // Internal members assigned to this client (from the client's Membres tab)
+  // work on that client by definition — pre-tick them so creating a project
+  // for the client doesn't mean re-picking the same people every time. This
+  // is the only thing that assignment drives outside the client page itself.
+  // Matches on membershipId (real sessions store the studio_members row id in
+  // ClientContact.userId) with an id fallback for demo sessions. Depends on
+  // contactsTick so it re-runs once the contacts cache resolves — it starts
+  // empty behind a background fetch. Additive only: never deselects, so a
+  // deliberate manual removal isn't undone by an unrelated re-render.
+  useEffect(() => {
+    if (!selectedClientId) return;
+    const assigned = getClientInternalTeam(selectedClientId);
+    if (assigned.length === 0) return;
+    const assignedIds = team
+      .filter(u => assigned.some(c => c.userId && (c.userId === u.membershipId || c.userId === u.id)))
+      .map(u => u.id);
+    if (assignedIds.length === 0) return;
+    setMemberIds(prev => (assignedIds.every(id => prev.includes(id)) ? prev : [...new Set([...prev, ...assignedIds])]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClientId, contactsTick]);
 
   const canNext = step === 'identity' ? name.trim().length > 0
     : step === 'client' ? (isPersonalProject || clients.length > 0 || newClientName.trim().length > 0)

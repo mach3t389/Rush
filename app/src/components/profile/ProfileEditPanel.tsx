@@ -311,8 +311,8 @@ export function ProfileEditPanel({
   const groups = [...new Set(PERMISSION_DEFS.map(p => p.group))];
 
   return (
-    <SFModal open onClose={onClose} width={480} maxHeight="75vh" padding={0} zIndex={500}>
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '75vh' }}>
+    <SFModal open onClose={onClose} width={480} maxHeight="88vh" padding={0} zIndex={500}>
+      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '88vh' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

@@ -7,7 +7,7 @@ import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, match
 import type { AccessLevel, PendingInvitation } from '../data/teamStore';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
-import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, getPendingInvitations } from '../data/teamStore';
+import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, getPendingInvitations, cancelInvitation, resendInvitation } from '../data/teamStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
@@ -329,6 +329,67 @@ function SFPillSmall({ status, children }: { status: string; children: React.Rea
   return <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: c, background: c + '18', padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>{children}</span>;
 }
 
+// ── Pending invitation chip ──────────────────────────────────────────────────
+// Compact, fit-content pill (not a full-width row) so a handful of pending
+// invitations don't dominate the page — with resend/cancel actions right on
+// the chip, no extra menu or page needed.
+function PendingInvitationChip({ invitation, onCancelled }: { invitation: PendingInvitation; onCancelled: () => void }) {
+  const { t } = useTranslation();
+  const [resent, setResent] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleResend = () => {
+    resendInvitation(invitation);
+    setResent(true);
+    setTimeout(() => setResent(false), 2000);
+  };
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      await cancelInvitation(invitation.token);
+      onCancelled();
+    } catch {
+      setCancelling(false);
+    }
+  };
+
+  const iconBtnStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: 22, height: 22, borderRadius: 6, border: 'none',
+    background: 'transparent', cursor: cancelling ? 'default' : 'pointer', flexShrink: 0,
+  };
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 6px 5px 12px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-2)', opacity: cancelling ? 0.5 : 1 }}>
+      <SFIcon name="mail" size={12} color="var(--text-3)" />
+      <span style={{ fontSize: 12, fontWeight: 500 }}>{invitation.email}</span>
+      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase' }}>{invitation.role}</span>
+      <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--warn)', padding: '1px 7px', borderRadius: 999, background: 'color-mix(in srgb, var(--warn) 14%, transparent)' }}>
+        {t('team.invitationPending')}
+      </span>
+      <button
+        type="button" title={t('team.resendInvitation')} disabled={cancelling}
+        onClick={handleResend}
+        style={iconBtnStyle}
+        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      >
+        <SFIcon name={resent ? 'check' : 'send'} size={12} color={resent ? 'var(--ok)' : 'var(--text-3)'} />
+      </button>
+      <button
+        type="button" title={t('team.cancelInvitation')} disabled={cancelling}
+        onClick={handleCancel}
+        style={iconBtnStyle}
+        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      >
+        <SFIcon name="x" size={12} color="var(--danger)" />
+      </button>
+    </div>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function MonEquipe() {
@@ -427,16 +488,13 @@ export function MonEquipe() {
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
               {t('team.pendingInvitations', { count: pendingInvitations.length })}
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {pendingInvitations.map(inv => (
-                <div key={inv.email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-                  <SFIcon name="mail" size={13} color="var(--text-3)" />
-                  <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{inv.email}</span>
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase' }}>{inv.role}</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--warn)', padding: '2px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--warn) 14%, transparent)' }}>
-                    {t('team.invitationPending')}
-                  </span>
-                </div>
+                <PendingInvitationChip
+                  key={inv.token}
+                  invitation={inv}
+                  onCancelled={() => setPendingInvitations(list => list.filter(i => i.token !== inv.token))}
+                />
               ))}
             </div>
           </div>

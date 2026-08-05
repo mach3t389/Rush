@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState, SFModal } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFAvatar, SFLoadingState, SFModal, SFCard } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
@@ -167,7 +167,10 @@ function AssignInternalModal({ existingIds, onClose, onAssign }: { existingIds: 
   const handleConfirm = () => {
     const members: ClientMember[] = available
       .filter(u => selected.has(u.id))
-      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: `${u.id}@rushflow.com`, status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.membershipId ?? u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
+      // Real sessions carry the member's actual address (TeamMemberInfo);
+      // demo USERS have none, and synthesising `${u.id}@rushflow.com` from a
+      // real session's uuid produced a garbage address on screen.
+      .map(u => ({ id: `int-${u.id}`, name: u.name, role: u.role, email: (u as { email?: string }).email ?? '', status: 'active', initials: u.initials, color: u.avatarColor, internal: true, userId: u.membershipId ?? u.id, portalPermissions: { ...DEFAULT_PORTAL_PERMISSIONS } }));
     if (members.length) onAssign(members);
     onClose();
   };
@@ -255,51 +258,59 @@ function EquipeTab({ clientId }: { clientId: string }) {
 
   const [panelMember, setPanelMember] = useState<ClientMember | null>(null);
 
+  // Mirrors MonEquipe.tsx's member card line-for-line (40px square badge +
+  // name/role header, border-top detail row, bottom pill row) so the two
+  // screens read as the same object rendered twice, not two designs.
   const MemberRow = ({ m }: { m: ClientMember; canBeApprover?: boolean }) => {
     const isApprover = approverId === m.id;
+    // An internal member's client_contacts row stores a snapshot of their
+    // details; the studio_members row is the source of truth. Reading the
+    // address live also repairs rows written before the fix that synthesised
+    // `<uuid>@rushflow.com` — no data migration needed.
+    const liveEmail = m.internal
+      ? getTeamMembers().find(tm => tm.membershipId === m.userId || tm.id === m.userId)?.email
+      : undefined;
+    const displayEmail = liveEmail || m.email;
     return (
-      <div
+      <SFCard
+        padding={18}
+        gap={12}
         onClick={() => setPanelMember(m)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
-          borderRadius: 11, background: 'var(--surface)',
-          border: `1px solid ${isApprover ? 'var(--accent)' : 'var(--border)'}`,
-          boxShadow: isApprover ? '0 0 0 1px var(--accent)' : 'none',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={e => { if (!isApprover) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-        onMouseLeave={e => { if (!isApprover) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+        style={isApprover ? { borderColor: 'var(--accent)' } : undefined}
       >
-        <div style={{ position: 'relative' }}>
-          <SFAvatar initials={m.initials} bg={m.color} size={38} />
-          {m.internal && (
-            <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <SFIcon name="building-2" size={7} color="var(--on-accent)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 9, background: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>
+              {m.initials}
             </div>
-          )}
-          {isApprover && (
-            <div style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <SFIcon name="shield-check" size={8} color="var(--on-accent)" />
-            </div>
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <p style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</p>
-            {statusBadge(m.status)}
-            {isApprover && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--on-accent)', background: 'var(--accent)', padding: '2px 7px', borderRadius: 5 }}>
-                <SFIcon name="shield-check" size={9} color="var(--on-accent)" />
-                {t('client.finalApprover')}
-              </span>
+            {m.internal && (
+              <div style={{ position: 'absolute', bottom: -3, right: -3, width: 15, height: 15, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SFIcon name="building-2" size={7} color="var(--on-accent)" />
+              </div>
             )}
           </div>
-          <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{m.role}</p>
-          <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{m.email}</p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {m.role}
+            </p>
+          </div>
         </div>
-        <SFIcon name="chevron-right" size={15} color="var(--text-3)" />
-      </div>
+
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {displayEmail || '—'}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {statusBadge(m.status)}
+          {isApprover && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--on-accent)', background: 'var(--accent)', padding: '2px 7px', borderRadius: 5 }}>
+              <SFIcon name="shield-check" size={9} color="var(--on-accent)" />
+              {t('client.finalApprover')}
+            </span>
+          )}
+        </div>
+      </SFCard>
     );
   };
 
@@ -645,15 +656,17 @@ function EquipeTab({ clientId }: { clientId: string }) {
             </div>
             <SFButton variant="secondary" icon="user-plus" onClick={() => setShowInvite(true)}>{t('client.invite')}</SFButton>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {clientMembers.length === 0 ? (
-              <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
-                <SFIcon name="user-plus" size={18} color="var(--text-3)" />
-                <p style={{ fontSize: 13, flex: 1 }}>{t('client.noClientContactsInvite')}</p>
-                <SFButton variant="ghost" icon="send" onClick={() => setShowInvite(true)}>{t('client.sendAnInvitation')}</SFButton>
-              </div>
-            ) : clientMembers.map(m => <MemberRow key={m.id} m={m} canBeApprover />)}
-          </div>
+          {clientMembers.length === 0 ? (
+            <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
+              <SFIcon name="user-plus" size={18} color="var(--text-3)" />
+              <p style={{ fontSize: 13, flex: 1 }}>{t('client.noClientContactsInvite')}</p>
+              <SFButton variant="ghost" icon="send" onClick={() => setShowInvite(true)}>{t('client.sendAnInvitation')}</SFButton>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+              {clientMembers.map(m => <MemberRow key={m.id} m={m} canBeApprover />)}
+            </div>
+          )}
         </div>
 
         {/* Internal team section */}
@@ -668,14 +681,16 @@ function EquipeTab({ clientId }: { clientId: string }) {
             </div>
             <SFButton variant="secondary" icon="users" onClick={() => setShowAssign(true)}>{t('client.assign')}</SFButton>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {internalMembers.length === 0 ? (
-              <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
-                <SFIcon name="users" size={18} color="var(--text-3)" />
-                <p style={{ fontSize: 13 }}>{t('client.noInternalAssigned')}</p>
-              </div>
-            ) : internalMembers.map(m => <MemberRow key={m.id} m={m} />)}
-          </div>
+          {internalMembers.length === 0 ? (
+            <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
+              <SFIcon name="users" size={18} color="var(--text-3)" />
+              <p style={{ fontSize: 13 }}>{t('client.noInternalAssigned')}</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+              {internalMembers.map(m => <MemberRow key={m.id} m={m} />)}
+            </div>
+          )}
         </div>
       </div>
 
