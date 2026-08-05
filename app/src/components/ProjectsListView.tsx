@@ -100,8 +100,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   useEffect(() => {
     if (isPersonalProject) { setFinanceEnabled(false); return; }
     const hasClient = clientId || newClientName.trim().length > 0;
-    setFinanceEnabled(!!hasClient);
-  }, [isPersonalProject, clientId, newClientName]);
+    setFinanceEnabled(!!hasClient && canUseFeature(plan, 'finances'));
+  }, [isPersonalProject, clientId, newClientName, plan]);
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [budget, setBudget]             = useState('');
@@ -125,8 +125,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   // create() doesn't silently add zero people with no feedback.
   const [emptyGroupWarning, setEmptyGroupWarning] = useState(false);
   // If the step-2 client selection changes after some of its contacts were
-  // picked in step 3, those picks were scoped to the OLD client's contact
-  // pool and become orphaned (unresolvable, undeselectable) once step 3
+  // picked in step 4, those picks were scoped to the OLD client's contact
+  // pool and become orphaned (unresolvable, undeselectable) once step 4
   // re-renders against the new client. groupPickedIds is untouched — it's
   // scoped to explicitly-chosen OTHER clients, independent of step 2.
   useEffect(() => { setExternalPickedIds(new Set()); }, [clientId, isPersonalProject]);
@@ -613,7 +613,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
           {/* Step 3: Template */}
           {step === 'template' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Template grid — placeholder marker for Task 3, keep old markup here for now: */}
               <div>
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 10 }}>
@@ -724,7 +723,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
             </div>
           )}
 
-          {/* Step 3: Team */}
+          {/* Step 4: Team */}
           {step === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('projects.selectMembers')}</p>
