@@ -407,73 +407,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
 
-          {/* Step 1: Starting point */}
-          {step === 'start' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 10 }}>
-                  <SFIcon name="search" size={13} color="var(--text-3)" />
-                  <input
-                    value={templateSearch}
-                    onChange={e => setTemplateSearch(e.target.value)}
-                    placeholder={t('projects.searchTemplatesPlaceholder')}
-                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
-                  />
-                </div>
-                <div style={{ maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                  {templates.map(tpl => {
-                    const isSelected = templateId === tpl.id;
-                    return (
-                      <div
-                        key={tpl.id}
-                        onClick={() => setTemplateId(tpl.id)}
-                        style={{
-                          padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
-                          border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                          background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
-                          transition: 'border-color 0.15s', position: 'relative',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 9, background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <SFIcon name={tpl.icon} size={17} color={tpl.color} />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
-                            </div>
-                            <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{tpl.description}</p>
-                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                              {tpl.tags.slice(0, 3).map(tag => (
-                                <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>{tag}</span>
-                              ))}
-                            </div>
-                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
-                              {t('projects.sectionsTasksCount', { sections: resolveTasksSections(tpl).length, tasks: resolveTasksSections(tpl).reduce((n, s) => n + s.tasks.length, 0) })}
-                            </p>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <div style={{ position: 'absolute', top: 10, right: 10 }}>
-                            <SFIcon name="circle-check" size={16} color="var(--accent)" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {templates.length === 0 && (
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('projects.noTemplatesFound')}</p>
-                )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Project info */}
-          {step === 'info' && (
+          {/* Step 1: Identity */}
+          {step === 'identity' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.projectNameLabel')} {t('common.required')}</label>
@@ -486,6 +421,91 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                 />
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, auto) 1fr 1fr', gap: 14, alignItems: 'start' }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.projectColor')}</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {PROJECT_COLORS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setColor(c)}
+                        style={{
+                          width: 22, height: 22, borderRadius: '50%', background: c,
+                          border: color === c ? '2px solid white' : '2px solid transparent',
+                          outline: color === c ? `2px solid ${c}` : 'none',
+                          cursor: 'pointer', flexShrink: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)',
+                        background: 'var(--surface-2)', cursor: 'pointer',
+                        fontFamily: 'var(--ff-mono)', fontSize: 12,
+                        color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
+                        width: '100%', boxSizing: 'border-box', justifyContent: 'flex-start',
+                      }}
+                    >
+                      <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                      {deliveryDate ? formatDisplay(deliveryDate) : t('projects.chooseDate')}
+                    </button>
+                    {deliveryDate && (
+                      <button
+                        onClick={() => setDeliveryDate('')}
+                        title={t('projects.removeDate')}
+                        style={{ width: 26, height: 26, borderRadius: 7, border: 'none', background: 'var(--surface-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', flexShrink: 0 }}
+                      >
+                        <SFIcon name="x" size={12} />
+                      </button>
+                    )}
+                  </div>
+                  {dateOpen && (
+                    <DatePickerDropdown
+                      value={deliveryDate}
+                      onChange={v => { setDeliveryDate(v); setDateOpen(false); }}
+                      onClose={() => setDateOpen(false)}
+                      anchorRect={dateRect}
+                      zIndex={410}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                  <input
+                    value={budget}
+                    onChange={e => setBudget(e.target.value)}
+                    placeholder={t('projects.budget')}
+                    inputMode="numeric"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder={t('projects.projectName')}
+                  rows={2}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Client */}
+          {step === 'client' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.client')}</label>
                 {isPersonalProject && (
@@ -585,85 +605,71 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   </>
                 )}
               </div>
+            </div>
+          )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, auto) 1fr 1fr', gap: 14, alignItems: 'start' }}>
-                <div>
-                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.projectColor')}</label>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {PROJECT_COLORS.map(c => (
-                      <button
-                        key={c}
-                        onClick={() => setColor(c)}
-                        style={{
-                          width: 22, height: 22, borderRadius: '50%', background: c,
-                          border: color === c ? '2px solid white' : '2px solid transparent',
-                          outline: color === c ? `2px solid ${c}` : 'none',
-                          cursor: 'pointer', flexShrink: 0,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <button
-                      onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)',
-                        background: 'var(--surface-2)', cursor: 'pointer',
-                        fontFamily: 'var(--ff-mono)', fontSize: 12,
-                        color: deliveryDate ? 'var(--text)' : 'var(--text-3)',
-                        width: '100%', boxSizing: 'border-box', justifyContent: 'flex-start',
-                      }}
-                    >
-                      <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                      {deliveryDate ? formatDisplay(deliveryDate) : t('projects.chooseDate')}
-                    </button>
-                    {deliveryDate && (
-                      <button
-                        onClick={() => setDeliveryDate('')}
-                        title={t('projects.removeDate')}
-                        style={{ width: 26, height: 26, borderRadius: 7, border: 'none', background: 'var(--surface-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', flexShrink: 0 }}
-                      >
-                        <SFIcon name="x" size={12} />
-                      </button>
-                    )}
-                  </div>
-                  {dateOpen && (
-                    <DatePickerDropdown
-                      value={deliveryDate}
-                      onChange={v => { setDeliveryDate(v); setDateOpen(false); }}
-                      onClose={() => setDateOpen(false)}
-                      anchorRect={dateRect}
-                      zIndex={410}
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
+          {/* Step 3: Template */}
+          {step === 'template' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Template grid — placeholder marker for Task 3, keep old markup here for now: */}
+              <div>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{t('projects.startFromTemplate')}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 9, padding: '6px 12px', border: '1px solid var(--border)', marginBottom: 10 }}>
+                  <SFIcon name="search" size={13} color="var(--text-3)" />
                   <input
-                    value={budget}
-                    onChange={e => setBudget(e.target.value)}
-                    placeholder={t('projects.budget')}
-                    inputMode="numeric"
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                    value={templateSearch}
+                    onChange={e => setTemplateSearch(e.target.value)}
+                    placeholder={t('projects.searchTemplatesPlaceholder')}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}
                   />
                 </div>
-              </div>
-
-              <div>
-                <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')} <span style={{ fontWeight: 400, opacity: 0.6 }}>{t('projects.optional')}</span></label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder={t('projects.projectName')}
-                  rows={2}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
-                />
+                <div style={{ maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                  {templates.map(tpl => {
+                    const isSelected = templateId === tpl.id;
+                    return (
+                      <div
+                        key={tpl.id}
+                        onClick={() => setTemplateId(tpl.id)}
+                        style={{
+                          padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
+                          border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isSelected ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)',
+                          transition: 'border-color 0.15s', position: 'relative',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 9, background: tpl.color + '33', border: `1.5px solid ${tpl.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <SFIcon name={tpl.icon} size={17} color={tpl.color} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <p style={{ fontWeight: 600, fontSize: 13 }}>{tpl.name}</p>
+                            </div>
+                            <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{tpl.description}</p>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                              {tpl.tags.slice(0, 3).map(tag => (
+                                <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', background: 'var(--surface-3)', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>{tag}</span>
+                              ))}
+                            </div>
+                            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
+                              {t('projects.sectionsTasksCount', { sections: resolveTasksSections(tpl).length, tasks: resolveTasksSections(tpl).reduce((n, s) => n + s.tasks.length, 0) })}
+                            </p>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                            <SFIcon name="circle-check" size={16} color="var(--accent)" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {templates.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '20px 0' }}>{t('projects.noTemplatesFound')}</p>
+                )}
+                </div>
               </div>
 
               <div>
@@ -701,7 +707,6 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                   ))}
                 </div>
               </div>
-
             </div>
           )}
 
