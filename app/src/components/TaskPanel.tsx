@@ -17,6 +17,7 @@ import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments
 import { notifyComment, notifyLike } from '../data/commentNotify';
 import { WatchersRow } from './WatchersRow';
 import { addWatcher } from '../data/watchers';
+import { markTaskViewed } from '../data/taskCommentReadsStore';
 import { linkify } from '../utils/linkify';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -564,6 +565,7 @@ export function TaskPanel({
   const [datePickerOpen, setDatePickerOpen] = useState<'debut' | 'fin' | null>(null);
   const [datePickerRect, setDatePickerRect] = useState<DOMRect | null>(null);
   const [comments, setComments] = useState<CommentObj[]>(task.comments ?? []);
+  useEffect(() => { markTaskViewed(task.id); }, [task.id]);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const commentsAnchorRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
