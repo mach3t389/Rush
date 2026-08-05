@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton } from '../ui';
+import { SFIcon, SFButton, SFModal } from '../ui';
 import { isDemoSession } from '../../data/authStore';
 import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
 import { computeInitials } from '../../utils/initials';
@@ -244,11 +244,8 @@ export function ProfileEditPanel({
   const groups = [...new Set(PERMISSION_DEFS.map(p => p.group))];
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', justifyContent: 'flex-end' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-
-      <div style={{ position: 'relative', width: 480, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '-16px 0 48px rgba(0,0,0,0.7)', borderLeft: '1px solid var(--border)' }}>
+    <SFModal open onClose={onClose} width={480} maxHeight="85vh" padding={0} zIndex={500}>
+      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '85vh' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -452,6 +449,6 @@ export function ProfileEditPanel({
           </div>
         )}
       </div>
-    </div>
+    </SFModal>
   );
 }
