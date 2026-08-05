@@ -535,7 +535,7 @@
     "tabOverview": "Aperçu",
     "tabTasks": "Tâches",
     "tabCalendar": "Calendrier",
-    "tabTeam": "Équipe",
+    "tabTeam": "Membres",
     "tabActivity": "Activité",
     "tabFiles": "Fichiers",
     "tabFinance": "Finance",
@@ -991,7 +991,7 @@
     "tabOverview": "Aperçu",
     "tabProjects": "Projets",
     "tabCalendar": "Calendrier",
-    "tabTeam": "Équipe",
+    "tabTeam": "Membres",
     "tabActivity": "Activité",
     "tabFiles": "Fichiers"
   },
