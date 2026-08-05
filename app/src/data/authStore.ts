@@ -56,7 +56,25 @@ function mapSupabaseUser(user: { id: string; email?: string; user_metadata?: Rec
 
 supabase.auth.onAuthStateChange((_event, session) => {
   supabaseUserCache = session?.user ? mapSupabaseUser(session.user) : null;
+  // A real Supabase session firing here means this browser is genuinely
+  // signed into a real account — any leftover demo flag from an earlier,
+  // unrelated demo click must never be allowed to keep outranking it (see
+  // getCurrentUser() below, and the cross-tab bug this caused: a stale
+  // sf_auth key with no expiry silently overrode real sessions in every
+  // tab, including brand new ones, until an explicit logout()).
+  if (session?.user) localStorage.removeItem(AUTH_KEY);
 });
+
+// Cross-tab sync: `storage` fires in every OTHER tab (never the tab that
+// made the change) whenever AUTH_KEY is set/removed via localStorage. A
+// full reload is the simplest way to guarantee every store's in-memory
+// cache — not just this file's — reflects the new session, rather than
+// trying to surgically unwind each one from a background tab.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', e => {
+    if (e.key === AUTH_KEY) window.location.reload();
+  });
+}
 
 export async function isAuthenticated(): Promise<boolean> {
   if (localStorage.getItem(AUTH_KEY)) return true; // session démo
@@ -102,11 +120,18 @@ export async function login(email: string, password: string): Promise<{ ok: bool
       avatarColor: u.avatarColor,
       studioName:  localStorage.getItem(STUDIO_NAME_KEY) ?? 'Studio Lumière Production',
     };
+    // A real Supabase session sitting alongside a fresh demo flag is exactly
+    // the split-brain state that caused the cross-tab identity bug — never
+    // let both exist at once.
+    await supabase.auth.signOut();
     localStorage.setItem(AUTH_KEY, JSON.stringify(user));
     return { ok: true };
   }
 
-  // Vraie authentification Supabase
+  // Vraie authentification Supabase — clear any leftover demo flag first so
+  // a real sign-in always fully wins, even if this browser previously had a
+  // demo session that was never explicitly logged out of.
+  localStorage.removeItem(AUTH_KEY);
   const { error } = await supabase.auth.signInWithPassword({ email: lower, password });
   if (error) return { ok: false, error: 'auth.invalidCredentials' };
   return { ok: true };
@@ -145,6 +170,7 @@ export async function register(data: {
     return { ok: false, error: 'auth.requiredFields' };
   }
 
+  localStorage.removeItem(AUTH_KEY);
   localStorage.setItem(STUDIO_NAME_KEY, data.studioName.trim());
   void initNotifPrefsOnSignup(data.emailOptIn).catch(err => console.error('initNotifPrefsOnSignup failed', err));
   return { ok: true };
@@ -189,6 +215,7 @@ export async function registerClient(data: {
     return { ok: false, error: 'auth.requiredFields' };
   }
 
+  localStorage.removeItem(AUTH_KEY);
   void initNotifPrefsOnSignup(data.emailOptIn).catch(err => console.error('initNotifPrefsOnSignup failed', err));
   return { ok: true };
 }

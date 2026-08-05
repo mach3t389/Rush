@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { SFButton, SFIcon, SFAvatar, PageHeader, SFCard } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
-import type { AccessLevel } from '../data/teamStore';
+import type { AccessLevel, PendingInvitation } from '../data/teamStore';
 import { enterViewAs } from '../data/viewAsStore';
 import { isDemoSession } from '../data/authStore';
-import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel } from '../data/teamStore';
+import { getTeamMembers, subscribeTeam, createInvitation, sendTeamInvitationEmail, getMyAccessLevel, getPendingInvitations } from '../data/teamStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { usePlan, getCurrentBillingSeats } from '../data/planStore';
 import { PLAN_LIMITS } from '../data/planFeatures';
@@ -339,9 +339,15 @@ export function MonEquipe() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [, forceRerender] = useState(0);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
 
   useEffect(() => subscribeTeam(() => forceRerender(n => n + 1)), []);
   useEffect(() => subscribeProjects(() => forceRerender(n => n + 1)), []);
+  useEffect(() => {
+    let cancelled = false;
+    getPendingInvitations().then(list => { if (!cancelled) setPendingInvitations(list); });
+    return () => { cancelled = true; };
+  }, [showInvite]);
 
   const team = isDemoSession() ? INTERNAL_TEAM : getRealTeam();
 
@@ -416,6 +422,25 @@ export function MonEquipe() {
 
       {/* Team grid */}
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        {pendingInvitations.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+              {t('team.pendingInvitations', { count: pendingInvitations.length })}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {pendingInvitations.map(inv => (
+                <div key={inv.email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                  <SFIcon name="mail" size={13} color="var(--text-3)" />
+                  <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{inv.email}</span>
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase' }}>{inv.role}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--warn)', padding: '2px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--warn) 14%, transparent)' }}>
+                    {t('team.invitationPending')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Same fixed 3-column grid as Clients.tsx's ClientCard grid (was
             auto-fill/minmax, which let 4+ narrower cards fit per row on a
             wide screen — a real, measurable layout difference, not just a

@@ -259,6 +259,27 @@ export function sendTeamInvitationEmail(email: string, role: string, link: strin
   );
 }
 
+export interface PendingInvitation {
+  email: string;
+  role: string;
+  createdAt: string;
+}
+
+// Demo sessions have no real invitations to list (createInvitation never
+// persists anything for them — see the file header comment).
+export async function getPendingInvitations(): Promise<PendingInvitation[]> {
+  if (isDemoSession()) return [];
+  const studioId = await getStudioId();
+  const { data, error } = await supabase
+    .from('studio_invitations')
+    .select('email, role, created_at')
+    .eq('studio_id', studioId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('getPendingInvitations failed', error); return []; }
+  return (data ?? []).map(row => ({ email: row.email, role: row.role, createdAt: row.created_at }));
+}
+
 export interface TeamInvitationInfo {
   email: string;
   role: string;
