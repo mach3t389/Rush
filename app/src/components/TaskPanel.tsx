@@ -14,7 +14,7 @@ import type { Task, Priority, ResourceType, DeliverableFormat, DeliverableType, 
 import { ResourceBody } from '../screens/ResourceDetail';
 import { showToast } from '../data/toastStore';
 import { RevisionCommentSidebar, type RevisionComment } from './RevisionComments';
-import { notifyComment } from '../data/commentNotify';
+import { notifyComment, notifyLike } from '../data/commentNotify';
 import { WatchersRow } from './WatchersRow';
 import { addWatcher } from '../data/watchers';
 import { linkify } from '../utils/linkify';
@@ -804,8 +804,8 @@ export function TaskPanel({
 
   const currentUser = getCurrentUser();
   const ME = currentUser
-    ? { initials: currentUser.initials, bg: currentUser.avatarColor, name: currentUser.name }
-    : { initials: USERS.lea.initials, bg: USERS.lea.avatarColor, name: USERS.lea.name };
+    ? { id: currentUser.id, initials: currentUser.initials, bg: currentUser.avatarColor, name: currentUser.name }
+    : { id: USERS.lea.id, initials: USERS.lea.initials, bg: USERS.lea.avatarColor, name: USERS.lea.name };
 
   // CommentObj (TaskComment) predates the shared RevisionComment shape and
   // has no resolve/reopen concept and a slightly different author field
@@ -813,19 +813,22 @@ export function TaskPanel({
   // still operate on the original CommentObj array/ids.
   const toRevisionComment = (c: CommentObj): RevisionComment => ({
     id: c.id,
-    author: { id: c.author.name, name: c.author.name, initials: c.author.initials, avatarColor: c.author.bg, role: '' },
+    author: { id: c.author.id ?? c.author.name, name: c.author.name, initials: c.author.initials, avatarColor: c.author.bg, role: '' },
     text: c.text,
     status: c.status ?? 'open',
+    createdAt: c.createdAt,
+    likedBy: c.likedBy,
     replies: c.replies.map(r => ({
       id: r.id,
-      author: { id: r.author.name, name: r.author.name, initials: r.author.initials, avatarColor: r.author.bg, role: '' },
+      author: { id: r.author.id ?? r.author.name, name: r.author.name, initials: r.author.initials, avatarColor: r.author.bg, role: '' },
       text: r.text,
+      createdAt: r.createdAt,
     })),
   });
 
   const submitComment = (text: string) => {
     if (!text.trim()) return;
-    const newComment = { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const };
+    const newComment = { id: `c-${Date.now()}`, text: text.trim(), author: ME, replies: [], status: 'open' as const, createdAt: Date.now(), likedBy: [] as string[] };
     const next = [...comments, newComment];
     setComments(next);
     onUpdate?.({ comments: next });
@@ -835,7 +838,7 @@ export function TaskPanel({
   const submitReply = (commentId: string, text: string) => {
     if (!text.trim()) return;
     const next = comments.map(c => c.id === commentId
-      ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: text.trim(), author: ME, replies: [] }] }
+      ? { ...c, replies: [...c.replies, { id: `r-${Date.now()}`, text: text.trim(), author: ME, replies: [], createdAt: Date.now() }] }
       : c
     );
     setComments(next);
@@ -850,6 +853,24 @@ export function TaskPanel({
     const next = comments.map(c => c.id === id ? { ...c, status: (c.status === 'resolved' ? 'open' : 'resolved') as 'open' | 'resolved' } : c);
     setComments(next);
     onUpdate?.({ comments: next });
+  };
+
+  const toggleCommentLike = (id: string) => {
+    const myId = currentUser?.id ?? USERS.lea.id;
+    let liking = false;
+    const next = comments.map(c => {
+      if (c.id !== id) return c;
+      const likedBy = c.likedBy ?? [];
+      const already = likedBy.includes(myId);
+      liking = !already;
+      return { ...c, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+    });
+    setComments(next);
+    onUpdate?.({ comments: next });
+    if (liking) {
+      const comment = next.find(c => c.id === id);
+      if (comment) notifyLike({ comment: { id: comment.id, author: comment.author, likedBy: comment.likedBy }, itemLabel: task.title, taskId: task.id, projectId: breadProjectId });
+    }
   };
 
   const deleteTaskComment = (id: string) => {
@@ -1595,6 +1616,7 @@ export function TaskPanel({
               onReply={submitReply}
               onDelete={deleteTaskComment}
               onConvertToSubtask={id => { const c = comments.find(x => x.id === id); if (c) convertToSubtask(c); }}
+              onToggleLike={toggleCommentLike}
               pendingAnnotation={false}
               onCancelPending={() => {}}
               embedded
