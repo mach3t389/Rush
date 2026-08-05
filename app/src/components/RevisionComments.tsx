@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SFAvatar, SFIcon } from './ui';
 import { USERS } from '../data/mock';
 import { getTeam } from '../data/teamStore';
+import { getCurrentUser } from '../data/authStore';
 import { linkify } from '../utils/linkify';
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ export interface RevisionReply {
   id: string;
   author: typeof USERS.lea;
   text: string;
+  createdAt?: number;
 }
 
 export interface RevisionComment {
@@ -29,6 +31,9 @@ export interface RevisionComment {
   replies: RevisionReply[];
   contextLabel?: string; // e.g. "Page 2" or "Photo 3"
   excerpt?: string; // quoted source text the comment is anchored to (e.g. a text selection)
+  createdAt?: number;   // Date.now() at creation; optional — older comments and the
+                        // separate DocComment system in ResourceDetail.tsx never set it
+  likedBy?: string[];   // user ids currently liking this comment; replies are never likeable
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -37,6 +42,47 @@ export const ANNO_COLORS = ['#f9ff00', '#ff6b6b', '#4ecdc4', '#a8e063', '#c471ed
 
 export function annoColor(idx: number) {
   return ANNO_COLORS[idx % ANNO_COLORS.length];
+}
+
+// ── Timestamp formatting ─────────────────────────────────────────────────────
+// Tiered format: seconds/minutes/hours for anything from today, "Hier"/
+// "Avant-hier" for the two days before, exact date+time beyond that.
+// Calendar-day boundaries (local midnight), not a rolling 24h/48h window —
+// a comment from 11:58pm yesterday reads "Hier", not "Il y a 14h".
+
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+export function formatCommentTime(createdAt: number | undefined): string | null {
+  if (!createdAt) return null;
+  const now = Date.now();
+  const diffMs = now - createdAt;
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return "À l'instant";
+  if (diffMin < 60) return `Il y a ${diffMin} min`;
+
+  const created = new Date(createdAt);
+  const today = startOfDay(new Date(now));
+  const createdDay = startOfDay(created);
+  const dayDiff = Math.round((today - createdDay) / 86400000);
+
+  const hh = String(created.getHours()).padStart(2, '0');
+  const mm = String(created.getMinutes()).padStart(2, '0');
+  const time = `${hh}:${mm}`;
+
+  if (dayDiff === 0) {
+    const diffHour = Math.floor(diffMin / 60);
+    return `Il y a ${diffHour}h`;
+  }
+  if (dayDiff === 1) return `Hier à ${time}`;
+  if (dayDiff === 2) return `Avant-hier à ${time}`;
+
+  const day = created.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
+  const sameYear = created.getFullYear() === new Date(now).getFullYear();
+  const datePart = sameYear ? day : created.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${datePart} à ${time}`;
 }
 
 // ── AnnotationLayer ───────────────────────────────────────────────────────────
@@ -127,6 +173,8 @@ function CommentCard({
   onReply,
   onDelete,
   onConvertToSubtask,
+  onToggleLike,
+  currentUserId,
 }: {
   comment: RevisionComment;
   index: number;
@@ -136,6 +184,8 @@ function CommentCard({
   onReply: (text: string) => void;
   onDelete?: () => void;
   onConvertToSubtask?: () => void;
+  onToggleLike?: () => void;
+  currentUserId?: string;
 }) {
   const { t } = useTranslation();
   const [replyText, setReplyText] = useState('');
@@ -211,6 +261,9 @@ function CommentCard({
         )}
         <SFAvatar name={comment.author.name} initials={comment.author.initials} color={comment.author.avatarColor} size={20} />
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{comment.author.name}</span>
+        {formatCommentTime(comment.createdAt) && (
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatCommentTime(comment.createdAt)}</span>
+        )}
         {comment.contextLabel && (
           <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 5, marginLeft: 'auto' }}>
             {comment.contextLabel}
@@ -237,6 +290,9 @@ function CommentCard({
               <div>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{r.author.name} </span>
                 <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{linkify(r.text)}</span>
+                {formatCommentTime(r.createdAt) && (
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>{formatCommentTime(r.createdAt)}</span>
+                )}
               </div>
             </div>
           ))}
@@ -245,6 +301,18 @@ function CommentCard({
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {onToggleLike && (
+          <>
+            <button
+              onClick={e => { e.stopPropagation(); onToggleLike(); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: (comment.likedBy ?? []).includes(currentUserId ?? '') ? 'var(--danger)' : 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--ff-text)' }}
+            >
+              <SFIcon name="heart" size={12} />
+              {(comment.likedBy ?? []).length > 0 && (comment.likedBy ?? []).length}
+            </button>
+            <span style={{ color: 'var(--border-2)', fontSize: 11 }}>·</span>
+          </>
+        )}
         <button
           onClick={e => { e.stopPropagation(); setShowReply(v => !v); }}
           style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--ff-text)' }}
@@ -312,6 +380,7 @@ export function RevisionCommentSidebar({
   onReply,
   onDelete,
   onConvertToSubtask,
+  onToggleLike,
   pendingAnnotation,
   onCancelPending,
   drawing,
@@ -327,6 +396,7 @@ export function RevisionCommentSidebar({
   onReply: (id: string, text: string) => void;
   onDelete?: (id: string) => void;
   onConvertToSubtask?: (id: string) => void;
+  onToggleLike?: (id: string) => void;
   pendingAnnotation: boolean;
   onCancelPending: () => void;
   drawing?: boolean;
@@ -335,6 +405,7 @@ export function RevisionCommentSidebar({
   embedded?: boolean;
 }) {
   const { t } = useTranslation();
+  const currentUserId = getCurrentUser()?.id;
   const [newText, setNewText] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [addMentionQuery, setAddMentionQuery] = useState<string | null>(null);
@@ -456,6 +527,8 @@ export function RevisionCommentSidebar({
                 onReply={text => onReply(c.id, text)}
                 onDelete={onDelete ? () => onDelete(c.id) : undefined}
                 onConvertToSubtask={onConvertToSubtask ? () => onConvertToSubtask(c.id) : undefined}
+                onToggleLike={onToggleLike ? () => onToggleLike(c.id) : undefined}
+                currentUserId={currentUserId}
               />
             ))}
           </div>
