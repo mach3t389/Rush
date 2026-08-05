@@ -271,6 +271,30 @@ export function WebReview() {
     }
   };
 
+  const toggleLikeReplyAnnotation = (annId: string, replyId: string) => {
+    const myId = getCurrentUser()?.id ?? 'moi';
+    let liking = false;
+    const next = annotations.map(a => {
+      if (a.id !== annId) return a;
+      return {
+        ...a,
+        replies: a.replies.map(r => {
+          if (r.id !== replyId) return r;
+          const likedBy = r.likedBy ?? [];
+          const already = likedBy.includes(myId);
+          liking = !already;
+          return { ...r, likedBy: already ? likedBy.filter(u => u !== myId) : [...likedBy, myId] };
+        }),
+      };
+    });
+    setAnnotations(next);
+    if (liking) {
+      const ann = next.find(a => a.id === annId);
+      const reply = ann?.replies.find(r => r.id === replyId);
+      if (reply) notifyLike({ comment: { id: reply.id, author: { id: reply.author.id } }, itemLabel: resource?.title ?? host, resourceId: resource?.id, projectId, isReply: true });
+    }
+  };
+
   const toRevisionComment = (ann: Annotation, index: number): RevisionComment => ({
     id: ann.id,
     author: { id: ann.authorId ?? `wa-${index}`, name: ann.author, initials: ann.authorInitials, avatarColor: ann.authorColor, role: '' },
@@ -535,6 +559,7 @@ export function WebReview() {
               onReply={replyToAnnotation}
               onDelete={deleteAnnotation}
               onToggleLike={toggleLikeAnnotation}
+              onToggleLikeReply={toggleLikeReplyAnnotation}
               pendingAnnotation={false}
               onCancelPending={() => {}}
               embedded
