@@ -1038,6 +1038,15 @@ export function TaskPanel({
               {titleValue}
             </h3>
           )}
+          {/* Observateurs — sous le titre, pas en haut de la colonne
+              commentaires : trop proche du bouton fermer épinglé au panneau. */}
+          <div style={{ marginBottom: 10 }}>
+            <WatchersRow
+              watchers={task.watchers ?? []}
+              onAdd={id => onUpdate?.({ watchers: addWatcher(task.watchers, id) })}
+              onRemove={id => onUpdate?.({ watchers: (task.watchers ?? []).filter(w => w !== id) })}
+            />
+          </div>
           {/* Metadata row — assigné/priorité/statut/date all on one compact line */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             {/* Assigné */}
@@ -1173,31 +1182,6 @@ export function TaskPanel({
           </div>
 
           {divider}
-
-          {/* + Ajouter — menu compact pour marquer comme livrable / lier une
-              ressource, plutôt que deux sections toujours visibles même sur
-              une tâche sans livrable ni ressource (style Trello). */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={e => { setAddMenuOpen(o => !o); setAddMenuRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-            >
-              <SFIcon name="plus" size={12} />
-              {t('taskPanel.addItem')}
-            </button>
-            {addMenuOpen && (
-              <InlineDropdown onClose={() => setAddMenuOpen(false)} anchorRect={addMenuRect} zIndex={300}>
-                {!isDeliverable && ddItem(
-                  () => { setIsDeliverable(true); setDeliverableExpanded(true); onUpdate?.({ deliverable: true }); setAddMenuOpen(false); },
-                  <><SFIcon name="package" size={12} color="var(--text-3)" />{t('taskPanel.markAsDeliverable')}</>
-                )}
-                {ddItem(
-                  () => { setAddMenuOpen(false); setResourcePickerOpen(true); setResPickerRect(addMenuRect); },
-                  <><SFIcon name="link" size={12} color="var(--text-3)" />{t('taskPanel.linkResource')}</>
-                )}
-              </InlineDropdown>
-            )}
-          </div>
 
           {/* Livrable — visible seulement si marquée comme telle */}
           {isDeliverable && (
@@ -1543,20 +1527,45 @@ export function TaskPanel({
             )}
           </div>
 
+          {divider}
+
+          {/* + Ajouter — menu compact pour marquer comme livrable / lier une
+              ressource, au pied de la colonne plutôt qu'entre la description
+              et le reste du contenu (style Trello : action secondaire, pas
+              une section qu'on croise en lisant). */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={e => { setAddMenuOpen(o => !o); setAddMenuRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >
+              <SFIcon name="plus" size={12} />
+              {t('taskPanel.addItem')}
+            </button>
+            {addMenuOpen && (
+              <InlineDropdown onClose={() => setAddMenuOpen(false)} anchorRect={addMenuRect} zIndex={300}>
+                {!isDeliverable && ddItem(
+                  () => { setIsDeliverable(true); setDeliverableExpanded(true); onUpdate?.({ deliverable: true }); setAddMenuOpen(false); },
+                  <><SFIcon name="package" size={12} color="var(--text-3)" />{t('taskPanel.markAsDeliverable')}</>
+                )}
+                {ddItem(
+                  () => { setAddMenuOpen(false); setResourcePickerOpen(true); setResPickerRect(addMenuRect); },
+                  <><SFIcon name="link" size={12} color="var(--text-3)" />{t('taskPanel.linkResource')}</>
+                )}
+              </InlineDropdown>
+            )}
           </div>
 
-          {/* Colonne droite — commentaires + activité, toujours visibles */}
-          <div style={{ flex: '0 0 380px', maxWidth: 380, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)' }}>
+          </div>
+
+          {/* Colonne droite — commentaires + activité, toujours visibles.
+              overflow:'hidden' (pas 'auto') : le composeur de commentaires
+              doit rester épinglé en bas, pas défiler avec le reste — c'est
+              RevisionCommentSidebar (flex:1, minHeight:0 en mode embedded)
+              qui gère son propre défilement interne de la liste. */}
+          <div style={{ flex: '0 0 380px', maxWidth: 380, overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)' }}>
 
           {/* Commentaires — même composant que Document/Révision web/Scénario/etc., pour un système identique partout */}
-          <div ref={commentsAnchorRef} style={{ display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
-            <div style={{ marginBottom: 10 }}>
-              <WatchersRow
-                watchers={task.watchers ?? []}
-                onAdd={id => onUpdate?.({ watchers: addWatcher(task.watchers, id) })}
-                onRemove={id => onUpdate?.({ watchers: (task.watchers ?? []).filter(w => w !== id) })}
-              />
-            </div>
+          <div ref={commentsAnchorRef} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderRadius: 9 }}>
             <RevisionCommentSidebar
               comments={comments.map(toRevisionComment)}
               activeId={activeCommentId}
