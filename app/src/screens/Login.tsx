@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
-import { login, DEMO_ACCOUNTS } from '../data/authStore';
+import { login } from '../data/authStore';
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
@@ -65,7 +65,7 @@ export function Login() {
             {t('auth.tagline')}
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['Projets', 'Clients', 'Fichiers', 'Portail'].map(tag => (
+            {['Projets', 'Clients', 'Révisions', 'Calendrier', 'Facturation'].map(tag => (
               <span key={tag} style={{
                 fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)',
                 background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
@@ -75,44 +75,10 @@ export function Login() {
           </div>
         </div>
 
-        {/* Demo accounts */}
+        {/* Pricing link */}
         <div>
-          <p style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-            {t('auth.demoAccounts')} · {t('auth.demoHint')}
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {DEMO_ACCOUNTS.map(acc => (
-              <button
-                key={acc.email}
-                onClick={() => { setEmail(acc.email); setPassword('demo'); setError(''); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 12px', borderRadius: 9, cursor: 'pointer',
-                  background: email === acc.email ? 'rgba(249,255,0,0.08)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${email === acc.email ? 'rgba(249,255,0,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                  transition: 'all 0.15s', textAlign: 'left',
-                }}
-                onMouseEnter={e => { if (email !== acc.email) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
-                onMouseLeave={e => { if (email !== acc.email) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
-              >
-                <div style={{
-                  width: 30, height: 30, borderRadius: '50%', background: acc.color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0,
-                }}>
-                  {acc.initials}
-                </div>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{acc.name}</p>
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', margin: 0, fontFamily: 'var(--ff-mono)' }}>{acc.role}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Pricing link */}
           <Link to="/pricing" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 16,
+            display: 'inline-flex', alignItems: 'center', gap: 5,
             fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'rgba(255,255,255,0.3)',
             textDecoration: 'none', letterSpacing: '0.04em', transition: 'color 0.15s',
           }}
