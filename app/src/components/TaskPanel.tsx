@@ -612,6 +612,8 @@ export function TaskPanel({
   const [linkedResources, setLinkedResources] = useState<string[]>(task.linkedResources ?? []);
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
   const [resPickerRect, setResPickerRect] = useState<DOMRect | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addMenuRect, setAddMenuRect] = useState<DOMRect | null>(null);
   const [panelOpen, setPanelOpen] = useState<'priority' | 'status' | 'heureDebut' | 'heureFin' | 'format' | null>(null);
   const [panelDropRect, setPanelDropRect] = useState<DOMRect | null>(null);
   const [fullscreenResource, setFullscreenResource] = useState<string | null>(null);
@@ -890,6 +892,7 @@ export function TaskPanel({
         left: '50%',
         transform: 'translate(-50%, -50%)',
         width: 'min(1040px, 92vw)',
+        height: '88vh',
         maxHeight: '88vh',
         zIndex: 200,
         background: 'var(--surface)',
@@ -1010,89 +1013,80 @@ export function TaskPanel({
               {titleValue}
             </h3>
           )}
-          {/* Metadata row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          {/* Metadata row — assigné/priorité/statut/date all on one compact line */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             {/* Assigné */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('taskPanel.assignedTo')}</span>
-              <AssigneeGroup
-                assignees={editAssignees}
-                size={24}
-                max={3}
-                showNames
-                onChange={next => { setEditAssignees(next); onUpdate?.({ assignees: next }); }}
-              />
-            </div>
+            <AssigneeGroup
+              assignees={editAssignees}
+              size={22}
+              max={3}
+              onChange={next => { setEditAssignees(next); onUpdate?.({ assignees: next }); }}
+            />
+            <span style={{ width: 1, height: 16, background: 'var(--border)' }} />
             {/* Priorité */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('tasks.priority')}</span>
-              <div style={{ position: 'relative' }}>
-                <button onClick={e => openPanelDrop('priority', e)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[editPriority], flexShrink: 0, display: 'block' }} />
-                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[editPriority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[editPriority])}</span>
-                  <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-                </button>
-                {panelOpen === 'priority' && (
-                  <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
-                    {PRIORITY_OPTIONS.map(p => ddItem(() => { setEditPriority(p); setPanelOpen(null); onUpdate?.({ priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); },
-                      <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
-                      editPriority === p
-                    ))}
-                  </InlineDropdown>
-                )}
-              </div>
+            <div style={{ position: 'relative' }}>
+              <button onClick={e => openPanelDrop('priority', e)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[editPriority], flexShrink: 0, display: 'block' }} />
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: PRIORITY_COLOR[editPriority], textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(PRIORITY_LABEL_KEY[editPriority])}</span>
+                <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+              </button>
+              {panelOpen === 'priority' && (
+                <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
+                  {PRIORITY_OPTIONS.map(p => ddItem(() => { setEditPriority(p); setPanelOpen(null); onUpdate?.({ priority: p, priorityLabel: t(PRIORITY_LABEL_KEY[p]) }); },
+                    <><span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_COLOR[p], display: 'block', flexShrink: 0 }} />{t(PRIORITY_LABEL_KEY[p])}</>,
+                    editPriority === p
+                  ))}
+                </InlineDropdown>
+              )}
             </div>
             {/* Statut */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('tasks.status')}</span>
-              <div style={{ position: 'relative' }}>
-                <button onClick={e => openPanelDrop('status', e)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {editStatus
-                    ? <SFPill status={editStatus as Task['status']} small>{t(PANEL_STATUS_OPTIONS.find(o => o.value === editStatus)?.labelKey ?? 'tasks.noStatus')}</SFPill>
-                    : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('taskPanel.none')}</span>
-                  }
-                  <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
-                </button>
-                {panelOpen === 'status' && (
-                  <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
-                    {PANEL_STATUS_OPTIONS.map(o => ddItem(() => { setEditStatus(o.value); setPanelOpen(null); onUpdate?.({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); },
-                      <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
-                      editStatus === o.value
-                    ))}
-                  </InlineDropdown>
-                )}
-              </div>
+            <div style={{ position: 'relative' }}>
+              <button onClick={e => openPanelDrop('status', e)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                {editStatus
+                  ? <SFPill status={editStatus as Task['status']} small>{t(PANEL_STATUS_OPTIONS.find(o => o.value === editStatus)?.labelKey ?? 'tasks.noStatus')}</SFPill>
+                  : <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)' }}>{t('taskPanel.none')}</span>
+                }
+                <SFIcon name="chevron-down" size={10} color="var(--text-3)" />
+              </button>
+              {panelOpen === 'status' && (
+                <InlineDropdown onClose={() => setPanelOpen(null)} anchorRect={panelDropRect} zIndex={300}>
+                  {PANEL_STATUS_OPTIONS.map(o => ddItem(() => { setEditStatus(o.value); setPanelOpen(null); onUpdate?.({ status: o.value as Task['status'], statusLabel: t(o.labelKey) }); },
+                    <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>,
+                    editStatus === o.value
+                  ))}
+                </InlineDropdown>
+              )}
             </div>
-          </div>
-
-          {/* Dates — compact inline row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-            <SFIcon name="calendar" size={11} color="var(--text-3)" />
-            <button
-              onClick={e => { setDatePickerOpen(o => o === 'debut' ? null : 'debut'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateDebut ? (isOverdue(dateDebut) ? 'var(--danger)' : 'var(--text)') : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
-            >
-              {dateDebut ? formatDisplay(dateDebut) : t('taskPanel.start')}
-            </button>
-            {dateDebut && (
-              <button onClick={e => openPanelDrop('heureDebut', e)}
-                style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: heureDebut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
-              >{heureDebut || '--:--'}</button>
-            )}
-            <span style={{ color: 'var(--text-3)', fontSize: 11 }}>→</span>
-            <button
-              onClick={e => { setDatePickerOpen(o => o === 'fin' ? null : 'fin'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
-            >
-              {dateFin ? formatDisplay(dateFin) : t('taskPanel.end')}
-            </button>
-            {dateFin && (
-              <button onClick={e => openPanelDrop('heureFin', e)}
-                style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: heureFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
-              >{heureFin || '--:--'}</button>
-            )}
+            <span style={{ width: 1, height: 16, background: 'var(--border)' }} />
+            {/* Dates */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <SFIcon name="calendar" size={11} color="var(--text-3)" />
+              <button
+                onClick={e => { setDatePickerOpen(o => o === 'debut' ? null : 'debut'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateDebut ? (isOverdue(dateDebut) ? 'var(--danger)' : 'var(--text)') : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+              >
+                {dateDebut ? formatDisplay(dateDebut) : t('taskPanel.start')}
+              </button>
+              {dateDebut && (
+                <button onClick={e => openPanelDrop('heureDebut', e)}
+                  style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: heureDebut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+                >{heureDebut || '--:--'}</button>
+              )}
+              <span style={{ color: 'var(--text-3)', fontSize: 11 }}>→</span>
+              <button
+                onClick={e => { setDatePickerOpen(o => o === 'fin' ? null : 'fin'); setDatePickerRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: dateFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+              >
+                {dateFin ? formatDisplay(dateFin) : t('taskPanel.end')}
+              </button>
+              {dateFin && (
+                <button onClick={e => openPanelDrop('heureFin', e)}
+                  style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 11, color: heureFin ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}
+                >{heureFin || '--:--'}</button>
+              )}
+            </div>
           </div>
 
           {/* DatePicker popups */}
@@ -1129,29 +1123,45 @@ export function TaskPanel({
           {/* Colonne gauche — détails de la tâche */}
           <div style={{ flex: '1 1 60%', minWidth: 0, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Livrable toggle + format */}
+          {/* + Ajouter — menu compact pour marquer comme livrable / lier une
+              ressource, plutôt que deux sections toujours visibles même sur
+              une tâche sans livrable ni ressource (style Trello). */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={e => { setAddMenuOpen(o => !o); setAddMenuRect((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+            >
+              <SFIcon name="plus" size={12} />
+              {t('taskPanel.addItem')}
+            </button>
+            {addMenuOpen && (
+              <InlineDropdown onClose={() => setAddMenuOpen(false)} anchorRect={addMenuRect} zIndex={300}>
+                {!isDeliverable && ddItem(
+                  () => { setIsDeliverable(true); setDeliverableExpanded(true); onUpdate?.({ deliverable: true }); setAddMenuOpen(false); },
+                  <><SFIcon name="package" size={12} color="var(--text-3)" />{t('taskPanel.markAsDeliverable')}</>
+                )}
+                {ddItem(
+                  () => { setAddMenuOpen(false); setResourcePickerOpen(true); setResPickerRect(addMenuRect); },
+                  <><SFIcon name="link" size={12} color="var(--text-3)" />{t('taskPanel.linkResource')}</>
+                )}
+              </InlineDropdown>
+            )}
+          </div>
+
+          {/* Livrable — visible seulement si marquée comme telle */}
+          {isDeliverable && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               {secLabel(t('taskPanel.clientDeliverable'))}
-              {!isDeliverable ? (
-                <button
-                  onClick={() => { setIsDeliverable(true); setDeliverableExpanded(true); onUpdate?.({ deliverable: true }); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
-                >
-                  <SFIcon name="package" size={12} />
-                  {t('taskPanel.markAsDeliverable')}
-                </button>
-              ) : (
-                <button
-                  onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
-                  title={t('taskPanel.disableDeliverable')}
-                  style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-                >
-                  <SFIcon name="x" size={11} />
-                </button>
-              )}
+              <button
+                onClick={() => { setIsDeliverable(false); setDeliverableExpanded(false); onUpdate?.({ deliverable: false }); }}
+                title={t('taskPanel.disableDeliverable')}
+                style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+              >
+                <SFIcon name="x" size={11} />
+              </button>
             </div>
 
             {/* Mini-carte résumé — pleine largeur, sous le label (pas à côté :
@@ -1293,6 +1303,7 @@ export function TaskPanel({
               </div>
             )}
           </div>
+          )}
 
           {divider}
 
@@ -1339,26 +1350,12 @@ export function TaskPanel({
 
           {divider}
 
-          {/* Ressources liées — toujours visible */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              {panelSectionLabel(`${t('taskPanel.linkedResources')}${linkedResources.length ? ` (${linkedResources.length})` : ''}`)}
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={e => { setResourcePickerOpen(o => !o); setResPickerRect((e.currentTarget as HTMLButtonElement).getBoundingClientRect()); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '4px 10px', borderRadius: 7,
-                    border: '1px solid var(--border-2)', background: 'var(--surface-2)',
-                    color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)',
-                  }}
-                >
-                  <SFIcon name="plus" size={11} />
-                  {t('taskPanel.link')}
-                </button>
-
-                {/* Resource picker dropdown */}
-                {resourcePickerOpen && (() => {
+          {/* Resource picker dropdown — déclenché par le menu "+ Ajouter"
+              ci-dessus ; rendu ici indépendamment de la liste de ressources
+              (qui peut être vide) puisqu'il faut pouvoir l'ouvrir même sans
+              aucune ressource liée pour l'instant. */}
+          <div style={{ position: 'relative' }}>
+            {resourcePickerOpen && (() => {
                   const dropH = 440;
                   const spaceBelow = resPickerRect ? window.innerHeight - resPickerRect.bottom - 8 : 0;
                   const openUp = resPickerRect && spaceBelow < dropH;
@@ -1415,12 +1412,13 @@ export function TaskPanel({
                     document.body,
                   );
                 })()}
-              </div>
-            </div>
+          </div>
 
-            {/* Linked resources list */}
-            {linkedResources.length > 0
-              ? resources.filter(r => linkedResources.includes(r.id)).map(r => (
+          {/* Linked resources list — visible seulement s'il y en a */}
+          {linkedResources.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {panelSectionLabel(`${t('taskPanel.linkedResources')} (${linkedResources.length})`)}
+            {resources.filter(r => linkedResources.includes(r.id)).map(r => (
                 <div key={r.id} style={{ position: 'relative' }}>
                   <div
                     onClick={() => setFullscreenResource(r.id)}
@@ -1479,10 +1477,9 @@ export function TaskPanel({
                     </InlineDropdown>
                   )}
                 </div>
-              ))
-              : <p style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('taskPanel.noLinkedResources')}</p>
-            }
+            ))}
           </div>
+          )}
 
           {/* Sous-tâches */}
           {divider}
