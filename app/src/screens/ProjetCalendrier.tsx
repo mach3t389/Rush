@@ -885,10 +885,6 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
         <PageHeader title={t('nav.calendar')} subtitle={title}
           actions={
             <div style={{ display:'flex', alignItems:'flex-start', alignSelf:'flex-start', gap:12 }}>
-              {!readOnly && (
-                <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
-              )}
-
               <div style={{ display:'flex',alignItems:'center',gap:6 }}>
                 <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
                   Aujourd'hui
@@ -919,6 +915,10 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
                 style={{ display:'flex',alignItems:'center',justifyContent:'center',width:32,height:32,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',flexShrink:0 }}>
                 <SFIcon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={14} />
               </button>
+
+              {!readOnly && (
+                <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
+              )}
             </div>
           }
         >
