@@ -11,7 +11,7 @@ import {
   verifyPkce,
 } from './_lib/northbook/auth.js';
 import { deliverInvoice } from './_lib/northbook/delivery.js';
-import { decodeCursor, encodeCursor, serializeBillingRequest, serializeChange, serializeClient, serializeProject } from './_lib/northbook/serializers.js';
+import { decodeCursor, encodeCursor, serializeBillingRequest, serializeChange, serializeClient, serializeProject, serializeTask } from './_lib/northbook/serializers.js';
 import { assertPdfExists, createPdfDownload, createPdfUpload } from './_lib/northbook/storage.js';
 import {
   HttpError,
@@ -23,6 +23,7 @@ import {
   parseBillingLines,
   parseScopes,
   requiredString,
+  parseTaskStatus,
   type AccountingDocumentInput,
   type ProjectSummaryInput,
 } from './_lib/northbook/types.js';
@@ -245,15 +246,16 @@ async function bootstrap(req: VercelRequest, res: VercelResponse) {
   method(req, 'GET');
   const context = await authenticateIntegration(req, ['entities:read', 'billing_requests:read']);
   const client = adminClient();
-  const [cursorResult, clientsResult, projectsResult, requestsResult] = await Promise.all([
+  const [cursorResult, clientsResult, projectsResult, tasksResult, requestsResult] = await Promise.all([
     client.from('northbook_change_log').select('sequence').eq('studio_id', context.studioId)
       .order('sequence', { ascending: false }).limit(1).maybeSingle(),
     client.from('clients').select('*').eq('studio_id', context.studioId).order('created_at'),
     client.from('projects').select('*').eq('studio_id', context.studioId).eq('is_template_draft', false).order('created_at'),
+    client.from('tasks').select('*').eq('studio_id', context.studioId),
     client.from('northbook_billing_requests').select('*').eq('studio_id', context.studioId)
       .in('status', ['submitted', 'accepted']).order('created_at'),
   ]);
-  for (const result of [cursorResult, clientsResult, projectsResult, requestsResult]) {
+  for (const result of [cursorResult, clientsResult, projectsResult, tasksResult, requestsResult]) {
     if (result.error) throw result.error;
   }
   res.status(200).json({
@@ -261,8 +263,25 @@ async function bootstrap(req: VercelRequest, res: VercelResponse) {
     accountingCurrency: context.accountingCurrency,
     clients: (clientsResult.data ?? []).map(row => serializeClient(row)),
     projects: (projectsResult.data ?? []).map(row => serializeProject(row)),
+    tasks: (tasksResult.data ?? []).map(row => serializeTask(row)),
     billingRequests: (requestsResult.data ?? []).map(row => serializeBillingRequest(row)),
   });
+}
+
+async function updateTaskStatus(req: VercelRequest, res: VercelResponse, taskId: string) {
+  method(req, 'PATCH');
+  const context = await authenticateIntegration(req, ['tasks:write']);
+  const status = parseTaskStatus(body(req).status);
+  const client = adminClient();
+  const { data, error } = await client.rpc('northbook_update_task_status', {
+    p_studio_id: context.studioId,
+    p_task_id: taskId,
+    p_status: status,
+  });
+  if (error) throw error;
+  const updated = Array.isArray(data) ? data[0] : data;
+  if (!updated) throw new HttpError(404, 'task_not_found');
+  res.status(200).json(serializeTask(updated as Record<string, unknown>));
 }
 
 async function changes(req: VercelRequest, res: VercelResponse) {
@@ -511,6 +530,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (path[0] === 'connections') return await connections(req, res, path[1]);
     if (path[0] === 'bootstrap') return await bootstrap(req, res);
     if (path[0] === 'changes') return await changes(req, res);
+    if (path[0] === 'tasks' && path[1] && path[2] === 'status') return await updateTaskStatus(req, res, path[1]);
     if (path[0] === 'portal' && path[1] === 'documents' && path[2] && path[3] === 'pdf') {
       return await portalPdf(req, res, path[2]);
     }

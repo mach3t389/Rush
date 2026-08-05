@@ -74,6 +74,29 @@ export function serializeProject(row: Record<string, unknown>) {
   };
 }
 
+function object(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+export function serializeTask(row: Record<string, unknown>) {
+  const data = object(row.data);
+  const assignees = Array.isArray(data.assignees) ? data.assignees.map(object) : [];
+  const dueDate = String(data.dueDate ?? '').trim();
+  return {
+    id: String(row.id ?? data.id ?? ''),
+    projectId: String(row.project_id ?? data.projectId ?? ''),
+    projectName: String(data.projectName ?? ''),
+    title: String(data.title ?? ''),
+    status: String(data.status ?? ''),
+    statusLabel: String(data.statusLabel ?? ''),
+    checked: Boolean(data.checked),
+    priority: String(data.priority ?? 'none'),
+    dueDate: dueDate || null,
+    assigneeNames: assignees.map(assignee => String(assignee.name ?? assignee.fullName ?? assignee.email ?? '')).filter(Boolean),
+    version: String(row.updated_at ?? data.updatedAt ?? data.modifiedAt ?? ''),
+  };
+}
+
 export function serializeBillingRequest(row: Record<string, unknown>) {
   return {
     id: String(row.id),
@@ -98,6 +121,7 @@ export function serializeChange(row: Record<string, unknown>) {
   let normalized: unknown = payload;
   if (payload && entityType === 'client') normalized = serializeClient(payload);
   if (payload && entityType === 'project') normalized = serializeProject(payload);
+  if (payload && entityType === 'task') normalized = serializeTask(payload);
   if (payload && entityType === 'billing_request') normalized = serializeBillingRequest(payload);
   return {
     cursor: encodeCursor(String(row.sequence)),

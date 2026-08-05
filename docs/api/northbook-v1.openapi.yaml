@@ -100,6 +100,32 @@ paths:
                   nextCursor: { type: string }
                   hasMore: { type: boolean }
         '410': { description: Cursor expired; perform a new bootstrap }
+  /tasks/{taskId}/status:
+    patch:
+      summary: Change the status of a Rush-owned task
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              additionalProperties: false
+              properties:
+                status: { enum: ['', warn, info, review, danger, ok] }
+      responses:
+        '200':
+          description: Updated task
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '404': { description: Task not found in the connected organization }
+        '422': { description: Unsupported Rush task status }
   /portal/documents/{northbookInvoiceId}/pdf:
     get:
       summary: Return a short-lived PDF URL to an authorized studio member or client contact
@@ -199,7 +225,7 @@ components:
     supabaseUser: { type: http, scheme: bearer }
   schemas:
     Scope:
-      enum: [entities:read, billing_requests:read, billing_requests:write, accounting:write, documents:write, delivery:write]
+      enum: [entities:read, tasks:write, billing_requests:read, billing_requests:write, accounting:write, documents:write, delivery:write]
     AuthorizeRequest:
       type: object
       required: [studioId, codeChallenge, state, installationName, redirectUri, scopes]
@@ -268,6 +294,21 @@ components:
         archived: { type: boolean }
         completed: { type: boolean }
         version: { type: string }
+    Task:
+      type: object
+      required: [id, projectId, projectName, title, status, statusLabel, checked, priority, dueDate, assigneeNames, version]
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        title: { type: string }
+        status: { type: string }
+        statusLabel: { type: string }
+        checked: { type: boolean }
+        priority: { type: string }
+        dueDate: { type: [string, 'null'] }
+        assigneeNames: { type: array, items: { type: string } }
+        version: { type: string }
     BillingLine:
       type: object
       required: [id, description, quantity, unitAmountMinor]
@@ -295,19 +336,20 @@ components:
         updatedAt: { type: string, format: date-time }
     BootstrapResponse:
       type: object
-      required: [cursor, accountingCurrency, clients, projects, billingRequests]
+      required: [cursor, accountingCurrency, clients, projects, tasks, billingRequests]
       properties:
         cursor: { type: string }
         accountingCurrency: { type: string }
         clients: { type: array, items: { $ref: '#/components/schemas/Client' } }
         projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
+        tasks: { type: array, items: { $ref: '#/components/schemas/Task' } }
         billingRequests: { type: array, items: { $ref: '#/components/schemas/BillingRequest' } }
     Change:
       type: object
       required: [cursor, entityType, entityId, operation, occurredAt]
       properties:
         cursor: { type: string }
-        entityType: { enum: [client, project, billing_request, invoice_delivery] }
+        entityType: { enum: [client, project, task, billing_request, invoice_delivery] }
         entityId: { type: string }
         operation: { enum: [upsert, archive, delete] }
         occurredAt: { type: string, format: date-time }
