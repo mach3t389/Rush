@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue, AssigneeGroup } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue, AssigneeGroup, CommentBadge } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
@@ -580,6 +580,7 @@ function TaskRow({
             </span>
           </span>
         )}
+        {!editingTitle && <span style={{ flexShrink: 0, marginLeft: 2 }}><CommentBadge taskId={task.id} comments={task.comments} /></span>}
       </div>
 
       {/* Activité */}
