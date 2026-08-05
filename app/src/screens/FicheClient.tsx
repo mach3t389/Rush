@@ -7,7 +7,7 @@ import { PROJECTS, USERS } from '../data/mock';
 import { findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient } from '../data/clientStore';
 import { PERMISSION_DEFS, PERMISSION_PRESETS, matchPreset, loadPermissions, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import { ProjectsListView } from '../components/ProjectsListView';
-import { ActivityFeed } from '../components/ActivityFeed';
+import { ActivityFeed, type FeedActivity } from '../components/ActivityFeed';
 import { ProjetCalendrier } from './ProjetCalendrier';
 import type { Client, Status } from '../types/index';
 import { FileBrowser } from './FichiersGlobal';
@@ -23,6 +23,9 @@ import { isInvoicesLoading } from '../data/financeStore';
 import { getProjects, isProjectsLoading, subscribeProjects } from '../data/projectStore';
 import { getCurrentSectionLabel } from '../data/taskStore';
 import { isDemoSession } from '../data/authStore';
+import { getNotifHistoryForProject, subscribeNotifs } from '../data/notificationStore';
+import { notifToFeedActivity } from '../data/activityAdapter';
+import i18n from '../i18n/i18n';
 import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
 import { enterViewAs } from '../data/viewAsStore';
 
@@ -742,7 +745,7 @@ interface ClientActivity {
   projectColor?: string;
 }
 
-const ACTIVITY_ICON: Record<ActivityType, { icon: string; color: string; bg: string }> = {
+const ACTIVITY_ICON: Record<string, { icon: string; color: string; bg: string }> = {
   task:    { icon: 'check-circle',  color: '#1a6b4a', bg: 'rgba(26,107,74,0.15)'  },
   upload:  { icon: 'cloud-upload',  color: '#3b4f8f', bg: 'rgba(59,79,143,0.15)'  },
   comment: { icon: 'message-circle',color: '#5c3d8f', bg: 'rgba(92,61,143,0.15)'  },
@@ -752,8 +755,14 @@ const ACTIVITY_ICON: Record<ActivityType, { icon: string; color: string; bg: str
   member:  { icon: 'user-plus',     color: '#2a7a8a', bg: 'rgba(42,122,138,0.15)' },
 };
 
-function getClientActivities(projects: typeof PROJECTS): ClientActivity[] {
-  if (!isDemoSession()) return [];
+function getClientActivities(projects: typeof PROJECTS, clientId: string): ClientActivity[] | FeedActivity[] {
+  if (!isDemoSession()) {
+    const clientProjectIds = getProjects().filter(p => p.clientId === clientId).map(p => p.id);
+    return clientProjectIds
+      .flatMap(id => getNotifHistoryForProject(id))
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .map(n => notifToFeedActivity(n, i18n.t.bind(i18n)));
+  }
   return [
     { id: 'a1', day: "Aujourd'hui", type: 'comment', actorName: 'Sarah Martin',   actorInitials: 'SM', actorColor: '#3b4f8f', action: 'a commenté sur', target: 'Rough Cut — V4', detail: '"L\'intro est un peu longue…"', time: 'Il y a 12 min', projectName: projects[0]?.name, projectColor: projects[0]?.clientColor },
     { id: 'a2', day: "Aujourd'hui", type: 'upload',  actorName: 'Thomas Robert',  actorInitials: 'TR', actorColor: '#5c3d8f', action: 'a uploadé', target: 'Rough Cut — V4', detail: 'V4 · 03:28 · 2.1 Go', time: 'Il y a 2h', projectName: projects[0]?.name, projectColor: projects[0]?.clientColor },
@@ -768,8 +777,13 @@ function getClientActivities(projects: typeof PROJECTS): ClientActivity[] {
   ];
 }
 
-function ActiviteTab({ projects }: { projects: typeof PROJECTS }) {
-  return <ActivityFeed activities={getClientActivities(projects)} />;
+function ActiviteTab({ projects, clientId }: { projects: typeof PROJECTS; clientId: string }) {
+  const [, forceUpdate] = useState(0);
+  // Real sessions' notifications resolve asynchronously (ensureFetchStarted
+  // inside notificationStore.ts) — without this, getClientActivities()
+  // would keep returning [] from the first render forever.
+  useEffect(() => subscribeNotifs(() => forceUpdate(n => n + 1)), []);
+  return <ActivityFeed activities={getClientActivities(projects, clientId)} />;
 }
 
 // ── Finances tab ──────────────────────────────────────────────────────────────
@@ -951,7 +965,9 @@ function ApercuTab({ client, projects, clientId, onGoTab }: {
   useEffect(() => subscribeClientTeam(() => setContacts(getClientTeam(clientId))), [clientId]);
   const [finance, setFinance] = useState<ClientFinance>(() => getClientFinance(clientId));
   useEffect(() => subscribeInvoices(() => setFinance(getClientFinance(clientId))), [clientId]);
-  const recentActivity = getClientActivities(projects).slice(0, 4);
+  const [, forceNotifsRerender] = useState(0);
+  useEffect(() => subscribeNotifs(() => forceNotifsRerender(n => n + 1)), []);
+  const recentActivity = getClientActivities(projects, clientId).slice(0, 4);
 
   const activeCount = projects.filter(p => p.status !== 'neutral').length;
   const deliverables = projects.reduce((n, p) => n + p.deliverableCount, 0);
@@ -1530,7 +1546,7 @@ export function FicheClient() {
 
         {tab === 'equipe' && <EquipeTab clientId={client.id} />}
 
-        {tab === 'activite' && <ActiviteTab projects={projects} />}
+        {tab === 'activite' && <ActiviteTab projects={projects} clientId={client.id} />}
 
         {tab === 'fichiers' && (
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
