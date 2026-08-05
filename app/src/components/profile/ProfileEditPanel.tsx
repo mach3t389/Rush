@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton } from '../ui';
 import { isDemoSession } from '../../data/authStore';
 import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
+import { computeInitials } from '../../utils/initials';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 
@@ -223,7 +224,7 @@ export function ProfileEditPanel({
     }, 800);
   };
 
-  const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || initialInitials;
+  const initials = name.trim() ? computeInitials(name) : initialInitials;
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '8px 11px', borderRadius: 9,
