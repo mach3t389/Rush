@@ -1065,6 +1065,22 @@ function ProjectListRow({ p }: { p: Project }) {
             style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'var(--ff-text)', marginBottom: 10 }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 320, overflowY: 'auto' }}>
+            {p.clientId && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  void changeProjectClient(p, null);
+                  setMoveClientOpen(false);
+                  setMoveClientSearch('');
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', color: 'var(--danger)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <SFIcon name="x-circle" size={16} />
+                <span style={{ fontSize: 13 }}>{t('projects.removeClientFromProject')}</span>
+              </button>
+            )}
             {getClients().filter(c => !c.archived && c.id !== p.clientId && c.name.toLowerCase().includes(moveClientSearch.toLowerCase())).map(c => (
               <button
                 key={c.id}

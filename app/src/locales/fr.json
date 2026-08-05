@@ -466,6 +466,7 @@
     "archiveProject": "Archiver le projet",
     "unarchiveProject": "Désarchiver le projet",
     "moveToClient": "Changer de client",
+    "removeClientFromProject": "Retirer le client de ce projet",
     "deleteProjectPermanently": "Supprimer définitivement",
     "deleteProjectConfirm": "Supprimer ce projet et tout son contenu ? Cette action est irréversible.",
     "archivedBadge": "Archivé",
