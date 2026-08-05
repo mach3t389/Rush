@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, PageHeader } from '../components/ui';
+import { SFButton, SFIcon, SFAvatar, PageHeader, SFCard } from '../components/ui';
 import { USERS, PROJECTS } from '../data/mock';
 import { ProfileEditPanel, loadPhoto, loadPermissions, PERMISSION_PRESETS, matchPreset, savePermissions, type PermissionKey } from '../components/profile/ProfileEditPanel';
 import type { AccessLevel } from '../data/teamStore';
@@ -420,16 +420,14 @@ export function MonEquipe() {
           {filtered.map(({ member, permLabelKey }) => {
             const roleColor = ROLE_COLOR[member.role] ?? '#404040';
             return (
-              <div
-                key={member.id}
-                onClick={() => setSelectedMember(member)}
-                style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '18px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'border-color 0.12s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-2)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-              >
-                {/* Square badge, same shape/size as ClientCard's (Clients.tsx)
-                    — was a 48px circular SFAvatar, the one visible mismatch
-                    against how Clients/Projets present a person/entity. */}
+              // Same SFCard component ClientCard (Clients.tsx) uses — guarantees
+              // byte-identical border/radius/background AND hover animation
+              // (border lighten + 1px lift) instead of a hand-rolled imitation
+              // that drifted (this card used to only fade its border color,
+              // no lift, and a 48px circular avatar instead of the 40px
+              // square badge every other entity/person row uses).
+              <SFCard key={member.id} padding="18px 20px" onClick={() => setSelectedMember(member)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 9, background: member.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                   {member.initials}
                 </div>
@@ -459,7 +457,7 @@ export function MonEquipe() {
                     <SFIcon name="chevron-right" size={14} color="var(--text-3)" />
                   </div>
                 </div>
-              </div>
+              </SFCard>
             );
           })}
 
