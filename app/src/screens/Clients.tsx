@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFCard, SFBar, SFButton, SFModal, SFLoadingState, PageHeader, LifecycleFilterDropdown } from '../components/ui';
+import { SFPill, SFCard, SFBar, SFButton, SFModal, SFLoadingState, PageHeader, LifecycleFilterDropdown, SFAvatarGroup } from '../components/ui';
 import { SFIcon } from '../components/ui/SFIcon';
 import { isPinnedClient, togglePinClient, subscribePinnedClients } from '../data/pinnedStore';
 import { getClients, addClient, findClient, updateClient, subscribeClients, archiveClient, unarchiveClient, removeClient, isClientsLoading } from '../data/clientStore';
@@ -24,6 +24,19 @@ function clientPillProps(client: Client, t: (k: string) => string): { status: Cl
 // from real project/task data — client.activeProjects etc. are static
 // snapshot fields (set once at creation) that would otherwise never update
 // as projects are added, completed, or archived.
+// Union of every member across the client's projects, deduplicated by id —
+// a person on two of the client's projects should only show once. Mirrors
+// ProjectCard's own avatar row so a client card reads the same way.
+function getClientTeamAvatars(clientId: string): { initials: string; bg: string; name: string; photoUrl?: string }[] {
+  const seen = new Map<string, { initials: string; bg: string; name: string; photoUrl?: string }>();
+  for (const p of getProjects().filter(p => p.clientId === clientId)) {
+    for (const m of p.members) {
+      if (!seen.has(m.id)) seen.set(m.id, { initials: m.initials, bg: m.avatarColor, name: m.name, photoUrl: m.photoUrl });
+    }
+  }
+  return Array.from(seen.values());
+}
+
 function getClientLiveStats(clientId: string): { activeProjects: number; pendingDeliverables: number; progress: number } {
   const clientProjects = getProjects().filter(p => p.clientId === clientId && !p.archived);
   const activeProjects = clientProjects.filter(p => p.status !== 'neutral').length;
@@ -40,6 +53,7 @@ function getClientLiveStats(clientId: string): { activeProjects: number; pending
 export function ClientCard({ client, pinned, onEdit, onClick }: { client: Client; pinned: boolean; onEdit: () => void; onClick: () => void }) {
   const { t } = useTranslation();
   const liveStats = getClientLiveStats(client.id);
+  const teamAvatars = getClientTeamAvatars(client.id);
   return (
     <SFCard padding={18} gap={12} onClick={onClick}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -64,6 +78,12 @@ export function ClientCard({ client, pinned, onEdit, onClick }: { client: Client
       </div>
 
       <SFBar value={liveStats.progress} height={3} />
+
+      {teamAvatars.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <SFAvatarGroup avatars={teamAvatars} size={22} />
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <SFPill status={clientPillProps(client, t).status} small>{clientPillProps(client, t).label}</SFPill>
