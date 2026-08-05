@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, SFModal } from '../ui';
-import { isDemoSession } from '../../data/authStore';
+import { isDemoSession, resetPassword } from '../../data/authStore';
 import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
 import { computeInitials } from '../../utils/initials';
 
@@ -188,7 +188,9 @@ export function ProfileEditPanel({
   const [photo, setPhoto] = useState<string | null>(loadPhoto(userId));
   const [permissions, setPermissions] = useState<PermissionKey[]>(() => loadPermissions(userId, overrides.role ?? initialRole));
   const [memberAccessLevel, setMemberAccessLevel] = useState<AccessLevel>(() => loadAccessLevel(userId));
-  const [tab, setTab] = useState<'info' | 'permissions'>('info');
+  const [tab, setTab] = useState<'info' | 'permissions' | 'account'>('info');
+  const [pwResetSent, setPwResetSent] = useState(false);
+  const [pwResetSending, setPwResetSending] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -226,6 +228,14 @@ export function ProfileEditPanel({
       onSave?.({ name, role, email, phone, permissions, photoUrl: photo });
       onClose();
     }, 800);
+  };
+
+  const handlePasswordReset = async () => {
+    if (isDemoSession()) return;
+    setPwResetSending(true);
+    const result = await resetPassword(email);
+    setPwResetSending(false);
+    if (result.ok) setPwResetSent(true);
   };
 
   const initials = name.trim() ? computeInitials(name) : initialInitials;
@@ -288,11 +298,18 @@ export function ProfileEditPanel({
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 0 }}>
-            {([['info', t('profile.tabInfo')], ['permissions', t('profile.tabPermissions')]] as const).map(([key, lbl]) => (
-              <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', borderBottom: `2px solid ${tab === key ? 'var(--accent)' : 'transparent'}`, fontFamily: 'var(--ff-text)', transition: 'color 0.1s' }}>
-                {lbl}
-              </button>
-            ))}
+            {(() => {
+              const tabs: { key: 'info' | 'permissions' | 'account'; label: string }[] = [
+                { key: 'info', label: t('profile.tabInfo') },
+                { key: 'permissions', label: t('profile.tabPermissions') },
+              ];
+              if (isSelf) tabs.push({ key: 'account', label: t('profile.tabAccount') });
+              return tabs.map(({ key, label }) => (
+                <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', borderBottom: `2px solid ${tab === key ? 'var(--accent)' : 'transparent'}`, fontFamily: 'var(--ff-text)', transition: 'color 0.1s' }}>
+                  {label}
+                </button>
+              ));
+            })()}
           </div>
         </div>
 
@@ -431,6 +448,32 @@ export function ProfileEditPanel({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {tab === 'account' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {isDemoSession() && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <SFIcon name="info" size={15} color="var(--text-3)" />
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('profile.accountDemoNotice')}</p>
+                </div>
+              )}
+              <div>
+                {label(t('profile.email'))}
+                <p style={{ fontSize: 13, color: 'var(--text)' }}>{email}</p>
+              </div>
+              <div>
+                {label(t('profile.password'))}
+                <button
+                  onClick={handlePasswordReset}
+                  disabled={isDemoSession() || pwResetSending || pwResetSent}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: isDemoSession() ? 'not-allowed' : 'pointer', opacity: isDemoSession() ? 0.5 : 1, fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name={pwResetSent ? 'check' : 'key-round'} size={14} />
+                  {pwResetSent ? t('profile.passwordResetSent') : pwResetSending ? '…' : t('profile.changePassword')}
+                </button>
+              </div>
             </div>
           )}
         </div>
