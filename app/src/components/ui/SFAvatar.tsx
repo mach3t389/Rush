@@ -5,9 +5,10 @@ interface SFAvatarProps {
   size?: number;
   title?: string;
   name?: string;
+  photoUrl?: string;
 }
 
-export function SFAvatar({ initials, bg, color, size = 28, title, name }: SFAvatarProps) {
+export function SFAvatar({ initials, bg, color, size = 28, title, name, photoUrl }: SFAvatarProps) {
   const resolvedBg = bg ?? color ?? 'var(--surface-3)';
   const resolvedTitle = title ?? name;
   return (
@@ -27,15 +28,16 @@ export function SFAvatar({ initials, bg, color, size = 28, title, name }: SFAvat
         flexShrink: 0,
         letterSpacing: '0.01em',
         fontFamily: 'var(--ff-text)',
+        overflow: 'hidden',
       }}
     >
-      {initials}
+      {photoUrl ? <img src={photoUrl} alt={resolvedTitle ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
     </span>
   );
 }
 
 interface SFAvatarGroupProps {
-  avatars: { initials: string; bg: string; name?: string }[];
+  avatars: { initials: string; bg: string; name?: string; photoUrl?: string }[];
   size?: number;
   max?: number;
 }
@@ -57,7 +59,7 @@ export function SFAvatarGroup({ avatars, size = 24, max = 4 }: SFAvatarGroupProp
           // exacte. inline-flex fait suivre la taille réelle du contenu.
           style={{ display: 'inline-flex', alignItems: 'center', marginLeft: i === 0 ? 0 : -(size * 0.28), zIndex: shown.length - i }}
         >
-          <SFAvatar initials={a.initials} bg={a.bg} size={size} title={a.name} />
+          <SFAvatar initials={a.initials} bg={a.bg} size={size} title={a.name} photoUrl={a.photoUrl} />
         </span>
       ))}
       {rest > 0 && (

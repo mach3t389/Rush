@@ -456,7 +456,7 @@ export function ProjectCard({ p }: { p: Project }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <SFAvatarGroup avatars={p.members.map(m => ({ initials: m.initials, bg: m.avatarColor, name: m.name }))} size={22} />
+        <SFAvatarGroup avatars={p.members.map(m => ({ initials: m.initials, bg: m.avatarColor, name: m.name, photoUrl: m.photoUrl }))} size={22} />
         {/* No fallback to the static phaseLabel — a project with no sections
             yet has no real phase, and showing a default like "Préproduction"
             was misleading since that section doesn't actually exist. */}

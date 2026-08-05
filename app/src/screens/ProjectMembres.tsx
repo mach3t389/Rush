@@ -205,7 +205,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
                       <SFIcon name="check" size={12} color="var(--on-accent)" />
                     </div>
                     <div style={{ opacity: picked.has(u.id) ? 0 : 1, transition: 'opacity 0.1s' }}>
-                      <SFAvatar name={u.name} initials={u.initials} color={u.avatarColor} size={28} />
+                      <SFAvatar name={u.name} initials={u.initials} color={u.avatarColor} size={28} photoUrl={u.photoUrl} />
                     </div>
                   </div>
                   <div>
@@ -236,7 +236,7 @@ function AddMemberModal({ currentIds, clientId, onAdd, onClose }: {
                       <SFIcon name="check" size={12} color="var(--on-accent)" />
                     </div>
                     <div style={{ opacity: picked.has(u.id) ? 0 : 1, transition: 'opacity 0.1s' }}>
-                      <SFAvatar name={u.name} initials={u.initials} color={u.avatarColor} size={28} />
+                      <SFAvatar name={u.name} initials={u.initials} color={u.avatarColor} size={28} photoUrl={u.photoUrl} />
                     </div>
                   </div>
                   <div>
@@ -386,7 +386,7 @@ function MemberCard({ user, onRemove, isOwner, selected, onToggleSelect }: {
           {selected && <SFIcon name="check" size={15} color="var(--on-accent)" />}
         </div>
         <div style={{ opacity: (!isOwner && showCheckbox) ? 0 : 1, transition: 'opacity 0.12s' }}>
-          <SFAvatar name={user.name} initials={user.initials} color={user.avatarColor} size={38} />
+          <SFAvatar name={user.name} initials={user.initials} color={user.avatarColor} size={38} photoUrl={user.photoUrl} />
         </div>
       </div>
 
@@ -546,7 +546,7 @@ export function ProjectMembres() {
             <span style={{ color: 'var(--border-2)', fontSize: 13 }}>·</span>
             <div style={{ display: 'flex', gap: 4 }}>
               {members.slice(0, 5).map(m => (
-                <SFAvatar key={m.id} name={m.name} initials={m.initials} color={m.avatarColor} size={20} />
+                <SFAvatar key={m.id} name={m.name} initials={m.initials} color={m.avatarColor} size={20} photoUrl={m.photoUrl} />
               ))}
               {members.length > 5 && (
                 <span style={{ fontSize: 11, color: 'var(--text-3)', alignSelf: 'center', marginLeft: 2 }}>+{members.length - 5}</span>

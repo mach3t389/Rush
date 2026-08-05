@@ -124,7 +124,7 @@ export function getTeamMembers(): TeamMemberInfo[] {
 // don't need to care about email/joinedAt/accessLevel.
 export function getTeam(): User[] {
   const team = getTeamMembers();
-  if (team.length > 0) return team;
+  if (team.length > 0) return team.map(m => ({ id: m.id, name: m.name, initials: m.initials, avatarColor: m.avatarColor, role: m.role, photoUrl: m.photoUrl }));
   // teamStore's fetch hasn't resolved yet (or getCurrentUser() briefly
   // returns null right after login, same one-frame window already accepted
   // in GlobalTopBar.tsx) — fall back to a placeholder so callers that assume

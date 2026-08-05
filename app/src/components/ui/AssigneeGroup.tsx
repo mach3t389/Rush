@@ -64,7 +64,7 @@ export function AssigneeGroup({
       </span>
     )
     : <SFAvatarGroup
-        avatars={assignees.map(u => ({ initials: u.initials, bg: u.avatarColor, name: u.name }))}
+        avatars={assignees.map(u => ({ initials: u.initials, bg: u.avatarColor, name: u.name, photoUrl: u.photoUrl }))}
         size={size}
         max={max}
       />;
@@ -182,7 +182,7 @@ function AssigneeMenu({ anchorRect, assignees, zIndex, onToggle, onClearAll, onC
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <SFAvatar initials={u.initials} bg={u.avatarColor} size={18} />
+              <SFAvatar initials={u.initials} bg={u.avatarColor} size={18} photoUrl={u.photoUrl} />
               <span style={{ flex: 1, textAlign: 'left' }}>{u.name}</span>
               {on && <SFIcon name="check" size={13} color="var(--accent)" />}
             </button>
