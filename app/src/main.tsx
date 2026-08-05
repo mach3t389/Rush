@@ -50,6 +50,7 @@ import { ProjetFinances } from './screens/ProjetFinances';
 import { Login } from './screens/Login';
 import { Register } from './screens/Register';
 import { ForgotPassword } from './screens/ForgotPassword';
+import { ResetPassword } from './screens/ResetPassword';
 import { Onboarding } from './screens/Onboarding';
 import { Pricing } from './screens/Pricing';
 import { AdminStudios } from './screens/AdminStudios';
@@ -89,6 +90,12 @@ const router = createBrowserRouter([
   { path: '/login',          element: <Login />,          loader: guestLoader },
   { path: '/register',       element: <Register />,       loader: guestLoader },
   { path: '/forgot-password',element: <ForgotPassword />, loader: guestLoader },
+  // No guestLoader here on purpose: supabase-js auto-detects the recovery
+  // token in the URL and creates a real session before this route's loader
+  // would even run, so guestLoader's isAuthenticated() check would bounce
+  // the user straight to '/' before they ever see the new-password form —
+  // the exact bug this whole route exists to fix.
+  { path: '/reset-password', element: <ResetPassword /> },
   { path: '/onboarding',     element: <Onboarding />,     loader: authLoader  },
 
   // Page tarification publique — sans authentification requise

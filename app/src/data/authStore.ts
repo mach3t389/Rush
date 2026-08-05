@@ -237,7 +237,26 @@ export async function logout(): Promise<void> {
 
 export async function resetPassword(email: string): Promise<{ ok: boolean; error?: string }> {
   if (!email.trim()) return { ok: false, error: 'auth.requiredFields' };
-  const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase().trim());
+  // Without redirectTo, Supabase sends the recovery link back to the site's
+  // default URL — supabase-js then silently turns the recovery token into a
+  // normal session on load, and with no dedicated screen listening for it,
+  // the user just lands logged into the app with their OLD password still
+  // active (confirmed live 2026-08-05). redirectTo points the link at
+  // ResetPassword.tsx, the only screen that actually calls updatePassword().
+  const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase().trim(), {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  if (error) return { ok: false, error: 'auth.requiredFields' };
+  return { ok: true };
+}
+
+// Called from ResetPassword.tsx once the recovery-link session is active.
+// Supabase requires an authenticated session to call updateUser — the
+// recovery token IS that session, auto-created by supabase-js when it
+// detects the token in the URL (detectSessionInUrl, on by default).
+export async function updatePassword(newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  if (newPassword.length < 8) return { ok: false, error: 'auth.passwordTooShort' };
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) return { ok: false, error: 'auth.requiredFields' };
   return { ok: true };
 }
