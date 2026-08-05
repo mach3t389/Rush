@@ -1256,6 +1256,8 @@
     "moreParticipants": "+{{count}} autres",
     "viewCalendar": "Voir le calendrier",
     "withoutProject": "Sans projet",
+    "clientFilterLabel": "Client",
+    "allClients": "Tous les clients",
     "myProjects": "Mes projets",
     "projects": "Projets",
     "eventTypes": "Types d'événements",
@@ -1318,6 +1320,7 @@
     "yesterday": "Hier"
   },
   "files": {
+    "noClient": "Sans client",
     "resourceDocument": "Document",
     "resourceMoodboard": "Moodboard",
     "resourceReview": "Révision",

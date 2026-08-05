@@ -1795,6 +1795,28 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
   // dépendre d'un client comme le fait le mode locked existant.
   const rootProjects = projects.filter(p => !p.archived && p.filesEnabled && (!projectIdsFilter || projectIdsFilter.includes(p.id)));
 
+  // Regroupement purement visuel des projets de la racine par client — pas un
+  // vrai dossier « Clients » comme avant le chantier client-optionnel : chaque
+  // carte/ligne de projet reste directement cliquable, seul un en-tête sépare
+  // les groupes. « Sans client » (même terme que « Sans projet » au calendrier)
+  // apparaît toujours en premier.
+  const rootProjectGroups = React.useMemo(() => {
+    const byClient = new Map<string, typeof rootProjects>();
+    const noClient: typeof rootProjects = [];
+    for (const p of rootProjects) {
+      if (!p.clientId) { noClient.push(p); continue; }
+      const list = byClient.get(p.clientId) ?? [];
+      list.push(p);
+      byClient.set(p.clientId, list);
+    }
+    const clientGroups = Array.from(byClient.entries())
+      .map(([clientId, items]) => ({ label: clients.find(c => c.id === clientId)?.name ?? t('files.noClient'), items }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return noClient.length > 0
+      ? [{ label: t('files.noClient'), items: noClient }, ...clientGroups]
+      : clientGroups;
+  }, [rootProjects, clients, t]);
+
   useEffect(() => subscribeFileStore(() => { setRawFolders(getFolders()); setRawFiles(getFiles()); }), []);
   useEffect(() => subscribeProjects(() => setProjects(getProjects())), []);
   useEffect(() => subscribeClients(() => setClients(getClients())), []);
@@ -3393,9 +3415,15 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
                     <div />
                     <span>Nom</span><span>Type</span><span>Contenu</span><span>Modifié</span>
                   </div>
-                  {/* Projets — listés directement à la racine (plus de dossier « Clients ») */}
-                  {rootProjects.map(p => (
-                    <ProjectRow key={p.id} project={p} />
+                  {/* Projets — regroupés visuellement par client (« Sans client »
+                      en premier), pas un vrai dossier « Clients » imbriqué. */}
+                  {rootProjectGroups.map(group => (
+                    <div key={group.label}>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '14px 0 4px' }}>{group.label}</p>
+                      {group.items.map(p => (
+                        <ProjectRow key={p.id} project={p} />
+                      ))}
+                    </div>
                   ))}
                   {/* Global folders — vrais dossiers : FolderRow donne clic droit (renommer / corbeille) + double-clic pour naviguer */}
                   {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
@@ -3409,19 +3437,32 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
               )}
 
               {viewMode === 'grid' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                  {/* Projets — listés directement à la racine (plus de dossier « Clients ») */}
-                  {rootProjects.map(p => (
-                    <ProjectCard key={p.id} project={p} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* Projets — un mini-grille par groupe de client (« Sans client »
+                      en premier), pas un vrai dossier « Clients » imbriqué. */}
+                  {rootProjectGroups.map(group => (
+                    <div key={group.label}>
+                      <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>{group.label}</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+                        {group.items.map(p => (
+                          <ProjectCard key={p.id} project={p} />
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                  {/* Global folders (except Templates, Archives, Trash) */}
-                  {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
-                    <FolderCard key={f.id} folder={f} />
-                  ))}
-                  {/* Fichiers/ressources créés directement à la racine (sans projet ni client) */}
-                  {allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null).map(f => (
-                    <FileCard key={f.id} file={f} />
-                  ))}
+                  {/* Global folders + fichiers racine — pas de client, donc hors des
+                      groupes ci-dessus ; leur propre grille en dessous. */}
+                  {(allFolders.some(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id))
+                    || allFiles.some(f => !f.projectId && !f.clientId && f.parentFolderId === null)) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+                      {allFolders.filter(f => !f.projectId && !f.clientId && f.parentId === null && !['folder-templates', 'folder-archives', 'folder-trash'].includes(f.id)).map(f => (
+                        <FolderCard key={f.id} folder={f} />
+                      ))}
+                      {allFiles.filter(f => !f.projectId && !f.clientId && f.parentFolderId === null).map(f => (
+                        <FileCard key={f.id} file={f} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFAvatar, SFButton, PageHeader } from '../components/ui';
+import { SFIcon, SFAvatar, SFButton, PageHeader, CategoryFilterDropdown } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
+import { getClients, subscribeClients } from '../data/clientStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, pullFromGoogleCalendar, isEventsLoading } from '../data/eventStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
@@ -666,6 +667,13 @@ export function CalendrierGlobal() {
   const [createAllDay, setCreateAllDay] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent|null>(null);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  // Filtre purement local à la liste « Mes projets » de la barre latérale —
+  // limite les projets affichés à un client (pour les retrouver plus vite
+  // parmi beaucoup de projets), distinct du filtre par projet ci-dessous qui
+  // agit sur les événements affichés dans la grille.
+  const [clients, setClients] = useState(getClients);
+  const [clientFilter, setClientFilter] = useState('');
+  useEffect(() => subscribeClients(() => setClients(getClients())), []);
 
   // Ouvre directement le détail d'un événement quand on arrive depuis un autre
   // écran (ex: "Prochains événements" du Dashboard) plutôt que de renvoyer
@@ -814,8 +822,6 @@ export function CalendrierGlobal() {
       <div style={{ width:240,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden' }}>
         {/* Zone scrollable : actions + filtres — indépendante des « Prochains événements » pour que les filtres ne bougent pas */}
         <div style={{ flex:1,minHeight:0,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:20 }}>
-        <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
-
         <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
 
         {/* Project filters */}
@@ -824,17 +830,33 @@ export function CalendrierGlobal() {
           // still has real events, and visibleEvents below doesn't hide them
           // either, so excluding it from this list only made the sidebar and
           // the actual grid disagree about what's visible.
-          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>!p.archived && p.calendarEnabled).map(p=>({ id: p.id, name: p.name, color: p.clientColor || 'var(--text-3)' }))];
+          const projectsById = new Map(getProjects().map(p => [p.id, p]));
+          const allProjects = [{ id: '', name: t('calendar.withoutProject'), color: 'var(--text-3)' }, ...getProjects().filter(p=>!p.archived && p.calendarEnabled).map(p=>({ id: p.id, name: p.name, color: p.clientColor || 'var(--text-3)' }))]
+            // Le filtre client ne cache que la liste de gauche (pour la
+            // retrouver plus vite) — jamais « Sans projet », qui n'a pas de
+            // client à comparer et resterait sinon injustement masqué.
+            .filter(p => !clientFilter || p.id === '' || projectsById.get(p.id)?.clientId === clientFilter);
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>
-              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
+              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8, gap:8 }}>
                 <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.myProjects')}</p>
-                {hasFilter && (
-                  <button onClick={()=>setSelectedProjects(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
-                    {t('calendar.showAll')}
-                  </button>
-                )}
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  {hasFilter && (
+                    <button onClick={()=>setSelectedProjects(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
+                      {t('calendar.showAll')}
+                    </button>
+                  )}
+                  {clients.length > 0 && (
+                    <CategoryFilterDropdown
+                      value={clientFilter}
+                      onChange={setClientFilter}
+                      categoryLabel={t('calendar.clientFilterLabel')}
+                      icon="building-2"
+                      options={[{ value: '', label: t('calendar.allClients') }, ...clients.map(c => ({ value: c.id, label: c.name }))]}
+                    />
+                  )}
+                </div>
               </div>
               <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
                 {allProjects.map(p=>{
@@ -897,6 +919,8 @@ export function CalendrierGlobal() {
         <PageHeader title={t('nav.calendar')} subtitle={title}
           actions={
             <div style={{ display:'flex', alignItems:'flex-start', alignSelf:'flex-start', gap:12 }}>
+              <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
+
               {/* Navigation */}
               <div style={{ display:'flex',alignItems:'center',gap:6 }}>
                 <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
