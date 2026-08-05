@@ -197,6 +197,10 @@ export function ProfileEditPanel({
   const [emailChangeError, setEmailChangeError] = useState('');
   const [emailChangeSent, setEmailChangeSent] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Owner and Admin both get full permissions by construction (see the
@@ -241,6 +245,32 @@ export function ProfileEditPanel({
     const result = await resetPassword(email);
     setPwResetSending(false);
     if (result.ok) setPwResetSent(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError('');
+    setDeleting(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      const res = await fetch('/api/account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ action: 'delete' }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setDeleteError(json.error === 'owner_must_transfer' ? t('profile.deleteBlockedOwner') : t('profile.deleteFailed'));
+        setDeleting(false);
+        return;
+      }
+      window.location.href = '/login';
+    } catch {
+      setDeleteError(t('profile.deleteFailed'));
+      setDeleting(false);
+    }
   };
 
   const submitEmailChange = async () => {
@@ -514,6 +544,37 @@ export function ProfileEditPanel({
                   <SFIcon name={pwResetSent ? 'check' : 'key-round'} size={14} />
                   {pwResetSent ? t('profile.passwordResetSent') : pwResetSending ? '…' : t('profile.changePassword')}
                 </button>
+              </div>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <div>
+                {label(t('profile.dangerZone'))}
+                {!deleteConfirming ? (
+                  <button
+                    onClick={() => setDeleteConfirming(true)}
+                    disabled={isDemoSession()}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 13, fontWeight: 600, cursor: isDemoSession() ? 'not-allowed' : 'pointer', opacity: isDemoSession() ? 0.5 : 1, fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name="trash-2" size={14} color="var(--danger)" />
+                    {t('profile.deleteAccount')}
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 10, border: '1px solid var(--danger)', background: 'rgba(255,80,80,0.06)' }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('profile.deleteWarning')}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('profile.deleteConfirmInstructions', { email })}</p>
+                    <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} style={inputStyle} placeholder={email} />
+                    {deleteError && <p style={{ fontSize: 11, color: 'var(--danger)' }}>{deleteError}</p>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={handleDeleteAccount}
+                        disabled={deleteConfirmText.trim().toLowerCase() !== email.trim().toLowerCase() || deleting}
+                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: deleteConfirmText.trim().toLowerCase() === email.trim().toLowerCase() ? 'var(--danger)' : 'var(--surface-3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: deleteConfirmText.trim().toLowerCase() === email.trim().toLowerCase() ? 'pointer' : 'not-allowed', fontFamily: 'var(--ff-text)' }}
+                      >
+                        {deleting ? '…' : t('profile.confirmDelete')}
+                      </button>
+                      <SFButton variant="ghost" onClick={() => { setDeleteConfirming(false); setDeleteConfirmText(''); setDeleteError(''); }}>{t('profile.cancel')}</SFButton>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
