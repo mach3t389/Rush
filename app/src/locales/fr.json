@@ -241,6 +241,7 @@
     "deliverableApproved": "LIVRABLE APPROUVÉ",
     "storageLimit": "STOCKAGE",
     "taskCompleted": "Tâche terminée",
+    "like": "J'AIME",
     "storageOverLimit": "Limite de stockage atteinte — supprimez des fichiers ou upgradez votre plan",
     "unreadCount": "Non lues ({{count}})",
     "markAllRead": "Tout marquer comme lu",
@@ -262,6 +263,7 @@
     "verbDeliverableApproved": "a approuvé le livrable",
     "verbStorageLimit": "vous avertit : le stockage approche la limite de votre plan",
     "verbTaskCompleted": "a terminé",
+    "verbLike": "a aimé votre commentaire",
     "actorSummaryOne": "{{actor}} {{verb}}",
     "actorSummaryTwo": "{{actor1}} et {{actor2}} {{verb}}",
     "actorSummaryMany": "{{actor1}}, {{actor2}} +{{more}} {{verb}}"

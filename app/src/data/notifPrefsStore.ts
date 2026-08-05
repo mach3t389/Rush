@@ -18,6 +18,7 @@ export const NOTIF_EVENTS: { key: string; label: string; desc: string; icon: str
   { key: 'comment',  label: 'Commentaires',            desc: "Quand quelqu'un commente une ressource ou une tâche", icon: 'message-square' },
   { key: 'mention',  label: 'Mentions',                desc: 'Quand on vous mentionne directement',                 icon: 'at-sign' },
   { key: 'approval', label: "Demandes d'approbation",  desc: "Quand une approbation vous est demandée",              icon: 'shield-check' },
+  { key: 'like',     label: "J'aime",                  desc: "Quand quelqu'un aime votre commentaire",               icon: 'heart' },
 ];
 
 // Défauts : tout en in-app ; email seulement pour mentions + approbations.
