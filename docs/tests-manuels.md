@@ -103,6 +103,7 @@ Tout le reste (Étapes A et D) a été testé par Claude en mode démo, rien en 
 - [ ] **Transfert de client** : sur un projet réel ayant des membres qui sont aussi des contacts du client actuel, changer son client — confirmer que la question de confirmation apparaît et que les deux choix (retirer/garder l'accès) fonctionnent comme attendu.
 - [ ] **Notification d'approbation réelle** : avec un compte réel, demander une approbation sur un projet où un seul des contacts du client a été ajouté comme membre — confirmer qu'un seul courriel part (pas tout le carnet du client).
 - [ ] **Activité client réelle** : confirmer que l'onglet Activité d'une fiche client réelle montre maintenant de vrais événements (ou un état vide propre), pas un flux inventé.
+- [ ] **Accès multi-clients sur un même projet** : dans l'assistant de création, choisir un client A pour la facturation, puis utiliser le raccourci "ajouter tous les contacts" d'un client B différent (via les puces de groupe). Confirmer que les contacts de B ont vraiment accès au projet dans leur portail — et que modifier ensuite l'équipe du projet (ajouter/retirer un membre) ne leur retire pas silencieusement cet accès.
 
 ## Prochains chantiers (à compléter au fur et à mesure)
 

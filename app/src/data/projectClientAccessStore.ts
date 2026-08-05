@@ -47,7 +47,15 @@ async function doSync(projectId: string, clientId: string, members: User[]): Pro
   if (fetchError) { console.error('syncProjectClientAccess fetch failed', fetchError); return; }
 
   const existingIds = (existing ?? []).map(row => row.client_contact_id as string);
-  const toRemove = existingIds.filter(id => !nextContactIds.includes(id));
+  // Existing rows are scoped by project only, not by client — a project can
+  // have access rows from more than one client (the "add contacts from
+  // another client" bulk-add path in the new-project wizard, or a project
+  // whose client changed but whose old contacts weren't removed). Only ever
+  // remove a row that belongs to THIS call's client pool and isn't in its
+  // next-ids list — never touch a row for a contact this client's pool
+  // doesn't even recognize, or a sync for client A would delete client B's
+  // still-valid access every time A's members are edited.
+  const toRemove = existingIds.filter(id => externalContactIds.has(id) && !nextContactIds.includes(id));
   const toAdd = nextContactIds.filter(id => !existingIds.includes(id));
 
   // Guard against a race with clientTeamStore's background fetch: getClientExternalTeam()
