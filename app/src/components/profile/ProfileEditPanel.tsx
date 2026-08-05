@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SFIcon, SFButton, SFModal } from '../ui';
 import { isDemoSession, resetPassword } from '../../data/authStore';
+import { supabase } from '../../data/supabaseClient';
 import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
 import { computeInitials } from '../../utils/initials';
 
@@ -191,6 +192,10 @@ export function ProfileEditPanel({
   const [tab, setTab] = useState<'info' | 'permissions' | 'account'>('info');
   const [pwResetSent, setPwResetSent] = useState(false);
   const [pwResetSending, setPwResetSending] = useState(false);
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailChangeError, setEmailChangeError] = useState('');
+  const [emailChangeSent, setEmailChangeSent] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -236,6 +241,20 @@ export function ProfileEditPanel({
     const result = await resetPassword(email);
     setPwResetSending(false);
     if (result.ok) setPwResetSent(true);
+  };
+
+  const submitEmailChange = async () => {
+    setEmailChangeError('');
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailChangeError(t('profile.emailInvalid'));
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim().toLowerCase() });
+    if (error) {
+      setEmailChangeError(error.message);
+      return;
+    }
+    setEmailChangeSent(true);
   };
 
   const initials = name.trim() ? computeInitials(name) : initialInitials;
@@ -461,7 +480,29 @@ export function ProfileEditPanel({
               )}
               <div>
                 {label(t('profile.email'))}
-                <p style={{ fontSize: 13, color: 'var(--text)' }}>{email}</p>
+                {emailChangeSent ? (
+                  <p style={{ fontSize: 12, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <SFIcon name="mail-check" size={14} color="var(--ok)" /> {t('profile.emailChangeSent', { email: newEmail })}
+                  </p>
+                ) : changingEmail ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={t('profile.newEmailPlaceholder')} type="email" style={inputStyle} />
+                    {emailChangeError && <p style={{ fontSize: 11, color: 'var(--danger)' }}>{emailChangeError}</p>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <SFButton variant="primary" onClick={submitEmailChange}>{t('profile.confirmEmailChange')}</SFButton>
+                      <SFButton variant="ghost" onClick={() => { setChangingEmail(false); setNewEmail(''); setEmailChangeError(''); }}>{t('profile.cancel')}</SFButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <p style={{ fontSize: 13, color: 'var(--text)' }}>{email}</p>
+                    {!isDemoSession() && (
+                      <button onClick={() => setChangingEmail(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                        {t('profile.changeEmail')}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 {label(t('profile.password'))}
