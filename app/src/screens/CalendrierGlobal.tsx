@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFAvatar, SFButton, PageHeader, CategoryFilterDropdown } from '../components/ui';
+import { SFIcon, SFAvatar, SFButton, PageHeader } from '../components/ui';
 import { USERS } from '../data/mock';
 import { getMyTasks, subscribeMyTasks } from '../data/myTaskStore';
 import type { User } from '../types';
@@ -637,6 +637,54 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   );
 }
 
+// ── Client filter button ──────────────────────────────────────────────────────
+// Compact icon-first trigger (not the shared CategoryFilterDropdown — its
+// "Client: <name>" label overflowed this narrow sidebar and pushed "MES
+// PROJETS" onto its own line). Shows just a building icon by default; once a
+// client is chosen, the name replaces the icon, truncated with an ellipsis
+// rather than wrapping/squeezing its neighbors.
+function ClientFilterButton({ clients, value, onChange }: { clients: { id: string; name: string }[]; value: string; onChange: (id: string) => void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  const current = clients.find(c => c.id === value);
+  const rowStyle = (active: boolean): CSSProperties => ({
+    display: 'block', width: '100%', textAlign: 'left', padding: '6px 9px', borderRadius: 6,
+    border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-2)',
+    fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer',
+  });
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title={t('calendar.clientFilterLabel')}
+        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 7, border: `1px solid ${value ? 'var(--accent)' : 'var(--border)'}`, background: value ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', color: value ? 'var(--accent)' : 'var(--text-3)', cursor: 'pointer', maxWidth: 110, flexShrink: 0 }}
+      >
+        {!current && <SFIcon name="building-2" size={11} color="var(--text-3)" />}
+        {current && <span style={{ fontSize: 9, fontFamily: 'var(--ff-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current.name}</span>}
+        <SFIcon name="chevron-down" size={9} color={value ? 'var(--accent)' : 'var(--text-3)'} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 9, padding: 4, minWidth: 170, maxHeight: 240, overflowY: 'auto', boxShadow: '0 10px 28px rgba(0,0,0,0.5)' }}>
+          <button onClick={() => { onChange(''); setOpen(false); }} style={rowStyle(!value)}>{t('calendar.allClients')}</button>
+          {clients.map(c => (
+            <button key={c.id} onClick={() => { onChange(c.id); setOpen(false); }} style={rowStyle(value === c.id)}>{c.name}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function CalendrierGlobal() {
@@ -839,8 +887,8 @@ export function CalendrierGlobal() {
           const hasFilter = selectedProjects.size > 0;
           return (
             <div>
-              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8, gap:8 }}>
-                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em' }}>{t('calendar.myProjects')}</p>
+              <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8, gap:6, flexWrap:'wrap' }}>
+                <p style={{ fontFamily:'var(--ff-mono)',fontSize:9,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.07em',flexShrink:0 }}>{t('calendar.myProjects')}</p>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   {hasFilter && (
                     <button onClick={()=>setSelectedProjects(new Set())} style={{ background:'none',border:'none',color:'var(--text-3)',fontSize:9,cursor:'pointer',fontFamily:'var(--ff-mono)',padding:0,textDecoration:'underline' }}>
@@ -848,13 +896,7 @@ export function CalendrierGlobal() {
                     </button>
                   )}
                   {clients.length > 0 && (
-                    <CategoryFilterDropdown
-                      value={clientFilter}
-                      onChange={setClientFilter}
-                      categoryLabel={t('calendar.clientFilterLabel')}
-                      icon="building-2"
-                      options={[{ value: '', label: t('calendar.allClients') }, ...clients.map(c => ({ value: c.id, label: c.name }))]}
-                    />
+                    <ClientFilterButton clients={clients} value={clientFilter} onChange={setClientFilter} />
                   )}
                 </div>
               </div>
