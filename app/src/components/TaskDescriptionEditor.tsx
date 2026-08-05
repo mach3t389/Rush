@@ -163,7 +163,7 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
 const EDITOR_EXTENSIONS = [
   StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
   Underline,
-  Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
+  Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
   TaskList,
   TaskItem.configure({ nested: false }),
 ];
