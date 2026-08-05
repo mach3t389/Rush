@@ -661,9 +661,9 @@ function EquipeTab({ clientId }: { clientId: string }) {
             <SFButton variant="secondary" icon="user-plus" onClick={() => setShowInvite(true)}>{t('client.invite')}</SFButton>
           </div>
           {clientMembers.length === 0 ? (
-            <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
-              <SFIcon name="user-plus" size={18} color="var(--text-3)" />
-              <p style={{ fontSize: 13, flex: 1 }}>{t('client.noClientContactsInvite')}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '40px 0', color: 'var(--text-3)' }}>
+              <SFIcon name="user-plus" size={28} color="var(--text-3)" />
+              <p style={{ fontSize: 13 }}>{t('client.noClientContactsInvite')}</p>
               <SFButton variant="ghost" icon="send" onClick={() => setShowInvite(true)}>{t('client.sendAnInvitation')}</SFButton>
             </div>
           ) : (
@@ -686,8 +686,8 @@ function EquipeTab({ clientId }: { clientId: string }) {
             <SFButton variant="secondary" icon="users" onClick={() => setShowAssign(true)}>{t('client.assign')}</SFButton>
           </div>
           {internalMembers.length === 0 ? (
-            <div style={{ padding: '20px', borderRadius: 11, border: '1.5px dashed var(--border-2)', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-3)' }}>
-              <SFIcon name="users" size={18} color="var(--text-3)" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '40px 0', color: 'var(--text-3)' }}>
+              <SFIcon name="users" size={28} color="var(--text-3)" />
               <p style={{ fontSize: 13 }}>{t('client.noInternalAssigned')}</p>
             </div>
           ) : (
