@@ -825,6 +825,7 @@ export function TaskPanel({
       author: { id: r.author.id ?? r.author.name, name: r.author.name, initials: r.author.initials, avatarColor: r.author.bg, role: '' },
       text: r.text,
       createdAt: r.createdAt,
+      likedBy: r.likedBy,
     })),
   });
 
