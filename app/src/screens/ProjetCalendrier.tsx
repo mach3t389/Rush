@@ -792,19 +792,12 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
         return (
           <ProjectHeaderBar projectId={projectId ?? ''}>
             {project?.clientId && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName ?? ''} />}
-            {!readOnly && (
-              <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
-            )}
           </ProjectHeaderBar>
         );
       })()}
       <div style={{ flex:1,display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
       <div style={{ width:220,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'auto',padding:16,gap:20 }}>
-        {embedded && !readOnly && (
-          <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
-        )}
-
         <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
 
         {/* Project filter — embedded client view only, with 2+ projects */}
@@ -892,6 +885,10 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
         <PageHeader title={t('nav.calendar')} subtitle={title}
           actions={
             <div style={{ display:'flex', alignItems:'flex-start', alignSelf:'flex-start', gap:12 }}>
+              {!readOnly && (
+                <SFButton variant="primary" icon="plus" onClick={()=>{setCreateDate(new Date(TODAY));setShowCreate(true);}}>{t('calendar.newEvent')}</SFButton>
+              )}
+
               <div style={{ display:'flex',alignItems:'center',gap:6 }}>
                 <button onClick={()=>setCur(new Date(TODAY))} style={{ padding:'5px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text-2)',cursor:'pointer',fontFamily:'var(--ff-mono)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.05em' }}>
                   Aujourd'hui

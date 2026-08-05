@@ -25,8 +25,10 @@ import { isDemoSession } from '../data/authStore';
 import { getNotifHistoryForProject, subscribeNotifs } from '../data/notificationStore';
 import { notifToFeedActivity } from '../data/activityAdapter';
 import i18n from '../i18n/i18n';
-import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate } from './Finances';
+import { InvoiceFormPanel, InvoiceDetailPanel, StatusPill, fmtDate, FinancesLocked } from './Finances';
 import { enterViewAs } from '../data/viewAsStore';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
 
 // The approver is stored as a plain id on the client record (client.approverId,
 // synced via updateClient like every other client field) — the actual
@@ -814,6 +816,14 @@ function FinancesTab({ clientId }: { clientId: string }) {
 
   const thStyle: React.CSSProperties = { fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' };
   const actionBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', padding: 5, borderRadius: 6 };
+
+  // Same gate as ProjetFinances.tsx — this tab had none at all, so Gratuit
+  // accounts could read/create real client invoices despite the sidebar
+  // showing Finances locked.
+  const plan = usePlan();
+  if (!canUseFeature(plan, 'finances')) {
+    return <FinancesLocked />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
