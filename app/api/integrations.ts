@@ -72,7 +72,16 @@ async function authorize(req: VercelRequest, res: VercelResponse) {
     redirect_uri: redirectUri,
     expires_at: new Date(Date.now() + 2 * 60_000).toISOString(),
   });
-  if (error) throw error;
+  if (error) {
+    // Database error details can contain schema information, so only retain the
+    // stable SQLSTATE in the response. It is enough to diagnose an invalid
+    // server credential or a missing migration without exposing accounting data.
+    const sqlState = typeof error.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code)
+      ? error.code
+      : 'unknown';
+    console.error('northbook authorization-code insert failed', { sqlState });
+    throw new HttpError(500, `authorization_code_write_failed_${sqlState}`);
+  }
   const callback = new URL(redirectUri);
   callback.searchParams.set('code', rawCode);
   callback.searchParams.set('state', state);
