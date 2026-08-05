@@ -428,7 +428,10 @@ function TaskRow({
   }, [editingTitle]);
 
   const commitTitle = () => {
-    const val = titleDraft.trim() || task.title;
+    // Commit whatever the user left, including empty (e.g. select-all then
+    // Ctrl+X) — falling back to the old title here silently undid a
+    // deletion the moment the field lost focus.
+    const val = titleDraft.trim();
     setTitleDraft(val);
     setEditingTitle(false);
     const pid = rowProjectId ?? task.projectId;

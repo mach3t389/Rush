@@ -412,10 +412,13 @@ function TaskRow({ task, selected, multiSelected, onSelect, flashId, onDelete, o
   useEffect(() => { if (editingTitle) titleInputRef.current?.select(); }, [editingTitle]);
 
   const commitTitle = () => {
+    // Commit whatever the user left, including empty (e.g. select-all then
+    // Ctrl+X) — falling back to the old title here silently undid a
+    // deletion the moment the field lost focus.
     const trimmed = titleDraft.trim();
-    if (trimmed && trimmed !== task.title) updateMyTask(task.id, { title: trimmed });
-    else setTitleDraft(task.title);
+    setTitleDraft(trimmed);
     setEditingTitle(false);
+    if (trimmed !== task.title) updateMyTask(task.id, { title: trimmed });
   };
 
   // Cocher une tâche dans Mes tâches → animation de coche, puis retrait de la
