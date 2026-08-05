@@ -14,6 +14,24 @@ applyPersistedUiFonts();
 void applyPersistedStudioPreferences();
 migrateLegacyStorageKeys(); // Clean up old global keys
 
+// Supabase honours our redirectTo on success, but a recovery link whose token
+// it rejects (expired, or consumed by a mail-provider link scanner before the
+// human clicked) can come back to the Site URL — the app root — with the
+// failure only in the hash. Landing there silently drops the user into the
+// app on whatever session they already had, which is exactly what makes a
+// broken reset look like "it just logged me in". Route any recovery landing
+// to /reset-password so the screen built for it can report what happened.
+// Runs before render, and before supabase-js strips the fragment.
+{
+  const hash = window.location.hash.replace(/^#/, '');
+  if (hash && window.location.pathname !== '/reset-password') {
+    const params = new URLSearchParams(hash);
+    if (params.get('type') === 'recovery' || params.get('error') || params.get('error_code')) {
+      window.history.replaceState(null, '', `/reset-password#${hash}`);
+    }
+  }
+}
+
 import { AppShell } from './components/layout/AppShell';
 import { ViewAsPermissionGate } from './components/ViewAsPermissionGate';
 import { ViewAsPreviewShell } from './components/ViewAsPreviewShell';
