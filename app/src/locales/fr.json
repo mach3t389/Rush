@@ -1185,9 +1185,7 @@
       "orderedList": "Liste numérotée",
       "taskList": "Liste de tâches",
       "link": "Lien",
-      "linkPromptLabel": "URL du lien",
-      "linkPromptPlaceholder": "https://exemple.com",
-      "linkRemove": "Retirer le lien"
+      "linkPromptLabel": "URL du lien"
     },
     "linkedResources": "Ressources liées",
     "existingResources": "Ressources existantes",

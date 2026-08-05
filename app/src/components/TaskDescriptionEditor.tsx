@@ -13,7 +13,7 @@ import { escapeHtml } from '../data/htmlEscape';
 // tags). Detect that case so we can convert it to paragraphs once, instead
 // of showing raw "<" characters or losing line breaks.
 function looksLikeHtml(text: string): boolean {
-  return /<[a-z][\s\S]*>/i.test(text);
+  return /<\/[a-z]+>|<[a-z]+[^>]*\/>/i.test(text);
 }
 
 function plainTextToHtml(text: string): string {
@@ -163,7 +163,7 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
 const EDITOR_EXTENSIONS = [
   StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
   Underline,
-  Link.configure({ openOnClick: false, autolink: true }),
+  Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
   TaskList,
   TaskItem.configure({ nested: false }),
 ];
@@ -209,7 +209,11 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
   const isEmpty = editor.isEmpty;
 
   return (
-    <div ref={wrapperRef} onClick={() => { if (!editing) setEditing(true); }}>
+    <div ref={wrapperRef} onClick={e => {
+      if (editing) return;
+      if ((e.target as HTMLElement).closest('a')) return;
+      setEditing(true);
+    }}>
       {editing && <DescriptionToolbar editor={editor} />}
       <div
         title={editing ? undefined : t('taskPanel.clickToEdit')}
@@ -225,7 +229,7 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
       >
         <EditorContent editor={editor} className="tiptap-desc-content" />
         {isEmpty && !editing && (
-          <div style={{ color: 'var(--text-3)', marginTop: editor.isEmpty ? -22 : 0 }}>{placeholder}</div>
+          <div style={{ color: 'var(--text-3)', marginTop: -22 }}>{placeholder}</div>
         )}
       </div>
     </div>
