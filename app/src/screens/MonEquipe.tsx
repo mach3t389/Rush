@@ -40,7 +40,7 @@ const MEMBER_PHONE: Record<string, string> = {
   marc:   '+1 514 555-0105',
 };
 
-type TeamMember = typeof USERS[string] & { email: string; since: string; phone: string; activeProjects: number; accessLevel: AccessLevel };
+type TeamMember = typeof USERS[string] & { email: string; since: string; phone: string; activeProjects: number; accessLevel: AccessLevel; photoUrl?: string };
 
 // Owner/admin have full access by construction (same rule enforced in
 // ViewAsPermissionGate/Sidebar) regardless of their stored permissions
@@ -75,6 +75,7 @@ function getRealTeam(): TeamMember[] {
     phone: '—',
     activeProjects: projects.filter(p => p.members.some(pm => pm.id === m.id)).length,
     accessLevel: m.accessLevel,
+    photoUrl: m.photoUrl,
   }));
 }
 
@@ -599,8 +600,8 @@ export function MonEquipe() {
           {filtered.map(({ member, permLabelKey }) => (
             <SFCard key={member.id} padding={18} gap={12} onClick={() => setSelectedMember(member)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 9, background: member.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                  {member.initials}
+                <div style={{ width: 40, height: 40, borderRadius: 9, background: member.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
+                  {member.photoUrl ? <img src={member.photoUrl} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : member.initials}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontWeight: 600, fontSize: 14 }}>{member.name}</p>
