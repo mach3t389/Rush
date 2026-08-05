@@ -2581,7 +2581,11 @@
     "wrongAccountDesc": "Cette invitation est pour {{invited}} — tu es connecté(e) en tant que {{current}}.",
     "switchAccount": "Se déconnecter et changer de compte",
     "haveAccount": "J'ai déjà un compte",
-    "createAccount": "Créer un compte"
+    "createAccount": "Créer un compte",
+    "photoOptional": "Photo (optionnel)",
+    "choosePhoto": "Choisir une photo",
+    "phoneOptional": "Téléphone (optionnel)",
+    "phonePlaceholder": "514 555-0100"
   },
   "clientInvitation": {
     "pendingTitle": "Rejoindre le portail client",

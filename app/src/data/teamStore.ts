@@ -286,8 +286,13 @@ export async function getInvitationByToken(token: string): Promise<TeamInvitatio
   };
 }
 
-export async function acceptInvitation(token: string): Promise<void> {
-  const { error } = await supabase.rpc('accept_studio_invitation', { p_token: token });
+export async function acceptInvitation(token: string, extra?: { name?: string; phone?: string; photoUrl?: string }): Promise<void> {
+  const { error } = await supabase.rpc('accept_studio_invitation', {
+    p_token: token,
+    p_name: extra?.name ?? null,
+    p_phone: extra?.phone ?? null,
+    p_photo_url: extra?.photoUrl ?? null,
+  });
   if (error) throw error;
   // The caller now belongs to a different studio than getStudioId()'s cache
   // (if any) would reflect — force every store to re-resolve it from scratch.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SFIcon } from '../components/ui';
@@ -62,6 +62,9 @@ export function TeamInvitationAccept() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [emailOptIn, setEmailOptIn] = useState(true);
+  const [phone, setPhone] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +90,7 @@ export function TeamInvitationAccept() {
     setSubmitting(true);
     setError('');
     try {
-      await acceptInvitation(token);
+      await acceptInvitation(token, { name: name.trim() || undefined, phone: phone.trim() || undefined, photoUrl: photo ?? undefined });
       // Make the organisation just joined the active one. switchActiveStudio
       // writes the active-org localStorage key AND does a full page reload
       // (window.location.href = '/') — required so every one of the ~19
@@ -115,6 +118,15 @@ export function TeamInvitationAccept() {
     await acceptAsCurrentSession();
   };
 
+  const handlePhotoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setPhoto(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!invitation) return;
@@ -137,7 +149,7 @@ export function TeamInvitationAccept() {
     }
 
     try {
-      await acceptInvitation(token);
+      await acceptInvitation(token, { phone: phone.trim() || undefined, photoUrl: photo ?? undefined });
     } catch {
       // Account was created but studio membership wasn't recorded — do NOT
       // navigate into the app, or the next store call would create them a
@@ -207,6 +219,26 @@ export function TeamInvitationAccept() {
         <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 28, textAlign: 'center' }}>
           {t('teamInvitation.pendingDescLoggedIn', { studio: invitation!.studioName, role: invitation!.role })}
         </p>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>{t('auth.fullName')}</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={sessionEmail ?? ''} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>{t('teamInvitation.photoOptional')}</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+              {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <SFIcon name="user" size={18} color="var(--text-3)" />}
+            </div>
+            <button type="button" onClick={() => photoInputRef.current?.click()} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              {t('teamInvitation.choosePhoto')}
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoFile} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={labelStyle}>{t('teamInvitation.phoneOptional')}</label>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('teamInvitation.phonePlaceholder')} style={inputStyle} />
+        </div>
         {error && (
           <div style={{ padding: '10px 14px', borderRadius: 9, marginBottom: 16, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.25)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <SFIcon name="circle-alert" size={14} color="var(--danger)" />
@@ -309,6 +341,22 @@ export function TeamInvitationAccept() {
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>{t('auth.fullName')}</label>
           <input value={name} onChange={e => setName(e.target.value)} placeholder={t('auth.fullNamePlaceholder')} autoComplete="name" style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>{t('teamInvitation.photoOptional')}</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+              {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <SFIcon name="user" size={18} color="var(--text-3)" />}
+            </div>
+            <button type="button" onClick={() => photoInputRef.current?.click()} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+              {t('teamInvitation.choosePhoto')}
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoFile} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>{t('teamInvitation.phoneOptional')}</label>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('teamInvitation.phonePlaceholder')} style={inputStyle} />
         </div>
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>{t('auth.email')}</label>

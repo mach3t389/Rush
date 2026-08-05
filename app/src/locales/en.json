@@ -2581,7 +2581,11 @@
     "wrongAccountDesc": "This invitation is for {{invited}} — you're signed in as {{current}}.",
     "switchAccount": "Sign out and switch account",
     "haveAccount": "I already have an account",
-    "createAccount": "Create an account"
+    "createAccount": "Create an account",
+    "photoOptional": "Photo (optional)",
+    "choosePhoto": "Choose a photo",
+    "phoneOptional": "Phone (optional)",
+    "phonePlaceholder": "555-0100"
   },
   "clientInvitation": {
     "pendingTitle": "Join the client portal",
