@@ -1412,33 +1412,36 @@ export function FicheClient() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Breadcrumb */}
-      <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-        <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>{t('client.breadcrumbClients')}</button>
-        <span>/</span>
-        <span style={{ color: 'var(--text-2)' }}>{client.name}</span>
-      </div>
-
-      {/* Client header */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ width: 60, height: 60, borderRadius: 12, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: '#fff' }}>
+      {/* Client header — breadcrumb folded into the same bar as the title
+          (was a separate full-width bordered row) so the page loses one
+          whole border+padding block of vertical space, matching
+          ProjectHeaderBar.tsx's single-bar pattern. */}
+      <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', marginBottom: 8 }}>
+          <button onClick={() => navigate('/clients')} style={{ color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t('client.breadcrumbClients')}</button>
+          <span>/</span>
+          <span style={{ color: 'var(--text-2)' }}>{client.name}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 9, background: client.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
               {client.initials}
             </div>
-            <div>
-              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 17, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</h1>
+              <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', marginTop: 2 }}>
                 {t('client.clientLabel')} · {client.sector} · {client.city}
               </p>
-              <h1 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 22 }}>{client.name}</h1>
-              <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12, color: 'var(--text-2)' }}>
-                <span>{t('client.projectCount', { count: projects.length })}</span>
-                <span>{t('client.activeCount', { count: projects.filter(p => p.status !== 'neutral').length })}</span>
-                <span>{t('client.clientSince', { year: client.since })}</span>
-              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
+            {/* Counts moved from their own row under the title into the
+                header's right side — reclaims a full row of height. */}
+            <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+              <span>{t('client.projectCount', { count: projects.length })}</span>
+              <span>{t('client.activeCount', { count: projects.filter(p => p.status !== 'neutral').length })}</span>
+              <span>{t('client.clientSince', { year: client.since })}</span>
+            </div>
             {/* height:34 (not just padding) so this matches the "..." button's
                 height exactly instead of rendering visibly shorter. */}
             {client.archived && (
@@ -1503,7 +1506,7 @@ export function FicheClient() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 20, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 20, marginTop: 10 }}>
           {([['apercu', t('client.tabOverview')], ['projets', t('client.tabProjects')], ['calendrier', t('client.tabCalendar')], ['equipe', t('client.tabTeam')], ['activite', t('client.tabActivity')], ['fichiers', t('client.tabFiles')], ['finances', t('nav.finances')]] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ fontSize: 13, fontWeight: 500, color: tab === key ? 'var(--text)' : 'var(--text-2)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 6, borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent' }}>
               {label}
