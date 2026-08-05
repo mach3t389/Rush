@@ -10,6 +10,7 @@ export interface User {
   initials: string;
   avatarColor: string;
   role: string;
+  photoUrl?: string;
 }
 
 // ── Client ────────────────────────────────────────────────────────────────────

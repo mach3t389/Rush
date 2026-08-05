@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFButton } from '../ui';
-import { isDemoSession } from '../../data/authStore';
+import { SFIcon, SFButton, SFModal } from '../ui';
+import { isDemoSession, resetPassword, getCurrentUser } from '../../data/authStore';
+import { supabase } from '../../data/supabaseClient';
 import { findTeamMember, updateMemberFields, loadAccessLevel, saveAccessLevel, type AccessLevel } from '../../data/teamStore';
+import { computeInitials } from '../../utils/initials';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 
@@ -112,6 +114,7 @@ export interface ProfileOverrides {
   role?: string;
   email?: string;
   phone?: string;
+  initials?: string;
 }
 
 export function loadProfile(userId: string): ProfileOverrides {
@@ -126,11 +129,14 @@ export function loadProfile(userId: string): ProfileOverrides {
 }
 
 export function saveProfile(userId: string, data: ProfileOverrides) {
+  const withInitials: ProfileOverrides = data.name !== undefined
+    ? { ...data, initials: computeInitials(data.name) }
+    : data;
   if (isDemoSession()) {
-    try { localStorage.setItem(PROFILE_STORAGE_KEY(userId), JSON.stringify(data)); } catch { /* noop */ }
+    try { localStorage.setItem(PROFILE_STORAGE_KEY(userId), JSON.stringify(withInitials)); } catch { /* noop */ }
     return;
   }
-  updateMemberFields(userId, data);
+  updateMemberFields(userId, withInitials);
 }
 
 export function loadPhoto(userId: string): string | null {
@@ -183,8 +189,19 @@ export function ProfileEditPanel({
   const [photo, setPhoto] = useState<string | null>(loadPhoto(userId));
   const [permissions, setPermissions] = useState<PermissionKey[]>(() => loadPermissions(userId, overrides.role ?? initialRole));
   const [memberAccessLevel, setMemberAccessLevel] = useState<AccessLevel>(() => loadAccessLevel(userId));
-  const [tab, setTab] = useState<'info' | 'permissions'>('info');
+  const accountEmail = isSelf ? (getCurrentUser()?.email ?? '') : '';
+  const [tab, setTab] = useState<'info' | 'permissions' | 'account'>('info');
+  const [pwResetSent, setPwResetSent] = useState(false);
+  const [pwResetSending, setPwResetSending] = useState(false);
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailChangeError, setEmailChangeError] = useState('');
+  const [emailChangeSent, setEmailChangeSent] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Owner and Admin both get full permissions by construction (see the
@@ -223,7 +240,62 @@ export function ProfileEditPanel({
     }, 800);
   };
 
-  const initials = name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || initialInitials;
+  const handlePasswordReset = async () => {
+    if (isDemoSession()) return;
+    setPwResetSending(true);
+    const result = await resetPassword(accountEmail);
+    setPwResetSending(false);
+    if (result.ok) setPwResetSent(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (isDemoSession()) return;
+    if (deleteConfirmText.trim().toLowerCase() !== accountEmail.trim().toLowerCase() || !deleteConfirmText.trim()) return;
+    setDeleteError('');
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ action: 'delete' }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setDeleteError(json.error === 'owner_must_transfer' ? t('profile.deleteBlockedOwner') : t('profile.deleteFailed'));
+        setDeleting(false);
+        return;
+      }
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // Server no longer has this user — ignore and redirect anyway.
+      }
+      window.location.href = '/login';
+    } catch {
+      setDeleteError(t('profile.deleteFailed'));
+      setDeleting(false);
+    }
+  };
+
+  const submitEmailChange = async () => {
+    setEmailChangeError('');
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailChangeError(t('profile.emailInvalid'));
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim().toLowerCase() });
+    if (error) {
+      setEmailChangeError(error.message);
+      return;
+    }
+    setEmailChangeSent(true);
+  };
+
+  const initials = name.trim() ? computeInitials(name) : initialInitials;
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '8px 11px', borderRadius: 9,
@@ -239,11 +311,8 @@ export function ProfileEditPanel({
   const groups = [...new Set(PERMISSION_DEFS.map(p => p.group))];
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', justifyContent: 'flex-end' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-
-      <div style={{ position: 'relative', width: 480, height: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '-16px 0 48px rgba(0,0,0,0.7)', borderLeft: '1px solid var(--border)' }}>
+    <SFModal open onClose={onClose} width={480} maxHeight="85vh" padding={0} zIndex={500}>
+      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '85vh' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -286,11 +355,18 @@ export function ProfileEditPanel({
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 0 }}>
-            {([['info', t('profile.tabInfo')], ['permissions', t('profile.tabPermissions')]] as const).map(([key, lbl]) => (
-              <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', borderBottom: `2px solid ${tab === key ? 'var(--accent)' : 'transparent'}`, fontFamily: 'var(--ff-text)', transition: 'color 0.1s' }}>
-                {lbl}
-              </button>
-            ))}
+            {(() => {
+              const tabs: { key: 'info' | 'permissions' | 'account'; label: string }[] = [
+                { key: 'info', label: t('profile.tabInfo') },
+                { key: 'permissions', label: t('profile.tabPermissions') },
+              ];
+              if (isSelf) tabs.push({ key: 'account', label: t('profile.tabAccount') });
+              return tabs.map(({ key, label }) => (
+                <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--text)' : 'var(--text-3)', borderBottom: `2px solid ${tab === key ? 'var(--accent)' : 'transparent'}`, fontFamily: 'var(--ff-text)', transition: 'color 0.1s' }}>
+                  {label}
+                </button>
+              ));
+            })()}
           </div>
         </div>
 
@@ -431,6 +507,85 @@ export function ProfileEditPanel({
               ))}
             </div>
           )}
+
+          {tab === 'account' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {isDemoSession() && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <SFIcon name="info" size={15} color="var(--text-3)" />
+                  <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>{t('profile.accountDemoNotice')}</p>
+                </div>
+              )}
+              <div>
+                {label(t('profile.email'))}
+                {emailChangeSent ? (
+                  <p style={{ fontSize: 12, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <SFIcon name="mail-check" size={14} color="var(--ok)" /> {t('profile.emailChangeSent', { email: newEmail })}
+                  </p>
+                ) : changingEmail ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={t('profile.newEmailPlaceholder')} type="email" style={inputStyle} />
+                    {emailChangeError && <p style={{ fontSize: 11, color: 'var(--danger)' }}>{emailChangeError}</p>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <SFButton variant="primary" onClick={submitEmailChange}>{t('profile.confirmEmailChange')}</SFButton>
+                      <SFButton variant="ghost" onClick={() => { setChangingEmail(false); setNewEmail(''); setEmailChangeError(''); }}>{t('profile.cancel')}</SFButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <p style={{ fontSize: 13, color: 'var(--text)' }}>{accountEmail}</p>
+                    {!isDemoSession() && (
+                      <button onClick={() => setChangingEmail(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                        {t('profile.changeEmail')}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div>
+                {label(t('profile.password'))}
+                <button
+                  onClick={handlePasswordReset}
+                  disabled={isDemoSession() || pwResetSending || pwResetSent}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: isDemoSession() ? 'not-allowed' : 'pointer', opacity: isDemoSession() ? 0.5 : 1, fontFamily: 'var(--ff-text)' }}
+                >
+                  <SFIcon name={pwResetSent ? 'check' : 'key-round'} size={14} />
+                  {pwResetSent ? t('profile.passwordResetSent') : pwResetSending ? '…' : t('profile.changePassword')}
+                </button>
+              </div>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <div>
+                {label(t('profile.dangerZone'))}
+                {!deleteConfirming ? (
+                  <button
+                    onClick={() => setDeleteConfirming(true)}
+                    disabled={isDemoSession()}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 13, fontWeight: 600, cursor: isDemoSession() ? 'not-allowed' : 'pointer', opacity: isDemoSession() ? 0.5 : 1, fontFamily: 'var(--ff-text)' }}
+                  >
+                    <SFIcon name="trash-2" size={14} color="var(--danger)" />
+                    {t('profile.deleteAccount')}
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 10, border: '1px solid var(--danger)', background: 'rgba(255,80,80,0.06)' }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>{t('profile.deleteWarning')}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)' }}>{t('profile.deleteConfirmInstructions', { email: accountEmail })}</p>
+                    <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} style={inputStyle} placeholder={accountEmail} />
+                    {deleteError && <p style={{ fontSize: 11, color: 'var(--danger)' }}>{deleteError}</p>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={handleDeleteAccount}
+                        disabled={!deleteConfirmText.trim() || deleteConfirmText.trim().toLowerCase() !== accountEmail.trim().toLowerCase() || deleting}
+                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === accountEmail.trim().toLowerCase() ? 'var(--danger)' : 'var(--surface-3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: deleteConfirmText.trim() && deleteConfirmText.trim().toLowerCase() === accountEmail.trim().toLowerCase() ? 'pointer' : 'not-allowed', fontFamily: 'var(--ff-text)' }}
+                      >
+                        {deleting ? '…' : t('profile.confirmDelete')}
+                      </button>
+                      <SFButton variant="ghost" onClick={() => { setDeleteConfirming(false); setDeleteConfirmText(''); setDeleteError(''); }}>{t('profile.cancel')}</SFButton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -447,6 +602,6 @@ export function ProfileEditPanel({
           </div>
         )}
       </div>
-    </div>
+    </SFModal>
   );
 }

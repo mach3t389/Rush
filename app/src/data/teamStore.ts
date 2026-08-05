@@ -124,7 +124,7 @@ export function getTeamMembers(): TeamMemberInfo[] {
 // don't need to care about email/joinedAt/accessLevel.
 export function getTeam(): User[] {
   const team = getTeamMembers();
-  if (team.length > 0) return team;
+  if (team.length > 0) return team.map(m => ({ id: m.id, name: m.name, initials: m.initials, avatarColor: m.avatarColor, role: m.role, photoUrl: m.photoUrl }));
   // teamStore's fetch hasn't resolved yet (or getCurrentUser() briefly
   // returns null right after login, same one-frame window already accepted
   // in GlobalTopBar.tsx) — fall back to a placeholder so callers that assume
@@ -185,7 +185,7 @@ export function saveAccessLevel(userId: string, accessLevel: AccessLevel): void 
   updateMemberFields(userId, { accessLevel });
 }
 
-async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions' | 'accessLevel'>>): Promise<void> {
+async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions' | 'accessLevel' | 'initials'>>): Promise<void> {
   const studioId = await getStudioId();
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined)        row.name = patch.name;
@@ -195,6 +195,7 @@ async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<Te
   if (patch.photoUrl !== undefined)    row.photo_url = patch.photoUrl;
   if (patch.permissions !== undefined) row.permissions = patch.permissions;
   if (patch.accessLevel !== undefined) row.access_level = patch.accessLevel;
+  if (patch.initials !== undefined)    row.initials = patch.initials;
 
   const { error } = await supabase.from('studio_members').update(row).eq('studio_id', studioId).eq('user_id', userId);
   if (error) { console.error('upsertSupabaseMemberFields failed', error); return; }
@@ -207,7 +208,7 @@ async function upsertSupabaseMemberFields(userId: string, patch: Partial<Pick<Te
 // userId doesn't match any real studio member (e.g. an external client
 // contact id, or an invitee's email before they've accepted) — same
 // no-real-effect outcome those callers already had before this migration.
-export function updateMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions' | 'accessLevel'>>): void {
+export function updateMemberFields(userId: string, patch: Partial<Pick<TeamMemberInfo, 'name' | 'email' | 'role' | 'phone' | 'photoUrl' | 'permissions' | 'accessLevel' | 'initials'>>): void {
   if (isDemoSession()) return;
   _members = _members.map(m => (m.id === userId ? { ...m, ...patch } : m));
   notify();
@@ -306,8 +307,13 @@ export async function getInvitationByToken(token: string): Promise<TeamInvitatio
   };
 }
 
-export async function acceptInvitation(token: string): Promise<void> {
-  const { error } = await supabase.rpc('accept_studio_invitation', { p_token: token });
+export async function acceptInvitation(token: string, extra?: { name?: string; phone?: string; photoUrl?: string }): Promise<void> {
+  const { error } = await supabase.rpc('accept_studio_invitation', {
+    p_token: token,
+    p_name: extra?.name ?? null,
+    p_phone: extra?.phone ?? null,
+    p_photo_url: extra?.photoUrl ?? null,
+  });
   if (error) throw error;
   // The caller now belongs to a different studio than getStudioId()'s cache
   // (if any) would reflect — force every store to re-resolve it from scratch.

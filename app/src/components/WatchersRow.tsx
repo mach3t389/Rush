@@ -24,7 +24,7 @@ export function WatchersRow({ watchers, onAdd, onRemove }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {watcherMembers.map(m => (
         <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 6px 2px 2px', borderRadius: 20, background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
-          <SFAvatar initials={m.initials} bg={m.avatarColor} size={18} />
+          <SFAvatar initials={m.initials} bg={m.avatarColor} size={18} photoUrl={m.photoUrl} />
           <span style={{ fontSize: 11 }}>{m.name}</span>
           <button onClick={() => onRemove(m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 1 }}>
             <SFIcon name="x" size={11} />
@@ -46,7 +46,7 @@ export function WatchersRow({ watchers, onAdd, onRemove }: {
                 style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <SFAvatar initials={m.initials} bg={m.avatarColor} size={18} />
+                <SFAvatar initials={m.initials} bg={m.avatarColor} size={18} photoUrl={m.photoUrl} />
                 <span style={{ fontSize: 12 }}>{m.name}</span>
               </button>
             ))}
