@@ -140,6 +140,9 @@ a { color: inherit; text-decoration: none; }
 .tiptap-desc-content p { margin: 0 0 6px; }
 .tiptap-desc-content p:last-child { margin-bottom: 0; }
 .tiptap-desc-content ul, .tiptap-desc-content ol { margin: 0 0 6px; padding-left: 22px; }
+.tiptap-desc-content ul:not([data-type="taskList"]) { list-style-type: disc; }
+.tiptap-desc-content ol { list-style-type: decimal; }
+.tiptap-desc-content li::marker { color: var(--text); }
 .tiptap-desc-content ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
 .tiptap-desc-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
 .tiptap-desc-content ul[data-type="taskList"] li > label { margin-top: 3px; }

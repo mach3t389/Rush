@@ -1182,7 +1182,8 @@
       "orderedList": "Numbered list",
       "taskList": "Checklist",
       "link": "Link",
-      "linkPromptLabel": "Link URL"
+      "linkPromptLabel": "Link URL",
+      "linkPromptPlaceholder": "https://example.com"
     },
     "linkedResources": "Linked resources",
     "existingResources": "Existing resources",

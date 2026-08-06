@@ -51,18 +51,93 @@ function ToolbarButton({ active, onClick, title, children }: {
   );
 }
 
+function LinkPopover({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+  const { t } = useTranslation();
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [url, setUrl] = useState((editor.getAttributes('link').href as string | undefined) ?? '');
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', onDown, true);
+    return () => document.removeEventListener('mousedown', onDown, true);
+  }, [onClose]);
+
+  const apply = () => {
+    if (url.trim() === '') { editor.chain().focus().unsetLink().run(); onClose(); return; }
+    const href = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+    onClose();
+  };
+
+  return (
+    <div
+      ref={popoverRef}
+      onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 50,
+        background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+        padding: 8, minWidth: 240, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        display: 'flex', flexDirection: 'column', gap: 6,
+      }}
+    >
+      <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        {t('taskPanel.descriptionToolbar.linkPromptLabel')}
+      </label>
+      <input
+        ref={inputRef}
+        type="text"
+        value={url}
+        onChange={e => setUrl(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); apply(); }
+          if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+        }}
+        placeholder={t('taskPanel.descriptionToolbar.linkPromptPlaceholder')}
+        style={{
+          width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-2)',
+          background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
+          outline: 'none', boxSizing: 'border-box',
+        }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+        <button
+          type="button"
+          onMouseDown={e => e.preventDefault()}
+          onClick={apply}
+          style={{
+            padding: '4px 10px', borderRadius: 6, border: 'none', background: 'var(--accent)',
+            color: 'var(--on-accent)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--ff-text)', cursor: 'pointer',
+          }}
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DescriptionToolbar({ editor }: { editor: Editor }) {
   const { t } = useTranslation();
   const [headingOpen, setHeadingOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const headingRef = useRef<HTMLDivElement>(null);
+  const linkRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!headingOpen) return;
     const onDown = (e: MouseEvent) => {
       if (headingRef.current && !headingRef.current.contains(e.target as Node)) setHeadingOpen(false);
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('mousedown', onDown, true);
+    return () => document.removeEventListener('mousedown', onDown, true);
   }, [headingOpen]);
 
   const activeHeadingLabel = editor.isActive('heading', { level: 1 })
@@ -72,15 +147,6 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
     : editor.isActive('heading', { level: 3 })
     ? t('taskPanel.descriptionToolbar.heading3')
     : t('taskPanel.descriptionToolbar.headingNormal');
-
-  const setLink = () => {
-    const previous = editor.getAttributes('link').href as string | undefined;
-    const url = window.prompt(t('taskPanel.descriptionToolbar.linkPromptLabel'), previous ?? '');
-    if (url === null) return;
-    if (url === '') { editor.chain().focus().unsetLink().run(); return; }
-    const href = /^https?:\/\//.test(url) ? url : `https://${url}`;
-    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
-  };
 
   return (
     <div style={{
@@ -153,9 +219,12 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
 
       <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 2px' }} />
 
-      <ToolbarButton active={editor.isActive('link')} onClick={setLink} title={t('taskPanel.descriptionToolbar.link')}>
-        <SFIcon name="link" size={13} color="currentColor" />
-      </ToolbarButton>
+      <div ref={linkRef} style={{ position: 'relative' }}>
+        <ToolbarButton active={editor.isActive('link')} onClick={() => setLinkOpen(o => !o)} title={t('taskPanel.descriptionToolbar.link')}>
+          <SFIcon name="link" size={13} color="currentColor" />
+        </ToolbarButton>
+        {linkOpen && <LinkPopover editor={editor} onClose={() => setLinkOpen(false)} />}
+      </div>
     </div>
   );
 }
@@ -195,25 +264,29 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
     editor?.setEditable(editing);
   }, [editing, editor]);
 
-  useEffect(() => {
-    if (!editing) return;
-    const onDown = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setEditing(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [editing]);
-
   if (!editor) return null;
 
   const isEmpty = editor.isEmpty;
 
   return (
-    <div ref={wrapperRef} onClick={e => {
-      if (editing) return;
-      if ((e.target as HTMLElement).closest('a')) return;
-      setEditing(true);
-    }}>
+    <div
+      ref={wrapperRef}
+      onClick={e => {
+        if (editing) return;
+        if ((e.target as HTMLElement).closest('a')) return;
+        setEditing(true);
+      }}
+      onBlur={e => {
+        // Ancestors (e.g. TaskPanel's modal wrapper) call e.stopPropagation()
+        // on mousedown to shield other document-level "click outside"
+        // listeners — that also blocks a mousedown-based exit here. `blur`
+        // is a different event, unaffected by that, and fires reliably
+        // whenever focus actually leaves this subtree (clicking the task
+        // title, sous-tâches, observateurs, etc.), not just on the panel's
+        // outer backdrop.
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setEditing(false);
+      }}
+    >
       {editing && <DescriptionToolbar editor={editor} />}
       <div
         title={editing ? undefined : t('taskPanel.clickToEdit')}
