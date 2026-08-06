@@ -21,6 +21,7 @@ import { TravailBoard } from './TravailBoard';
 import { TaskPanel } from '../components/TaskPanel';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { showToast } from '../data/toastStore';
+import { stripHtml } from '../utils/stripHtml';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -565,7 +566,7 @@ function TaskRow({
           </span>
         )}
         {!editingTitle && task.description && (
-          <span title={task.description.slice(0, 120)} style={{ flexShrink: 0, marginLeft: 2, display: 'flex', alignItems: 'center' }}>
+          <span title={stripHtml(task.description).slice(0, 120)} style={{ flexShrink: 0, marginLeft: 2, display: 'flex', alignItems: 'center' }}>
             {/* text-align-start, pas align-left : ce dernier n'existe pas dans
                 la version de lucide-react installée et SFIcon renvoie null
                 silencieusement — l'icône ne s'affichait donc jamais. */}
