@@ -10,7 +10,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading, pullFromGoogleCalendar } from '../data/eventStore';
-import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, type ProjectGoogleCalendarContact } from '../data/googleCalendarStore';
+import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, addExtraInvitee, removeExtraInvitee, type ProjectGoogleCalendarContact, type ProjectGoogleCalendarExtraInvitee } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { MeetingField, GoogleCalendarTargetHint, CalendarZoomControl } from './CalendrierGlobal';
@@ -456,6 +456,9 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
   const [orgConnected, setOrgConnected] = useState<boolean | null>(null);
   const [active, setActive] = useState<boolean | null>(null);
   const [contacts, setContacts] = useState<ProjectGoogleCalendarContact[]>([]);
+  const [extraInvitees, setExtraInvitees] = useState<ProjectGoogleCalendarExtraInvitee[]>([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -474,6 +477,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
     if (status.connected) {
       setActive(projectStatus.active);
       setContacts(projectStatus.contacts);
+      setExtraInvitees(projectStatus.extraInvitees);
     }
   };
 
@@ -490,6 +494,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
       if (status.connected) {
         setActive(projectStatus.active);
         setContacts(projectStatus.contacts);
+        setExtraInvitees(projectStatus.extraInvitees);
       }
     })();
     return () => { cancelled = true; };
@@ -521,9 +526,50 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
     try {
       await shareProjectGoogleCalendarNow(projectId);
       await loadStatus();
-      setConfirmation(t('calendar.gcalProjectActivatedConfirmation', { client: clientName }));
+      setConfirmation(clientName
+        ? t('calendar.gcalProjectActivatedConfirmation', { client: clientName })
+        : t('calendar.gcalProjectActivatedConfirmationGeneric'));
     } catch (err) {
       console.error('Failed to share project Google Calendar', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handleAddEmail = async () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      setEmailError(t('calendar.gcalEmailInvalid'));
+      return;
+    }
+    const isDuplicate = contacts.some(c => c.email.toLowerCase() === email)
+      || extraInvitees.some(e => e.email.toLowerCase() === email);
+    if (isDuplicate) {
+      setEmailError(t('calendar.gcalEmailDuplicate'));
+      return;
+    }
+    setEmailError(null);
+    setBusy(true);
+    try {
+      await addExtraInvitee(projectId, email);
+      await loadStatus();
+      setNewEmail('');
+    } catch (err) {
+      console.error('Failed to add extra invitee', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemoveExtraInvitee = async (email: string) => {
+    setBusy(true);
+    try {
+      await removeExtraInvitee(projectId, email);
+      await loadStatus();
+    } catch (err) {
+      console.error('Failed to remove extra invitee', err);
     } finally {
       setBusy(false);
     }
@@ -597,8 +643,47 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
               </div>
             )}
 
-            {active && contacts.length === 0 && (
+            {active && extraInvitees.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                {extraInvitees.map(inv => (
+                  <div key={inv.email} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <SFIcon name={inv.shared ? 'check-circle' : 'clock'} size={11} color={inv.shared ? 'var(--ok)' : 'var(--text-3)'} />
+                    <span style={{ fontSize:11, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.email}</span>
+                    <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)' }}>
+                      {inv.shared ? t('calendar.gcalProjectContactShared') : t('calendar.gcalProjectContactPending')}
+                    </span>
+                    <button onClick={() => handleRemoveExtraInvitee(inv.email)} disabled={busy} title={t('calendar.gcalRemoveExtraInviteeAction')}
+                      style={{ background:'none', border:'none', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-3)', display:'flex', padding:0 }}
+                    >
+                      <SFIcon name="x" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {active && contacts.length === 0 && extraInvitees.length === 0 && (
               <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalProjectNoContacts')}</span>
+            )}
+
+            {active && (
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                <div style={{ display:'flex', gap:6 }}>
+                  <input
+                    value={newEmail}
+                    onChange={e => { setNewEmail(e.target.value); setEmailError(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddEmail(); }}
+                    placeholder={t('calendar.gcalAddEmailPlaceholder')}
+                    style={{ flex:1, padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none' }}
+                  />
+                  <button onClick={handleAddEmail} disabled={busy || !newEmail.trim()} title={t('calendar.gcalAddEmailAction')}
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text-2)', cursor: (busy || !newEmail.trim()) ? 'not-allowed' : 'pointer', flexShrink:0 }}
+                  >
+                    <SFIcon name="plus" size={12} />
+                  </button>
+                </div>
+                {emailError && <span style={{ fontSize:10, color:'var(--danger)' }}>{emailError}</span>}
+              </div>
             )}
 
             {!active && (
@@ -614,11 +699,11 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
                 </button>
               )}
 
-              {active && contacts.some(c => !c.shared) && (
+              {active && (contacts.some(c => !c.shared) || extraInvitees.some(e => !e.shared)) && (
                 <button onClick={handleShare} disabled={busy}
                   style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--ok)', background:'rgba(52,201,138,0.1)', color:'var(--ok)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
                 >
-                  {busy ? '…' : t('calendar.gcalProjectShareAction', { client: clientName })}
+                  {busy ? '…' : (clientName ? t('calendar.gcalProjectShareAction', { client: clientName }) : t('calendar.gcalProjectShareActionGeneric'))}
                 </button>
               )}
 
