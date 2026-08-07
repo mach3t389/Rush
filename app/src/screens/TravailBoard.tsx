@@ -366,7 +366,10 @@ export function TravailBoard({
     title,
     projectId, projectName, projectColor,
     assignees: [],
-    status: 'warn', statusLabel: t('tasks.todo'),
+    // Aucun statut par défaut — même règle qu'AddTaskRow en vue Liste.
+    // L'ancien bouton du Tableau forçait 'warn'/"À faire", ce qui donnait un
+    // statut que l'utilisateur n'avait pas choisi.
+    status: '' as Task['status'], statusLabel: '',
     priority: 'none', priorityLabel: t('priority.none'),
     dueDate: '—', dueDateRed: false, checked: false, subtasks: [],
     watchers: addWatchers([], [getCurrentUser()?.id]),
