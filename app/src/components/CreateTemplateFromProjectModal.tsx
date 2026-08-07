@@ -272,6 +272,11 @@ export function CreateTemplateFromProjectModal({ project, onClose }: { project: 
                 <Row label={t('projectTemplates.includeDocuments')} checked={includeDocuments} disabled={!includeFolderStructure}
                   onToggle={v => v ? checkDocuments() : setIncludeDocuments(false)} />
               </div>
+              {includeFolderStructure && (
+                <p style={{ marginLeft: 22, marginTop: 2, fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4 }}>
+                  {t('projectTemplates.filesTemplateNote')}
+                </p>
+              )}
             </div>
 
             <Row label={t('projectTemplates.includeOverview')} checked={includeOverview} onToggle={v => v ? setIncludeOverview(true) : uncheckOverview()} style={{ marginTop: 14 }} />

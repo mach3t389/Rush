@@ -562,6 +562,7 @@
     "includeFiles": "Fichiers",
     "includeFolderStructure": "Structure de dossiers",
     "includeDocuments": "Ressources",
+    "filesTemplateNote": "Les dossiers et les ressources (documents, révisions...) sont conservés — les fichiers importés directement ne sont pas dupliqués dans les nouveaux projets.",
     "includeOverview": "Aperçu",
     "includeModules": "Modules",
     "includeContent": "Contenu",

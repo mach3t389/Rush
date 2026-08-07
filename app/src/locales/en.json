@@ -562,6 +562,7 @@
     "includeFiles": "Files",
     "includeFolderStructure": "Folder structure",
     "includeDocuments": "Resources",
+    "filesTemplateNote": "Folders and resources (documents, reviews...) are kept — directly imported files aren't duplicated into new projects.",
     "includeOverview": "Overview",
     "includeModules": "Modules",
     "includeContent": "Content",
