@@ -1,12 +1,13 @@
 ﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup, CommentBadge } from '../components/ui';
+import { SFPill, SFIcon, SFModal, TaskDatePopover, DatePickerDropdown, parseYMD, fmtTaskDate, formatDisplay, isOverdue, PageHeader, SFFilterPill, SFLoadingState, AssigneeGroup, CommentBadge, SFAvatar } from '../components/ui';
 import { PROJECTS, USERS } from '../data/mock';
 import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks, isMyTasksLoading } from '../data/myTaskStore';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
+import { getTeam } from '../data/teamStore';
 import { addWatchers } from '../data/watchers';
 import { getSections, moveTasks, copyTasks, subscribeStore } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
@@ -1311,6 +1312,92 @@ export function Taches() {
   const [newSectionLabel, setNewSectionLabel] = useState('');
   const [justCreatedSection, setJustCreatedSection] = useState<string | null>(null);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
+
+  // Menu bulk « Modifier » — même mécanique qu'en vue projet (Travail.tsx) :
+  // un seul niveau ouvert à la fois, ancré au bouton via getBoundingClientRect.
+  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
+  const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
+  const teamMembers = getTeam();
+
+  type BulkSnapshotEntry = { id: string; assignees: User[]; status: string; statusLabel: string; dueDate: string };
+  const captureBulkSnapshot = (ids: string[]): BulkSnapshotEntry[] => ids.map(id => {
+    const found = tasks.find(x => x.id === id);
+    return {
+      id,
+      assignees: found?.assignees ?? [],
+      status: found?.status ?? '',
+      statusLabel: found?.statusLabel ?? '',
+      dueDate: found?.dueDate ?? '',
+    };
+  });
+
+  const applyBulkPatch = (
+    ids: string[],
+    patch: Partial<Task>,
+    snapshot: BulkSnapshotEntry[],
+    undoPatchFor: (s: BulkSnapshotEntry) => Partial<Task>,
+    message: string,
+  ) => {
+    ids.forEach(id => updateMyTask(id, patch));
+    setBulkEditField(null);
+    setBulkEditRect(null);
+    setMultiSelIds(new Set());
+    showToast({
+      type: 'task',
+      message,
+      onUndo: () => snapshot.forEach(s => updateMyTask(s.id, undoPatchFor(s))),
+    });
+  };
+
+  const handleBulkAssign = (user: User) => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    applyBulkPatch(
+      ids,
+      { assignees: [user] },
+      snapshot,
+      s => ({ assignees: s.assignees }),
+      t('board.bulkAssignedToast', { count: ids.length, name: user.name }),
+    );
+  };
+
+  const handleBulkStatus = (opt: typeof STATUS_OPTIONS[number]) => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    const label = t(opt.labelKey);
+    applyBulkPatch(
+      ids,
+      { status: opt.value as Task['status'], statusLabel: label },
+      snapshot,
+      s => ({ status: s.status as Task['status'], statusLabel: s.statusLabel }),
+      t('board.bulkStatusToast', { count: ids.length, status: label }),
+    );
+  };
+
+  const handleBulkDate = (date: string) => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    applyBulkPatch(
+      ids,
+      { dueDate: date },
+      snapshot,
+      s => ({ dueDate: s.dueDate }),
+      t('board.bulkDateToast', { count: ids.length, date: fmtTaskDate(date) }),
+    );
+  };
+
+  const bulkDdItem = (onClick: () => void, children: React.ReactNode) => (
+    <button
+      onMouseDown={e => e.preventDefault()}
+      onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--surface-2)')}
+      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+    >
+      {children}
+    </button>
+  );
+
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkCopyOpen, setBulkCopyOpen] = useState(false);
   const [groupByPriority, setGroupByPriority] = usePersistedState<boolean>('sf_taches_group_prio', false);
@@ -1712,6 +1799,38 @@ export function Taches() {
             <SFIcon name="copy" size={13} />
             {t('taskPanel.copy')}
           </button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={e => { setBulkEditRect(e.currentTarget.getBoundingClientRect()); setBulkEditField('menu'); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+              <SFIcon name="pencil" size={13} />
+              {t('board.bulkEdit')}
+            </button>
+            {bulkEditField && bulkEditField !== 'date' && bulkEditRect && (
+              <>
+                <div onClick={() => setBulkEditField(null)} style={{ position: 'fixed', inset: 0, zIndex: 399 }} />
+                <div style={{ position: 'fixed', bottom: window.innerHeight - bulkEditRect.top + 4, left: bulkEditRect.left, zIndex: 400, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 180, maxHeight: 280, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                  {bulkEditField === 'menu' && <>
+                    {bulkDdItem(() => setBulkEditField('assignee'), <>{t('board.bulkEditAssignee')}</>)}
+                    {bulkDdItem(() => setBulkEditField('status'), <>{t('board.bulkEditStatus')}</>)}
+                    {bulkDdItem(() => setBulkEditField('date'), <>{t('board.bulkEditDate')}</>)}
+                  </>}
+                  {bulkEditField === 'assignee' && teamMembers.map(u => bulkDdItem(() => handleBulkAssign(u),
+                    <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} photoUrl={u.photoUrl} />{u.name}</>
+                  ))}
+                  {bulkEditField === 'status' && STATUS_OPTIONS.map(o => bulkDdItem(() => handleBulkStatus(o),
+                    <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>
+                  ))}
+                </div>
+              </>
+            )}
+            {bulkEditField === 'date' && (
+              <TaskDatePopover
+                date=""
+                onChange={d => handleBulkDate(d)}
+                onClose={() => setBulkEditField(null)}
+                anchorRect={bulkEditRect}
+              />
+            )}
+          </div>
           <button onClick={e => setConvertRequest({ taskIds: [...multiSelIds].filter(id => !isAssignedTask(id)), pos: (() => { const r = e.currentTarget.getBoundingClientRect(); return { x: r.left, y: r.top }; })() })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="git-branch" size={13} />
             {t('board.convertToSubtask')}
