@@ -960,6 +960,7 @@ function Section({
   onMoveTaskRequest,
   autoOpenAddTask,
   visibleColumns,
+  readOnlyHeader,
 }: {
   label: string;
   tasks: Task[];
@@ -994,6 +995,10 @@ function Section({
   // Ajouter une tâche" themselves right after.
   autoOpenAddTask?: boolean;
   visibleColumns: VisibleColumns;
+  // True for the status-grouped pseudo-categories in list view — a fixed
+  // status value, not a real, editable section (see TravailBoard.tsx's
+  // groupBy for the same distinction on the board).
+  readOnlyHeader?: boolean;
 }) {
   const { t } = useTranslation();
   const countedTasks = allTasks ?? tasks;
@@ -1072,9 +1077,9 @@ function Section({
   return (
     <div
       data-section-label={label}
-      draggable
+      draggable={!readOnlyHeader}
       onDragStart={e => {
-        if (!sectionDragHandleActive.current) { e.preventDefault(); return; }
+        if (readOnlyHeader || !sectionDragHandleActive.current) { e.preventDefault(); return; }
         onDragStart();
       }}
       onDragOver={e => { if (isExternalTaskDrag) e.preventDefault(); }}
@@ -1098,11 +1103,12 @@ function Section({
       <div
         onMouseEnter={() => setHeaderHovered(true)}
         onMouseLeave={() => { setHeaderHovered(false); setConfirmDelete(false); }}
-        onContextMenu={e => { e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
+        onContextMenu={e => { if (readOnlyHeader) return; e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)', background: completed ? 'rgba(255,255,255,0.02)' : 'transparent' }}
       >
 
         {/* Drag handle */}
+        {!readOnlyHeader && (
         <div
           onMouseDown={() => { sectionDragHandleActive.current = true; }}
           onMouseUp={() => { sectionDragHandleActive.current = false; }}
@@ -1111,6 +1117,7 @@ function Section({
         >
           <SFIcon name="grip-vertical" size={14} />
         </div>
+        )}
 
         {/* Collapse toggle */}
         <button
@@ -1129,6 +1136,7 @@ function Section({
         </button>
 
         {/* Complete toggle */}
+        {!readOnlyHeader && (
         <button
           onClick={onToggleComplete}
           title={completed ? 'Marquer comme active' : 'Marquer comme terminée'}
@@ -1142,8 +1150,9 @@ function Section({
         >
           {completed && <SFIcon name="check" size={10} color="white" />}
         </button>
+        )}
 
-        {editingLabel ? (
+        {!readOnlyHeader && editingLabel ? (
           <input
             ref={labelInputRef}
             value={labelDraft}
@@ -1166,9 +1175,9 @@ function Section({
           />
         ) : (
           <span
-            onClick={e => { e.stopPropagation(); setLabelDraft(label); setEditingLabel(true); }}
+            onClick={readOnlyHeader ? undefined : e => { e.stopPropagation(); setLabelDraft(label); setEditingLabel(true); }}
             style={{
-              fontWeight: 600, fontSize: 13, cursor: 'text',
+              fontWeight: 600, fontSize: 13, cursor: readOnlyHeader ? 'default' : 'text',
               textDecoration: completed ? 'line-through' : 'none',
               color: completed ? 'var(--text-3)' : 'var(--text)',
             }}>
@@ -1192,6 +1201,8 @@ function Section({
         </div>
         <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{done}/{countedTasks.length}</span>
 
+        {!readOnlyHeader && (
+        <>
         {/* Copy section */}
         <button
           onClick={e => { e.stopPropagation(); onCopySection(); }}
@@ -1224,6 +1235,8 @@ function Section({
         >
           <SFIcon name="trash-2" size={11} />
         </button>
+        </>
+        )}
       </div>
 
       {/* Confirmation de suppression — SFModal, comme le reste de l'app : la
@@ -1277,7 +1290,9 @@ function Section({
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} visibleColumns={visibleColumns} />
+          {!readOnlyHeader && (
+            <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} visibleColumns={visibleColumns} />
+          )}
         </>
       )}
     </div>
@@ -1939,6 +1954,22 @@ export function Travail() {
     if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
   };
 
+  // Same status-patch logic as handleBoardMoveTask, but list-view status
+  // groups are keyed by label (Section's onTaskDrop signature), not index.
+  const handleListStatusTaskDrop = (task: Task, _fromLabel: string, toLabel: string) => {
+    const targetStatus = STATUS_OPTIONS.find(o => t(o.labelKey) === toLabel);
+    if (!targetStatus) return;
+    const patch: Partial<Task> = {
+      status: targetStatus.value as Task['status'],
+      statusLabel: targetStatus.value ? t(targetStatus.labelKey) : '',
+      checked: targetStatus.value === 'ok',
+    };
+    updateTask(projectId!, task.id, patch);
+    setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(tk => tk.id === task.id ? { ...tk, ...patch } : tk) })));
+    if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+    setDraggedTask(null);
+  };
+
   return (
     <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1959,23 +1990,20 @@ export function Travail() {
             </button>
           ))}
         </div>
-        {view === 'board' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-3)' }}>
-            <span style={{ fontFamily: 'var(--ff-mono)' }}>{t('board.groupByLabel')}</span>
-            <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
-              {([
-                { key: 'category', label: t('board.groupByCategory') },
-                { key: 'status',   label: t('board.groupByStatus')   },
-              ] as const).map(g => (
-                <button key={g.key} onClick={() => setBoardGroupBy(g.key)}
-                  style={{ padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: boardGroupBy === g.key ? 'var(--surface)' : 'transparent', color: boardGroupBy === g.key ? 'var(--text)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: boardGroupBy === g.key ? 600 : 400 }}
-                >
-                  {g.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Group-by switcher — same visual pill as the view switcher, applies to both Liste and Tableau */}
+        <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
+          {([
+            { key: 'category', icon: 'folder', label: t('board.groupByCategory') },
+            { key: 'status',   icon: 'flag',   label: t('board.groupByStatus')   },
+          ] as const).map(g => (
+            <button key={g.key} onClick={() => setBoardGroupBy(g.key)} title={g.label}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: boardGroupBy === g.key ? 'var(--surface)' : 'transparent', color: boardGroupBy === g.key ? 'var(--text)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: boardGroupBy === g.key ? 600 : 400, transition: 'all 0.1s', boxShadow: boardGroupBy === g.key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none' }}
+            >
+              <SFIcon name={g.icon} size={13} color={boardGroupBy === g.key ? 'var(--text)' : 'var(--text-3)'} />
+              {g.label}
+            </button>
+          ))}
+        </div>
         {/* View settings */}
         <div style={{ position: 'relative' }}>
           <button onClick={() => setViewOpen(v => !v)}
@@ -2038,8 +2066,8 @@ export function Travail() {
         </div>
       </ProjectHeaderBar>
 
-      {/* Section nav bar — only in list view */}
-      {view === 'list' && <div style={{ padding: '8px 24px', display: 'flex', gap: 4, overflowX: 'auto' }}>
+      {/* Section nav bar — only in list view, category mode (irrelevant once grouped by status) */}
+      {view === 'list' && boardGroupBy === 'category' && <div style={{ padding: '8px 24px', display: 'flex', gap: 4, overflowX: 'auto' }}>
         <button
           onClick={() => setActiveSection(null)}
           style={{
@@ -2116,15 +2144,15 @@ export function Travail() {
           navigateur ne émet plus d'événements pointeur/souris — seuls les
           événements de glisser portent la position du curseur. */}
       {view === 'list' && <div ref={scrollContainerRef} onDragOver={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
-        <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
-        {visibleSections.map((section, vIdx) => {
-          const globalIdx = sections.findIndex(s => s.label === section.label);
+        {boardGroupBy === 'category' && <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />}
+        {(boardGroupBy === 'category' ? visibleSections : boardSections).map((section, vIdx) => {
+          const globalIdx = boardGroupBy === 'category' ? sections.findIndex(s => s.label === section.label) : -1;
           return (
-            <React.Fragment key={section.label + globalIdx}>
+            <React.Fragment key={section.label + vIdx}>
               <Section
                 label={section.label}
                 tasks={section.tasks}
-                allTasks={sections[globalIdx]?.tasks}
+                allTasks={boardGroupBy === 'category' ? sections[globalIdx]?.tasks : section.tasks}
                 completed={!!section.completed}
                 selectedTask={selectedTask}
                 onSelectTask={handleSelectTask}
@@ -2135,14 +2163,14 @@ export function Travail() {
                 onAddTaskMany={tasks => handleAddTasks(globalIdx, tasks)}
                 onDelete={() => handleDeleteSection(globalIdx)}
                 onRename={newLabel => handleRenameSection(globalIdx, newLabel)}
-                onDeleteTask={taskId => setSections(prev => prev.map((s, i) => i === globalIdx ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) } : s))}
+                onDeleteTask={taskId => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== taskId) })))}
                 projectId={project.id}
                 projectName={project.name}
                 projectColor={project.clientColor ?? 'var(--text-3)'}
                 draggedTask={draggedTask}
                 onTaskDragStart={task => handleTaskDragStart(task, section.label)}
                 onTaskDragEnd={() => setDraggedTask(null)}
-                onTaskDrop={handleTaskDrop}
+                onTaskDrop={boardGroupBy === 'category' ? handleTaskDrop : handleListStatusTaskDrop}
                 onMoveSection={() => setSectionMoveLabel(section.label)}
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
@@ -2150,14 +2178,15 @@ export function Travail() {
                 onMoveTaskRequest={handleMoveTaskRequest}
                 autoOpenAddTask={section.label === autoOpenSectionLabel}
                 visibleColumns={visibleColumns}
+                readOnlyHeader={boardGroupBy === 'status'}
               />
-              <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
+              {boardGroupBy === 'category' && <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />}
             </React.Fragment>
           );
         })}
 
         {/* Nouvelle section — inline input */}
-        {addingSection ? (
+        {boardGroupBy === 'category' && (addingSection ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               autoFocus
@@ -2201,7 +2230,7 @@ export function Travail() {
             <SFIcon name="plus" size={14} />
             {t('board.newSection')}
           </button>
-        )}
+        ))}
       </div></div>}
 
       </div>
