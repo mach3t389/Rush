@@ -17,7 +17,7 @@
 // change made in Google is too slow. Same handler, one studio instead of all.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getValidAccessToken, getOrgDefaultCalendarId, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody, renameGoogleCalendar } from './_lib/googleCalendarApi.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = req.headers.authorization || '';
@@ -240,6 +240,20 @@ async function pullStudio(supabaseAdmin: SupabaseClient, studioId: string, resul
   try {
     const orgCalendarId = await getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
     if (orgCalendarId) {
+      // Keep the org calendar's Google title in sync with the studio's
+      // current name — same bug class as the per-project calendar (see
+      // google-calendar-project.ts's activateHandler comment): the name is
+      // otherwise only ever set once, at creation/recreation, and a studio
+      // rename afterward left it stale in Google forever. Done here (the
+      // pull path — cron 1x/day + throttled 1x/2min on-mount) rather than
+      // on every push, since push fires per-event and would multiply this
+      // extra API call far more than a rename actually needs.
+      try {
+        const { data: studio } = await supabaseAdmin.from('studios').select('name').eq('id', studioId).maybeSingle();
+        if (studio?.name) await renameGoogleCalendar(accessToken, orgCalendarId, `Rushflow — ${studio.name}`);
+      } catch (err) {
+        console.error(`Failed to resync org calendar name for studio ${studioId}:`, err);
+      }
       const { data: connRow } = await supabaseAdmin
         .from('google_calendar_connections')
         .select('sync_token')

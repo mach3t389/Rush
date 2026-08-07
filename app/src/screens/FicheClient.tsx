@@ -235,7 +235,14 @@ function EquipeTab({ clientId }: { clientId: string }) {
   const removeMember = (id: string) => {
     removeClientTeamMember(clientId, id);
     setMembers(getClientTeam(clientId));
-    if (approverId === id) { setApproverId(undefined); updateClient(clientId, { approverId: undefined }); }
+    // '' not undefined — clientStore's updateSupabaseClient merges the full
+    // row before writing, so an explicit `undefined` here survives through
+    // to `toRow()`'s `c.approverId ?? null` and writes a literal null to
+    // approver_id. Untested against the live column's nullability; '' clears
+    // the id just as effectively (never matches a real member id in the
+    // `approverId === m.id` comparisons above) without risking the same
+    // silent write failure already hit once on projects.client_name.
+    if (approverId === id) { setApproverId(undefined); updateClient(clientId, { approverId: '' }); }
   };
 
   const toggleApprover = (m: ClientMember) => {
