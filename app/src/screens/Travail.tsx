@@ -16,7 +16,7 @@ import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import type { Task, Priority, ResourceType, SectionData, User } from '../types';
+import type { Task, Priority, ResourceType, SectionData, User, Project } from '../types';
 import { TravailBoard } from './TravailBoard';
 import { TaskPanel } from '../components/TaskPanel';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
@@ -1449,7 +1449,18 @@ export function Travail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [, forceProjectsRerender] = useState(0);
   useEffect(() => subscribeProjects(() => forceProjectsRerender(n => n + 1)), []);
-  const project = findProject(projectId ?? '') ?? getProjects()[0]!;
+  // Real sessions: the project cache is empty until the background Supabase
+  // fetch resolves. Falling back to getProjects()[0] used to silently swap
+  // in a DIFFERENT project (wrong id in every link/button) until the fetch
+  // resolved — this placeholder keeps project.id equal to the URL's
+  // projectId instead, so nothing ever points at the wrong project; the
+  // subscribeProjects() effect above re-renders with the real project once
+  // the fetch completes.
+  const project = findProject(projectId ?? '') ?? ({
+    id: projectId ?? '', name: '', calendarEnabled: true, filesEnabled: true, financeEnabled: true,
+    phase: 'production', phaseLabel: '', progress: 0, taskCount: 0, deliverableCount: 0,
+    members: [], deliveryDate: '', status: 'neutral', statusLabel: '', modifiedAt: '',
+  } as Project);
 
   const [autoFocusComments, setAutoFocusComments] = useState(false);
   const [focusCommentId, setFocusCommentId] = useState<string | undefined>();

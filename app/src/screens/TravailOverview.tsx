@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SFPill, SFBar, SFAvatar, SFButton, SFIcon, AssigneeGroup } from '../components/ui';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
-import { findProject, getProjects, subscribeProjects, updateProject } from '../data/projectStore';
+import { findProject, subscribeProjects, updateProject } from '../data/projectStore';
 import { getDeliverables, addDeliverable, updateTask, deleteTask, subscribeStore, getSections, getProjectStats } from '../data/taskStore';
 import { getDeliverableDisplay, DELIVERABLE_STATUS_OPTIONS } from '../data/deliverableStatus';
 import { getProjectColor } from '../data/pinnedStore';
@@ -26,7 +26,7 @@ import { addWatchers } from '../data/watchers';
 import { sendEmail, wrapEmailHtml } from '../data/emailStore';
 import { InlineDropdown, ddItem, PRIORITY_OPTIONS, PRIORITY_LABEL_KEY, PRIORITY_COLOR } from './Travail';
 import { OverviewSectionForm } from '../components/OverviewSectionForm';
-import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority } from '../types';
+import type { Task, DeliverableFormat, DeliverableType, ResourceType, Priority, Project } from '../types';
 import { linkify } from '../utils/linkify';
 
 // Icônes par type de ressource (pour les ressources liées aux livrables)
@@ -409,7 +409,16 @@ export function TravailOverview() {
   const navigate = useNavigate();
   const [, forceUpdate] = useState(0);
   useEffect(() => subscribeProjects(() => forceUpdate(n => n + 1)), []);
-  const project = findProject(projectId ?? '') ?? getProjects()[0];
+  // See Travail.tsx for why this doesn't fall back to getProjects()[0]:
+  // that silently substituted a different project (wrong id everywhere)
+  // until the background fetch resolved. This placeholder keeps project.id
+  // equal to the URL's projectId instead; the subscribeProjects() effect
+  // above re-renders with the real project once the fetch completes.
+  const project = findProject(projectId ?? '') ?? ({
+    id: projectId ?? '', name: '', calendarEnabled: true, filesEnabled: true, financeEnabled: true,
+    phase: 'production', phaseLabel: '', progress: 0, taskCount: 0, deliverableCount: 0,
+    members: [], deliveryDate: '', status: 'neutral', statusLabel: '', modifiedAt: '',
+  } as Project);
   const stats = getProjectStats(project);
 
   const completed = !!project.completed;
