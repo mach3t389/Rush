@@ -20,6 +20,7 @@ import { addWatcher } from '../data/watchers';
 import { markTaskViewed } from '../data/taskCommentReadsStore';
 import { TaskDescriptionEditor } from './TaskDescriptionEditor';
 import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
+import { useSyncedViewState } from '../hooks/useSyncedViewState';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,7 @@ function InlineDropdown({ onClose, children, anchorRect, minWidth = 160, zIndex 
 // the title of width in the panel's ~400px content area. They now live
 // behind a single "fields" button (see SubTaskRow) so title gets almost
 // the full row.
-const SUB_GRID = '22px minmax(120px, 1fr) auto 24px';
+const SUB_GRID = '14px 22px minmax(120px, 1fr) auto 24px';
 
 const subColLabel = (label: string) => (
   <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block' }}>{label}</span>
@@ -208,7 +209,7 @@ const subColLabel = (label: string) => (
 
 // ── SubTaskRow ────────────────────────────────────────────────────────────────
 
-function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu }: {
+function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu, onDragStart, onDragOverRow, onDragEnd, dragging }: {
   sub: LocalSubtask;
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
@@ -217,8 +218,16 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
   selected?: boolean;
   onSelect?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  onDragStart?: () => void;
+  onDragOverRow?: () => void;
+  onDragEnd?: () => void;
+  dragging?: boolean;
 }) {
   const { t } = useTranslation();
+  // Same gating as a regular task row (Travail.tsx): draggable="true" makes
+  // the WHOLE row a drag source by default, which would break normal text
+  // selection/clicks — only a mousedown on the dedicated grip icon arms it.
+  const dragHandleActive = useRef(false);
   const [editing, setEditing] = useState(sub.title === '');
   const [editTitle, setEditTitle] = useState(sub.title);
   const { measureRef: editTitleMeasureRef, width: editTitleWidth } = useAutoWidthInput(editTitle, editing, 24, 90);
@@ -277,6 +286,15 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
 
   return (
     <div
+      draggable
+      onDragStart={e => {
+        if (!dragHandleActive.current) { e.preventDefault(); return; }
+        e.stopPropagation();
+        onDragStart?.();
+      }}
+      onDragOver={e => { if (onDragOverRow) { e.preventDefault(); onDragOverRow(); } }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); }}
+      onDragEnd={() => { dragHandleActive.current = false; onDragEnd?.(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
       onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
@@ -291,8 +309,20 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         onContextMenu(e);
       }}
       data-subtask-row
-      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined, userSelect: 'none' }}
+      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined, userSelect: 'none', opacity: dragging ? 0.4 : 1 }}
     >
+      {/* Drag handle — mousedown arms `dragHandleActive` so the whole row's
+          `draggable` only actually starts a drag from this icon, not from
+          anywhere in the row (which would break clicking to select/edit). */}
+      <div
+        onMouseDown={() => { dragHandleActive.current = true; }}
+        onMouseUp={() => { dragHandleActive.current = false; }}
+        style={{ cursor: 'grab', color: 'var(--border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: hovered ? 1 : 0, transition: 'opacity 0.1s' }}
+        title={t('taskPanel.reorderSubtask')}
+      >
+        <SFIcon name="grip-vertical" size={12} />
+      </div>
+
       {/* Checkbox */}
       <button onClick={toggleChecked}
         style={{ width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', border: checked ? 'none' : '1.5px solid var(--border-2)', background: checked ? 'var(--ok)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', flexShrink: 0 }}>
@@ -305,7 +335,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
       {editing ? (
         <>
         {/* Mesureur caché — même police que l'input, sert à calculer sa largeur réelle */}
-        <span ref={editTitleMeasureRef} style={{ gridColumn: '2 / 4', position: 'fixed', top: -9999, left: -9999, visibility: 'hidden', whiteSpace: 'pre', fontSize: 12, fontFamily: 'var(--ff-text)' }}>
+        <span ref={editTitleMeasureRef} style={{ gridColumn: '3 / 5', position: 'fixed', top: -9999, left: -9999, visibility: 'hidden', whiteSpace: 'pre', fontSize: 12, fontFamily: 'var(--ff-text)' }}>
           {editTitle || t('tasks.newSubtask')}
         </span>
         <input ref={editTitleRef} autoFocus value={editTitle}
@@ -345,7 +375,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box', width: `${editTitleWidth}px`, maxWidth: '100%' }}
+          style={{ gridColumn: '3 / 5', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box', width: `${editTitleWidth}px`, maxWidth: '100%' }}
         />
         </>
       ) : (
@@ -600,7 +630,10 @@ export function TaskPanel({
     const liveIds = new Set((task.subtasks ?? []).map(s => s.id));
     setLocalSubtasks(prev => prev.every(s => liveIds.has(s.id)) ? prev : prev.filter(s => liveIds.has(s.id)));
   }, [task.subtasks]);
-  const [hideCompletedSubs, setHideCompletedSubs] = useState(false);
+  // Shared with the "Sous-tâches terminées" toggle in the view-filters menu
+  // (Travail.tsx) — same pref, same key, synced across every screen that
+  // opens this panel, not reset each time it's opened.
+  const [showCompletedSubs, setShowCompletedSubs] = useSyncedViewState('sf_showCompletedSubtasks', true);
   const [selectedSubIds, setSelectedSubIds] = useState<Set<string>>(new Set());
   const [subCtxPos, setSubCtxPos] = useState<{ x: number; y: number } | null>(null);
   const subAnchorRef = useRef<string | null>(null);
@@ -757,6 +790,24 @@ export function TaskPanel({
     setLocalSubtasks(next);
     onUpdate?.({ subtasks: next as unknown as Task[] });
     setSelectedSubIds(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+  };
+
+  // Same drag-and-drop reorder as a regular task row (Travail.tsx), simplified
+  // for a single flat list instead of cross-section moves: on dragOver of a
+  // row, move the dragged subtask to that row's position immediately (live
+  // reorder, not just on drop) — reordering by id, not by the filtered
+  // (hideCompletedSubs) index, so it stays correct even mid-filter.
+  const [draggedSubId, setDraggedSubId] = useState<string | null>(null);
+  const reorderSubtask = (draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+    const fromIdx = localSubtasks.findIndex(s => s.id === draggedId);
+    const toIdx = localSubtasks.findIndex(s => s.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...localSubtasks];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setLocalSubtasks(next);
+    onUpdate?.({ subtasks: next as unknown as Task[] });
   };
 
   // Ctrl/Cmd = toggle one, Shift = range from the last-clicked row, plain
@@ -1502,21 +1553,21 @@ export function TaskPanel({
               {panelSectionLabel(`${t('tasks.subtasks')}${localSubtasks.length ? ` (${localSubtasks.filter(s => s.checked).length}/${localSubtasks.length})` : ''}`)}
               {localSubtasks.some(s => s.checked) && (
                 <button
-                  onClick={() => setHideCompletedSubs(v => !v)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, border: '1px solid var(--border)', background: hideCompletedSubs ? 'rgba(249,255,0,0.07)' : 'transparent', color: hideCompletedSubs ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}
-                  title={hideCompletedSubs ? t('taskPanel.showCompletedSubtasks') : t('taskPanel.hideCompletedSubtasks')}
+                  onClick={() => setShowCompletedSubs(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 7, border: '1px solid var(--border)', background: !showCompletedSubs ? 'rgba(249,255,0,0.07)' : 'transparent', color: !showCompletedSubs ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', cursor: 'pointer' }}
+                  title={!showCompletedSubs ? t('taskPanel.showCompletedSubtasks') : t('taskPanel.hideCompletedSubtasks')}
                 >
-                  <SFIcon name={hideCompletedSubs ? 'eye-off' : 'eye'} size={12}  />
-                  {hideCompletedSubs ? t('taskPanel.completedHidden') : t('taskPanel.hideCompleted')}
+                  <SFIcon name={!showCompletedSubs ? 'eye-off' : 'eye'} size={12}  />
+                  {!showCompletedSubs ? t('taskPanel.completedHidden') : t('taskPanel.hideCompleted')}
                 </button>
               )}
             </div>
             {localSubtasks.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: SUB_GRID, gap: 10, padding: '4px 8px 6px', marginBottom: 4, borderBottom: '1px solid var(--border)' }}>
-                <span />{subColLabel(t('tasks.title'))}<span /><span />
+                <span /><span />{subColLabel(t('tasks.title'))}<span /><span />
               </div>
             )}
-            {localSubtasks.filter(sub => !hideCompletedSubs || !sub.checked).map(sub => (
+            {localSubtasks.filter(sub => showCompletedSubs || !sub.checked).map(sub => (
               <SubTaskRow key={sub.id} sub={sub}
                 onUpdate={patch => updateSub(sub.id, patch)}
                 onDelete={() => deleteSubtasks([sub.id])}
@@ -1525,6 +1576,10 @@ export function TaskPanel({
                 selected={subtaskActionsEnabled ? selectedSubIds.has(sub.id) : undefined}
                 onSelect={subtaskActionsEnabled ? e => selectSubtask(sub.id, e) : undefined}
                 onContextMenu={subtaskActionsEnabled ? e => openSubtaskContextMenu(sub.id, e) : undefined}
+                dragging={draggedSubId === sub.id}
+                onDragStart={() => setDraggedSubId(sub.id)}
+                onDragOverRow={() => { if (draggedSubId && draggedSubId !== sub.id) reorderSubtask(draggedSubId, sub.id); }}
+                onDragEnd={() => setDraggedSubId(null)}
               />
             ))}
             <button onClick={() => addSubtask()}
