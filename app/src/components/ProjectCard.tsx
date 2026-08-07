@@ -125,21 +125,24 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             />
           </div>
 
-          {/* Couleur / Date de livraison / Budget — une seule ligne, comme l'assistant de création */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, auto) 1fr 1fr', gap: 14, alignItems: 'start' }}>
-            {/* Couleur — le conteneur a un padding pour laisser respirer le
-                contour+agrandissement (scale) de la pastille sélectionnée ;
-                sans lui, l'overflow:hidden du SFModal (posé dès qu'il a une
-                maxHeight) le rognait sur le bord gauche. */}
+          {/* Couleur / Date de livraison / Budget — une seule ligne. La
+              colonne Couleur a une largeur fixe qui ne loge que 6 pastilles
+              par rangée (12 couleurs → 2 rangées de 6, plutôt que 11+1 qui
+              isolait une pastille toute seule) ; le reste de la largeur va à
+              Date/Budget. Le conteneur des pastilles garde un padding pour
+              laisser respirer le contour+agrandissement (scale) de la
+              sélection, que l'overflow:hidden du SFModal (posé dès qu'il a
+              une maxHeight) rognait sinon sur le bord. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '172px 1fr 1fr', gap: 14, alignItems: 'start' }}>
             <div>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.dotColor')}</label>
-              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', padding: 3, margin: -3 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: 3, margin: -3 }}>
                 {PROJECT_COLORS.map(c => (
                   <button
                     key={c}
                     onClick={() => setLColor(c)}
                     style={{
-                      width: 20, height: 20, borderRadius: '50%', background: c, cursor: 'pointer',
+                      width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer',
                       border: lColor === c ? '2px solid white' : '2px solid transparent',
                       outline: lColor === c ? `2px solid ${c}` : 'none',
                       transform: lColor === c ? 'scale(1.15)' : 'none',
@@ -151,21 +154,20 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
               </div>
             </div>
 
-            {/* Date de livraison — sélecteur date + heure */}
             <div>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')}</label>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button
-                  onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
-                  style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-                >
-                  <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || t('projects.chooseDate')}</span>
-                </button>
-                {lDeliveryYMD && (
+              <button
+                onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
+                style={{ width: '100%', minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left', boxSizing: 'border-box' }}
+              >
+                <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || t('projects.chooseDate')}</span>
+              </button>
+              {lDeliveryYMD && (
+                <div style={{ marginTop: 6 }}>
                   <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
-                )}
-              </div>
+                </div>
+              )}
               {dateOpen && (
                 <DatePickerDropdown
                   value={lDeliveryYMD}
@@ -186,7 +188,6 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
               )}
             </div>
 
-            {/* Budget */}
             <div>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')}</label>
               <input
@@ -194,7 +195,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                 onChange={e => setLBudget(e.target.value)}
                 placeholder={t('projects.budget')}
                 inputMode="numeric"
-                style={{ width: '100%', padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+                style={{ width: '100%', padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
               />
             </div>
           </div>
