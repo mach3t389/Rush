@@ -580,7 +580,18 @@ export function TravailBoard({
                       {dragTask && <CardDropLine sectionIdx={sIdx} slotIdx={i} beforeTaskId={task.id} />}
                       <div
                         draggable
-                        onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragTask({ task, sectionIdx: sIdx }); }}
+                        onDragStart={e => {
+                          // Must stop here: dragstart bubbles, and the column
+                          // wrapper (draggable itself, for column reorder)
+                          // has its own onDragStart that calls
+                          // preventDefault() unless its grip handle armed
+                          // it — without this, that handler was cancelling
+                          // every card drag too, since it fires for ANY
+                          // dragstart bubbling up through the column.
+                          e.stopPropagation();
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDragTask({ task, sectionIdx: sIdx });
+                        }}
                         onDragEnd={() => { setDragTask(null); setDragOverSection(null); }}
                         onClick={e => { if (openDrop) return; onSelectTask(task, e); }}
                         onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
