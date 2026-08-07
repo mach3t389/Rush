@@ -991,7 +991,7 @@ function FilterBar({ filterPriorities, filterStatuses, onTogglePriority, onToggl
 
 type AddOpts = { priority: Priority; assignees: User[]; project: typeof PROJECTS[0] | null; status: string; statusLabel: string; dueDate: string };
 
-function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }: { label: string; count: number; collapsed: boolean; onToggle: () => void; onDelete: () => void; onRename: (newLabel: string) => void }) {
+function SectionHeader({ label, count, trueCount, collapsed, onToggle, onDelete, onRename }: { label: string; count: number; /** Nombre réel de tâches que la suppression va détacher — peut différer de `count` (visible) quand un filtre masque des tâches. */ trueCount: number; collapsed: boolean; onToggle: () => void; onDelete: () => void; onRename: (newLabel: string) => void }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1057,7 +1057,7 @@ function SectionHeader({ label, count, collapsed, onToggle, onDelete, onRename }
       )}
       {confirm && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count, section: label })}</span>
+          <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: trueCount, section: label })}</span>
           <button onClick={onDelete} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.yes')}</button>
           <button onClick={() => setConfirm(false)} style={{ padding: '2px 8px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
         </div>
@@ -1737,6 +1737,7 @@ export function Taches() {
                   <SectionHeader
                     label={g.label}
                     count={g.tasks.length}
+                    trueCount={tasks.filter(tk => tk.mySection === g.label).length}
                     collapsed={collapsed}
                     onToggle={() => toggleGroup(g.label)}
                     onDelete={() => removeMyTaskSection(g.label)}
