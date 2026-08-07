@@ -243,7 +243,11 @@ function DropSlot({ vertical, active, enabled, onOver, onLeave, onDropHere }: {
   const lineStyle: React.CSSProperties = vertical
     ? { position: 'absolute', left: '50%', transform: 'translateX(-50%)', height: '100%', width: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }
     : { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' };
-  const pad = vertical ? -8 : -6;
+  // Card slots get a much taller hit zone than their visible line — precisely
+  // dragging onto a 2px target between cards (worse near a scrolled edge) was
+  // the exact complaint. Column slots stay tighter; they're full-height by
+  // nature so a taller reach doesn't add much and would overlap neighbors.
+  const pad = vertical ? -8 : -14;
   return (
     <div style={wrapStyle}>
       <div
@@ -573,7 +577,7 @@ export function TravailBoard({
                       <React.Fragment key={task.id}>
                       <DropSlot
                         active={cardDragOverKey === `${sIdx}-${i}`}
-                        enabled={!!dragTask && dragTask.sectionIdx === sIdx}
+                        enabled={!!dragTask}
                         onOver={() => {
                           if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
                           setCardDragOverKey(`${sIdx}-${i}`);
@@ -758,7 +762,7 @@ export function TravailBoard({
                   })}
                   <DropSlot
                     active={cardDragOverKey === `${sIdx}-${section.tasks.length}`}
-                    enabled={!!dragTask && dragTask.sectionIdx === sIdx}
+                    enabled={!!dragTask}
                     onOver={() => {
                       if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
                       setCardDragOverKey(`${sIdx}-${section.tasks.length}`);
