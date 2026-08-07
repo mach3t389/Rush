@@ -291,6 +291,22 @@ async function pullStudio(supabaseAdmin: SupabaseClient, studioId: string, resul
   for (const pc of projectCals ?? []) {
     const projectId = pc.project_id as string;
     try {
+      // Same resync-on-pull as the org calendar above — a project's Google
+      // Calendar title was previously only ever set at creation/reuse-on-
+      // activate, so changing (or removing) the project's client never
+      // reached an already-active calendar until the next explicit
+      // deactivate/reactivate. Doing it here means a plain page refresh
+      // (which triggers this same throttled pull) picks up the rename,
+      // matching what a user actually expects to happen.
+      try {
+        const { data: project } = await supabaseAdmin.from('projects').select('name, client_name').eq('id', projectId).maybeSingle();
+        if (project) {
+          const calendarName = project.client_name ? `${project.client_name} — ${project.name}` : (project.name as string);
+          await renameGoogleCalendar(accessToken, pc.google_calendar_id as string, calendarName);
+        }
+      } catch (err) {
+        console.error(`Failed to resync calendar name for project ${projectId}:`, err);
+      }
       results[`project:${projectId}`] = await pullCalendar({
         supabaseAdmin, studioId, calendarId: pc.google_calendar_id as string, accessToken, insertProjectId: projectId,
         syncToken: pc.sync_token as string | null,
