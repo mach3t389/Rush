@@ -1002,7 +1002,36 @@ export function TaskPanel({
   return (
     <>
       {!inline && (
-        <div onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.6)' }} />
+        <div
+          onMouseDown={e => {
+            // Shift/Ctrl+click used to multi-select a task row while another
+            // task's detail was already open (side panel, before this became
+            // a centered modal) — now the full-screen backdrop sits on top
+            // of the list and swallows that click before the row underneath
+            // ever sees it. Forward it: close, then replay an equivalent
+            // click (same modifier keys) on whatever task row is under the
+            // cursor, so shift/ctrl+click keeps extending/toggling the
+            // selection instead of just closing the panel.
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
+              // elementFromPoint would just return this backdrop (it's what's
+              // topmost right now) — elementsFromPoint returns the whole
+              // z-order stack at that point, so skip past the backdrop/panel
+              // to the real row underneath instead of waiting a tick for the
+              // backdrop to unmount first.
+              const stack = document.elementsFromPoint(e.clientX, e.clientY);
+              const row = stack.map(el => el.closest<HTMLElement>('[data-task-id]')).find(Boolean) ?? null;
+              onClose();
+              if (row) {
+                setTimeout(() => {
+                  row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey }));
+                }, 0);
+              }
+              return;
+            }
+            onClose();
+          }}
+          style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.6)' }}
+        />
       )}
       {/* Panel */}
       <div ref={panelRef} onMouseDown={inline ? undefined : e => e.stopPropagation()} style={inline ? {

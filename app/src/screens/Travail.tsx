@@ -1876,11 +1876,17 @@ export function Travail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleMoveTask = (task: Task, fromIdx: number, toIdx: number) => {
+  const handleMoveTask = (task: Task, fromIdx: number, toIdx: number, beforeTaskId?: string) => {
     setSections(prev => {
       const next = prev.map(s => ({ ...s, tasks: [...s.tasks] }));
       next[fromIdx].tasks = next[fromIdx].tasks.filter(t => t.id !== task.id);
-      next[toIdx].tasks = [...next[toIdx].tasks, task];
+      if (beforeTaskId) {
+        const insertAt = next[toIdx].tasks.findIndex(t => t.id === beforeTaskId);
+        if (insertAt >= 0) next[toIdx].tasks.splice(insertAt, 0, task);
+        else next[toIdx].tasks.push(task);
+      } else {
+        next[toIdx].tasks.push(task);
+      }
       return next;
     });
   };
@@ -1941,8 +1947,23 @@ export function Travail() {
         }));
       })();
 
-  const handleBoardMoveTask = (task: Task, fromIdx: number, toIdx: number) => {
-    if (boardGroupBy === 'category') { handleMoveTask(task, fromIdx, toIdx); return; }
+  // Column (section) reorder in the board — mirrors handleSectionInsertAt's
+  // splice-before-label logic, but by label instead of visible index since
+  // the board's own drop-line only knows the label it's hovering over.
+  const reorderBoardSection = (fromLabel: string, beforeLabel: string | null) => {
+    setSections(prev => {
+      const next = [...prev];
+      const fromIdx = next.findIndex(s => s.label === fromLabel);
+      if (fromIdx === -1) return prev;
+      const [moved] = next.splice(fromIdx, 1);
+      const insertAt = beforeLabel ? next.findIndex(s => s.label === beforeLabel) : -1;
+      next.splice(insertAt === -1 ? next.length : insertAt, 0, moved);
+      return next;
+    });
+  };
+
+  const handleBoardMoveTask = (task: Task, fromIdx: number, toIdx: number, beforeTaskId?: string) => {
+    if (boardGroupBy === 'category') { handleMoveTask(task, fromIdx, toIdx, beforeTaskId); return; }
     const targetStatus = STATUS_OPTIONS[toIdx];
     if (!targetStatus) return;
     const patch: Partial<Task> = {
@@ -2151,6 +2172,7 @@ export function Travail() {
           onRenameSection={(oldLabel, newLabel) => setSections(prev => prev.map(s => s.label === oldLabel ? { ...s, label: newLabel.trim() || s.label } : s))}
           onMoveSection={label => setSectionMoveLabel(label)}
           onCopySection={label => setSectionCopyLabel(label)}
+          onReorderSection={reorderBoardSection}
           projectId={project.id}
           projectName={project.name}
           projectColor={project.clientColor ?? 'var(--text-3)'}
