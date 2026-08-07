@@ -330,6 +330,12 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
         // the click that opens edit mode always landed on a
         // still-non-editable view and placed no caret, needing a second
         // click.
+        // Résoudre la position de clic AVANT le setTimeout — au moment où
+        // il tourne, la vue vient de repasser éditable et son layout peut
+        // avoir bougé (bordure, fond), donc les coordonnées de la souris
+        // doivent être capturées ici, sur l'événement natif.
+        const clickX = e.clientX;
+        const clickY = e.clientY;
         editor.setEditable(true);
         setEditing(true);
         // focus() itself has to be deferred out of this click handler's
@@ -339,7 +345,10 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
         // scheduled from the click handler (not from a useEffect, which
         // re-runs/cancels on its own render cycle) reliably lands after
         // that dispatch completes.
-        window.setTimeout(() => editor.commands.focus('end'), 0);
+        window.setTimeout(() => {
+          const coords = editor.view.posAtCoords({ left: clickX, top: clickY });
+          editor.commands.focus(coords ? coords.pos : 'end');
+        }, 0);
       }}
       onBlur={e => {
         // Ancestors (e.g. TaskPanel's modal wrapper) call e.stopPropagation()
