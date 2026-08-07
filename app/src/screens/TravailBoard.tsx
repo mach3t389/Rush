@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { SFIcon, SFPill, isOverdue, fmtTaskDate, TaskDatePopover, AssigneeGroup, CommentBadge } from '../components/ui';
+import { SFIcon, SFPill, SFModal, isOverdue, fmtTaskDate, TaskDatePopover, AssigneeGroup, CommentBadge } from '../components/ui';
 import { STATUS_COLOR } from '../data/status';
 import { showToast } from '../data/toastStore';
 import { getCurrentUser } from '../data/authStore';
@@ -321,6 +321,14 @@ export function TravailBoard({
   const [editingSectionLabel, setEditingSectionLabel] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
+  // Saisie en ligne — parité avec la vue Liste : on tape le titre directement
+  // dans la colonne / sur la carte, sans passer par le panneau de détail.
+  const [addingInSection, setAddingInSection] = useState<string | null>(null);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const newTaskInputRef = useRef<HTMLTextAreaElement>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [taskTitleDraft, setTaskTitleDraft] = useState('');
+  const taskTitleInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Same-column task reorder, keyed by "sectionIdx-slotIdx" since slot
   // indexes aren't unique across columns.
@@ -339,10 +347,46 @@ export function TravailBoard({
     if (editingSectionLabel !== null) labelInputRef.current?.select();
   }, [editingSectionLabel]);
 
+  useEffect(() => {
+    if (addingInSection !== null) newTaskInputRef.current?.focus();
+  }, [addingInSection]);
+
+  useEffect(() => {
+    if (editingTaskId !== null) taskTitleInputRef.current?.select();
+  }, [editingTaskId]);
+
   const commitLabel = (originalLabel: string) => {
     const trimmed = labelDraft.trim();
     if (trimmed && trimmed !== originalLabel) onRenameSection(originalLabel, trimmed);
     setEditingSectionLabel(null);
+  };
+
+  const buildNewTask = (title: string): Task => ({
+    id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    projectId, projectName, projectColor,
+    assignees: [],
+    status: 'warn', statusLabel: t('tasks.todo'),
+    priority: 'none', priorityLabel: t('priority.none'),
+    dueDate: '—', dueDateRed: false, checked: false, subtasks: [],
+    watchers: addWatchers([], [getCurrentUser()?.id]),
+  });
+
+  // Enter valide et rouvre une ligne vierge (même geste qu'en vue Liste,
+  // pour enchaîner plusieurs tâches sans reprendre la souris).
+  const commitNewTask = (sIdx: number, keepOpen: boolean) => {
+    const title = newTaskTitle.trim();
+    if (!title) { if (!keepOpen) { setAddingInSection(null); setNewTaskTitle(''); } return; }
+    onAddTask(sIdx, buildNewTask(title));
+    setNewTaskTitle('');
+    if (keepOpen) setTimeout(() => newTaskInputRef.current?.focus(), 0);
+    else setAddingInSection(null);
+  };
+
+  const commitTaskTitle = (task: Task) => {
+    const trimmed = taskTitleDraft.trim();
+    if (trimmed && trimmed !== task.title) onUpdateTask(task.id, { title: trimmed });
+    setEditingTaskId(null);
   };
 
   const toggleCollapse = (label: string) => {
@@ -453,7 +497,11 @@ export function TravailBoard({
               <div
                 style={{ padding: '12px 14px 10px', flexShrink: 0 }}
                 onMouseEnter={() => setHoveredHeader(section.label)}
-                onMouseLeave={() => { setHoveredHeader(null); setConfirmDeleteSection(null); }}
+                // Ne PAS refermer confirmDeleteSection ici — la confirmation
+                // est un SFModal centré, l'ouvrir éloigne la souris de
+                // l'en-tête et la refermerait aussitôt (même piège qu'en vue
+                // Liste).
+                onMouseLeave={() => setHoveredHeader(null)}
                 onContextMenu={e => { if (groupBy !== 'category') return; e.preventDefault(); setSectionCtxMenu({ label: section.label, x: e.clientX, y: e.clientY }); }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
@@ -512,16 +560,7 @@ export function TravailBoard({
                     </span>
                   )}
 
-                  {confirmDeleteSection === section.label ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 10, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: realTotal, section: section.label })}</span>
-                      <button onClick={() => { onDeleteSection(section.label); setConfirmDeleteSection(null); }}
-                        style={{ padding: '2px 7px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('board.deleteShort')}</button>
-                      <button onClick={() => setConfirmDeleteSection(null)}
-                        style={{ padding: '2px 7px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('tasks.no')}</button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 7px' }}>{total}</span>
                       {hoveredHeader === section.label && (
                         <>
@@ -547,8 +586,7 @@ export function TravailBoard({
                           )}
                         </>
                       )}
-                    </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Progress bar */}
@@ -700,11 +738,35 @@ export function TravailBoard({
                           </button>
                         </div>
 
-                        {/* Title */}
-                        <p style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 500, lineHeight: 1.45, marginBottom: groupBy !== 'category' && task.sectionLabel ? 6 : 10, color: task.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: task.checked ? 'line-through' : 'none' }}>
-                          {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
-                          {task.title}
-                        </p>
+                        {/* Title — cliquer dessus édite en place (parité vue
+                            Liste) ; cliquer ailleurs sur la carte ouvre le
+                            panneau de détail comme avant. */}
+                        {editingTaskId === task.id ? (
+                          <textarea
+                            ref={taskTitleInputRef}
+                            value={taskTitleDraft}
+                            onChange={e => setTaskTitleDraft(e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            onMouseDown={e => e.stopPropagation()}
+                            onBlur={() => commitTaskTitle(task)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTaskTitle(task); }
+                              if (e.key === 'Escape') { setEditingTaskId(null); }
+                              e.stopPropagation();
+                            }}
+                            rows={2}
+                            style={{ width: '100%', boxSizing: 'border-box', resize: 'none', marginBottom: 10, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', fontSize: 13, fontWeight: 500, lineHeight: 1.45, fontFamily: 'var(--ff-text)', outline: 'none' }}
+                          />
+                        ) : (
+                          <p
+                            onClick={e => { e.stopPropagation(); setTaskTitleDraft(task.title); setEditingTaskId(task.id); }}
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 500, lineHeight: 1.45, marginBottom: groupBy !== 'category' && task.sectionLabel ? 6 : 10, color: task.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: task.checked ? 'line-through' : 'none', cursor: 'text' }}
+                          >
+                            {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
+                            {task.title}
+                          </p>
+                        )}
 
                         {groupBy !== 'category' && task.sectionLabel && (
                           <span style={{ display: 'inline-block', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 999, padding: '2px 7px', marginBottom: 8 }}>
@@ -794,31 +856,47 @@ export function TravailBoard({
                   />
                 </div>
 
-                {/* Add task button */}
-                {groupBy === 'category' && (
-                <button
-                  onClick={() => {
-                    const newTask: Task = {
-                      id: `task-${Date.now()}`,
-                      title: 'Nouvelle tâche',
-                      projectId, projectName, projectColor,
-                      assignees: [],
-                      status: 'warn', statusLabel: 'À faire',
-                      priority: 'none', priorityLabel: 'Aucune',
-                      dueDate: '—', dueDateRed: false, checked: false, subtasks: [],
-                      watchers: addWatchers([], [getCurrentUser()?.id]),
-                    };
-                    onAddTask(sIdx, newTask);
-                    onSelectTask(newTask);
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 8px 8px', padding: '7px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)', width: 'calc(100% - 16px)', transition: 'color 0.12s, border-color 0.12s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
-                >
-                  <SFIcon name="plus" size={13} />
-                  {t('board.addTask')}
-                </button>
-                )}
+                {/* Add task — saisie en ligne du titre, comme AddTaskRow en
+                    vue Liste (avant : créait une carte "Nouvelle tâche" et
+                    ouvrait le panneau de détail pour la renommer). */}
+                {groupBy === 'category' && (addingInSection === section.label ? (
+                  <div style={{ margin: '6px 8px 8px', padding: '9px 11px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface-2)' }}>
+                    <textarea
+                      ref={newTaskInputRef}
+                      value={newTaskTitle}
+                      onChange={e => setNewTaskTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitNewTask(sIdx, true); }
+                        if (e.key === 'Escape') { setAddingInSection(null); setNewTaskTitle(''); }
+                        e.stopPropagation();
+                      }}
+                      onBlur={() => commitNewTask(sIdx, false)}
+                      placeholder={t('taskPanel.taskNamePlaceholder')}
+                      rows={2}
+                      style={{ width: '100%', boxSizing: 'border-box', resize: 'none', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontWeight: 500, lineHeight: 1.45, fontFamily: 'var(--ff-text)' }}
+                    />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <button onMouseDown={e => e.preventDefault()} onClick={() => commitNewTask(sIdx, true)}
+                        style={{ flex: 1, padding: '5px 10px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                        {t('board.add')}
+                      </button>
+                      <button onMouseDown={e => e.preventDefault()} onClick={() => { setAddingInSection(null); setNewTaskTitle(''); }}
+                        style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+                        {t('board.cancel')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAddingInSection(section.label); setNewTaskTitle(''); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 8px 8px', padding: '7px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--ff-text)', width: 'calc(100% - 16px)', transition: 'color 0.12s, border-color 0.12s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; }}
+                  >
+                    <SFIcon name="plus" size={13} />
+                    {t('board.addTask')}
+                  </button>
+                ))}
               </>
             )}
           </div>
@@ -906,6 +984,28 @@ export function TravailBoard({
           onClose={() => setSectionCtxMenu(null)}
         />
       )}
+
+      {/* Confirmation de suppression — même SFModal centré qu'en vue Liste.
+          Avant : un bloc de texte inline coincé dans l'en-tête de colonne,
+          illisible sur 284px de large. */}
+      <SFModal open={confirmDeleteSection !== null} onClose={() => setConfirmDeleteSection(null)} title={t('board.deleteSectionTitle')} width={380}>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 22 }}>
+          {t('board.deleteSectionConfirm', {
+            count: confirmDeleteSection ? (sectionTaskCounts?.[confirmDeleteSection] ?? sections.find(s => s.label === confirmDeleteSection)?.tasks.length ?? 0) : 0,
+            section: confirmDeleteSection ?? '',
+          })}
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setConfirmDeleteSection(null)}
+            style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+          >{t('tasks.cancel')}</button>
+          <button
+            onClick={() => { if (confirmDeleteSection) onDeleteSection(confirmDeleteSection); setConfirmDeleteSection(null); }}
+            style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}
+          >{t('tasks.delete')}</button>
+        </div>
+      </SFModal>
 
       {/* Inline dropdowns */}
       {openDrop && dropTask && openDrop.type === 'status' && (

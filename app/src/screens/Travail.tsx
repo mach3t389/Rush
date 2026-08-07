@@ -1112,7 +1112,11 @@ function Section({
     >
       <div
         onMouseEnter={() => setHeaderHovered(true)}
-        onMouseLeave={() => { setHeaderHovered(false); setConfirmDelete(false); }}
+        // Ne PAS refermer confirmDelete ici : la confirmation est un SFModal
+        // centré (portail), donc l'ouvrir éloigne forcément la souris de
+        // l'en-tête — ce onMouseLeave la refermait instantanément, rendant la
+        // suppression impossible en vue Liste.
+        onMouseLeave={() => setHeaderHovered(false)}
         onContextMenu={e => { if (readOnlyHeader) return; e.preventDefault(); setCtxPos({ x: e.clientX, y: e.clientY }); }}
         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)', background: completed ? 'rgba(255,255,255,0.02)' : 'transparent' }}
       >
@@ -1644,7 +1648,7 @@ export function Travail() {
   // Menu bulk « Modifier » (Assigné / Statut / Date) — un seul niveau ouvert
   // à la fois : 'menu' = liste des 3 champs, puis 'assignee'/'status'/'date'
   // = le sous-menu correspondant, ancré au même bouton.
-  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date' | 'datePicker'>(null);
+  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
   const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
 
   type BulkSnapshotEntry = { id: string; assignees: User[]; status: string; statusLabel: string; dueDate: string };
@@ -2362,7 +2366,16 @@ export function Travail() {
             if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
           }}
           onToggleSectionComplete={label => setSections(prev => prev.map(s => s.label === label ? { ...s, completed: !s.completed } : s))}
-          onAddTask={handleAddTask}
+          // Le Tableau indexe dans boardSections (filtré), handleAddTask
+          // indexe dans `sections` (complet) — passer l'index brut ajoutait
+          // la tâche à la mauvaise catégorie dès qu'une catégorie était
+          // masquée. On retraduit ici via le label, seul identifiant stable
+          // entre les deux listes.
+          onAddTask={(boardIdx, task) => {
+            const label = boardSections[boardIdx]?.label;
+            const realIdx = sections.findIndex(s => s.label === label);
+            if (realIdx >= 0) handleAddTask(realIdx, task);
+          }}
           onMoveTask={handleBoardMoveTask}
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
           onDeleteTask={task => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== task.id) })))}
@@ -2543,17 +2556,12 @@ export function Travail() {
               </InlineDropdown>
             )}
             {bulkEditField === 'date' && (
-              <InlineDropdown onClose={() => setBulkEditField(null)} anchorRect={bulkEditRect}>
-                {ddItem(handleBulkClearDate, <>{t('board.bulkNoDate')}</>)}
-                {ddItem(() => setBulkEditField('datePicker'), <>{t('board.bulkPickDate')}</>)}
-              </InlineDropdown>
-            )}
-            {bulkEditField === 'datePicker' && (
               <TaskDatePopover
                 date=""
-                onChange={d => handleBulkDate(d)}
+                onChange={d => d ? handleBulkDate(d) : handleBulkClearDate()}
                 onClose={() => setBulkEditField(null)}
                 anchorRect={bulkEditRect}
+                showClearButton
               />
             )}
           </div>
