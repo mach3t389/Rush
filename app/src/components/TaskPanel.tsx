@@ -20,7 +20,7 @@ import { addWatcher } from '../data/watchers';
 import { markTaskViewed } from '../data/taskCommentReadsStore';
 import { TaskDescriptionEditor } from './TaskDescriptionEditor';
 import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
-import { useSyncedViewState } from '../hooks/useSyncedViewState';
+import { useProjectSyncedViewState } from '../hooks/useSyncedViewState';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -628,9 +628,11 @@ export function TaskPanel({
     setLocalSubtasks(prev => prev.every(s => liveIds.has(s.id)) ? prev : prev.filter(s => liveIds.has(s.id)));
   }, [task.subtasks]);
   // Shared with the "Sous-tâches terminées" toggle in the view-filters menu
-  // (Travail.tsx) — same pref, same key, synced across every screen that
-  // opens this panel, not reset each time it's opened.
-  const [showCompletedSubs, setShowCompletedSubs] = useSyncedViewState('sf_showCompletedSubtasks', true);
+  // (Travail.tsx) — same pref key, scoped by the task's own project so it
+  // matches whatever was set from that project's Travail screen (a new
+  // project inherits the last value used anywhere, see
+  // useProjectSyncedViewState), not reset each time this panel is opened.
+  const [showCompletedSubs, setShowCompletedSubs] = useProjectSyncedViewState('sf_showCompletedSubtasks', task.projectId, true);
   const [selectedSubIds, setSelectedSubIds] = useState<Set<string>>(new Set());
   const [subCtxPos, setSubCtxPos] = useState<{ x: number; y: number } | null>(null);
   const subAnchorRef = useRef<string | null>(null);

@@ -12,7 +12,7 @@ import { getCurrentUser } from '../data/authStore';
 import { addWatchers } from '../data/watchers';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { useSyncedViewState } from '../hooks/useSyncedViewState';
+import { useSyncedViewState, useProjectSyncedViewState } from '../hooks/useSyncedViewState';
 import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
 import { ProjectHeaderBar } from '../components/ProjectHeaderBar';
@@ -1661,12 +1661,16 @@ export function Travail() {
   const [boardGroupBy, setBoardGroupBy] = useSyncedViewState<'category' | 'status'>(`sf_board_groupby_${projectId}`, 'category');
   const [viewOpen, setViewOpen] = useState(false);
   const [groupByOpen, setGroupByOpen] = useState(false);
-  const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
-  const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
+  // Par projet — un nouveau projet hérite du dernier réglage utilisé
+  // ailleurs, puis reste modifiable indépendamment (voir useProjectSyncedViewState).
+  const [showCompletedSections, setShowCompletedSections] = useProjectSyncedViewState('sf_showCompletedSections', projectId ?? '', true);
+  const [showCompletedTasks, setShowCompletedTasks] = useProjectSyncedViewState('sf_showCompletedTasks', projectId ?? '', true);
   const [visibleColumns, setVisibleColumns] = useSyncedViewState<VisibleColumns>('sf_travail_columns', DEFAULT_VISIBLE_COLUMNS);
   // Read/written by TaskPanel too (shared across every screen that opens it),
   // not just here — this toggle just gives it a home in the view-filters menu.
-  const [showCompletedSubtasks, setShowCompletedSubtasks] = useSyncedViewState('sf_showCompletedSubtasks', true);
+  // Scopée par projet comme les deux ci-dessus (TaskPanel fait de même via
+  // task.projectId) pour rester cohérente.
+  const [showCompletedSubtasks, setShowCompletedSubtasks] = useProjectSyncedViewState('sf_showCompletedSubtasks', projectId ?? '', true);
 
   useEffect(() => {
     if (draggedIdx === null && draggedTask === null) return;

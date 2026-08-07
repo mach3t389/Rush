@@ -22,3 +22,26 @@ export function useSyncedViewState<T>(key: string, fallback: T): [T, Dispatch<Se
 
   return [value, setAndPersist];
 }
+
+// Comme useSyncedViewState, mais scopée par projet — sa valeur initiale (avant
+// tout réglage propre à CE projet) hérite de la dernière valeur utilisée
+// ailleurs (clé "<key>_default"), qui se met aussi à jour à chaque
+// changement. Un nouveau projet démarre donc avec tes réglages habituels,
+// tout en restant ensuite modifiable indépendamment par projet.
+export function useProjectSyncedViewState<T>(key: string, projectId: string, fallback: T): [T, Dispatch<SetStateAction<T>>] {
+  const defaultKey = `${key}_default`;
+  const projectKey = `${key}_${projectId}`;
+  const [value, setValue] = useState<T>(() => getViewPref(projectKey, getViewPref(defaultKey, fallback)));
+
+  useEffect(() => subscribeViewPrefs(() => setValue(getViewPref(projectKey, getViewPref(defaultKey, fallback)))), [projectKey, defaultKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  const setAndPersist: Dispatch<SetStateAction<T>> = (next) => {
+    const resolved = typeof next === 'function' ? (next as (prev: T) => T)(value) : next;
+    setValue(resolved);
+    setViewPref(projectKey, resolved);
+    setViewPref(defaultKey, resolved);
+  };
+
+  return [value, setAndPersist];
+}
