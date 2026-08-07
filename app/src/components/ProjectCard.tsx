@@ -127,29 +127,36 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
           {/* Couleur / Date de livraison / Budget — une seule ligne. La
               colonne Couleur a une largeur fixe qui ne loge que 6 pastilles
-              par rangée (12 couleurs → 2 rangées de 6, plutôt que 11+1 qui
-              isolait une pastille toute seule) ; le reste de la largeur va à
-              Date/Budget. Le conteneur des pastilles garde un padding pour
-              laisser respirer le contour+agrandissement (scale) de la
-              sélection, que l'overflow:hidden du SFModal (posé dès qu'il a
-              une maxHeight) rognait sinon sur le bord. */}
+              par rangée (12 couleurs → 2 rangées de 6). Le reste de la
+              largeur va à Date/Budget.
+
+              La sélection était indiquée par un contour (outline) +
+              agrandissement (scale) — signalé à trois reprises comme rogné
+              ou passant derrière la pastille voisine : dans une grille aussi
+              serrée (6 pastilles par rangée, 22px chacune), l'outline d'une
+              pastille et le scale de sa voisine se chevauchent forcément
+              quel que soit le padding ajouté autour du conteneur, puisque le
+              problème est entre pastilles adjacentes, pas contre le bord de
+              la fenêtre. Remplacé par une coche superposée à l'intérieur de
+              la pastille (comme la sélection de Statut plus bas) — aucune
+              décoration ne dépasse la boîte de la pastille, donc rien à
+              rogner ni à chevaucher. */}
           <div style={{ display: 'grid', gridTemplateColumns: '172px 1fr 1fr', gap: 14, alignItems: 'start' }}>
             <div>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.dotColor')}</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: 3, margin: -3 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {PROJECT_COLORS.map(c => (
                   <button
                     key={c}
                     onClick={() => setLColor(c)}
                     style={{
                       width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer',
-                      border: lColor === c ? '2px solid white' : '2px solid transparent',
-                      outline: lColor === c ? `2px solid ${c}` : 'none',
-                      transform: lColor === c ? 'scale(1.15)' : 'none',
-                      transition: 'transform 0.1s',
-                      flexShrink: 0,
+                      border: 'none', padding: 0, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
-                  />
+                  >
+                    {lColor === c && <SFIcon name="check" size={12} color="#fff" style={{ filter: 'drop-shadow(0 0 1.5px rgba(0,0,0,0.6))' }} />}
+                  </button>
                 ))}
               </div>
             </div>
