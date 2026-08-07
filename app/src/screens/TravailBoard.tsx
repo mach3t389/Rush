@@ -504,7 +504,7 @@ export function TravailBoard({
 
                   {confirmDeleteSection === section.label ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 10, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: total })}</span>
+                      <span style={{ fontSize: 10, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: total, section: section.label })}</span>
                       <button onClick={() => { onDeleteSection(section.label); setConfirmDeleteSection(null); }}
                         style={{ padding: '2px 7px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('board.deleteShort')}</button>
                       <button onClick={() => setConfirmDeleteSection(null)}
