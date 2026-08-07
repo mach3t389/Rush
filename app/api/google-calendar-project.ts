@@ -81,7 +81,7 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: row } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('active, shared_contact_ids')
+    .select('active, shared_contact_ids, extra_invitees, extra_invitees_shared')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -107,7 +107,13 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
     }));
   }
 
-  res.status(200).json({ active: !!row?.active, contacts });
+  const extraSharedSet = new Set((row?.extra_invitees_shared ?? []) as string[]);
+  const extraInvitees = ((row?.extra_invitees ?? []) as string[]).map(email => ({
+    email,
+    shared: extraSharedSet.has(email),
+  }));
+
+  res.status(200).json({ active: !!row?.active, contacts, extraInvitees });
 }
 
 async function activateHandler(req: VercelRequest, res: VercelResponse) {
@@ -222,7 +228,7 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
       calendarId = await createGoogleCalendar(accessToken, calendarName);
       const { error: updateError } = await supabaseAdmin
         .from('project_google_calendars')
-        .update({ google_calendar_id: calendarId, active: true, shared_contact_ids: [] })
+        .update({ google_calendar_id: calendarId, active: true, shared_contact_ids: [], extra_invitees: [], extra_invitees_shared: [] })
         .eq('project_id', projectId);
       if (updateError) {
         console.error(`Failed to persist recreated calendar for project ${projectId}:`, updateError);
@@ -237,6 +243,8 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
         google_calendar_id: calendarId,
         active: true,
         shared_contact_ids: [],
+        extra_invitees: [],
+        extra_invitees_shared: [],
       });
       if (insertError) {
         if ((insertError as { code?: string }).code === '23505') {
@@ -373,7 +381,7 @@ async function deactivateHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: row, error: rowError } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('google_calendar_id, active, shared_contact_ids')
+    .select('google_calendar_id, active, shared_contact_ids, extra_invitees_shared')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -410,6 +418,22 @@ async function deactivateHandler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Manually-added emails: unshare the same way, directly from the stored
+    // email (no client_contacts lookup needed — the address is already
+    // stored raw). The desired list (extra_invitees) is deliberately left
+    // untouched here — deactivating never clears what the user asked for,
+    // only what's actually granted right now, same as contacts above.
+    const extraSharedEmails = (row.extra_invitees_shared ?? []) as string[];
+    const stillSharedExtra: string[] = [];
+    for (const email of extraSharedEmails) {
+      try {
+        await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+      } catch (err) {
+        console.error(`Failed to unshare calendar with ${email}:`, err);
+        stillSharedExtra.push(email);
+      }
+    }
+
     if (orgDefaultCalendarId) {
       const { data: eventsToMove } = await supabaseAdmin
         .from('events')
@@ -428,7 +452,7 @@ async function deactivateHandler(req: VercelRequest, res: VercelResponse) {
 
     const { error: deactivateUpdateError } = await supabaseAdmin
       .from('project_google_calendars')
-      .update({ active: false, shared_contact_ids: stillSharedIds })
+      .update({ active: false, shared_contact_ids: stillSharedIds, extra_invitees_shared: stillSharedExtra })
       .eq('project_id', projectId);
     if (deactivateUpdateError) {
       console.error(`Failed to persist deactivation for project ${projectId}:`, deactivateUpdateError);
@@ -487,7 +511,7 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: row, error: rowError } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('google_calendar_id, active, shared_contact_ids')
+    .select('google_calendar_id, active, shared_contact_ids, extra_invitees, extra_invitees_shared')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -513,6 +537,7 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
 
     const toAdd = currentIds.filter(id => !previousIds.includes(id));
     const toRemove = previousIds.filter(id => !currentIds.includes(id));
+    const finalIds = new Set(previousIds);
 
     if (toAdd.length > 0 || toRemove.length > 0) {
       const { data: contacts } = await supabaseAdmin
@@ -521,7 +546,6 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
         .in('id', [...toAdd, ...toRemove]);
       const emailById = new Map((contacts ?? []).map(c => [c.id as string, c.email as string]));
 
-      const finalIds = new Set(previousIds);
       for (const id of toAdd) {
         const email = emailById.get(id);
         if (!email) continue;
@@ -542,13 +566,42 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
           console.error(`Failed to unshare calendar with ${email}:`, err);
         }
       }
+    }
 
+    // Manually-added emails follow the exact same add/remove diff, against
+    // extra_invitees (desired) vs extra_invitees_shared (currently granted)
+    // instead of project_client_access vs shared_contact_ids — same button,
+    // same call, both lists reconciled together.
+    const extraDesired = (row.extra_invitees ?? []) as string[];
+    const extraPreviouslyShared = (row.extra_invitees_shared ?? []) as string[];
+    const extraToAdd = extraDesired.filter(email => !extraPreviouslyShared.includes(email));
+    const extraToRemove = extraPreviouslyShared.filter(email => !extraDesired.includes(email));
+    const finalExtraShared = new Set(extraPreviouslyShared);
+
+    for (const email of extraToAdd) {
+      try {
+        await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+        finalExtraShared.add(email);
+      } catch (err) {
+        console.error(`Failed to share calendar with ${email}:`, err);
+      }
+    }
+    for (const email of extraToRemove) {
+      try {
+        await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+        finalExtraShared.delete(email);
+      } catch (err) {
+        console.error(`Failed to unshare calendar with ${email}:`, err);
+      }
+    }
+
+    if (toAdd.length > 0 || toRemove.length > 0 || extraToAdd.length > 0 || extraToRemove.length > 0) {
       const { error: updateError } = await supabaseAdmin
         .from('project_google_calendars')
-        .update({ shared_contact_ids: Array.from(finalIds) })
+        .update({ shared_contact_ids: Array.from(finalIds), extra_invitees_shared: Array.from(finalExtraShared) })
         .eq('project_id', projectId);
       if (updateError) {
-        console.error(`Failed to persist shared_contact_ids for project ${projectId}:`, updateError);
+        console.error(`Failed to persist shared access for project ${projectId}:`, updateError);
         res.status(500).json({ error: 'Failed to sync access' });
         return;
       }
@@ -561,6 +614,215 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+interface AddExtraInviteeBody {
+  studioId: string;
+  projectId: string;
+  email: string;
+}
+
+async function addExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { studioId, projectId, email: rawEmail } = req.body as AddExtraInviteeBody;
+  if (!studioId || !projectId || !rawEmail) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  const email = rawEmail.trim().toLowerCase();
+
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'Not a member of this studio' });
+    return;
+  }
+
+  const { data: row, error: rowError } = await supabaseAdmin
+    .from('project_google_calendars')
+    .select('extra_invitees')
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (rowError || !row) {
+    res.status(404).json({ error: 'Project calendar not found' });
+    return;
+  }
+
+  const current = (row.extra_invitees ?? []) as string[];
+  // Idempotent — adding an already-present email is a no-op, not an error,
+  // since the client already blocks duplicates before calling this.
+  if (current.includes(email)) {
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('project_google_calendars')
+    .update({ extra_invitees: [...current, email] })
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId);
+  if (updateError) {
+    console.error(`Failed to add extra invitee ${email} for project ${projectId}:`, updateError);
+    res.status(500).json({ error: 'Failed to add invitee' });
+    return;
+  }
+
+  res.status(200).json({ ok: true });
+}
+
+interface RemoveExtraInviteeBody {
+  studioId: string;
+  projectId: string;
+  email: string;
+}
+
+async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { studioId, projectId, email: rawEmail } = req.body as RemoveExtraInviteeBody;
+  if (!studioId || !projectId || !rawEmail) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  const email = rawEmail.trim().toLowerCase();
+
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'Not a member of this studio' });
+    return;
+  }
+
+  const { data: row, error: rowError } = await supabaseAdmin
+    .from('project_google_calendars')
+    .select('google_calendar_id, active, extra_invitees, extra_invitees_shared, shared_contact_ids')
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  // Nothing to remove — idempotent, not an error.
+  if (rowError || !row) {
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  const remainingDesired = ((row.extra_invitees ?? []) as string[]).filter(e => e !== email);
+  const wasShared = ((row.extra_invitees_shared ?? []) as string[]).includes(email);
+  let remainingShared = (row.extra_invitees_shared ?? []) as string[];
+
+  // A manually-added email can collide with a real client contact's address
+  // (Google Calendar sharing is per-email, not per-source). Revoking Google
+  // access here would also kill that contact's access, which their own
+  // shared_contact_ids tracking would never notice and self-heal. Check
+  // whether this email currently belongs to a shared contact before making
+  // the live Google API call — the email is still removed from
+  // extra_invitees/extra_invitees_shared below either way.
+  let belongsToSharedContact = false;
+  const sharedContactIds = (row.shared_contact_ids ?? []) as string[];
+  if (sharedContactIds.length > 0) {
+    const { data: sharedContacts } = await supabaseAdmin
+      .from('client_contacts')
+      .select('id, email')
+      .in('id', sharedContactIds);
+    belongsToSharedContact = (sharedContacts ?? []).some(
+      c => typeof c.email === 'string' && c.email.trim().toLowerCase() === email
+    );
+  }
+
+  // Revoke immediately if it had actually been invited and the calendar can
+  // currently be reached — same "revoke now" behavior as removing a client
+  // contact's access. If the calendar is inactive or Google isn't
+  // reachable right now, the email is dropped from the desired list anyway;
+  // it stays in extra_invitees_shared and the next "Partager" click's
+  // sync-access diff will retry the revoke then (same self-healing property
+  // sync-access already has for contacts).
+  if (wasShared && row.active) {
+    if (belongsToSharedContact) {
+      console.warn(
+        `Skipping Google Calendar revoke for ${email} on project ${projectId}: ` +
+        `this address also belongs to a shared client contact — removing the manual invitee entry must not revoke the contact's own access.`
+      );
+      remainingShared = remainingShared.filter(e => e !== email);
+    } else {
+      try {
+        const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+        if (accessToken) {
+          await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+          remainingShared = remainingShared.filter(e => e !== email);
+        }
+      } catch (err) {
+        console.error(`Failed to unshare calendar with ${email}:`, err);
+      }
+    }
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('project_google_calendars')
+    .update({ extra_invitees: remainingDesired, extra_invitees_shared: remainingShared })
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId);
+  if (updateError) {
+    console.error(`Failed to remove extra invitee ${email} for project ${projectId}:`, updateError);
+    res.status(500).json({ error: 'Failed to remove invitee' });
+    return;
+  }
+
+  res.status(200).json({ ok: true });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = (req.query.action as string | undefined)
     ?? (req.body && (req.body as { action?: string }).action)
@@ -570,6 +832,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     case 'activate': return activateHandler(req, res);
     case 'deactivate': return deactivateHandler(req, res);
     case 'sync-access': return syncAccessHandler(req, res);
+    case 'add-extra-invitee': return addExtraInviteeHandler(req, res);
+    case 'remove-extra-invitee': return removeExtraInviteeHandler(req, res);
     default:
       res.status(400).json({ error: 'Unknown or missing action' });
   }
