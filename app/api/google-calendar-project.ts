@@ -723,7 +723,7 @@ async function addExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: row, error: rowError } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('extra_invitees')
+    .select('google_calendar_id, active, extra_invitees, extra_invitees_shared')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -741,9 +741,32 @@ async function addExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Invite this ONE email immediately rather than leaving it "En attente"
+  // until a separate "Partager" click — a manually-typed address is a
+  // single deliberate action with no reason to sit pending (unlike client
+  // contacts, which arrive in bulk from project access changes and get
+  // batch-reconciled by sync-access on purpose). Scoped to exactly this
+  // email via shareGoogleCalendar directly — never touches sync-access's
+  // full diff, so no other contact or invitee is re-shared/re-notified.
+  let shared = (row.extra_invitees_shared ?? []) as string[];
+  if (row.active) {
+    try {
+      const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+      if (accessToken) {
+        await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+        shared = [...shared, email];
+      }
+    } catch (err) {
+      // Falls back to "pending" — the next "Partager" click's sync-access
+      // diff will retry it (extra_invitees has it, extra_invitees_shared
+      // doesn't), same self-healing property as everywhere else.
+      console.error(`Failed to immediately share calendar with ${email}:`, err);
+    }
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('project_google_calendars')
-    .update({ extra_invitees: [...current, email] })
+    .update({ extra_invitees: [...current, email], extra_invitees_shared: shared })
     .eq('project_id', projectId)
     .eq('studio_id', studioId);
   if (updateError) {
