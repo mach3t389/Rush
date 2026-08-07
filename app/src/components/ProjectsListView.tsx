@@ -12,7 +12,7 @@ import { getClients, addClient, findClient, subscribeClients } from '../data/cli
 import { getClientExternalTeam, getClientInternalTeam, subscribeClientTeam } from '../data/clientTeamStore';
 import { syncProjectClientAccess } from '../data/projectClientAccessStore';
 import { setSections, getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
-import { setProjectContent } from '../data/projectContentStore';
+import { setProjectContent, type CustomOverviewSection, type CustomSectionValue } from '../data/projectContentStore';
 import { addFolderTree } from '../data/fileStore';
 import { isPinned, togglePin, subscribePinned, isPinnedClient } from '../data/pinnedStore';
 import { loadPersisted, savePersisted } from '../data/persist';
@@ -365,10 +365,26 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
     groupPickedIds.forEach(id => externalAccessClientIds.add(id));
     externalAccessClientIds.forEach(cid => syncProjectClientAccess(projectId, cid, members));
     if (selectedTemplate?.overviewSections?.length || selectedTemplate?.overviewSectionData) {
-      setProjectContent(projectId, {
-        customSections: selectedTemplate.overviewSections,
-        customSectionData: selectedTemplate.overviewSectionData,
+      // Copie profonde (JSON round-trip) — sans ça, le nouveau projet et le
+      // modèle partagent les mêmes tableaux/objets en mémoire tant qu'aucun
+      // des deux n'a été rechargé depuis Supabase/localStorage ; une future
+      // mutation en place sur l'un aurait pu corrompre l'autre. Les ids des
+      // sections personnalisées (non-système) sont aussi régénérés pour que
+      // créer deux projets depuis le même modèle ne leur donne jamais le
+      // même id de section — les modules système (vision/livrables/...)
+      // gardent leur id canonique, reconnu par type plutôt que par unicité.
+      const clonedSections = JSON.parse(JSON.stringify(selectedTemplate.overviewSections ?? [])) as CustomOverviewSection[];
+      const clonedData = JSON.parse(JSON.stringify(selectedTemplate.overviewSectionData ?? {})) as Record<string, CustomSectionValue>;
+      const idMap = new Map<string, string>();
+      const remappedSections = clonedSections.map((s, i) => {
+        if (!s.id.startsWith('sec-')) return s;
+        const newId = `sec-${Date.now()}-${i}`;
+        idMap.set(s.id, newId);
+        return { ...s, id: newId };
       });
+      const remappedData: Record<string, CustomSectionValue> = {};
+      Object.entries(clonedData).forEach(([id, value]) => { remappedData[idMap.get(id) ?? id] = value; });
+      setProjectContent(projectId, { customSections: remappedSections, customSectionData: remappedData });
     }
     onClose();
   };
