@@ -126,7 +126,13 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
         </div>
       )}
 
-      {(kind === 'fields' || kind === 'vision') && (
+      {/* Éditeur de champs — uniquement en modification (initial fourni), jamais
+          à la création : tous les autres kinds (Note, Checklist, Galerie...)
+          se créent vides et se configurent après coup depuis le module lui-même
+          (« ... » → Renommer, qui rouvre ce même formulaire) ; "Champs
+          personnalisés" doit suivre la même règle plutôt que de montrer sa
+          configuration de contenu avant même que le module existe. */}
+      {!!initial && (kind === 'fields' || kind === 'vision') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {fields.map(f => (
             <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
