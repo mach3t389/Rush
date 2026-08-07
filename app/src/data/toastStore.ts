@@ -1,4 +1,4 @@
-export type ToastType = 'task' | 'subtask' | 'section';
+export type ToastType = 'task' | 'subtask' | 'section' | 'bulk';
 
 export type ToastPayload = {
   type: ToastType;
@@ -20,6 +20,7 @@ const DURATIONS: Record<ToastType, number> = {
   subtask: 2500,
   task: 4000,
   section: 5500,
+  bulk: 4000,
 };
 
 export function showToast(payload: ToastPayload) {

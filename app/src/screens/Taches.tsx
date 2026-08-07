@@ -7,7 +7,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getMyTasks, updateMyTask, addMyTask, removeMyTask, subscribeMyTasks, getMyTaskSections, addMyTaskSection, removeMyTaskSection, renameMyTaskSection, isAssignedTask, convertMyTaskToSubtask, convertMySubtasksToTasks, isMyTasksLoading } from '../data/myTaskStore';
 import { SubtaskTargetPicker } from '../components/SubtaskTargetPicker';
 import { isDemoSession, getCurrentUser } from '../data/authStore';
-import { getTeam } from '../data/teamStore';
+import { getTeam, subscribeTeam } from '../data/teamStore';
 import { addWatchers } from '../data/watchers';
 import { getSections, moveTasks, copyTasks, subscribeStore } from '../data/taskStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
@@ -1317,6 +1317,8 @@ export function Taches() {
   // un seul niveau ouvert à la fois, ancré au bouton via getBoundingClientRect.
   const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
   const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
+  const [, forceTeamRerender] = useState(0);
+  useEffect(() => subscribeTeam(() => forceTeamRerender(n => n + 1)), []);
   const teamMembers = getTeam();
 
   type BulkSnapshotEntry = { id: string; assignees: User[]; status: string; statusLabel: string; dueDate: string };
@@ -1343,7 +1345,7 @@ export function Taches() {
     setBulkEditRect(null);
     setMultiSelIds(new Set());
     showToast({
-      type: 'task',
+      type: 'bulk',
       message,
       onUndo: () => snapshot.forEach(s => updateMyTask(s.id, undoPatchFor(s))),
     });

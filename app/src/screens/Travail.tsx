@@ -1665,7 +1665,7 @@ export function Travail() {
     setBulkEditRect(null);
     setMultiSelIds(new Set());
     showToast({
-      type: 'task',
+      type: 'bulk',
       message,
       onUndo: () => snapshot.forEach(s => updateTask(project.id, s.id, undoPatchFor(s))),
     });
