@@ -286,7 +286,7 @@ interface Props {
   projectId: string;
   projectName: string;
   projectColor: string;
-  groupBy: 'category' | 'status';
+  groupBy: 'category' | 'status' | 'assignee';
 }
 
 // ── Board ──────────────────────────────────────────────────────────────────────
@@ -684,12 +684,12 @@ export function TravailBoard({
                         </div>
 
                         {/* Title */}
-                        <p style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 500, lineHeight: 1.45, marginBottom: groupBy === 'status' && task.sectionLabel ? 6 : 10, color: task.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: task.checked ? 'line-through' : 'none' }}>
+                        <p style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 500, lineHeight: 1.45, marginBottom: groupBy !== 'category' && task.sectionLabel ? 6 : 10, color: task.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: task.checked ? 'line-through' : 'none' }}>
                           {task.deliverable && <SFIcon name="package" size={11} color="var(--accent)" />}
                           {task.title}
                         </p>
 
-                        {groupBy === 'status' && task.sectionLabel && (
+                        {groupBy !== 'category' && task.sectionLabel && (
                           <span style={{ display: 'inline-block', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 999, padding: '2px 7px', marginBottom: 8 }}>
                             {task.sectionLabel}
                           </span>

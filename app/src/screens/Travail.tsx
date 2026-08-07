@@ -9,6 +9,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getSections, setSections as setSections_store, subscribeStore, updateTask, moveTask, moveTasks, copyTasks, moveSection, copySection, convertTasksToSubtasks, convertSubtasksToTasks, copySubtasksAsTasks } from '../data/taskStore';
 import { markTaskRead } from '../data/notificationStore';
 import { getCurrentUser } from '../data/authStore';
+import { getTeam, subscribeTeam } from '../data/teamStore';
 import { addWatchers } from '../data/watchers';
 import { useTaskNotifCount } from '../hooks/useNotifs';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -149,6 +150,13 @@ export const STATUS_OPTIONS = [
   { value: 'danger', labelKey: 'tasks.overdue'    },
   { value: 'review', labelKey: 'tasks.inReview'   },
 ];
+
+const GROUP_BY_ICON: Record<'category' | 'status' | 'assignee', string> = {
+  category: 'folder', status: 'flag', assignee: 'user',
+};
+const GROUP_BY_LABEL_KEY: Record<'category' | 'status' | 'assignee', string> = {
+  category: 'board.groupByCategory', status: 'board.groupByStatus', assignee: 'board.groupByAssignee',
+};
 
 
 // ── Task activity cell ────────────────────────────────────────────────────────
@@ -1677,7 +1685,13 @@ export function Travail() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
   const [view, setView] = useSyncedViewState<'list' | 'board'>(`sf_view_travail_${projectId}`, 'list');
-  const [boardGroupBy, setBoardGroupBy] = useSyncedViewState<'category' | 'status'>(`sf_board_groupby_${projectId}`, 'category');
+  const [boardGroupBy, setBoardGroupBy] = useSyncedViewState<'category' | 'status' | 'assignee'>(`sf_board_groupby_${projectId}`, 'category');
+  // Filtre indépendant du regroupement — "voir seulement les tâches de X"
+  // fonctionne peu importe si on organise par catégorie, statut ou assigné.
+  const [filterAssigneeId, setFilterAssigneeId] = useProjectSyncedViewState<string | null>('sf_filter_assignee', projectId ?? '', null);
+  const [, forceTeamRerender] = useState(0);
+  useEffect(() => subscribeTeam(() => forceTeamRerender(n => n + 1)), []);
+  const teamMembers = getTeam();
   const [viewOpen, setViewOpen] = useState(false);
   const [groupByOpen, setGroupByOpen] = useState(false);
   // Par projet — un nouveau projet hérite du dernier réglage utilisé
@@ -1742,7 +1756,8 @@ export function Travail() {
     .filter(s => showCompletedSections || !s.completed)
     .map(s => ({
       ...s,
-      tasks: showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked),
+      tasks: (showCompletedTasks ? s.tasks : s.tasks.filter(t => !t.checked))
+        .filter(t => !filterAssigneeId || t.assignees.some(a => a.id === filterAssigneeId)),
     }));
 
   const anchorTaskId = React.useRef<string | null>(null);
@@ -1943,7 +1958,8 @@ export function Travail() {
 
   const boardSections: SectionData[] = boardGroupBy === 'category'
     ? visibleSections
-    : (() => {
+    : boardGroupBy === 'status'
+    ? (() => {
         // Tag each task with its real category for the card's status-mode
         // label — task.sectionLabel is a different, unrelated field (used
         // only by "Mes tâches"), so it's never populated here otherwise.
@@ -1953,6 +1969,26 @@ export function Travail() {
           tasks: taggedTasks.filter(task => opt.value === '' ? !task.status : task.status === opt.value),
           completed: false,
         }));
+      })()
+    : (() => {
+        // Assignee mode: one column per team member + "Non assigné". A task
+        // with several assignees shows in each of their columns (it really
+        // is on all of their plates) — unlike status, this is a genuine
+        // multi-membership, not corruption (the dedupe-on-load guard only
+        // ever runs against the real, persisted `sections`, never this
+        // derived view, so it can't strip these out).
+        const taggedTasks = visibleSections.flatMap(s => s.tasks.map(task => ({ ...task, sectionLabel: s.label })));
+        const memberCols = teamMembers.map(member => ({
+          label: member.name,
+          tasks: taggedTasks.filter(task => task.assignees.some(a => a.id === member.id)),
+          completed: false,
+        }));
+        const unassignedCol = {
+          label: t('tasks.unassigned'),
+          tasks: taggedTasks.filter(task => task.assignees.length === 0),
+          completed: false,
+        };
+        return [...memberCols, unassignedCol];
       })();
 
   // Column (section) reorder in the board — mirrors handleSectionInsertAt's
@@ -1985,6 +2021,18 @@ export function Travail() {
       handleTaskDrop(task, fromLabel, toLabel, beforeTaskId);
       return;
     }
+    if (boardGroupBy === 'assignee') {
+      // Unlike category/status moves, this is only ever a reassignment, not
+      // a real "position" — dropping onto a specific slot doesn't reorder
+      // anything meaningful (a task's place within a person's column has no
+      // persisted order), so beforeTaskId is intentionally ignored here.
+      const targetMember = teamMembers[toIdx];
+      const patch: Partial<Task> = { assignees: targetMember ? [targetMember] : [] };
+      updateTask(projectId!, task.id, patch);
+      setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.id === task.id ? { ...t, ...patch } : t) })));
+      if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+      return;
+    }
     const targetStatus = STATUS_OPTIONS[toIdx];
     if (!targetStatus) return;
     const patch: Partial<Task> = {
@@ -2007,6 +2055,17 @@ export function Travail() {
       statusLabel: targetStatus.value ? t(targetStatus.labelKey) : '',
       checked: targetStatus.value === 'ok',
     };
+    updateTask(projectId!, task.id, patch);
+    setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(tk => tk.id === task.id ? { ...tk, ...patch } : tk) })));
+    if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+    setDraggedTask(null);
+  };
+
+  // List-view equivalent of the assignee branch above — groups are keyed by
+  // label (member name, or the "Non assigné" label) instead of index.
+  const handleListAssigneeTaskDrop = (task: Task, _fromLabel: string, toLabel: string) => {
+    const targetMember = teamMembers.find(m => m.name === toLabel);
+    const patch: Partial<Task> = { assignees: targetMember ? [targetMember] : [] };
     updateTask(projectId!, task.id, patch);
     setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(tk => tk.id === task.id ? { ...tk, ...patch } : tk) })));
     if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
@@ -2038,8 +2097,8 @@ export function Travail() {
           <button onClick={() => setGroupByOpen(v => !v)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-2)', background: groupByOpen ? 'var(--surface-3)' : 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', fontWeight: 500 }}
           >
-            <SFIcon name={boardGroupBy === 'category' ? 'folder' : 'flag'} size={13} />
-            {boardGroupBy === 'category' ? t('board.groupByCategory') : t('board.groupByStatus')}
+            <SFIcon name={GROUP_BY_ICON[boardGroupBy]} size={13} />
+            {t(GROUP_BY_LABEL_KEY[boardGroupBy])}
             <SFIcon name="chevron-down" size={11} color="var(--text-3)" />
           </button>
           {groupByOpen && (
@@ -2050,6 +2109,7 @@ export function Travail() {
                 {([
                   { key: 'category', icon: 'folder', label: t('board.groupByCategory') },
                   { key: 'status',   icon: 'flag',   label: t('board.groupByStatus')   },
+                  { key: 'assignee', icon: 'user',    label: t('board.groupByAssignee') },
                 ] as const).map(g => (
                   <button key={g.key} onClick={() => { setBoardGroupBy(g.key); setGroupByOpen(false); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: boardGroupBy === g.key ? 'color-mix(in srgb, var(--accent) 10%, var(--surface-3))' : 'transparent', color: boardGroupBy === g.key ? 'var(--accent)' : 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
@@ -2094,6 +2154,26 @@ export function Travail() {
                     </div>
                   </button>
                 ))}
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px 4px' }}>{t('board.filterByAssigneeLabel')}</p>
+                <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                  <button onClick={() => setFilterAssigneeId(null)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: filterAssigneeId === null ? 'color-mix(in srgb, var(--accent) 10%, var(--surface-3))' : 'transparent', color: filterAssigneeId === null ? 'var(--accent)' : 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={e => { if (filterAssigneeId !== null) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { if (filterAssigneeId !== null) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    {t('board.allAssignees')}
+                  </button>
+                  {teamMembers.map(member => (
+                    <button key={member.id} onClick={() => setFilterAssigneeId(filterAssigneeId === member.id ? null : member.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: filterAssigneeId === member.id ? 'color-mix(in srgb, var(--accent) 10%, var(--surface-3))' : 'transparent', color: filterAssigneeId === member.id ? 'var(--accent)' : 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+                      onMouseEnter={e => { if (filterAssigneeId !== member.id) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { if (filterAssigneeId !== member.id) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      {member.name}
+                    </button>
+                  ))}
+                </div>
                 {view === 'list' && (
                   <>
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -2231,7 +2311,7 @@ export function Travail() {
                 draggedTask={draggedTask}
                 onTaskDragStart={task => handleTaskDragStart(task, section.label)}
                 onTaskDragEnd={() => setDraggedTask(null)}
-                onTaskDrop={boardGroupBy === 'category' ? handleTaskDrop : handleListStatusTaskDrop}
+                onTaskDrop={boardGroupBy === 'category' ? handleTaskDrop : boardGroupBy === 'status' ? handleListStatusTaskDrop : handleListAssigneeTaskDrop}
                 onMoveSection={() => setSectionMoveLabel(section.label)}
                 onCopySection={() => setSectionCopyLabel(section.label)}
                 multiSelIds={multiSelIds}
@@ -2239,7 +2319,7 @@ export function Travail() {
                 onMoveTaskRequest={handleMoveTaskRequest}
                 autoOpenAddTask={section.label === autoOpenSectionLabel}
                 visibleColumns={visibleColumns}
-                readOnlyHeader={boardGroupBy === 'status'}
+                readOnlyHeader={boardGroupBy !== 'category'}
               />
               {boardGroupBy === 'category' && <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />}
             </React.Fragment>
