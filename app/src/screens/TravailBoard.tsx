@@ -273,6 +273,10 @@ interface Props {
   onUpdateTask: (taskId: string, patch: Partial<Task>) => void;
   onToggleSectionComplete: (sectionLabel: string) => void;
   onAddTask: (sectionIdx: number, task: Task) => void;
+  // Optional: pasting multi-line text into the inline add-task field creates
+  // one task per line (parity with AddTaskRow in the list view). Falls back
+  // to calling onAddTask once if the caller doesn't provide this.
+  onAddTaskMany?: (sectionIdx: number, tasks: Task[]) => void;
   onMoveTask: (task: Task, fromIdx: number, toIdx: number, beforeTaskId?: string) => void;
   onAddSection: (label: string) => void;
   onDeleteTask: (task: Task) => void;
@@ -299,7 +303,7 @@ interface Props {
 export function TravailBoard({
   sections, selectedTask, multiSelIds, onConvertRequest,
   onSelectTask, onClearSelection, onUpdateTask, onToggleSectionComplete,
-  onAddTask, onMoveTask, onAddSection,
+  onAddTask, onAddTaskMany, onMoveTask, onAddSection,
   onDeleteTask, onDeleteSection, onRenameSection,
   onMoveSection, onCopySection, onReorderSection,
   projectId, projectName, projectColor,
@@ -384,6 +388,21 @@ export function TravailBoard({
     setNewTaskTitle('');
     if (keepOpen) setTimeout(() => newTaskInputRef.current?.focus(), 0);
     else setAddingInSection(null);
+  };
+
+  // Coller un texte multi-lignes (ex. une checklist) crée une tâche par
+  // ligne non vide, au lieu d'une seule tâche au titre truffé de retours à
+  // la ligne — parité avec AddTaskRow en vue Liste.
+  const handleNewTaskPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>, sIdx: number) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length <= 1) return;
+    e.preventDefault();
+    const newTasks = lines.map(buildNewTask);
+    if (onAddTaskMany) onAddTaskMany(sIdx, newTasks);
+    else newTasks.forEach(t => onAddTask(sIdx, t));
+    setNewTaskTitle('');
+    setTimeout(() => newTaskInputRef.current?.focus(), 0);
   };
 
   const commitTaskTitle = (task: Task) => {
@@ -874,6 +893,7 @@ export function TravailBoard({
                         e.stopPropagation();
                       }}
                       onBlur={() => commitNewTask(sIdx, false)}
+                      onPaste={e => handleNewTaskPaste(e, sIdx)}
                       placeholder={t('taskPanel.taskNamePlaceholder')}
                       rows={2}
                       style={{ width: '100%', boxSizing: 'border-box', resize: 'none', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontWeight: 500, lineHeight: 1.45, fontFamily: 'var(--ff-text)' }}

@@ -2376,6 +2376,11 @@ export function Travail() {
             const realIdx = sections.findIndex(s => s.label === label);
             if (realIdx >= 0) handleAddTask(realIdx, task);
           }}
+          onAddTaskMany={(boardIdx, tasks) => {
+            const label = boardSections[boardIdx]?.label;
+            const realIdx = sections.findIndex(s => s.label === label);
+            if (realIdx >= 0) handleAddTasks(realIdx, tasks);
+          }}
           onMoveTask={handleBoardMoveTask}
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
           onDeleteTask={task => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== task.id) })))}
