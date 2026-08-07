@@ -1315,7 +1315,7 @@ export function Taches() {
 
   // Menu bulk « Modifier » — même mécanique qu'en vue projet (Travail.tsx) :
   // un seul niveau ouvert à la fois, ancré au bouton via getBoundingClientRect.
-  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
+  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date' | 'datePicker'>(null);
   const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
   const [, forceTeamRerender] = useState(0);
   useEffect(() => subscribeTeam(() => forceTeamRerender(n => n + 1)), []);
@@ -1351,15 +1351,17 @@ export function Taches() {
     });
   };
 
-  const handleBulkAssign = (user: User) => {
+  const handleBulkAssign = (user: User | null) => {
     const ids = [...multiSelIds];
     const snapshot = captureBulkSnapshot(ids);
     applyBulkPatch(
       ids,
-      { assignees: [user] },
+      { assignees: user ? [user] : [] },
       snapshot,
       s => ({ assignees: s.assignees }),
-      t('board.bulkAssignedToast', { count: ids.length, name: user.name }),
+      user
+        ? t('board.bulkAssignedToast', { count: ids.length, name: user.name })
+        : t('board.bulkUnassignedToast', { count: ids.length }),
     );
   };
 
@@ -1385,6 +1387,18 @@ export function Taches() {
       snapshot,
       s => ({ dueDate: s.dueDate }),
       t('board.bulkDateToast', { count: ids.length, date: fmtTaskDate(date) }),
+    );
+  };
+
+  const handleBulkClearDate = () => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    applyBulkPatch(
+      ids,
+      { dueDate: '', endDate: '', startTime: '', endTime: '' },
+      snapshot,
+      s => ({ dueDate: s.dueDate }),
+      t('board.bulkDateClearedToast', { count: ids.length }),
     );
   };
 
@@ -1806,7 +1820,7 @@ export function Taches() {
               <SFIcon name="pencil" size={13} />
               {t('board.bulkEdit')}
             </button>
-            {bulkEditField && bulkEditField !== 'date' && bulkEditRect && (
+            {bulkEditField && bulkEditField !== 'datePicker' && bulkEditRect && (
               <>
                 <div onClick={() => setBulkEditField(null)} style={{ position: 'fixed', inset: 0, zIndex: 399 }} />
                 <div style={{ position: 'fixed', bottom: window.innerHeight - bulkEditRect.top + 4, left: bulkEditRect.left, zIndex: 400, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 180, maxHeight: 280, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
@@ -1815,16 +1829,25 @@ export function Taches() {
                     {bulkDdItem(() => setBulkEditField('status'), <>{t('board.bulkEditStatus')}</>)}
                     {bulkDdItem(() => setBulkEditField('date'), <>{t('board.bulkEditDate')}</>)}
                   </>}
-                  {bulkEditField === 'assignee' && teamMembers.map(u => bulkDdItem(() => handleBulkAssign(u),
-                    <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} photoUrl={u.photoUrl} />{u.name}</>
-                  ))}
+                  {bulkEditField === 'assignee' && <>
+                    {bulkDdItem(() => handleBulkAssign(null),
+                      <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.noOne')}</>
+                    )}
+                    {teamMembers.map(u => bulkDdItem(() => handleBulkAssign(u),
+                      <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} photoUrl={u.photoUrl} />{u.name}</>
+                    ))}
+                  </>}
                   {bulkEditField === 'status' && STATUS_OPTIONS.map(o => bulkDdItem(() => handleBulkStatus(o),
                     <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>
                   ))}
+                  {bulkEditField === 'date' && <>
+                    {bulkDdItem(handleBulkClearDate, <>{t('board.bulkNoDate')}</>)}
+                    {bulkDdItem(() => setBulkEditField('datePicker'), <>{t('board.bulkPickDate')}</>)}
+                  </>}
                 </div>
               </>
             )}
-            {bulkEditField === 'date' && (
+            {bulkEditField === 'datePicker' && (
               <TaskDatePopover
                 date=""
                 onChange={d => handleBulkDate(d)}

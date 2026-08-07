@@ -250,8 +250,17 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose, defaultProjectId
   const [targetProjectId, setTargetProjectId] = useState(defaultProjectId ?? '');
   const [targetSection, setTargetSection] = useState('');
   const [newSection, setNewSection] = useState('');
+  const selectedProjectRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => subscribeProjects(() => setProjects(getProjects().filter(p => !p.archived))), []);
+
+  // Le projet pré-sélectionné (le projet courant) doit être visible dès
+  // l'ouverture — sans ça il faut défiler la liste pour comprendre ce qui
+  // est déjà choisi, la liste des projets n'étant pas triée pour le mettre
+  // en premier.
+  useEffect(() => {
+    selectedProjectRef.current?.scrollIntoView({ block: 'nearest' });
+  }, []);
 
   const targetSections = targetProjectId ? getSections(targetProjectId) : [];
 
@@ -264,7 +273,7 @@ function BulkMoveModal({ title, mode = 'move', onMove, onClose, defaultProjectId
             <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{t('taskPanel.destinationProject')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
               {projects.map(p => (
-                <button key={p.id} onClick={() => { setTargetProjectId(p.id); setTargetSection(''); }}
+                <button key={p.id} ref={p.id === targetProjectId ? selectedProjectRef : undefined} onClick={() => { setTargetProjectId(p.id); setTargetSection(''); }}
                   style={{ padding: '8px 12px', borderRadius: 9, border: `1px solid ${targetProjectId === p.id ? 'var(--accent)' : 'var(--border)'}`, background: targetProjectId === p.id ? 'rgba(249,255,0,0.07)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontFamily: 'var(--ff-text)', color: targetProjectId === p.id ? 'var(--accent)' : 'var(--text)', fontWeight: targetProjectId === p.id ? 600 : 400 }}
                 >{p.name}</button>
               ))}
@@ -1228,7 +1237,7 @@ function Section({
 
         {/* Delete section */}
         <button
-          onClick={e => { e.stopPropagation(); if (tasks.length > 0) { setConfirmDelete(true); } else { onDelete(); } }}
+          onClick={e => { e.stopPropagation(); if (countedTasks.length > 0) { setConfirmDelete(true); } else { onDelete(); } }}
           title="Supprimer la section"
           style={{ visibility: headerHovered ? 'visible' : 'hidden', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5, flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
@@ -1245,7 +1254,7 @@ function Section({
           seul vestige de cet ancien style. */}
       <SFModal open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t('board.deleteSectionTitle')} width={380}>
         <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 22 }}>
-          {t('board.deleteSectionConfirm', { count: tasks.length, section: label })}
+          {t('board.deleteSectionConfirm', { count: countedTasks.length, section: label })}
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button
@@ -1265,7 +1274,7 @@ function Section({
           onRename={() => { setLabelDraft(label); setEditingLabel(true); }}
           onCopy={onCopySection}
           onMove={onMoveSection}
-          onDelete={() => { if (tasks.length > 0) setConfirmDelete(true); else onDelete(); }}
+          onDelete={() => { if (countedTasks.length > 0) setConfirmDelete(true); else onDelete(); }}
           onClose={() => setCtxPos(null)}
         />
       )}
@@ -1635,7 +1644,7 @@ export function Travail() {
   // Menu bulk « Modifier » (Assigné / Statut / Date) — un seul niveau ouvert
   // à la fois : 'menu' = liste des 3 champs, puis 'assignee'/'status'/'date'
   // = le sous-menu correspondant, ancré au même bouton.
-  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
+  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date' | 'datePicker'>(null);
   const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
 
   type BulkSnapshotEntry = { id: string; assignees: User[]; status: string; statusLabel: string; dueDate: string };
@@ -1671,15 +1680,17 @@ export function Travail() {
     });
   };
 
-  const handleBulkAssign = (user: User) => {
+  const handleBulkAssign = (user: User | null) => {
     const ids = [...multiSelIds];
     const snapshot = captureBulkSnapshot(ids);
     applyBulkPatch(
       ids,
-      { assignees: [user] },
+      { assignees: user ? [user] : [] },
       snapshot,
       s => ({ assignees: s.assignees }),
-      t('board.bulkAssignedToast', { count: ids.length, name: user.name }),
+      user
+        ? t('board.bulkAssignedToast', { count: ids.length, name: user.name })
+        : t('board.bulkUnassignedToast', { count: ids.length }),
     );
   };
 
@@ -1705,6 +1716,18 @@ export function Travail() {
       snapshot,
       s => ({ dueDate: s.dueDate }),
       t('board.bulkDateToast', { count: ids.length, date: fmtTaskDate(date) }),
+    );
+  };
+
+  const handleBulkClearDate = () => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    applyBulkPatch(
+      ids,
+      { dueDate: '', endDate: '', startTime: '', endTime: '' },
+      snapshot,
+      s => ({ dueDate: s.dueDate }),
+      t('board.bulkDateClearedToast', { count: ids.length }),
     );
   };
 
@@ -2322,6 +2345,11 @@ export function Travail() {
       {view === 'board' && (
         <TravailBoard
           sections={boardSections}
+          // sections state is always unfiltered (showCompletedTasks/assignee
+          // filters only apply when deriving visibleSections/boardSections)
+          // — this is what "how many tasks would this delete actually lose"
+          // must count against, not the possibly-filtered column contents.
+          sectionTaskCounts={Object.fromEntries(sections.map(s => [s.label, s.tasks.length]))}
           groupBy={boardGroupBy}
           selectedTask={selectedTask}
           multiSelIds={multiSelIds}
@@ -2499,6 +2527,9 @@ export function Travail() {
             )}
             {bulkEditField === 'assignee' && (
               <InlineDropdown onClose={() => setBulkEditField(null)} anchorRect={bulkEditRect}>
+                {ddItem(() => handleBulkAssign(null),
+                  <><span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed var(--border-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><SFIcon name="user" size={10} color="var(--text-3)" /></span>{t('tasks.noOne')}</>
+                )}
                 {teamMembers.map(u => ddItem(() => handleBulkAssign(u),
                   <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} photoUrl={u.photoUrl} />{u.name}</>
                 ))}
@@ -2512,6 +2543,12 @@ export function Travail() {
               </InlineDropdown>
             )}
             {bulkEditField === 'date' && (
+              <InlineDropdown onClose={() => setBulkEditField(null)} anchorRect={bulkEditRect}>
+                {ddItem(handleBulkClearDate, <>{t('board.bulkNoDate')}</>)}
+                {ddItem(() => setBulkEditField('datePicker'), <>{t('board.bulkPickDate')}</>)}
+              </InlineDropdown>
+            )}
+            {bulkEditField === 'datePicker' && (
               <TaskDatePopover
                 date=""
                 onChange={d => handleBulkDate(d)}
