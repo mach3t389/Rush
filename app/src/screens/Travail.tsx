@@ -1660,6 +1660,7 @@ export function Travail() {
   const [view, setView] = useSyncedViewState<'list' | 'board'>(`sf_view_travail_${projectId}`, 'list');
   const [boardGroupBy, setBoardGroupBy] = useSyncedViewState<'category' | 'status'>(`sf_board_groupby_${projectId}`, 'category');
   const [viewOpen, setViewOpen] = useState(false);
+  const [groupByOpen, setGroupByOpen] = useState(false);
   const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
   const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
   const [visibleColumns, setVisibleColumns] = useSyncedViewState<VisibleColumns>('sf_travail_columns', DEFAULT_VISIBLE_COLUMNS);
@@ -1990,19 +1991,36 @@ export function Travail() {
             </button>
           ))}
         </div>
-        {/* Group-by switcher — same visual pill as the view switcher, applies to both Liste and Tableau */}
-        <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
-          {([
-            { key: 'category', icon: 'folder', label: t('board.groupByCategory') },
-            { key: 'status',   icon: 'flag',   label: t('board.groupByStatus')   },
-          ] as const).map(g => (
-            <button key={g.key} onClick={() => setBoardGroupBy(g.key)} title={g.label}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: boardGroupBy === g.key ? 'var(--surface)' : 'transparent', color: boardGroupBy === g.key ? 'var(--text)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: boardGroupBy === g.key ? 600 : 400, transition: 'all 0.1s', boxShadow: boardGroupBy === g.key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none' }}
-            >
-              <SFIcon name={g.icon} size={13} color={boardGroupBy === g.key ? 'var(--text)' : 'var(--text-3)'} />
-              {g.label}
-            </button>
-          ))}
+        {/* Group-by dropdown — same interaction pattern as the "Vue" dropdown below */}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setGroupByOpen(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-2)', background: groupByOpen ? 'var(--surface-3)' : 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', fontWeight: 500 }}
+          >
+            <SFIcon name={boardGroupBy === 'category' ? 'folder' : 'flag'} size={13} />
+            {boardGroupBy === 'category' ? t('board.groupByCategory') : t('board.groupByStatus')}
+            <SFIcon name="chevron-down" size={11} color="var(--text-3)" />
+          </button>
+          {groupByOpen && (
+            <>
+              <div onClick={() => setGroupByOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: '6px', minWidth: 190, boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
+                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px 4px' }}>{t('board.groupByLabel')}</p>
+                {([
+                  { key: 'category', icon: 'folder', label: t('board.groupByCategory') },
+                  { key: 'status',   icon: 'flag',   label: t('board.groupByStatus')   },
+                ] as const).map(g => (
+                  <button key={g.key} onClick={() => { setBoardGroupBy(g.key); setGroupByOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: boardGroupBy === g.key ? 'color-mix(in srgb, var(--accent) 10%, var(--surface-3))' : 'transparent', color: boardGroupBy === g.key ? 'var(--accent)' : 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={e => { if (boardGroupBy !== g.key) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { if (boardGroupBy !== g.key) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    <SFIcon name={g.icon} size={13} color={boardGroupBy === g.key ? 'var(--accent)' : 'var(--text-3)'} />
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         {/* View settings */}
         <div style={{ position: 'relative' }}>
