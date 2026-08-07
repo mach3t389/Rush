@@ -113,7 +113,12 @@ export async function activateProjectGoogleCalendar(projectId: string, opts?: { 
 // currently granted access to the project, without touching whether the
 // calendar itself is active — used by the "Partager avec le client" button,
 // separate from "Créer le calendrier" (which can skip sharing entirely).
-export async function shareProjectGoogleCalendarNow(projectId: string): Promise<void> {
+// Returns whether at least one share/unshare call to Google actually
+// failed (e.g. the calendar became briefly unreachable) — the endpoint
+// still responds 200/ok in that case (it did what it could and self-heals
+// on retry), so this is how the caller tells a real success apart from a
+// silent partial failure instead of always showing the same confirmation.
+export async function shareProjectGoogleCalendarNow(projectId: string): Promise<{ partialFailure: boolean }> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
   const resp = await fetch('/api/google-calendar-project', {
@@ -122,6 +127,8 @@ export async function shareProjectGoogleCalendarNow(projectId: string): Promise<
     body: JSON.stringify({ action: 'sync-access', studioId, projectId }),
   });
   if (!resp.ok) throw new Error('Failed to share project Google Calendar');
+  const data = await resp.json();
+  return { partialFailure: !!data.partialFailure };
 }
 
 // Adds a manually-entered email to a project calendar's invitee list.

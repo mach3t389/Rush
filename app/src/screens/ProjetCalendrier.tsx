@@ -463,6 +463,7 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [confirmationFailed, setConfirmationFailed] = useState(false);
   const [open, setOpen] = useState(false);
 
   // Both requests fire together rather than the project one waiting on the
@@ -515,6 +516,7 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
     try {
       await activateProjectGoogleCalendar(projectId, { share: false });
       await loadStatus();
+      setConfirmationFailed(false);
       setConfirmation(t('calendar.gcalProjectCreatedConfirmation'));
     } catch (err) {
       console.error('Failed to create project Google Calendar', err);
@@ -526,9 +528,12 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
   const handleShare = async () => {
     setBusy(true);
     try {
-      await shareProjectGoogleCalendarNow(projectId);
+      const { partialFailure } = await shareProjectGoogleCalendarNow(projectId);
       await loadStatus();
-      setConfirmation(t('calendar.gcalProjectActivatedConfirmation'));
+      setConfirmationFailed(partialFailure);
+      setConfirmation(partialFailure
+        ? t('calendar.gcalProjectShareFailedConfirmation')
+        : t('calendar.gcalProjectActivatedConfirmation'));
     } catch (err) {
       console.error('Failed to share project Google Calendar', err);
     } finally {
@@ -581,6 +586,7 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
       await deactivateProjectGoogleCalendar(projectId);
       setActive(false);
       setContacts([]);
+      setConfirmationFailed(false);
       setConfirmation(t('calendar.gcalProjectDeactivatedConfirmation'));
     } catch (err) {
       console.error('Failed to deactivate project Google Calendar', err);
@@ -623,9 +629,9 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
             </div>
 
             {confirmation && (
-              <div style={{ display:'flex', alignItems:'flex-start', gap:6, background:'rgba(52,201,138,0.1)', border:'1px solid rgba(52,201,138,0.3)', borderRadius:8, padding:'6px 8px' }}>
-                <SFIcon name="check" size={12} color="var(--ok)" />
-                <span style={{ fontSize:11, color:'var(--ok)' }}>{confirmation}</span>
+              <div style={{ display:'flex', alignItems:'flex-start', gap:6, background: confirmationFailed ? 'rgba(230,162,60,0.1)' : 'rgba(52,201,138,0.1)', border: `1px solid ${confirmationFailed ? 'rgba(230,162,60,0.3)' : 'rgba(52,201,138,0.3)'}`, borderRadius:8, padding:'6px 8px' }}>
+                <SFIcon name={confirmationFailed ? 'alert-triangle' : 'check'} size={12} color={confirmationFailed ? 'var(--warn)' : 'var(--ok)'} />
+                <span style={{ fontSize:11, color: confirmationFailed ? 'var(--warn)' : 'var(--ok)' }}>{confirmation}</span>
               </div>
             )}
 

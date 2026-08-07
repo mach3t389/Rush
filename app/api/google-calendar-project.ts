@@ -528,6 +528,42 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    // Self-heal a calendar orphaned by a Google account disconnect/reconnect
+    // since this row was last activated. Without this check, every
+    // share/unshare call below silently 404s against a calendar id that no
+    // longer exists under the current token — each failure is caught
+    // per-item and logged, never surfaced, so "Partager" always reports
+    // success while nothing actually reaches Google. (activateHandler
+    // already does this exact check; sync-access never did, which is how a
+    // project's calendar could stay invisible in Google Calendar forever
+    // after a reconnect, with the UI never showing anything wrong.)
+    let calendarId = row.google_calendar_id as string;
+    const reachable = await googleCalendarExists(accessToken, calendarId);
+    if (!reachable) {
+      const { data: project } = await supabaseAdmin
+        .from('projects')
+        .select('name, client_name')
+        .eq('id', projectId)
+        .maybeSingle();
+      const calendarName = project?.client_name ? `${project.client_name} — ${project.name}` : (project?.name as string ?? 'Projet');
+      calendarId = await createGoogleCalendar(accessToken, calendarName);
+      // Fresh calendar, zero existing access — reset both tracking columns
+      // (same reasoning as activateHandler's stale-recreate branch) so the
+      // diff below re-shares everyone from scratch instead of thinking
+      // they're already covered.
+      const { error: healError } = await supabaseAdmin
+        .from('project_google_calendars')
+        .update({ google_calendar_id: calendarId, shared_contact_ids: [], extra_invitees_shared: [] })
+        .eq('project_id', projectId);
+      if (healError) {
+        console.error(`Failed to persist healed calendar id for project ${projectId}:`, healError);
+        res.status(500).json({ error: 'Failed to sync access' });
+        return;
+      }
+      row.shared_contact_ids = [];
+      row.extra_invitees_shared = [];
+    }
+
     const { data: access } = await supabaseAdmin
       .from('project_client_access')
       .select('client_contact_id')
@@ -538,6 +574,12 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
     const toAdd = currentIds.filter(id => !previousIds.includes(id));
     const toRemove = previousIds.filter(id => !currentIds.includes(id));
     const finalIds = new Set(previousIds);
+    // Surfaced in the response so the frontend can show a warning instead
+    // of a blanket success confirmation when a share/unshare actually
+    // failed (e.g. Google briefly unreachable) — previously every failure
+    // here was only console.error'd, so the UI always reported success
+    // regardless of whether anything actually reached Google.
+    let anyFailure = false;
 
     if (toAdd.length > 0 || toRemove.length > 0) {
       const { data: contacts } = await supabaseAdmin
@@ -550,20 +592,22 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
         const email = emailById.get(id);
         if (!email) continue;
         try {
-          await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+          await shareGoogleCalendar(accessToken, calendarId, email);
           finalIds.add(id);
         } catch (err) {
           console.error(`Failed to share calendar with ${email}:`, err);
+          anyFailure = true;
         }
       }
       for (const id of toRemove) {
         const email = emailById.get(id);
         if (!email) continue;
         try {
-          await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+          await unshareGoogleCalendar(accessToken, calendarId, email);
           finalIds.delete(id);
         } catch (err) {
           console.error(`Failed to unshare calendar with ${email}:`, err);
+          anyFailure = true;
         }
       }
     }
@@ -580,18 +624,20 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
 
     for (const email of extraToAdd) {
       try {
-        await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+        await shareGoogleCalendar(accessToken, calendarId, email);
         finalExtraShared.add(email);
       } catch (err) {
         console.error(`Failed to share calendar with ${email}:`, err);
+        anyFailure = true;
       }
     }
     for (const email of extraToRemove) {
       try {
-        await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+        await unshareGoogleCalendar(accessToken, calendarId, email);
         finalExtraShared.delete(email);
       } catch (err) {
         console.error(`Failed to unshare calendar with ${email}:`, err);
+        anyFailure = true;
       }
     }
 
@@ -607,7 +653,7 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, partialFailure: anyFailure });
   } catch (error) {
     console.error('Failed to sync project Google Calendar access:', error);
     res.status(200).json({ ok: false, error: 'sync_failed' });
