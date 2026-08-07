@@ -372,7 +372,7 @@ function SectionOptionsMenu({ open, onToggle, onRename, onDelete }: {
             style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
             <SFIcon name="square-pen" size={12} /> {t('overview.renameSection')}
           </button>
-          <button onClick={onDelete}
+          <button onClick={() => { onToggle(); onDelete(); }}
             style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
             <SFIcon name="trash-2" size={12} /> {t('overview.deleteSection')}
           </button>
@@ -495,15 +495,17 @@ export function TravailOverview() {
     setEditingSectionId(null);
   };
   const handleDeleteSection = async (id: string) => {
-    if (!(await confirmDialog(t('overview.confirmDeleteSection'), { danger: true }))) return;
     const isSystem = SYSTEM_SECTION_IDS.includes(id);
-    setCustomSections(prev => prev.filter(s => s.id !== id));
-    // Un module système (Vision, Livrables client, Factures, Fichiers, Notes
+    // Un module système (Vision, Livrables client, Finance, Fichiers, Notes
     // internes) ne perd jamais son contenu à la suppression — ses données
     // vivent ailleurs (taskStore/financeStore/fileStore) ou, pour Vision,
-    // restent en mémoire pour réapparaître intactes si on le ré-ajoute. Un
-    // module personnalisé, lui, perd bel et bien son contenu : un nouvel ajout
-    // crée toujours un id frais, sans possibilité de retrouver l'ancien.
+    // restent en mémoire pour réapparaître intactes si on le ré-ajoute. Pas
+    // besoin de confirmation pour un retrait sans risque. Un module
+    // personnalisé, lui, perd bel et bien son contenu : un nouvel ajout crée
+    // toujours un id frais, sans possibilité de retrouver l'ancien — la
+    // confirmation reste nécessaire dans ce cas.
+    if (!isSystem && !(await confirmDialog(t('overview.confirmDeleteSection'), { danger: true }))) return;
+    setCustomSections(prev => prev.filter(s => s.id !== id));
     if (!isSystem) {
       setCustomSectionData(prev => { const next = { ...prev }; delete next[id]; return next; });
     }
@@ -1089,7 +1091,7 @@ export function TravailOverview() {
                           ))}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Section :</span>
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Catégorie :</span>
                           {getSections(project.id).map(s => (
                             <button key={s.label} onClick={() => { setNewDlSection(s.label); setNewDlSectionCustom(''); }}
                               style={{ padding: '4px 9px', borderRadius: 7, border: `1px solid ${!newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--border)'}`, background: !newDlSectionCustom && newDlSection === s.label ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', color: !newDlSectionCustom && newDlSection === s.label ? 'var(--accent)' : 'var(--text-3)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
