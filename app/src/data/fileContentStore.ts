@@ -116,7 +116,23 @@ async function callFileStorage(action: string, body: Record<string, unknown>): P
   const { data, error } = await supabase.functions.invoke('file-storage', {
     body: { action, ...body },
   });
-  if (error) throw error;
+  if (error) {
+    // supabase-js's FunctionsHttpError.message is just the generic "Edge
+    // Function returned a non-2xx status code" — the actual reason
+    // (resolveStudioId failing, a missing R2 credential, etc.) is in the
+    // response body the function sent, reachable only via error.context.
+    // Without this, every server-side failure looked identical and gave no
+    // way to tell auth from missing-credentials from anything else.
+    let detail: string | undefined;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === 'function') {
+        const body = await ctx.json();
+        detail = body?.error;
+      }
+    } catch { /* best-effort — fall back to the generic message below */ }
+    throw new Error(detail ? `${action}: ${detail}` : error.message);
+  }
   return data as FileStorageResponse;
 }
 
