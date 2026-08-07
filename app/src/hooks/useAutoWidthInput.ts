@@ -14,7 +14,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 // juste task.title dans le brouillon en ouvrant l'édition), `text` seul ne
 // change pas de valeur d'un render à l'autre et l'effet ne se redéclenche
 // pas, laissant la largeur bloquée à `minPx` jusqu'à la première frappe.
-export function useAutoWidthInput(text: string, active: boolean, extraPx = 40, minPx = 60) {
+export function useAutoWidthInput(text: string, active: boolean, extraPx = 24, minPx = 60) {
   const measureRef = useRef<HTMLSpanElement>(null);
   const [width, setWidth] = useState(minPx);
 
