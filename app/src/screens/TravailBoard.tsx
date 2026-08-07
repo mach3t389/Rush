@@ -212,6 +212,51 @@ function CardContextMenu({ pos, onOpen, onDelete, onConvert, onClose, sections, 
   );
 }
 
+// ── DropSlot ───────────────────────────────────────────────────────────────────
+// Yellow drop indicator between cards (horizontal) or between columns
+// (vertical), same visual language as the list view.
+//
+// CRITICAL — this is ALWAYS rendered, never conditionally on "is a drag in
+// progress". Chrome aborts a native HTML5 drag if the DOM is mutated inside
+// the dragstart handler, and setDragTask()/setDraggedColumnLabel() run
+// exactly there: rendering these slots conditionally inserted a node beside
+// every card the instant a drag began, which silently killed the drag before
+// any dragover/drop could fire. Collapsed to zero size + pointerEvents:none
+// when idle, so it costs nothing visually but keeps the DOM stable.
+//
+// Defined at module scope (not inside TravailBoard) so its component identity
+// is stable across renders — an inline definition remounts the whole subtree
+// on every render, which is the same DOM churn by another route.
+function DropSlot({ vertical, active, enabled, onOver, onLeave, onDropHere }: {
+  vertical?: boolean;
+  active: boolean;
+  enabled: boolean;
+  onOver: () => void;
+  onLeave: () => void;
+  onDropHere: () => void;
+}) {
+  const wrapStyle: React.CSSProperties = vertical
+    // Negative margins cancel one of the flex container's two 16px gaps, so
+    // an idle (zero-width) slot leaves column spacing exactly as it was.
+    ? { position: 'relative', width: active ? 16 : 0, marginLeft: -8, marginRight: -8, flexShrink: 0, alignSelf: 'stretch', transition: 'width 0.12s' }
+    : { position: 'relative', height: active ? 18 : 0, transition: 'height 0.12s' };
+  const lineStyle: React.CSSProperties = vertical
+    ? { position: 'absolute', left: '50%', transform: 'translateX(-50%)', height: '100%', width: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }
+    : { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' };
+  const pad = vertical ? -8 : -6;
+  return (
+    <div style={wrapStyle}>
+      <div
+        onDragOver={e => { if (!enabled) return; e.preventDefault(); e.stopPropagation(); onOver(); }}
+        onDragLeave={() => { if (!enabled) return; onLeave(); }}
+        onDrop={e => { if (!enabled) return; e.preventDefault(); e.stopPropagation(); onDropHere(); }}
+        style={{ position: 'absolute', top: pad, bottom: pad, left: pad, right: pad, zIndex: 1, pointerEvents: enabled ? 'auto' : 'none' }}
+      />
+      {active && <div style={lineStyle} />}
+    </div>
+  );
+}
+
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -267,84 +312,18 @@ export function TravailBoard({
   const [labelDraft, setLabelDraft] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
 
-  // Same-column task reorder — a thin yellow drop-line between cards,
-  // mirroring the list view's DropLine mechanism (Travail.tsx). Keyed by
-  // "sectionIdx-slotIdx" since slots aren't unique across columns.
+  // Same-column task reorder, keyed by "sectionIdx-slotIdx" since slot
+  // indexes aren't unique across columns.
   const [cardDragOverKey, setCardDragOverKey] = useState<string | null>(null);
   const cardDropLeaveTimer = useRef<number | null>(null);
 
-  const CardDropLine = ({ sectionIdx, slotIdx, beforeTaskId }: { sectionIdx: number; slotIdx: number; beforeTaskId: string | null }) => {
-    const key = `${sectionIdx}-${slotIdx}`;
-    return (
-      <div style={{ position: 'relative', height: cardDragOverKey === key ? 18 : 2, transition: 'height 0.12s' }}>
-        <div
-          onDragOver={e => {
-            if (!dragTask || dragTask.sectionIdx !== sectionIdx) return;
-            e.preventDefault(); e.stopPropagation();
-            if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
-            setCardDragOverKey(key);
-          }}
-          onDragLeave={() => {
-            if (!dragTask) return;
-            cardDropLeaveTimer.current = window.setTimeout(() => setCardDragOverKey(null), 80);
-          }}
-          onDrop={e => {
-            if (!dragTask || dragTask.sectionIdx !== sectionIdx) return;
-            e.preventDefault(); e.stopPropagation();
-            if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
-            onMoveTask(dragTask.task, dragTask.sectionIdx, sectionIdx, beforeTaskId ?? undefined);
-            setCardDragOverKey(null);
-            setDragTask(null);
-          }}
-          style={{ position: 'absolute', top: -6, bottom: -6, left: -6, right: -6, zIndex: 1 }}
-        />
-        {cardDragOverKey === key && (
-          <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
-        )}
-      </div>
-    );
-  };
-
-  // Column (section) reorder — same yellow drop-line, vertical strip
-  // between columns. Only wired up when groupBy==='category': status-mode
-  // columns are a fixed enum, there's nothing to persist an order for.
+  // Column (section) reorder. Only wired up when groupBy==='category':
+  // status-mode columns are a fixed enum, there's nothing to persist an
+  // order for.
   const [draggedColumnLabel, setDraggedColumnLabel] = useState<string | null>(null);
   const [columnDragOverLabel, setColumnDragOverLabel] = useState<string | null>(null);
   const columnDropLeaveTimer = useRef<number | null>(null);
   const columnDragHandleActive = useRef(false);
-
-  const ColumnDropLine = ({ beforeLabel }: { beforeLabel: string | null }) => {
-    const key = beforeLabel ?? '__end__';
-    const active = columnDragOverLabel === key;
-    return (
-      <div style={{ position: 'relative', width: active ? 16 : 2, flexShrink: 0, transition: 'width 0.12s', alignSelf: 'stretch' }}>
-        <div
-          onDragOver={e => {
-            if (!draggedColumnLabel) return;
-            e.preventDefault(); e.stopPropagation();
-            if (columnDropLeaveTimer.current) { clearTimeout(columnDropLeaveTimer.current); columnDropLeaveTimer.current = null; }
-            setColumnDragOverLabel(key);
-          }}
-          onDragLeave={() => {
-            if (!draggedColumnLabel) return;
-            columnDropLeaveTimer.current = window.setTimeout(() => setColumnDragOverLabel(null), 80);
-          }}
-          onDrop={e => {
-            if (!draggedColumnLabel) return;
-            e.preventDefault(); e.stopPropagation();
-            if (columnDropLeaveTimer.current) { clearTimeout(columnDropLeaveTimer.current); columnDropLeaveTimer.current = null; }
-            onReorderSection?.(draggedColumnLabel, beforeLabel);
-            setColumnDragOverLabel(null);
-            setDraggedColumnLabel(null);
-          }}
-          style={{ position: 'absolute', top: -8, bottom: -8, left: -8, right: -8, zIndex: 1 }}
-        />
-        {active && (
-          <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', height: '100%', width: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
-        )}
-      </div>
-    );
-  };
 
   useEffect(() => {
     if (editingSectionLabel !== null) labelInputRef.current?.select();
@@ -383,7 +362,22 @@ export function TravailBoard({
       onClick={e => { if (e.target === e.currentTarget) onClearSelection?.(); }}
       style={{ display: 'flex', gap: 16, overflowX: 'auto', overflowY: 'hidden', padding: '20px 24px', alignItems: 'flex-start', flex: 1, boxSizing: 'border-box' }}
     >
-      {groupBy === 'category' && draggedColumnLabel && <ColumnDropLine beforeLabel={sections[0]?.label ?? null} />}
+      <DropSlot
+        vertical
+        active={columnDragOverLabel === (sections[0]?.label ?? '__end__')}
+        enabled={groupBy === 'category' && !!draggedColumnLabel}
+        onOver={() => {
+          if (columnDropLeaveTimer.current) { clearTimeout(columnDropLeaveTimer.current); columnDropLeaveTimer.current = null; }
+          setColumnDragOverLabel(sections[0]?.label ?? '__end__');
+        }}
+        onLeave={() => { columnDropLeaveTimer.current = window.setTimeout(() => setColumnDragOverLabel(null), 80); }}
+        onDropHere={() => {
+          if (columnDropLeaveTimer.current) { clearTimeout(columnDropLeaveTimer.current); columnDropLeaveTimer.current = null; }
+          if (draggedColumnLabel) onReorderSection?.(draggedColumnLabel, sections[0]?.label ?? null);
+          setColumnDragOverLabel(null);
+          setDraggedColumnLabel(null);
+        }}
+      />
       {sections.map((section, sIdx) => {
         const done = section.tasks.filter(t => t.checked || t.status === 'ok').length;
         const total = section.tasks.length;
@@ -577,7 +571,21 @@ export function TravailBoard({
 
                     return (
                       <React.Fragment key={task.id}>
-                      {dragTask && <CardDropLine sectionIdx={sIdx} slotIdx={i} beforeTaskId={task.id} />}
+                      <DropSlot
+                        active={cardDragOverKey === `${sIdx}-${i}`}
+                        enabled={!!dragTask && dragTask.sectionIdx === sIdx}
+                        onOver={() => {
+                          if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
+                          setCardDragOverKey(`${sIdx}-${i}`);
+                        }}
+                        onLeave={() => { cardDropLeaveTimer.current = window.setTimeout(() => setCardDragOverKey(null), 80); }}
+                        onDropHere={() => {
+                          if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
+                          if (dragTask) onMoveTask(dragTask.task, dragTask.sectionIdx, sIdx, task.id);
+                          setCardDragOverKey(null);
+                          setDragTask(null);
+                        }}
+                      />
                       <div
                         draggable
                         onDragStart={e => {
@@ -748,7 +756,21 @@ export function TravailBoard({
                       </React.Fragment>
                     );
                   })}
-                  {dragTask && dragTask.sectionIdx === sIdx && <CardDropLine sectionIdx={sIdx} slotIdx={section.tasks.length} beforeTaskId={null} />}
+                  <DropSlot
+                    active={cardDragOverKey === `${sIdx}-${section.tasks.length}`}
+                    enabled={!!dragTask && dragTask.sectionIdx === sIdx}
+                    onOver={() => {
+                      if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
+                      setCardDragOverKey(`${sIdx}-${section.tasks.length}`);
+                    }}
+                    onLeave={() => { cardDropLeaveTimer.current = window.setTimeout(() => setCardDragOverKey(null), 80); }}
+                    onDropHere={() => {
+                      if (cardDropLeaveTimer.current) { clearTimeout(cardDropLeaveTimer.current); cardDropLeaveTimer.current = null; }
+                      if (dragTask) onMoveTask(dragTask.task, dragTask.sectionIdx, sIdx);
+                      setCardDragOverKey(null);
+                      setDragTask(null);
+                    }}
+                  />
                 </div>
 
                 {/* Add task button */}
@@ -779,9 +801,22 @@ export function TravailBoard({
               </>
             )}
           </div>
-          {groupBy === 'category' && draggedColumnLabel && (
-            <ColumnDropLine beforeLabel={sections[sIdx + 1]?.label ?? null} />
-          )}
+          <DropSlot
+            vertical
+            active={columnDragOverLabel === (sections[sIdx + 1]?.label ?? '__end__')}
+            enabled={groupBy === 'category' && !!draggedColumnLabel}
+            onOver={() => {
+              if (columnDropLeaveTimer.current) { clearTimeout(columnDropLeaveTimer.current); columnDropLeaveTimer.current = null; }
+              setColumnDragOverLabel(sections[sIdx + 1]?.label ?? '__end__');
+            }}
+            onLeave={() => { columnDropLeaveTimer.current = window.setTimeout(() => setColumnDragOverLabel(null), 80); }}
+            onDropHere={() => {
+              if (columnDropLeaveTimer.current) { clearTimeout(columnDropLeaveTimer.current); columnDropLeaveTimer.current = null; }
+              if (draggedColumnLabel) onReorderSection?.(draggedColumnLabel, sections[sIdx + 1]?.label ?? null);
+              setColumnDragOverLabel(null);
+              setDraggedColumnLabel(null);
+            }}
+          />
           </React.Fragment>
         );
       })}
