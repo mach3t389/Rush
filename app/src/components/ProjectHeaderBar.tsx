@@ -250,7 +250,7 @@ export function ProjectHeaderBar({
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
                 >
                   <SFIcon name="arrow-right-left" size={13} color="var(--text-3)" />
-                  {t('projects.moveToClient')}
+                  {project.clientId ? t('projects.editClient') : t('projects.assignClient')}
                 </button>
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <button
@@ -335,7 +335,7 @@ export function ProjectHeaderBar({
 
       {/* Move to another client */}
       {moveClientOpen && (
-        <SFModal open onClose={() => { setMoveClientOpen(false); setMoveClientSearch(''); }} title={t('projects.moveToClient')} width={380} maxHeight="70vh">
+        <SFModal open onClose={() => { setMoveClientOpen(false); setMoveClientSearch(''); }} title={project.clientId ? t('projects.editClient') : t('projects.assignClient')} width={380} maxHeight="70vh">
           <input
             autoFocus
             value={moveClientSearch}

@@ -412,7 +412,7 @@ export function ProjectCard({ p }: { p: Project }) {
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)' }}
                 >
                   <SFIcon name="arrow-right-left" size={13} color="var(--text-3)" />
-                  {t('projects.moveToClient')}
+                  {p.clientId ? t('projects.editClient') : t('projects.assignClient')}
                 </button>
                 {p.archived && !confirmDelete && (
                   <button
@@ -515,7 +515,7 @@ export function ProjectCard({ p }: { p: Project }) {
 
       {/* Move to another client */}
       {moveClientOpen && (
-        <SFModal open onClose={() => { setMoveClientOpen(false); setMoveClientSearch(''); }} title={t('projects.moveToClient')} width={380} maxHeight="70vh">
+        <SFModal open onClose={() => { setMoveClientOpen(false); setMoveClientSearch(''); }} title={p.clientId ? t('projects.editClient') : t('projects.assignClient')} width={380} maxHeight="70vh">
           <input
             autoFocus
             value={moveClientSearch}
