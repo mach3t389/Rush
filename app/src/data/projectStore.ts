@@ -31,7 +31,7 @@ const STORAGE_KEY = 'sf_added_projects';
 const OVERRIDES_KEY = 'sf_project_overrides';
 
 let _added: Project[] = loadPersisted<Project[]>(STORAGE_KEY, []);
-let _overrides: Record<string, ProjectPatch> = loadPersisted<Record<string, ProjectPatch>>(OVERRIDES_KEY, {});
+let _overrides: Record<string, Partial<Project>> = loadPersisted<Record<string, Partial<Project>>>(OVERRIDES_KEY, {});
 const _listeners = new Set<() => void>();
 
 // In-memory only (tab lifetime, not persisted): draft template project id →
@@ -201,26 +201,13 @@ async function addSupabaseProject(p: Project): Promise<void> {
   await fetchSupabaseProjects();
 }
 
-// Widened relative to Project (clientName/clientColor stay non-nullable
-// there — every read site treats a client-less project as "field simply
-// absent", not "field explicitly null") — but the write path needs to
-// distinguish "leave this column alone" (undefined) from "clear it back to
-// null" (explicit null), see toRowPatch()'s guards below. Using Partial<Project>
-// here made that distinction impossible: passing undefined to mean "clear"
-// left the old client's name/color stuck in the database forever after
-// unassigning a client (confirmed bug, see changeProjectClient()).
-type ProjectPatch = Omit<Partial<Project>, 'clientName' | 'clientColor'> & {
-  clientName?: string | null;
-  clientColor?: string | null;
-};
-
 // Maps only the provided fields to their column names — unlike toRow(),
 // this never requires a full Project object, so it can't silently no-op
 // when the local cache hasn't populated yet (e.g. an edit fired right
 // after route entry, before the background fetch resolved) and it can't
 // clobber unrelated columns with a stale cached copy of the rest of the
 // row (the "stale cache upsert clobber" bug this codebase has hit before).
-function toRowPatch(updates: ProjectPatch): Partial<ProjectRow> {
+function toRowPatch(updates: Partial<Project>): Partial<ProjectRow> {
   const patch: Partial<ProjectRow> = {};
   if (updates.name !== undefined) patch.name = updates.name;
   if (updates.clientId !== undefined) patch.client_id = updates.clientId ?? null;
@@ -248,7 +235,7 @@ function toRowPatch(updates: ProjectPatch): Partial<ProjectRow> {
   return patch;
 }
 
-async function updateSupabaseProject(id: string, updates: ProjectPatch): Promise<void> {
+async function updateSupabaseProject(id: string, updates: Partial<Project>): Promise<void> {
   const { error } = await supabase.from('projects').update(toRowPatch(updates)).eq('id', id);
   if (error) {
     console.error('updateSupabaseProject failed', error);
@@ -262,20 +249,9 @@ async function updateSupabaseProject(id: string, updates: ProjectPatch): Promise
 
 function getAllProjectsUnfiltered(): Project[] {
   if (isDemoSession()) {
-    return [...PROJECTS, ..._added].map(p => {
-      const override = _overrides[p.id];
-      if (!override) return p;
-      // Normalize the write-side "explicit null clears it" sentinel back to
-      // undefined at the app-level boundary — matches how a real session's
-      // Supabase read already does it (client_name is null in the DB,
-      // mapped to `undefined` on Project, see toProject() above).
-      return {
-        ...p,
-        ...override,
-        clientName: override.clientName ?? undefined,
-        clientColor: override.clientColor ?? undefined,
-      };
-    });
+    return [...PROJECTS, ..._added].map(p =>
+      _overrides[p.id] ? { ...p, ..._overrides[p.id] } : p
+    );
   }
   ensureSupabaseFetchStarted();
   return _supabaseProjects;
@@ -343,12 +319,12 @@ export function createTemplateDraft(name: string, originTemplateId?: string): Pr
   return addProject(draft).then(() => id);
 }
 
-export function updateProject(id: string, updates: ProjectPatch): void {
+export function updateProject(id: string, updates: Partial<Project>): void {
   // Stamp a real timestamp on every edit — modifiedAt is read as a plain
   // ISO string and formatted live (see utils/timeAgo.ts), so this is what
   // makes the "Il y a Xh" badge actually reflect reality instead of being
   // frozen at whatever value the record was created with.
-  const stamped: ProjectPatch = { ...updates, modifiedAt: new Date().toISOString() };
+  const stamped: Partial<Project> = { ...updates, modifiedAt: new Date().toISOString() };
   // Finance requires a client to bill — never let a write leave the two
   // fields in an inconsistent state (see design doc's Finance ↔ Client rule).
   // Triggers whenever this call explicitly clears clientId (null/empty
@@ -382,15 +358,22 @@ export async function changeProjectClient(
   newClientName?: string,
   newClientColor?: string
 ): Promise<void> {
-  // Explicitly null out clientName/clientColor when unassigning — passing
+  // Explicitly clear clientName/clientColor to '' when unassigning — passing
   // `undefined` here would make toRowPatch() skip those columns entirely
   // (its "only write what's explicitly provided" guard treats undefined as
   // "don't touch"), leaving the old client's name/color stuck in place
   // forever after removal. Confirmed bug: "Rush" project showed "Partager
   // avec Projets personnels" in the calendar share button long after its
   // client was removed, because clientName never actually got cleared.
-  const basePatch: ProjectPatch = newClientId === null
-    ? { clientId: null, clientName: null, clientColor: null }
+  // Empty string, not null: the projects table's client_name/client_color
+  // columns rejected a literal null write (never exercised before this fix,
+  // since the old code always skipped writing them) — confirmed live via a
+  // persistent "modification n'a pas pu être enregistrée" failure the
+  // moment this started actually attempting to write null. '' satisfies
+  // any NOT NULL constraint and reads identically to "no client" everywhere
+  // (every consumer already does `clientName ?? ''`/checks clientId instead).
+  const basePatch: Partial<Project> = newClientId === null
+    ? { clientId: null, clientName: '', clientColor: '' }
     : { clientId: newClientId, clientName: newClientName, clientColor: newClientColor };
 
   if (!project.clientId) {

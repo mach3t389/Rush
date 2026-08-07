@@ -250,12 +250,14 @@ export function removeClient(id: string): void {
   // one of its projects (plus their tasks/files/invoices) — a group cleanup
   // action silently wiping unrelated project work. Projects now survive as
   // ungrouped ("sans groupe"), same state new personal projects already use.
-  // Explicit null, not undefined — updateProject()'s toRowPatch() treats
-  // undefined as "don't touch this column", so it would silently leave the
-  // deleted client's name/color stamped on every detached project forever
-  // (same bug as changeProjectClient's unassign path, see its comment).
+  // Explicit '' (not undefined, not null) — updateProject()'s toRowPatch()
+  // treats undefined as "don't touch this column" (would silently leave the
+  // deleted client's name/color stamped on every detached project forever,
+  // same bug as changeProjectClient's unassign path); null hit a NOT NULL
+  // write failure on the live table (see that same function's comment) —
+  // '' clears it without tripping that constraint.
   getProjects().filter(p => p.clientId === id)
-    .forEach(p => updateProject(p.id, { clientId: null, clientName: null, clientColor: null }));
+    .forEach(p => updateProject(p.id, { clientId: null, clientName: '', clientColor: '' }));
   deleteAllFilesForClient(id);
   // Only remove invoices billed directly to the client (no project) — an
   // invoice tied to a surviving detached project must survive with it.
