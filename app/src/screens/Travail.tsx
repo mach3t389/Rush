@@ -1611,6 +1611,9 @@ export function Travail() {
   const [viewOpen, setViewOpen] = useState(false);
   const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
   const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
+  // Read/written by TaskPanel too (shared across every screen that opens it),
+  // not just here — this toggle just gives it a home in the view-filters menu.
+  const [showCompletedSubtasks, setShowCompletedSubtasks] = useSyncedViewState('sf_showCompletedSubtasks', true);
 
   useEffect(() => {
     if (draggedIdx === null && draggedTask === null) return;
@@ -1908,6 +1911,7 @@ export function Travail() {
                 {[
                   { label: t('board.completedSections'),    key: 'sf_showCompletedSections', value: showCompletedSections, set: setShowCompletedSections },
                   { label: t('board.completedTasksToggle'), key: 'sf_showCompletedTasks',    value: showCompletedTasks,    set: setShowCompletedTasks },
+                  { label: t('board.completedSubtasksToggle'), key: 'sf_showCompletedSubtasks', value: showCompletedSubtasks, set: setShowCompletedSubtasks },
                 ].map(opt => (
                   <button key={opt.key} onClick={() => opt.set(!opt.value)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
