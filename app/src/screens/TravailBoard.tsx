@@ -196,6 +196,7 @@ interface Props {
   projectId: string;
   projectName: string;
   projectColor: string;
+  groupBy: 'category' | 'status';
 }
 
 // ── Board ──────────────────────────────────────────────────────────────────────
@@ -207,6 +208,7 @@ export function TravailBoard({
   onDeleteTask, onDeleteSection, onRenameSection,
   onMoveSection, onCopySection,
   projectId, projectName, projectColor,
+  groupBy,
 }: Props) {
   const { t } = useTranslation();
   const [dragTask, setDragTask] = useState<{ task: Task; sectionIdx: number } | null>(null);
@@ -316,21 +318,23 @@ export function TravailBoard({
                 style={{ padding: '12px 14px 10px', flexShrink: 0 }}
                 onMouseEnter={() => setHoveredHeader(section.label)}
                 onMouseLeave={() => { setHoveredHeader(null); setConfirmDeleteSection(null); }}
-                onContextMenu={e => { e.preventDefault(); setSectionCtxMenu({ label: section.label, x: e.clientX, y: e.clientY }); }}
+                onContextMenu={e => { if (groupBy !== 'category') return; e.preventDefault(); setSectionCtxMenu({ label: section.label, x: e.clientX, y: e.clientY }); }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
                   {/* Section complete toggle */}
-                  <button
-                    onClick={() => onToggleSectionComplete(section.label)}
-                    title={section.completed ? t('board.markSectionIncomplete') : t('board.markSectionComplete')}
-                    style={{ width: 14, height: 14, borderRadius: '50%', background: section.completed ? 'var(--ok)' : 'transparent', border: `1.5px solid ${section.completed ? 'var(--ok)' : 'var(--border-2)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, transition: 'all 0.15s' }}
-                    onMouseEnter={e => { if (!section.completed) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ok)'; } }}
-                    onMouseLeave={e => { if (!section.completed) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; } }}
-                  >
-                    {section.completed && <SFIcon name="check" size={8} color="#fff" />}
-                  </button>
+                  {groupBy === 'category' && (
+                    <button
+                      onClick={() => onToggleSectionComplete(section.label)}
+                      title={section.completed ? t('board.markSectionIncomplete') : t('board.markSectionComplete')}
+                      style={{ width: 14, height: 14, borderRadius: '50%', background: section.completed ? 'var(--ok)' : 'transparent', border: `1.5px solid ${section.completed ? 'var(--ok)' : 'var(--border-2)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, transition: 'all 0.15s' }}
+                      onMouseEnter={e => { if (!section.completed) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ok)'; } }}
+                      onMouseLeave={e => { if (!section.completed) { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2)'; } }}
+                    >
+                      {section.completed && <SFIcon name="check" size={8} color="#fff" />}
+                    </button>
+                  )}
 
-                  {editingSectionLabel === section.label ? (
+                  {groupBy === 'category' && editingSectionLabel === section.label ? (
                     <input
                       ref={labelInputRef}
                       value={labelDraft}
@@ -348,11 +352,15 @@ export function TravailBoard({
                         width: `${Math.max(2, labelDraft.length + 1)}ch`, maxWidth: 180, fontFamily: 'var(--ff-text)',
                       }}
                     />
-                  ) : (
+                  ) : groupBy === 'category' ? (
                     <span
                       onClick={e => { e.stopPropagation(); setLabelDraft(section.label); setEditingSectionLabel(section.label); }}
                       style={{ fontWeight: 600, fontSize: 13, flex: 1, color: section.completed ? 'var(--text-3)' : 'var(--text)', textDecoration: section.completed ? 'line-through' : 'none', cursor: 'text' }}
                     >
+                      {section.label}
+                    </span>
+                  ) : (
+                    <span style={{ fontWeight: 600, fontSize: 13, flex: 1, color: 'var(--text)' }}>
                       {section.label}
                     </span>
                   )}
@@ -379,15 +387,17 @@ export function TravailBoard({
                           >
                             <SFIcon name="chevron-left" size={11} />
                           </button>
-                          <button
-                            onClick={() => { if (total > 0) setConfirmDeleteSection(section.label); else onDeleteSection(section.label); }}
-                            title={t('board.deleteSection')}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5 }}
-                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
-                          >
-                            <SFIcon name="trash-2" size={11} />
-                          </button>
+                          {groupBy === 'category' && (
+                            <button
+                              onClick={() => { if (total > 0) setConfirmDeleteSection(section.label); else onDeleteSection(section.label); }}
+                              title={t('board.deleteSection')}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5 }}
+                              onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
+                            >
+                              <SFIcon name="trash-2" size={11} />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -511,9 +521,15 @@ export function TravailBoard({
                         </div>
 
                         {/* Title */}
-                        <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.45, marginBottom: 10, color: task.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: task.checked ? 'line-through' : 'none' }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.45, marginBottom: groupBy === 'status' && task.sectionLabel ? 6 : 10, color: task.checked ? 'var(--text-3)' : 'var(--text)', textDecoration: task.checked ? 'line-through' : 'none' }}>
                           {task.title}
                         </p>
+
+                        {groupBy === 'status' && task.sectionLabel && (
+                          <span style={{ display: 'inline-block', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', background: 'var(--surface-3)', borderRadius: 999, padding: '2px 7px', marginBottom: 8 }}>
+                            {task.sectionLabel}
+                          </span>
+                        )}
 
                         {/* Footer: status + meta + assignee */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
@@ -581,6 +597,7 @@ export function TravailBoard({
                 </div>
 
                 {/* Add task button */}
+                {groupBy === 'category' && (
                 <button
                   onClick={() => {
                     const newTask: Task = {
@@ -603,6 +620,7 @@ export function TravailBoard({
                   <SFIcon name="plus" size={13} />
                   {t('board.addTask')}
                 </button>
+                )}
               </>
             )}
           </div>
@@ -610,7 +628,7 @@ export function TravailBoard({
       })}
 
       {/* New section */}
-      {addingSection ? (
+      {groupBy === 'category' && (addingSection ? (
         <div style={{ width: 240, flexShrink: 0, borderRadius: 'var(--radius)', border: '1px solid var(--accent)', background: 'var(--surface)', padding: 10, alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input
             autoFocus
@@ -642,7 +660,7 @@ export function TravailBoard({
           <SFIcon name="plus" size={14} />
           {t('board.newSection')}
         </button>
-      )}
+      ))}
 
       {/* Context menu */}
       {ctxMenu && (

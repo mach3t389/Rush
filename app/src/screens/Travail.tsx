@@ -73,24 +73,37 @@ export function ddItem(onClick: () => void, children: React.ReactNode, active?: 
 
 // ── Column header ──────────────────────────────────────────────────────────────
 
-const GRID = '28px 1fr 65px 120px 75px 95px 85px 24px';
+export type VisibleColumns = { activity: boolean; assignee: boolean; priority: boolean; status: boolean; date: boolean };
+export const DEFAULT_VISIBLE_COLUMNS: VisibleColumns = { activity: true, assignee: true, priority: true, status: true, date: true };
+
+function buildGrid(vc: VisibleColumns): string {
+  return [
+    '28px', '1fr',
+    vc.activity ? '65px' : null,
+    vc.assignee ? '120px' : null,
+    vc.priority ? '75px' : null,
+    vc.status ? '95px' : null,
+    vc.date ? '85px' : null,
+    '24px',
+  ].filter(Boolean).join(' ');
+}
 
 const COL_STYLE: React.CSSProperties = {
   fontFamily: 'var(--ff-mono)', fontSize: 10,
   color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase',
 };
 
-function ColHeader() {
+function ColHeader({ visibleColumns }: { visibleColumns: VisibleColumns }) {
   const { t } = useTranslation();
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: buildGrid(visibleColumns), alignItems: 'center', gap: 12, padding: '8px 16px 6px', borderBottom: '1px solid var(--border)' }}>
       <span />
       <span style={COL_STYLE}>{t('tasks.title')}</span>
-      <span style={COL_STYLE}>{t('tasks.activity')}</span>
-      <span style={COL_STYLE}>{t('tasks.assignedTo')}</span>
-      <span style={COL_STYLE}>{t('tasks.priority')}</span>
-      <span style={COL_STYLE}>{t('tasks.status')}</span>
-      <span style={COL_STYLE}>{t('tasks.date')}</span>
+      {visibleColumns.activity && <span style={COL_STYLE}>{t('tasks.activity')}</span>}
+      {visibleColumns.assignee && <span style={COL_STYLE}>{t('tasks.assignedTo')}</span>}
+      {visibleColumns.priority && <span style={COL_STYLE}>{t('tasks.priority')}</span>}
+      {visibleColumns.status && <span style={COL_STYLE}>{t('tasks.status')}</span>}
+      {visibleColumns.date && <span style={COL_STYLE}>{t('tasks.date')}</span>}
       <span />
     </div>
   );
@@ -371,6 +384,7 @@ function TaskRow({
   onDelete,
   onConvertRequest,
   onMoveRequest,
+  visibleColumns,
 }: {
   task: Task;
   selected: boolean;
@@ -383,6 +397,7 @@ function TaskRow({
   // Ouvre le sélecteur projet+section du parent, qui décide seul si l'action
   // porte sur cette tâche ou sur toute la multi-sélection.
   onMoveRequest?: (task: Task) => void;
+  visibleColumns: VisibleColumns;
 }) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(task.checked);
@@ -459,7 +474,7 @@ function TaskRow({
       onDragEnd={() => { dragHandleActive.current = false; onTaskDragEnd?.(); }}
       style={{
         display: 'grid',
-        gridTemplateColumns: GRID,
+        gridTemplateColumns: buildGrid(visibleColumns),
         alignItems: 'center',
         gap: 12,
         padding: '8px 16px',
@@ -584,12 +599,15 @@ function TaskRow({
       </div>
 
       {/* Activité */}
+      {visibleColumns.activity && (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <TaskActivityCell taskId={task.id} />
         <CommentBadge taskId={task.id} comments={task.comments} />
       </div>
+      )}
 
       {/* Assignés */}
+      {visibleColumns.assignee && (
       <AssigneeGroup
         assignees={assignees}
         showNames
@@ -598,8 +616,10 @@ function TaskRow({
           if (rowProjectId) updateTask(rowProjectId, task.id, { assignees: next });
         }}
       />
+      )}
 
       {/* Priority — inline dropdown */}
+      {visibleColumns.priority && (
       <div style={{ position: 'relative' }}>
         <button
           onClick={e => openDrop('priority', e)}
@@ -618,8 +638,10 @@ function TaskRow({
           </InlineDropdown>
         )}
       </div>
+      )}
 
       {/* Status — inline dropdown */}
+      {visibleColumns.status && (
       <div style={{ position: 'relative' }}>
         <button
           onClick={e => openDrop('status', e)}
@@ -640,8 +662,10 @@ function TaskRow({
           </InlineDropdown>
         )}
       </div>
+      )}
 
       {/* Date — date + time picker */}
+      {visibleColumns.date && (
       <div style={{ position: 'relative' }}>
         <button
           onClick={e => openDrop('dueDate', e)}
@@ -665,6 +689,7 @@ function TaskRow({
           />
         )}
       </div>
+      )}
 
       {/* Delete button — visible on hover */}
       <button
@@ -693,13 +718,14 @@ function TaskRow({
 
 // ── Add task row ───────────────────────────────────────────────────────────────
 
-function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, autoOpen }: {
+function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, autoOpen, visibleColumns }: {
   projectId: string;
   projectName: string;
   projectColor: string;
   onAdd: (task: Task) => void;
   onAddMany: (tasks: Task[]) => void;
   autoOpen?: boolean;
+  visibleColumns: VisibleColumns;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(!!autoOpen);
@@ -802,7 +828,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, au
 
   return (
     <div style={{ background: 'rgba(249,255,0,0.03)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: buildGrid(visibleColumns), alignItems: 'center', gap: 12, padding: '8px 16px', minHeight: 44 }}>
 
         {/* Checkbox placeholder */}
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-2)', flexShrink: 0 }} />
@@ -824,12 +850,13 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, au
           }}
         />
 
-        <span />{/* Activité */}
+        {visibleColumns.activity && <span />}{/* Activité */}
 
         {/* Assignés */}
-        <AssigneeGroup assignees={assignees} showNames onChange={setAssignees} />
+        {visibleColumns.assignee && <AssigneeGroup assignees={assignees} showNames onChange={setAssignees} />}
 
         {/* Priority — custom dropdown */}
+        {visibleColumns.priority && (
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('priority', e)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -846,8 +873,10 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, au
             </InlineDropdown>
           )}
         </div>
+        )}
 
         {/* Status — custom dropdown */}
+        {visibleColumns.status && (
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('status', e)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -866,8 +895,10 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, au
             </InlineDropdown>
           )}
         </div>
+        )}
 
         {/* Date — custom dropdown */}
+        {visibleColumns.date && (
         <div style={{ position: 'relative' }}>
           <button onMouseDown={e => e.preventDefault()} onClick={e => openAddDrop('dueDate', e)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
@@ -883,6 +914,7 @@ function AddTaskRow({ projectId, projectName, projectColor, onAdd, onAddMany, au
             />
           )}
         </div>
+        )}
 
         {/* Cancel only — X deletes the row */}
         <button
@@ -927,6 +959,7 @@ function Section({
   draggedTask, onTaskDragStart, onTaskDrop, onTaskDragEnd, onConvertRequest,
   onMoveTaskRequest,
   autoOpenAddTask,
+  visibleColumns,
 }: {
   label: string;
   tasks: Task[];
@@ -960,6 +993,7 @@ function Section({
   // task row ready to type, instead of leaving the user to click "+
   // Ajouter une tâche" themselves right after.
   autoOpenAddTask?: boolean;
+  visibleColumns: VisibleColumns;
 }) {
   const { t } = useTranslation();
   const countedTasks = allTasks ?? tasks;
@@ -1224,7 +1258,7 @@ function Section({
 
       {!collapsed && (
         <>
-          <ColHeader />
+          <ColHeader visibleColumns={visibleColumns} />
           <DropLine idx={0} />
           {tasks.map((task, i) => (
             <React.Fragment key={task.id}>
@@ -1238,11 +1272,12 @@ function Section({
                 onDelete={() => onDeleteTask(task.id)}
                 onConvertRequest={onConvertRequest}
                 onMoveRequest={onMoveTaskRequest}
+                visibleColumns={visibleColumns}
               />
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} />
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} visibleColumns={visibleColumns} />
         </>
       )}
     </div>
@@ -1607,10 +1642,12 @@ export function Travail() {
   const pointerYRef = useRef(0);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromSectionLabel: string } | null>(null);
-  const [view, setView] = useSyncedViewState<'list' | 'board'>('sf_view_travail', 'list');
+  const [view, setView] = useSyncedViewState<'list' | 'board'>(`sf_view_travail_${projectId}`, 'list');
+  const [boardGroupBy, setBoardGroupBy] = useSyncedViewState<'category' | 'status'>(`sf_board_groupby_${projectId}`, 'category');
   const [viewOpen, setViewOpen] = useState(false);
   const [showCompletedSections, setShowCompletedSections] = useSyncedViewState('sf_showCompletedSections', true);
   const [showCompletedTasks, setShowCompletedTasks] = useSyncedViewState('sf_showCompletedTasks', true);
+  const [visibleColumns, setVisibleColumns] = useSyncedViewState<VisibleColumns>('sf_travail_columns', DEFAULT_VISIBLE_COLUMNS);
   // Read/written by TaskPanel too (shared across every screen that opens it),
   // not just here — this toggle just gives it a home in the view-filters menu.
   const [showCompletedSubtasks, setShowCompletedSubtasks] = useSyncedViewState('sf_showCompletedSubtasks', true);
@@ -1874,6 +1911,34 @@ export function Travail() {
     setDraggedIdx(null);
   };
 
+  const boardSections: SectionData[] = boardGroupBy === 'category'
+    ? visibleSections
+    : (() => {
+        // Tag each task with its real category for the card's status-mode
+        // label — task.sectionLabel is a different, unrelated field (used
+        // only by "Mes tâches"), so it's never populated here otherwise.
+        const taggedTasks = visibleSections.flatMap(s => s.tasks.map(task => ({ ...task, sectionLabel: s.label })));
+        return STATUS_OPTIONS.map(opt => ({
+          label: t(opt.labelKey),
+          tasks: taggedTasks.filter(task => opt.value === '' ? !task.status : task.status === opt.value),
+          completed: false,
+        }));
+      })();
+
+  const handleBoardMoveTask = (task: Task, fromIdx: number, toIdx: number) => {
+    if (boardGroupBy === 'category') { handleMoveTask(task, fromIdx, toIdx); return; }
+    const targetStatus = STATUS_OPTIONS[toIdx];
+    if (!targetStatus) return;
+    const patch: Partial<Task> = {
+      status: targetStatus.value as Task['status'],
+      statusLabel: targetStatus.value ? t(targetStatus.labelKey) : '',
+      checked: targetStatus.value === 'ok',
+    };
+    updateTask(projectId!, task.id, patch);
+    setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.map(t => t.id === task.id ? { ...t, ...patch } : t) })));
+    if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, ...patch } : prev);
+  };
+
   return (
     <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1894,6 +1959,23 @@ export function Travail() {
             </button>
           ))}
         </div>
+        {view === 'board' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-3)' }}>
+            <span style={{ fontFamily: 'var(--ff-mono)' }}>{t('board.groupByLabel')}</span>
+            <div style={{ display: 'flex', gap: 1, background: 'var(--surface-2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)' }}>
+              {([
+                { key: 'category', label: t('board.groupByCategory') },
+                { key: 'status',   label: t('board.groupByStatus')   },
+              ] as const).map(g => (
+                <button key={g.key} onClick={() => setBoardGroupBy(g.key)}
+                  style={{ padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: boardGroupBy === g.key ? 'var(--surface)' : 'transparent', color: boardGroupBy === g.key ? 'var(--text)' : 'var(--text-3)', fontSize: 11, fontFamily: 'var(--ff-text)', fontWeight: boardGroupBy === g.key ? 600 : 400 }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* View settings */}
         <div style={{ position: 'relative' }}>
           <button onClick={() => setViewOpen(v => !v)}
@@ -1924,6 +2006,30 @@ export function Travail() {
                     </div>
                   </button>
                 ))}
+                {view === 'list' && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px 4px' }}>{t('board.columnsLabel')}</p>
+                    {([
+                      { key: 'status',   label: t('board.columnStatus')   },
+                      { key: 'priority', label: t('board.columnPriority') },
+                      { key: 'assignee', label: t('board.columnAssignee') },
+                      { key: 'activity', label: t('board.columnActivity') },
+                      { key: 'date',     label: t('board.columnDate')     },
+                    ] as const).map(col => (
+                      <button key={col.key} onClick={() => setVisibleColumns(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 10px', borderRadius: 9, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)', cursor: 'pointer', textAlign: 'left' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span>{col.label}</span>
+                        <div style={{ width: 36, height: 20, borderRadius: 999, flexShrink: 0, background: visibleColumns[col.key] ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', transition: 'background 0.15s' }}>
+                          <div style={{ position: 'absolute', top: 3, left: visibleColumns[col.key] ? 18 : 3, width: 14, height: 14, borderRadius: '50%', background: visibleColumns[col.key] ? 'var(--on-accent)' : 'var(--text-3)', transition: 'left 0.15s' }} />
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', padding: '4px 10px 2px', letterSpacing: '0.06em' }}>{t('board.prefsAutoSaved')}</p>
               </div>
@@ -1978,7 +2084,8 @@ export function Travail() {
       {/* Board view */}
       {view === 'board' && (
         <TravailBoard
-          sections={visibleSections}
+          sections={boardSections}
+          groupBy={boardGroupBy}
           selectedTask={selectedTask}
           multiSelIds={multiSelIds}
           onConvertRequest={handleConvertRequest}
@@ -1991,7 +2098,7 @@ export function Travail() {
           }}
           onToggleSectionComplete={label => setSections(prev => prev.map(s => s.label === label ? { ...s, completed: !s.completed } : s))}
           onAddTask={handleAddTask}
-          onMoveTask={handleMoveTask}
+          onMoveTask={handleBoardMoveTask}
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
           onDeleteTask={task => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== task.id) })))}
           onDeleteSection={label => setSections(prev => prev.filter(s => s.label !== label))}
@@ -2042,6 +2149,7 @@ export function Travail() {
                 onConvertRequest={handleConvertRequest}
                 onMoveTaskRequest={handleMoveTaskRequest}
                 autoOpenAddTask={section.label === autoOpenSectionLabel}
+                visibleColumns={visibleColumns}
               />
               <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
             </React.Fragment>
