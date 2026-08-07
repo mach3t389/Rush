@@ -560,7 +560,14 @@ export function TravailBoard({
                 {/* Cards */}
                 <div
                   onClick={e => { if (e.target === e.currentTarget) onClearSelection?.(); }}
-                  style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 0' }}
+                  // overflowX must be explicit: CSS forces a "visible" axis
+                  // to "auto" once the other axis is non-visible, so
+                  // overflowY: 'auto' alone silently turns overflow-x on
+                  // too. The card drop-slots' ±14px hit-zone bleed then
+                  // pokes past the column width, and that auto-x-scroll
+                  // turned it into a real horizontal scrollbar cutting off
+                  // card content — never intended to scroll sideways.
+                  style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 8px 0' }}
                 >
                   {section.tasks.length === 0 && (
                     <div style={{ padding: '20px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--text-3)' }}>
