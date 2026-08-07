@@ -791,7 +791,12 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
         const project = getProjects().find(p => p.id === projectId);
         return (
           <ProjectHeaderBar projectId={projectId ?? ''}>
-            {project?.clientId && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName ?? ''} />}
+            {/* Plus besoin d'un client sur le projet — connecter son propre
+                calendrier Google personnel (créer, sans forcément partager)
+                a du sens même pour un projet perso, sans lien avec la
+                présence d'un client. Le bouton "Partager" gère déjà le cas
+                zéro contact tout seul (voir gcalProjectNoContacts). */}
+            {project && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName ?? ''} />}
           </ProjectHeaderBar>
         );
       })()}
