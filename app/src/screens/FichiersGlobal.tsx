@@ -449,6 +449,12 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  // Real sessions: getFileContent() kicks off an async signed-URL fetch and
+  // returns null on the first call — without subscribing here, this modal
+  // never re-renders once that fetch resolves, so the preview stayed stuck
+  // on "Aucun contenu disponible" even after the URL became available.
+  const [, forceUrlRerender] = useState(0);
+  useEffect(() => subscribeUploadStatus(() => forceUrlRerender(n => n + 1)), []);
   const url = getFileContent(file.id);
   const icon = PREVIEW_ICONS[file.type] ?? 'file';
 
