@@ -358,22 +358,30 @@ export async function changeProjectClient(
   newClientName?: string,
   newClientColor?: string
 ): Promise<void> {
-  // Explicitly clear clientName/clientColor to '' when unassigning — passing
-  // `undefined` here would make toRowPatch() skip those columns entirely
-  // (its "only write what's explicitly provided" guard treats undefined as
-  // "don't touch"), leaving the old client's name/color stuck in place
-  // forever after removal. Confirmed bug: "Rush" project showed "Partager
-  // avec Projets personnels" in the calendar share button long after its
-  // client was removed, because clientName never actually got cleared.
-  // Empty string, not null: the projects table's client_name/client_color
-  // columns rejected a literal null write (never exercised before this fix,
-  // since the old code always skipped writing them) — confirmed live via a
-  // persistent "modification n'a pas pu être enregistrée" failure the
-  // moment this started actually attempting to write null. '' satisfies
-  // any NOT NULL constraint and reads identically to "no client" everywhere
-  // (every consumer already does `clientName ?? ''`/checks clientId instead).
+  // Explicitly clear clientName to '' when unassigning — passing `undefined`
+  // here would make toRowPatch() skip the column entirely (its "only write
+  // what's explicitly provided" guard treats undefined as "don't touch"),
+  // leaving the old client's name stuck in place forever after removal.
+  // Confirmed bug: "Rush" project showed "Partager avec Projets personnels"
+  // in the calendar share button long after its client was removed, because
+  // clientName never actually got cleared. Empty string, not null: the
+  // projects table's client_name column rejected a literal null write
+  // (never exercised before this fix, since the old code always skipped
+  // writing it) — confirmed live via a persistent "modification n'a pas pu
+  // être enregistrée" failure the moment this started actually attempting
+  // to write null.
+  //
+  // clientColor is deliberately NOT cleared here (undefined = untouched):
+  // it doubles as the project's own display color (the sidebar/breadcrumb
+  // dot — see Sidebar.tsx's `p.clientColor ?? 'var(--text-3)'`), picked
+  // independently of any client via NewProjectModal's color swatches, not
+  // something that belongs to "the client" and should vanish with it.
+  // Clearing it (confirmed live) made every unassigned project's dot go
+  // blank instead of falling back to the neutral gray, because '' isn't
+  // nullish — `'' ?? 'var(--text-3)'` still evaluates to '', not the
+  // fallback — so the dot rendered with an empty, invisible background.
   const basePatch: Partial<Project> = newClientId === null
-    ? { clientId: null, clientName: '', clientColor: '' }
+    ? { clientId: null, clientName: '' }
     : { clientId: newClientId, clientName: newClientName, clientColor: newClientColor };
 
   if (!project.clientId) {
