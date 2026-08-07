@@ -19,6 +19,7 @@ import { WatchersRow } from './WatchersRow';
 import { addWatcher } from '../data/watchers';
 import { markTaskViewed } from '../data/taskCommentReadsStore';
 import { TaskDescriptionEditor } from './TaskDescriptionEditor';
+import { useAutoWidthInput } from '../hooks/useAutoWidthInput';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -220,6 +221,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
   const { t } = useTranslation();
   const [editing, setEditing] = useState(sub.title === '');
   const [editTitle, setEditTitle] = useState(sub.title);
+  const { measureRef: editTitleMeasureRef, width: editTitleWidth } = useAutoWidthInput(editTitle, editing, 24, 90);
   const [hovered, setHovered] = useState(false);
   // Optimistic local checkbox state, same delayed-commit + undo pattern as
   // a regular task row — keeping it here (rather than a plain onToggle
@@ -301,6 +303,11 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
           hugs the text, triple-click selects all, Escape discards, blur
           only commits a non-empty change. */}
       {editing ? (
+        <>
+        {/* Mesureur caché — même police que l'input, sert à calculer sa largeur réelle */}
+        <span ref={editTitleMeasureRef} style={{ gridColumn: '2 / 4', position: 'fixed', top: -9999, left: -9999, visibility: 'hidden', whiteSpace: 'pre', fontSize: 12, fontFamily: 'var(--ff-text)' }}>
+          {editTitle || t('tasks.newSubtask')}
+        </span>
         <input ref={editTitleRef} autoFocus value={editTitle}
           onChange={e => setEditTitle(e.target.value)}
           onBlur={() => {
@@ -338,8 +345,9 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             onPasteMultiple(lines);
           }}
           placeholder={t('tasks.newSubtask')}
-          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'content-box', width: `${Math.max(editTitle ? 2 : t('tasks.newSubtask').length + 2, editTitle.length + 1)}ch`, maxWidth: '100%' }}
+          style={{ gridColumn: '2 / 4', justifySelf: 'start', fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface-3)', color: 'var(--text)', outline: 'none', fontFamily: 'var(--ff-text)', boxSizing: 'border-box', width: `${editTitleWidth}px`, maxWidth: '100%' }}
         />
+        </>
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
           onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
