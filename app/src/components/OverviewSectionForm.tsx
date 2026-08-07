@@ -100,7 +100,13 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16 }}>
+    // Contenu scrollable séparé du footer Annuler/Enregistrer, qui doit rester
+    // ancré en bas de la modale même quand la liste de types (ou l'éditeur de
+    // champs) dépasse la hauteur visible — voir les deux appelants dans
+    // TravailOverview.tsx, dont le conteneur passe désormais overflow:hidden +
+    // flex column pour que ce flex:1 ci-dessous fasse effectivement défiler.
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
       <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('overview.sectionTitlePlaceholder')} style={inputStyle} autoFocus />
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -181,15 +187,16 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
           )}
         </>
       )}
+    </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button onClick={onCancel} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
-          {t('overview.sectionEditorCancel')}
-        </button>
-        <SFButton variant="primary" size="sm" icon="check" disabled={!canSave} onClick={handleSave}>
-          {t('overview.sectionEditorSave')}
-        </SFButton>
-      </div>
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+      <button onClick={onCancel} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>
+        {t('overview.sectionEditorCancel')}
+      </button>
+      <SFButton variant="primary" size="sm" icon="check" disabled={!canSave} onClick={handleSave}>
+        {t('overview.sectionEditorSave')}
+      </SFButton>
+    </div>
     </div>
   );
 }

@@ -1320,7 +1320,7 @@ export function TravailOverview() {
           {addingSectionOpen && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
               onMouseDown={e => { if (e.target === e.currentTarget) setAddingSectionOpen(false); }}>
-              <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+              <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
                 <OverviewSectionForm onSave={handleAddSection} onCancel={() => setAddingSectionOpen(false)}
                   existingSystemIds={customSections.map(s => s.id)} />
               </div>
@@ -1333,7 +1333,7 @@ export function TravailOverview() {
             return (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
                 onMouseDown={e => { if (e.target === e.currentTarget) setEditingSectionId(null); }}>
-                <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+                <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', width: 420, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
                   <OverviewSectionForm initial={section} onSave={handleEditSection} onCancel={() => setEditingSectionId(null)} />
                 </div>
               </div>
