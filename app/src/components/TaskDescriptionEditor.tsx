@@ -262,7 +262,11 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
     extensions: EDITOR_EXTENSIONS,
     content: initialContent.current,
     editable: editing,
-    onUpdate: ({ editor: e }) => onChange(e.getHTML()),
+    // Tiptap's getHTML() always returns at least "<p></p>" for an empty
+    // doc, never "" — emit "" instead so callers that truthy-check
+    // task.description (list-row icons, etc.) see an emptied description
+    // as actually empty, not as content.
+    onUpdate: ({ editor: e }) => onChange(e.isEmpty ? '' : e.getHTML()),
   });
 
   useEffect(() => {
@@ -280,7 +284,22 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
       onClick={e => {
         if (editing) return;
         if ((e.target as HTMLElement).closest('a')) return;
+        // Flip Tiptap's own editable flag synchronously, right here,
+        // instead of only setting `editing` and leaving a useEffect to
+        // call setEditable — that effect runs on the *next* render, so
+        // the click that opens edit mode always landed on a
+        // still-non-editable view and placed no caret, needing a second
+        // click.
+        editor.setEditable(true);
         setEditing(true);
+        // focus() itself has to be deferred out of this click handler's
+        // own call stack — calling it inline here (even after
+        // setEditable) never sticks, the browser drops it back to no
+        // focus by the time the click finishes dispatching. A macrotask
+        // scheduled from the click handler (not from a useEffect, which
+        // re-runs/cancels on its own render cycle) reliably lands after
+        // that dispatch completes.
+        window.setTimeout(() => editor.commands.focus('end'), 0);
       }}
       onBlur={e => {
         // Ancestors (e.g. TaskPanel's modal wrapper) call e.stopPropagation()
