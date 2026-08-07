@@ -209,7 +209,7 @@ const subColLabel = (label: string) => (
 
 // ── SubTaskRow ────────────────────────────────────────────────────────────────
 
-function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu, onDragStart, onDragOverRow, onDragEnd, dragging }: {
+function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, selected, onSelect, onContextMenu, onDragStart, onDragEnd, dragging }: {
   sub: LocalSubtask;
   onUpdate: (patch: Partial<LocalSubtask>) => void;
   onDelete: () => void;
@@ -219,7 +219,6 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
   onSelect?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   onDragStart?: () => void;
-  onDragOverRow?: () => void;
   onDragEnd?: () => void;
   dragging?: boolean;
 }) {
@@ -292,8 +291,6 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         e.stopPropagation();
         onDragStart?.();
       }}
-      onDragOver={e => { if (onDragOverRow) { e.preventDefault(); onDragOverRow(); } }}
-      onDrop={e => { e.preventDefault(); e.stopPropagation(); }}
       onDragEnd={() => { dragHandleActive.current = false; onDragEnd?.(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
@@ -792,23 +789,52 @@ export function TaskPanel({
     setSelectedSubIds(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
   };
 
-  // Same drag-and-drop reorder as a regular task row (Travail.tsx), simplified
-  // for a single flat list instead of cross-section moves: on dragOver of a
-  // row, move the dragged subtask to that row's position immediately (live
-  // reorder, not just on drop) — reordering by id, not by the filtered
-  // (hideCompletedSubs) index, so it stays correct even mid-filter.
+  // Same drop-line reorder mechanism as sections/tasks (Travail.tsx's
+  // DropLine): a thin yellow line between rows lights up on dragOver and
+  // the drop actually happens there, not just anywhere on a row — same
+  // visual language as the rest of the app instead of a bespoke one.
   const [draggedSubId, setDraggedSubId] = useState<string | null>(null);
-  const reorderSubtask = (draggedId: string, targetId: string) => {
-    if (draggedId === targetId) return;
-    const fromIdx = localSubtasks.findIndex(s => s.id === draggedId);
-    const toIdx = localSubtasks.findIndex(s => s.id === targetId);
-    if (fromIdx === -1 || toIdx === -1) return;
+  const [subDragOverIdx, setSubDragOverIdx] = useState<number | null>(null);
+  const subDropLeaveTimer = useRef<number | null>(null);
+  // beforeId null = drop at the end of the list.
+  const reorderSubtaskBefore = (draggedId: string, beforeId: string | null) => {
     const next = [...localSubtasks];
+    const fromIdx = next.findIndex(s => s.id === draggedId);
+    if (fromIdx === -1) return;
     const [moved] = next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, moved);
+    const insertAt = beforeId ? next.findIndex(s => s.id === beforeId) : -1;
+    next.splice(insertAt === -1 ? next.length : insertAt, 0, moved);
     setLocalSubtasks(next);
     onUpdate?.({ subtasks: next as unknown as Task[] });
   };
+
+  const SubDropLine = ({ idx, beforeId }: { idx: number; beforeId: string | null }) => (
+    <div style={{ position: 'relative', height: subDragOverIdx === idx ? 20 : 2, transition: 'height 0.12s', margin: '0 4px' }}>
+      <div
+        onDragOver={e => {
+          if (!draggedSubId) return;
+          e.preventDefault(); e.stopPropagation();
+          if (subDropLeaveTimer.current) { clearTimeout(subDropLeaveTimer.current); subDropLeaveTimer.current = null; }
+          setSubDragOverIdx(idx);
+        }}
+        onDragLeave={() => {
+          if (!draggedSubId) return;
+          subDropLeaveTimer.current = window.setTimeout(() => setSubDragOverIdx(null), 80);
+        }}
+        onDrop={e => {
+          if (!draggedSubId) return;
+          e.preventDefault(); e.stopPropagation();
+          if (subDropLeaveTimer.current) { clearTimeout(subDropLeaveTimer.current); subDropLeaveTimer.current = null; }
+          reorderSubtaskBefore(draggedSubId, beforeId);
+          setSubDragOverIdx(null);
+        }}
+        style={{ position: 'absolute', top: -6, bottom: -6, left: -6, right: -6, zIndex: 1 }}
+      />
+      {subDragOverIdx === idx && (
+        <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 2, borderRadius: 2, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
+      )}
+    </div>
+  );
 
   // Ctrl/Cmd = toggle one, Shift = range from the last-clicked row, plain
   // click = select just this one (subtasks have no detail view to open,
@@ -1567,21 +1593,27 @@ export function TaskPanel({
                 <span /><span />{subColLabel(t('tasks.title'))}<span /><span />
               </div>
             )}
-            {localSubtasks.filter(sub => showCompletedSubs || !sub.checked).map(sub => (
-              <SubTaskRow key={sub.id} sub={sub}
-                onUpdate={patch => updateSub(sub.id, patch)}
-                onDelete={() => deleteSubtasks([sub.id])}
-                onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
-                onEnterNext={title => commitTitleAndAddNext(sub.id, title)}
-                selected={subtaskActionsEnabled ? selectedSubIds.has(sub.id) : undefined}
-                onSelect={subtaskActionsEnabled ? e => selectSubtask(sub.id, e) : undefined}
-                onContextMenu={subtaskActionsEnabled ? e => openSubtaskContextMenu(sub.id, e) : undefined}
-                dragging={draggedSubId === sub.id}
-                onDragStart={() => setDraggedSubId(sub.id)}
-                onDragOverRow={() => { if (draggedSubId && draggedSubId !== sub.id) reorderSubtask(draggedSubId, sub.id); }}
-                onDragEnd={() => setDraggedSubId(null)}
-              />
-            ))}
+            {(() => {
+              const visibleSubs = localSubtasks.filter(sub => showCompletedSubs || !sub.checked);
+              return visibleSubs.map((sub, i) => (
+                <React.Fragment key={sub.id}>
+                  {draggedSubId && <SubDropLine idx={i} beforeId={sub.id} />}
+                  <SubTaskRow sub={sub}
+                    onUpdate={patch => updateSub(sub.id, patch)}
+                    onDelete={() => deleteSubtasks([sub.id])}
+                    onPasteMultiple={lines => addSubtasksFromLines(lines, sub.id)}
+                    onEnterNext={title => commitTitleAndAddNext(sub.id, title)}
+                    selected={subtaskActionsEnabled ? selectedSubIds.has(sub.id) : undefined}
+                    onSelect={subtaskActionsEnabled ? e => selectSubtask(sub.id, e) : undefined}
+                    onContextMenu={subtaskActionsEnabled ? e => openSubtaskContextMenu(sub.id, e) : undefined}
+                    dragging={draggedSubId === sub.id}
+                    onDragStart={() => setDraggedSubId(sub.id)}
+                    onDragEnd={() => { setDraggedSubId(null); setSubDragOverIdx(null); }}
+                  />
+                  {draggedSubId && i === visibleSubs.length - 1 && <SubDropLine idx={visibleSubs.length} beforeId={null} />}
+                </React.Fragment>
+              ));
+            })()}
             <button onClick={() => addSubtask()}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', marginTop: 2 }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
