@@ -451,6 +451,8 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
   );
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: string; clientName: string }) {
   const { t } = useTranslation();
   const [orgConnected, setOrgConnected] = useState<boolean | null>(null);
@@ -536,8 +538,6 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
     }
   };
 
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   const handleAddEmail = async () => {
     const email = newEmail.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) {
@@ -558,6 +558,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
       setNewEmail('');
     } catch (err) {
       console.error('Failed to add extra invitee', err);
+      setEmailError(t('calendar.gcalInviteActionFailed'));
     } finally {
       setBusy(false);
     }
@@ -570,6 +571,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
       await loadStatus();
     } catch (err) {
       console.error('Failed to remove extra invitee', err);
+      setEmailError(t('calendar.gcalInviteActionFailed'));
     } finally {
       setBusy(false);
     }
@@ -672,7 +674,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
                   <input
                     value={newEmail}
                     onChange={e => { setNewEmail(e.target.value); setEmailError(null); }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddEmail(); }}
+                    onKeyDown={e => { if (e.key === 'Enter' && !busy) handleAddEmail(); }}
                     placeholder={t('calendar.gcalAddEmailPlaceholder')}
                     style={{ flex:1, padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, fontFamily:'var(--ff-text)', outline:'none' }}
                   />

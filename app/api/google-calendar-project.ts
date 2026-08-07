@@ -626,11 +626,12 @@ async function addExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { studioId, projectId, email } = req.body as AddExtraInviteeBody;
-  if (!studioId || !projectId || !email) {
+  const { studioId, projectId, email: rawEmail } = req.body as AddExtraInviteeBody;
+  if (!studioId || !projectId || !rawEmail) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
   }
+  const email = rawEmail.trim().toLowerCase();
 
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -685,7 +686,8 @@ async function addExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
   const { error: updateError } = await supabaseAdmin
     .from('project_google_calendars')
     .update({ extra_invitees: [...current, email] })
-    .eq('project_id', projectId);
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId);
   if (updateError) {
     console.error(`Failed to add extra invitee ${email} for project ${projectId}:`, updateError);
     res.status(500).json({ error: 'Failed to add invitee' });
@@ -707,11 +709,12 @@ async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse
     return;
   }
 
-  const { studioId, projectId, email } = req.body as RemoveExtraInviteeBody;
-  if (!studioId || !projectId || !email) {
+  const { studioId, projectId, email: rawEmail } = req.body as RemoveExtraInviteeBody;
+  if (!studioId || !projectId || !rawEmail) {
     res.status(400).json({ error: 'Invalid request body' });
     return;
   }
+  const email = rawEmail.trim().toLowerCase();
 
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -745,7 +748,7 @@ async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse
 
   const { data: row, error: rowError } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('google_calendar_id, active, extra_invitees, extra_invitees_shared')
+    .select('google_calendar_id, active, extra_invitees, extra_invitees_shared, shared_contact_ids')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -760,6 +763,25 @@ async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse
   const wasShared = ((row.extra_invitees_shared ?? []) as string[]).includes(email);
   let remainingShared = (row.extra_invitees_shared ?? []) as string[];
 
+  // A manually-added email can collide with a real client contact's address
+  // (Google Calendar sharing is per-email, not per-source). Revoking Google
+  // access here would also kill that contact's access, which their own
+  // shared_contact_ids tracking would never notice and self-heal. Check
+  // whether this email currently belongs to a shared contact before making
+  // the live Google API call — the email is still removed from
+  // extra_invitees/extra_invitees_shared below either way.
+  let belongsToSharedContact = false;
+  const sharedContactIds = (row.shared_contact_ids ?? []) as string[];
+  if (sharedContactIds.length > 0) {
+    const { data: sharedContacts } = await supabaseAdmin
+      .from('client_contacts')
+      .select('id, email')
+      .in('id', sharedContactIds);
+    belongsToSharedContact = (sharedContacts ?? []).some(
+      c => typeof c.email === 'string' && c.email.trim().toLowerCase() === email
+    );
+  }
+
   // Revoke immediately if it had actually been invited and the calendar can
   // currently be reached — same "revoke now" behavior as removing a client
   // contact's access. If the calendar is inactive or Google isn't
@@ -768,21 +790,30 @@ async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse
   // sync-access diff will retry the revoke then (same self-healing property
   // sync-access already has for contacts).
   if (wasShared && row.active) {
-    try {
-      const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
-      if (accessToken) {
-        await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
-        remainingShared = remainingShared.filter(e => e !== email);
+    if (belongsToSharedContact) {
+      console.warn(
+        `Skipping Google Calendar revoke for ${email} on project ${projectId}: ` +
+        `this address also belongs to a shared client contact — removing the manual invitee entry must not revoke the contact's own access.`
+      );
+      remainingShared = remainingShared.filter(e => e !== email);
+    } else {
+      try {
+        const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+        if (accessToken) {
+          await unshareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+          remainingShared = remainingShared.filter(e => e !== email);
+        }
+      } catch (err) {
+        console.error(`Failed to unshare calendar with ${email}:`, err);
       }
-    } catch (err) {
-      console.error(`Failed to unshare calendar with ${email}:`, err);
     }
   }
 
   const { error: updateError } = await supabaseAdmin
     .from('project_google_calendars')
     .update({ extra_invitees: remainingDesired, extra_invitees_shared: remainingShared })
-    .eq('project_id', projectId);
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId);
   if (updateError) {
     console.error(`Failed to remove extra invitee ${email} for project ${projectId}:`, updateError);
     res.status(500).json({ error: 'Failed to remove invitee' });

@@ -1321,6 +1321,7 @@
     "gcalEmailInvalid": "Adresse courriel invalide.",
     "gcalEmailDuplicate": "Cette adresse est déjà invitée.",
     "gcalRemoveExtraInviteeAction": "Retirer cet invité",
+    "gcalInviteActionFailed": "Une erreur est survenue, réessaie.",
     "gcalProjectShareActionGeneric": "Partager",
     "gcalProjectActivatedConfirmationGeneric": "Invitation envoyée.",
     "gcalProjectDeactivateAction": "Désactiver le calendrier",
