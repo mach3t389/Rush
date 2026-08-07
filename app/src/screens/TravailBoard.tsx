@@ -287,6 +287,11 @@ interface Props {
   projectName: string;
   projectColor: string;
   groupBy: 'category' | 'status' | 'assignee';
+  // Unfiltered task count per section label — section.tasks here can be
+  // filtered (hidden completed tasks, assignee filter), so it undercounts
+  // what actually gets deleted. Falls back to section.tasks.length when
+  // absent (kept optional so this can't break an unrelated caller).
+  sectionTaskCounts?: Record<string, number>;
 }
 
 // ── Board ──────────────────────────────────────────────────────────────────────
@@ -299,6 +304,7 @@ export function TravailBoard({
   onMoveSection, onCopySection, onReorderSection,
   projectId, projectName, projectColor,
   groupBy,
+  sectionTaskCounts,
 }: Props) {
   const { t } = useTranslation();
   const [dragTask, setDragTask] = useState<{ task: Task; sectionIdx: number } | null>(null);
@@ -385,6 +391,10 @@ export function TravailBoard({
       {sections.map((section, sIdx) => {
         const done = section.tasks.filter(t => t.checked || t.status === 'ok').length;
         const total = section.tasks.length;
+        // section.tasks can be filtered (hidden completed tasks, assignee
+        // filter) — the delete confirmation must count what actually gets
+        // deleted, not just what's currently visible in this column.
+        const realTotal = sectionTaskCounts?.[section.label] ?? total;
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         const isCollapsed = collapsedSections.has(section.label);
 
@@ -504,7 +514,7 @@ export function TravailBoard({
 
                   {confirmDeleteSection === section.label ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 10, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: total, section: section.label })}</span>
+                      <span style={{ fontSize: 10, color: 'var(--danger)', fontFamily: 'var(--ff-mono)' }}>{t('board.deleteSectionConfirm', { count: realTotal, section: section.label })}</span>
                       <button onClick={() => { onDeleteSection(section.label); setConfirmDeleteSection(null); }}
                         style={{ padding: '2px 7px', borderRadius: 6, background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-text)' }}>{t('board.deleteShort')}</button>
                       <button onClick={() => setConfirmDeleteSection(null)}
@@ -526,7 +536,7 @@ export function TravailBoard({
                           </button>
                           {groupBy === 'category' && (
                             <button
-                              onClick={() => { if (total > 0) setConfirmDeleteSection(section.label); else onDeleteSection(section.label); }}
+                              onClick={() => { if (realTotal > 0) setConfirmDeleteSection(section.label); else onDeleteSection(section.label); }}
                               title={t('board.deleteSection')}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', borderRadius: 5 }}
                               onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
@@ -889,7 +899,8 @@ export function TravailBoard({
           onMove={() => { onMoveSection(sectionCtxMenu.label); setSectionCtxMenu(null); }}
           onDelete={() => {
             const target = sections.find(s => s.label === sectionCtxMenu.label);
-            if (target && target.tasks.length > 0) setConfirmDeleteSection(sectionCtxMenu.label);
+            const targetCount = sectionTaskCounts?.[sectionCtxMenu.label] ?? target?.tasks.length ?? 0;
+            if (targetCount > 0) setConfirmDeleteSection(sectionCtxMenu.label);
             else onDeleteSection(sectionCtxMenu.label);
           }}
           onClose={() => setSectionCtxMenu(null)}
