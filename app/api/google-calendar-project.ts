@@ -13,7 +13,7 @@
 //   POST { action:'sync-access', studioId, projectId } -> { ok }   (was google-calendar-project-sync-access)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, googleCalendarExists, shareGoogleCalendar, unshareGoogleCalendar, moveGoogleEvent } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, googleCalendarExists, shareGoogleCalendar, unshareGoogleCalendar, moveGoogleEvent, renameGoogleCalendar } from './_lib/googleCalendarApi.js';
 
 interface ActivateBody {
   studioId: string;
@@ -210,6 +210,18 @@ async function activateHandler(req: VercelRequest, res: VercelResponse) {
 
     if (existingRow && existingReachable) {
       calendarId = existingRow.google_calendar_id as string;
+      // Keep the Google Calendar's own title in sync with the project's
+      // CURRENT client — without this, a calendar created back when the
+      // project had (or didn't have) a client kept that stale name forever,
+      // even through deactivate/reactivate, since only the two "the stored
+      // id is gone, create a fresh one" branches below ever passed
+      // calendarName to Google. Best-effort: a rename failure shouldn't
+      // block activation, this is cosmetic compared to sharing/access.
+      try {
+        await renameGoogleCalendar(accessToken, calendarId, calendarName);
+      } catch (err) {
+        console.error(`Failed to rename calendar ${calendarId} for project ${projectId}:`, err);
+      }
       if (!existingRow.active) {
         const { error: reactivateError } = await supabaseAdmin
           .from('project_google_calendars')

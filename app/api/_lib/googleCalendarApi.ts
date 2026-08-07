@@ -259,7 +259,7 @@ async function recreateProjectCalendar(
 export async function googleCalendarRequest(
   accessToken: string,
   calendarId: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown
 ): Promise<any> {
@@ -270,7 +270,7 @@ export async function googleCalendarRequest(
 // calendar, managing a calendar's ACL, or moving an event between calendars.
 export async function googleCalendarAdminRequest(
   accessToken: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown
 ): Promise<any> {
@@ -304,6 +304,15 @@ export async function googleCalendarAdminRequest(
 export async function createGoogleCalendar(accessToken: string, name: string): Promise<string> {
   const created = await googleCalendarAdminRequest(accessToken, 'POST', '/calendars', { summary: name });
   return created.id as string;
+}
+
+// Renames an existing project calendar — used whenever the project's
+// client changes (assigned, swapped, or removed) so the calendar's title
+// in Google Calendar itself always reflects the current "Client — Projet"
+// (or bare project name for a client-less project), instead of forever
+// keeping whatever name it happened to have when first created.
+export async function renameGoogleCalendar(accessToken: string, calendarId: string, name: string): Promise<void> {
+  await googleCalendarAdminRequest(accessToken, 'PATCH', `/calendars/${encodeURIComponent(calendarId)}`, { summary: name });
 }
 
 // Checks whether a stored calendar ID is still reachable under the
