@@ -453,7 +453,7 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: string; clientName: string }) {
+function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const [orgConnected, setOrgConnected] = useState<boolean | null>(null);
   const [active, setActive] = useState<boolean | null>(null);
@@ -528,9 +528,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
     try {
       await shareProjectGoogleCalendarNow(projectId);
       await loadStatus();
-      setConfirmation(clientName
-        ? t('calendar.gcalProjectActivatedConfirmation', { client: clientName })
-        : t('calendar.gcalProjectActivatedConfirmationGeneric'));
+      setConfirmation(t('calendar.gcalProjectActivatedConfirmation'));
     } catch (err) {
       console.error('Failed to share project Google Calendar', err);
     } finally {
@@ -705,7 +703,7 @@ function GoogleProjectCalendarButton({ projectId, clientName }: { projectId: str
                 <button onClick={handleShare} disabled={busy}
                   style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--ok)', background:'rgba(52,201,138,0.1)', color:'var(--ok)', fontSize:11, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
                 >
-                  {busy ? '…' : (clientName ? t('calendar.gcalProjectShareAction', { client: clientName }) : t('calendar.gcalProjectShareActionGeneric'))}
+                  {busy ? '…' : t('calendar.gcalProjectShareAction')}
                 </button>
               )}
 
@@ -883,7 +881,7 @@ export function ProjetCalendrier({ embedded, projectIds: overrideIds, readOnly =
                 a du sens même pour un projet perso, sans lien avec la
                 présence d'un client. Le bouton "Partager" gère déjà le cas
                 zéro contact tout seul (voir gcalProjectNoContacts). */}
-            {project && <GoogleProjectCalendarButton projectId={projectId!} clientName={project.clientName ?? ''} />}
+            {project && <GoogleProjectCalendarButton projectId={projectId!} />}
           </ProjectHeaderBar>
         );
       })()}

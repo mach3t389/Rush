@@ -330,7 +330,11 @@ export async function googleCalendarExists(accessToken: string, calendarId: stri
 // success rather than an error.
 export async function shareGoogleCalendar(accessToken: string, calendarId: string, email: string): Promise<void> {
   try {
-    await googleCalendarAdminRequest(accessToken, 'POST', `/calendars/${encodeURIComponent(calendarId)}/acl`, {
+    // sendNotifications=true is Google's own default for this endpoint —
+    // set explicitly rather than relying on it, so a future API change or
+    // account-level setting can't silently turn off the invite email
+    // without anyone noticing.
+    await googleCalendarAdminRequest(accessToken, 'POST', `/calendars/${encodeURIComponent(calendarId)}/acl?sendNotifications=true`, {
       role: 'reader',
       scope: { type: 'user', value: email },
     });
