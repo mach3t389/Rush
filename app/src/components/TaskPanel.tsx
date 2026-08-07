@@ -306,7 +306,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
         onContextMenu(e);
       }}
       data-subtask-row
-      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined, userSelect: 'none', opacity: dragging ? 0.4 : 1 }}
+      style={{ display: 'grid', gridTemplateColumns: SUB_GRID, alignItems: 'start', gap: 10, padding: '6px 8px', borderRadius: 8, background: selected ? 'rgba(249,255,0,0.08)' : hovered ? 'var(--surface-2)' : 'transparent', outline: selected ? '1px solid rgba(249,255,0,0.35)' : 'none', outlineOffset: '-1px', transition: 'background 0.1s', cursor: onSelect ? 'default' : undefined, userSelect: 'none', opacity: dragging ? 0.4 : 1 }}
     >
       {/* Drag handle — mousedown arms `dragHandleActive` so the whole row's
           `draggable` only actually starts a drag from this icon, not from
@@ -378,7 +378,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
       ) : (
         <span onClick={() => { setEditTitle(sub.title); setEditing(true); }}
           onMouseDown={e => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
-          style={{ justifySelf: 'start', maxWidth: '100%', fontSize: 12, textDecoration: checked ? 'line-through' : 'none', color: sub.title ? (checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
+          style={{ justifySelf: 'start', maxWidth: '100%', fontSize: 12, textDecoration: checked ? 'line-through' : 'none', color: sub.title ? (checked ? 'var(--text-3)' : 'var(--text-2)') : 'var(--text-3)', whiteSpace: 'normal', overflowWrap: 'break-word', cursor: 'text', fontStyle: sub.title ? 'normal' : 'italic' }}>
           {sub.title || t('tasks.newSubtask')}
         </span>
       )}
