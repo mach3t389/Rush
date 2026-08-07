@@ -1441,6 +1441,7 @@
     "noContentAvailable": "No content available",
     "dragFileToLoad": "Drag this file from your computer to load it.",
     "docxPreviewError": "Couldn't display this document.",
+    "contentLoadError": "Couldn't load this file.",
     "fileTypePdf": "PDF document",
     "fileTypeImage": "Image",
     "fileTypeVideo": "Video",

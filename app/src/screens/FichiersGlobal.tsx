@@ -25,7 +25,7 @@ import { addResource, getResources, subscribeResources, updateResource } from '.
 import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
-import { setFileContent, getFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
+import { setFileContent, getFileContent, getFileContentError, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
 import mammoth from 'mammoth';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { confirmDialog } from '../data/confirmStore';
@@ -500,6 +500,7 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
   const [, forceUrlRerender] = useState(0);
   useEffect(() => subscribeUploadStatus(() => forceUrlRerender(n => n + 1)), []);
   const url = getFileContent(file.id);
+  const contentError = getFileContentError(file.id);
   const icon = PREVIEW_ICONS[file.type] ?? 'file';
 
   // Navigation globale (toutes vues : ←/→)
@@ -599,9 +600,23 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: (file.type === 'pdf' || (file.type === 'doc' && file.ext.toLowerCase() === 'docx')) ? 0 : 24, position: 'relative' }}>
         {!url ? (
           <div style={{ textAlign: 'center' }}>
-            <SFIcon name={icon} size={52} color="var(--text-3)" />
-            <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{t('files.noContentAvailable')}</p>
-            <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('files.dragFileToLoad')}</p>
+            <SFIcon name={contentError ? 'triangle-alert' : icon} size={52} color={contentError ? 'var(--danger)' : 'var(--text-3)'} />
+            {/* En session réelle, l'URL signée peut échouer à charger (réseau,
+                fonction Edge, permissions R2) — sans ce cas, cet écran affichait
+                le même message générique "glissez ce fichier" que la session
+                démo, qui n'a jamais de sens ici (le fichier existe déjà côté
+                serveur) et masquait la vraie cause. */}
+            {contentError ? (
+              <>
+                <p style={{ marginTop: 12, fontSize: 13, color: 'var(--danger)', fontWeight: 500 }}>{t('files.contentLoadError')}</p>
+                <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', maxWidth: 400 }}>{contentError}</p>
+              </>
+            ) : (
+              <>
+                <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>{t('files.noContentAvailable')}</p>
+                <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)' }}>{t('files.dragFileToLoad')}</p>
+              </>
+            )}
           </div>
 
         ) : file.type === 'pdf' ? (

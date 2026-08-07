@@ -237,15 +237,38 @@ async function uploadReal(id: string, file: File): Promise<void> {
   }
 }
 
+// Populated when sign-get fails — surfaced by getFileContentError() so the
+// UI can tell "the fetch failed" apart from "still loading"/"file is empty"
+// (getFileContent() alone returns null for all three, which made every
+// real-session failure look identical to the demo-only "drag a file to
+// load it" placeholder).
+const _getUrlErrors = new Map<string, string>();
+// Avoids re-issuing sign-get on every render while a fetch is already in
+// flight — getFileContent() calls this on every cache-miss render, and
+// without this guard a preview modal that stays open while the fetch is
+// slow would fire a fresh request each re-render.
+const _pendingGetUrlFetches = new Set<string>();
+
 async function fetchSignedGetUrl(id: string): Promise<void> {
+  if (_pendingGetUrlFetches.has(id)) return;
+  _pendingGetUrlFetches.add(id);
   try {
     const { url } = await callFileStorage('sign-get', { fileItemId: id });
-    if (!url) return;
+    if (!url) { _getUrlErrors.set(id, 'sign-get returned no url'); notify(); return; }
+    _getUrlErrors.delete(id);
     _getUrlCache.set(id, { url, expiresAt: Date.now() + 9 * 60 * 1000 });
     notify();
   } catch (err) {
     console.error('fetchSignedGetUrl failed', err);
+    _getUrlErrors.set(id, err instanceof Error ? err.message : String(err));
+    notify();
+  } finally {
+    _pendingGetUrlFetches.delete(id);
   }
+}
+
+export function getFileContentError(id: string): string | null {
+  return _getUrlErrors.get(id) ?? null;
 }
 
 // ── Public API (unchanged signatures) ───────────────────────────────────────
