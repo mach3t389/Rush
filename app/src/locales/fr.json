@@ -1274,6 +1274,8 @@
     "withoutProject": "Sans projet",
     "clientFilterLabel": "Client",
     "allClients": "Tous les clients",
+    "searchClient": "Rechercher un client…",
+    "noClientFound": "Aucun client trouvé",
     "myProjects": "Mes projets",
     "projects": "Projets",
     "eventTypes": "Types d'événements",
@@ -2598,7 +2600,9 @@
     "createOrgTitle": "Nouvelle organisation",
     "createOrgDesc": "Crée une organisation distincte — utile si tu gères plusieurs studios ou agences séparément.",
     "createOrgPlaceholder": "Nom de l'organisation",
-    "createOrgSubmit": "Créer"
+    "createOrgSubmit": "Créer",
+    "unreadInOtherOrgs_one": "{{count}} notification non lue dans une autre organisation",
+    "unreadInOtherOrgs_other": "{{count}} notifications non lues dans d'autres organisations"
   },
   "viewAs": {
     "banner": "Vous visualisez en tant que",

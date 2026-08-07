@@ -643,10 +643,16 @@ function EventDetail({ ev, onClose, onDelete }: { ev: CalEvent; onClose: () => v
 // PROJETS" onto its own line). Shows just a building icon by default; once a
 // client is chosen, the name replaces the icon, truncated with an ellipsis
 // rather than wrapping/squeezing its neighbors.
+// Barre de recherche toujours visible dans le menu — décision utilisateur
+// (préférée à un seuil qui la cache tant qu'il y a peu de clients).
+const CLIENT_SEARCH_THRESHOLD = 0;
+
 function ClientFilterButton({ clients, value, onChange }: { clients: { id: string; name: string }[]; value: string; onChange: (id: string) => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -655,7 +661,15 @@ function ClientFilterButton({ clients, value, onChange }: { clients: { id: strin
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [open]);
 
+  useEffect(() => {
+    if (open) { setSearch(''); searchRef.current?.focus(); }
+  }, [open]);
+
   const current = clients.find(c => c.id === value);
+  const showSearch = clients.length > CLIENT_SEARCH_THRESHOLD;
+  const filtered = showSearch && search.trim()
+    ? clients.filter(c => c.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : clients;
   const rowStyle = (active: boolean): CSSProperties => ({
     display: 'block', width: '100%', textAlign: 'left', padding: '6px 9px', borderRadius: 6,
     border: 'none', background: active ? 'var(--surface-3)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-2)',
@@ -674,11 +688,26 @@ function ClientFilterButton({ clients, value, onChange }: { clients: { id: strin
         <SFIcon name="chevron-down" size={9} color={value ? 'var(--accent)' : 'var(--text-3)'} />
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 9, padding: 4, minWidth: 170, maxHeight: 240, overflowY: 'auto', boxShadow: '0 10px 28px rgba(0,0,0,0.5)' }}>
-          <button onClick={() => { onChange(''); setOpen(false); }} style={rowStyle(!value)}>{t('calendar.allClients')}</button>
-          {clients.map(c => (
-            <button key={c.id} onClick={() => { onChange(c.id); setOpen(false); }} style={rowStyle(value === c.id)}>{c.name}</button>
-          ))}
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 9, padding: 4, minWidth: 170, boxShadow: '0 10px 28px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' }}>
+          {showSearch && (
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
+              placeholder={t('calendar.searchClient')}
+              style={{ margin: '2px 2px 4px', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none' }}
+            />
+          )}
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            {!search.trim() && <button onClick={() => { onChange(''); setOpen(false); }} style={rowStyle(!value)}>{t('calendar.allClients')}</button>}
+            {filtered.map(c => (
+              <button key={c.id} onClick={() => { onChange(c.id); setOpen(false); }} style={rowStyle(value === c.id)}>{c.name}</button>
+            ))}
+            {filtered.length === 0 && (
+              <p style={{ padding: '8px 9px', fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic', margin: 0 }}>{t('calendar.noClientFound')}</p>
+            )}
+          </div>
         </div>
       )}
     </div>

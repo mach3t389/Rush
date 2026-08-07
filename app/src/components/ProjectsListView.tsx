@@ -1199,6 +1199,9 @@ function ProjectListView({ projects }: { projects: Project[] }) {
 // ── Shared project list view ──────────────────────────────────────────────────
 
 const NO_CLIENT_FILTER = '__none__';
+// Barre de recherche toujours visible dans le menu — décision utilisateur
+// (préférée à un seuil qui la cache tant qu'il y a peu de clients).
+const CLIENT_SEARCH_THRESHOLD = 0;
 const VIEW_KEY = 'sf_projects_view';
 const FILTER_KEY = 'sf_projects_filter';
 const LIFECYCLE_FILTER_KEY = 'sf_projects_lifecycle_filter';
@@ -1227,7 +1230,12 @@ export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose 
   const [allProjects, setAllProjects] = useState(getProjects);
   const [showModal, setShowModal] = useState(false);
   const [clientFilterOpen, setClientFilterOpen] = useState(false);
+  const [clientFilterSearch, setClientFilterSearch] = useState('');
   const clientFilterRef = useRef<HTMLDivElement>(null);
+  const clientFilterSearchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (clientFilterOpen) { setClientFilterSearch(''); clientFilterSearchRef.current?.focus(); }
+  }, [clientFilterOpen]);
   const [view, setView] = useState<'grid' | 'list'>(() => loadPersisted<'grid' | 'list'>(VIEW_KEY, 'grid'));
   const changeView = (v: 'grid' | 'list') => { setView(v); savePersisted(VIEW_KEY, v); };
   const changeStatusFilter = (f: 'all' | Status) => { setStatusFilter(f); if (!scoped) savePersisted(FILTER_KEY, f); };
@@ -1335,6 +1343,11 @@ export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose 
           if (clientsWithProjects.length === 0 && !hasNoClientProjects) return null;
           const selected = clientsWithProjects.find(c => c.id === clientFilter);
           const noClientSelected = clientFilter === NO_CLIENT_FILTER;
+          const showClientSearch = clientsWithProjects.length > CLIENT_SEARCH_THRESHOLD;
+          const searchTerm = clientFilterSearch.trim().toLowerCase();
+          const filteredClients = showClientSearch && searchTerm
+            ? clientsWithProjects.filter(c => c.name.toLowerCase().includes(searchTerm))
+            : clientsWithProjects;
           return (
             <div ref={clientFilterRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button
@@ -1352,43 +1365,60 @@ export function ProjectsListView({ clientId, projectIds, autoOpen, onModalClose 
               {clientFilterOpen && (
                 <>
                   <div onClick={() => setClientFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 290 }} />
-                  <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 5, minWidth: 210, maxHeight: 300, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                    <button
-                      onClick={() => { setClientFilter(null); setClientFilterOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === null ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === null ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === null ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                    >
-                      <SFIcon name="layers" size={13} color={clientFilter === null ? 'var(--accent)' : 'var(--text-3)'} />
-                      {t('projects.allClients')}
-                      {clientFilter === null && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
-                    </button>
-                    {hasNoClientProjects && (
-                      <button
-                        onClick={() => { setClientFilter(NO_CLIENT_FILTER); setClientFilterOpen(false); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: noClientSelected ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: noClientSelected ? 'var(--text)' : 'var(--text-2)', fontWeight: noClientSelected ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                      >
-                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-3)', flexShrink: 0, display: 'block' }} />
-                        {t('projects.noClientFilter')}
-                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
-                          {allProjects.filter(p => p.clientId == null).length}
-                        </span>
-                        {noClientSelected && <SFIcon name="check" size={12} color="var(--accent)" />}
-                      </button>
+                  <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 12, padding: 5, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' }}>
+                    {showClientSearch && (
+                      <input
+                        ref={clientFilterSearchRef}
+                        value={clientFilterSearch}
+                        onChange={e => setClientFilterSearch(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Escape') setClientFilterOpen(false); }}
+                        placeholder={t('calendar.searchClient')}
+                        style={{ margin: '2px 2px 4px', padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-2)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)', outline: 'none' }}
+                      />
                     )}
-                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                    {clientsWithProjects.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setClientFilter(c.id); setClientFilterOpen(false); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === c.id ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === c.id ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === c.id ? 600 : 400, fontFamily: 'var(--ff-text)' }}
-                      >
-                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: c.avatarColor, flexShrink: 0, display: 'block' }} />
-                        {c.name}
-                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
-                          {allProjects.filter(p => p.clientId === c.id).length}
-                        </span>
-                        {clientFilter === c.id && <SFIcon name="check" size={12} color="var(--accent)" />}
-                      </button>
-                    ))}
+                    <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                      {!searchTerm && (
+                        <button
+                          onClick={() => { setClientFilter(null); setClientFilterOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === null ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === null ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === null ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                        >
+                          <SFIcon name="layers" size={13} color={clientFilter === null ? 'var(--accent)' : 'var(--text-3)'} />
+                          {t('projects.allClients')}
+                          {clientFilter === null && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                        </button>
+                      )}
+                      {!searchTerm && hasNoClientProjects && (
+                        <button
+                          onClick={() => { setClientFilter(NO_CLIENT_FILTER); setClientFilterOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: noClientSelected ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: noClientSelected ? 'var(--text)' : 'var(--text-2)', fontWeight: noClientSelected ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                        >
+                          <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-3)', flexShrink: 0, display: 'block' }} />
+                          {t('projects.noClientFilter')}
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
+                            {allProjects.filter(p => p.clientId == null).length}
+                          </span>
+                          {noClientSelected && <SFIcon name="check" size={12} color="var(--accent)" />}
+                        </button>
+                      )}
+                      {!searchTerm && <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />}
+                      {filteredClients.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setClientFilter(c.id); setClientFilterOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: clientFilter === c.id ? 'var(--surface-3)' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: clientFilter === c.id ? 'var(--text)' : 'var(--text-2)', fontWeight: clientFilter === c.id ? 600 : 400, fontFamily: 'var(--ff-text)' }}
+                        >
+                          <i style={{ width: 8, height: 8, borderRadius: '50%', background: c.avatarColor, flexShrink: 0, display: 'block' }} />
+                          {c.name}
+                          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>
+                            {allProjects.filter(p => p.clientId === c.id).length}
+                          </span>
+                          {clientFilter === c.id && <SFIcon name="check" size={12} color="var(--accent)" />}
+                        </button>
+                      ))}
+                      {searchTerm && filteredClients.length === 0 && (
+                        <p style={{ padding: '8px 10px', fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic', margin: 0 }}>{t('calendar.noClientFound')}</p>
+                      )}
+                    </div>
                   </div>
                 </>
               )}

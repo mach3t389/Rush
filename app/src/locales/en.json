@@ -1271,6 +1271,8 @@
     "withoutProject": "No project",
     "clientFilterLabel": "Client",
     "allClients": "All clients",
+    "searchClient": "Search a client…",
+    "noClientFound": "No client found",
     "myProjects": "My projects",
     "projects": "Projects",
     "eventTypes": "Event types",
@@ -2595,7 +2597,9 @@
     "createOrgTitle": "New organization",
     "createOrgDesc": "Creates a separate organization — useful if you run several studios or agencies independently.",
     "createOrgPlaceholder": "Organization name",
-    "createOrgSubmit": "Create"
+    "createOrgSubmit": "Create",
+    "unreadInOtherOrgs_one": "{{count}} unread notification in another organization",
+    "unreadInOtherOrgs_other": "{{count}} unread notifications in other organizations"
   },
   "viewAs": {
     "banner": "Viewing as",
