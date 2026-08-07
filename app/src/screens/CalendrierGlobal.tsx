@@ -897,8 +897,10 @@ export function CalendrierGlobal() {
     <div style={{ height:'100%',display:'flex',overflow:'hidden' }}>
       {/* Sidebar */}
       <div style={{ width:240,flexShrink:0,borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden' }}>
-        {/* Zone scrollable : actions + filtres — indépendante des « Prochains événements » pour que les filtres ne bougent pas */}
-        <div style={{ flex:1,minHeight:0,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:20 }}>
+        {/* Zone scrollable : actions + filtres — indépendante des « Prochains événements » pour que les filtres ne bougent pas.
+            scrollbarGutter réserve la place de la barre de défilement même quand elle n'est pas nécessaire (peu de projets après
+            un filtre), pour que le contenu ne saute pas en largeur quand la barre apparaît/disparaît. */}
+        <div style={{ flex:1,minHeight:0,overflowY:'auto',overflowX:'hidden',scrollbarGutter:'stable',padding:16,display:'flex',flexDirection:'column',gap:20 }}>
         <MiniCalendar cur={cur} onSelect={d=>{setCur(d);setView('day');}} />
 
         {/* Project filters */}
