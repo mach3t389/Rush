@@ -151,13 +151,6 @@ export const STATUS_OPTIONS = [
   { value: 'review', labelKey: 'tasks.inReview'   },
 ];
 
-const GROUP_BY_ICON: Record<'category' | 'status' | 'assignee', string> = {
-  category: 'folder', status: 'flag', assignee: 'user',
-};
-const GROUP_BY_LABEL_KEY: Record<'category' | 'status' | 'assignee', string> = {
-  category: 'board.groupByCategory', status: 'board.groupByStatus', assignee: 'board.groupByAssignee',
-};
-
 
 // ── Task activity cell ────────────────────────────────────────────────────────
 
@@ -2097,8 +2090,8 @@ export function Travail() {
           <button onClick={() => setGroupByOpen(v => !v)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-2)', background: groupByOpen ? 'var(--surface-3)' : 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', fontWeight: 500 }}
           >
-            <SFIcon name={GROUP_BY_ICON[boardGroupBy]} size={13} />
-            {t(GROUP_BY_LABEL_KEY[boardGroupBy])}
+            <SFIcon name="layout-grid" size={13} />
+            {t('board.groupByLabel')}
             <SFIcon name="chevron-down" size={11} color="var(--text-3)" />
           </button>
           {groupByOpen && (
