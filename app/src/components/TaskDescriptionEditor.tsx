@@ -6,8 +6,32 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { marked } from 'marked';
 import { SFIcon } from './ui';
 import { escapeHtml } from '../data/htmlEscape';
+
+// Détecte un texte source markdown non rendu (astérisques/dièses littéraux,
+// copiés depuis un éditeur de texte brut) — par opposition à du texte déjà
+// mis en forme (collé depuis une app qui fournit du vrai HTML sémantique
+// dans le presse-papier, cas déjà géré nativement par Tiptap). Seuil bas
+// volontaire : un seul motif markdown reconnu suffit à déclencher la
+// conversion, un faux positif se traduit au pire par un texte inchangé
+// (** reste visible), jamais par une perte de contenu.
+const MARKDOWN_PATTERNS = [
+  /^#{1,6}\s+\S/m,          // # Titre
+  /\*\*[^*\n]+\*\*/,        // **gras**
+  /(?:^|\s)_[^_\n]+_(?:\s|$)/, // _italique_
+  /^[-*+]\s+\S/m,           // - liste
+  /^\d+\.\s+\S/m,           // 1. liste numérotée
+  /\[[^\]\n]+\]\([^)\n]+\)/, // [texte](lien)
+  /`[^`\n]+`/,              // `code`
+  /^```/m,                  // ```bloc de code```
+  /~~[^~\n]+~~/,            // ~~barré~~
+];
+
+function looksLikeMarkdownSource(text: string): boolean {
+  return MARKDOWN_PATTERNS.some(re => re.test(text));
+}
 
 // A description saved before this feature existed is plain text (no HTML
 // tags). Detect that case so we can convert it to paragraphs once, instead
@@ -267,6 +291,22 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
     // task.description (list-row icons, etc.) see an emptied description
     // as actually empty, not as content.
     onUpdate: ({ editor: e }) => onChange(e.isEmpty ? '' : e.getHTML()),
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const clipboard = event.clipboardData;
+        if (!clipboard) return false;
+        const html = clipboard.getData('text/html');
+        // Du HTML avec de vraies balises sémantiques (copié depuis une app
+        // qui a déjà rendu le markdown, ex. un aperçu GitHub) est déjà pris
+        // en charge nativement par Tiptap — ne pas y toucher.
+        if (html && /<(strong|b|em|i|h[1-6]|ul|ol|blockquote|a\s)/i.test(html)) return false;
+        const text = clipboard.getData('text/plain');
+        if (!text || !looksLikeMarkdownSource(text)) return false;
+        const parsedHtml = marked.parse(text, { breaks: true, async: false }) as string;
+        editor?.chain().focus().insertContent(parsedHtml).run();
+        return true;
+      },
+    },
   });
 
   useEffect(() => {
