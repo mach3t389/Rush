@@ -352,9 +352,14 @@ interface TaskDatePopoverProps {
   onClose: () => void;
   anchorRect: DOMRect | null;
   zIndex?: number;
+  // Affiche le bouton « Effacer » même sans date déjà choisie dans cette
+  // session du popover — utilisé pour l'édition en masse, où il n'y a pas
+  // de date commune à pré-afficher mais où retirer l'échéance reste une
+  // action valide dès l'ouverture.
+  showClearButton?: boolean;
 }
 
-export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = '', onChange, onClose, anchorRect, zIndex = 200 }: TaskDatePopoverProps) {
+export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = '', onChange, onClose, anchorRect, zIndex = 200, showClearButton = false }: TaskDatePopoverProps) {
   const { t } = useTranslation();
   const months = t('datepicker.months', { returnObjects: true }) as string[];
   const monthsShort = t('datepicker.monthsShort', { returnObjects: true }) as string[];
@@ -618,7 +623,7 @@ export function TaskDatePopover({ date, endDate = '', startTime = '', endTime = 
               {s.label}
             </button>
           ))}
-          {localDate && (
+          {(localDate || showClearButton) && (
             <button onClick={clearAll}
               style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--danger)', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--ff-mono)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>
               <SFIcon name="trash-2" size={11} />

@@ -1315,7 +1315,7 @@ export function Taches() {
 
   // Menu bulk « Modifier » — même mécanique qu'en vue projet (Travail.tsx) :
   // un seul niveau ouvert à la fois, ancré au bouton via getBoundingClientRect.
-  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date' | 'datePicker'>(null);
+  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
   const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
   const [, forceTeamRerender] = useState(0);
   useEffect(() => subscribeTeam(() => forceTeamRerender(n => n + 1)), []);
@@ -1821,7 +1821,7 @@ export function Taches() {
               <SFIcon name="pencil" size={13} />
               {t('board.bulkEdit')}
             </button>
-            {bulkEditField && bulkEditField !== 'datePicker' && bulkEditRect && (
+            {bulkEditField && bulkEditField !== 'date' && bulkEditRect && (
               <>
                 <div onClick={() => setBulkEditField(null)} style={{ position: 'fixed', inset: 0, zIndex: 399 }} />
                 <div style={{ position: 'fixed', bottom: window.innerHeight - bulkEditRect.top + 4, left: bulkEditRect.left, zIndex: 400, background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10, padding: 4, minWidth: 180, maxHeight: 280, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
@@ -1841,19 +1841,16 @@ export function Taches() {
                   {bulkEditField === 'status' && STATUS_OPTIONS.map(o => bulkDdItem(() => handleBulkStatus(o),
                     <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>
                   ))}
-                  {bulkEditField === 'date' && <>
-                    {bulkDdItem(handleBulkClearDate, <>{t('board.bulkNoDate')}</>)}
-                    {bulkDdItem(() => setBulkEditField('datePicker'), <>{t('board.bulkPickDate')}</>)}
-                  </>}
                 </div>
               </>
             )}
-            {bulkEditField === 'datePicker' && (
+            {bulkEditField === 'date' && (
               <TaskDatePopover
                 date=""
-                onChange={d => handleBulkDate(d)}
+                onChange={d => d ? handleBulkDate(d) : handleBulkClearDate()}
                 onClose={() => setBulkEditField(null)}
                 anchorRect={bulkEditRect}
+                showClearButton
               />
             )}
           </div>
