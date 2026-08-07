@@ -103,9 +103,15 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   };
 
   return (
-    <SFModal open onClose={save} title={lName || p.name} width={400} maxHeight="90vh">
+    // Largeur et ordre des champs alignés sur l'assistant "Nouveau projet"
+    // (ProjectsListView.tsx, étape Identité) : Nom → Couleur/Date/Budget sur
+    // une même ligne → Description. 400px forçait tout à s'empiler en
+    // colonne unique ; 480px laisse la ligne à 3 colonnes respirer sans
+    // recopier la largeur 820px de l'assistant (celui-ci a 4 étapes, pas ce
+    // panneau).
+    <SFModal open onClose={save} title={lName || p.name} width={480} maxHeight="90vh">
         {/* Body */}
-        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           {/* Nom */}
           <div>
@@ -119,95 +125,112 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             />
           </div>
 
-          {/* Couleur */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.dotColor')}</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {PROJECT_COLORS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setLColor(c)}
-                  style={{
-                    width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer',
-                    border: lColor === c ? '3px solid white' : '3px solid transparent',
-                    outline: lColor === c ? `2px solid ${c}` : 'none',
-                    transform: lColor === c ? 'scale(1.15)' : 'none',
-                    transition: 'transform 0.1s',
-                    flexShrink: 0,
-                  }}
-                />
-              ))}
+          {/* Couleur / Date de livraison / Budget — une seule ligne, comme l'assistant de création */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, auto) 1fr 1fr', gap: 14, alignItems: 'start' }}>
+            {/* Couleur — le conteneur a un padding pour laisser respirer le
+                contour+agrandissement (scale) de la pastille sélectionnée ;
+                sans lui, l'overflow:hidden du SFModal (posé dès qu'il a une
+                maxHeight) le rognait sur le bord gauche. */}
+            <div>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.dotColor')}</label>
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', padding: 3, margin: -3 }}>
+                {PROJECT_COLORS.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setLColor(c)}
+                    style={{
+                      width: 20, height: 20, borderRadius: '50%', background: c, cursor: 'pointer',
+                      border: lColor === c ? '2px solid white' : '2px solid transparent',
+                      outline: lColor === c ? `2px solid ${c}` : 'none',
+                      transform: lColor === c ? 'scale(1.15)' : 'none',
+                      transition: 'transform 0.1s',
+                      flexShrink: 0,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
+
+            {/* Date de livraison — sélecteur date + heure */}
+            <div>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')}</label>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
+                  style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
+                >
+                  <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || t('projects.chooseDate')}</span>
+                </button>
+                {lDeliveryYMD && (
+                  <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
+                )}
+              </div>
+              {dateOpen && (
+                <DatePickerDropdown
+                  value={lDeliveryYMD}
+                  onChange={v => { setLDeliveryYMD(v); setDateOpen(false); }}
+                  onClose={() => setDateOpen(false)}
+                  anchorRect={dateRect}
+                  zIndex={700}
+                />
+              )}
+              {timeOpen && (
+                <TimePickerDropdown
+                  value={lDeliveryTime}
+                  onChange={v => { setLDeliveryTime(v); setTimeOpen(false); }}
+                  onClose={() => setTimeOpen(false)}
+                  anchorRect={timeRect}
+                  zIndex={700}
+                />
+              )}
+            </div>
+
+            {/* Budget */}
+            <div>
+              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')}</label>
+              <input
+                value={lBudget}
+                onChange={e => setLBudget(e.target.value)}
+                placeholder={t('projects.budget')}
+                inputMode="numeric"
+                style={{ width: '100%', padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')}</label>
+            <textarea
+              value={lDescription}
+              onChange={e => setLDescription(e.target.value)}
+              placeholder={t('projects.projectName')}
+              rows={2}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
+            />
           </div>
 
           {/* Statut */}
           <div>
             <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.status')}</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               {PROJECT_STATUS_OPTIONS.map(opt => (
                 <button
                   key={opt.status}
                   onClick={() => { setLStatus(opt.status); setLStatusLabel(t(opt.labelKey)); }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 9,
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 9,
                     border: `1px solid ${lStatus === opt.status ? 'var(--accent)' : 'var(--border)'}`,
                     background: lStatus === opt.status ? 'rgba(249,255,0,0.05)' : 'var(--surface-2)',
                     cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--ff-text)',
                   }}
                 >
                   <SFPill status={opt.status} small>{t(opt.labelKey)}</SFPill>
-                  {lStatus === opt.status && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto' }} />}
+                  {lStatus === opt.status && <SFIcon name="check" size={12} color="var(--accent)" style={{ marginLeft: 'auto', flexShrink: 0 }} />}
                 </button>
               ))}
             </div>
-          </div>
-
-
-          {/* Date de livraison — sélecteur date + heure */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')}</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 13, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left' }}
-              >
-                <SFIcon name="calendar" size={14} color="var(--text-3)" />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || t('projects.chooseDate')}</span>
-              </button>
-              {lDeliveryYMD && (
-                <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
-              )}
-            </div>
-            {dateOpen && (
-              <DatePickerDropdown
-                value={lDeliveryYMD}
-                onChange={v => { setLDeliveryYMD(v); setDateOpen(false); }}
-                onClose={() => setDateOpen(false)}
-                anchorRect={dateRect}
-                zIndex={700}
-              />
-            )}
-            {timeOpen && (
-              <TimePickerDropdown
-                value={lDeliveryTime}
-                onChange={v => { setLDeliveryTime(v); setTimeOpen(false); }}
-                onClose={() => setTimeOpen(false)}
-                anchorRect={timeRect}
-                zIndex={700}
-              />
-            )}
-          </div>
-
-          {/* Budget */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')}</label>
-            <input
-              value={lBudget}
-              onChange={e => setLBudget(e.target.value)}
-              placeholder={t('projects.budget')}
-              inputMode="numeric"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
-            />
           </div>
 
           {/* Modules */}
@@ -239,18 +262,6 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.description')}</label>
-            <textarea
-              value={lDescription}
-              onChange={e => setLDescription(e.target.value)}
-              placeholder={t('projects.projectName')}
-              rows={3}
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-text)', resize: 'vertical', lineHeight: 1.5 }}
-            />
           </div>
 
         </div>
