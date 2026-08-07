@@ -26,6 +26,7 @@ import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStor
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
+import mammoth from 'mammoth';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { confirmDialog } from '../data/confirmStore';
 import type { Project, ResourceType } from '../types';
@@ -442,6 +443,49 @@ function PreviewBtn({ icon, label, onClick, disabled }: { icon: string; label?: 
   );
 }
 
+// Rendu client-only d'un .docx — mammoth le convertit en HTML directement
+// dans le navigateur (aucun backend/visionneuse externe nécessaire). Ne
+// gère pas le .doc binaire legacy (mammoth ne le supporte pas), seulement
+// le format .docx (Open XML) — le seul que "Nouveau fichier" propose de
+// toute façon.
+function DocxPreview({ url }: { url: string }) {
+  const { t } = useTranslation();
+  const [html, setHtml] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHtml(null);
+    setError(false);
+    fetch(url)
+      .then(res => res.arrayBuffer())
+      .then(buf => mammoth.convertToHtml({ arrayBuffer: buf }))
+      .then(result => { if (!cancelled) setHtml(result.value); })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+        <SFIcon name="file-x" size={40} color="var(--text-3)" />
+        <p style={{ marginTop: 12, fontSize: 13 }}>{t('files.docxPreviewError')}</p>
+      </div>
+    );
+  }
+  if (!html) {
+    return <SFLoadingState />;
+  }
+  return (
+    <div style={{ width: '100%', height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '32px 24px' }}>
+      <div
+        style={{ background: '#fff', color: '#1a1a1a', width: '100%', maxWidth: 820, padding: '48px 56px', borderRadius: 4, boxShadow: '0 4px 24px rgba(0,0,0,0.35)', lineHeight: 1.6, fontSize: 14 }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  );
+}
+
 function FilePreviewModal({ file, files, onNavigate, onClose }: {
   file: FileItem;
   files: FileItem[];
@@ -552,7 +596,7 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: file.type === 'pdf' ? 0 : 24, position: 'relative' }}>
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: (file.type === 'pdf' || (file.type === 'doc' && file.ext.toLowerCase() === 'docx')) ? 0 : 24, position: 'relative' }}>
         {!url ? (
           <div style={{ textAlign: 'center' }}>
             <SFIcon name={icon} size={52} color="var(--text-3)" />
@@ -598,6 +642,9 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
               </div>
             )}
           </div>
+
+        ) : file.type === 'doc' && file.ext.toLowerCase() === 'docx' ? (
+          <DocxPreview url={url} />
 
         ) : (
           <div style={{ textAlign: 'center' }}>

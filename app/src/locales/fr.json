@@ -1433,6 +1433,7 @@
     "download": "Télécharger",
     "noContentAvailable": "Aucun contenu disponible",
     "dragFileToLoad": "Glissez ce fichier depuis votre ordinateur pour le charger.",
+    "docxPreviewError": "Impossible d'afficher ce document.",
     "fileTypePdf": "Document PDF",
     "fileTypeImage": "Image",
     "fileTypeVideo": "Vidéo",
