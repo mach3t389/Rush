@@ -1515,11 +1515,30 @@ export function Travail() {
   const [autoFocusComments, setAutoFocusComments] = useState(false);
   const [focusCommentId, setFocusCommentId] = useState<string | undefined>();
 
+  // Self-repair for data corrupted by the board's index-vs-label move bug
+  // (a task could get copied into a second section instead of moved, so the
+  // same id existed twice). A task id is never legitimately in two sections,
+  // so keeping the first occurrence is always the right resolution. Returns
+  // the input untouched when there's nothing to fix, to avoid re-renders.
+  const dedupeTaskIds = (secs: SectionData[]): SectionData[] => {
+    const seen = new Set<string>();
+    let duplicated = false;
+    const cleaned = secs.map(s => {
+      const tasks = s.tasks.filter(t => {
+        if (seen.has(t.id)) { duplicated = true; return false; }
+        seen.add(t.id);
+        return true;
+      });
+      return tasks.length === s.tasks.length ? s : { ...s, tasks };
+    });
+    return duplicated ? cleaned : secs;
+  };
+
   const getInitialSections = () => {
     const stored = getSections(project.id);
     // Each project shows its own tasks; a project with none starts empty
     // (the "Nouvelle section" affordance lets the user build it out).
-    return stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []);
+    return dedupeTaskIds(stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []));
   };
   const [sections, setSectionsState] = useState<SectionData[]>(getInitialSections);
 
@@ -1532,7 +1551,7 @@ export function Travail() {
   useEffect(() => {
     const sync = () => {
       const stored = getSections(project.id);
-      setSectionsState(stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? []));
+      setSectionsState(dedupeTaskIds(stored.length > 0 ? stored : (PROJECT_TASKS[project.id] ?? [])));
     };
     // Switching projects (e.g. via a pinned sidebar bookmark) keeps this same
     // component instance mounted with a new `project.id` — without an
@@ -1880,21 +1899,6 @@ export function Travail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleMoveTask = (task: Task, fromIdx: number, toIdx: number, beforeTaskId?: string) => {
-    setSections(prev => {
-      const next = prev.map(s => ({ ...s, tasks: [...s.tasks] }));
-      next[fromIdx].tasks = next[fromIdx].tasks.filter(t => t.id !== task.id);
-      if (beforeTaskId) {
-        const insertAt = next[toIdx].tasks.findIndex(t => t.id === beforeTaskId);
-        if (insertAt >= 0) next[toIdx].tasks.splice(insertAt, 0, task);
-        else next[toIdx].tasks.push(task);
-      } else {
-        next[toIdx].tasks.push(task);
-      }
-      return next;
-    });
-  };
-
   const handleTaskDragStart = (task: Task, sectionLabel: string) => {
     setDraggedTask({ task, fromSectionLabel: sectionLabel });
   };
@@ -1967,7 +1971,20 @@ export function Travail() {
   };
 
   const handleBoardMoveTask = (task: Task, fromIdx: number, toIdx: number, beforeTaskId?: string) => {
-    if (boardGroupBy === 'category') { handleMoveTask(task, fromIdx, toIdx, beforeTaskId); return; }
+    if (boardGroupBy === 'category') {
+      // The board's column indexes are indexes into boardSections — i.e. the
+      // FILTERED list (activeSection / "Sections terminées"). Applying them
+      // straight to the unfiltered `sections` array silently moved tasks into
+      // whichever section happened to sit at that index, duplicating them and
+      // sometimes dropping them into a hidden category (where they looked
+      // deleted). Resolve to labels here and let the label-based handler find
+      // the real sections.
+      const fromLabel = boardSections[fromIdx]?.label;
+      const toLabel = boardSections[toIdx]?.label;
+      if (!fromLabel || !toLabel) return;
+      handleTaskDrop(task, fromLabel, toLabel, beforeTaskId);
+      return;
+    }
     const targetStatus = STATUS_OPTIONS[toIdx];
     if (!targetStatus) return;
     const patch: Partial<Task> = {
