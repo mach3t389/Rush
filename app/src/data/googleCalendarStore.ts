@@ -79,16 +79,22 @@ export interface ProjectGoogleCalendarContact {
   shared: boolean;
 }
 
+export interface ProjectGoogleCalendarExtraInvitee {
+  email: string;
+  shared: boolean;
+}
+
 export interface ProjectGoogleCalendarStatus {
   active: boolean;
   contacts: ProjectGoogleCalendarContact[];
+  extraInvitees: ProjectGoogleCalendarExtraInvitee[];
 }
 
 export async function getProjectGoogleCalendarStatus(projectId: string): Promise<ProjectGoogleCalendarStatus> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
   const resp = await fetch(`/api/google-calendar-project?action=status&studioId=${studioId}&projectId=${projectId}`, { headers });
-  if (!resp.ok) return { active: false, contacts: [] };
+  if (!resp.ok) return { active: false, contacts: [], extraInvitees: [] };
   return resp.json();
 }
 
@@ -116,6 +122,35 @@ export async function shareProjectGoogleCalendarNow(projectId: string): Promise<
     body: JSON.stringify({ action: 'sync-access', studioId, projectId }),
   });
   if (!resp.ok) throw new Error('Failed to share project Google Calendar');
+}
+
+// Adds a manually-entered email to a project calendar's invitee list.
+// Pending until the next "Partager" click (shareProjectGoogleCalendarNow) —
+// this call never talks to Google itself, it only records intent, exactly
+// like a client contact getting project access does before it's shared.
+export async function addExtraInvitee(projectId: string, email: string): Promise<void> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch('/api/google-calendar-project', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'add-extra-invitee', studioId, projectId, email }),
+  });
+  if (!resp.ok) throw new Error('Failed to add invitee');
+}
+
+// Removes a manually-entered email — revokes its Google Calendar access
+// immediately if it had already been shared, same as removing a client
+// contact's project access does.
+export async function removeExtraInvitee(projectId: string, email: string): Promise<void> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch('/api/google-calendar-project', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'remove-extra-invitee', studioId, projectId, email }),
+  });
+  if (!resp.ok) throw new Error('Failed to remove invitee');
 }
 
 export async function deactivateProjectGoogleCalendar(projectId: string): Promise<void> {
