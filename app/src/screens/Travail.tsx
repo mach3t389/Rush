@@ -2091,7 +2091,7 @@ export function Travail() {
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-2)', background: groupByOpen ? 'var(--surface-3)' : 'var(--surface-2)', color: 'var(--text-2)', fontSize: 12, fontFamily: 'var(--ff-text)', cursor: 'pointer', fontWeight: 500 }}
           >
             <SFIcon name="layout-grid" size={13} />
-            {t('board.groupByLabel')}
+            {boardGroupBy === 'category' ? t('board.groupByCategory') : boardGroupBy === 'status' ? t('board.groupByStatus') : t('board.groupByAssignee')}
             <SFIcon name="chevron-down" size={11} color="var(--text-3)" />
           </button>
           {groupByOpen && (
