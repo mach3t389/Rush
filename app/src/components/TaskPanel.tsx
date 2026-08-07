@@ -310,6 +310,7 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             // caractères, ils réapparaissaient au blur/Entrée). Escape reste
             // le geste pour annuler une modification.
             const trimmed = editTitle.trim();
+            if (!trimmed) { onDelete(); return; }
             if (trimmed !== sub.title) onUpdate({ title: trimmed });
             setEditTitle(trimmed);
             setEditing(false);
@@ -318,19 +319,13 @@ function SubTaskRow({ sub, onUpdate, onDelete, onPasteMultiple, onEnterNext, sel
             if (e.key === 'Enter') {
               e.preventDefault();
               const trimmed = editTitle.trim();
+              if (!trimmed) { onDelete(); return; }
               setEditTitle(trimmed);
               setEditing(false);
-              if (trimmed) {
-                // Like AddTaskRow: Enter on a titled row commits the title
-                // AND opens a fresh blank row right after it, as one atomic
-                // update — so a checklist can be typed line by line.
-                onEnterNext?.(trimmed);
-              } else if (trimmed !== sub.title) {
-                // Titre vidé : on commit le vide, sans ouvrir de nouvelle
-                // ligne (enchaîner sur une ligne vierge après en avoir vidé
-                // une n'a aucun sens).
-                onUpdate({ title: trimmed });
-              }
+              // Like AddTaskRow: Enter on a titled row commits the title
+              // AND opens a fresh blank row right after it, as one atomic
+              // update — so a checklist can be typed line by line.
+              onEnterNext?.(trimmed);
             }
             if (e.key === 'Escape') { setEditTitle(sub.title); setEditing(false); }
           }}
