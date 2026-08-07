@@ -112,45 +112,74 @@ export function OverviewSectionForm({ initial, onSave, onCancel, existingSystemI
         ))}
       </div>
 
-      {!initial && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {(['fields', 'note', 'checklist', 'gallery', 'links'] as OverviewSectionKind[])
-            .concat((['vision', 'deliverables', 'invoices', 'files', 'notes'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
-            .map(k => (
-            <button key={k} onClick={() => setKind(k)}
-              style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t(KIND_LABEL_KEY[k])}</p>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(KIND_DESC_KEY[k])}</p>
+      {/* À la création de "Champs personnalisés" spécifiquement, l'éditeur de
+          champs remplace la liste de types (plutôt que de s'ajouter en
+          dessous) et porte un bouton retour + un en-tête — pour bien signaler
+          que c'est encore une étape de configuration avant création, pas un
+          aperçu du module déjà posé sur la page. */}
+      {!initial && kind === 'fields' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={() => setKind(null)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', padding: 0, fontFamily: 'var(--ff-text)' }}>
+            <SFIcon name="chevron-left" size={13} /> {t('overview.backToKindList')}
+          </button>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>{t('overview.configureFieldsTitle')}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {fields.map(f => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input value={f.label} onChange={e => updateField(f.id, { label: e.target.value })} placeholder={t('overview.fieldLabelPlaceholder')} style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={() => updateField(f.id, { multiline: !f.multiline })} title={t('overview.fieldMultiline')}
+                  style={{ padding: '6px 8px', borderRadius: 7, border: `1px solid ${f.multiline ? 'var(--accent)' : 'var(--border)'}`, background: f.multiline ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: f.multiline ? 'var(--accent)' : 'var(--text-3)' }}>
+                  <SFIcon name="align-left" size={13} />
+                </button>
+                <button onClick={() => removeField(f.id)} title={t('overview.removeField')}
+                  style={{ padding: '6px 8px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+                  <SFIcon name="x" size={13} />
+                </button>
+              </div>
+            ))}
+            <button onClick={addField} style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer' }}>
+              <SFIcon name="plus" size={12} /> {t('overview.addField')}
             </button>
-          ))}
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {!initial && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(['fields', 'note', 'checklist', 'gallery', 'links'] as OverviewSectionKind[])
+                .concat((['vision', 'deliverables', 'invoices', 'files', 'notes'] as OverviewSectionKind[]).filter(k => !existingSystemIds.includes(SYSTEM_KIND_ID[k]!)))
+                .map(k => (
+                <button key={k} onClick={() => setKind(k)}
+                  style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${kind === k ? 'var(--accent)' : 'var(--border)'}`, background: kind === k ? 'rgba(249,255,0,0.04)' : 'var(--surface-2)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t(KIND_LABEL_KEY[k])}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{t(KIND_DESC_KEY[k])}</p>
+                </button>
+              ))}
+            </div>
+          )}
 
-      {/* Éditeur de champs — uniquement en modification (initial fourni), jamais
-          à la création : tous les autres kinds (Note, Checklist, Galerie...)
-          se créent vides et se configurent après coup depuis le module lui-même
-          (« ... » → Renommer, qui rouvre ce même formulaire) ; "Champs
-          personnalisés" doit suivre la même règle plutôt que de montrer sa
-          configuration de contenu avant même que le module existe. */}
-      {!!initial && (kind === 'fields' || kind === 'vision') && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {fields.map(f => (
-            <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input value={f.label} onChange={e => updateField(f.id, { label: e.target.value })} placeholder={t('overview.fieldLabelPlaceholder')} style={{ ...inputStyle, flex: 1 }} />
-              <button onClick={() => updateField(f.id, { multiline: !f.multiline })} title={t('overview.fieldMultiline')}
-                style={{ padding: '6px 8px', borderRadius: 7, border: `1px solid ${f.multiline ? 'var(--accent)' : 'var(--border)'}`, background: f.multiline ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: f.multiline ? 'var(--accent)' : 'var(--text-3)' }}>
-                <SFIcon name="align-left" size={13} />
-              </button>
-              <button onClick={() => removeField(f.id)} title={t('overview.removeField')}
-                style={{ padding: '6px 8px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
-                <SFIcon name="x" size={13} />
+          {(kind === 'fields' || kind === 'vision') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {fields.map(f => (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input value={f.label} onChange={e => updateField(f.id, { label: e.target.value })} placeholder={t('overview.fieldLabelPlaceholder')} style={{ ...inputStyle, flex: 1 }} />
+                  <button onClick={() => updateField(f.id, { multiline: !f.multiline })} title={t('overview.fieldMultiline')}
+                    style={{ padding: '6px 8px', borderRadius: 7, border: `1px solid ${f.multiline ? 'var(--accent)' : 'var(--border)'}`, background: f.multiline ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)', cursor: 'pointer', color: f.multiline ? 'var(--accent)' : 'var(--text-3)' }}>
+                    <SFIcon name="align-left" size={13} />
+                  </button>
+                  <button onClick={() => removeField(f.id)} title={t('overview.removeField')}
+                    style={{ padding: '6px 8px', borderRadius: 7, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+                    <SFIcon name="x" size={13} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={addField} style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer' }}>
+                <SFIcon name="plus" size={12} /> {t('overview.addField')}
               </button>
             </div>
-          ))}
-          <button onClick={addField} style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--border-2)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer' }}>
-            <SFIcon name="plus" size={12} /> {t('overview.addField')}
-          </button>
-        </div>
+          )}
+        </>
       )}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
