@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SFIcon, SFModal, SFButton } from '../ui';
 import { isDemoSession } from '../../data/authStore';
 import { listMyOrganizations, switchActiveStudio, createAdditionalStudio, getStudioId, type MyOrganization } from '../../data/studioStore';
+import { getUnreadCountsByStudio } from '../../data/notificationStore';
 
 export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
@@ -14,6 +15,7 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [unreadByOrg, setUnreadByOrg] = useState<Record<string, number>>({});
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -26,7 +28,17 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
     const load = async (attempt: number) => {
       try {
         const [list, current] = await Promise.all([listMyOrganizations(), getStudioId()]);
-        if (!cancelled) { setOrgs(list); setActiveId(current); }
+        if (cancelled) return;
+        setOrgs(list);
+        setActiveId(current);
+        // Only orgs OTHER than the active one — its own unread count already
+        // has a bell in GlobalTopBar, this badge is specifically for "there's
+        // something waiting in an org you're not currently looking at".
+        const otherIds = list.map(o => o.studioId).filter(id => id !== current);
+        if (otherIds.length > 0) {
+          const counts = await getUnreadCountsByStudio(otherIds);
+          if (!cancelled) setUnreadByOrg(counts);
+        }
       } catch (err) {
         console.error('OrgSwitcher: failed to resolve organisations', err);
         // Transient failures (e.g. a slow first request) shouldn't leave the
@@ -40,6 +52,8 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 
     return () => { cancelled = true; clearTimeout(retryTimer); };
   }, []);
+
+  const totalOtherUnread = Object.values(unreadByOrg).reduce((sum, n) => sum + n, 0);
 
   useEffect(() => {
     if (!open || !dropdownRef.current || !anchorRect) return;
@@ -93,8 +107,20 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <SFIcon name="building-2" size={13} color="var(--text-3)" />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, position: 'relative' }}>
+          <span style={{ position: 'relative', display: 'flex' }}>
+            <SFIcon name="building-2" size={13} color="var(--text-3)" />
+            {totalOtherUnread > 0 && (
+              <span title={t('orgSwitcher.unreadInOtherOrgs', { count: totalOtherUnread })} style={{
+                position: 'absolute', top: -6, right: -7, minWidth: 13, height: 13, padding: '0 3px',
+                borderRadius: 7, background: 'var(--danger)', color: '#fff', fontSize: 9, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                fontFamily: 'var(--ff-mono)', boxShadow: '0 0 0 2px var(--surface-2)',
+              }}>
+                {totalOtherUnread > 9 ? '9+' : totalOtherUnread}
+              </span>
+            )}
+          </span>
           {!collapsed && (
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {active?.name ?? '…'}
@@ -112,22 +138,38 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
             background: 'var(--surface)', border: '1px solid var(--border-2)',
             borderRadius: 10, padding: 5, boxShadow: '0 12px 32px rgba(0,0,0,0.5)', minWidth: 200,
           }}>
-          {orgs.map(org => (
-            <button
-              key={org.studioId}
-              onClick={() => { setOpen(false); if (org.studioId !== activeId) void switchActiveStudio(org.studioId); }}
-              style={{
-                display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left',
-                padding: '7px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                background: org.studioId === activeId ? 'var(--surface-2)' : 'transparent',
-              }}
-              onMouseEnter={e => { if (org.studioId !== activeId) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { if (org.studioId !== activeId) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{org.name}</span>
-              <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{org.role}</span>
-            </button>
-          ))}
+          {orgs.map(org => {
+            const unread = unreadByOrg[org.studioId] ?? 0;
+            return (
+              <button
+                key={org.studioId}
+                onClick={() => { setOpen(false); if (org.studioId !== activeId) void switchActiveStudio(org.studioId); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  width: '100%', textAlign: 'left',
+                  padding: '7px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                  background: org.studioId === activeId ? 'var(--surface-2)' : 'transparent',
+                }}
+                onMouseEnter={e => { if (org.studioId !== activeId) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { if (org.studioId !== activeId) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{org.name}</span>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)' }}>{org.role}</span>
+                </span>
+                {unread > 0 && (
+                  <span style={{
+                    flexShrink: 0, minWidth: 16, height: 16, padding: '0 4px',
+                    borderRadius: 8, background: 'var(--danger)', color: '#fff', fontSize: 10, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                    fontFamily: 'var(--ff-mono)',
+                  }}>
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </button>
+            );
+          })}
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 2px' }} />
           <button
             onClick={() => { setOpen(false); setShowCreate(true); }}

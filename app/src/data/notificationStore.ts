@@ -550,6 +550,40 @@ async function resolveRealAddNotif(notif: Omit<AppNotif, 'id' | 'read'>, optimis
   }
 }
 
+// Unread counts for organisations OTHER than the active one — powers the
+// bell badge in OrgSwitcher.tsx. Deliberately bypasses the single-studio
+// `_supabaseNotifs` cache above (that cache is pinned to the active studio
+// only) and queries Supabase directly for the given studio ids. RLS on both
+// tables is scoped to "studios I'm a member of" (not "the active studio"),
+// so this is allowed without switching context — see
+// docs/superpowers/specs/2026-07-07-notifications-supabase-migration-design.md.
+export async function getUnreadCountsByStudio(studioIds: string[]): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  if (isDemoSession() || studioIds.length === 0) return counts;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return counts;
+
+  const { data: notifRows, error: notifError } = await supabase
+    .from('notifications')
+    .select('id, studio_id, recipient_ids')
+    .in('studio_id', studioIds);
+  if (notifError || !notifRows) { console.error('getUnreadCountsByStudio failed', notifError); return counts; }
+
+  const { data: readRows, error: readError } = await supabase
+    .from('notification_reads')
+    .select('notification_id')
+    .eq('user_id', user.id);
+  if (readError) { console.error('getUnreadCountsByStudio (reads) failed', readError); return counts; }
+  const readIds = new Set((readRows as { notification_id: string }[] | null ?? []).map(r => r.notification_id));
+
+  for (const row of notifRows as { id: string; studio_id: string; recipient_ids: string[] }[]) {
+    if (!row.recipient_ids.includes(user.id) || readIds.has(row.id)) continue;
+    counts[row.studio_id] = (counts[row.studio_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export function getNotifHistory(taskId?: string, resourceId?: string): AppNotif[] {
   return getNotifs().filter(n =>
     (taskId ? n.taskId === taskId : true) &&
