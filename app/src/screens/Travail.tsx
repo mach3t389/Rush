@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue, AssigneeGroup, CommentBadge } from '../components/ui';
+import { SFPill, SFBar, SFButton, SFIcon, SFModal, TaskDatePopover, parseYMD, fmtTaskDate, isOverdue, AssigneeGroup, CommentBadge, SFAvatar } from '../components/ui';
 import { PROJECT_TASKS, RESOURCES } from '../data/mock';
 import { findProject, getProjects, subscribeProjects } from '../data/projectStore';
 import { STATUS_COLOR } from '../data/status';
@@ -1632,6 +1632,82 @@ export function Travail() {
   };
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [multiSelIds, setMultiSelIds] = useState<Set<string>>(new Set());
+  // Menu bulk « Modifier » (Assigné / Statut / Date) — un seul niveau ouvert
+  // à la fois : 'menu' = liste des 3 champs, puis 'assignee'/'status'/'date'
+  // = le sous-menu correspondant, ancré au même bouton.
+  const [bulkEditField, setBulkEditField] = useState<null | 'menu' | 'assignee' | 'status' | 'date'>(null);
+  const [bulkEditRect, setBulkEditRect] = useState<DOMRect | null>(null);
+
+  type BulkSnapshotEntry = { id: string; assignees: User[]; status: string; statusLabel: string; dueDate: string };
+  const captureBulkSnapshot = (ids: string[]): BulkSnapshotEntry[] => {
+    const all = sections.flatMap(s => s.tasks);
+    return ids.map(id => {
+      const found = all.find(x => x.id === id);
+      return {
+        id,
+        assignees: found?.assignees ?? [],
+        status: found?.status ?? '',
+        statusLabel: found?.statusLabel ?? '',
+        dueDate: found?.dueDate ?? '',
+      };
+    });
+  };
+
+  const applyBulkPatch = (
+    ids: string[],
+    patch: Partial<Task>,
+    snapshot: BulkSnapshotEntry[],
+    undoPatchFor: (s: BulkSnapshotEntry) => Partial<Task>,
+    message: string,
+  ) => {
+    ids.forEach(id => updateTask(project.id, id, patch));
+    setBulkEditField(null);
+    setBulkEditRect(null);
+    setMultiSelIds(new Set());
+    showToast({
+      type: 'bulk',
+      message,
+      onUndo: () => snapshot.forEach(s => updateTask(project.id, s.id, undoPatchFor(s))),
+    });
+  };
+
+  const handleBulkAssign = (user: User) => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    applyBulkPatch(
+      ids,
+      { assignees: [user] },
+      snapshot,
+      s => ({ assignees: s.assignees }),
+      t('board.bulkAssignedToast', { count: ids.length, name: user.name }),
+    );
+  };
+
+  const handleBulkStatus = (opt: typeof STATUS_OPTIONS[number]) => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    const label = t(opt.labelKey);
+    applyBulkPatch(
+      ids,
+      { status: opt.value as Task['status'], statusLabel: label },
+      snapshot,
+      s => ({ status: s.status as Task['status'], statusLabel: s.statusLabel }),
+      t('board.bulkStatusToast', { count: ids.length, status: label }),
+    );
+  };
+
+  const handleBulkDate = (date: string) => {
+    const ids = [...multiSelIds];
+    const snapshot = captureBulkSnapshot(ids);
+    applyBulkPatch(
+      ids,
+      { dueDate: date },
+      snapshot,
+      s => ({ dueDate: s.dueDate }),
+      t('board.bulkDateToast', { count: ids.length, date: fmtTaskDate(date) }),
+    );
+  };
+
   const handleConvertRequest = (task: Task, pos: { x: number; y: number }) => {
     const ids = multiSelIds.has(task.id) && multiSelIds.size > 1 ? [...multiSelIds] : [task.id];
     setConvertRequest({ taskIds: ids, pos });
@@ -2409,6 +2485,41 @@ export function Travail() {
             <SFIcon name="copy" size={13} />
             {t('board.copy')}
           </button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={e => { setBulkEditRect(e.currentTarget.getBoundingClientRect()); setBulkEditField('menu'); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
+              <SFIcon name="pencil" size={13} />
+              {t('board.bulkEdit')}
+            </button>
+            {bulkEditField === 'menu' && (
+              <InlineDropdown onClose={() => setBulkEditField(null)} anchorRect={bulkEditRect}>
+                {ddItem(() => setBulkEditField('assignee'), <>{t('board.bulkEditAssignee')}</>)}
+                {ddItem(() => setBulkEditField('status'), <>{t('board.bulkEditStatus')}</>)}
+                {ddItem(() => setBulkEditField('date'), <>{t('board.bulkEditDate')}</>)}
+              </InlineDropdown>
+            )}
+            {bulkEditField === 'assignee' && (
+              <InlineDropdown onClose={() => setBulkEditField(null)} anchorRect={bulkEditRect}>
+                {teamMembers.map(u => ddItem(() => handleBulkAssign(u),
+                  <><SFAvatar initials={u.initials} bg={u.avatarColor} size={18} photoUrl={u.photoUrl} />{u.name}</>
+                ))}
+              </InlineDropdown>
+            )}
+            {bulkEditField === 'status' && (
+              <InlineDropdown onClose={() => setBulkEditField(null)} anchorRect={bulkEditRect}>
+                {STATUS_OPTIONS.map(o => ddItem(() => handleBulkStatus(o),
+                  <><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[o.value], display: 'block', flexShrink: 0 }} />{t(o.labelKey)}</>
+                ))}
+              </InlineDropdown>
+            )}
+            {bulkEditField === 'date' && (
+              <TaskDatePopover
+                date=""
+                onChange={d => handleBulkDate(d)}
+                onClose={() => setBulkEditField(null)}
+                anchorRect={bulkEditRect}
+              />
+            )}
+          </div>
           <button onClick={e => setConvertRequest({ taskIds: [...multiSelIds], pos: (() => { const r = e.currentTarget.getBoundingClientRect(); return { x: r.left, y: r.top }; })() })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, background: 'var(--surface-3)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--ff-text)' }}>
             <SFIcon name="git-branch" size={13} />
             {t('board.convertToSubtask')}
