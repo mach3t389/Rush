@@ -152,7 +152,12 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
       padding: '4px 6px', borderRadius: 8, border: '1px solid var(--border)',
-      background: 'var(--surface-2)', marginBottom: 6,
+      background: 'var(--surface-2)',
+      // Floats above the description box (anchored to it) instead of
+      // sitting in normal flow — entering edit mode must not push the
+      // description down, which would shift whatever is below it too.
+      position: 'absolute', bottom: '100%', left: 0, marginBottom: 6, zIndex: 20,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
     }}>
       <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title={t('taskPanel.descriptionToolbar.bold')}>
         <b>G</b>
@@ -271,6 +276,7 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
   return (
     <div
       ref={wrapperRef}
+      style={{ position: 'relative' }}
       onClick={e => {
         if (editing) return;
         if ((e.target as HTMLElement).closest('a')) return;
