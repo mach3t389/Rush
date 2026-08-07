@@ -2278,7 +2278,7 @@ export function Travail() {
           navigateur ne émet plus d'événements pointeur/souris — seuls les
           événements de glisser portent la position du curseur. */}
       {view === 'list' && <div ref={scrollContainerRef} onDragOver={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
-        {boardGroupBy === 'category' && <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />}
+        <SectionInsertZone active={boardGroupBy === 'category' && draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {(boardGroupBy === 'category' ? visibleSections : boardSections).map((section, vIdx) => {
           const globalIdx = boardGroupBy === 'category' ? sections.findIndex(s => s.label === section.label) : -1;
           return (
@@ -2314,7 +2314,7 @@ export function Travail() {
                 visibleColumns={visibleColumns}
                 readOnlyHeader={boardGroupBy !== 'category'}
               />
-              {boardGroupBy === 'category' && <SectionInsertZone active={draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />}
+              <SectionInsertZone active={boardGroupBy === 'category' && draggedIdx !== null} onDrop={() => handleSectionInsertAt(vIdx + 1)} />
             </React.Fragment>
           );
         })}
