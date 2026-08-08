@@ -1890,6 +1890,7 @@ function GoogleCalendarCard() {
           {[
             { icon: 'calendar', text: t('settings.gcalFeatureAutoAdd') },
             { icon: 'refresh-cw', text: t('settings.gcalFeatureBidirectional') },
+            { icon: 'share-2', text: t('settings.gcalFeatureShare') },
             { icon: 'bell', text: t('settings.gcalFeatureReminders') },
           ].map(item => (
             <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
