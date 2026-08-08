@@ -29,6 +29,7 @@ import { setFileContent, getFileContent, getFileContentError, getUploadStatus, s
 import { renderAsync } from 'docx-preview';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { confirmDialog } from '../data/confirmStore';
+import { showToast } from '../data/toastStore';
 import type { Project, ResourceType } from '../types';
 
 // ── Resource types ─────────────────────────────────────────────────────────────
@@ -2431,13 +2432,23 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
     [...selectedIds].filter(id => allFolders.some(f => f.id === id) || allFiles.some(f => f.id === id))
   );
 
+  // Le bouton corbeille est juste à côté du bouton télécharger dans la barre
+  // d'outils — un clic malencontreux est facile. La mise à la corbeille reste
+  // réversible via la Corbeille elle-même, mais un "Annuler" immédiat évite
+  // d'avoir à y retourner chercher l'élément.
   const trashSelected = () => {
-    deletableSelectedIds.forEach(id => {
-      if (allFolders.some(f => f.id === id)) trashFolder(id);
-      else trashFile(id);
-    });
+    const ids = [...deletableSelectedIds];
+    const folderIds = ids.filter(id => allFolders.some(f => f.id === id));
+    const fileIds = ids.filter(id => allFiles.some(f => f.id === id));
+    folderIds.forEach(trashFolder);
+    fileIds.forEach(trashFile);
     setSelectedIds(new Set());
     setLastSelectedId(null);
+    showToast({
+      type: 'bulk',
+      message: ids.length > 1 ? `${ids.length} éléments mis à la corbeille` : 'Élément mis à la corbeille',
+      onUndo: () => { folderIds.forEach(restoreFolder); fileIds.forEach(restoreFile); },
+    });
   };
 
   // Seuls les vrais fichiers ont un contenu téléchargeable (pas les dossiers).
@@ -3336,6 +3347,33 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
           ))}
         </div>
 
+        {/* Bouton télécharger (sélection active) — uniquement pour de vrais fichiers.
+            Placé avant la corbeille et séparé d'un espacement + trait vertical
+            explicite (au lieu du `gap` uniforme du reste de la barre) : les
+            deux boutons étaient adjacents et de même taille, ce qui rendait
+            un clic sur le mauvais facile — un mauvais clic sur "Télécharger"
+            ne coûte rien, mais l'inverse déplaçait l'élément à la corbeille. */}
+        {downloadableSelectedIds.size > 0 && (
+          <button
+            onClick={downloadSelected}
+            title={`Télécharger ${downloadableSelectedIds.size} élément${downloadableSelectedIds.size > 1 ? 's' : ''}`}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+          >
+            <SFIcon name="download" size={14} color="var(--accent)" />
+            {downloadableSelectedIds.size > 1 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                {downloadableSelectedIds.size}
+              </span>
+            )}
+          </button>
+        )}
+
+        {deletableSelectedIds.size > 0 && (downloadableSelectedIds.size > 0) && (
+          <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0, margin: '0 2px' }} />
+        )}
+
         {/* Bouton corbeille (sélection active) — seulement pour de vrais dossiers/fichiers, pas les entrées virtuelles (Clients, client, projet) */}
         {deletableSelectedIds.size > 0 && (
           <button
@@ -3349,24 +3387,6 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
             {deletableSelectedIds.size > 1 && (
               <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
                 {deletableSelectedIds.size}
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* Bouton télécharger (sélection active) — uniquement pour de vrais fichiers */}
-        {downloadableSelectedIds.size > 0 && (
-          <button
-            onClick={downloadSelected}
-            title={`Télécharger ${downloadableSelectedIds.size} élément${downloadableSelectedIds.size > 1 ? 's' : ''}`}
-            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', flexShrink: 0 }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.1)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-          >
-            <SFIcon name="download" size={14} color="var(--accent)" />
-            {downloadableSelectedIds.size > 1 && (
-              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                {downloadableSelectedIds.size}
               </span>
             )}
           </button>
