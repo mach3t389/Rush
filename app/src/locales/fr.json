@@ -114,6 +114,7 @@
     "overdue": "En retard",
     "inReview": "En révision",
     "unassigned": "Non assigné",
+    "noCategory": "Sans catégorie",
     "sharedWith": "avec",
     "subtaskOf": "Sous-tâche de « {{title}} »",
     "noOne": "Personne",

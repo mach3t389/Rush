@@ -114,6 +114,7 @@
     "overdue": "Overdue",
     "inReview": "In Review",
     "unassigned": "Unassigned",
+    "noCategory": "No category",
     "sharedWith": "with",
     "subtaskOf": "Subtask of “{{title}}”",
     "noOne": "No one",

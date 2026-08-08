@@ -2092,23 +2092,23 @@ export function Travail() {
 
   // Ajouter une tâche depuis une colonne/groupe Statut ou Assigné : ces
   // "sections" sont dérivées (boardSections), pas de vraies catégories du
-  // projet — il n'y a donc pas d'index réel où insérer. On dépose la tâche
-  // dans la première vraie catégorie et on lui applique le statut/assigné du
-  // groupe cliqué, pour qu'elle apparaisse immédiatement dans la colonne où
-  // l'utilisateur vient de taper (sinon elle atterrit ailleurs sans le bon
-  // statut/assigné, ou ne s'ajoute nulle part).
-  //
-  // Cible visibleSections[0], PAS sections[0] : sections[0] peut être une
-  // catégorie masquée par le filtre courant (ex. "Catégories terminées"
-  // désactivé, ou un onglet de catégorie actif via activeSection) — la
-  // tâche s'ajoutait alors bien en données, mais restait invisible dans
-  // TOUTE vue groupée tant que ce filtre n'était pas changé (elle
-  // "réapparaissait" seulement en changeant de vue/filtre, ce qui la
-  // révélait). visibleSections[0] garantit une catégorie qui s'affiche
-  // réellement sous les filtres actuels.
+  // projet — il n'y a donc pas d'index réel où insérer. Une tâche n'a pas de
+  // champ "catégorie" à elle contrairement à statut/assigné : elle vit
+  // structurellement dans le tableau `tasks` d'une section, donc il n'existe
+  // pas de "sans catégorie" possible sans une vraie section pour l'accueillir
+  // — au lieu de deviner une catégorie existante (ce qui la classait sous un
+  // statut/assigné qu'elle n'a pas vraiment), on la dépose dans une section
+  // dédiée "Sans catégorie", créée à la volée si besoin, comme le fait déjà
+  // Mes tâches (bloc "tâches sans section") pour le même cas.
+  const noCategoryLabel = t('tasks.noCategory');
+  const ensureNoCategorySection = (): number => {
+    const existingIdx = sections.findIndex(s => s.label === noCategoryLabel);
+    if (existingIdx >= 0) return existingIdx;
+    setSections(prev => [...prev, { label: noCategoryLabel, tasks: [], completed: false }]);
+    return sections.length;
+  };
   const resolveGroupedAddTarget = (groupLabel: string): { realIdx: number; patch: Partial<Task> } => {
-    const visibleLabel = visibleSections[0]?.label;
-    const realIdx = visibleLabel ? sections.findIndex(s => s.label === visibleLabel) : -1;
+    const realIdx = ensureNoCategorySection();
     if (boardGroupBy === 'status') {
       const opt = STATUS_OPTIONS.find(o => t(o.labelKey) === groupLabel);
       return { realIdx, patch: opt ? { status: opt.value as Task['status'], statusLabel: opt.value ? t(opt.labelKey) : '', checked: opt.value === 'ok' } : {} };
@@ -2118,6 +2118,19 @@ export function Travail() {
       return { realIdx, patch: { assignees: member ? [member] : [] } };
     }
     return { realIdx, patch: {} };
+  };
+
+  // Le filtre "Filtrer par assigné" (indépendant du regroupement — actif en
+  // vue Catégorie, Statut ou Assigné) ne s'appliquait jamais à une tâche
+  // fraîchement créée : ajoutée sans assigné explicite pendant qu'un filtre
+  // était actif, elle disparaissait aussitôt de la vue filtrée. N'écrase
+  // jamais un assigné déjà choisi (saisi dans la ligne d'ajout, ou déjà posé
+  // par resolveGroupedAddTarget en vue Assigné) — seulement un repli quand
+  // la tâche n'a encore personne.
+  const applyAssigneeFilterDefault = (task: Task): Task => {
+    if (task.assignees.length > 0 || !filterAssigneeId) return task;
+    const member = teamMembers.find(m => m.id === filterAssigneeId);
+    return member ? { ...task, assignees: [member] } : task;
   };
 
   // Column (section) reorder in the board — mirrors handleSectionInsertAt's
@@ -2412,22 +2425,22 @@ export function Travail() {
             if (boardGroupBy !== 'category') {
               if (!label) return;
               const { realIdx, patch } = resolveGroupedAddTarget(label);
-              if (realIdx >= 0) handleAddTask(realIdx, { ...task, ...patch });
+              if (realIdx >= 0) handleAddTask(realIdx, applyAssigneeFilterDefault({ ...task, ...patch }));
               return;
             }
             const realIdx = sections.findIndex(s => s.label === label);
-            if (realIdx >= 0) handleAddTask(realIdx, task);
+            if (realIdx >= 0) handleAddTask(realIdx, applyAssigneeFilterDefault(task));
           }}
           onAddTaskMany={(boardIdx, tasks) => {
             const label = boardSections[boardIdx]?.label;
             if (boardGroupBy !== 'category') {
               if (!label) return;
               const { realIdx, patch } = resolveGroupedAddTarget(label);
-              if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(task => ({ ...task, ...patch })));
+              if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(task => applyAssigneeFilterDefault({ ...task, ...patch })));
               return;
             }
             const realIdx = sections.findIndex(s => s.label === label);
-            if (realIdx >= 0) handleAddTasks(realIdx, tasks);
+            if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(applyAssigneeFilterDefault));
           }}
           onMoveTask={handleBoardMoveTask}
           onAddSection={label => setSections(prev => [...prev, { label, tasks: [] }])}
@@ -2466,18 +2479,18 @@ export function Travail() {
                 onAddTask={task => {
                   if (boardGroupBy !== 'category') {
                     const { realIdx, patch } = resolveGroupedAddTarget(section.label);
-                    if (realIdx >= 0) handleAddTask(realIdx, { ...task, ...patch });
+                    if (realIdx >= 0) handleAddTask(realIdx, applyAssigneeFilterDefault({ ...task, ...patch }));
                     return;
                   }
-                  handleAddTask(globalIdx, task);
+                  handleAddTask(globalIdx, applyAssigneeFilterDefault(task));
                 }}
                 onAddTaskMany={tasks => {
                   if (boardGroupBy !== 'category') {
                     const { realIdx, patch } = resolveGroupedAddTarget(section.label);
-                    if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(task => ({ ...task, ...patch })));
+                    if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(task => applyAssigneeFilterDefault({ ...task, ...patch })));
                     return;
                   }
-                  handleAddTasks(globalIdx, tasks);
+                  handleAddTasks(globalIdx, tasks.map(applyAssigneeFilterDefault));
                 }}
                 onDelete={() => handleDeleteSection(globalIdx)}
                 onRename={newLabel => handleRenameSection(globalIdx, newLabel)}
