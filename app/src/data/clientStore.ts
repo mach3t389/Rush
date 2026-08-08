@@ -18,6 +18,7 @@ import { deleteAllFilesForClient, archiveAllFilesForClient } from './fileStore';
 import { getInvoicesByClient, removeInvoice } from './financeStore';
 import { setClientTeam } from './clientTeamStore';
 import { createLoadingFlag } from './loadingFlag';
+import { renameProjectGoogleCalendarNow } from './googleCalendarStore';
 
 const STORAGE_KEY = 'sf_added_clients';
 const OVERRIDES_KEY = 'sf_client_overrides';
@@ -260,8 +261,12 @@ export function removeClient(id: string): void {
   // dot color (picked independently at creation), not something that
   // should go blank just because its client got deleted (see
   // changeProjectClient's comment for the full explanation).
-  getProjects().filter(p => p.clientId === id)
-    .forEach(p => updateProject(p.id, { clientId: null, clientName: '' }));
+  const detached = getProjects().filter(p => p.clientId === id);
+  detached.forEach(p => updateProject(p.id, { clientId: null, clientName: '' }));
+  // Same immediate resync as changeProjectClient — a detached project's
+  // active Google Calendar (if any) shouldn't have to wait for the next
+  // throttled/cron pull to drop the deleted client's name from its title.
+  if (!isDemoSession()) detached.forEach(p => renameProjectGoogleCalendarNow(p.id));
   deleteAllFilesForClient(id);
   // Only remove invoices billed directly to the client (no project) — an
   // invoice tied to a surviving detached project must survive with it.

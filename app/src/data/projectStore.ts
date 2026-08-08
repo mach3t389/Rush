@@ -25,6 +25,7 @@ import { showToast } from './toastStore';
 import { getClientExternalTeam } from './clientTeamStore';
 import { confirmDialog } from './confirmStore';
 import { syncProjectClientAccess } from './projectClientAccessStore';
+import { renameProjectGoogleCalendarNow } from './googleCalendarStore';
 import i18n from '../i18n/i18n';
 
 const STORAGE_KEY = 'sf_added_projects';
@@ -384,8 +385,17 @@ export async function changeProjectClient(
     ? { clientId: null, clientName: '' }
     : { clientId: newClientId, clientName: newClientName, clientColor: newClientColor };
 
+  // Fire-and-forget, real sessions only — a project's active Google Calendar
+  // (if any) needs to know right away that its "Client — Projet" title
+  // changed, rather than waiting for the next throttled/cron pull to
+  // eventually notice (confirmed live: a client removal wasn't reflected
+  // in Google Calendar until a page reload 2+ minutes later). No-op
+  // server-side if the project has no active calendar.
+  const syncCalendarName = () => { if (!isDemoSession()) renameProjectGoogleCalendarNow(project.id); };
+
   if (!project.clientId) {
     updateProject(project.id, basePatch);
+    syncCalendarName();
     return;
   }
 
@@ -394,6 +404,7 @@ export async function changeProjectClient(
 
   if (affectedIds.size === 0) {
     updateProject(project.id, basePatch);
+    syncCalendarName();
     return;
   }
 
@@ -419,6 +430,7 @@ export async function changeProjectClient(
   } else {
     updateProject(project.id, basePatch);
   }
+  syncCalendarName();
 }
 
 async function updateSupabaseProjectsForClient(clientId: string, patch: ClientIdentityPatch): Promise<void> {

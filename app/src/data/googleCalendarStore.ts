@@ -170,3 +170,25 @@ export async function deactivateProjectGoogleCalendar(projectId: string): Promis
   });
   if (!resp.ok) throw new Error('Failed to deactivate project Google Calendar');
 }
+
+// Fire-and-forget: resyncs a project's Google Calendar title to its current
+// client right away, instead of waiting for the next throttled/cron pull.
+// No-op server-side if the project never activated a calendar. Deliberately
+// swallows its own errors — renaming a calendar is cosmetic, it must never
+// surface as a failure on the (unrelated) action that triggered it, like
+// changing a project's client.
+export function renameProjectGoogleCalendarNow(projectId: string): void {
+  void (async () => {
+    try {
+      const studioId = await getStudioId();
+      const headers = await authHeaders();
+      await fetch('/api/google-calendar-project', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rename', studioId, projectId }),
+      });
+    } catch (err) {
+      console.error('renameProjectGoogleCalendarNow failed', err);
+    }
+  })();
+}

@@ -904,6 +904,102 @@ async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse
   res.status(200).json({ ok: true });
 }
 
+interface RenameBody {
+  studioId: string;
+  projectId: string;
+}
+
+// Resyncs a project's Google Calendar title to its CURRENT "Client — Projet"
+// (or bare project name) right away, instead of waiting for the next
+// throttled/cron pull to pick it up (see pullStudio in
+// google-calendar-sync.ts, which does the same rename opportunistically —
+// this is the same fix, just triggered immediately by the action that
+// actually changes the client, rather than eventually by a background sync).
+// No-op (not an error) if the project has no active calendar — most
+// projects never activate one, and calling this unconditionally from
+// changeProjectClient() is simpler than checking first client-side.
+async function renameHandler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { studioId, projectId } = req.body as RenameBody;
+  if (!studioId || !projectId) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'Not a member of this studio' });
+    return;
+  }
+
+  const { data: row } = await supabaseAdmin
+    .from('project_google_calendars')
+    .select('google_calendar_id, active')
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (!row || !row.active) {
+    res.status(200).json({ ok: true, skipped: 'not_active' });
+    return;
+  }
+
+  try {
+    const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+    if (!accessToken) {
+      res.status(200).json({ ok: true, skipped: 'not_connected' });
+      return;
+    }
+
+    const { data: project } = await supabaseAdmin
+      .from('projects')
+      .select('name, client_name')
+      .eq('id', projectId)
+      .maybeSingle();
+    if (!project) {
+      res.status(200).json({ ok: true, skipped: 'project_not_found' });
+      return;
+    }
+
+    const calendarName = project.client_name ? `${project.client_name} — ${project.name}` : (project.name as string);
+    await renameGoogleCalendar(accessToken, row.google_calendar_id as string, calendarName);
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error(`Failed to rename calendar for project ${projectId}:`, error);
+    // Best-effort — the next pull will retry it (see pullStudio). Never
+    // surface this as a hard error: it's cosmetic, not a functional failure.
+    res.status(200).json({ ok: false });
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = (req.query.action as string | undefined)
     ?? (req.body && (req.body as { action?: string }).action)
@@ -915,6 +1011,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     case 'sync-access': return syncAccessHandler(req, res);
     case 'add-extra-invitee': return addExtraInviteeHandler(req, res);
     case 'remove-extra-invitee': return removeExtraInviteeHandler(req, res);
+    case 'rename': return renameHandler(req, res);
     default:
       res.status(400).json({ error: 'Unknown or missing action' });
   }
