@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, type LifecycleFilter } from './ui';
+import { SFButton, SFIcon, SFAvatar, SFPill, SFBar, SFModal, DatePickerDropdown, formatDisplay, SFLoadingState, PageHeader, LifecycleFilterDropdown, CategoryFilterDropdown, ModuleToggleList, type LifecycleFilter } from './ui';
 import { USERS } from '../data/mock';
 import { loadAllTemplates, resolveTasksSections, subscribeProjectTemplates } from '../data/templates';
 import type { TemplateTask } from '../data/templates';
@@ -98,10 +98,8 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
   const [filesEnabled, setFilesEnabled]       = useState(true);
   const [financeEnabled, setFinanceEnabled]   = useState(false);
   useEffect(() => {
-    if (isPersonalProject) { setFinanceEnabled(false); return; }
-    const hasClient = clientId || newClientName.trim().length > 0;
-    setFinanceEnabled(!!hasClient && canUseFeature(plan, 'finances'));
-  }, [isPersonalProject, clientId, newClientName, plan]);
+    setFinanceEnabled(canUseFeature(plan, 'finances'));
+  }, [plan]);
   const [color, setColor]               = useState(PROJECT_COLORS[0]);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [budget, setBudget]             = useState('');
@@ -705,52 +703,17 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
 
               <div>
                 <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.featuresLabel')}</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[
-                    { key: 'calendar', label: t('projects.moduleCalendar'), checked: calendarEnabled, onToggle: () => setCalendarEnabled(v => !v), locked: false, disabled: false },
-                    { key: 'files',    label: t('projects.moduleFiles'),    checked: filesEnabled,    onToggle: () => setFilesEnabled(v => !v),    locked: false, disabled: false },
-                    { key: 'finance',  label: t('projects.moduleFinance'),  checked: financeEnabled,  onToggle: () => setFinanceEnabled(v => !v),  locked: !canUseFeature(plan, 'finances'), disabled: isPersonalProject || (!clientId && !newClientName.trim()) },
-                  ].map(m => {
-                    const showLock = m.key === 'finance' && m.locked && !m.disabled;
-                    return (
-                      <button
-                        key={m.key}
-                        type="button"
-                        disabled={m.disabled && !showLock}
-                        onClick={() => {
-                          if (showLock) { requestUpgrade({ feature: 'finances' }); return; }
-                          if (m.disabled) return;
-                          m.onToggle();
-                        }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '8px 10px', borderRadius: 9,
-                          cursor: (m.disabled && !showLock) ? 'not-allowed' : 'pointer',
-                          border: `1.5px solid ${m.checked && !m.disabled ? 'var(--accent)' : 'var(--border)'}`,
-                          background: m.checked && !m.disabled ? 'rgba(249,255,0,0.08)' : 'var(--surface-2)',
-                          opacity: (m.disabled && !showLock) ? 0.5 : 1,
-                        }}
-                      >
-                        <div style={{
-                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: `1.5px solid ${m.checked && !m.disabled ? 'var(--accent)' : 'var(--border-2)'}`,
-                          background: m.checked && !m.disabled ? 'var(--accent)' : 'transparent',
-                        }}>
-                          {showLock
-                            ? <SFIcon name="lock" size={11} color="var(--text-3)" />
-                            : m.checked && !m.disabled && <SFIcon name="check" size={11} color="var(--on-accent)" />}
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 500, color: m.disabled ? 'var(--text-3)' : 'var(--text-2)' }}>{m.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {isPersonalProject || (!clientId && !newClientName.trim()) ? (
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.moduleFinanceRequiresClient')}</p>
-                ) : !canUseFeature(plan, 'finances') && (
-                  <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>{t('projects.moduleFinanceRequiresPlan')}</p>
-                )}
+                <ModuleToggleList modules={[
+                  { key: 'calendar', label: t('projects.moduleCalendar'), checked: calendarEnabled, onToggle: () => setCalendarEnabled(v => !v) },
+                  { key: 'files',    label: t('projects.moduleFiles'),    checked: filesEnabled,    onToggle: () => setFilesEnabled(v => !v) },
+                  {
+                    key: 'finance', label: t('projects.moduleFinance'), checked: financeEnabled,
+                    onToggle: () => setFinanceEnabled(v => !v),
+                    locked: !canUseFeature(plan, 'finances'),
+                    onLockedClick: () => requestUpgrade({ feature: 'finances' }),
+                    helperText: !canUseFeature(plan, 'finances') && financeEnabled ? t('projects.moduleFinanceRequiresPlan') : undefined,
+                  },
+                ]} />
               </div>
             </div>
           )}

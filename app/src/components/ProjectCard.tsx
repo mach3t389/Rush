@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD, parseDisplayDateTime } from './ui';
+import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD, parseDisplayDateTime, ModuleToggleList } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject, changeProjectClient } from '../data/projectStore';
@@ -9,6 +9,9 @@ import { getClients, subscribeClients } from '../data/clientStore';
 import { getCurrentSectionLabel, getProjectStats, subscribeStore } from '../data/taskStore';
 import { timeAgo } from '../utils/timeAgo';
 import { useProjectTotalNotifCount } from '../hooks/useNotifs';
+import { usePlan } from '../data/planStore';
+import { canUseFeature } from '../data/planFeatures';
+import { requestUpgrade } from '../data/upgradePromptStore';
 
 const PROJECT_COLORS = [
   '#5B8AF5', '#34C98A', '#A05BE8', '#F5975B',
@@ -60,6 +63,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   onSave: (u: EditUpdates) => void;
 }) {
   const { t } = useTranslation();
+  const plan = usePlan();
   const [lName, setLName]               = useState(name);
   const [lColor, setLColor]             = useState(color);
   const [lStatus, setLStatus]           = useState<Status>(status);
@@ -115,7 +119,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
       description: lDescription.trim() || undefined,
       calendarEnabled: lCalendarEnabled,
       filesEnabled: lFilesEnabled,
-      financeEnabled: lFinanceEnabled && !!p.clientId,
+      financeEnabled: lFinanceEnabled,
     });
     onClose();
   };
@@ -303,32 +307,17 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
           {/* Modules */}
           <div>
             <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.featuresLabel')}</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {[
-                { key: 'calendar', label: t('projects.moduleCalendar'), checked: lCalendarEnabled, onToggle: () => setLCalendarEnabled(v => !v), disabled: false },
-                { key: 'files',    label: t('projects.moduleFiles'),    checked: lFilesEnabled,    onToggle: () => setLFilesEnabled(v => !v),    disabled: false },
-                { key: 'finance',  label: t('projects.moduleFinance'),  checked: lFinanceEnabled,  onToggle: () => setLFinanceEnabled(v => !v),  disabled: !p.clientId },
-              ].map(m => (
-                <button
-                  key={m.key}
-                  type="button"
-                  disabled={m.disabled}
-                  onClick={m.onToggle}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9,
-                    border: '1px solid var(--border)', background: 'var(--surface-2)',
-                    color: m.disabled ? 'var(--text-3)' : 'var(--text)', fontSize: 12, fontFamily: 'var(--ff-text)',
-                    cursor: m.disabled ? 'not-allowed' : 'pointer', opacity: m.disabled ? 0.6 : 1, textAlign: 'left',
-                  }}
-                >
-                  <SFIcon name={m.checked ? 'check-square' : 'square'} size={14} color={m.checked && !m.disabled ? 'var(--accent)' : 'var(--text-3)'} />
-                  {m.label}
-                  {m.key === 'finance' && m.disabled && (
-                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)' }}>{t('projects.moduleFinanceRequiresClient')}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <ModuleToggleList modules={[
+              { key: 'calendar', label: t('projects.moduleCalendar'), checked: lCalendarEnabled, onToggle: () => setLCalendarEnabled(v => !v) },
+              { key: 'files',    label: t('projects.moduleFiles'),    checked: lFilesEnabled,    onToggle: () => setLFilesEnabled(v => !v) },
+              {
+                key: 'finance', label: t('projects.moduleFinance'), checked: lFinanceEnabled,
+                onToggle: () => setLFinanceEnabled(v => !v),
+                locked: !canUseFeature(plan, 'finances'),
+                onLockedClick: () => requestUpgrade({ feature: 'finances' }),
+                helperText: !canUseFeature(plan, 'finances') && lFinanceEnabled ? t('projects.moduleFinanceRequiresPlan') : undefined,
+              },
+            ]} />
           </div>
 
         </div>

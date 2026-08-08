@@ -493,7 +493,6 @@
     "moduleCalendar": "Calendar",
     "moduleFiles": "Files",
     "moduleFinance": "Finance",
-    "moduleFinanceRequiresClient": "Requires a client",
     "moduleFinanceRequiresPlan": "Requires a Studio or Agence subscription",
     "searchTeamPlaceholder": "Search a member…",
     "projectColor": "Project color",

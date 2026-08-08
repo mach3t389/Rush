@@ -66,7 +66,7 @@ export function ProjectHeaderBar({
     : allTabs.filter(tb => {
         if (tb.key === 'calendar') return project.calendarEnabled;
         if (tb.key === 'files')    return project.filesEnabled;
-        if (tb.key === 'finance')  return project.financeEnabled && !!project.clientId;
+        if (tb.key === 'finance')  return project.financeEnabled;
         return true;
       });
 
