@@ -48,13 +48,16 @@ async function resolveStudioId(jwt: string): Promise<string> {
   const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
   if (userError || !user) throw new Error("unauthenticated");
 
-  const { data: membership, error: memberError } = await supabaseAdmin
+  // .maybeSingle() throws if the user belongs to more than one studio —
+  // that's a real, supported case (multi-studio membership), not an error.
+  // Take the first membership row deterministically instead.
+  const { data: memberships, error: memberError } = await supabaseAdmin
     .from("studio_members")
     .select("studio_id")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .limit(1);
   if (memberError) throw memberError;
-  if (membership) return membership.studio_id as string;
+  if (memberships && memberships.length > 0) return memberships[0].studio_id as string;
 
   const { data: owned, error: ownedError } = await supabaseAdmin
     .from("studios")
@@ -192,6 +195,39 @@ Deno.serve(async (req: Request) => {
         return json({ url });
       }
 
+      // Streams the object's raw bytes back through this function instead of
+      // handing the browser a presigned R2 URL to fetch directly.
+      //
+      // Why: R2's bucket CORS policy only whitelists specific origins, so a
+      // cross-origin fetch() from the app to r2.cloudflarestorage.com is
+      // blocked by the browser. <iframe>/<img>/<video> aren't subject to CORS,
+      // which is why PDFs, images and videos always worked while the .docx
+      // preview (the only one using fetch(), for mammoth) always failed. This
+      // function already sends Access-Control-Allow-Origin: *, so routing the
+      // bytes through it removes the R2 CORS dependency entirely — no
+      // dashboard change needed now or when the domain changes.
+      case "get-object": {
+        const { fileItemId } = body as { fileItemId: string };
+        const key = `${studioId}/${fileItemId}`;
+        const result = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+        if (!result.Body) throw new Error("object has no body");
+        // Selon la build du SDK chargée par Deno, Body est soit un
+        // ReadableStream brut, soit un flux enrichi des helpers du SDK
+        // (transformToWebStream). On gère les deux plutôt que de supposer.
+        const body = result.Body as unknown as {
+          transformToWebStream?: () => ReadableStream;
+        };
+        const stream = typeof body.transformToWebStream === "function"
+          ? body.transformToWebStream()
+          : (result.Body as unknown as ReadableStream);
+        return new Response(stream, {
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": result.ContentType || "application/octet-stream",
+          },
+        });
+      }
+
       case "delete-object": {
         const { fileItemId } = body as { fileItemId: string };
         const key = `${studioId}/${fileItemId}`;
@@ -211,7 +247,20 @@ Deno.serve(async (req: Request) => {
     } catch (logErr) {
       console.error("file-storage error (failed to serialize):", String(err), logErr);
     }
-    const message = err instanceof Error ? err.message : "unknown error";
+    // err isn't always a real Error: crypto.subtle (used inside getSignedUrl)
+    // throws DOMException, which does NOT extend Error in V8/Deno, and
+    // Supabase's own client errors are plain {message, ...} objects too —
+    // `err instanceof Error` misses both and collapsed every such failure
+    // into an unhelpful "unknown error", making this endpoint impossible to
+    // debug from the client (docx sign-get failures showed no real cause).
+    let message = "unknown error";
+    if (err instanceof Error) {
+      message = err.message;
+    } else if (err && typeof err === "object" && "message" in err) {
+      message = String((err as { message: unknown }).message);
+    } else if (typeof err === "string") {
+      message = err;
+    }
     return json({ error: message }, 400);
   }
 });

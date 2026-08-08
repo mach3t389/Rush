@@ -25,7 +25,7 @@ import { addResource, getResources, subscribeResources, updateResource } from '.
 import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStore';
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
-import { setFileContent, getFileContent, getFileContentError, getUploadStatus, subscribeUploadStatus } from '../data/fileContentStore';
+import { setFileContent, getFileContent, getFileContentError, getUploadStatus, subscribeUploadStatus, fetchFileBytes } from '../data/fileContentStore';
 import mammoth from 'mammoth';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { confirmDialog } from '../data/confirmStore';
@@ -448,22 +448,25 @@ function PreviewBtn({ icon, label, onClick, disabled }: { icon: string; label?: 
 // getFileContent() peut renvoyer null au premier appel en session réelle
 // (fetch de l'URL signée pas encore résolu) — on s'abonne au store le
 // temps que la fetch résolve plutôt que d'échouer silencieusement.
-function downloadFileById(id: string, name: string): void {
-  const trigger = (url: string) => {
+// Passe par fetchFileBytes plutôt que par <a href={urlSignée} download>.
+// L'attribut `download` est ignoré par les navigateurs quand l'URL pointe vers
+// un autre domaine (R2) : le fichier s'ouvrait dans un onglet au lieu d'être
+// téléchargé, et sous son nom technique plutôt que son vrai nom. Un blob local
+// est de même origine, donc `download` et le nom de fichier sont respectés.
+async function downloadFileById(id: string, name: string): Promise<void> {
+  try {
+    const buf = await fetchFileBytes(id);
+    const url = URL.createObjectURL(new Blob([buf]));
     const a = document.createElement('a');
     a.href = url;
     a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-  };
-  const existing = getFileContent(id);
-  if (existing) { trigger(existing); return; }
-  const unsubscribe = subscribeUploadStatus(() => {
-    const url = getFileContent(id);
-    if (url) { unsubscribe(); trigger(url); }
-    else if (getFileContentError(id)) { unsubscribe(); }
-  });
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('downloadFileById failed', id, err);
+  }
 }
 
 // Rendu client-only d'un .docx — mammoth le convertit en HTML directement
@@ -471,28 +474,30 @@ function downloadFileById(id: string, name: string): void {
 // gère pas le .doc binaire legacy (mammoth ne le supporte pas), seulement
 // le format .docx (Open XML) — le seul que "Nouveau fichier" propose de
 // toute façon.
-function DocxPreview({ url }: { url: string }) {
+function DocxPreview({ fileId }: { fileId: string }) {
   const { t } = useTranslation();
   const [html, setHtml] = useState<string | null>(null);
-  const [error, setError] = useState(false);
+  // Message d'erreur réel, pas un simple booléen : un échec silencieux ici a
+  // masqué la vraie cause (CORS R2) pendant plusieurs tentatives de correction.
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setHtml(null);
-    setError(false);
-    fetch(url)
-      .then(res => res.arrayBuffer())
+    setError(null);
+    fetchFileBytes(fileId)
       .then(buf => mammoth.convertToHtml({ arrayBuffer: buf }))
       .then(result => { if (!cancelled) setHtml(result.value); })
-      .catch(() => { if (!cancelled) setError(true); });
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
     return () => { cancelled = true; };
-  }, [url]);
+  }, [fileId]);
 
   if (error) {
     return (
       <div style={{ textAlign: 'center', color: 'var(--text-3)' }}>
         <SFIcon name="file-x" size={40} color="var(--text-3)" />
         <p style={{ marginTop: 12, fontSize: 13 }}>{t('files.docxPreviewError')}</p>
+        <p style={{ fontSize: 11, marginTop: 6, color: 'var(--text-3)', fontFamily: 'var(--ff-mono)', maxWidth: 400 }}>{error}</p>
       </div>
     );
   }
@@ -608,9 +613,9 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
         </>)}
 
         {url && (
-          <a href={url} download={file.name} style={{ ...BTN_STYLE, textDecoration: 'none' }}>
+          <button onClick={() => { void downloadFileById(file.id, file.name); }} style={{ ...BTN_STYLE, cursor: 'pointer' }}>
             <SFIcon name="download" size={13} /><span>{t('files.download')}</span>
-          </a>
+          </button>
         )}
         <button onClick={onClose} style={{ ...BTN_STYLE, border: 'none' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
@@ -682,17 +687,17 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
           </div>
 
         ) : file.type === 'doc' && file.ext.toLowerCase() === 'docx' ? (
-          <DocxPreview url={url} />
+          <DocxPreview fileId={file.id} />
 
         ) : (
           <div style={{ textAlign: 'center' }}>
             <SFIcon name={icon} size={52} color="var(--text-3)" />
             <p style={{ marginTop: 14, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{file.name}</p>
             <p style={{ fontSize: 11, fontFamily: 'var(--ff-mono)', color: 'var(--text-3)', marginTop: 4 }}>{formatFileSize(file.size)}</p>
-            <a href={url} download={file.name}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 20, padding: '10px 20px', borderRadius: 10, background: 'var(--accent)', color: 'var(--on-accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>
+            <button onClick={() => { void downloadFileById(file.id, file.name); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 20, padding: '10px 20px', borderRadius: 10, background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)' }}>
               <SFIcon name="download" size={14} /> {t('files.download')}
-            </a>
+            </button>
           </div>
         )}
       </div>

@@ -348,6 +348,50 @@ export function removeFileContent(id: string): void {
   notify();
 }
 
+// Récupère les octets bruts d'un fichier, pour les consommateurs qui doivent
+// vraiment lire le contenu (mammoth pour le .docx) plutôt que de le pointer
+// via une balise <iframe>/<img>/<video>.
+//
+// Passe par la fonction Edge ('get-object') et NON par l'URL signée R2 :
+// R2 n'autorise que certaines origines en CORS, donc un fetch() direct depuis
+// le navigateur est bloqué en production. La fonction Edge, elle, renvoie
+// Access-Control-Allow-Origin: * — c'est le seul chemin fiable pour lire des
+// octets côté client. Ne pas « simplifier » ceci en fetch(getFileContent(id)) :
+// ça remarche en local et casse à nouveau en production.
+export async function fetchFileBytes(id: string): Promise<ArrayBuffer> {
+  if (isDemoSession()) {
+    const url = getFileContent(id);
+    if (!url) throw new Error('aucun contenu local pour ce fichier');
+    const res = await fetch(url);
+    return await res.arrayBuffer();
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('session expirée — reconnecte-toi');
+
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file-storage`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ action: 'get-object', fileItemId: id }),
+  });
+
+  if (!res.ok) {
+    // La fonction renvoie du JSON {error} en cas d'échec, des octets sinon.
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.error) detail = body.error;
+    } catch { /* réponse non-JSON — on garde le code HTTP */ }
+    throw new Error(detail);
+  }
+
+  return await res.arrayBuffer();
+}
+
 export function hasFileContent(id: string): boolean {
   if (isDemoSession()) return blobUrls.has(id) || loadFromStorage(id) !== null;
   return getUploadStatus(id)?.state === 'done' || isMarkedDone(id);
