@@ -358,13 +358,12 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
       }}
     >
       {editing && (
-        // Hauteur nulle + `overflow: visible` : ce wrapper participe au flux
-        // normal (donc il peut rester `position: sticky` collé au sommet de
-        // la colonne défilable pendant le défilement) sans jamais occuper
-        // d'espace lui-même — la barre d'outils qu'il contient déborde donc
-        // par-dessus la boîte de description plutôt que de la repousser vers
-        // le bas, comme avant le passage à `sticky` sur la barre elle-même.
-        <div style={{ position: 'sticky', top: 0, zIndex: 20, height: 0, overflow: 'visible' }}>
+        // `position: sticky` sur ce wrapper (participant au flux normal,
+        // hauteur réelle) : la barre d'outils occupe sa propre place
+        // au-dessus de la boîte de description — jamais par-dessus — et
+        // reste collée au sommet de la colonne défilable (`overflow: auto`
+        // dans TaskPanel) pendant le défilement d'une longue description.
+        <div style={{ position: 'sticky', top: 0, zIndex: 20, marginBottom: 6 }}>
           <DescriptionToolbar editor={editor} />
         </div>
       )}
