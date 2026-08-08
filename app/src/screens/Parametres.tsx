@@ -2402,9 +2402,9 @@ export function Parametres() {
                 <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryCalendar')}</h3>
                 <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryCalendarDesc')}</p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}><GoogleCalendarCard /></div>
-                <div style={{ width: 260, flexShrink: 0, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, opacity: 0.5 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'stretch' }}>
+                <GoogleCalendarCard />
+                <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, opacity: 0.5 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: '#0078D4', flexShrink: 0 }} />
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Outlook / Microsoft 365</p>
@@ -2421,7 +2421,7 @@ export function Parametres() {
                 <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryFiles')}</h3>
                 <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryFilesDesc')}</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
                   { name: 'Rush Sync', desc: t('settings.integrationRushSyncDesc'), color: 'var(--surface-3)' },
                 ].map(app => (
