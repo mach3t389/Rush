@@ -177,7 +177,14 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                   l'autre. Le bouton Date n'affiche maintenant que la date
                   (dateOnlyLabel) ; l'heure a son propre bouton à côté, avec
                   un « x » pour la retirer sans toucher à la date. */}
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {/* alignItems: 'stretch' (au lieu de 'center') — la pastille
+                  Heure était plus basse que le bouton Date (son padding
+                  vertical de 2px contre 9px pour le bouton Date), ce qui
+                  donnait deux hauteurs différentes sur la même ligne. En
+                  étirant la pastille à la hauteur du bouton Date (le plus
+                  haut des deux) et en centrant son propre contenu, les deux
+                  boîtes ont maintenant la même hauteur. */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
                 <button
                   onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
                   style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: dateOnlyLabel ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left', boxSizing: 'border-box' }}
@@ -186,7 +193,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dateOnlyLabel || t('projects.chooseDate')}</span>
                 </button>
                 {lDeliveryYMD && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0, padding: '2px 2px 2px 6px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0, padding: '0 2px 0 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', boxSizing: 'border-box' }}>
                     <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
                     {lDeliveryTime && (
                       <button
