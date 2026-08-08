@@ -2070,7 +2070,7 @@ export function Travail() {
         }));
       })()
     : (() => {
-        // Assignee mode: one column per team member + "Non assigné". A task
+        // Assignee mode: one column per team member + "Aucun assigné". A task
         // with several assignees shows in each of their columns (it really
         // is on all of their plates) — unlike status, this is a genuine
         // multi-membership, not corruption (the dedupe-on-load guard only
@@ -2098,7 +2098,7 @@ export function Travail() {
   // pas de "sans catégorie" possible sans une vraie section pour l'accueillir
   // — au lieu de deviner une catégorie existante (ce qui la classait sous un
   // statut/assigné qu'elle n'a pas vraiment), on la dépose dans une section
-  // dédiée "Sans catégorie", créée à la volée si besoin, comme le fait déjà
+  // dédiée "Aucune catégorie", créée à la volée si besoin, comme le fait déjà
   // Mes tâches (bloc "tâches sans section") pour le même cas.
   const noCategoryLabel = t('tasks.noCategory');
   const ensureNoCategorySection = (): number => {
@@ -2204,7 +2204,7 @@ export function Travail() {
   };
 
   // List-view equivalent of the assignee branch above — groups are keyed by
-  // label (member name, or the "Non assigné" label) instead of index.
+  // label (member name, or the "Aucun assigné" label) instead of index.
   const handleListAssigneeTaskDrop = (task: Task, _fromLabel: string, toLabel: string) => {
     const targetMember = teamMembers.find(m => m.name === toLabel);
     const patch: Partial<Task> = { assignees: targetMember ? [targetMember] : [] };
