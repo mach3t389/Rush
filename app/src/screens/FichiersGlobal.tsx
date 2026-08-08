@@ -26,7 +26,7 @@ import { getAllCommentCounts, subscribeCommentCounts } from '../data/commentStor
 import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, getFileContentError, getUploadStatus, subscribeUploadStatus, fetchFileBytes } from '../data/fileContentStore';
-import mammoth from 'mammoth';
+import { renderAsync } from 'docx-preview';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { confirmDialog } from '../data/confirmStore';
 import type { Project, ResourceType } from '../types';
@@ -469,25 +469,36 @@ async function downloadFileById(id: string, name: string): Promise<void> {
   }
 }
 
-// Rendu client-only d'un .docx — mammoth le convertit en HTML directement
-// dans le navigateur (aucun backend/visionneuse externe nécessaire). Ne
-// gère pas le .doc binaire legacy (mammoth ne le supporte pas), seulement
-// le format .docx (Open XML) — le seul que "Nouveau fichier" propose de
-// toute façon.
+// Rendu client-only d'un .docx — docx-preview reproduit de vraies pages
+// (marges, sauts de page) directement dans le navigateur, contrairement à
+// mammoth (utilisé avant) qui ne produit qu'un flux HTML continu sans mise en
+// page. Ne gère pas le .doc binaire legacy, seulement le format .docx (Open
+// XML) — le seul que "Nouveau fichier" propose de toute façon.
 function DocxPreview({ fileId }: { fileId: string }) {
   const { t } = useTranslation();
-  const [html, setHtml] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<'loading' | 'ready'>('loading');
   // Message d'erreur réel, pas un simple booléen : un échec silencieux ici a
   // masqué la vraie cause (CORS R2) pendant plusieurs tentatives de correction.
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setHtml(null);
+    setStatus('loading');
     setError(null);
     fetchFileBytes(fileId)
-      .then(buf => mammoth.convertToHtml({ arrayBuffer: buf }))
-      .then(result => { if (!cancelled) setHtml(result.value); })
+      .then(async buf => {
+        if (cancelled || !containerRef.current) return;
+        containerRef.current.innerHTML = '';
+        // inWrapper génère lui-même les pages A4 avec marges et ombre — c'est
+        // ce rendu qu'on veut, donc pas de carte blanche maison par-dessus
+        // comme avec le HTML brut de mammoth.
+        await renderAsync(buf, containerRef.current, undefined, {
+          inWrapper: true,
+          ignoreLastRenderedPageBreak: false,
+        });
+        if (!cancelled) setStatus('ready');
+      })
       .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
     return () => { cancelled = true; };
   }, [fileId]);
@@ -501,9 +512,6 @@ function DocxPreview({ fileId }: { fileId: string }) {
       </div>
     );
   }
-  if (!html) {
-    return <SFLoadingState />;
-  }
   return (
     // minHeight/minWidth: 0 est nécessaire ici — sans ça, un enfant flex
     // refuse par défaut de rétrécir sous la taille de son contenu
@@ -511,11 +519,9 @@ function DocxPreview({ fileId }: { fileId: string }) {
     // viewport au lieu de déclencher le défilement interne prévu par
     // overflowY:auto. Voir aussi le pattern documenté dans la mémoire projet
     // (scroll-containment-pattern).
-    <div style={{ width: '100%', height: '100%', minHeight: 0, minWidth: 0, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '32px 24px' }}>
-      <div
-        style={{ background: '#fff', color: '#1a1a1a', width: '100%', maxWidth: 820, padding: '48px 56px', borderRadius: 4, boxShadow: '0 4px 24px rgba(0,0,0,0.35)', lineHeight: 1.6, fontSize: 14, flexShrink: 0 }}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+    <div style={{ width: '100%', height: '100%', minHeight: 0, minWidth: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 24px' }}>
+      {status === 'loading' && <SFLoadingState />}
+      <div ref={containerRef} style={{ display: status === 'ready' ? 'block' : 'none' }} />
     </div>
   );
 }
