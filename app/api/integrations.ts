@@ -528,28 +528,16 @@ async function portalPdf(req: VercelRequest, res: VercelResponse, invoiceId: str
 // sur le canal → Intégrations → Webhooks → Nouveau webhook → copier l'URL).
 // Authentifié par jeton de session Supabase, même pattern que
 // app/api/send-email.ts — jamais de secret codé en dur envoyé par le client.
-interface BugReportBody {
-  description: string;
-  reproduction: string;
-  page: string;
-  screenResolution: string;
-  userAgent: string;
-  userName: string;
-  userEmail: string;
-  studioName: string;
-  screenshotDataUrl?: string;
-}
+//
+// screenshotDataUrl plafonné à 4 Mo de base64 (pas 10 Mo) : le corps de
+// requête d'une fonction Vercel est limité à ~4,5 Mo, au-delà la requête
+// échoue avant même d'atteindre ce handler — mieux vaut rejeter proprement
+// ici avec un message clair plutôt que de laisser Vercel couper la connexion.
+const MAX_SCREENSHOT_DATA_URL_LENGTH = 4_000_000;
 
 async function bugReport(req: VercelRequest, res: VercelResponse) {
   method(req, 'POST');
-
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) throw new HttpError(401, 'missing_token');
-
-  const supabase = adminClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) throw new HttpError(401, 'invalid_token');
+  const { user } = await authenticatedRushUser(req);
 
   const input = body(req);
   const description = requiredString(input.description, 'description', 4000);
@@ -558,9 +546,9 @@ async function bugReport(req: VercelRequest, res: VercelResponse) {
   const screenResolution = optionalString(input.screenResolution, 'screenResolution', 50) ?? '—';
   const userAgent = optionalString(input.userAgent, 'userAgent', 500) ?? '—';
   const userName = optionalString(input.userName, 'userName', 200) ?? '—';
-  const userEmail = optionalString(input.userEmail, 'userEmail', 200) ?? '—';
+  const userEmail = optionalString(input.userEmail, 'userEmail', 200) ?? user.email ?? '—';
   const studioName = optionalString(input.studioName, 'studioName', 200) ?? '—';
-  const screenshotDataUrl = optionalString(input.screenshotDataUrl, 'screenshotDataUrl', 10_000_000);
+  const screenshotDataUrl = optionalString(input.screenshotDataUrl, 'screenshotDataUrl', MAX_SCREENSHOT_DATA_URL_LENGTH);
 
   if (!process.env.DISCORD_BUG_WEBHOOK_URL) {
     console.error('DISCORD_BUG_WEBHOOK_URL is not configured');
