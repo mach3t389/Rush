@@ -71,11 +71,18 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   // le panneau retombait à chaque réouverture sur le bloc combiné "date ·
   // heure" au lieu de la date et de la pastille Heure séparées (le YMD
   // restait vide, la condition `lDeliveryYMD &&` masquait donc la pastille).
-  // Les très anciennes valeurs de seed (ex. "15 juin", sans année) ne
-  // matchent pas ce format et gardent le repli affichage brut.
   const parsedDelivery = parseDisplayDateTime(deliveryDate);
   const [lDeliveryYMD, setLDeliveryYMD] = useState(parsedDelivery ? parsedDelivery.ymd : (parseYMD(deliveryDate) ? deliveryDate : ''));
   const [lDeliveryTime, setLDeliveryTime] = useState(parsedDelivery ? parsedDelivery.time : '');
+  // Repli pour les très anciennes valeurs de seed non re-parsables (ex. "15
+  // juin", sans année) : on les garde affichées telles quelles tant que
+  // l'utilisateur n'a pas interagi avec le sélecteur. Distinct de
+  // lDeliveryYMD === '' — auparavant les deux étaient confondus, donc
+  // effacer la date (bouton corbeille du sélecteur) faisait "réapparaître"
+  // cette valeur d'origine (deliveryDate, jamais vidée) au lieu de laisser
+  // le champ réellement vide, ET recombinait date+heure dans un seul bloc
+  // puisque la pastille Heure ne s'affiche que si lDeliveryYMD est non vide.
+  const [legacyFallback, setLegacyFallback] = useState(!parsedDelivery && !parseYMD(deliveryDate) ? deliveryDate : '');
   const [dateOpen, setDateOpen] = useState(false);
   const [dateRect, setDateRect] = useState<DOMRect | null>(null);
   const [timeOpen, setTimeOpen] = useState(false);
@@ -88,11 +95,10 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
   const deliveryOut = lDeliveryYMD
     ? formatDisplay(lDeliveryYMD) + (lDeliveryTime ? ` · ${lDeliveryTime}` : '')
-    : deliveryDate;
+    : legacyFallback;
   // Le bouton Date n'affiche que la date — l'heure a son propre bouton juste
-  // à côté (voir plus bas). deliveryOut, lui, reste la valeur combinée
-  // sauvegardée telle quelle (format affiché historique du projet).
-  const dateOnlyLabel = lDeliveryYMD ? formatDisplay(lDeliveryYMD) : deliveryDate;
+  // à côté (voir plus bas).
+  const dateOnlyLabel = lDeliveryYMD ? formatDisplay(lDeliveryYMD) : legacyFallback;
 
   const save = () => {
     const budgetNum = Number(String(lBudget).replace(/[^\d.]/g, ''));
@@ -220,7 +226,17 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
               {dateOpen && (
                 <DatePickerDropdown
                   value={lDeliveryYMD}
-                  onChange={v => { setLDeliveryYMD(v); setDateOpen(false); }}
+                  onChange={v => {
+                    // Toute interaction ici (choisir une date OU cliquer la
+                    // corbeille pour l'effacer, qui appelle onChange('')) doit
+                    // couper le repli sur l'ancienne valeur affichée — sinon
+                    // "effacer" la faisait réapparaître telle quelle (voir note
+                    // sur legacyFallback plus haut).
+                    setLegacyFallback('');
+                    setLDeliveryYMD(v);
+                    if (!v) setLDeliveryTime('');
+                    setDateOpen(false);
+                  }}
                   onClose={() => setDateOpen(false)}
                   anchorRect={dateRect}
                   zIndex={700}
