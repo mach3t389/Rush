@@ -129,10 +129,13 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
             />
           </div>
 
-          {/* Couleur / Date de livraison / Budget — une seule ligne. La
-              colonne Couleur a une largeur fixe qui ne loge que 6 pastilles
-              par rangée (12 couleurs → 2 rangées de 6). Le reste de la
-              largeur va à Date/Budget.
+          {/* Couleur / Date de livraison — sur une seule ligne. Le Budget est
+              descendu sur sa propre ligne : avec la pastille Heure + son
+              bouton de suppression, la colonne Date+Budget en 1fr/1fr ne
+              laissait presque plus de place au champ Budget (signalé —
+              texte coupé). La colonne Couleur a une largeur fixe qui ne
+              loge que 6 pastilles par rangée (12 couleurs → 2 rangées de
+              6) ; le reste de la largeur va entièrement à Date/Heure.
 
               La sélection était indiquée par un contour (outline) +
               agrandissement (scale) — signalé à trois reprises comme rogné
@@ -145,7 +148,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
               la pastille (comme la sélection de Statut plus bas) — aucune
               décoration ne dépasse la boîte de la pastille, donc rien à
               rogner ni à chevaucher. */}
-          <div style={{ display: 'grid', gridTemplateColumns: '172px 1fr 1fr', gap: 14, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '172px 1fr', gap: 14, alignItems: 'start' }}>
             <div>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('projects.dotColor')}</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -218,17 +221,18 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                 />
               )}
             </div>
+          </div>
 
-            <div>
-              <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')}</label>
-              <input
-                value={lBudget}
-                onChange={e => setLBudget(e.target.value)}
-                placeholder={t('projects.budget')}
-                inputMode="numeric"
-                style={{ width: '100%', padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
-              />
-            </div>
+          {/* Budget — sa propre ligne (voir note ci-dessus). */}
+          <div>
+            <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.budgetLabel')}</label>
+            <input
+              value={lBudget}
+              onChange={e => setLBudget(e.target.value)}
+              placeholder={t('projects.budget')}
+              inputMode="numeric"
+              style={{ width: '100%', padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--ff-mono)' }}
+            />
           </div>
 
           {/* Description */}
