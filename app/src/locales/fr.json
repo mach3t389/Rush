@@ -494,6 +494,7 @@
     "moduleFiles": "Fichiers",
     "moduleFinance": "Finance",
     "moduleFinanceRequiresPlan": "Nécessite un abonnement Studio ou Agence",
+    "moduleDisableWithDataWarning": "Ce module contient {{count}} élément(s) ({{module}}) — ils resteront enregistrés mais l'onglet disparaîtra. Continuer ?",
     "searchTeamPlaceholder": "Rechercher un membre…",
     "projectColor": "Couleur du projet",
     "archiveProject": "Archiver le projet",
@@ -565,6 +566,7 @@
   "common": {
     "required": "*",
     "cancel": "Annuler",
+    "continue": "Continuer",
     "confirm": "Confirmer",
     "close": "Fermer",
     "save": "Enregistrer",

@@ -494,6 +494,7 @@
     "moduleFiles": "Files",
     "moduleFinance": "Finance",
     "moduleFinanceRequiresPlan": "Requires a Studio or Agence subscription",
+    "moduleDisableWithDataWarning": "This module has {{count}} item(s) ({{module}}) — they'll stay saved but the tab will disappear. Continue?",
     "searchTeamPlaceholder": "Search a member…",
     "projectColor": "Project color",
     "archiveProject": "Archive project",
@@ -565,6 +566,7 @@
   "common": {
     "required": "*",
     "cancel": "Cancel",
+    "continue": "Continue",
     "confirm": "Confirm",
     "close": "Close",
     "save": "Save",

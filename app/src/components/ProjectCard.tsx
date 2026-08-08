@@ -12,6 +12,8 @@ import { useProjectTotalNotifCount } from '../hooks/useNotifs';
 import { usePlan } from '../data/planStore';
 import { canUseFeature } from '../data/planFeatures';
 import { requestUpgrade } from '../data/upgradePromptStore';
+import { getProjectModuleItemCount } from '../data/projectModuleUsage';
+import { confirmDialog } from '../data/confirmStore';
 
 const PROJECT_COLORS = [
   '#5B8AF5', '#34C98A', '#A05BE8', '#F5975B',
@@ -104,8 +106,25 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   // à côté (voir plus bas).
   const dateOnlyLabel = lDeliveryYMD ? formatDisplay(lDeliveryYMD) : legacyFallback;
 
-  const save = () => {
+  const save = async () => {
     const budgetNum = Number(String(lBudget).replace(/[^\d.]/g, ''));
+    const moduleChecks: { key: 'calendar' | 'files' | 'finance'; before: boolean; after: boolean; labelKey: string }[] = [
+      { key: 'calendar', before: p.calendarEnabled, after: lCalendarEnabled, labelKey: 'projects.moduleCalendar' },
+      { key: 'files',    before: p.filesEnabled,    after: lFilesEnabled,    labelKey: 'projects.moduleFiles' },
+      { key: 'finance',  before: p.financeEnabled,  after: lFinanceEnabled,  labelKey: 'projects.moduleFinance' },
+    ];
+    for (const check of moduleChecks) {
+      if (check.before && !check.after) {
+        const count = getProjectModuleItemCount(p.id, check.key);
+        if (count > 0) {
+          const ok = await confirmDialog(
+            t('projects.moduleDisableWithDataWarning', { module: t(check.labelKey), count }),
+            { confirmLabel: t('common.continue'), cancelLabel: t('common.cancel') }
+          );
+          if (!ok) return;
+        }
+      }
+    }
     onSave({
       name: lName.trim() || name,
       color: lColor,
