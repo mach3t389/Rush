@@ -30,6 +30,7 @@ export function ToastBar() {
 
   const isSection = toast.type === 'section';
   const isSubtask = toast.type === 'subtask';
+  const isError = !!toast.isError;
 
   return (
     <div
@@ -55,7 +56,7 @@ export function ToastBar() {
         padding: isSection ? '12px 20px' : isSubtask ? '7px 14px' : '10px 16px',
         borderRadius: isSection ? 16 : 10,
         background: isSection ? 'var(--surface-3)' : 'var(--surface-2)',
-        border: `1px solid ${isSection ? 'rgba(249,255,0,0.25)' : 'var(--border)'}`,
+        border: `1px solid ${isError ? 'rgba(239,68,68,0.35)' : isSection ? 'rgba(249,255,0,0.25)' : 'var(--border)'}`,
         boxShadow: isSection
           ? '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(249,255,0,0.1)'
           : '0 4px 20px rgba(0,0,0,0.45)',
@@ -64,7 +65,11 @@ export function ToastBar() {
         maxWidth: 420,
       }}>
         {/* Icon / emoji */}
-        {isSection ? (
+        {isError ? (
+          <div style={{ width: isSection ? 22 : isSubtask ? 16 : 20, height: isSection ? 22 : isSubtask ? 16 : 20, borderRadius: '50%', background: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <SFIcon name="x" size={isSubtask ? 9 : 11} color="white" />
+          </div>
+        ) : isSection ? (
           <span style={{ fontSize: 22, lineHeight: 1 }}>🎉</span>
         ) : isSubtask ? (
           <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ok)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

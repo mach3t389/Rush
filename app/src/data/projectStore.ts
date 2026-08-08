@@ -193,7 +193,7 @@ async function addSupabaseProject(p: Project): Promise<void> {
   const { error } = await supabase.from('projects').insert(toRow(p, studioId));
   if (error) {
     console.error('addSupabaseProject failed', error);
-    showToast({ type: 'section', message: "Le projet n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "Le projet n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
     // Reject rather than silently resolving: callers (e.g. createTemplateDraft)
     // rely on the promise settling to know whether the row actually exists
     // server-side before navigating to it.
@@ -240,7 +240,7 @@ async function updateSupabaseProject(id: string, updates: Partial<Project>): Pro
   const { error } = await supabase.from('projects').update(toRowPatch(updates)).eq('id', id);
   if (error) {
     console.error('updateSupabaseProject failed', error);
-    showToast({ type: 'section', message: "La modification n'a pas pu être enregistrée", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "La modification n'a pas pu être enregistrée", subMessage: 'Veuillez réessayer.' });
     return;
   }
   await fetchSupabaseProjects();
@@ -435,7 +435,7 @@ async function updateSupabaseProjectsForClient(clientId: string, patch: ClientId
   const { error } = await supabase.from('projects').update(row).eq('client_id', clientId);
   if (error) {
     console.error('updateSupabaseProjectsForClient failed', error);
-    showToast({ type: 'section', message: "Les projets du client n'ont pas pu être mis à jour", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "Les projets du client n'ont pas pu être mis à jour", subMessage: 'Veuillez réessayer.' });
     return;
   }
   await fetchSupabaseProjects();

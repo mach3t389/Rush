@@ -149,7 +149,7 @@ async function addSupabaseEventType(type: EventType, studioId: string): Promise<
   });
   if (error) {
     console.error('addSupabaseEventType failed', error);
-    showToast({ type: 'section', message: "Le type d'événement n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "Le type d'événement n'a pas pu être créé", subMessage: 'Veuillez réessayer.' });
     return;
   }
   await fetchSupabaseEventTypes(studioId);
@@ -159,7 +159,7 @@ async function updateSupabaseEventType(id: string, patch: Partial<Omit<EventType
   const { error } = await supabase.from('event_types').update(patch).eq('id', id);
   if (error) {
     console.error('updateSupabaseEventType failed', error);
-    showToast({ type: 'section', message: "La modification n'a pas pu être enregistrée", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "La modification n'a pas pu être enregistrée", subMessage: 'Veuillez réessayer.' });
     return;
   }
   await fetchSupabaseEventTypes(studioId);
@@ -169,7 +169,7 @@ async function deleteSupabaseEventType(id: string, studioId: string): Promise<vo
   const { error } = await supabase.from('event_types').delete().eq('id', id);
   if (error) {
     console.error('deleteSupabaseEventType failed', error);
-    showToast({ type: 'section', message: "Le type d'événement n'a pas pu être supprimé", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "Le type d'événement n'a pas pu être supprimé", subMessage: 'Veuillez réessayer.' });
     return;
   }
   await fetchSupabaseEventTypes(studioId);
@@ -183,7 +183,7 @@ async function reorderSupabaseEventTypes(orderedIds: string[], studioId: string)
   const failed = results.find(r => r.error);
   if (failed?.error) {
     console.error('reorderSupabaseEventTypes failed', failed.error);
-    showToast({ type: 'section', message: "Le réordonnancement n'a pas pu être enregistré", subMessage: 'Veuillez réessayer.' });
+    showToast({ type: 'section', isError: true, message: "Le réordonnancement n'a pas pu être enregistré", subMessage: 'Veuillez réessayer.' });
     return;
   }
   await fetchSupabaseEventTypes(studioId);

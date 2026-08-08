@@ -5,6 +5,8 @@ export type ToastPayload = {
   message: string;
   subMessage?: string;
   onUndo?: () => void;
+  /** Renders an error icon (red X) instead of the type's normal success icon/emoji. */
+  isError?: boolean;
 };
 
 type ToastItem = ToastPayload & { id: string };

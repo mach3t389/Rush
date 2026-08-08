@@ -361,25 +361,6 @@
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
-    },
-    {
-      "name": "project-modules-optional-worktree",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--prefix",
-        ".claude/worktrees/project-modules-optional/app",
-        "--",
-        "--port",
-        "5275",
-        "--strictPort"
-      ],
-      "port": 5275,
-      "autoPort": false,
-      "env": {
-        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
-      }
     }
   ]
 }
