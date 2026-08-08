@@ -801,7 +801,7 @@ export function TravailBoard({
                             onClick={e => { e.stopPropagation(); setOpenDrop({ taskId: task.id, type: 'status', rect: e.currentTarget.getBoundingClientRect() }); }}
                             onMouseDown={e => e.stopPropagation()}
                             title={t('board.changeStatus')}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', minHeight: 20, borderRadius: 6 }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', height: 20, display: 'flex', alignItems: 'center', borderRadius: 6 }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
