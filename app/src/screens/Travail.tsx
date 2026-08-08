@@ -1757,7 +1757,10 @@ export function Travail() {
   const [subtaskDest, setSubtaskDest] = useState<{ mode: 'move' | 'copy'; parentTaskId: string; subtaskIds: string[] } | null>(null);
   const [sectionMoveLabel, setSectionMoveLabel] = useState<string | null>(null);
   const [sectionCopyLabel, setSectionCopyLabel] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  // Index into `sections`, not the label — two sections can share a name,
+  // and filtering/highlighting by label used to select both at once. An
+  // index always identifies exactly one.
+  const [activeSection, setActiveSection] = useState<number | null>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionLabel, setNewSectionLabel] = useState('');
   // Set right after a section is created via Enter, so its (freshly
@@ -1847,8 +1850,8 @@ export function Travail() {
     return () => window.removeEventListener('keydown', handler, true);
   }, [selectedTask]);
 
-  const baseSections = activeSection
-    ? sections.filter(s => s.label === activeSection)
+  const baseSections = activeSection !== null
+    ? (sections[activeSection] ? [sections[activeSection]] : [])
     : sections;
 
   const visibleSections = baseSections
@@ -1868,8 +1871,8 @@ export function Travail() {
   // original index alongside the same filter/map chain above, so the render
   // loop can resolve it directly instead of re-deriving it by label.
   const visibleSectionOriginalIndices = (() => {
-    const indices = activeSection
-      ? sections.reduce<number[]>((acc, s, i) => { if (s.label === activeSection) acc.push(i); return acc; }, [])
+    const indices = activeSection !== null
+      ? (sections[activeSection] ? [activeSection] : [])
       : sections.map((_, i) => i);
     return indices.filter(i => showCompletedSections || !sections[i].completed);
   })();
@@ -1945,9 +1948,12 @@ export function Travail() {
   };
 
   const handleDeleteSection = (idx: number) => {
-    const label = sections[idx]?.label;
     setSections(prev => prev.filter((_, i) => i !== idx));
-    if (activeSection === label) setActiveSection(null);
+    if (activeSection === idx) setActiveSection(null);
+    // Indices after the deleted one shift down by one — keep the active
+    // filter pointed at the same section instead of silently landing on
+    // whatever now occupies that slot.
+    else if (activeSection !== null && activeSection > idx) setActiveSection(activeSection - 1);
   };
 
   const handleDragStart = (idx: number) => setDraggedIdx(idx);
@@ -2379,12 +2385,12 @@ export function Travail() {
         >
           Tout
         </button>
-        {sections.map(s => {
-          const isActive = activeSection === s.label;
+        {sections.map((s, idx) => {
+          const isActive = activeSection === idx;
           return (
             <button
-              key={s.label}
-              onClick={() => setActiveSection(prev => prev === s.label ? null : s.label)}
+              key={idx}
+              onClick={() => setActiveSection(prev => prev === idx ? null : idx)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 12px', borderRadius: 9, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
