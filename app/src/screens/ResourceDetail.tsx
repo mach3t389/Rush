@@ -1068,14 +1068,27 @@ export function MoodboardView({ resource, persistKey, registerExport }: { resour
   useEffect(() => { shapeColorRef.current = shapeColor; }, [shapeColor]);
 
   const mbPersistTimer = useRef<number | null>(null);
+  // Copie du dernier état à écrire : le nettoyage de démontage ne peut pas
+  // lire `items`/`arrows`/`comments` directement (sa closure fige les valeurs
+  // du premier rendu), et se contentait donc d'annuler la sauvegarde en
+  // attente — toute modification faite dans les 400 ms avant de quitter était
+  // perdue.
+  const mbPayloadRef = useRef<{ items: MBItem[]; arrows: MBArrow[]; comments: RevisionComment[] } | null>(null);
   useEffect(() => {
     if (!persistKey) return;
+    mbPayloadRef.current = { items, arrows, comments };
     if (mbPersistTimer.current) clearTimeout(mbPersistTimer.current);
     mbPersistTimer.current = window.setTimeout(() => {
+      mbPersistTimer.current = null;
       setResourceContent(persistKey, { items, arrows, comments });
     }, 400);
   }, [items, arrows, comments, persistKey]);
-  useEffect(() => () => { if (mbPersistTimer.current) clearTimeout(mbPersistTimer.current); }, []);
+  useEffect(() => () => {
+    if (!persistKey || mbPersistTimer.current == null) return;
+    clearTimeout(mbPersistTimer.current);
+    mbPersistTimer.current = null;
+    if (mbPayloadRef.current) setResourceContent(persistKey, mbPayloadRef.current);
+  }, [persistKey]);
 
   useEffect(() => {
     if (!registerExport) return;
@@ -1981,6 +1994,19 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   // modèle (persistKey non fourni) — on retombe alors sur seedHTML / mock.
   const persisted = persistKey ? getResourceContent<{ html?: string; comments?: DocComment[]; theme?: DocTheme; darkPage?: boolean; aiMessages?: { role: 'user' | 'assistant'; content: string }[] }>(persistKey) : undefined;
   const editorRef = useRef<HTMLDivElement>(null);
+  // Dernier HTML connu de l'éditeur — déclaré ici (et non près du bloc de
+  // persistance plus bas) parce que l'effet d'initialisation l'alimente.
+  //
+  // ⚠️ NE JAMAIS lire editorRef.current au démontage ni dans un timeout.
+  // React détache les refs des nœuds DOM AVANT d'exécuter le nettoyage des
+  // effets d'un sous-arbre supprimé : au démontage, editorRef.current vaut
+  // déjà null, donc `editorRef.current?.innerHTML ?? ''` écrivait une chaîne
+  // VIDE par-dessus le document (perte de données reproduite : contenu
+  // présent avant de quitter, `""` juste après). On capture donc le HTML
+  // pendant que le ref est encore attaché — à chaque appel de
+  // persistContent(), déclenché après chaque mutation — et on ne persiste
+  // jamais que cette copie.
+  const htmlRef = useRef<string | null>(null);
   const initialized = useRef(false);
   const [wordCount, setWordCount] = useState(0);
   const [selRect, setSelRect] = useState<DOMRect | null>(null);
@@ -2044,8 +2070,15 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
       // ressource neuve (persistKey, rien de persisté) démarre sur un document
       // vierge titré, jamais sur le gros brief mock.
       const starter = `<h1>${(resource.title || 'Document').replace(/[<>&]/g, '')}</h1><p><br></p>`;
-      editorRef.current.innerHTML = persisted?.html ?? seedHTML ?? (persistKey ? starter : DOC_INITIAL_HTML);
+      // Une chaîne VIDE stockée n'est pas un document légitimement vidé (un
+      // document vidé à la main vaut '<p><br></p>', jamais '') — c'est la
+      // signature du bug d'écrasement au démontage corrigé ci-dessous. On la
+      // traite comme "pas de contenu" pour au moins restituer un document
+      // titré plutôt qu'une page blanche.
+      const storedHtml = persisted?.html && persisted.html.trim() ? persisted.html : undefined;
+      editorRef.current.innerHTML = storedHtml ?? seedHTML ?? (persistKey ? starter : DOC_INITIAL_HTML);
       initialized.current = true;
+      htmlRef.current = editorRef.current.innerHTML;
       const t = editorRef.current.innerText ?? '';
       setWordCount(t.trim().split(/\s+/).filter(Boolean).length);
       buildToc();
@@ -2063,19 +2096,29 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
   const aiMessagesRef = useRef(aiMessages);
   useEffect(() => { aiMessagesRef.current = aiMessages; }, [aiMessages]);
   const persistTimer = useRef<number | null>(null);
+
+  const snapshot = useCallback(() => ({
+    html: htmlRef.current ?? '',
+    comments: commentsRef.current,
+    theme: themeRef.current,
+    darkPage: darkPageRef.current,
+    aiMessages: aiMessagesRef.current,
+  }), []);
+
   const persistContent = useCallback(() => {
     if (!persistKey) return;
+    const live = editorRef.current?.innerHTML;
+    if (live != null) htmlRef.current = live;
     if (persistTimer.current) clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
-      setResourceContent(persistKey, {
-        html: editorRef.current?.innerHTML ?? '',
-        comments: commentsRef.current,
-        theme: themeRef.current,
-        darkPage: darkPageRef.current,
-        aiMessages: aiMessagesRef.current,
-      });
+      // Remettre à null : sans ça, le ref restait porteur d'un id de timer
+      // expiré pour toujours, donc le flush de démontage ci-dessous se
+      // déclenchait à CHAQUE sortie du document, même sans modification en
+      // attente — c'est ce qui rendait l'écrasement systématique.
+      persistTimer.current = null;
+      setResourceContent(persistKey, snapshot());
     }, 400);
-  }, [persistKey]);
+  }, [persistKey, snapshot]);
   // Persiste sur tout changement de commentaires/thème/mode sombre/historique IA
   // (ajout/résolution/suppression, etc.), en sautant le montage initial.
   const persistMounted = useRef(false);
@@ -2083,19 +2126,16 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
     if (!persistMounted.current) { persistMounted.current = true; return; }
     persistContent();
   }, [comments, theme, darkPage, aiMessages, persistContent]);
-  // Flush au démontage pour ne pas perdre la dernière frappe.
+  // Flush au démontage pour ne pas perdre la dernière frappe — uniquement si
+  // une sauvegarde est réellement en attente, et uniquement à partir de la
+  // copie mémoire (jamais du DOM, voir htmlRef).
   useEffect(() => () => {
-    if (persistTimer.current && persistKey) {
-      clearTimeout(persistTimer.current);
-      setResourceContent(persistKey, {
-        html: editorRef.current?.innerHTML ?? '',
-        comments: commentsRef.current,
-        theme: themeRef.current,
-        darkPage: darkPageRef.current,
-        aiMessages: aiMessagesRef.current,
-      });
-    }
-  }, [persistKey]);
+    if (!persistKey || persistTimer.current == null) return;
+    clearTimeout(persistTimer.current);
+    persistTimer.current = null;
+    if (htmlRef.current == null) return;
+    setResourceContent(persistKey, snapshot());
+  }, [persistKey, snapshot]);
 
   useEffect(() => {
     const handler = () => {
@@ -2854,14 +2894,24 @@ export function InspirationsView({ resource, persistKey, registerExport }: { res
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const inspiPersistTimer = useRef<number | null>(null);
+  // Voir MoodboardView : flush au démontage à partir d'une copie, sinon les
+  // modifications des 400 dernières ms sont annulées avec le minuteur.
+  const inspiPayloadRef = useRef<{ items: InspiItem[]; comments: RevisionComment[] } | null>(null);
   useEffect(() => {
     if (!persistKey) return;
+    inspiPayloadRef.current = { items, comments };
     if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current);
     inspiPersistTimer.current = window.setTimeout(() => {
+      inspiPersistTimer.current = null;
       setResourceContent(persistKey, { items, comments });
     }, 400);
   }, [items, comments, persistKey]);
-  useEffect(() => () => { if (inspiPersistTimer.current) clearTimeout(inspiPersistTimer.current); }, []);
+  useEffect(() => () => {
+    if (!persistKey || inspiPersistTimer.current == null) return;
+    clearTimeout(inspiPersistTimer.current);
+    inspiPersistTimer.current = null;
+    if (inspiPayloadRef.current) setResourceContent(persistKey, inspiPayloadRef.current);
+  }, [persistKey]);
 
   useEffect(() => {
     if (!registerExport) return;
@@ -3512,14 +3562,24 @@ export function FormView({ resource, templateMode, initialQuestions, onSaveTempl
   const [linkCopied, setLinkCopied] = useState(false);
 
   const formPersistTimer = useRef<number | null>(null);
+  // Voir MoodboardView : flush au démontage à partir d'une copie, sinon les
+  // modifications des 400 dernières ms sont annulées avec le minuteur.
+  const formPayloadRef = useRef<{ questions: FormQuestion[]; formTitle: string; formDesc: string; collectIdentity: boolean; comments: RevisionComment[] } | null>(null);
   useEffect(() => {
     if (!persistKey) return;
+    formPayloadRef.current = { questions, formTitle, formDesc, collectIdentity, comments };
     if (formPersistTimer.current) clearTimeout(formPersistTimer.current);
     formPersistTimer.current = window.setTimeout(() => {
+      formPersistTimer.current = null;
       setResourceContent(persistKey, { questions, formTitle, formDesc, collectIdentity, comments });
     }, 400);
   }, [questions, formTitle, formDesc, collectIdentity, comments, persistKey]);
-  useEffect(() => () => { if (formPersistTimer.current) clearTimeout(formPersistTimer.current); }, []);
+  useEffect(() => () => {
+    if (!persistKey || formPersistTimer.current == null) return;
+    clearTimeout(formPersistTimer.current);
+    formPersistTimer.current = null;
+    if (formPayloadRef.current) setResourceContent(persistKey, formPayloadRef.current);
+  }, [persistKey]);
 
   useEffect(() => {
     if (!registerExport) return;
@@ -5234,14 +5294,25 @@ export function ScreenplayView({ resource, onEdit, saveState = 'saved', online =
     }
   });
   const scPersistTimer = useRef<number | null>(null);
+  // Voir MoodboardView : flush au démontage à partir d'une copie, sinon les
+  // modifications des 400 dernières ms (script, shotlist, storyboard) sont
+  // annulées avec le minuteur.
+  const scPayloadRef = useRef<{ versions: ScriptVersion[]; activeId: string; props: PropItem[]; shots: ShotRow[]; sceneOrder: string[]; comments: RevisionComment[] } | null>(null);
   useEffect(() => {
     if (!persistKey) return;
+    scPayloadRef.current = { versions, activeId: activeVersionId, props: propItems, shots, sceneOrder, comments };
     if (scPersistTimer.current) clearTimeout(scPersistTimer.current);
     scPersistTimer.current = window.setTimeout(() => {
+      scPersistTimer.current = null;
       setResourceContent(persistKey, { versions, activeId: activeVersionId, props: propItems, shots, sceneOrder, comments });
     }, 400);
   }, [versions, activeVersionId, propItems, shots, sceneOrder, comments, persistKey]);
-  useEffect(() => () => { if (scPersistTimer.current) clearTimeout(scPersistTimer.current); }, []);
+  useEffect(() => () => {
+    if (!persistKey || scPersistTimer.current == null) return;
+    clearTimeout(scPersistTimer.current);
+    scPersistTimer.current = null;
+    if (scPayloadRef.current) setResourceContent(persistKey, scPayloadRef.current);
+  }, [persistKey]);
 
   const scriptScenes: ScriptScene[] = elements
     .filter(e => e.type === 'scene')
