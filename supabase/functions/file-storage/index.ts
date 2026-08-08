@@ -7,6 +7,7 @@ import {
   AbortMultipartUploadCommand,
   ListPartsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   DeleteObjectCommand,
 } from "npm:@aws-sdk/client-s3@3";
@@ -44,34 +45,86 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function resolveStudioId(jwt: string): Promise<string> {
+// EVERY studio this user can act in — not "the first one".
+//
+// A person can belong to several organisations, and the app lets them switch
+// between them (studioStore.ts remembers the ACTIVE one per browser). Picking
+// one here server-side is always a guess, and a wrong guess silently sends
+// reads and writes to different R2 prefixes — that's what produced
+// "The specified key does not exist". Callers below decide which studio
+// applies from the data, then check it against this set.
+async function getUserStudioIds(jwt: string): Promise<string[]> {
   const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
   if (userError || !user) throw new Error("unauthenticated");
 
-  // .maybeSingle() throws if the user belongs to more than one studio —
-  // that's a real, supported case (multi-studio membership), not an error.
-  // Take the first membership row deterministically instead.
+  const ids: string[] = [];
+
   const { data: memberships, error: memberError } = await supabaseAdmin
     .from("studio_members")
     .select("studio_id")
-    .eq("user_id", user.id)
-    .limit(1);
+    .eq("user_id", user.id);
   if (memberError) throw memberError;
-  if (memberships && memberships.length > 0) return memberships[0].studio_id as string;
+  for (const m of memberships ?? []) ids.push(m.studio_id as string);
 
   const { data: owned, error: ownedError } = await supabaseAdmin
     .from("studios")
     .select("id")
-    .eq("owner_user_id", user.id)
-    .maybeSingle();
+    .eq("owner_user_id", user.id);
   if (ownedError) throw ownedError;
-  if (owned) return owned.id as string;
+  for (const o of owned ?? []) {
+    if (!ids.includes(o.id as string)) ids.push(o.id as string);
+  }
 
-  throw new Error("no studio found for this user");
+  if (ids.length === 0) throw new Error("no studio found for this user");
+  return ids;
 }
 
-function assertOwnKey(key: string, studioId: string): void {
-  if (!key.startsWith(`${studioId}/`)) {
+// The studio that owns the file row — the same value the client wrote when it
+// created the file, so upload and read agree by construction. Returns null if
+// the row isn't visible yet (the client inserts it and starts the upload
+// without awaiting the insert).
+async function lookupFileStudioId(fileItemId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("file_items")
+    .select("studio_id")
+    .eq("id", fileItemId)
+    .maybeSingle();
+  if (error) throw new Error(`file_items lookup failed: ${error.message}`);
+  return data ? (data.studio_id as string) : null;
+}
+
+// Resolves the R2 key of an EXISTING object.
+//
+// Preference order: the studio recorded on the file row, then the caller's
+// other studios. The fallback sweep exists to recover files uploaded before
+// this was fixed, when the server's arbitrary studio choice could differ from
+// the one the client recorded — without it those objects stay unreachable
+// even though the bytes are sitting in the bucket.
+async function resolveExistingKey(fileItemId: string, studioIds: string[]): Promise<string> {
+  const owner = await lookupFileStudioId(fileItemId);
+  if (owner && !studioIds.includes(owner)) {
+    throw new Error("forbidden: file belongs to another studio");
+  }
+
+  const candidates = owner ? [owner, ...studioIds.filter((id) => id !== owner)] : [...studioIds];
+
+  for (const studioId of candidates) {
+    const key = `${studioId}/${fileItemId}`;
+    try {
+      await s3.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+      return key;
+    } catch {
+      // Pas à cet emplacement — on essaie le suivant.
+    }
+  }
+
+  throw new Error(
+    "le contenu de ce fichier est introuvable dans le stockage — le téléversement n'a probablement jamais abouti, réimporte le fichier",
+  );
+}
+
+function assertOwnKey(key: string, studioIds: string[]): void {
+  if (!studioIds.some((id) => key.startsWith(`${id}/`))) {
     throw new Error("forbidden: key does not belong to caller's studio");
   }
 }
@@ -112,12 +165,12 @@ Deno.serve(async (req: Request) => {
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) throw new Error("missing Authorization header");
       const jwt = authHeader.replace("Bearer ", "");
-      const studioId = await resolveStudioId(jwt);
+      const studioIds = await getUserStudioIds(jwt);
       const { resourceId, fileId } = body as { resourceId: string; fileId: string };
       const { data: resource, error } = await supabaseAdmin
         .from("resources").select("studio_id").eq("id", resourceId).maybeSingle();
       if (error) throw new Error(`resources lookup failed: ${error.message}`);
-      if (!resource || resource.studio_id !== studioId) throw new Error("forbidden");
+      if (!resource || !studioIds.includes(resource.studio_id as string)) throw new Error("forbidden");
       const key = `form-uploads/${resourceId}/${fileId}`;
       const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }), { expiresIn: 600 });
       return json({ url });
@@ -126,11 +179,27 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("missing Authorization header");
     const jwt = authHeader.replace("Bearer ", "");
-    const studioId = await resolveStudioId(jwt);
+    const studioIds = await getUserStudioIds(jwt);
 
     switch (action) {
       case "initiate-upload": {
-        const { fileItemId, contentType } = body as { fileItemId: string; contentType?: string };
+        const { fileItemId, contentType, studioId: requestedStudioId } =
+          body as { fileItemId: string; contentType?: string; studioId?: string };
+
+        // Le client envoie l'organisation ACTIVE — la même que celle qu'il
+        // inscrit dans file_items. On la vérifie (elle doit faire partie des
+        // organisations de l'appelant) plutôt que de la deviner ici : c'est le
+        // seul moyen que la clé d'écriture corresponde à la clé de lecture
+        // pour un compte multi-organisations. En dernier recours seulement, on
+        // retombe sur la ligne du fichier puis sur la première organisation.
+        let studioId: string;
+        if (requestedStudioId && studioIds.includes(requestedStudioId)) {
+          studioId = requestedStudioId;
+        } else {
+          studioId = (await lookupFileStudioId(fileItemId)) ?? studioIds[0];
+          if (!studioIds.includes(studioId)) studioId = studioIds[0];
+        }
+
         const key = `${studioId}/${fileItemId}`;
         const result = await s3.send(new CreateMultipartUploadCommand({
           Bucket: R2_BUCKET,
@@ -142,7 +211,7 @@ Deno.serve(async (req: Request) => {
 
       case "sign-part": {
         const { key, uploadId, partNumber } = body as { key: string; uploadId: string; partNumber: number };
-        assertOwnKey(key, studioId);
+        assertOwnKey(key, studioIds);
         const url = await getSignedUrl(
           s3,
           new UploadPartCommand({ Bucket: R2_BUCKET, Key: key, UploadId: uploadId, PartNumber: partNumber }),
@@ -153,7 +222,7 @@ Deno.serve(async (req: Request) => {
 
       case "list-parts": {
         const { key, uploadId } = body as { key: string; uploadId: string };
-        assertOwnKey(key, studioId);
+        assertOwnKey(key, studioIds);
         const result = await s3.send(new ListPartsCommand({ Bucket: R2_BUCKET, Key: key, UploadId: uploadId }));
         const parts = (result.Parts ?? []).map((p) => ({
           partNumber: p.PartNumber,
@@ -167,7 +236,7 @@ Deno.serve(async (req: Request) => {
         const { key, uploadId, parts } = body as {
           key: string; uploadId: string; parts: { partNumber: number; etag: string }[];
         };
-        assertOwnKey(key, studioId);
+        assertOwnKey(key, studioIds);
         await s3.send(new CompleteMultipartUploadCommand({
           Bucket: R2_BUCKET,
           Key: key,
@@ -179,14 +248,14 @@ Deno.serve(async (req: Request) => {
 
       case "abort-upload": {
         const { key, uploadId } = body as { key: string; uploadId: string };
-        assertOwnKey(key, studioId);
+        assertOwnKey(key, studioIds);
         await s3.send(new AbortMultipartUploadCommand({ Bucket: R2_BUCKET, Key: key, UploadId: uploadId }));
         return json({ ok: true });
       }
 
       case "sign-get": {
         const { fileItemId } = body as { fileItemId: string };
-        const key = `${studioId}/${fileItemId}`;
+        const key = await resolveExistingKey(fileItemId, studioIds);
         const url = await getSignedUrl(
           s3,
           new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }),
@@ -208,7 +277,7 @@ Deno.serve(async (req: Request) => {
       // dashboard change needed now or when the domain changes.
       case "get-object": {
         const { fileItemId } = body as { fileItemId: string };
-        const key = `${studioId}/${fileItemId}`;
+        const key = await resolveExistingKey(fileItemId, studioIds);
         const result = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }));
         if (!result.Body) throw new Error("object has no body");
         // Selon la build du SDK chargée par Deno, Body est soit un
@@ -235,7 +304,15 @@ Deno.serve(async (req: Request) => {
 
       case "delete-object": {
         const { fileItemId } = body as { fileItemId: string };
-        const key = `${studioId}/${fileItemId}`;
+        // La suppression est idempotente : un objet déjà absent (téléversement
+        // jamais abouti) ne doit pas faire échouer la suppression du fichier
+        // côté application.
+        let key: string;
+        try {
+          key = await resolveExistingKey(fileItemId, studioIds);
+        } catch {
+          return json({ ok: true });
+        }
         await s3.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
         return json({ ok: true });
       }

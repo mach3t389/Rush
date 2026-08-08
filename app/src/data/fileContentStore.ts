@@ -12,6 +12,7 @@
 
 import { isDemoSession } from './authStore';
 import { supabase } from './supabaseClient';
+import { getStudioId } from './studioStore';
 
 const LS_PREFIX = 'sf_fc_';
 const MAX_PERSIST = 3 * 1024 * 1024; // 3 Mo
@@ -169,9 +170,16 @@ async function uploadReal(id: string, file: File): Promise<void> {
       try { await callFileStorage('abort-upload', { key: existing.key, uploadId: existing.uploadId }); } catch { /* best-effort cleanup */ }
       clearUploadRecord(id);
     }
+    // On transmet l'organisation ACTIVE — exactement celle que fileStore
+    // inscrit dans file_items.studio_id. Sans elle, le serveur devait deviner
+    // parmi les organisations de l'utilisateur, et un compte multi-organisations
+    // pouvait écrire l'objet sous un préfixe et le relire sous un autre
+    // (« The specified key does not exist »). Le serveur vérifie que
+    // l'utilisateur appartient bien à cette organisation.
     const initiated = await callFileStorage('initiate-upload', {
       fileItemId: id,
       contentType: file.type || 'application/octet-stream',
+      studioId: await getStudioId(),
     });
     if (!initiated.uploadId || !initiated.key) throw new Error('initiate-upload did not return an uploadId/key');
     record = { uploadId: initiated.uploadId, key: initiated.key, fileName: file.name, fileSize: file.size, partSize: PART_SIZE, completedParts: [] };
