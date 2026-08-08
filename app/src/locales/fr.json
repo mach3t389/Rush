@@ -1321,6 +1321,7 @@
     "gcalLoading": "Chargement...",
     "gcalNotConnectedHint": "Connecte Google Calendar dans Paramètres → Intégrations pour activer cette fonctionnalité.",
     "gcalConnectAction": "Se connecter à Google Calendar",
+    "gcalButtonLabel": "Calendrier Google",
     "gcalProjectCardTitleActive": "Calendrier Google actif pour ce projet",
     "gcalProjectCardTitleInactive": "Aucun calendrier Google actif pour ce projet — les événements vont dans le calendrier du studio",
     "gcalStatusActive": "Actif",

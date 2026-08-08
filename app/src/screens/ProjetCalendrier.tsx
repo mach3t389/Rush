@@ -623,9 +623,10 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
       <button
         onClick={() => setOpen(v => !v)}
         title={active === null ? t('calendar.gcalProjectCardTitle') : active ? t('calendar.gcalProjectCardTitleActive') : t('calendar.gcalProjectCardTitleInactive')}
-        style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background: active ? 'rgba(52,201,138,0.1)' : 'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', boxSizing:'border-box' }}
+        style={{ display:'flex', alignItems:'center', gap:6, height:32, padding:'0 10px', borderRadius:8, border:'1px solid var(--border)', background: active ? 'rgba(52,201,138,0.1)' : 'var(--surface-2)', color:'var(--text-2)', cursor:'pointer', boxSizing:'border-box', whiteSpace:'nowrap' }}
       >
         <SFIcon name="calendar" size={15} color={active ? 'var(--ok)' : 'var(--text-3)'} />
+        <span style={{ fontSize:12, fontFamily:'var(--ff-text)', color:'var(--text-2)' }}>{t('calendar.gcalButtonLabel')}</span>
       </button>
 
       {open && (
