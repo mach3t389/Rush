@@ -177,15 +177,6 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
       display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
       padding: '4px 6px', borderRadius: 8, border: '1px solid var(--border)',
       background: 'var(--surface-2)',
-      // Collée en haut de la colonne défilable (le panneau de tâche
-      // scrolle en `overflow: auto` autour de ce composant) — pour une
-      // description longue, la barre reste visible en permanence pendant
-      // la lecture/l'édition au lieu de rester ancrée au sommet de la
-      // boîte et de sortir de l'écran au défilement. Contrepartie
-      // assumée : contrairement à l'ancien `position: absolute`, elle
-      // participe au flux normal et décale légèrement la boîte (et ce qui
-      // suit) vers le bas à l'entrée en édition.
-      position: 'sticky', top: 0, marginBottom: 6, zIndex: 20,
       boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
     }}>
       <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title={t('taskPanel.descriptionToolbar.bold')}>
@@ -366,7 +357,17 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
         if (!e.currentTarget.contains(e.relatedTarget as Node)) setEditing(false);
       }}
     >
-      {editing && <DescriptionToolbar editor={editor} />}
+      {editing && (
+        // Hauteur nulle + `overflow: visible` : ce wrapper participe au flux
+        // normal (donc il peut rester `position: sticky` collé au sommet de
+        // la colonne défilable pendant le défilement) sans jamais occuper
+        // d'espace lui-même — la barre d'outils qu'il contient déborde donc
+        // par-dessus la boîte de description plutôt que de la repousser vers
+        // le bas, comme avant le passage à `sticky` sur la barre elle-même.
+        <div style={{ position: 'sticky', top: 0, zIndex: 20, height: 0, overflow: 'visible' }}>
+          <DescriptionToolbar editor={editor} />
+        </div>
+      )}
       <div
         title={editing ? undefined : t('taskPanel.clickToEdit')}
         style={{
