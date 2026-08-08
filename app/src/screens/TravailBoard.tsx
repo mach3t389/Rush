@@ -752,11 +752,9 @@ export function TravailBoard({
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: PRIORITY_COLOR[task.priority], flexShrink: 0, display: 'block' }} />
-                            {task.priority !== 'none' && (
-                              <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: PRIORITY_COLOR[task.priority], letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                {t(PRIORITY_LABEL_KEY[task.priority])}
-                              </span>
-                            )}
+                            <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: task.priority !== 'none' ? PRIORITY_COLOR[task.priority] : 'var(--text-3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                              {task.priority !== 'none' ? t(PRIORITY_LABEL_KEY[task.priority]) : t('tasks.priority')}
+                            </span>
                           </button>
                         </div>
 
@@ -809,7 +807,12 @@ export function TravailBoard({
                           >
                             {task.statusLabel
                               ? <SFPill status={task.status} small>{t(STATUS_OPTIONS.find(o => o.value === task.status)?.labelKey ?? 'tasks.noStatus')}</SFPill>
-                              : <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border-2)', flexShrink: 0, display: 'block' }} />
+                              : (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border-2)', flexShrink: 0, display: 'block' }} />
+                                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('tasks.status')}</span>
+                                </span>
+                              )
                             }
                           </button>
 
