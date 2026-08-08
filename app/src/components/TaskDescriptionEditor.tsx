@@ -357,16 +357,6 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
         if (!e.currentTarget.contains(e.relatedTarget as Node)) setEditing(false);
       }}
     >
-      {editing && (
-        // `position: sticky` sur ce wrapper (participant au flux normal,
-        // hauteur réelle) : la barre d'outils occupe sa propre place
-        // au-dessus de la boîte de description — jamais par-dessus — et
-        // reste collée au sommet de la colonne défilable (`overflow: auto`
-        // dans TaskPanel) pendant le défilement d'une longue description.
-        <div style={{ position: 'sticky', top: 0, zIndex: 20, marginBottom: 6 }}>
-          <DescriptionToolbar editor={editor} />
-        </div>
-      )}
       <div
         title={editing ? undefined : t('taskPanel.clickToEdit')}
         style={{
@@ -379,6 +369,20 @@ export function TaskDescriptionEditor({ value, onChange, placeholder }: {
         onMouseEnter={e => { if (!editing) (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
         onMouseLeave={e => { if (!editing) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
+        {editing && (
+          // La barre d'outils est le premier enfant de la boîte elle-même
+          // (pas un élément séparé au-dessus) : passer en édition ne change
+          // donc jamais la position de la boîte — seule sa hauteur interne
+          // grandit pour lui faire de la place, sans la déplacer ni la
+          // repousser. `position: sticky` la garde ensuite collée au sommet
+          // de la colonne défilable (`overflow: auto` dans TaskPanel)
+          // pendant qu'on défile dans une longue description, exactement
+          // comme un en-tête de tableau sticky — le texte défile dessous,
+          // la barre reste visible et disponible en tout temps.
+          <div style={{ position: 'sticky', top: 0, zIndex: 20, marginBottom: 6 }}>
+            <DescriptionToolbar editor={editor} />
+          </div>
+        )}
         <EditorContent editor={editor} className="tiptap-desc-content" />
         {isEmpty && !editing && (
           <div style={{ color: 'var(--text-3)', marginTop: -22 }}>{placeholder}</div>
