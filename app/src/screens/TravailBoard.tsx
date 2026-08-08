@@ -883,8 +883,11 @@ export function TravailBoard({
 
                 {/* Add task — saisie en ligne du titre, comme AddTaskRow en
                     vue Liste (avant : créait une carte "Nouvelle tâche" et
-                    ouvrait le panneau de détail pour la renommer). */}
-                {groupBy === 'category' && (addingInSection === section.label ? (
+                    ouvrait le panneau de détail pour la renommer). Autorisé
+                    aussi en mode Statut/Assigné : onAddTask (côté Travail.tsx)
+                    retrouve alors une vraie catégorie où insérer et applique
+                    le statut/assigné de la colonne cliquée. */}
+                {(addingInSection === section.label ? (
                   <div style={{ margin: '6px 8px 8px', padding: '9px 11px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface-2)' }}>
                     <textarea
                       ref={newTaskInputRef}

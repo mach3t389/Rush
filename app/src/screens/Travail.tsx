@@ -1304,9 +1304,12 @@ function Section({
               <DropLine idx={i + 1} />
             </React.Fragment>
           ))}
-          {!readOnlyHeader && (
-            <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} visibleColumns={visibleColumns} />
-          )}
+          {/* readOnlyHeader verrouille le renommage/suppression/glisser de
+              l'en-tête (ces "sections" sont dérivées du statut/assigné, pas
+              de vraies catégories) — mais ajouter une tâche depuis ce groupe
+              reste utile : onAddTask ci-dessous applique le statut/assigné
+              du groupe cliqué (voir resolveGroupedAddTarget côté appelant). */}
+          <AddTaskRow projectId={projectId} projectName={projectName} projectColor={projectColor} onAdd={onAddTask} onAddMany={onAddTaskMany} autoOpen={autoOpenAddTask} visibleColumns={visibleColumns} />
         </>
       )}
     </div>
@@ -2087,6 +2090,26 @@ export function Travail() {
         return [...memberCols, unassignedCol];
       })();
 
+  // Ajouter une tâche depuis une colonne/groupe Statut ou Assigné : ces
+  // "sections" sont dérivées (boardSections), pas de vraies catégories du
+  // projet — il n'y a donc pas d'index réel où insérer. On dépose la tâche
+  // dans la première vraie catégorie et on lui applique le statut/assigné du
+  // groupe cliqué, pour qu'elle apparaisse immédiatement dans la colonne où
+  // l'utilisateur vient de taper (sinon elle atterrit ailleurs sans le bon
+  // statut/assigné, ou ne s'ajoute nulle part).
+  const resolveGroupedAddTarget = (groupLabel: string): { realIdx: number; patch: Partial<Task> } => {
+    const realIdx = sections.length ? 0 : -1;
+    if (boardGroupBy === 'status') {
+      const opt = STATUS_OPTIONS.find(o => t(o.labelKey) === groupLabel);
+      return { realIdx, patch: opt ? { status: opt.value as Task['status'], statusLabel: opt.value ? t(opt.labelKey) : '', checked: opt.value === 'ok' } : {} };
+    }
+    if (boardGroupBy === 'assignee') {
+      const member = teamMembers.find(m => m.name === groupLabel);
+      return { realIdx, patch: { assignees: member ? [member] : [] } };
+    }
+    return { realIdx, patch: {} };
+  };
+
   // Column (section) reorder in the board — mirrors handleSectionInsertAt's
   // splice-before-label logic, but by label instead of visible index since
   // the board's own drop-line only knows the label it's hovering over.
@@ -2370,14 +2393,29 @@ export function Travail() {
           // indexe dans `sections` (complet) — passer l'index brut ajoutait
           // la tâche à la mauvaise catégorie dès qu'une catégorie était
           // masquée. On retraduit ici via le label, seul identifiant stable
-          // entre les deux listes.
+          // entre les deux listes. En mode Statut/Assigné, boardSections[boardIdx]
+          // n'est pas une vraie catégorie (voir resolveGroupedAddTarget) : on
+          // insère dans la première vraie catégorie avec le statut/assigné
+          // du groupe cliqué, plutôt que de perdre la tâche silencieusement.
           onAddTask={(boardIdx, task) => {
             const label = boardSections[boardIdx]?.label;
+            if (boardGroupBy !== 'category') {
+              if (!label) return;
+              const { realIdx, patch } = resolveGroupedAddTarget(label);
+              if (realIdx >= 0) handleAddTask(realIdx, { ...task, ...patch });
+              return;
+            }
             const realIdx = sections.findIndex(s => s.label === label);
             if (realIdx >= 0) handleAddTask(realIdx, task);
           }}
           onAddTaskMany={(boardIdx, tasks) => {
             const label = boardSections[boardIdx]?.label;
+            if (boardGroupBy !== 'category') {
+              if (!label) return;
+              const { realIdx, patch } = resolveGroupedAddTarget(label);
+              if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(task => ({ ...task, ...patch })));
+              return;
+            }
             const realIdx = sections.findIndex(s => s.label === label);
             if (realIdx >= 0) handleAddTasks(realIdx, tasks);
           }}
@@ -2415,8 +2453,22 @@ export function Travail() {
                 onToggleComplete={() => handleToggleComplete(globalIdx)}
                 onDragStart={() => handleDragStart(globalIdx)}
                 isDragging={draggedIdx === globalIdx}
-                onAddTask={task => handleAddTask(globalIdx, task)}
-                onAddTaskMany={tasks => handleAddTasks(globalIdx, tasks)}
+                onAddTask={task => {
+                  if (boardGroupBy !== 'category') {
+                    const { realIdx, patch } = resolveGroupedAddTarget(section.label);
+                    if (realIdx >= 0) handleAddTask(realIdx, { ...task, ...patch });
+                    return;
+                  }
+                  handleAddTask(globalIdx, task);
+                }}
+                onAddTaskMany={tasks => {
+                  if (boardGroupBy !== 'category') {
+                    const { realIdx, patch } = resolveGroupedAddTarget(section.label);
+                    if (realIdx >= 0) handleAddTasks(realIdx, tasks.map(task => ({ ...task, ...patch })));
+                    return;
+                  }
+                  handleAddTasks(globalIdx, tasks);
+                }}
                 onDelete={() => handleDeleteSection(globalIdx)}
                 onRename={newLabel => handleRenameSection(globalIdx, newLabel)}
                 onDeleteTask={taskId => setSections(prev => prev.map(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== taskId) })))}
