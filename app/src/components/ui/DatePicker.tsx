@@ -35,6 +35,20 @@ export function formatDisplay(ymd: string) {
   return `${d.getDate()} ${FR_MONTHS_SHORT[d.getMonth()]}. ${d.getFullYear()}`;
 }
 
+// Inverse de formatDisplay + heure optionnelle « · HH:MM » — utilisé quand un
+// champ ne conserve que la chaîne d'affichage (ex. Project.deliveryDate,
+// jamais son YMD d'origine) et qu'on doit la re-parser pour rouvrir un
+// sélecteur dessus (édition d'un projet déjà sauvegardé).
+export function parseDisplayDateTime(s: string): { ymd: string; time: string } | null {
+  const m = s.trim().match(/^(\d{1,2}) (jan|fév|mar|avr|mai|juin|juil|août|sep|oct|nov|déc)\.? (\d{4})(?: · (\d{2}:\d{2}))?$/i);
+  if (!m) return null;
+  const monthIdx = FR_MONTHS_SHORT.indexOf(m[2].toLowerCase());
+  if (monthIdx < 0) return null;
+  const d = new Date(+m[3], monthIdx, +m[1]);
+  if (isNaN(d.getTime())) return null;
+  return { ymd: toYMD(d), time: m[4] ?? '' };
+}
+
 export function isOverdue(dueDate: string): boolean {
   const d = parseYMD(dueDate);
   if (!d) return false;

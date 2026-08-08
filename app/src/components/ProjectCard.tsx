@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD } from './ui';
+import { SFPill, SFBar, SFAvatarGroup, SFIcon, SFModal, DatePickerDropdown, TimePickerDropdown, TimeButton, formatDisplay, parseYMD, parseDisplayDateTime } from './ui';
 import type { Project, Status, Phase } from '../types/index';
 import { isPinned, togglePin, subscribePinned } from '../data/pinnedStore';
 import { updateProject, archiveProject, unarchiveProject, removeProject, changeProjectClient } from '../data/projectStore';
@@ -65,9 +65,17 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   const [lStatus, setLStatus]           = useState<Status>(status);
   const [lStatusLabel, setLStatusLabel] = useState(statusLabel);
   // Date de livraison : sélecteur de date (YMD) + heure, comme le panneau d'une tâche.
-  // L'ancienne valeur stockée est une chaîne d'affichage non-YMD → le picker démarre vide ; on la garde en repli.
-  const [lDeliveryYMD, setLDeliveryYMD] = useState(parseYMD(deliveryDate) ? deliveryDate : '');
-  const [lDeliveryTime, setLDeliveryTime] = useState('');
+  // Le champ n'est persisté que sous forme de chaîne d'affichage (ex. "5
+  // août. 2026 · 03:30", jamais son YMD d'origine — voir deliveryOut plus
+  // bas), donc on la re-parse ici pour rouvrir le sélecteur dessus. Sans ça,
+  // le panneau retombait à chaque réouverture sur le bloc combiné "date ·
+  // heure" au lieu de la date et de la pastille Heure séparées (le YMD
+  // restait vide, la condition `lDeliveryYMD &&` masquait donc la pastille).
+  // Les très anciennes valeurs de seed (ex. "15 juin", sans année) ne
+  // matchent pas ce format et gardent le repli affichage brut.
+  const parsedDelivery = parseDisplayDateTime(deliveryDate);
+  const [lDeliveryYMD, setLDeliveryYMD] = useState(parsedDelivery ? parsedDelivery.ymd : (parseYMD(deliveryDate) ? deliveryDate : ''));
+  const [lDeliveryTime, setLDeliveryTime] = useState(parsedDelivery ? parsedDelivery.time : '');
   const [dateOpen, setDateOpen] = useState(false);
   const [dateRect, setDateRect] = useState<DOMRect | null>(null);
   const [timeOpen, setTimeOpen] = useState(false);
