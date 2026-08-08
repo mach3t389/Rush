@@ -497,6 +497,13 @@ function DocxPreview({ fileId }: { fileId: string }) {
           inWrapper: true,
           ignoreLastRenderedPageBreak: false,
         });
+        // docx-preview injecte son propre <style> avec un fond gris sur
+        // .docx-wrapper (pour séparer visuellement les pages dans son propre
+        // contexte). On l'écrase en style inline — priorité garantie sur la
+        // feuille injectée — pour que ce soit le fond du modal (noir) qui
+        // ressorte autour des pages, cohérent avec le reste de l'aperçu.
+        const wrapper = containerRef.current?.querySelector<HTMLElement>('.docx-wrapper');
+        if (wrapper) wrapper.style.background = 'transparent';
         if (!cancelled) setStatus('ready');
       })
       .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
@@ -624,7 +631,11 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
           <PreviewBtn icon="maximize-2" onClick={handleFullscreen} />
         </>)}
 
-        {url && (
+        {/* Le docx télécharge via fetchFileBytes (indépendant de sign-get) —
+            ne pas attendre `url` pour lui, sinon le bouton reste caché
+            pendant que sign-get répond, sans raison puisque le téléchargement
+            n'en dépend pas. */}
+        {(url || (file.type === 'doc' && file.ext.toLowerCase() === 'docx')) && (
           <button onClick={() => { void downloadFileById(file.id, file.name); }} style={{ ...BTN_STYLE, cursor: 'pointer' }}>
             <SFIcon name="download" size={13} /><span>{t('files.download')}</span>
           </button>
@@ -646,7 +657,16 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
         onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
         style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: (file.type === 'pdf' || (file.type === 'doc' && file.ext.toLowerCase() === 'docx')) ? 0 : 24, position: 'relative' }}
       >
-        {!url ? (
+        {/* Le docx lit ses octets via fetchFileBytes (route get-object), pas
+            via l'URL signée sign-get — cette branche doit donc passer AVANT
+            le blocage sur `!url` ci-dessous, sinon la fenêtre affichait
+            brièvement "erreur"/"aucun contenu" pendant que sign-get répondait,
+            avant même que DocxPreview ait eu la chance de démarrer son propre
+            chargement (redondant et jamais nécessaire pour ce type). */}
+        {file.type === 'doc' && file.ext.toLowerCase() === 'docx' ? (
+          <DocxPreview fileId={file.id} />
+
+        ) : !url ? (
           <div style={{ textAlign: 'center' }}>
             <SFIcon name={contentError ? 'triangle-alert' : icon} size={52} color={contentError ? 'var(--danger)' : 'var(--text-3)'} />
             {/* En session réelle, l'URL signée peut échouer à charger (réseau,
@@ -705,9 +725,6 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
               </div>
             )}
           </div>
-
-        ) : file.type === 'doc' && file.ext.toLowerCase() === 'docx' ? (
-          <DocxPreview fileId={file.id} />
 
         ) : (
           <div style={{ textAlign: 'center' }}>
