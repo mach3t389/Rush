@@ -2279,6 +2279,7 @@
     "projectLabel": "Project",
     "optional": "optional",
     "selectClient": "Choose a client…",
+    "noClientOption": "No client",
     "noProject": "— No project —",
     "issuedDate": "Issue date",
     "dueDate": "Due date",

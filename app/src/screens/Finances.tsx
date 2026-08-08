@@ -647,14 +647,14 @@ export function InvoiceFormPanel({
   const [attemptedSave,  setAttemptedSave]  = useState(false);
   const [titleTouched,   setTitleTouched]   = useState(false);
 
-  const effectiveClientId  = lockedClientId  ?? defaultClientId  ?? (allClients[0]?.id ?? '');
+  const effectiveClientId  = lockedClientId  ?? defaultClientId  ?? '';
   const effectiveProjectId = lockedProjectId ?? defaultProjectId ?? '';
 
   useEffect(() => {
     if (!open) return;
     if (invoice) {
       setNumber(invoice.number);       setTitle(invoice.title);
-      setClientId(invoice.clientId);   setProjectId(invoice.projectId ?? '');
+      setClientId(invoice.clientId ?? ''); setProjectId(invoice.projectId ?? '');
       setIssuedDate(invoice.issuedDate); setDueDate(invoice.dueDate);
       setAmount(String(invoice.amount)); setTaxLines(invoice.taxLines.map(l => ({ ...l })));
       setCurrency(invoice.currency);   setStatus(invoice.status);
@@ -694,7 +694,9 @@ export function InvoiceFormPanel({
   const removeTaxLine = (idx: number) =>
     setTaxLines(prev => prev.filter((_, i) => i !== idx));
 
-  const clientProjects = allProjects.filter(p => p.clientId === clientId && p.financeEnabled);
+  const clientProjects = clientId
+    ? allProjects.filter(p => p.clientId === clientId && p.financeEnabled)
+    : allProjects.filter(p => !p.clientId && p.financeEnabled);
   const lockedClientName  = lockedClientId  ? (allClients.find(c => c.id === lockedClientId)?.name  ?? lockedClientId)  : null;
   const lockedProjectName = lockedProjectId ? (allProjects.find(p => p.id === lockedProjectId)?.name ?? lockedProjectId) : null;
 
@@ -726,11 +728,11 @@ export function InvoiceFormPanel({
 
   const handleSave = () => {
     setAttemptedSave(true);
-    if (!title.trim() || !clientId || !amount) return;
+    if (!title.trim() || !amount) return;
     const id = invoice?.id ?? `inv_${Date.now()}`;
     const project = projectId ? allProjects.find(p => p.id === projectId) : undefined;
     const inv: Invoice = {
-      id, number, title: title.trim(), clientId,
+      id, number, title: title.trim(), clientId: clientId || null,
       projectId: projectId || undefined,
       amount: amtNum, taxLines, tax: taxAmt, total,
       currency, status, issuedDate, dueDate,
@@ -788,7 +790,7 @@ export function InvoiceFormPanel({
               <div style={lockDisplay}><SFIcon name="lock" size={11} color="var(--text-3)" />{lockedClientName}</div>
             ) : (
               <select value={clientId} onChange={e => { setClientId(e.target.value); setProjectId(''); }} style={{ ...inputStyle, cursor: 'pointer' }}>
-                <option value="">{t('finance.selectClient')}</option>
+                <option value="">{t('finance.noClientOption')}</option>
                 {allClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
@@ -1029,7 +1031,7 @@ export function InvoiceFormPanel({
 
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
           <SFButton variant="ghost" onClick={onClose}>{t('finance.cancel')}</SFButton>
-          <SFButton variant="primary" onClick={handleSave} disabled={!title.trim() || !clientId || !amount}>{t('finance.save')}</SFButton>
+          <SFButton variant="primary" onClick={handleSave} disabled={!title.trim() || !amount}>{t('finance.save')}</SFButton>
         </div>
       </div>
     </>
@@ -1262,7 +1264,7 @@ export function Finances() {
     }
     if (search) {
       const q = search.toLowerCase();
-      const c = clientMap[inv.clientId];
+      const c = inv.clientId ? clientMap[inv.clientId] : null;
       const p = inv.projectId ? projectMap[inv.projectId] : null;
       if (![inv.number, inv.title, c?.name ?? '', p?.name ?? ''].join(' ').toLowerCase().includes(q)) return false;
     }
@@ -1497,7 +1499,7 @@ export function Finances() {
               <span />
             </div>
             {filtered.map((inv, i) => {
-              const client  = clientMap[inv.clientId];
+              const client  = inv.clientId ? clientMap[inv.clientId] : null;
               const project = inv.projectId ? projectMap[inv.projectId] : null;
               const hasPdf  = !!inv.hasPdf;
               const isLate  = inv.status === 'overdue';

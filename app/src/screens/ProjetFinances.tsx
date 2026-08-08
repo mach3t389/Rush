@@ -112,7 +112,7 @@ export function ProjetFinances() {
             </div>
 
             {invoices.map((inv, i) => {
-              const client     = clientMap[inv.clientId];
+              const client     = inv.clientId ? clientMap[inv.clientId] : null;
               const hasPdf     = !!inv.hasPdf;
               const isLate     = inv.status === 'overdue';
               const confirming = deleteId === inv.id;

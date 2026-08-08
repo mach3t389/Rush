@@ -83,7 +83,7 @@ export interface InvoiceComment {
 export interface Invoice {
   id: string;
   number: string;
-  clientId: string;
+  clientId: string | null;
   projectId?: string;
   title: string;
   amount: number;
@@ -230,7 +230,7 @@ interface InvoiceRow {
   id: string;
   studio_id: string;
   number: string;
-  client_id: string;
+  client_id: string | null;
   project_id: string | null;
   title: string;
   amount: number;
