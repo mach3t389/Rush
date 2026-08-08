@@ -2367,6 +2367,7 @@
     "kpiTotalInvoiced": "Total facturé",
     "kpiPayRate": "Taux de paiement",
     "allClients": "Tous les clients",
+    "noClientFilterOption": "Sans client",
     "allProjects": "Tous les projets",
     "dateFrom": "Du",
     "dateTo": "Au",

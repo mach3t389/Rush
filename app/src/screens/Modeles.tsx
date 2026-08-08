@@ -427,7 +427,7 @@ function CreateProjectModal({ template, onClose }: { template: ProjectTemplate; 
       modifiedAt: t('clients.justNow'),
       calendarEnabled: true,
       filesEnabled: true,
-      financeEnabled: !!client,
+      financeEnabled: true,
     };
 
     // Materialize the template's sections + tasks into the project task store.

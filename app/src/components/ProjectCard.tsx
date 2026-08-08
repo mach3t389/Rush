@@ -334,7 +334,7 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
                 onToggle: () => setLFinanceEnabled(v => !v),
                 locked: !canUseFeature(plan, 'finances'),
                 onLockedClick: () => requestUpgrade({ feature: 'finances' }),
-                helperText: !canUseFeature(plan, 'finances') && lFinanceEnabled ? t('projects.moduleFinanceRequiresPlan') : undefined,
+                helperText: !canUseFeature(plan, 'finances') ? t('projects.moduleFinanceRequiresPlan') : undefined,
               },
             ]} />
           </div>

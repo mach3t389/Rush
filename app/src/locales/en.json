@@ -2364,6 +2364,7 @@
     "kpiTotalInvoiced": "Total invoiced",
     "kpiPayRate": "Payment rate",
     "allClients": "All clients",
+    "noClientFilterOption": "No client",
     "allProjects": "All projects",
     "dateFrom": "From",
     "dateTo": "To",

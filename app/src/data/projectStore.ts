@@ -326,13 +326,6 @@ export function updateProject(id: string, updates: Partial<Project>): void {
   // makes the "Il y a Xh" badge actually reflect reality instead of being
   // frozen at whatever value the record was created with.
   const stamped: Partial<Project> = { ...updates, modifiedAt: new Date().toISOString() };
-  // Finance requires a client to bill — never let a write leave the two
-  // fields in an inconsistent state (see design doc's Finance ↔ Client rule).
-  // Triggers whenever this call explicitly clears clientId (null/empty
-  // string), not when clientId is simply absent from the patch.
-  if ('clientId' in updates && !updates.clientId) {
-    stamped.financeEnabled = false;
-  }
   if (isDemoSession()) {
     _overrides = { ..._overrides, [id]: { ...(_overrides[id] ?? {}), ...stamped } };
     persistOverrides();

@@ -317,7 +317,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
       description: description.trim() || undefined,
       calendarEnabled,
       filesEnabled,
-      financeEnabled: financeEnabled && !!client,
+      financeEnabled: financeEnabled,
     };
     if (templateSections.length) {
       const buildTask = (tt: TemplateTask, id: string): Task => ({
@@ -711,7 +711,7 @@ function NewProjectModal({ onClose, onCreate, defaultClientId }: {
                     onToggle: () => setFinanceEnabled(v => !v),
                     locked: !canUseFeature(plan, 'finances'),
                     onLockedClick: () => requestUpgrade({ feature: 'finances' }),
-                    helperText: !canUseFeature(plan, 'finances') && financeEnabled ? t('projects.moduleFinanceRequiresPlan') : undefined,
+                    helperText: !canUseFeature(plan, 'finances') ? t('projects.moduleFinanceRequiresPlan') : undefined,
                   },
                 ]} />
               </div>

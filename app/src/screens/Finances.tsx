@@ -24,6 +24,11 @@ import { useClampedMenuPosition } from '../hooks/useClampedMenuPosition';
 import { BillingRequestPanel } from '../components/finance/BillingRequestPanel';
 import { getNorthbookAccountingMode, listBillingRequests, listNorthbookAccountingDocuments, openNorthbookAccountingDocumentPdf, type BillingRequest, type NorthbookAccountingDocument } from '../data/northbookIntegrationStore';
 
+// Sentinel value for the client filter dropdown — selects invoices/projects
+// with no client at all (client-less projects), distinct from "" which means
+// "no filter applied / all clients".
+const NO_CLIENT_FILTER = '__no_client__';
+
 // ── Status config ─────────────────────────────────────────────────────────────
 
 export const STATUS_CFG: Record<InvoiceStatus, { labelKey: string; bg: string; fg: string }> = {
@@ -1079,7 +1084,7 @@ function MoveInvoicesModal({ count, projects, onMove, onClose }: {
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const filtered = projects.filter(p => !p.archived && p.financeEnabled && !!p.clientId && p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = projects.filter(p => !p.archived && p.financeEnabled && p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <>
@@ -1212,7 +1217,11 @@ export function Finances() {
   const projectMap  = Object.fromEntries(allProjects.map(p => [p.id, p]));
   const financeInvoices: Invoice[] = accountingMode === 'northbook' ? northbookDocuments : invoices;
 
-  const clientFilterProjects = clientFilter ? allProjects.filter(p => p.clientId === clientFilter && p.financeEnabled) : [];
+  const clientFilterProjects = clientFilter === NO_CLIENT_FILTER
+    ? allProjects.filter(p => !p.clientId && p.financeEnabled)
+    : clientFilter
+    ? allProjects.filter(p => p.clientId === clientFilter && p.financeEnabled)
+    : allProjects.filter(p => p.financeEnabled);
 
   const revenue     = financeInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total, 0);
   const outstanding = financeInvoices.filter(i => ['sent', 'viewed'].includes(i.status)).reduce((s, i) => s + i.total, 0);
@@ -1255,7 +1264,8 @@ export function Finances() {
 
   const filtered = orderedInvoices.filter(inv => {
     if (filter !== 'all' && inv.status !== filter) return false;
-    if (clientFilter && inv.clientId !== clientFilter) return false;
+    if (clientFilter === NO_CLIENT_FILTER && inv.clientId) return false;
+    if (clientFilter && clientFilter !== NO_CLIENT_FILTER && inv.clientId !== clientFilter) return false;
     if (projectFilter && inv.projectId !== projectFilter) return false;
     if (hasDateFilter) {
       const d = (inv[dateField] ?? '') as string;
@@ -1319,7 +1329,7 @@ export function Finances() {
   const moveInvoicesToProject = (ids: string[], projectId: string) => {
     const project = allProjects.find(p => p.id === projectId);
     if (!project) return;
-    ids.forEach(id => updateInvoice(id, { projectId: project.id, clientId: project.clientId ?? undefined }));
+    ids.forEach(id => updateInvoice(id, { projectId: project.id, clientId: project.clientId ?? null }));
   };
 
   const bulkDelete = () => {
@@ -1413,10 +1423,11 @@ export function Finances() {
           {/* Client */}
           <select value={clientFilter} onChange={e => { setClientFilter(e.target.value); setProjectFilter(''); }} style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: clientFilter ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', outline: 'none' }}>
             <option value="">{t('finance.allClients')}</option>
+            <option value={NO_CLIENT_FILTER}>{t('finance.noClientFilterOption')}</option>
             {allClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           {/* Project */}
-          <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)} disabled={!clientFilter} style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: projectFilter ? 'var(--text)' : 'var(--text-3)', cursor: clientFilter ? 'pointer' : 'default', outline: 'none', opacity: clientFilter ? 1 : 0.5 }}>
+          <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)} style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: projectFilter ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer', outline: 'none' }}>
             <option value="">{t('finance.allProjects')}</option>
             {clientFilterProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>

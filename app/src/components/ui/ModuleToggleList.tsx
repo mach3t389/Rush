@@ -22,7 +22,7 @@ export function ModuleToggleList({ modules }: { modules: ModuleToggleItem[] }) {
           <button
             key={m.key}
             type="button"
-            onClick={() => { if (m.locked) { m.onLockedClick?.(); return; } m.onToggle(); }}
+            onClick={() => { if (m.locked && !m.checked) { m.onLockedClick?.(); return; } m.onToggle(); }}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '8px 10px', borderRadius: 9,
