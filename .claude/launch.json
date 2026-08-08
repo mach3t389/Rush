@@ -4,7 +4,16 @@
     {
       "name": "rush-app",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", "app", "--", "--port", "5188", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "app",
+        "--",
+        "--port",
+        "5188",
+        "--strictPort"
+      ],
       "port": 5188,
       "autoPort": false,
       "env": {
@@ -14,7 +23,16 @@
     {
       "name": "portail-livrables-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", "app", "--", "--port", "5210", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "app",
+        "--",
+        "--port",
+        "5210",
+        "--strictPort"
+      ],
       "port": 5210,
       "autoPort": false,
       "env": {
@@ -24,7 +42,16 @@
     {
       "name": "pricing-calculator-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/pricing-calculator/app", "--", "--port", "5231", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/pricing-calculator/app",
+        "--",
+        "--port",
+        "5231",
+        "--strictPort"
+      ],
       "port": 5231,
       "autoPort": false,
       "env": {
@@ -34,7 +61,16 @@
     {
       "name": "supabase-tasks-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/supabase-tasks/app", "--", "--port", "5237", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/supabase-tasks/app",
+        "--",
+        "--port",
+        "5237",
+        "--strictPort"
+      ],
       "port": 5237,
       "autoPort": false,
       "env": {
@@ -44,7 +80,16 @@
     {
       "name": "supabase-my-tasks-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/supabase-my-tasks/app", "--", "--port", "5239", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/supabase-my-tasks/app",
+        "--",
+        "--port",
+        "5239",
+        "--strictPort"
+      ],
       "port": 5239,
       "autoPort": false,
       "env": {
@@ -54,7 +99,16 @@
     {
       "name": "rush-app-alt",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", "app", "--", "--port", "5241", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "app",
+        "--",
+        "--port",
+        "5241",
+        "--strictPort"
+      ],
       "port": 5241,
       "autoPort": false,
       "env": {
@@ -64,7 +118,16 @@
     {
       "name": "pricing-tooltips-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/pricing-tooltips/app", "--", "--port", "5243", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/pricing-tooltips/app",
+        "--",
+        "--port",
+        "5243",
+        "--strictPort"
+      ],
       "port": 5243,
       "autoPort": false,
       "env": {
@@ -74,7 +137,16 @@
     {
       "name": "stripe-billing-core-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/stripe-billing-core/app", "--", "--port", "5245", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/stripe-billing-core/app",
+        "--",
+        "--port",
+        "5245",
+        "--strictPort"
+      ],
       "port": 5245,
       "autoPort": false,
       "env": {
@@ -84,7 +156,16 @@
     {
       "name": "rush-app-verify",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", "app", "--", "--port", "5253", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "app",
+        "--",
+        "--port",
+        "5253",
+        "--strictPort"
+      ],
       "port": 5253,
       "autoPort": false,
       "env": {
@@ -94,7 +175,16 @@
     {
       "name": "stripe-manual-access-grant-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/stripe-manual-access-grant/app", "--", "--port", "5249", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/stripe-manual-access-grant/app",
+        "--",
+        "--port",
+        "5249",
+        "--strictPort"
+      ],
       "port": 5249,
       "autoPort": false,
       "env": {
@@ -104,7 +194,16 @@
     {
       "name": "video-chapters-timecode-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/video-chapters-timecode/app", "--", "--port", "5255", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/video-chapters-timecode/app",
+        "--",
+        "--port",
+        "5255",
+        "--strictPort"
+      ],
       "port": 5255,
       "autoPort": false,
       "env": {
@@ -114,7 +213,16 @@
     {
       "name": "notifications-watchers-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/notifications-watchers/app", "--", "--port", "5257", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/notifications-watchers/app",
+        "--",
+        "--port",
+        "5257",
+        "--strictPort"
+      ],
       "port": 5257,
       "autoPort": false,
       "env": {
@@ -124,7 +232,16 @@
     {
       "name": "notif-gaps-fix-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/notif-gaps-fix/app", "--", "--port", "5259", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/notif-gaps-fix/app",
+        "--",
+        "--port",
+        "5259",
+        "--strictPort"
+      ],
       "port": 5259,
       "autoPort": false,
       "env": {
@@ -134,7 +251,16 @@
     {
       "name": "notif-grouping-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/notif-grouping/app", "--", "--port", "5263", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/notif-grouping/app",
+        "--",
+        "--port",
+        "5263",
+        "--strictPort"
+      ],
       "port": 5263,
       "autoPort": false,
       "env": {
@@ -144,7 +270,16 @@
     {
       "name": "modeles-projet-refonte-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/modeles-projet-refonte/app", "--", "--port", "5265", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/modeles-projet-refonte/app",
+        "--",
+        "--port",
+        "5265",
+        "--strictPort"
+      ],
       "port": 5265,
       "autoPort": false,
       "env": {
@@ -154,7 +289,16 @@
     {
       "name": "linkify-urls-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/linkify-urls/app", "--", "--port", "5267", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/linkify-urls/app",
+        "--",
+        "--port",
+        "5267",
+        "--strictPort"
+      ],
       "port": 5267,
       "autoPort": false,
       "env": {
@@ -164,7 +308,16 @@
     {
       "name": "new-project-wizard-redesign-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/new-project-wizard-redesign/app", "--", "--port", "5269", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/new-project-wizard-redesign/app",
+        "--",
+        "--port",
+        "5269",
+        "--strictPort"
+      ],
       "port": 5269,
       "autoPort": false,
       "env": {
@@ -174,7 +327,16 @@
     {
       "name": "templates-unification-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/templates-unification/app", "--", "--port", "5271", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/templates-unification/app",
+        "--",
+        "--port",
+        "5271",
+        "--strictPort"
+      ],
       "port": 5271,
       "autoPort": false,
       "env": {
@@ -184,11 +346,39 @@
     {
       "name": "confirm-dialog-unify-worktree",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/confirm-dialog-unify/app", "--", "--port", "5273", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/confirm-dialog-unify/app",
+        "--",
+        "--port",
+        "5273",
+        "--strictPort"
+      ],
       "port": 5273,
       "autoPort": false,
       "env": {
         "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
+      }
+    },
+    {
+      "name": "project-modules-optional-worktree",
+      "runtimeExecutable": "C:Program Files\nodejs\npm.cmd",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        ".claude/worktrees/project-modules-optional/app",
+        "--",
+        "--port",
+        "5275",
+        "--strictPort"
+      ],
+      "port": 5275,
+      "autoPort": false,
+      "env": {
+        "PATH": "C:Program Files\nodejs;${env:PATH}"
       }
     }
   ]
