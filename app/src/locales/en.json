@@ -1317,6 +1317,7 @@
     "gcalProjectCardTitle": "Project's Google Calendar",
     "gcalLoading": "Loading...",
     "gcalNotConnectedHint": "Connect Google Calendar in Settings → Integrations to enable this feature.",
+    "gcalConnectAction": "Connect Google Calendar",
     "gcalProjectCardTitleActive": "Google Calendar active for this project",
     "gcalProjectCardTitleInactive": "No active Google Calendar for this project — events go to the studio calendar",
     "gcalStatusActive": "Active",

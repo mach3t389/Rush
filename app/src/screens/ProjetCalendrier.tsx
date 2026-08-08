@@ -10,7 +10,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getTeamMembers, subscribeTeam } from '../data/teamStore';
 import { getEvents, addEvent, updateEvent, deleteEvent, subscribeEvents, isEventsLoading, pullFromGoogleCalendar } from '../data/eventStore';
-import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, addExtraInvitee, removeExtraInvitee, type ProjectGoogleCalendarContact, type ProjectGoogleCalendarExtraInvitee } from '../data/googleCalendarStore';
+import { getGoogleCalendarStatus, getProjectGoogleCalendarStatus, activateProjectGoogleCalendar, deactivateProjectGoogleCalendar, shareProjectGoogleCalendarNow, addExtraInvitee, removeExtraInvitee, startGoogleCalendarConnect, type ProjectGoogleCalendarContact, type ProjectGoogleCalendarExtraInvitee } from '../data/googleCalendarStore';
 import { getEventTypes, addEventType, updateEventType, deleteEventType, subscribeEventTypes, type EventType } from '../data/eventTypeStore';
 import { useSyncedViewState } from '../hooks/useSyncedViewState';
 import { MeetingField, GoogleCalendarTargetHint, CalendarZoomControl } from './CalendrierGlobal';
@@ -465,6 +465,7 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [confirmationFailed, setConfirmationFailed] = useState(false);
   const [open, setOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   // Both requests fire together rather than the project one waiting on the
   // org one — the project-status endpoint reads Supabase directly and never
@@ -519,6 +520,19 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
   // didn't exist rather than like it was loading.
   if (isDemoSession()) return null;
   const loading = orgConnected === null;
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      // Redirects the whole tab to Google's consent screen — never
+      // resolves on success (the browser navigates away). Only the failure
+      // path actually runs this component's own state update.
+      await startGoogleCalendarConnect();
+    } catch (err) {
+      console.error('Failed to start Google Calendar connection', err);
+      setConnecting(false);
+    }
+  };
 
   const handleCreate = async () => {
     setBusy(true);
@@ -650,7 +664,15 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
                 <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalLoading')}</span>
               </div>
             ) : orgConnected === false ? (
-              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalNotConnectedHint')}</span>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalNotConnectedHint')}</span>
+                <button onClick={handleConnect} disabled={connecting}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontSize:11, cursor: connecting ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
+                >
+                  <SFIcon name="calendar-plus" size={13} />
+                  {connecting ? '…' : t('calendar.gcalConnectAction')}
+                </button>
+              </div>
             ) : (
               <>
             {active && contacts.length > 0 && (
