@@ -2268,13 +2268,30 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFolder(folder.id), danger: true },
       ];
     } else {
+      // Comme pour les fichiers : si ce dossier fait partie d'une sélection
+      // multiple, Déplacer/Archiver/Corbeille doivent porter sur toute la
+      // sélection (dossiers + fichiers mélangés), pas seulement sur ce
+      // dossier — sinon le reste de la sélection est silencieusement ignoré.
+      const isInSelection = selectedIds.has(folder.id) && selectedIds.size > 1;
+      const selFolderIds = isInSelection ? [...selectedIds].filter(id => allFolders.some(f => f.id === id)) : [folder.id];
+      const selFileIds = isInSelection ? [...selectedIds].filter(id => allFiles.some(f => f.id === id)) : [];
+      const totalSelCount = selFolderIds.length + selFileIds.length;
       items = [
         { label: 'Ouvrir', icon: 'folder-open', action: () => setLocation({ ...location, folderId: folder.id }) },
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(folder.id) },
-        { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal([], [folder.id]) },
+        { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal(selFileIds, selFolderIds) },
         { label: '', icon: '', action: () => {}, separator: true },
-        { label: 'Archiver', icon: 'archive', action: () => archiveFolder(folder.id) },
-        { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFolder(folder.id), danger: true },
+        {
+          label: totalSelCount > 1 ? `Archiver (${totalSelCount})` : 'Archiver',
+          icon: 'archive',
+          action: () => { selFolderIds.forEach(archiveFolder); selFileIds.forEach(archiveFile); },
+        },
+        {
+          label: totalSelCount > 1 ? `Mettre à la corbeille (${totalSelCount})` : 'Mettre à la corbeille',
+          icon: 'trash-2',
+          action: () => { if (isInSelection) trashSelected(); else trashFolder(folder.id); },
+          danger: true,
+        },
       ];
     }
     setCtx({ pos: { x: e.clientX, y: e.clientY }, items });
@@ -2308,9 +2325,16 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
       ];
     } else {
-      // If multiple items are selected and this file is among them, move the whole selection
+      // If multiple items are selected and this file is among them, every
+      // action ci-dessous doit porter sur toute la sélection (dossiers +
+      // fichiers mélangés) — pas seulement ce fichier, sinon le reste de la
+      // sélection est silencieusement ignoré (bug trouvé en auditant la
+      // cohérence multi-sélection : Déplacer le faisait déjà, Archiver et
+      // Corbeille non).
       const isInSelection = selectedIds.has(file.id) && selectedIds.size > 1;
       const allSelectedFileIds = isInSelection ? [...selectedIds].filter(id => allFiles.some(f => f.id === id)) : [file.id];
+      const allSelectedFolderIds = isInSelection ? [...selectedIds].filter(id => allFolders.some(f => f.id === id)) : [];
+      const totalSelCount = allSelectedFileIds.length + allSelectedFolderIds.length;
       // Les ressources (moodboard, document, etc.) n'ont pas de contenu
       // téléchargeable — même exclusion que le bouton Télécharger de la
       // barre d'outils.
@@ -2320,7 +2344,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
         ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => openResource(file) }] : []),
-        { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal(allSelectedFileIds, []) },
+        { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal(allSelectedFileIds, allSelectedFolderIds) },
         ...(downloadableIds.length > 0 ? [{
           label: downloadableIds.length > 1 ? `Télécharger (${downloadableIds.length})` : 'Télécharger',
           icon: 'download',
@@ -2330,8 +2354,17 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
           }),
         }] : []),
         { label: '', icon: '', action: () => {}, separator: true },
-        { label: 'Archiver', icon: 'archive', action: () => archiveFile(file.id) },
-        { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
+        {
+          label: totalSelCount > 1 ? `Archiver (${totalSelCount})` : 'Archiver',
+          icon: 'archive',
+          action: () => { allSelectedFolderIds.forEach(archiveFolder); allSelectedFileIds.forEach(archiveFile); },
+        },
+        {
+          label: totalSelCount > 1 ? `Mettre à la corbeille (${totalSelCount})` : 'Mettre à la corbeille',
+          icon: 'trash-2',
+          action: () => { if (isInSelection) trashSelected(); else trashFile(file.id); },
+          danger: true,
+        },
       ];
     }
     setCtx({ pos: { x: e.clientX, y: e.clientY }, items });
@@ -2463,9 +2496,14 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
     });
   };
 
-  // Seuls les vrais fichiers ont un contenu téléchargeable (pas les dossiers).
+  // Seuls les vrais fichiers ont un contenu téléchargeable — ni les dossiers,
+  // ni les ressources (moodboard, document, etc., qui ont leur propre
+  // visionneuse et n'existent pas dans le stockage de fichiers).
   const downloadableSelectedIds = new Set(
-    [...deletableSelectedIds].filter(id => allFiles.some(f => f.id === id))
+    [...deletableSelectedIds].filter(id => {
+      const f = allFiles.find(x => x.id === id);
+      return !!f && f.type !== 'resource';
+    })
   );
 
   const downloadSelected = () => {
