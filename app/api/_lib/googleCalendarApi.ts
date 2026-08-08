@@ -189,14 +189,32 @@ export async function resolveEventCalendarId(
       .eq('active', true)
       .maybeSingle();
     if (projectCal) {
-      const storedId = projectCal.google_calendar_id as string;
-      if (await googleCalendarExists(accessToken, storedId)) {
-        return storedId;
-      }
-      return recreateProjectCalendar(supabaseAdmin, projectId, accessToken, storedId);
+      return resolveProjectCalendarId(supabaseAdmin, projectId, projectCal.google_calendar_id as string, accessToken);
     }
   }
   return getOrgDefaultCalendarId(supabaseAdmin, studioId, accessToken);
+}
+
+// Shared reachability+self-heal check for a project's calendar, used by
+// every code path that needs "the current, working calendar id for this
+// project" — sharing/inviting, renaming, pulling events. Before this, each
+// call site duplicated its own ad-hoc googleCalendarExists() check (or, in
+// a few places, none at all), so a calendar deleted directly in Google
+// self-healed in some paths (activate, push) but not others (pull, invite
+// add/remove) — a manually-added invitee's share attempt or a page-refresh
+// rename would just fail silently forever against a dead id, never
+// recovering the way reactivating the calendar already did. This is the
+// single place that logic should live now.
+export async function resolveProjectCalendarId(
+  supabaseAdmin: SupabaseClient,
+  projectId: string,
+  storedCalendarId: string,
+  accessToken: string
+): Promise<string> {
+  if (await googleCalendarExists(accessToken, storedCalendarId)) {
+    return storedCalendarId;
+  }
+  return recreateProjectCalendar(supabaseAdmin, projectId, accessToken, storedCalendarId);
 }
 
 // Same stale-calendar situation as recreateOrgCalendar, scoped to one
@@ -204,7 +222,7 @@ export async function resolveEventCalendarId(
 // has since disconnected, so it can't be reached (or moved out of) with the
 // currently connected account's token. Recreate it fresh and clear this
 // project's stale event links so the next push recreates each event.
-async function recreateProjectCalendar(
+export async function recreateProjectCalendar(
   supabaseAdmin: SupabaseClient,
   projectId: string,
   accessToken: string,
@@ -225,9 +243,18 @@ async function recreateProjectCalendar(
   // the row still points at the calendar ID we started from, so a
   // concurrent caller recreating the same project's calendar can't clobber
   // this one (or vice versa).
+  //
+  // shared_contact_ids/extra_invitees_shared reset to [] — a brand new
+  // Google calendar has nobody on its ACL yet, whatever the old one had.
+  // extra_invitees (the desired manual-invitee list) is deliberately left
+  // alone: this recreate can now happen invisibly in the background (a
+  // deleted calendar detected mid-rename/pull/invite, not just via the
+  // explicit "Créer" button), so silently forgetting who the user asked to
+  // invite would be a regression — the next sync-access/add-invitee simply
+  // re-shares everyone already on that list against the new calendar.
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('project_google_calendars')
-    .update({ google_calendar_id: newCalendarId, shared_contact_ids: [] })
+    .update({ google_calendar_id: newCalendarId, shared_contact_ids: [], extra_invitees_shared: [] })
     .eq('project_id', projectId)
     .eq('google_calendar_id', previousCalendarId)
     .select('google_calendar_id');

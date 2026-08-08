@@ -17,7 +17,7 @@
 // change made in Google is too slow. Same handler, one studio instead of all.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getValidAccessToken, getOrgDefaultCalendarId, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody, renameGoogleCalendar } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, resolveEventCalendarId, googleCalendarRequest, toGoogleEventBody, renameGoogleCalendar, resolveProjectCalendarId } from './_lib/googleCalendarApi.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = req.headers.authorization || '';
@@ -291,6 +291,15 @@ async function pullStudio(supabaseAdmin: SupabaseClient, studioId: string, resul
   for (const pc of projectCals ?? []) {
     const projectId = pc.project_id as string;
     try {
+      // Self-heal FIRST, before renaming or pulling — a calendar deleted
+      // directly in Google (not through Rush) was previously only ever
+      // detected by the push path (resolveEventCalendarId); the pull path
+      // read the stored id straight off the row and just failed silently,
+      // forever, every cycle, with the row still showing "active" in the
+      // app. resolveProjectCalendarId recreates it under the current
+      // account when unreachable, same as activate/sync-access already do.
+      const calendarId = await resolveProjectCalendarId(supabaseAdmin, projectId, pc.google_calendar_id as string, accessToken);
+
       // Same resync-on-pull as the org calendar above — a project's Google
       // Calendar title was previously only ever set at creation/reuse-on-
       // activate, so changing (or removing) the project's client never
@@ -302,14 +311,17 @@ async function pullStudio(supabaseAdmin: SupabaseClient, studioId: string, resul
         const { data: project } = await supabaseAdmin.from('projects').select('name, client_name').eq('id', projectId).maybeSingle();
         if (project) {
           const calendarName = project.client_name ? `${project.client_name} — ${project.name}` : (project.name as string);
-          await renameGoogleCalendar(accessToken, pc.google_calendar_id as string, calendarName);
+          await renameGoogleCalendar(accessToken, calendarId, calendarName);
         }
       } catch (err) {
         console.error(`Failed to resync calendar name for project ${projectId}:`, err);
       }
       results[`project:${projectId}`] = await pullCalendar({
-        supabaseAdmin, studioId, calendarId: pc.google_calendar_id as string, accessToken, insertProjectId: projectId,
-        syncToken: pc.sync_token as string | null,
+        supabaseAdmin, studioId, calendarId, accessToken, insertProjectId: projectId,
+        // A recreated calendar has no history with Google yet — force a
+        // fresh full sync instead of reusing a token scoped to the old,
+        // now-gone calendar (Google would just reject it anyway).
+        syncToken: calendarId === pc.google_calendar_id ? (pc.sync_token as string | null) : null,
         persistSyncToken: async (token) => {
           await supabaseAdmin
             .from('project_google_calendars')

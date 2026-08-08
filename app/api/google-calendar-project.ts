@@ -13,7 +13,7 @@
 //   POST { action:'sync-access', studioId, projectId } -> { ok }   (was google-calendar-project-sync-access)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, googleCalendarExists, shareGoogleCalendar, unshareGoogleCalendar, moveGoogleEvent, renameGoogleCalendar } from './_lib/googleCalendarApi.js';
+import { getValidAccessToken, getOrgDefaultCalendarId, createGoogleCalendar, googleCalendarExists, shareGoogleCalendar, unshareGoogleCalendar, moveGoogleEvent, renameGoogleCalendar, resolveProjectCalendarId } from './_lib/googleCalendarApi.js';
 
 interface ActivateBody {
   studioId: string;
@@ -541,37 +541,17 @@ async function syncAccessHandler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Self-heal a calendar orphaned by a Google account disconnect/reconnect
-    // since this row was last activated. Without this check, every
-    // share/unshare call below silently 404s against a calendar id that no
-    // longer exists under the current token — each failure is caught
-    // per-item and logged, never surfaced, so "Partager" always reports
-    // success while nothing actually reaches Google. (activateHandler
-    // already does this exact check; sync-access never did, which is how a
-    // project's calendar could stay invisible in Google Calendar forever
-    // after a reconnect, with the UI never showing anything wrong.)
-    let calendarId = row.google_calendar_id as string;
-    const reachable = await googleCalendarExists(accessToken, calendarId);
-    if (!reachable) {
-      const { data: project } = await supabaseAdmin
-        .from('projects')
-        .select('name, client_name')
-        .eq('id', projectId)
-        .maybeSingle();
-      const calendarName = project?.client_name ? `${project.client_name} — ${project.name}` : (project?.name as string ?? 'Projet');
-      calendarId = await createGoogleCalendar(accessToken, calendarName);
-      // Fresh calendar, zero existing access — reset both tracking columns
-      // (same reasoning as activateHandler's stale-recreate branch) so the
-      // diff below re-shares everyone from scratch instead of thinking
-      // they're already covered.
-      const { error: healError } = await supabaseAdmin
-        .from('project_google_calendars')
-        .update({ google_calendar_id: calendarId, shared_contact_ids: [], extra_invitees_shared: [] })
-        .eq('project_id', projectId);
-      if (healError) {
-        console.error(`Failed to persist healed calendar id for project ${projectId}:`, healError);
-        res.status(500).json({ error: 'Failed to sync access' });
-        return;
-      }
+    // (or deleted directly in Google) since this row was last activated.
+    // Without this check, every share/unshare call below silently 404s
+    // against a calendar id that no longer exists under the current token —
+    // each failure is caught per-item and logged, never surfaced, so
+    // "Partager" always reports success while nothing actually reaches
+    // Google. resolveProjectCalendarId recreates it and resets both
+    // tracking columns when that happens, so the diff below re-shares
+    // everyone from scratch instead of thinking they're already covered.
+    const storedCalendarId = row.google_calendar_id as string;
+    const calendarId = await resolveProjectCalendarId(supabaseAdmin, projectId, storedCalendarId, accessToken);
+    if (calendarId !== storedCalendarId) {
       row.shared_contact_ids = [];
       row.extra_invitees_shared = [];
     }
@@ -753,7 +733,11 @@ async function addExtraInviteeHandler(req: VercelRequest, res: VercelResponse) {
     try {
       const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
       if (accessToken) {
-        await shareGoogleCalendar(accessToken, row.google_calendar_id as string, email);
+        // Self-heals a calendar deleted directly in Google (see
+        // resolveProjectCalendarId's doc comment) before attempting the
+        // share, rather than failing silently against a dead id forever.
+        const calendarId = await resolveProjectCalendarId(supabaseAdmin, projectId, row.google_calendar_id as string, accessToken);
+        await shareGoogleCalendar(accessToken, calendarId, email);
         shared = [...shared, email];
       }
     } catch (err) {
@@ -990,7 +974,11 @@ async function renameHandler(req: VercelRequest, res: VercelResponse) {
     }
 
     const calendarName = project.client_name ? `${project.client_name} — ${project.name}` : (project.name as string);
-    await renameGoogleCalendar(accessToken, row.google_calendar_id as string, calendarName);
+    // Self-heals a calendar deleted directly in Google — otherwise this
+    // would PATCH a dead id and fail silently forever, exactly like the
+    // pull path did before resolveProjectCalendarId was added there too.
+    const calendarId = await resolveProjectCalendarId(supabaseAdmin, projectId, row.google_calendar_id as string, accessToken);
+    await renameGoogleCalendar(accessToken, calendarId, calendarName);
     res.status(200).json({ ok: true });
   } catch (error) {
     console.error(`Failed to rename calendar for project ${projectId}:`, error);
