@@ -505,9 +505,15 @@ function DocxPreview({ fileId }: { fileId: string }) {
     return <SFLoadingState />;
   }
   return (
-    <div style={{ width: '100%', height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '32px 24px' }}>
+    // minHeight/minWidth: 0 est nécessaire ici — sans ça, un enfant flex
+    // refuse par défaut de rétrécir sous la taille de son contenu
+    // (min-height: auto), donc le document poussait la fenêtre au-delà du
+    // viewport au lieu de déclencher le défilement interne prévu par
+    // overflowY:auto. Voir aussi le pattern documenté dans la mémoire projet
+    // (scroll-containment-pattern).
+    <div style={{ width: '100%', height: '100%', minHeight: 0, minWidth: 0, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '32px 24px' }}>
       <div
-        style={{ background: '#fff', color: '#1a1a1a', width: '100%', maxWidth: 820, padding: '48px 56px', borderRadius: 4, boxShadow: '0 4px 24px rgba(0,0,0,0.35)', lineHeight: 1.6, fontSize: 14 }}
+        style={{ background: '#fff', color: '#1a1a1a', width: '100%', maxWidth: 820, padding: '48px 56px', borderRadius: 4, boxShadow: '0 4px 24px rgba(0,0,0,0.35)', lineHeight: 1.6, fontSize: 14, flexShrink: 0 }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
@@ -624,8 +630,16 @@ function FilePreviewModal({ file, files, onNavigate, onClose }: {
         </button>
       </div>
 
-      {/* Body */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: (file.type === 'pdf' || (file.type === 'doc' && file.ext.toLowerCase() === 'docx')) ? 0 : 24, position: 'relative' }}>
+      {/* Body — minHeight:0 pour la même raison que dans DocxPreview : sans
+          ça, cet enfant flex ne rétrécit jamais sous la taille de son
+          contenu, ce qui empêchait le défilement interne de s'activer.
+          onMouseDown ferme la fenêtre au clic dans le fond (pas sur le
+          contenu lui-même) — pattern déjà utilisé ailleurs dans l'app
+          (ex. AddFileModal) via la comparaison target === currentTarget. */}
+      <div
+        onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
+        style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: (file.type === 'pdf' || (file.type === 'doc' && file.ext.toLowerCase() === 'docx')) ? 0 : 24, position: 'relative' }}
+      >
         {!url ? (
           <div style={{ textAlign: 'center' }}>
             <SFIcon name={contentError ? 'triangle-alert' : icon} size={52} color={contentError ? 'var(--danger)' : 'var(--text-3)'} />
