@@ -81,10 +81,34 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
 
   const { data: row } = await supabaseAdmin
     .from('project_google_calendars')
-    .select('active, shared_contact_ids, extra_invitees, extra_invitees_shared')
+    .select('active, google_calendar_id, shared_contact_ids, extra_invitees, extra_invitees_shared')
     .eq('project_id', projectId)
     .eq('studio_id', studioId)
     .maybeSingle();
+
+  // Self-heal on every status read, not just on an action — this is the
+  // endpoint that runs the instant the calendar popover opens, so it's the
+  // fastest way to notice (and fix) a calendar deleted directly in Google:
+  // previously nothing checked reachability here at all, so the popover
+  // could keep showing "Actif" / "Partagé" for a calendar that no longer
+  // existed until some other action happened to touch it. Best-effort and
+  // silent — a failure here must never break the status display itself.
+  let sharedContactIds = (row?.shared_contact_ids ?? []) as string[];
+  let extraInviteesShared = (row?.extra_invitees_shared ?? []) as string[];
+  if (row?.active && row.google_calendar_id) {
+    try {
+      const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+      if (accessToken) {
+        const healedId = await resolveProjectCalendarId(supabaseAdmin, projectId, row.google_calendar_id as string, accessToken);
+        if (healedId !== row.google_calendar_id) {
+          sharedContactIds = [];
+          extraInviteesShared = [];
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to verify calendar reachability for project ${projectId}:`, err);
+    }
+  }
 
   const { data: access } = await supabaseAdmin
     .from('project_client_access')
@@ -94,7 +118,7 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
 
   let contacts: { id: string; name: string; email: string; shared: boolean }[] = [];
   if (contactIds.length > 0) {
-    const sharedIds = new Set((row?.shared_contact_ids ?? []) as string[]);
+    const sharedIds = new Set(sharedContactIds);
     const { data: contactRows } = await supabaseAdmin
       .from('client_contacts')
       .select('id, name, email')
@@ -107,7 +131,7 @@ async function statusHandler(req: VercelRequest, res: VercelResponse) {
     }));
   }
 
-  const extraSharedSet = new Set((row?.extra_invitees_shared ?? []) as string[]);
+  const extraSharedSet = new Set(extraInviteesShared);
   const extraInvitees = ((row?.extra_invitees ?? []) as string[]).map(email => ({
     email,
     shared: extraSharedSet.has(email),
