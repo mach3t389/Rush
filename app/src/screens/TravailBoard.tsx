@@ -805,7 +805,7 @@ export function TravailBoard({
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           >
-                            {task.statusLabel
+                            {task.status
                               ? <SFPill status={task.status} small>{t(STATUS_OPTIONS.find(o => o.value === task.status)?.labelKey ?? 'tasks.noStatus')}</SFPill>
                               : (
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
