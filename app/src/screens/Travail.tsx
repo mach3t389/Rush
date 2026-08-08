@@ -1859,6 +1859,21 @@ export function Travail() {
         .filter(t => !filterAssigneeId || t.assignees.some(a => a.id === filterAssigneeId)),
     }));
 
+  // Two sections can share the same label (nothing stops creating "Fichiers"
+  // twice) — resolving a visibleSections row back to its real index in
+  // `sections` via findIndex(label) always lands on the FIRST match, so
+  // every rename/delete/add-task/drag on the SECOND same-named section
+  // silently acted on the first one instead ("the duplicate can't be
+  // deleted, they look merged"). Tracked here by carrying each row's true
+  // original index alongside the same filter/map chain above, so the render
+  // loop can resolve it directly instead of re-deriving it by label.
+  const visibleSectionOriginalIndices = (() => {
+    const indices = activeSection
+      ? sections.reduce<number[]>((acc, s, i) => { if (s.label === activeSection) acc.push(i); return acc; }, [])
+      : sections.map((_, i) => i);
+    return indices.filter(i => showCompletedSections || !sections[i].completed);
+  })();
+
   const anchorTaskId = React.useRef<string | null>(null);
 
   const handleSelectTask = (task: Task, e?: React.MouseEvent) => {
@@ -2463,7 +2478,7 @@ export function Travail() {
       {view === 'list' && <div ref={scrollContainerRef} onDragOver={e => { pointerYRef.current = e.clientY; }} onDragEnd={() => { setDraggedTask(null); setDraggedIdx(null); }} onClick={onBackgroundClick} style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}><div onClick={onBackgroundClick} style={{ minWidth: 900 }}>
         <SectionInsertZone active={boardGroupBy === 'category' && draggedIdx !== null} onDrop={() => handleSectionInsertAt(0)} />
         {(boardGroupBy === 'category' ? visibleSections : boardSections).map((section, vIdx) => {
-          const globalIdx = boardGroupBy === 'category' ? sections.findIndex(s => s.label === section.label) : -1;
+          const globalIdx = boardGroupBy === 'category' ? (visibleSectionOriginalIndices[vIdx] ?? -1) : -1;
           return (
             <React.Fragment key={section.label + vIdx}>
               <Section
