@@ -1053,6 +1053,7 @@ function PlanSettings() {
   const [confirming, setConfirming]   = useState(false);
   const [saving, setSaving]           = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [planLoaded, setPlanLoaded] = useState(false);
   const [manualGrantNote, setManualGrantNote] = useState<string | null>(null);
   const [grantInfoOpen, setGrantInfoOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState(() =>
@@ -1092,6 +1093,8 @@ function PlanSettings() {
         }
       } catch (err) {
         console.error('Failed to load subscription status', err);
+      } finally {
+        if (!cancelled) setPlanLoaded(true);
       }
     })();
     return () => { cancelled = true; };
@@ -1316,8 +1319,8 @@ function PlanSettings() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {PLATFORM_PLANS.map(plan => {
-            const isActive = plan.key === currentPlan;
-            const isSelected = plan.key === draftPlan;
+            const isActive = planLoaded && plan.key === currentPlan;
+            const isSelected = planLoaded && plan.key === draftPlan;
             const price = billing === 'monthly' ? plan.priceMonthly : plan.priceYearly;
             const isFree = price === 0;
             return (
@@ -2387,7 +2390,7 @@ export function Parametres() {
           </div>
         )}
         {activeSection === 'integrations' && (
-          <div style={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
               <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.integrationsTitle')}</h2>
               <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.integrationsDesc')}</p>
