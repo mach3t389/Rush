@@ -521,6 +521,82 @@ async function portalPdf(req: VercelRequest, res: VercelResponse, invoiceId: str
   res.status(200).json(await createPdfDownload(document.pdf_object_key));
 }
 
+// Signalement de bug — poste un embed (+ capture d'écran optionnelle) vers
+// un webhook Discord configuré par variable d'environnement. Nécessite
+// DISCORD_BUG_WEBHOOK_URL dans les paramètres du projet Vercel (créé
+// manuellement par l'admin du studio dans son serveur Discord : clic droit
+// sur le canal → Intégrations → Webhooks → Nouveau webhook → copier l'URL).
+// Authentifié par jeton de session Supabase, même pattern que
+// app/api/send-email.ts — jamais de secret codé en dur envoyé par le client.
+//
+// screenshotDataUrl plafonné à 4 Mo de base64 (pas 10 Mo) : le corps de
+// requête d'une fonction Vercel est limité à ~4,5 Mo, au-delà la requête
+// échoue avant même d'atteindre ce handler — mieux vaut rejeter proprement
+// ici avec un message clair plutôt que de laisser Vercel couper la connexion.
+const MAX_SCREENSHOT_DATA_URL_LENGTH = 4_000_000;
+
+async function bugReport(req: VercelRequest, res: VercelResponse) {
+  method(req, 'POST');
+  const { user } = await authenticatedRushUser(req);
+
+  const input = body(req);
+  const description = requiredString(input.description, 'description', 4000);
+  const reproduction = requiredString(input.reproduction, 'reproduction', 4000);
+  const page = optionalString(input.page, 'page', 300) ?? '—';
+  const screenResolution = optionalString(input.screenResolution, 'screenResolution', 50) ?? '—';
+  const userAgent = optionalString(input.userAgent, 'userAgent', 500) ?? '—';
+  const userName = optionalString(input.userName, 'userName', 200) ?? '—';
+  const userEmail = optionalString(input.userEmail, 'userEmail', 200) ?? user.email ?? '—';
+  const studioName = optionalString(input.studioName, 'studioName', 200) ?? '—';
+  const screenshotDataUrl = optionalString(input.screenshotDataUrl, 'screenshotDataUrl', MAX_SCREENSHOT_DATA_URL_LENGTH);
+
+  if (!process.env.DISCORD_BUG_WEBHOOK_URL) {
+    console.error('DISCORD_BUG_WEBHOOK_URL is not configured');
+    throw new HttpError(500, 'not_configured', 'Bug reporting is not configured');
+  }
+
+  const embed: Record<string, unknown> = {
+    title: '🐛 Rapport de bug — Rush',
+    color: 0xf9ff00,
+    fields: [
+      { name: '📋 Description', value: description.slice(0, 1024) },
+      { name: '🔁 Reproduction', value: reproduction.slice(0, 1024) },
+      { name: '📄 Page', value: page, inline: true },
+      { name: '🖥️ Écran', value: screenResolution, inline: true },
+      { name: '👤 Utilisateur', value: `${userName} (${userEmail}) — ${studioName}` },
+      { name: '🌐 Navigateur', value: userAgent.slice(0, 1024) },
+    ],
+    timestamp: new Date().toISOString(),
+  };
+
+  const form = new FormData();
+
+  if (screenshotDataUrl) {
+    const match = screenshotDataUrl.match(/^data:image\/(png|jpeg);base64,(.+)$/);
+    if (match) {
+      const [, ext, base64] = match;
+      const buffer = Buffer.from(base64, 'base64');
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      form.append('files[0]', new Blob([buffer], { type: mime }), `screenshot.${ext}`);
+      embed.image = { url: `attachment://screenshot.${ext}` };
+    }
+  }
+
+  form.append('payload_json', JSON.stringify({ embeds: [embed] }));
+
+  const discordRes = await fetch(process.env.DISCORD_BUG_WEBHOOK_URL, {
+    method: 'POST',
+    body: form,
+  });
+
+  if (!discordRes.ok) {
+    console.error('Discord webhook failed', discordRes.status, await discordRes.text());
+    throw new HttpError(502, 'discord_failed', 'Failed to post bug report to Discord');
+  }
+
+  res.status(200).json({ ok: true });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   try {
@@ -549,6 +625,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (path[0] === 'accounting' && path[1] === 'documents' && path[2] && path[3] === 'deliver') {
       return await deliver(req, res, path[2]);
     }
+    if (path[0] === 'bug-report') return await bugReport(req, res);
     throw new HttpError(404, 'route_not_found');
   } catch (error) {
     if (error instanceof HttpError) {

@@ -5,6 +5,7 @@ import { GlobalTopBar } from './GlobalTopBar';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { CommandPalette } from '../CommandPalette';
 import { AIChat } from '../AIChat';
+import { BugReportButton } from '../BugReportButton';
 import { triggerAIToggle, triggerAIClose } from '../aiChatBridge';
 import { ToastBar } from '../ToastBar';
 import { ConfirmDialogHost } from '../ConfirmDialogHost';
@@ -87,6 +88,7 @@ export function AppShell() {
       </main>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <AIChat />
+      <BugReportButton />
       <ToastBar />
       <ConfirmDialogHost />
       <UpgradePromptModal />

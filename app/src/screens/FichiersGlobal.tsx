@@ -3896,7 +3896,11 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
 
       {uploadingIds.length > 0 && (
         <div style={{
-          position: 'fixed', bottom: 20, right: 20, width: 320, zIndex: 500,
+          // bottom: 76, pas 20 — laisse la place au bouton flottant "Signaler
+          // un bug" (44px de haut, ancré bottom:20/right:20) sans jamais le
+          // recouvrir, quel que soit le nombre de fichiers en cours d'envoi
+          // (ce panneau grandit vers le haut depuis son ancrage bas).
+          position: 'fixed', bottom: 76, right: 20, width: 320, zIndex: 500,
           background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
           padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
           boxShadow: '0 8px 24px rgba(0,0,0,0.3)',

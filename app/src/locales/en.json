@@ -887,6 +887,23 @@
   "toast": {
     "undo": "Undo"
   },
+  "bugReport": {
+    "buttonTitle": "Report a bug",
+    "modalTitle": "Report a bug",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "What's not working?",
+    "reproductionLabel": "Reproduction steps",
+    "reproductionPlaceholder": "How to reproduce the issue?",
+    "screenshotLabel": "Screenshot",
+    "removeScreenshot": "Remove screenshot",
+    "screenshotUnavailable": "Screenshot unavailable, the report will be sent without an image.",
+    "send": "Send",
+    "sending": "Sending...",
+    "sentToast": "Bug reported, thanks!",
+    "notConfiguredError": "Bug reporting isn't configured yet, contact the administrator.",
+    "sendError": "Sending failed, try again in a moment.",
+    "demoNotice": "Bug reporting requires a real account — create one to use it."
+  },
   "client": {
     "defaultClientContactRole": "Contact",
     "invitePerson": "Invite a person",

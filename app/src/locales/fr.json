@@ -887,6 +887,23 @@
   "toast": {
     "undo": "Annuler"
   },
+  "bugReport": {
+    "buttonTitle": "Signaler un bug",
+    "modalTitle": "Signaler un bug",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Qu'est-ce qui ne fonctionne pas ?",
+    "reproductionLabel": "Étapes de reproduction",
+    "reproductionPlaceholder": "Comment reproduire le problème ?",
+    "screenshotLabel": "Capture d'écran",
+    "removeScreenshot": "Retirer la capture",
+    "screenshotUnavailable": "Capture d'écran indisponible, le rapport sera envoyé sans image.",
+    "send": "Envoyer",
+    "sending": "Envoi...",
+    "sentToast": "Bug signalé, merci !",
+    "notConfiguredError": "Le signalement de bug n'est pas encore configuré, contactez l'administrateur.",
+    "sendError": "L'envoi a échoué, réessaie dans un instant.",
+    "demoNotice": "Le signalement de bug nécessite un compte réel — crée un compte pour l'utiliser."
+  },
   "client": {
     "defaultClientContactRole": "Contact",
     "invitePerson": "Inviter une personne",
