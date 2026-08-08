@@ -509,7 +509,16 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
     return () => clearTimeout(timer);
   }, [confirmation]);
 
-  if (isDemoSession() || orgConnected !== true || active === null) return null;
+  // Demo sessions never have a real Google connection to check — the icon
+  // would just sit there doing nothing, so it's the one case that still
+  // hides entirely. Every other state (still loading, not connected,
+  // connected but no active calendar yet) now renders the icon and
+  // explains itself inside the popover instead of hiding until fully
+  // resolved — previously the whole button vanished until both network
+  // calls in the effect above finished, so it looked like the feature
+  // didn't exist rather than like it was loading.
+  if (isDemoSession()) return null;
+  const loading = orgConnected === null;
 
   const handleCreate = async () => {
     setBusy(true);
@@ -635,6 +644,15 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
               </div>
             )}
 
+            {loading ? (
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0' }}>
+                <SFIcon name="loader-2" size={13} color="var(--text-3)" style={{ animation: 'spin 0.8s linear infinite' }} />
+                <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalLoading')}</span>
+              </div>
+            ) : orgConnected === false ? (
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>{t('calendar.gcalNotConnectedHint')}</span>
+            ) : (
+              <>
             {active && contacts.length > 0 && (
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {contacts.map(c => (
@@ -721,6 +739,8 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
                 </button>
               )}
             </div>
+              </>
+            )}
           </div>
         </>
       )}
