@@ -42,7 +42,7 @@ export function BugReportButton() {
         disabled={capturing}
         title={t('bugReport.buttonTitle')}
         style={{
-          position: 'fixed', bottom: 20, right: 20, zIndex: 80,
+          position: 'fixed', bottom: 20, right: 20, zIndex: 90,
           width: 44, height: 44, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'var(--surface-2)', border: '1px solid var(--border)',
