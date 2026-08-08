@@ -488,7 +488,15 @@ async function downloadItem(file: FileItem): Promise<void> {
     try {
       await downloadResourceAsPdf(file.resourceType, file.resourceId, file.name.replace(/\.[^.]+$/, '') || file.name);
     } catch (err) {
+      // Échouait auparavant en silence (console.error seul) — un utilisateur
+      // cliquant "Télécharger" sur une ressource sans voir la vraie erreur
+      // rapporte "ça ne fait rien", ce qui masque la cause réelle.
       console.error('downloadResourceAsPdf failed', file.id, err);
+      showToast({
+        type: 'bulk',
+        message: `Échec du téléchargement de « ${file.name} »`,
+        subMessage: err instanceof Error ? err.message : String(err),
+      });
     }
     return;
   }
