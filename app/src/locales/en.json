@@ -2240,7 +2240,6 @@
     "integrationOutlookDesc": "Sync your events with Outlook and Microsoft 365.",
     "integrationRushSyncDesc": "Access your organization's files directly from your computer's file explorer.",
     "integrationMcpDesc": "Connect external AI assistants (Claude, etc.) to create and manage your Rushflow tasks directly.",
-    "integrationDropboxDesc": "Sync your files with your Dropbox space.",
     "integrationZapierDesc": "Automate your workflows with thousands of apps.",
     "pluginsTitle": "Plugins",
     "pluginsDesc": "Extend Rushflow directly in your post-production tools.",

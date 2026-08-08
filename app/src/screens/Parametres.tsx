@@ -2387,7 +2387,7 @@ export function Parametres() {
           </div>
         )}
         {activeSection === 'integrations' && (
-          <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
               <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.integrationsTitle')}</h2>
               <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.integrationsDesc')}</p>
@@ -2399,20 +2399,16 @@ export function Parametres() {
                 <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryCalendar')}</h3>
                 <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryCalendarDesc')}</p>
               </div>
-              <GoogleCalendarCard />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                {[
-                  { name: 'Outlook / Microsoft 365', desc: t('settings.integrationOutlookDesc'), color: '#0078D4' },
-                ].map(app => (
-                  <div key={app.name} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.5 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: app.color, flexShrink: 0 }} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{app.name}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{app.desc}</p>
-                    </div>
-                    <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em' }}>{t('settings.soon')}</span>
+              <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}><GoogleCalendarCard /></div>
+                <div style={{ width: 260, flexShrink: 0, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, opacity: 0.5 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: '#0078D4', flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Outlook / Microsoft 365</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{t('settings.integrationOutlookDesc')}</p>
                   </div>
-                ))}
+                  <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em' }}>{t('settings.soon')}</span>
+                </div>
               </div>
             </div>
 
@@ -2422,9 +2418,8 @@ export function Parametres() {
                 <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryFiles')}</h3>
                 <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryFilesDesc')}</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                 {[
-                  { name: 'Dropbox', desc: t('settings.integrationDropboxDesc'), color: '#0061FF' },
                   { name: 'Rush Sync', desc: t('settings.integrationRushSyncDesc'), color: 'var(--surface-3)' },
                 ].map(app => (
                   <div key={app.name} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.5 }}>
