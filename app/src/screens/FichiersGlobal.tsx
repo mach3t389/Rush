@@ -2311,12 +2311,24 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
       // If multiple items are selected and this file is among them, move the whole selection
       const isInSelection = selectedIds.has(file.id) && selectedIds.size > 1;
       const allSelectedFileIds = isInSelection ? [...selectedIds].filter(id => allFiles.some(f => f.id === id)) : [file.id];
+      // Les ressources (moodboard, document, etc.) n'ont pas de contenu
+      // téléchargeable — même exclusion que le bouton Télécharger de la
+      // barre d'outils.
+      const downloadableIds = allSelectedFileIds.filter(id => allFiles.find(f => f.id === id)?.type !== 'resource');
       items = [
         { label: 'Obtenir les infos', icon: 'info', action: () => setInfoFile(file) },
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Renommer', icon: 'pencil', action: () => setRenamingId(file.id) },
         ...(file.resourceId ? [{ label: 'Ouvrir la ressource', icon: 'external-link', action: () => openResource(file) }] : []),
         { label: 'Déplacer vers…', icon: 'folder-input', action: () => openMoveModal(allSelectedFileIds, []) },
+        ...(downloadableIds.length > 0 ? [{
+          label: downloadableIds.length > 1 ? `Télécharger (${downloadableIds.length})` : 'Télécharger',
+          icon: 'download',
+          action: () => downloadableIds.forEach(id => {
+            const f = allFiles.find(x => x.id === id);
+            if (f) void downloadFileById(f.id, f.name);
+          }),
+        }] : []),
         { label: '', icon: '', action: () => {}, separator: true },
         { label: 'Archiver', icon: 'archive', action: () => archiveFile(file.id) },
         { label: 'Mettre à la corbeille', icon: 'trash-2', action: () => trashFile(file.id), danger: true },
