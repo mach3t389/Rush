@@ -912,6 +912,95 @@ async function removeExtraInviteeHandler(req: VercelRequest, res: VercelResponse
   res.status(200).json({ ok: true });
 }
 
+interface ResendInviteBody {
+  studioId: string;
+  projectId: string;
+  email: string;
+}
+
+// Resends the Google Calendar invite email to someone who is already
+// shared — unsharing then resharing the same address makes Google send a
+// fresh invite, without ever touching shared_contact_ids/extra_invitees_shared:
+// the person's "Partagé" status stays exactly as it was, and no one else's
+// access is touched.
+async function resendInviteHandler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { studioId, projectId, email: rawEmail } = req.body as ResendInviteBody;
+  if (!studioId || !projectId || !rawEmail) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  const email = rawEmail.trim().toLowerCase();
+
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return;
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    res.status(403).json({ error: 'Not a member of this studio' });
+    return;
+  }
+
+  const { data: row } = await supabaseAdmin
+    .from('project_google_calendars')
+    .select('google_calendar_id, active')
+    .eq('project_id', projectId)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  if (!row || !row.active) {
+    res.status(200).json({ ok: false, error: 'not_active' });
+    return;
+  }
+
+  try {
+    const accessToken = await getValidAccessToken(supabaseAdmin, studioId);
+    if (!accessToken) {
+      res.status(200).json({ ok: false, error: 'not_connected' });
+      return;
+    }
+
+    const calendarId = await resolveProjectCalendarId(supabaseAdmin, projectId, row.google_calendar_id as string, accessToken);
+    try {
+      await unshareGoogleCalendar(accessToken, calendarId, email);
+    } catch (err) {
+      // Tolerated — the point is the reshare below; if the ACL rule was
+      // already gone for some reason, resharing still sends the invite.
+      console.error(`resend-invite: unshare step failed for ${email}, continuing to reshare:`, err);
+    }
+    await shareGoogleCalendar(accessToken, calendarId, email);
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error(`Failed to resend invite to ${email} for project ${projectId}:`, error);
+    res.status(200).json({ ok: false, error: 'resend_failed' });
+  }
+}
+
 interface RenameBody {
   studioId: string;
   projectId: string;
@@ -1024,6 +1113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     case 'add-extra-invitee': return addExtraInviteeHandler(req, res);
     case 'remove-extra-invitee': return removeExtraInviteeHandler(req, res);
     case 'rename': return renameHandler(req, res);
+    case 'resend-invite': return resendInviteHandler(req, res);
     default:
       res.status(400).json({ error: 'Unknown or missing action' });
   }

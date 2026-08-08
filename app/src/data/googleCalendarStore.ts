@@ -160,6 +160,24 @@ export async function removeExtraInvitee(projectId: string, email: string): Prom
   if (!resp.ok) throw new Error('Failed to remove invitee');
 }
 
+// Resends the Google Calendar invite email to someone already shared —
+// their "Partagé" status is untouched, this only makes Google re-send the
+// notification. Returns false (not a thrown error) when it couldn't
+// complete, so the UI can show a specific failure message instead of
+// crashing the panel.
+export async function resendInvite(projectId: string, email: string): Promise<boolean> {
+  const studioId = await getStudioId();
+  const headers = await authHeaders();
+  const resp = await fetch('/api/google-calendar-project', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'resend-invite', studioId, projectId, email }),
+  });
+  if (!resp.ok) return false;
+  const data = await resp.json();
+  return !!data.ok;
+}
+
 export async function deactivateProjectGoogleCalendar(projectId: string): Promise<void> {
   const studioId = await getStudioId();
   const headers = await authHeaders();
