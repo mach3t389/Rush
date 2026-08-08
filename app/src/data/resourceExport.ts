@@ -225,11 +225,22 @@ export async function renderPayloadToPdfBlob(payload: ExportPayload): Promise<Bl
   // échouent identiquement, y compris à z-index négatif sans opacity).
   // Seul un élément resté en flux normal (position: static, sa valeur par
   // défaut) capture réellement son contenu. On le masque donc via un
-  // conteneur PARENT à hauteur nulle + overflow:hidden, sans toucher au
-  // positionnement de l'élément capturé lui-même.
+  // conteneur PARENT à hauteur nulle + overflow:hidden — jamais via la
+  // propriété `position` de l'élément capturé lui-même.
+  //
+  // `transform` s'ajoute en seconde couche : contrairement à `position`,
+  // transformer un ANCÊTRE ne change pas la façon dont le moteur de mise en
+  // page traite ses descendants en `position: static` (le conteneur capturé
+  // le reste) — seul le rendu visuel/composité est déplacé. Un signalement
+  // utilisateur d'un flash visible côté droit de l'écran pendant la
+  // génération n'a pas pu être reproduit ici malgré une instrumentation
+  // complète (aucun élément visible détecté sur les nœuds ajoutés au DOM),
+  // mais cette technique est la référence standard pour ce cas d'usage et
+  // élimine toute fenêtre de risque théorique, observée ou non.
   const wrapper = document.createElement('div');
   wrapper.style.height = '0';
   wrapper.style.overflow = 'hidden';
+  wrapper.style.transform = 'translateX(-99999px)';
 
   const container = document.createElement('div');
   container.style.width = '210mm';
