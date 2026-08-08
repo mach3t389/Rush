@@ -177,10 +177,15 @@ function DescriptionToolbar({ editor }: { editor: Editor }) {
       display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
       padding: '4px 6px', borderRadius: 8, border: '1px solid var(--border)',
       background: 'var(--surface-2)',
-      // Floats above the description box (anchored to it) instead of
-      // sitting in normal flow — entering edit mode must not push the
-      // description down, which would shift whatever is below it too.
-      position: 'absolute', bottom: '100%', left: 0, marginBottom: 6, zIndex: 20,
+      // Collée en haut de la colonne défilable (le panneau de tâche
+      // scrolle en `overflow: auto` autour de ce composant) — pour une
+      // description longue, la barre reste visible en permanence pendant
+      // la lecture/l'édition au lieu de rester ancrée au sommet de la
+      // boîte et de sortir de l'écran au défilement. Contrepartie
+      // assumée : contrairement à l'ancien `position: absolute`, elle
+      // participe au flux normal et décale légèrement la boîte (et ce qui
+      // suit) vers le bas à l'entrée en édition.
+      position: 'sticky', top: 0, marginBottom: 6, zIndex: 20,
       boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
     }}>
       <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title={t('taskPanel.descriptionToolbar.bold')}>
