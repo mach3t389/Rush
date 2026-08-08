@@ -27,6 +27,7 @@ import { STATUS_COLOR } from '../data/status';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
 import { setFileContent, getFileContent, getFileContentError, getUploadStatus, subscribeUploadStatus, fetchFileBytes } from '../data/fileContentStore';
 import { renderAsync } from 'docx-preview';
+import { downloadResourceAsPdf, PDF_EXPORTABLE_RESOURCE_TYPES } from '../data/resourceExport';
 import { canUploadFile } from '../data/upgradePromptStore';
 import { confirmDialog } from '../data/confirmStore';
 import { showToast } from '../data/toastStore';
@@ -468,6 +469,30 @@ async function downloadFileById(id: string, name: string): Promise<void> {
   } catch (err) {
     console.error('downloadFileById failed', id, err);
   }
+}
+
+// Un vrai fichier a du contenu binaire téléchargeable directement (docx,
+// image, vidéo…). Une ressource (moodboard, document, etc.) n'existe pas
+// dans le stockage de fichiers — seuls les types qui savent se rendre en PDF
+// (voir PDF_EXPORTABLE_RESOURCE_TYPES) sont téléchargeables ; les autres
+// (révision vidéo/site web, formulaire) n'ont pas de représentation fichier
+// sensée et restent exclus des actions Télécharger.
+function isDownloadableFile(f: FileItem): boolean {
+  if (f.type !== 'resource') return true;
+  return !!f.resourceId && !!f.resourceType
+    && (PDF_EXPORTABLE_RESOURCE_TYPES as readonly string[]).includes(f.resourceType);
+}
+
+async function downloadItem(file: FileItem): Promise<void> {
+  if (file.type === 'resource' && file.resourceId && file.resourceType) {
+    try {
+      await downloadResourceAsPdf(file.resourceType, file.resourceId, file.name.replace(/\.[^.]+$/, '') || file.name);
+    } catch (err) {
+      console.error('downloadResourceAsPdf failed', file.id, err);
+    }
+    return;
+  }
+  await downloadFileById(file.id, file.name);
 }
 
 // Rendu client-only d'un .docx — docx-preview reproduit de vraies pages
@@ -2335,10 +2360,13 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
       const allSelectedFileIds = isInSelection ? [...selectedIds].filter(id => allFiles.some(f => f.id === id)) : [file.id];
       const allSelectedFolderIds = isInSelection ? [...selectedIds].filter(id => allFolders.some(f => f.id === id)) : [];
       const totalSelCount = allSelectedFileIds.length + allSelectedFolderIds.length;
-      // Les ressources (moodboard, document, etc.) n'ont pas de contenu
-      // téléchargeable — même exclusion que le bouton Télécharger de la
-      // barre d'outils.
-      const downloadableIds = allSelectedFileIds.filter(id => allFiles.find(f => f.id === id)?.type !== 'resource');
+      // Un vrai fichier est toujours téléchargeable ; une ressource seulement
+      // si son type sait s'exporter en PDF (document/moodboard/scénario/
+      // inspirations) — voir isDownloadableFile.
+      const downloadableIds = allSelectedFileIds.filter(id => {
+        const f = allFiles.find(x => x.id === id);
+        return !!f && isDownloadableFile(f);
+      });
       items = [
         { label: 'Obtenir les infos', icon: 'info', action: () => setInfoFile(file) },
         { label: '', icon: '', action: () => {}, separator: true },
@@ -2350,7 +2378,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
           icon: 'download',
           action: () => downloadableIds.forEach(id => {
             const f = allFiles.find(x => x.id === id);
-            if (f) void downloadFileById(f.id, f.name);
+            if (f) void downloadItem(f);
           }),
         }] : []),
         { label: '', icon: '', action: () => {}, separator: true },
@@ -2496,20 +2524,19 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
     });
   };
 
-  // Seuls les vrais fichiers ont un contenu téléchargeable — ni les dossiers,
-  // ni les ressources (moodboard, document, etc., qui ont leur propre
-  // visionneuse et n'existent pas dans le stockage de fichiers).
+  // Ni les dossiers, ni les ressources dont le type ne sait pas s'exporter
+  // (révision vidéo/site web, formulaire) — voir isDownloadableFile.
   const downloadableSelectedIds = new Set(
     [...deletableSelectedIds].filter(id => {
       const f = allFiles.find(x => x.id === id);
-      return !!f && f.type !== 'resource';
+      return !!f && isDownloadableFile(f);
     })
   );
 
   const downloadSelected = () => {
     downloadableSelectedIds.forEach(id => {
       const file = allFiles.find(f => f.id === id);
-      if (file) downloadFileById(file.id, file.name);
+      if (file) void downloadItem(file);
     });
   };
 

@@ -12,6 +12,7 @@ import { isDemoSession, getCurrentUser } from '../data/authStore';
 import { getProjects, subscribeProjects } from '../data/projectStore';
 import { getResources, updateResource, subscribeResources } from '../data/resourceStore';
 import { getResourceContent, setResourceContent } from '../data/resourceContentStore';
+import { downloadResourceAsPdf, PDF_EXPORTABLE_RESOURCE_TYPES, type PdfExportableResourceType } from '../data/resourceExport';
 import { setFileContent, getFileContent } from '../data/fileContentStore';
 import { getFormSubmissions, subscribeFormSubmissions, getFormFileUrlSync, type FormSubmission } from '../data/formSubmissionsStore';
 import { markResourceRead } from '../data/notificationStore';
@@ -192,7 +193,7 @@ function SaveIndicator({ state, online }: { state: SaveState; online: boolean })
   );
 }
 
-const escapeHTML = (s: string) =>
+export const escapeHTML = (s: string) =>
   s.replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c] as string));
 
 function exportToPDF(payload: ExportPayload): boolean {
@@ -210,7 +211,7 @@ function exportToPDF(payload: ExportPayload): boolean {
   return true;
 }
 
-const SCRIPT_PRINT_CSS = `
+export const SCRIPT_PRINT_CSS = `
 *{box-sizing:border-box}
 body{font-family:'Courier New',Courier,monospace;font-size:12pt;line-height:1.45;color:#000}
 .scr-title{text-align:center;margin:0 0 30pt}
@@ -226,7 +227,7 @@ body{font-family:'Courier New',Courier,monospace;font-size:12pt;line-height:1.45
 .scr .transition{text-transform:uppercase;text-align:right;margin:10pt 0}
 `;
 
-function buildScriptHTML(title: string, versionLabel: string, els: ScriptEl[]): string {
+export function buildScriptHTML(title: string, versionLabel: string, els: ScriptEl[]): string {
   let sceneNo = 0;
   const rows = els.map(el => {
     const text = escapeHTML(el.text) || '&nbsp;';
@@ -1904,7 +1905,7 @@ export function MoodboardView({ resource, persistKey, registerExport }: { resour
 
 interface TocEntry { id: string; text: string; level: number; }
 
-type DocTheme = 'standard' | 'moderne' | 'classique' | 'custom';
+export type DocTheme = 'standard' | 'moderne' | 'classique' | 'custom';
 
 function getCustomDocThemeCss(): string {
   let hf = "'Montserrat',sans-serif", bf = "Georgia,'Times New Roman',serif";
@@ -1922,7 +1923,7 @@ function getCustomDocThemeCss(): string {
           .doc-editor strong{font-weight:700}.doc-editor em{font-style:italic}`;
 }
 
-const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; bodyFont: string; css: string }> = {
+export const DOC_THEMES: Record<DocTheme, { labelKey: string; headingFont: string; bodyFont: string; css: string }> = {
   standard: {
     labelKey: 'resourceDetail.documentView.themeStandard', headingFont: 'Montserrat', bodyFont: 'Georgia',
     css: `.doc-editor h1{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:700;color:#111;margin:24px 0 10px;line-height:1.3}
@@ -2796,7 +2797,7 @@ export function DocumentView({ resource, onEdit, saveState = 'saved', online = t
 
 // ── Inspirations View (two-panel) ─────────────────────────────────────────────
 
-function getAutoThumb(url: string): string | null {
+export function getAutoThumb(url: string): string | null {
   if (!url) return null;
   const full = url.startsWith('http') ? url : `https://${url}`;
   const u = full.toLowerCase().split('?')[0];
@@ -5436,12 +5437,27 @@ export function ResourceDetail() {
 
   const editable = resource.type === 'screenplay' || resource.type === 'document';
 
-  const handleExport = useCallback(() => {
+  // Document/moodboard/screenplay/inspirations passent par le nouveau
+  // téléchargement PDF réel (resourceExport.ts), le même code exact que
+  // celui utilisé depuis Fichiers — un seul endroit qui sait construire
+  // chaque export, pas deux copies qui peuvent diverger. Le scénario y
+  // gagne Shotlist et Storyboard, absents de l'ancien export (Script
+  // seulement). Les autres types (form, video_review) gardent l'ancien
+  // mécanisme fenêtre+impression via registerExport, non concernés ici.
+  const handleExport = useCallback(async () => {
+    if (PDF_EXPORTABLE_RESOURCE_TYPES.includes(resource.type as PdfExportableResourceType)) {
+      try {
+        await downloadResourceAsPdf(resource.type, resource.id, resource.title);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Échec de l\'export PDF');
+      }
+      return;
+    }
     const payload = exporterRef.current?.();
     if (!payload) { showToast('Rien à exporter'); return; }
     const ok = exportToPDF(payload);
     if (!ok) showToast('Autorisez les fenêtres pop-up pour exporter en PDF');
-  }, [showToast]);
+  }, [showToast, resource.type, resource.id, resource.title]);
 
   const handleStatusChange = (status: Status, statusLabel: string) => {
     updateResource(resource.id, { status, statusLabel });
