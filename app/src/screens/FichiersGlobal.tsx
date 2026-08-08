@@ -3336,13 +3336,20 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <PageHeader title="Fichiers">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* height fixe sur toute la barre + sur chaque contrôle : sans ça, chaque
+          bouton dictait sa propre hauteur via son padding vertical (variable
+          d'un contrôle à l'autre), donc la barre changeait de hauteur selon
+          les boutons visibles à un instant donné (Corbeille a "Vider la
+          corbeille", vue normale a "Nouveau", une sélection ajoute des icônes
+          32px…). Uniformisé à 32px partout, comme les icônes Télécharger/
+          Corbeille qui l'avaient déjà. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, height: 32 }}>
         {/* Toggle sidebar collapse */}
         <button
           onClick={() => setSidebarCollapsed(v => !v)}
           title={sidebarCollapsed ? 'Afficher la barre latérale' : 'Masquer la barre latérale'}
           style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px',
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0 8px', height: 32,
             borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}
@@ -3361,7 +3368,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
               disabled={!parent}
               title="Remonter d'un niveau"
               style={{
-                background: 'none', border: 'none', cursor: parent ? 'pointer' : 'default', padding: '4px 8px',
+                background: 'none', border: 'none', cursor: parent ? 'pointer' : 'default', padding: '0 8px', height: 32,
                 borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0, opacity: parent ? 1 : 0.35,
               }}
@@ -3443,7 +3450,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
         )}
 
         {/* Search */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '5px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '0 12px', height: 32, flexShrink: 0 }}>
           <SFIcon name="search" size={13} color="var(--text-3)" />
           <input
             value={search}
@@ -3466,7 +3473,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setSortOpen(o => !o)}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '6px 11px', fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)', cursor: 'pointer', minWidth: 96 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '0 11px', height: 32, fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--ff-text)', cursor: 'pointer', minWidth: 96, flexShrink: 0 }}
               >
                 <SFIcon name={current.icon} size={13} color="var(--text-3)" />
                 <span style={{ flex: 1, textAlign: 'left' }}>{current.label}</span>
@@ -3495,7 +3502,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
         })()}
 
         {/* View toggle */}
-        <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--border)', height: 32, flexShrink: 0 }}>
           {([['list', 'list'], ['grid', 'layout-grid'], ['columns', 'columns-3'], ...(readOnly ? [] : [['stockage', 'chart-bar']])] as [ViewMode, string][]).map(([m, icon]) => (
             <button key={m} onClick={() => handleSetViewMode(m)} style={{
               background: viewMode === m ? 'var(--surface-3)' : 'none',
@@ -3513,7 +3520,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
             onClick={async () => { if (await confirmDialog('Vider la corbeille ? Tous les éléments seront définitivement supprimés. Cette action est irréversible.', { danger: true })) emptyTrash(); }}
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
-              padding: '7px 14px', borderRadius: 9,
+              padding: '0 14px', height: 32, borderRadius: 9, flexShrink: 0,
               background: 'transparent', color: 'var(--danger)',
               border: '1px solid var(--danger)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)',
             }}
@@ -3533,7 +3540,7 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
               onClick={() => setNewBtnOpen(o => !o)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
-                padding: '7px 14px', borderRadius: 9,
+                padding: '0 14px', height: 32, borderRadius: 9, flexShrink: 0,
                 background: 'var(--accent)', color: 'var(--on-accent)',
                 border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--ff-text)',
               }}
