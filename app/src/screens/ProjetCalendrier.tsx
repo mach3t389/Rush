@@ -646,24 +646,29 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
         <span style={{ fontSize:12, fontFamily:'var(--ff-text)', color:'var(--text-2)' }}>{t('calendar.gcalButtonLabel')}</span>
       </button>
 
-      <SFModal open={open} onClose={() => setOpen(false)} width={420} maxHeight="80vh">
+      <SFModal open={open} onClose={() => setOpen(false)} width={560} maxHeight="80vh">
         <div style={{ display:'flex', flexDirection:'column', gap:14, overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
             <SFIcon name="calendar" size={16} color={active ? 'var(--ok)' : 'var(--text-3)'} />
             <span style={{ fontSize:15, color:'var(--text)', flex:1, fontWeight:700 }}>
               {t('calendar.gcalProjectCardTitle')}
             </span>
-            {active !== null && (
-              <span style={{
-                display:'flex', alignItems:'center', gap:4, flexShrink:0,
-                fontSize:9, fontFamily:'var(--ff-mono)', textTransform:'uppercase', letterSpacing:'0.04em',
-                color: active ? 'var(--ok)' : 'var(--text-3)',
-                background: active ? 'rgba(52,201,138,0.12)' : 'var(--surface-3)',
-                borderRadius:5, padding:'2px 6px',
-              }}>
+            {orgConnected && active !== null && (
+              <button
+                onClick={active ? handleDeactivate : handleCreate}
+                disabled={busy}
+                title={active ? t('calendar.gcalProjectDeactivateHint') : t('calendar.gcalProjectCreateHint')}
+                style={{
+                  display:'flex', alignItems:'center', gap:4, flexShrink:0,
+                  fontSize:9, fontFamily:'var(--ff-mono)', textTransform:'uppercase', letterSpacing:'0.04em',
+                  color: active ? 'var(--ok)' : 'var(--text-3)',
+                  background: active ? 'rgba(52,201,138,0.12)' : 'var(--surface-3)',
+                  border:'none', borderRadius:5, padding:'4px 8px', cursor: busy ? 'not-allowed' : 'pointer',
+                }}
+              >
                 <span style={{ width:5, height:5, borderRadius:'50%', background: active ? 'var(--ok)' : 'var(--text-3)' }} />
-                {active ? t('calendar.gcalStatusActive') : t('calendar.gcalStatusInactive')}
-              </span>
+                {busy ? '…' : (active ? t('calendar.gcalStatusActive') : t('calendar.gcalStatusInactive'))}
+              </button>
             )}
             <button onClick={() => setOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', display:'flex', padding:4, borderRadius:6 }}>
               <SFIcon name="x" size={15} />
@@ -696,19 +701,20 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
             <>
               <div style={{ display:'flex', flexDirection:'column', gap:10, overflowY:'auto', flex:1, minHeight:0 }}>
                 {active && contacts.length > 0 && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
                     {contacts.map(c => (
-                      <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <SFIcon name={c.shared ? 'check-circle' : 'clock'} size={12} color={c.shared ? 'var(--ok)' : 'var(--text-3)'} />
-                        <span style={{ fontSize:12, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
-                        <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)' }}>
+                      <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderRadius:8 }}>
+                        <SFIcon name={c.shared ? 'check-circle' : 'clock'} size={13} color={c.shared ? 'var(--ok)' : 'var(--text-3)'} />
+                        <span style={{ fontSize:13, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
+                        <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)', flexShrink:0 }}>
                           {c.shared ? t('calendar.gcalProjectContactShared') : t('calendar.gcalProjectContactPending')}
                         </span>
                         {c.shared && (
-                          <button onClick={() => handleResendInvite(c.email)} disabled={busy} title={t('calendar.gcalResendAction')}
-                            style={{ background:'none', border:'none', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-3)', display:'flex', padding:0 }}
+                          <button onClick={() => handleResendInvite(c.email)} disabled={busy} title={t('calendar.gcalResendHint')}
+                            style={{ display:'flex', alignItems:'center', gap:4, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-text)', flexShrink:0 }}
                           >
-                            <SFIcon name="send" size={12} />
+                            <SFIcon name="send" size={11} />
+                            {t('calendar.gcalResendAction')}
                           </button>
                         )}
                       </div>
@@ -717,25 +723,26 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
                 )}
 
                 {active && extraInvitees.length > 0 && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
                     {extraInvitees.map(inv => (
-                      <div key={inv.email} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <SFIcon name={inv.shared ? 'check-circle' : 'clock'} size={12} color={inv.shared ? 'var(--ok)' : 'var(--text-3)'} />
-                        <span style={{ fontSize:12, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.email}</span>
-                        <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)' }}>
+                      <div key={inv.email} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 4px', borderRadius:8 }}>
+                        <SFIcon name={inv.shared ? 'check-circle' : 'clock'} size={13} color={inv.shared ? 'var(--ok)' : 'var(--text-3)'} />
+                        <span style={{ fontSize:13, color:'var(--text-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.email}</span>
+                        <span style={{ fontSize:9, fontFamily:'var(--ff-mono)', color:'var(--text-3)', flexShrink:0 }}>
                           {inv.shared ? t('calendar.gcalProjectContactShared') : t('calendar.gcalProjectContactPending')}
                         </span>
                         {inv.shared && (
-                          <button onClick={() => handleResendInvite(inv.email)} disabled={busy} title={t('calendar.gcalResendAction')}
-                            style={{ background:'none', border:'none', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-3)', display:'flex', padding:0 }}
+                          <button onClick={() => handleResendInvite(inv.email)} disabled={busy} title={t('calendar.gcalResendHint')}
+                            style={{ display:'flex', alignItems:'center', gap:4, background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-2)', fontSize:10, fontFamily:'var(--ff-text)', flexShrink:0 }}
                           >
-                            <SFIcon name="send" size={12} />
+                            <SFIcon name="send" size={11} />
+                            {t('calendar.gcalResendAction')}
                           </button>
                         )}
                         <button onClick={() => handleRemoveExtraInvitee(inv.email)} disabled={busy} title={t('calendar.gcalRemoveExtraInviteeAction')}
-                          style={{ background:'none', border:'none', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-3)', display:'flex', padding:0 }}
+                          style={{ background:'none', border:'none', cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text-3)', display:'flex', padding:2, flexShrink:0 }}
                         >
-                          <SFIcon name="x" size={12} />
+                          <SFIcon name="x" size={13} />
                         </button>
                       </div>
                     ))}
@@ -771,31 +778,15 @@ function GoogleProjectCalendarButton({ projectId }: { projectId: string }) {
                 <span style={{ fontSize:12, color:'var(--text-3)', flexShrink:0 }}>{t('calendar.gcalProjectCreateHint')}</span>
               )}
 
-              <div style={{ display:'flex', flexWrap:'wrap', gap:8, flexShrink:0, borderTop:'1px solid var(--border)', paddingTop:12 }}>
-                {!active && (
-                  <button onClick={handleCreate} disabled={busy}
-                    style={{ padding:'8px 14px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text)', fontSize:12, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
-                  >
-                    {busy ? '…' : t('calendar.gcalProjectCreateAction')}
-                  </button>
-                )}
-
-                {active && (contacts.some(c => !c.shared) || extraInvitees.some(e => !e.shared)) && (
+              {active && (contacts.some(c => !c.shared) || extraInvitees.some(e => !e.shared)) && (
+                <div style={{ display:'flex', flexShrink:0, borderTop:'1px solid var(--border)', paddingTop:12 }}>
                   <button onClick={handleShare} disabled={busy}
                     style={{ padding:'8px 14px', borderRadius:8, border:'1px solid var(--ok)', background:'rgba(52,201,138,0.1)', color:'var(--ok)', fontSize:12, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
                   >
                     {busy ? '…' : t('calendar.gcalProjectShareAction')}
                   </button>
-                )}
-
-                {active && (
-                  <button onClick={handleDeactivate} disabled={busy} title={t('calendar.gcalProjectDeactivateHint')}
-                    style={{ padding:'8px 14px', borderRadius:8, border:'1px solid var(--danger)', background:'transparent', color:'var(--danger)', fontSize:12, cursor: busy ? 'not-allowed' : 'pointer', fontFamily:'var(--ff-text)' }}
-                  >
-                    {busy ? '…' : t('calendar.gcalProjectDeactivateAction')}
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
         </div>
