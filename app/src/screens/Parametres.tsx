@@ -2393,125 +2393,164 @@ export function Parametres() {
               <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.integrationsDesc')}</p>
             </div>
 
-            <NorthbookIntegrationCard />
-
-            {/* Google Calendar */}
-            <GoogleCalendarCard />
-
-            {/* Placeholder for future integrations */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {[
-                { name: 'Slack', desc: t('settings.integrationSlackDesc'), color: '#611f69' },
-                { name: 'Notion', desc: t('settings.integrationNotionDesc'), color: '#000' },
-                { name: 'Dropbox', desc: t('settings.integrationDropboxDesc'), color: '#0061FF' },
-                { name: 'Zapier', desc: t('settings.integrationZapierDesc'), color: '#FF4A00' },
-              ].map(app => (
-                <div key={app.name} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.5 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 8, background: app.color, flexShrink: 0 }} />
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{app.name}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{app.desc}</p>
-                  </div>
-                  <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em' }}>{t('settings.soon')}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Plugins ── */}
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* ── Calendrier ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 20 }}>{t('settings.pluginsTitle')}</h2>
-                <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>{t('settings.pluginsDesc')}</p>
+                <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryCalendar')}</h3>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryCalendarDesc')}</p>
               </div>
-
-            {/* Premiere Pro */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#00005b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontFamily: 'var(--ff-text)', fontWeight: 900, fontSize: 15, color: '#9999ff', letterSpacing: '-1px' }}>Pr</span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Adobe Premiere Pro</p>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.25)', color: 'var(--accent)', letterSpacing: '0.06em' }}>{t('settings.comingSoon')}</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('settings.premiereDesc')}</p>
-                </div>
-              </div>
-              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border)' }}>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.panelFeatures')}</p>
+              <GoogleCalendarCard />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                 {[
-                  { icon: 'message-square', text: t('settings.premiereFeatureComments') },
-                  { icon: 'clock', text: t('settings.premiereFeatureTimecode') },
-                  { icon: 'check-circle', text: t('settings.premiereFeatureResolve') },
-                  { icon: 'layers', text: t('settings.premiereFeatureAccess') },
-                ].map(item => (
-                  <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <SFIcon name={item.icon as any} size={13} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{item.text}</span>
+                  { name: 'Outlook / Microsoft 365', desc: t('settings.integrationOutlookDesc'), color: '#0078D4' },
+                ].map(app => (
+                  <div key={app.name} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.5 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: app.color, flexShrink: 0 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{app.name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{app.desc}</p>
+                    </div>
+                    <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em' }}>{t('settings.soon')}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button disabled style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 13, cursor: 'not-allowed', fontFamily: 'var(--ff-text)', fontWeight: 500, opacity: 0.6 }}>
-                  <SFIcon name="download" size={14} color="var(--text-3)" />
-                  {t('settings.downloadPlugin')}
-                </button>
-                <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('settings.premiereCompat')}</p>
-              </div>
             </div>
 
-            {/* DaVinci Resolve */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
-                  <span style={{ fontFamily: 'var(--ff-text)', fontWeight: 900, fontSize: 13, color: '#e8b4a0', letterSpacing: '-0.5px' }}>Da</span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>DaVinci Resolve</p>
-                    <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.25)', color: 'var(--accent)', letterSpacing: '0.06em' }}>{t('settings.comingSoon')}</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('settings.resolveDesc')}</p>
-                </div>
+            {/* ── Fichiers & synchronisation ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryFiles')}</h3>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryFilesDesc')}</p>
               </div>
-              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border)' }}>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.features')}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
-                  { icon: 'message-square', text: t('settings.resolveFeaturePanel') },
-                  { icon: 'clock', text: t('settings.resolveFeatureTimecode') },
-                  { icon: 'refresh-cw', text: t('settings.resolveFeatureSync') },
-                ].map(item => (
-                  <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <SFIcon name={item.icon as any} size={13} color="var(--text-3)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{item.text}</span>
+                  { name: 'Dropbox', desc: t('settings.integrationDropboxDesc'), color: '#0061FF' },
+                  { name: 'Rush Sync', desc: t('settings.integrationRushSyncDesc'), color: 'var(--surface-3)' },
+                ].map(app => (
+                  <div key={app.name} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.5 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: app.color, flexShrink: 0 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{app.name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{app.desc}</p>
+                    </div>
+                    <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em' }}>{t('settings.soon')}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button disabled style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 13, cursor: 'not-allowed', fontFamily: 'var(--ff-text)', fontWeight: 500, opacity: 0.6 }}>
-                  <SFIcon name="download" size={14} color="var(--text-3)" />
-                  {t('settings.downloadScript')}
-                </button>
-                <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('settings.resolveCompat')}</p>
+            </div>
+
+            {/* ── Montage vidéo (Plugins) ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.pluginsTitle')}</h3>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.pluginsDesc')}</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* Premiere Pro */}
+                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: '#00005b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontFamily: 'var(--ff-text)', fontWeight: 900, fontSize: 15, color: '#9999ff', letterSpacing: '-1px' }}>Pr</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Adobe Premiere Pro</p>
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.25)', color: 'var(--accent)', letterSpacing: '0.06em' }}>{t('settings.comingSoon')}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('settings.premiereDesc')}</p>
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border)' }}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.panelFeatures')}</p>
+                    {[
+                      { icon: 'message-square', text: t('settings.premiereFeatureComments') },
+                      { icon: 'clock', text: t('settings.premiereFeatureTimecode') },
+                      { icon: 'check-circle', text: t('settings.premiereFeatureResolve') },
+                      { icon: 'layers', text: t('settings.premiereFeatureAccess') },
+                    ].map(item => (
+                      <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <SFIcon name={item.icon as any} size={13} color="var(--text-3)" />
+                        <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button disabled style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 18px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 13, cursor: 'not-allowed', fontFamily: 'var(--ff-text)', fontWeight: 500, opacity: 0.6 }}>
+                      <SFIcon name="download" size={14} color="var(--text-3)" />
+                      {t('settings.downloadPlugin')}
+                    </button>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('settings.premiereCompat')}</p>
+                  </div>
+                </div>
+
+                {/* DaVinci Resolve */}
+                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
+                      <span style={{ fontFamily: 'var(--ff-text)', fontWeight: 900, fontSize: 13, color: '#e8b4a0', letterSpacing: '-0.5px' }}>Da</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>DaVinci Resolve</p>
+                        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249,255,0,0.1)', border: '1px solid rgba(249,255,0,0.25)', color: 'var(--accent)', letterSpacing: '0.06em' }}>{t('settings.comingSoon')}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t('settings.resolveDesc')}</p>
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border)' }}>
+                    <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('settings.features')}</p>
+                    {[
+                      { icon: 'message-square', text: t('settings.resolveFeaturePanel') },
+                      { icon: 'clock', text: t('settings.resolveFeatureTimecode') },
+                      { icon: 'refresh-cw', text: t('settings.resolveFeatureSync') },
+                    ].map(item => (
+                      <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <SFIcon name={item.icon as any} size={13} color="var(--text-3)" />
+                        <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button disabled style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 18px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-3)', fontSize: 13, cursor: 'not-allowed', fontFamily: 'var(--ff-text)', fontWeight: 500, opacity: 0.6 }}>
+                      <SFIcon name="download" size={14} color="var(--text-3)" />
+                      {t('settings.downloadScript')}
+                    </button>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{t('settings.resolveCompat')}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* How it connects */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* ── Comptabilité ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <p style={{ fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{t('settings.howItConnects')}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.6 }}>{t('settings.howItConnectsDesc')}</p>
+                <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryAccounting')}</h3>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryAccountingDesc')}</p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <SFIcon name="key" size={13} color="var(--text-3)" />
-                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)' }}>{t('settings.apiKey')}</span>
-                <div style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
-                  sk-rush-••••••••••••••••••••••••••••••••
-                </div>
-                <button disabled style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontSize: 12, cursor: 'not-allowed', opacity: 0.5, fontFamily: 'var(--ff-text)' }}>{t('settings.copy')}</button>
-              </div>
+              <NorthbookIntegrationCard />
             </div>
+
+            {/* ── Automatisation ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15 }}>{t('settings.integrationsCategoryAutomation')}</h3>
+                <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{t('settings.integrationsCategoryAutomationDesc')}</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  { name: 'Zapier', desc: t('settings.integrationZapierDesc'), color: '#FF4A00' },
+                  { name: 'MCP', desc: t('settings.integrationMcpDesc'), color: 'var(--surface-3)' },
+                ].map(app => (
+                  <div key={app.name} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.5 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: app.color, flexShrink: 0 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{app.name}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{app.desc}</p>
+                    </div>
+                    <span style={{ marginLeft: 'auto', fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.05em' }}>{t('settings.soon')}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
