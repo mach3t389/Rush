@@ -3838,8 +3838,20 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
         );
       })()}
 
-      {/* File preview modal */}
-      {previewFile && <FilePreviewModal file={previewFile} files={filteredFiles} onNavigate={setPreviewFile} onClose={() => setPreviewFile(null)} />}
+      {/* File preview modal — les ressources (moodboard, document interne,
+          etc.) ont leur propre visionneuse dédiée (/ressources/:id, ouverte
+          via openResource) et ne peuvent pas être affichées par ce lecteur de
+          fichiers bruts. Sans ce filtre, les flèches ←/→ pouvaient naviguer
+          vers une ressource et tenter un sign-get sur un id qui n'existe pas
+          dans le stockage de fichiers, provoquant un échec de chargement. */}
+      {previewFile && (
+        <FilePreviewModal
+          file={previewFile}
+          files={filteredFiles.filter(f => f.type !== 'resource')}
+          onNavigate={setPreviewFile}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
 
       {/* Hidden file input for OS file picker */}
       <input
