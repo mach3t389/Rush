@@ -364,7 +364,7 @@
     },
     {
       "name": "project-modules-optional-worktree",
-      "runtimeExecutable": "C:Program Files\nodejs\npm.cmd",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
       "runtimeArgs": [
         "run",
         "dev",
@@ -378,7 +378,7 @@
       "port": 5275,
       "autoPort": false,
       "env": {
-        "PATH": "C:Program Files\nodejs;${env:PATH}"
+        "PATH": "C:\\Program Files\\nodejs;${env:PATH}"
       }
     }
   ]
