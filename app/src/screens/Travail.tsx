@@ -2097,8 +2097,18 @@ export function Travail() {
   // groupe cliqué, pour qu'elle apparaisse immédiatement dans la colonne où
   // l'utilisateur vient de taper (sinon elle atterrit ailleurs sans le bon
   // statut/assigné, ou ne s'ajoute nulle part).
+  //
+  // Cible visibleSections[0], PAS sections[0] : sections[0] peut être une
+  // catégorie masquée par le filtre courant (ex. "Catégories terminées"
+  // désactivé, ou un onglet de catégorie actif via activeSection) — la
+  // tâche s'ajoutait alors bien en données, mais restait invisible dans
+  // TOUTE vue groupée tant que ce filtre n'était pas changé (elle
+  // "réapparaissait" seulement en changeant de vue/filtre, ce qui la
+  // révélait). visibleSections[0] garantit une catégorie qui s'affiche
+  // réellement sous les filtres actuels.
   const resolveGroupedAddTarget = (groupLabel: string): { realIdx: number; patch: Partial<Task> } => {
-    const realIdx = sections.length ? 0 : -1;
+    const visibleLabel = visibleSections[0]?.label;
+    const realIdx = visibleLabel ? sections.findIndex(s => s.label === visibleLabel) : -1;
     if (boardGroupBy === 'status') {
       const opt = STATUS_OPTIONS.find(o => t(o.labelKey) === groupLabel);
       return { realIdx, patch: opt ? { status: opt.value as Task['status'], statusLabel: opt.value ? t(opt.labelKey) : '', checked: opt.value === 'ok' } : {} };
