@@ -511,6 +511,7 @@
     "optional": "(optionnel)",
     "chooseDate": "Choisir une date…",
     "removeDate": "Supprimer la date",
+    "removeTime": "Retirer l'heure",
     "templateLabel": "Modèle : {{name}}",
     "sectionsTasksPreconfigured": "{{sections}} sections · {{tasks}} tâches pré-configurées",
     "folderStructureIntro": "Choisissez une structure de dossiers pour organiser les fichiers du projet. Vous pouvez l'ignorer ou la personnaliser ensuite.",

@@ -443,6 +443,29 @@ function PreviewBtn({ icon, label, onClick, disabled }: { icon: string; label?: 
   );
 }
 
+// Déclenche le téléchargement d'un fichier depuis le toolbar de la barre
+// d'outils (sélection multiple), pas seulement depuis le modal d'aperçu.
+// getFileContent() peut renvoyer null au premier appel en session réelle
+// (fetch de l'URL signée pas encore résolu) — on s'abonne au store le
+// temps que la fetch résolve plutôt que d'échouer silencieusement.
+function downloadFileById(id: string, name: string): void {
+  const trigger = (url: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  const existing = getFileContent(id);
+  if (existing) { trigger(existing); return; }
+  const unsubscribe = subscribeUploadStatus(() => {
+    const url = getFileContent(id);
+    if (url) { unsubscribe(); trigger(url); }
+    else if (getFileContentError(id)) { unsubscribe(); }
+  });
+}
+
 // Rendu client-only d'un .docx — mammoth le convertit en HTML directement
 // dans le navigateur (aucun backend/visionneuse externe nécessaire). Ne
 // gère pas le .doc binaire legacy (mammoth ne le supporte pas), seulement
@@ -2375,6 +2398,18 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
     setLastSelectedId(null);
   };
 
+  // Seuls les vrais fichiers ont un contenu téléchargeable (pas les dossiers).
+  const downloadableSelectedIds = new Set(
+    [...deletableSelectedIds].filter(id => allFiles.some(f => f.id === id))
+  );
+
+  const downloadSelected = () => {
+    downloadableSelectedIds.forEach(id => {
+      const file = allFiles.find(f => f.id === id);
+      if (file) downloadFileById(file.id, file.name);
+    });
+  };
+
   // ── Project color lookup ─────────────────────────────────────────────────────
 
   const projectColor = (projectId?: string) => projects.find(p => p.id === projectId)?.clientColor ?? 'var(--text-3)';
@@ -3272,6 +3307,24 @@ export function FileBrowser({ initialNav, locked = false, readOnly = false, proj
             {deletableSelectedIds.size > 1 && (
               <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--danger)', color: '#fff', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
                 {deletableSelectedIds.size}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Bouton télécharger (sélection active) — uniquement pour de vrais fichiers */}
+        {downloadableSelectedIds.size > 0 && (
+          <button
+            onClick={downloadSelected}
+            title={`Télécharger ${downloadableSelectedIds.size} élément${downloadableSelectedIds.size > 1 ? 's' : ''}`}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'rgba(249,255,0,0.1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+          >
+            <SFIcon name="download" size={14} color="var(--accent)" />
+            {downloadableSelectedIds.size > 1 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 9, fontFamily: 'var(--ff-mono)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                {downloadableSelectedIds.size}
               </span>
             )}
           </button>

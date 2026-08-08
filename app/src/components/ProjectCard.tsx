@@ -81,6 +81,10 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
   const deliveryOut = lDeliveryYMD
     ? formatDisplay(lDeliveryYMD) + (lDeliveryTime ? ` · ${lDeliveryTime}` : '')
     : deliveryDate;
+  // Le bouton Date n'affiche que la date — l'heure a son propre bouton juste
+  // à côté (voir plus bas). deliveryOut, lui, reste la valeur combinée
+  // sauvegardée telle quelle (format affiché historique du projet).
+  const dateOnlyLabel = lDeliveryYMD ? formatDisplay(lDeliveryYMD) : deliveryDate;
 
   const save = () => {
     const budgetNum = Number(String(lBudget).replace(/[^\d.]/g, ''));
@@ -163,18 +167,38 @@ export function ProjectEditPanel({ p, color, name, status, statusLabel, phase, p
 
             <div>
               <label style={{ fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{t('projects.deliveryDate')}</label>
-              <button
-                onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
-                style={{ width: '100%', minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: deliveryOut ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left', boxSizing: 'border-box' }}
-              >
-                <SFIcon name="calendar" size={13} color="var(--text-3)" />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deliveryOut || t('projects.chooseDate')}</span>
-              </button>
-              {lDeliveryYMD && (
-                <div style={{ marginTop: 6 }}>
-                  <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
-                </div>
-              )}
+              {/* Date et heure sur une seule ligne — avant, le bouton Date
+                  affichait déjà "12 août · 00:30" (deliveryOut inclut
+                  l'heure) ET un second bouton "00:30" réapparaissait juste
+                  en dessous : la même heure montrée deux fois, l'une sous
+                  l'autre. Le bouton Date n'affiche maintenant que la date
+                  (dateOnlyLabel) ; l'heure a son propre bouton à côté, avec
+                  un « x » pour la retirer sans toucher à la date. */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  onClick={e => { setDateOpen(o => !o); setDateRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(false); }}
+                  style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '9px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12, color: dateOnlyLabel ? 'var(--text)' : 'var(--text-3)', fontFamily: 'var(--ff-text)', textAlign: 'left', boxSizing: 'border-box' }}
+                >
+                  <SFIcon name="calendar" size={13} color="var(--text-3)" />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dateOnlyLabel || t('projects.chooseDate')}</span>
+                </button>
+                {lDeliveryYMD && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0, padding: '2px 2px 2px 6px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                    <TimeButton value={lDeliveryTime} onClick={e => { setTimeRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setTimeOpen(o => !o); setDateOpen(false); }} placeholder={t('projects.time')} />
+                    {lDeliveryTime && (
+                      <button
+                        onClick={() => setLDeliveryTime('')}
+                        title={t('projects.removeTime')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, padding: 0, borderRadius: 5, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                      >
+                        <SFIcon name="x" size={11} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               {dateOpen && (
                 <DatePickerDropdown
                   value={lDeliveryYMD}

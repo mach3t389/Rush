@@ -511,6 +511,7 @@
     "optional": "(optional)",
     "chooseDate": "Choose a date…",
     "removeDate": "Remove date",
+    "removeTime": "Remove time",
     "templateLabel": "Template: {{name}}",
     "sectionsTasksPreconfigured": "{{sections}} sections · {{tasks}} pre-configured tasks",
     "folderStructureIntro": "Choose a folder structure to organize the project files. You can skip it or customize it later.",
