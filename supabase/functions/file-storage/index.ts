@@ -214,11 +214,16 @@ Deno.serve(async (req: Request) => {
         // Selon la build du SDK chargée par Deno, Body est soit un
         // ReadableStream brut, soit un flux enrichi des helpers du SDK
         // (transformToWebStream). On gère les deux plutôt que de supposer.
-        const body = result.Body as unknown as {
+        // NB: ne pas nommer cette variable `body` — ce nom est déjà pris par
+        // le corps de la requête déstructuré en haut du try, et une
+        // redéclaration ici la mettrait en zone morte temporelle pour tout ce
+        // bloc (la ligne `const { fileItemId } = body` plus haut planterait
+        // avec « Cannot access 'body' before initialization »).
+        const payload = result.Body as unknown as {
           transformToWebStream?: () => ReadableStream;
         };
-        const stream = typeof body.transformToWebStream === "function"
-          ? body.transformToWebStream()
+        const stream = typeof payload.transformToWebStream === "function"
+          ? payload.transformToWebStream()
           : (result.Body as unknown as ReadableStream);
         return new Response(stream, {
           headers: {
